@@ -1,0 +1,231 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    34
+  ],
+  "anchor_xy": [
+    8,
+    34
+  ],
+  "comments": [
+    "Registered as one bank on the stone footing: the pivot x is the centre of the footing, every drawing's bottom edge the foot; one shared scale (the tallest drawing, with its smoke, sets it).",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 826345) to an olive ink (69793e) and the dark brown outline (source about 231e1c) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Seven drawings on a 4x2 grid in reading order = request order: unlit-0, lit-0 .. lit-2, snuffing-0 .. snuffing-2 (the eighth cell is empty). The crops are tight and separated.",
+  "notes_sha256": "a9aaab4740e528e7cabf50b2f6311fd35dafc0553450cce60b78da1f54599709",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "unlit-0: cold dark glass and wick, post, ring, cap and stone footing.",
+      "name": "unlit-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        483
+      ],
+      "source_rect_xywh": [
+        123,
+        33,
+        206,
+        483
+      ],
+      "state": "unlit",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: a tall centred amber flame.",
+      "name": "lit-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        103,
+        483
+      ],
+      "source_rect_xywh": [
+        491,
+        32,
+        205,
+        483
+      ],
+      "state": "lit",
+      "ticks": 7
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: a shorter, left-leaning flame.",
+      "name": "lit-1",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        105.5,
+        483
+      ],
+      "source_rect_xywh": [
+        865,
+        32,
+        210,
+        483
+      ],
+      "state": "lit",
+      "ticks": 7
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: a broad right-leaning flame.",
+      "name": "lit-2",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        105,
+        483
+      ],
+      "source_rect_xywh": [
+        1237,
+        32,
+        209,
+        483
+      ],
+      "state": "lit",
+      "ticks": 7
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "snuffing-0: a small side-leaning flame, a thin aqua curl of smoke above the cap.",
+      "name": "snuffing-0",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        105,
+        478
+      ],
+      "source_rect_xywh": [
+        123,
+        527,
+        209,
+        478
+      ],
+      "state": "snuffing",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "snuffing-1: a tiny flame in dark glass, a larger smoke curl.",
+      "name": "snuffing-1",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        105.5,
+        489
+      ],
+      "source_rect_xywh": [
+        487,
+        516,
+        210,
+        489
+      ],
+      "state": "snuffing",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "snuffing-2: dark glass, the flame gone, a thin aqua wisp.",
+      "name": "snuffing-2",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        105.5,
+        481
+      ],
+      "source_rect_xywh": [
+        865,
+        524,
+        210,
+        481
+      ],
+      "state": "snuffing",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 16x34, anchor bottom-centre (8,34); the foot of the post stands on its lamp tile; stage 384x224; a knight is 16x24 in this town.",
+  "sizes": {
+    "v1": [
+      16,
+      34
+    ],
+    "v2": [
+      16,
+      34
+    ]
+  },
+  "slot": "moonfall.lantern",
+  "source_sha256": "78499d0b471c17d29aa7ddc13fe9d02e77a0e6db9ac9d2dc868347e7787dda5a",
+  "timing": "unlit 12, lit 3 frames of 7, snuffing 3 frames of 6 ticks (30 Hz). Art never sets a hitbox."
+}

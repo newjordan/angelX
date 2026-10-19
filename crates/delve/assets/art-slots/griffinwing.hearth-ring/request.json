@@ -1,0 +1,33 @@
+{
+  "fit": "native canvas 64x64, anchor centre of the ring (32,32); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0",
+        "idle-1",
+        "idle-2",
+        "idle-3"
+      ],
+      "source_pose_count": 4,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "taken-0",
+        "taken-1",
+        "taken-2",
+        "taken-3",
+        "taken-4"
+      ],
+      "source_pose_count": 5,
+      "state": "taken"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "A hearth ring flown through: the rules judge it at the sim radius of 2.2 units; art never sets a hitbox (none).",
+  "id": "griffinwing.hearth-ring",
+  "role": "prop",
+  "timing": "idle 4x8 ticks; taken 5x3 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

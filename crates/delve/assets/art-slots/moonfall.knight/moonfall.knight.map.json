@@ -1,0 +1,228 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    8,
+    24
+  ],
+  "pieces": [
+    {
+      "name": "idle-down-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-down-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-down-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-down-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-down-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "roll-down-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-down-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-down-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "idle-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-up-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-up-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-up-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "roll-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-up-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-up-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "idle-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-left-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-left-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-left-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "roll-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-left-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-left-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "idle-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-right-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-right-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "walk-right-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "roll-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-right-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "roll-right-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 2
+    },
+    {
+      "name": "snuffed-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "snuffed-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "lift-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "lift-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    }
+  ]
+}

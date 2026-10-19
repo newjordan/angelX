@@ -1,0 +1,23 @@
+power wish:stout 3
+teacher Goodwife Barley
+place the Goose-Proof Bakery at Wonky Windmill
+room Windmill
+look forearms like loaves, a floured apron, and a stance like bread proving
+line Stand like bread proving — unmoved, and rising all the while.
+hook The level-2 card carries ...and a floured handprint, low on a doorframe, at the windmill.
+step The proving | hold the dough down through three cued kneadings without stepping from the bench | provings_stood 1 | Unmoved, and rising all the while. | cue stand
+step The goose's charge | be charged by Sir Honks-a-Lot and keep your feet | goose_charges_stood 1 | It charged. You proved. Ha! | cue stand
+step The coin of the realm | pay one hundred gold into a building plot at the windmill | plots_paid 1 | Bought like bread: honestly, and to be eaten eventually. | needs plots_paid
+step The stand at the stair | hold a hallway's stair mouth one full minute against the press | stairs_held 1 | That's a bakery door. Nothing gets past a bakery door. | cue stand
+trial The proving hall | clear one hall without retreating past its centre line | forward_halls 1 | Unmoved. And rising. Both at once — that's the trick.
+reward Stout Heart tier 3
+title the Unmoved
+keepsake the Floured Apron-String, a floured cord at the waist
+ties The goose's charge shares Goose Green with Sela and Pib; the plot's gold is the beacon's treasury; the stair-holding crosses Sir Castor's gate-work.
+art
+.88888.
+8888888
+88.8.88
+8888888
+.8...8.
+.8...8.

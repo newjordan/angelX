@@ -180,6 +180,30 @@ pub const COMPANY: &[Knight] = &[
         max_hp: 130,
         colours: &[],
     },
+    Knight {
+        id: "bard",
+        name: "the Bard",
+        title: "of the Quiet Verse",
+        about: "Hold F for a cone of notes. R sings for two seconds: nearby foes sleep, even under fire.",
+        arm: "note-stream",
+        guard: "dodge-roll",
+        hand: &["potion"],
+        bombs: 2,
+        max_hp: 100,
+        colours: &[],
+    },
+    Knight {
+        id: "peasant",
+        name: "the Peasant",
+        title: "the Deserter",
+        about: "Brown shorts, bare feet and thrown stones. R leaves a scarecrow and bolts for two seconds.",
+        arm: "thrown-stones",
+        guard: "dodge-roll",
+        hand: &[],
+        bombs: 0,
+        max_hp: 70,
+        colours: &[],
+    },
 ];
 
 pub fn knight(id: &str) -> Option<&'static Knight> {
@@ -262,6 +286,8 @@ impl Run {
         hero.max_hp = who.max_hp + hero.home_hp;
         hero.hp = hero.max_hp;
         hero.knight = Some(who.id.to_string());
+        hero.flee_ticks = 0;
+        if hero.peasant() { hero.armor = 0; }
         // The seat's house names the knight: the serving house for the host,
         // the formation's other houses and then the March for friends.
         hero.house = house_for_seat(id).map(|h| houses::get(h).key.to_string());
@@ -283,7 +309,7 @@ impl Run {
         }
         self.settlement_site = None;
         self.settlement_exhibits.clear();
-        self.dungeon = super::layout::floor(1, pack, &mut self.rng);
+        self.dungeon = super::layout::floor_party(1, pack, self.party_size(), &mut self.rng);
         self.stock_gear_cache();
         self.populate_boss_gates();
         self.cues.retain(|c| c != "run_start");
@@ -293,26 +319,37 @@ impl Run {
 }
 
 impl Run {
-    /// The music this moment wants: a guardian's, the Sanctuary's calm, or
-    /// the delve's own.
+    /// The music this moment wants: a guardian's battle cue, a calm place's
+    /// own score, or the delve's own, each a playlist that moves on to its
+    /// next track as one ends (`music::play`, by the run's clock). A floor's
+    /// list runs on from room to room, with a quiet after each track
+    /// (`music::play_sparse`: `None` then); a place up in the realm and a
+    /// Sanctuary begin their lists at a point of their own.
     pub fn music(&self) -> Option<&'static str> {
+        use super::music::{self, play};
         if !self.active() {
             return None;
         }
-        Some(if self.room().kind == super::RoomKind::Sanctuary || self.at_home_now() {
-            "sanctuary"
-        } else if self
-            .enemies
-            .iter()
-            .any(|e| e.boss.is_some() || e.kind == super::EnemyKind::Dragon)
-        {
-            "boss"
+        let depth = self.dungeon.depth as u64;
+        let delving = !self.at_home_now()
+            && self.room().kind != super::RoomKind::Sanctuary
+            && !self.enemies.iter().any(|e| e.boss.is_some() || e.kind == super::EnemyKind::Dragon);
+        if delving {
+            // Down a floor the score comes and goes: a track, then the dark
+            // on its own a while, in an order of the delve's own.
+            let pack = match self.dungeon.pack.kin() {
+                Pack::Crypt => 0,
+                Pack::Cavern => 1,
+                _ => 2,
+            };
+            return music::play_sparse(music::DUNGEON, self.raid_id ^ (depth * 3 + pack), self.tick);
+        }
+        Some(if self.at_home_now() {
+            play(music::HOME, self.at as u64, self.tick)
+        } else if self.room().kind == super::RoomKind::Sanctuary {
+            play(music::REST, depth * 64 + self.at as u64, self.tick)
         } else {
-            match self.dungeon.pack.kin() {
-                Pack::Crypt => "crypt",
-                Pack::Cavern => "mines",
-                _ => "keep",
-            }
+            play(music::BOSS, depth, self.tick)
         })
     }
 }
@@ -399,6 +436,17 @@ impl Hero {
     pub fn knight_name(&self) -> Option<String> {
         let kit = self.knight.as_deref().and_then(knight)?;
         Some(kit.name_for(self.house_id()))
+    }
+
+    /// The name shown for this knight: their player's, the one they joined
+    /// by (the operator, 2026-10-18: "the names need to carry over to the
+    /// avatar"); the knight's own only for a player who gave none.
+    pub fn shown_name(&self) -> String {
+        let player = self.name.trim();
+        let unnamed = player.is_empty()
+            || ["you", "host"].iter().any(|n| player.eq_ignore_ascii_case(n))
+            || player.strip_prefix("Knight ").is_some_and(|n| n.parse::<u32>().is_ok());
+        if unnamed { self.knight_name().unwrap_or_else(|| self.name.clone()) } else { self.name.clone() }
     }
 
     /// The colours this knight wears over the realm's red.

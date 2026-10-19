@@ -1,0 +1,137 @@
+set chunk-5-8
+# The kingdom, chunk 5,8 in Wind Country: tiles 120..144 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 2176
+plate 1536 1024
+
+# ground
+box    grass   at 2008 -4 2104 size 176 4 112
+box    path    at 2112 -4 2152 size 32 4 208
+box    crop    at 2176 -4 2056 size 96 4 16
+box    grass   at 2264 -4 2056 size 80 4 16
+box    grass   at 2200 -4 2088 size 144 4 48
+box    rock    at 2280 -4 2088 size 16 4 48
+box    grass   at 2296 -4 2104 size 16 4 80
+box    grass   at 2176 -4 2168 size 96 4 112
+box    crop    at 2256 -4 2136 size 64 4 48
+box    crop    at 2296 -4 2152 size 16 4 16
+box    grass   at 1960 -4 2208 size 80 4 96
+box    path    at 2008 -4 2176 size 16 4 32
+box    grass   at 2056 -4 2168 size 80 4 16
+box    grass   at 2264 -4 2200 size 80 4 80
+box    path    at 2056 -4 2184 size 80 4 16
+box    grass   at 2048 -4 2216 size 96 4 48
+box    path    at 2152 -4 2232 size 48 4 16
+box    grass   at 2200 -4 2232 size 48 4 16
+box    sand    at 2048 -4 2248 size 96 4 16
+box    path    at 2144 -4 2248 size 32 4 16
+box    sand    at 2224 -4 2248 size 128 4 16
+box    grass   at 2296 -4 2248 size 16 4 16
+box    grass   at 1928 -4 2264 size 16 4 16
+box    sand    at 1968 -4 2264 size 64 4 16
+box    water   at 2152 -4 2272 size 304 1 32
+box    sand    at 1928 -4 2280 size 16 4 16
+box    water   at 1968 -4 2288 size 64 1 32
+box    water   at 1928 -4 2296 size 16 1 16
+box    water   at 2008 -4 2296 size 16 1 16
+box    sand    at 2152 -4 2296 size 272 4 16
+box    grass   at 2296 -4 2296 size 16 4 16
+
+# crop furrows
+box    crop    at 2176 0 2051.5 size 94 2.5 2
+box    crop    at 2176 0 2056.5 size 94 2.5 2
+box    crop    at 2176 0 2061.5 size 94 2.5 2
+box    crop    at 2256 0 2115.5 size 62 2.5 2
+box    crop    at 2256 0 2120.5 size 62 2.5 2
+box    crop    at 2256 0 2125.5 size 62 2.5 2
+box    crop    at 2256 0 2130.5 size 62 2.5 2
+box    crop    at 2256 0 2135.5 size 62 2.5 2
+box    crop    at 2256 0 2140.5 size 62 2.5 2
+box    crop    at 2256 0 2145.5 size 62 2.5 2
+box    crop    at 2256 0 2150.5 size 62 2.5 2
+box    crop    at 2256 0 2155.5 size 62 2.5 2
+box    crop    at 2296 0 2147.5 size 14 2.5 2
+box    crop    at 2296 0 2152.5 size 14 2.5 2
+box    crop    at 2296 0 2157.5 size 14 2.5 2
+
+# Loud Flags: a cairn and flag poles at 134,136 4x3 (at 64% of its height, for the camera)
+rock-42 rock    at 2181.94 0 2195.84 size 5.33 9 4.8 turn 135 id loud-flags
+rock-38 rock    at 2181.18 0 2201.68 size 6.22 4.59 5.6 turn 6
+rock-27 rock    at 2171.86 0 2197.03 size 5.23 6.21 4.7 turn 201
+cylinder wood    at 2156.8 0 2218 size 1.5 26 1.5
+box    cloth   at 2161.68 19 2218 size 8.25 6 0.8
+cylinder wood    at 2176 0 2208 size 1.5 32 1.5
+box    cloth   at 2180.88 25 2208 size 8.25 6 0.8
+cylinder wood    at 2195.2 0 2218 size 1.5 26 1.5
+box    cloth   at 2200.08 19 2218 size 8.25 6 0.8
+blob-2 foliage at 2152 0 2184 size 13 10 12
+cylinder trunk   at 2168 0 2184 size 3 5.5 3
+blob-57 foliage at 2168 2.5 2184 size 14 10 13.3 turn 270
+blob-54 foliage at 2200 0 2184 size 13 11 12
+cylinder trunk   at 2152 0 2200 size 3 9 3
+blob-9 foliage at 2152 4 2200 size 14 17 13.3 turn 180
+blob-28 foliage at 2200 0 2200 size 13 10 12
+box    wood    at 2152 0 2216 size 14 4 8
+box    wood    at 2152 4 2216 size 10 3 6
+blob-21 foliage at 2168 0 2216 size 13 6 12
+box    wood    at 2184 0 2216 size 14 4 8
+box    wood    at 2184 4 2216 size 10 3 6
+blob-25 foliage at 2200 0 2216 size 13 6 12
+
+# set dressing
+cone   thatch  at 2195 0 2102.5 size 4.5 4 4.5
+cone   thatch  at 2200 0 2105.5 size 4.5 4 4.5
+cone   thatch  at 2205 0 2102.5 size 4.5 4 4.5
+box    stone   at 2168 0 2120 size 9 4 3
+box    stone   at 2168 0 2122.5 size 6 2 2
+cone   thatch  at 2051 0 2166.5 size 4.5 4 4.5
+cone   thatch  at 2056 0 2169.5 size 4.5 4 4.5
+cone   thatch  at 2061 0 2166.5 size 4.5 4 4.5
+cone   thatch  at 1955 0 2182.5 size 4.5 4 4.5
+cone   thatch  at 1960 0 2185.5 size 4.5 4 4.5
+cone   thatch  at 1965 0 2182.5 size 4.5 4 4.5
+box    stone   at 2008 0 2200 size 9 4 3
+box    stone   at 2008 0 2202.5 size 6 2 2
+
+# rock
+box    rock    at 2280 0 2088 size 16 3 48
+rock-5 rock    at 2279 1.5 2072 size 14 9 12.6
+rock-19 rock    at 2281 1.5 2088 size 16 9 14.4 turn 180
+rock-36 rock    at 2281 1.5 2104 size 17 7 15.3
+
+# woods (at 47% of its height, for the camera)
+frustum trunk   at 2296 0 2056.5 size 3 4 3
+blob-3 foliage at 2296 1.5 2056.5 size 18 8 17.1
+frustum trunk   at 2296 0 2072 size 3 9 3
+blob-32 foliage at 2296 4.5 2072 size 19 18.5 18.05
+cylinder trunk   at 2296 0 2088 size 3 10 3
+blob-18 foliage at 2296 5 2088 size 19 17 18.05 turn 270
+frustum trunk   at 2295.5 0 2120.5 size 3 9 3
+blob-32 foliage at 2295.5 4 2120.5 size 18 15 17.1 turn 90
+cylinder trunk   at 1929 0 2199 size 3 4 3
+blob-19 foliage at 1929 1.5 2199 size 17 8 16.15
+frustum trunk   at 1929 0 2215 size 3 11 3
+blob-53 foliage at 1929 6 2215 size 17 17 16.15 turn 180
+cylinder trunk   at 1945 0 2216 size 3 5.5 3
+blob-45 foliage at 1945 2.5 2216 size 17 8.5 16.15 turn 270
+frustum trunk   at 1928 0 2232 size 3 12 3
+blob-48 foliage at 1928 7 2232 size 19 19 18.05 turn 90
+cylinder trunk   at 1943 0 2231 size 3 11 3
+blob-19 foliage at 1943 6 2231 size 17 16 16.15 turn 180
+frustum trunk   at 2296.5 0 2298 size 3 11 3
+blob-52 foliage at 2296.5 6 2298 size 18 18 17.1 turn 90
+box    hedge   at 2296 0 2104 size 15 6 16
+blob-64 hedge   at 2296 3.5 2104 size 15 6 16
+box    hedge   at 2296 0 2136 size 15 7 16
+blob-59 hedge   at 2296 4.5 2136 size 15 6 16
+box    hedge   at 2296 0 2184 size 15 5.5 16
+blob-41 hedge   at 2296 3.5 2184 size 15 5 16
+box    hedge   at 2296 0 2200 size 15 6 16
+blob-28 hedge   at 2296 3.5 2200 size 15 6 16
+box    hedge   at 2296 0 2216 size 15 7 16
+blob-21 hedge   at 2296 4.5 2216 size 15 5 16
+box    hedge   at 2296 0 2232 size 15 6 16
+blob-6 hedge   at 2296 3.5 2232 size 15 5 16
+box    hedge   at 2296 0 2248 size 15 6 16
+blob-32 hedge   at 2296 3.5 2248 size 15 6 16

@@ -191,7 +191,11 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
     }
     let art_w = big.w as u16;
     let art = Rect::new(inner.x + 4, inner.y + 4, art_w, (big.h as u16).div_ceil(2));
-    crate::ui::viz::shooter_viz::paint_pixels(frame, art, &big);
+    // The GPU window draws the knight itself (square pixels, breathing, a
+    // glow and a shadow); a terminal paints it in half-block cells.
+    if !crate::ui::glass::portrait(&sprite, art) {
+        crate::ui::viz::shooter_viz::paint_pixels(frame, art, &big);
+    }
     text(
         frame,
         Rect::new(inner.x + 2, art.bottom() + 1, art_w + 4, 2),

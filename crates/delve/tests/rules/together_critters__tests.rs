@@ -280,6 +280,41 @@ fn a_pavise_winds_up_its_bash_and_drops_its_shield_after() {
 }
 
 #[test]
+fn a_pavise_battered_from_the_front_drops_its_shield_for_a_second() {
+    let mut run = duel(EnemyKind::Pavise, 8.0);
+    run.step(&BTreeMap::new());
+    let hp = run.enemies[0].hp;
+    // Shot after shot from the front: turned, until enough has been turned.
+    let mut broke = None;
+    for n in 0..60 {
+        run.projectiles.clear();
+        let (x, y) = (run.enemies[0].x, run.enemies[0].y);
+        run.projectiles.push(shot(x + 1.0, y, -6.0, 0.0, false));
+        run.step(&BTreeMap::new());
+        if run.enemies[0].stage == 3 {
+            broke = Some(n);
+            break;
+        }
+        assert_eq!(run.enemies[0].hp, hp, "turned while it holds");
+    }
+    let n = broke.expect("the guard breaks");
+    assert!(n >= 1, "not on the first shot");
+    assert!(run.sounds.contains(&"clang"));
+    // Down for a second: the next shot from the front lands.
+    run.projectiles.clear();
+    let (x, y) = (run.enemies[0].x, run.enemies[0].y);
+    run.projectiles.push(shot(x + 1.0, y, -6.0, 0.0, false));
+    run.step(&BTreeMap::new());
+    assert!(run.enemies[0].hp < hp, "the front is open");
+    // And up again after it, with the count started over.
+    for _ in 0..crate::rules::HZ + 2 {
+        run.step(&BTreeMap::new());
+    }
+    assert!(run.enemies[0].shield_up().is_some(), "raised again");
+    assert_eq!(run.enemies[0].guard, 0);
+}
+
+#[test]
 fn a_leech_latches_drains_and_lets_go_of_a_roll() {
     let mut run = duel(EnemyKind::Leech, 5.0);
     run.players.get_mut(&1).unwrap().max_hp = 1000;
@@ -587,6 +622,7 @@ fn the_third_company_lives_in_the_packs_and_every_fight_has_one() {
         Pack::Archive => 4,
         Pack::Fungal => 5,
         Pack::Unknown => 6,
+        Pack::Swamp => 2,
     };
     for (pack, kinds) in expect {
         let mut seen = std::collections::BTreeSet::new();

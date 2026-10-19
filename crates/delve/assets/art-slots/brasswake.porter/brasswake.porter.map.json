@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    48
+  ],
+  "comments": [
+    "Review: right-facing source is mirrored to original left-facing enemy bank. Missing standing damage variants use cached damage over reviewed idle; prone/seated poses remain proposals.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Registration correction: centre each complete crop horizontally and keep one shared actor scale/feet baseline; alpha-foot averages were biased by extended boots, splashes and detached specks."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 11,
+  "geometry": "Same rule Danger family as keeper, independent of body size; feet/contact checks in Lane::step_at. Preserve visible local-knight contour at overlaps.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "8e1602582042dbd002187070b9b4430b11c218e0b051e1bfee0bc665f6db0a3c",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle: planted, forward-facing profile; cask, hood, mittens, boots and hoops readable.",
+      "name": "porter-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.5,
+        256
+      ],
+      "source_rect_xywh": [
+        31,
+        185,
+        259,
+        256
+      ],
+      "state": "porter-idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Walk 1: right boot lifted in a heavy step.",
+      "name": "porter-walk-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        261
+      ],
+      "source_rect_xywh": [
+        351,
+        181,
+        267,
+        261
+      ],
+      "state": "porter-walk-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Walk 2: alternating lifted boot; same scale and identity.",
+      "name": "porter-walk-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        116.0,
+        258
+      ],
+      "source_rect_xywh": [
+        664,
+        184,
+        232,
+        258
+      ],
+      "state": "porter-walk-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Slam anticipation: one mitten raised high, braced barrel stance.",
+      "name": "porter-slam-tell",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        317
+      ],
+      "source_rect_xywh": [
+        972,
+        124,
+        267,
+        317
+      ],
+      "state": "porter-slam-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Slam action: forward/downward weight shift, body lowered.",
+      "name": "porter-slam",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.0,
+        239
+      ],
+      "source_rect_xywh": [
+        31,
+        569,
+        304,
+        239
+      ],
+      "state": "porter-slam"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Recovery: rocks back with one boot lifted.",
+      "name": "porter-recover",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        248
+      ],
+      "source_rect_xywh": [
+        351,
+        559,
+        269,
+        248
+      ],
+      "state": "porter-recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Hit flinch: recoiling with both mittens raised.",
+      "name": "porter-flinch",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        245
+      ],
+      "source_rect_xywh": [
+        671,
+        566,
+        242,
+        245
+      ],
+      "state": "porter-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Knockdown / heavy damage: collapsed on the side.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.0,
+        165
+      ],
+      "source_rect_xywh": [
+        948,
+        647,
+        290,
+        165
+      ],
+      "state": "knockdown-heavy-damage"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Defeat 1: seated slump, facing right.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.5,
+        206
+      ],
+      "source_rect_xywh": [
+        42,
+        965,
+        253,
+        206
+      ],
+      "state": "defeat-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Defeat 2: fully settled prone pose.",
+      "name": "porter-defeat",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        142
+      ],
+      "source_rect_xywh": [
+        348,
+        1030,
+        273,
+        142
+      ],
+      "state": "porter-defeat"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Rush anticipation: crouched and braced to launch.",
+      "name": "porter-rush-tell",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.5,
+        231
+      ],
+      "source_rect_xywh": [
+        673,
+        943,
+        243,
+        231
+      ],
+      "state": "porter-rush-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Rush action: charging right with a broad stride.",
+      "name": "porter-rush",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        245
+      ],
+      "source_rect_xywh": [
+        958,
+        931,
+        273,
+        245
+      ],
+      "state": "porter-rush"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d748; canvas foot (24,48), top-left screen feet\u2212(24,48); face anchors in anchors.json porter[].",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "brasswake.porter",
+  "source_sha256": "c7c33ed3cb6537597f8daa961cb0649ac6925f265f4ff115fba8b685929ef46d",
+  "timing": "Same 12-pose scheduler and 27/24/23 tell, 9 action, 42/35/28 rest as keeper. Two walk poses at 7 ticks. Flinch=10; damage at hp<=6/<=3 from full 10. Recover loaded but unselected (Foe::step, draw())."
+}

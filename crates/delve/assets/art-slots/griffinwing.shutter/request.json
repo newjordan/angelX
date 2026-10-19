@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 96x192, anchor bottom-centre (48,192); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "warn-0",
+        "warn-1",
+        "warn-2",
+        "warn-3"
+      ],
+      "source_pose_count": 4,
+      "state": "warn"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "A pair of plates closing on a gap; the sim sets the gap on its own clock (warn lamps follow the rules' warn clock); art never sets a hitbox (none).",
+  "id": "griffinwing.shutter",
+  "role": "prop",
+  "timing": "idle 1 ticks; warn 4x6 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

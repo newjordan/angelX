@@ -21,6 +21,9 @@
 //! the pot and the laurel, and everyone keeps what they picked up on the way.
 //! Positions are along the course (`s`), across it (`x`) and above it (`z`),
 //! one unit a tile.
+mod drift;
+pub use drift::*;
+
 use super::*;
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
@@ -75,6 +78,7 @@ pub enum Course {
     Shaft,
     Cart,
     Griffin,
+    Touge,
 }
 
 impl Course {
@@ -83,6 +87,7 @@ impl Course {
             Course::Shaft => "THE SHAFT RUN",
             Course::Cart => "THE ORE CART",
             Course::Griffin => "THE GRIFFIN RUN",
+            Course::Touge => "THE TORCHLIGHT TOUGE",
         }
     }
     /// The title card's words, and nothing else.
@@ -91,6 +96,7 @@ impl Course {
             Course::Shaft => "ROLL. DON'T FALL.",
             Course::Cart => "JUMP. SWITCH.",
             Course::Griffin => "FLY. SHOOT.",
+            Course::Touge => "SLIDE. RELEASE. BOOST.",
         }
     }
     /// The two keys that matter, each with its one word.
@@ -99,6 +105,7 @@ impl Course {
             Course::Shaft => [("F", "HOP"), ("E", "BRAKE")],
             Course::Cart => [("F", "JUMP"), ("E", "SWITCH")],
             Course::Griffin => [("F", "SHOOT"), ("E", "ROLL")],
+            Course::Touge => [("SPACE", "DRIFT"), ("S", "BRAKE")],
         }
     }
     /// Where the finish board says the field ended up.
@@ -107,13 +114,18 @@ impl Course {
             Course::Shaft => "BRANNOC'S ORE-SORTER",
             Course::Cart => "END OF THE LINE",
             Course::Griffin => "THE KEEP GATE",
+            Course::Touge => "MOUNTAIN LAURELS",
         }
     }
     /// The race a floor's hall holds, in turn down the delve from the second
     /// floor: the Shaft Run, then the Griffin Run under Dragon Keep, then
-    /// the Ore Cart.
+    /// the Ore Cart. Every fourth floor from the fifth runs the Touge.
     pub fn of_floor(depth: u32) -> Course {
-        [Course::Griffin, Course::Cart, Course::Shaft][(depth % 3) as usize]
+        if depth >= 5 && depth % 4 == 1 {
+            Course::Touge
+        } else {
+            [Course::Griffin, Course::Cart, Course::Shaft][(depth % 3) as usize]
+        }
     }
 }
 
@@ -156,6 +168,10 @@ pub struct Sample {
     pub ground: Ground,
     /// Cart lines laid here, a bit per line.
     pub lanes: u8,
+    /// This sample funnels down towards a narrower open stretch: its wall
+    /// is a chute guide, not a bounce, so a fast ball is fed onto the open
+    /// width instead of skipping off it and out past the edge.
+    pub funnel: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -196,6 +212,7 @@ pub struct Gap {
 }
 
 pub struct Track {
+    pub looped: bool,
     pub samples: Vec<Sample>,
     /// Where the line is.
     pub finish: f32,
@@ -212,7 +229,7 @@ impl Track {
     }
     /// The course at `s`, between its samples.
     pub fn at(&self, s: f32) -> Sample {
-        let s = s.clamp(0.0, self.len());
+        let s = if self.looped { s.rem_euclid(self.len()) } else { s.clamp(0.0, self.len()) };
         let i = (s.floor() as usize).min(self.samples.len() - 2);
         let f = s - i as f32;
         let (a, b) = (&self.samples[i], &self.samples[i + 1]);
@@ -256,26 +273,50 @@ const fn rails(len: u16, turn: f32, drop: f32, lanes: u8, ground: Ground) -> Pie
     Piece { len, turn, drop, width: 5.6, walls: true, ground, lanes }
 }
 
+/// How many samples before a seam into a narrower open stretch the walled
+/// floor funnels down to that width: drawn and held by the same samples, so
+/// the picture never shows floor the ball falls through (`SHAFT`'s bridges).
+pub const SEAM_FUNNEL: f32 = 5.0;
+
 /// Walk the pieces a unit at a time into samples; the posts are where each
-/// piece starts.
+/// piece starts. A walled stretch that ends at a narrower open one funnels
+/// over its last [`SEAM_FUNNEL`] samples, so the ball is guided onto the
+/// open width by a wall it can see, not dropped at an invisible cliff.
 fn lay(pieces: &[Piece]) -> (Vec<Sample>, Vec<f32>) {
     let mut samples = Vec::new();
     let mut posts = Vec::new();
     let (mut p, mut yaw) = ([0.0f32; 3], 0.0f32);
-    for pc in pieces {
+    for (k, pc) in pieces.iter().enumerate() {
         posts.push(samples.len() as f32);
         let len = f32::from(pc.len);
         let bend = pc.turn.to_radians() / len;
-        for _ in 0..pc.len {
+        // The width this stretch funnels down to at its end: the next
+        // piece's, whenever that is narrower — walled or open, so no seam
+        // in the floor is a cliff the picture does not show.
+        let taper_to = pieces
+            .get(k + 1)
+            .filter(|&next| next.width < pc.width)
+            .map_or(pc.width, |next| next.width);
+        for j in 0..pc.len {
+            let from_end = f32::from(pc.len - j);
+            let funnel = taper_to < pc.width && from_end < SEAM_FUNNEL;
+            let width = if funnel {
+                // Flush at the seam: the last sample already sits at the
+                // next width, so no step remains for a ball to skip off.
+                taper_to + (pc.width - taper_to) * ((from_end - 1.0) / (SEAM_FUNNEL - 1.0))
+            } else {
+                pc.width
+            };
             samples.push(Sample {
                 p,
                 yaw,
                 slope: pc.drop / len,
                 bend,
-                width: pc.width,
+                width,
                 walls: pc.walls,
                 ground: pc.ground,
                 lanes: pc.lanes,
+                funnel,
             });
             let mid = yaw + bend * 0.5;
             p[0] += mid.cos();
@@ -381,7 +422,7 @@ fn shaft() -> Track {
         gem(at(17, 11.0), 1.9),
     ];
     let finish = posts[18] + 4.0;
-    Track { samples, finish, items, blocks: Vec::new(), gaps: Vec::new(), posts }
+    Track { looped: false, samples, finish, items, blocks: Vec::new(), gaps: Vec::new(), posts }
 }
 
 fn cart() -> Track {
@@ -435,7 +476,7 @@ fn cart() -> Track {
         gap(1, at(15, 10.0), 3.0),
     ];
     let finish = posts[17] + 6.0;
-    Track { samples, finish, items, blocks: Vec::new(), gaps, posts }
+    Track { looped: false, samples, finish, items, blocks: Vec::new(), gaps, posts }
 }
 
 fn gorge() -> Track {
@@ -487,16 +528,17 @@ fn gorge() -> Track {
         rampart(at(8, 38.0), -0.8, 0.6),
     ];
     let finish = posts[9] + 20.0;
-    Track { samples, finish, items, blocks, gaps: Vec::new(), posts }
+    Track { looped: false, samples, finish, items, blocks, gaps: Vec::new(), posts }
 }
 
 /// The course, laid once.
 pub fn track(course: Course) -> &'static Track {
-    static TRACKS: [OnceLock<Track>; 3] = [OnceLock::new(), OnceLock::new(), OnceLock::new()];
+    static TRACKS: [OnceLock<Track>; 4] = [const { OnceLock::new() }; 4];
     match course {
         Course::Shaft => TRACKS[0].get_or_init(shaft),
         Course::Cart => TRACKS[1].get_or_init(cart),
         Course::Griffin => TRACKS[2].get_or_init(gorge),
+        Course::Touge => TRACKS[3].get_or_init(drift::touge),
     }
 }
 
@@ -537,10 +579,13 @@ pub enum Wreck {
     Timber,
     /// A griffin into stone.
     Tumble,
+    SpinOut,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rider {
+    #[serde(default, skip_serializing_if = "Drift::is_default")]
+    pub drift: Drift,
     pub s: f32,
     pub x: f32,
     pub z: f32,
@@ -577,6 +622,7 @@ pub struct Rider {
 impl Rider {
     fn new(s: f32, x: f32, lane: u8) -> Rider {
         Rider {
+            drift: Drift::default(),
             s,
             x,
             z: 0.0,
@@ -603,6 +649,7 @@ impl Rider {
         [self.s, self.x, self.z, self.vs, self.vx, self.vz, self.spin]
             .iter()
             .all(|v| v.is_finite() && v.abs() < 10_000.0)
+            && self.drift.valid()
             && usize::from(self.lane) < LANES.len()
             && self.crash <= CRASH
             && self.stun <= CRASH
@@ -651,7 +698,7 @@ pub struct Race3d {
 impl Race3d {
     pub fn valid(&self) -> bool {
         let track = track(self.course);
-        self.t <= TITLE + RACE_TIME + PODIUM + HZ
+        self.t <= TITLE + self.time_limit() + PODIUM + HZ
             && self.riders.len() <= MAX_PLAYERS as usize
             && self.ante.len() <= MAX_PLAYERS as usize
             && self.won.len() <= MAX_PLAYERS as usize
@@ -665,9 +712,18 @@ impl Race3d {
     pub fn titled(&self) -> bool {
         self.t < TITLE
     }
+    pub fn time_limit(&self) -> u32 {
+        if self.course == Course::Touge { DRIFT_RACE_TIME } else { RACE_TIME }
+    }
+    pub fn finish_distance(&self) -> f32 {
+        track(self.course).finish * if self.course == Course::Touge { DRIFT_LAPS as f32 } else { 1.0 }
+    }
+    pub fn lap(&self, id: u32) -> u32 {
+        self.riders.get(&id).map_or(1, |r| (r.s / track(self.course).finish) as u32 + 1).min(DRIFT_LAPS)
+    }
     /// Seconds left on the race clock.
     pub fn left(&self) -> u32 {
-        (TITLE + RACE_TIME).saturating_sub(self.t).min(RACE_TIME).div_ceil(HZ)
+        (TITLE + self.time_limit()).saturating_sub(self.t).min(self.time_limit()).div_ceil(HZ)
     }
     /// While this race owns the screen: the race, then its board.
     pub fn showing(&self) -> bool {
@@ -698,11 +754,13 @@ impl Race3d {
 fn grid(course: Course, k: usize) -> (f32, f32, u8) {
     match course {
         Course::Shaft => (2.0 + (k / 2) as f32 * 1.4, if k % 2 == 0 { -1.0 } else { 1.0 }, 1),
-        // Three abreast on the depot's three lines, the fourth behind.
+        // Three abreast on the depot's three lines, the fourth behind, and
+        // a fifth and sixth behind that.
         Course::Cart => {
-            let (s, lane) = [(6.0, 1u8), (4.5, 0), (4.5, 2), (2.5, 1)][k % 4];
+            let (s, lane) = [(6.0, 1u8), (4.5, 0), (4.5, 2), (2.5, 1), (1.0, 0), (1.0, 2)][k % 6];
             (s, LANES[usize::from(lane)], lane)
         }
+        Course::Touge => (0.0, (k as f32 - 1.5) * 1.6, 1),
         Course::Griffin => (2.0 + (k / 2) as f32 * 2.0, if k % 2 == 0 { -1.6 } else { 1.6 }, 1),
     }
 }
@@ -713,15 +771,36 @@ struct Noise {
     sounds: Vec<&'static str>,
 }
 
+/// The Ore Cart is off on the play box until its rework is played (the user,
+/// 2026-10-17: "jsut turn off orecart so we dont get stuck"):
+/// `ANGEL_DELVE_ORE_CART=1` brings it back. Tests keep it on.
+fn ore_cart_on() -> bool {
+    cfg!(test) || std::env::var_os("ANGEL_DELVE_ORE_CART").is_some_and(|v| v == "1")
+}
+
 impl Run {
     /// One hall on each floor is the floor's race hall: the seed's pick of
     /// the halls the follies left.
     pub(super) fn pick_race3d(&mut self) {
         self.race3d = None;
         self.race3d_room = None;
-        if self.dungeon.depth == 0 {
+        if self.dungeon.depth == 0 || !ore_cart_on() {
             return;
         }
+        self.pick_race3d_hall();
+    }
+
+    /// The fixtures' race hall, picked even with the Ore Cart off: the
+    /// cockpit's tests build this crate without `cfg(test)`.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn race3d_hall_for_test(&mut self) {
+        if self.dungeon.depth > 0 && self.race3d_room.is_none() {
+            self.pick_race3d_hall();
+        }
+    }
+
+    /// The seed's pick of the halls the follies left.
+    fn pick_race3d_hall(&mut self) {
         let camps = |i: usize| {
             self.boss_gates
                 .as_ref()
@@ -749,7 +828,10 @@ impl Run {
 
     /// Into the race hall: the antes go in and the field lines up.
     pub(super) fn start_race3d(&mut self, index: usize) {
-        let course = Course::of_floor(self.dungeon.depth);
+        self.start_race3d_course(index, Course::of_floor(self.dungeon.depth));
+    }
+
+    fn start_race3d_course(&mut self, index: usize, course: Course) {
         let (ante, scores) = folly::take_antes(&mut self.players);
         let riders = scores
             .keys()
@@ -867,6 +949,7 @@ impl Run {
         let mut noise = Noise::default();
         let ids: Vec<u32> = race.riders.keys().copied().collect();
         for &id in &ids {
+            if !standing.contains(&id) { continue; }
             let input = inputs
                 .get(&id)
                 .copied()
@@ -880,9 +963,9 @@ impl Run {
                 Course::Shaft => roll_ball(&mut race, &mut rider, input, pressed, &mut noise),
                 Course::Cart => ride_cart(&mut race, &mut rider, input, pressed, &mut noise),
                 Course::Griffin => fly_griffin(&mut race, id, &mut rider, input, pressed.1, &mut noise),
+                Course::Touge => drift::drive(&race, &mut rider, input, &mut noise),
             }
-            let track = track(race.course);
-            if rider.finish.is_none() && rider.crash == 0 && rider.s >= track.finish {
+            if rider.finish.is_none() && rider.crash == 0 && rider.s >= race.finish_distance() {
                 rider.finish = Some(race.t);
                 noise.sounds.push("wheel_land");
             }
@@ -892,15 +975,12 @@ impl Run {
             Course::Shaft => bump_balls(&mut race, &mut noise),
             Course::Cart => bump_carts(&mut race, &mut noise),
             Course::Griffin => fly_bolts(&mut race, &mut noise),
+            Course::Touge => {},
         }
         self.sounds.extend(noise.sounds);
         // Done when everyone still standing is home, or the clock is out.
-        let all_home = race
-            .riders
-            .iter()
-            .filter(|(id, _)| standing.contains(id))
-            .all(|(_, r)| r.finish.is_some());
-        if all_home || race.t >= TITLE + RACE_TIME {
+        let all_home = !race.riders.is_empty() && race.riders.values().all(|r| r.finish.is_some());
+        if all_home || race.t >= TITLE + race.time_limit() {
             self.finish_race3d(&mut race);
         }
         self.race3d = Some(race);
@@ -1115,7 +1195,10 @@ fn roll_ball(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
     if at.walls {
         if rider.x.abs() > half - BALL_R {
             rider.x = rider.x.signum() * (half - BALL_R);
-            rider.vx = -rider.vx * 0.45;
+            // A narrowing funnel is a chute: the wall takes the ball's
+            // sideways pace instead of bouncing it back out over the edge
+            // the funnel is feeding it onto.
+            rider.vx = if at.funnel { 0.0 } else { -rider.vx * 0.45 };
             rider.vs *= 0.94;
             if rider.vx.abs() > 1.5 {
                 noise.sounds.push("clang");

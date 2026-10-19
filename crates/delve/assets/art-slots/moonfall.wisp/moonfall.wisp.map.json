@@ -1,0 +1,84 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    9,
+    22
+  ],
+  "pieces": [
+    {
+      "name": "drift-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "drift-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "drift-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "drift-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "snuff-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuff-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuff-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuff-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuff-4",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuff-5",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "shy-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 4
+    },
+    {
+      "name": "shy-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 4
+    }
+  ]
+}

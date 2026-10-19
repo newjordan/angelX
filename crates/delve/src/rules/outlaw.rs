@@ -446,7 +446,8 @@ impl Run {
             return;
         }
         let pack = self.dungeon.pack;
-        // Not one of this floor's chiefs or its apex, if the pack has another.
+        // Not one of this floor's chiefs or its apex, if the pack has another,
+        // nor a signature boss: those are kept for the stairs.
         let used: Vec<u8> = self
             .boss_gates
             .as_ref()
@@ -460,7 +461,7 @@ impl Run {
             .unwrap_or_default();
         let fresh: Vec<usize> = (0..self.bosses.len())
             .filter(|&i| self.bosses[i].only_in == pack && self.bosses[i].id != "shoggoth-heart")
-            .filter(|&i| !used.contains(&(i as u8)))
+            .filter(|&i| !used.contains(&(i as u8)) && !signatures::special(&self.bosses[i]))
             .collect();
         let any: Vec<usize> = (0..self.bosses.len())
             .filter(|&i| self.bosses[i].only_in == pack)
@@ -536,7 +537,7 @@ impl Run {
             bounty: offered,
         });
         self.score += offered;
-        for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+        for hero in self.players.values_mut().filter(|h| h.targetable()) {
             hero.carried.add(Spoil::Gold, BOUNTY_GOLD);
         }
         self.enemies.retain(|e| e.boss.is_some());

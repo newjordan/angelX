@@ -1,0 +1,30 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  8,
+  14
+ ],
+ "pieces": [
+  {
+   "name": "tuft-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "tuft-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "cut-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

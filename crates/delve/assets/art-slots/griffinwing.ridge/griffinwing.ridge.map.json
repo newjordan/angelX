@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    128,
+    96
+  ],
+  "anchor_xy": [
+    64,
+    96
+  ],
+  "comments": [
+    "The drawing is wider than the 4 to 3 canvas, so the importer letterboxes it: 128x57, bottom-aligned. The rules' ridge is a box 6 units wide and 11 high; this picture cannot fill that without a stretch the importer does not do. Imported and left off."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "A ridge a bomber hides behind; the rules own its box and judge every scrape; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered drawing, 2026-10-19: three crags with strata ledges and moss, drawn 2.24 to 1.",
+  "notes_sha256": "1442cbc37410c785a0581532e56c245e8e5f3754f6b250c507f9a5318512b8cf",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        718.0,
+        641.0
+      ],
+      "source_rect_xywh": [
+        6,
+        238,
+        1436,
+        641
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 128x96, anchor bottom-centre (64,96); stage 384x224.",
+  "sizes": {
+    "v1": [
+      128,
+      96
+    ],
+    "v2": [
+      128,
+      96
+    ]
+  },
+  "slot": "griffinwing.ridge",
+  "source_sha256": "cae5b369ee20a2d0197489a197ff51290bd84766968913117724419b6058f9dc",
+  "timing": "idle 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

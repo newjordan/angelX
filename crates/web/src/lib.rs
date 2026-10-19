@@ -23,6 +23,9 @@
 //! | `angel_frame(now_ms) -> ptr` | send the commands due, draw; the frame's `0xAARRGGBB` words |
 //! | `angel_frame_rgba(now_ms) -> ptr` | the same frame as RGBA bytes, for a canvas without WebGL |
 //! | `angel_frame_w()`, `angel_frame_h()` | the frame's size (0 before the first snapshot) |
+//! | `angel_stage(now_ms) -> ptr`, `angel_stage_len()` | after `angel_frame`, the frame as a stage (`angel-stage`'s wire format), length 0 when the game has none; asking turns the game's stage on |
+//! | `angel_stage_reset()` | the page lost its pictures (a lost context): the next stage sends them all |
+//! | `angel_stage_props(on)` | the page can draw a stage's 3D props and rooms in 3D (`STG3` and `STG4` frames): 0 (the default) keeps the game to what `stage.js` draws, 1 lets it send them |
 //! | `angel_out() -> len`, `angel_out_ptr()` | messages to send, each `[u32 len LE][bytes]` |
 //! | `angel_lines() -> len` | lines for the shell (`sfx <name>`, `notice <text>`...), `\n`-separated, in the text buffer |
 //! | `angel_status()` | 0 joining, 1 playing, 2 rejected |
@@ -78,6 +81,9 @@ pub struct Glue<G: GameClient> {
     out: Vec<u8>,
     text: Vec<u8>,
     rgba: Vec<u8>,
+    stage: Vec<u8>,
+    /// Whether the page draws a stage's 3D props (`angel_stage_props`).
+    props: bool,
 }
 
 impl<G: GameClient> Default for Glue<G> {
@@ -98,6 +104,8 @@ impl<G: GameClient> Glue<G> {
             out: Vec::new(),
             text: Vec::new(),
             rgba: Vec::new(),
+            stage: Vec::new(),
+            props: false,
         }
     }
 
@@ -181,6 +189,50 @@ impl<G: GameClient> Glue<G> {
             self.rgba.extend_from_slice(&[r, g, b, a]);
         }
         &self.rgba
+    }
+
+    /// The frame `frame` drew last as RGBA bytes, as `frame_rgba` gives it,
+    /// without drawing it again: for a page that drew its stage from the
+    /// words and found it could not (`angel_frame` then `angel_stage`).
+    pub fn last_frame_rgba(&mut self) -> &[u8] {
+        let frame = self.rt.last_frame();
+        self.rgba.clear();
+        self.rgba.reserve(frame.px.len() * 4);
+        for &word in &frame.px {
+            let [b, g, r, a] = word.to_le_bytes();
+            self.rgba.extend_from_slice(&[r, g, b, a]);
+        }
+        &self.rgba
+    }
+
+    /// The last frame as a stage (`GameClient::stage`), empty when the game
+    /// has none.
+    pub fn stage(&mut self, now_ms: f64) -> &[u8] {
+        let props = self.props;
+        let drawn = self.rt.game_mut().is_some_and(|game| {
+            game.stage_props(props);
+            game.stage(now_ms, &mut self.stage)
+        });
+        if !drawn {
+            self.stage.clear();
+        }
+        &self.stage
+    }
+
+    pub fn stage_len(&self) -> usize {
+        self.stage.len()
+    }
+
+    pub fn stage_reset(&mut self) {
+        if let Some(game) = self.rt.game_mut() {
+            game.stage_reset();
+        }
+    }
+
+    /// The page can draw a stage's 3D props (or cannot, again): the game is
+    /// told before each stage it makes.
+    pub fn stage_props(&mut self, on: bool) {
+        self.props = on;
     }
 
     pub fn size(&self) -> (u32, u32) {
@@ -483,6 +535,31 @@ macro_rules! export_client {
             #[unsafe(no_mangle)]
             pub extern "C" fn angel_frame_rgba(now_ms: f64) -> *const u8 {
                 with(|g| g.frame_rgba(now_ms).as_ptr())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_frame_rgba_last() -> *const u8 {
+                with(|g| g.last_frame_rgba().as_ptr())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_stage(now_ms: f64) -> *const u8 {
+                with(|g| g.stage(now_ms).as_ptr())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_stage_len() -> u32 {
+                with(|g| g.stage_len() as u32)
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_stage_reset() {
+                with(|g| g.stage_reset())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_stage_props(on: u32) {
+                with(|g| g.stage_props(on != 0))
             }
 
             #[unsafe(no_mangle)]

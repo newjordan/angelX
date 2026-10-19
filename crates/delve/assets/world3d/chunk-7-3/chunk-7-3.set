@@ -1,0 +1,90 @@
+set chunk-7-3
+# The kingdom, chunk 7,3 in The Tilt-Yards: tiles 168..192 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2880 896
+plate 1536 1024
+
+# ground
+box    water   at 2736 -4 776 size 96 1 16
+box    sand    at 2816 -4 776 size 64 4 16
+box    grass   at 2904 -4 808 size 112 4 80
+box    sand    at 2992 -4 776 size 64 4 16
+box    water   at 3048 -4 776 size 48 1 16
+box    sand    at 2736 -4 792 size 96 4 16
+box    grass   at 2816 -4 840 size 64 4 112
+box    grass   at 2992 -4 856 size 64 4 144
+box    sand    at 3048 -4 792 size 48 4 16
+box    grass   at 2736 -4 848 size 96 4 96
+box    grass   at 3048 -4 808 size 48 4 16
+box    grass   at 3032 -4 824 size 16 4 16
+box    rock    at 3056 -4 880 size 32 4 128
+box    rock    at 3032 -4 840 size 16 4 16
+box    grass   at 2872 -4 880 size 48 4 64
+box    path    at 2904 -4 936 size 16 4 176
+box    grass   at 2936 -4 856 size 48 4 16
+box    grass   at 3032 -4 864 size 16 4 32
+box    path    at 2920 -4 944 size 16 4 160
+box    grass   at 2944 -4 896 size 32 4 64
+box    rock    at 3032 -4 888 size 16 4 16
+box    path    at 2752 -4 920 size 128 4 48
+box    grass   at 2832 -4 904 size 32 4 16
+box    grass   at 3032 -4 912 size 16 4 32
+box    path    at 2856 -4 936 size 80 4 48
+box    path    at 2952 -4 960 size 48 4 64
+box    grass   at 3000 -4 936 size 48 4 16
+box    rock    at 3032 -4 936 size 16 4 16
+box    grass   at 2728 -4 984 size 80 4 80
+box    path    at 2792 -4 952 size 48 4 16
+box    path    at 3000 -4 976 size 48 4 64
+box    grass   at 3048 -4 952 size 48 4 16
+box    grass   at 2816 -4 992 size 96 4 64
+box    path    at 2880 -4 968 size 32 4 16
+box    path    at 3048 -4 992 size 48 4 64
+box    grass   at 2880 -4 1000 size 32 4 48
+box    grass   at 2952 -4 1008 size 48 4 32
+box    grass   at 3000 -4 1016 size 48 4 16
+
+# SQUARE WHEEL WORKS: a wheelwright's shop at 180,50 4x3
+box    brick   at 2900.84 0 834 size 37.68 13 24 id square-wheel-works
+gable  thatch  at 2900.84 13 834 size 40.68 10 27
+box    stone   at 2909.88 13 831.6 size 4 11.5 4
+box    door    at 2893.3 0 846.25 size 7 10 1
+box    window  at 2900.84 5.46 846.25 size 5 3.9 1
+sphere wood    at 2926.08 0 844 size 11 11 1.5
+sphere wood    at 2935.04 0 843 size 9 9 1.5
+box    wood    at 2931.62 0 832 size 18.76 4 8
+blob-9 foliage at 2936 0 808 size 13 8 12
+blob-52 foliage at 2936 0 824 size 13 11 12
+
+# set dressing
+box    wood    at 3000 0 888 size 10 3 3
+box    wood    at 2997 0 888 size 1.5 13 1.5
+box    wood    at 3002 0 888 size 1.5 9 1.5
+
+# rock (at 99% of its height, for the camera)
+box    rock    at 3048 0 880 size 16 3 128
+box    rock    at 3064 0 824 size 16 2.5 16
+box    rock    at 3032 0 840 size 16 3 16
+box    rock    at 3064 0 888 size 16 3 112
+box    rock    at 3032 0 888 size 16 3 16
+box    rock    at 3032 0 936 size 16 3 16
+rock-5 rock    at 3047 1.5 823 size 17 8 15.3
+rock-62 rock    at 3063 1 824 size 16 10 14.4 turn 270
+rock-5 rock    at 3031 1.5 840 size 17 9 15.3
+rock-23 rock    at 3047 1.5 839 size 15 10 13.5 turn 180
+rock-46 rock    at 3063 1.5 840 size 17 8 15.3 turn 90
+rock-63 rock    at 3047 1.5 856 size 16 10 14.4 turn 270
+rock-29 rock    at 3064 1.5 855 size 17 7 15.3 turn 270
+rock-24 rock    at 3047 1.5 871 size 17 9 15.3 turn 180
+rock-30 rock    at 3063 1.5 872 size 14 10 12.6 turn 270
+rock-50 rock    at 3032 1.5 889 size 17 7 15.3 turn 180
+rock-62 rock    at 3049 1.5 889 size 15 9 13.5 turn 270
+rock-32 rock    at 3063 1.5 887 size 15 10 13.5 turn 270
+rock-8 rock    at 3048 1.5 903 size 17 8 15.3
+rock-35 rock    at 3065 1.5 905 size 15 9 13.5
+rock-10 rock    at 3047 1.5 919 size 16 7 14.4 turn 90
+rock-38 rock    at 3065 1.5 920 size 15 8 13.5
+rock-36 rock    at 3033 1.5 935 size 16 7 14.4
+rock-52 rock    at 3048 1.5 935 size 16 7 14.4 turn 180
+rock-39 rock    at 3063 1.5 936 size 15 9 13.5

@@ -1,0 +1,19 @@
+{
+  "delivery": "cinder.entrance.room-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "02accc1182347a7a53b4cf30081b4425af066504180713558124bebd661fd0eb",
+  "native_contract": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "prepared_sha256": "9d2d49de5f43e0999062236bea72709e801e8d898edf4a1f22a2d9c3674903cd",
+  "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
+  "source_path": "/work/artifacts/art-prod/slots/cinder.entrance.room-1/v01/source-sheet.png",
+  "source_sha256": "9f2d7f86c327b0938b349d76ff1597ef754bf7b8105b66f80870c9f4e06d59d9"
+}

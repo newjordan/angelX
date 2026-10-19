@@ -1,0 +1,21 @@
+GENERATION 1 PROMPT
+
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES: ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+
+Create a PROP SHEET on one 1536x1024 canvas, 3 columns x 2 rows, each cell 512x512. Reading order: cells 1,2,3 top row; cells 4,5 bottom row left and middle; cell 6 bottom right EMPTY and transparent. Exactly five drawings total, one identical Great Brazier object in each used cell, approximately 380 px tall, same scale, centerline and baseline. Transparent background with real alpha. No floor or shadow.
+
+IDENTITY / BRIEF: Great Brazier, an original lantern that opens a way when lit, seen behind implied iron bars but no bars drawn. It stands upright like a billboard sprite: high three-quarter front view, camera about 40 degrees above, top-down dungeon game. Tall squat silhouette about 16 wide by 22 tall. A wide pale cool slate-grey square stone plinth on a stepped base occupies about 40% of height; 2-3 large block seams only. Above it, a lantern cage with four thick dark iron corner posts, pointed iron cap and one spike, enclosing ONE big round glass orb about 60% of cage width, clearly visible between posts. No turret, barrel, eye look, moss, texture noise, lettering or extra props. Pale rim light along plinth top edges and cap. Match the iron colour, contour weight and chunky stepped shading of input image 5, but not its subject. Design for later reduction to 16x22 px: big flat shapes, thick dark warm brown-black outline about 1/40 object height, at most six flat colour masses per piece, no details finer than 1/16 object height, no texture, no tiny rivets, no hairlines. Keep all materials readable above dark floor; only outline is darkest. Palette: blue-grey slate stone, dark iron, warm brown-black outline, aqua glass magic only; no green, red, purple, pink, pure white, glow, bloom, rays, light pool, gradients, floor shadow or soft fringe. Hottest aqua core about 85% value, never white.
+
+CELL ORDER AND STATES, exactly:
+1. out-0: orb dull dark slate-teal with one small pale glint.
+2. lit-0: bright aqua orb with larger pale-aqua round core, centred.
+3. lit-1: same orb bright aqua, lighter core shifted up-left with tall flame-shaped tip.
+4. lit-2: same orb bright aqua, smaller fat core centred.
+5. lit-3: same orb bright aqua, core shifted down-right with leaning tip.
+In every frame ONLY the orb interior changes. Plinth, cage posts and cap must be the identical drawing in all five cells. Input image 1 is the layout/quality reference; input image 2 is the knight anatomy reference; input image 3 is the props/VFX reference. Images 1-3 are STYLE ONLY; do not copy their characters, costumes or heraldry. Input image 4 provides Great Brazier concept identity only.
+
+GENERATION 2 PROMPT
+
+Keep everything in the previous sheet exactly the same: same five Great Brazier drawings, same pose/frame ordering, scale, placement, colors, silhouette, and empty bottom-right sixth cell. ONLY fix the background: remove the entire dark brown/black gradient backdrop and all glow/halo, making every pixel outside the five objects fully transparent real alpha. Do not change any object or orb. No floor, shadow, rays, bloom, gradient matte, grid, or background of any kind. Preserve no text or lettering.

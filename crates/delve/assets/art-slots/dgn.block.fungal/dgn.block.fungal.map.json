@@ -1,0 +1,321 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: static prop/decal grade separates it from the moving foe palette."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "6a5205ecf4c26fca9200b861f831e5a1787437a69797e6b230f9b4079e16354c",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Broad rooted mushroom pillar with an ochre-teal dome, pale gills, and violet/teal caps.",
+      "name": "pillar-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        377
+      ],
+      "source_rect_xywh": [
+        179,
+        237,
+        298,
+        377
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Crooked, twisted root pillar with a high cap and several shelf mushrooms.",
+      "name": "pillar-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        377
+      ],
+      "source_rect_xywh": [
+        518,
+        236,
+        225,
+        377
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Twin-root pillar joined beneath a broad mushroom cap.",
+      "name": "pillar-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        336
+      ],
+      "source_rect_xywh": [
+        771,
+        279,
+        285,
+        336
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Squared stonewood tomb block with root ridges and small glowing mushrooms.",
+      "name": "tomb-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        301
+      ],
+      "source_rect_xywh": [
+        1098,
+        312,
+        269,
+        301
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Root-bound wood crate overgrown with shelves and moss.",
+      "name": "tomb-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.0,
+        303
+      ],
+      "source_rect_xywh": [
+        194,
+        650,
+        260,
+        303
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Compact stack of bark, fungal shelves, and earth, squared off as an obstacle.",
+      "name": "tomb-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.0,
+        296
+      ],
+      "source_rect_xywh": [
+        507,
+        662,
+        240,
+        296
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Angular mossy boulder with teal pores and small fungi.",
+      "name": "boulder-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        281
+      ],
+      "source_rect_xywh": [
+        787,
+        677,
+        271,
+        281
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Fused cluster of rounded rocks, gill shelves, and roots.",
+      "name": "boulder-1",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        254
+      ],
+      "source_rect_xywh": [
+        1094,
+        704,
+        271,
+        254
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Bulbous, pitted fungal growth with multiple caps and teal pores.",
+      "name": "boulder-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.0,
+        290
+      ],
+      "source_rect_xywh": [
+        195,
+        1035,
+        258,
+        290
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Cracked and chipped version of the broad cap pillar.",
+      "name": "broken-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.5,
+        333
+      ],
+      "source_rect_xywh": [
+        505,
+        991,
+        243,
+        333
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Split crooked root pillar with a visibly missing upper chunk.",
+      "name": "broken-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        118.5,
+        313
+      ],
+      "source_rect_xywh": [
+        810,
+        1012,
+        237,
+        313
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.6400000000000001
+      },
+      "label": "Shattered twin-stalk pillar with separated cap sections, kept compact.",
+      "name": "broken-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        290
+      ],
+      "source_rect_xywh": [
+        1088,
+        1035,
+        269,
+        290
+      ],
+      "state": "block"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.block.fungal",
+  "source_sha256": "cd8eacb18193d6e7b1c117bececd26c89bd9242f71d2c872df56e9cc9b31d693",
+  "timing": ""
+}

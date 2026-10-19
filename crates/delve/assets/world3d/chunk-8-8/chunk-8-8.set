@@ -1,0 +1,105 @@
+set chunk-8-8
+# The kingdom, chunk 8,8 in Longbow Country: tiles 192..216 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 2176
+plate 1536 1024
+
+# ground
+box    grass   at 3120 -4 2072 size 96 4 48
+box    crop    at 3224 -4 2064 size 112 4 32
+box    grass   at 3336 -4 2056 size 112 4 16
+box    path    at 3416 -4 2080 size 48 4 64
+box    grass   at 3448 -4 2144 size 16 4 192
+box    grass   at 3328 -4 2088 size 96 4 48
+box    path    at 3384 -4 2160 size 16 4 192
+box    grass   at 3224 -4 2088 size 112 4 16
+box    grass   at 3088 -4 2136 size 32 4 80
+box    crop    at 3144 -4 2120 size 80 4 48
+box    grass   at 3200 -4 2176 size 32 4 160
+box    path    at 3224 -4 2112 size 16 4 32
+box    grass   at 3256 -4 2104 size 48 4 16
+box    path    at 3304 -4 2120 size 144 4 16
+box    path    at 3408 -4 2184 size 32 4 144
+box    grass   at 3432 -4 2176 size 16 4 128
+box    grass   at 3296 -4 2184 size 160 4 112
+box    grass   at 3144 -4 2192 size 80 4 96
+box    path    at 3080 -4 2216 size 16 4 80
+box    grass   at 3096 -4 2192 size 16 4 32
+box    path    at 3096 -4 2232 size 16 4 48
+box    path    at 3112 -4 2248 size 16 4 16
+box    sand    at 3136 -4 2248 size 32 4 16
+box    grass   at 3168 -4 2248 size 32 4 16
+box    grass   at 3224 -4 2248 size 16 4 16
+box    sand    at 3256 -4 2248 size 48 4 16
+box    grass   at 3312 -4 2248 size 64 4 16
+box    sand    at 3360 -4 2248 size 32 4 16
+box    sand    at 3440 -4 2248 size 32 4 16
+box    wood    at 3088 -4 2272 size 32 4 32
+box    water   at 3128 -4 2264 size 48 1 16
+box    sand    at 3192 -4 2264 size 80 4 16
+box    water   at 3312 -4 2272 size 160 1 32
+box    wood    at 3400 -4 2272 size 16 4 32
+box    water   at 3432 -4 2272 size 48 1 32
+box    wood    at 3112 -4 2280 size 16 4 16
+box    water   at 3176 -4 2280 size 112 1 16
+box    path    at 3104 -4 2296 size 64 4 16
+box    water   at 3192 -4 2296 size 112 1 16
+box    sand    at 3312 -4 2296 size 128 4 16
+box    path    at 3408 -4 2296 size 64 4 16
+box    sand    at 3448 -4 2296 size 16 4 16
+
+# crop furrows
+box    crop    at 3224 0 2051.5 size 110 2.5 2
+box    crop    at 3224 0 2056.5 size 110 2.5 2
+box    crop    at 3224 0 2061.5 size 110 2.5 2
+box    crop    at 3224 0 2066.5 size 110 2.5 2
+box    crop    at 3224 0 2071.5 size 110 2.5 2
+box    crop    at 3224 0 2076.5 size 110 2.5 2
+box    crop    at 3144 0 2099.5 size 78 2.5 2
+box    crop    at 3144 0 2104.5 size 78 2.5 2
+box    crop    at 3144 0 2109.5 size 78 2.5 2
+box    crop    at 3144 0 2114.5 size 78 2.5 2
+box    crop    at 3144 0 2119.5 size 78 2.5 2
+box    crop    at 3144 0 2124.5 size 78 2.5 2
+box    crop    at 3144 0 2129.5 size 78 2.5 2
+box    crop    at 3144 0 2134.5 size 78 2.5 2
+box    crop    at 3144 0 2139.5 size 78 2.5 2
+
+# set dressing
+cone   thatch  at 3219 0 2070.5 size 4.5 4 4.5
+cone   thatch  at 3224 0 2073.5 size 4.5 4 4.5
+cone   thatch  at 3229 0 2070.5 size 4.5 4 4.5
+cone   thatch  at 3267 0 2104 size 4 4 4
+cone   thatch  at 3272 0 2104 size 4 4 4
+cone   thatch  at 3277 0 2104 size 4 4 4
+box    stone   at 3192 0 2120 size 9 4 3
+box    stone   at 3192 0 2122.5 size 6 2 2
+box    stone   at 3208 0 2248 size 9 4 3
+box    stone   at 3208 0 2250.5 size 6 2 2
+cone   thatch  at 3251 0 2246.5 size 4.5 4 4.5
+cone   thatch  at 3256 0 2249.5 size 4.5 4 4.5
+cone   thatch  at 3261 0 2246.5 size 4.5 4 4.5
+
+# woods (at 92% of its height, for the camera)
+box    hedge   at 3288 0 2248.25 size 16 6 15.5
+blob-54 hedge   at 3288 3.5 2248.25 size 16 5 15.5
+box    hedge   at 3304 0 2248.25 size 16 6 15.5
+blob-41 hedge   at 3304 4 2248.25 size 16 5.5 15.5
+box    hedge   at 3320 0 2248.25 size 16 6 15.5
+blob-12 hedge   at 3320 4 2248.25 size 16 5.5 15.5
+box    hedge   at 3336 0 2248.25 size 16 6 15.5
+blob-12 hedge   at 3336 3.5 2248.25 size 16 6 15.5
+
+# bridges
+box    wood    at 3112 -3 2264 size 16 5.5 16
+box    wood    at 3384 -3 2272 size 16 5.5 32
+box    wood    at 3416 -3 2272 size 16 5.5 32
+box    wood    at 3128 -3 2280 size 16 5.5 16
+box    wood    at 3120.75 0 2264 size 1.5 6 16
+box    wood    at 3375.25 0 2264 size 1.5 6 16
+box    wood    at 3424.75 0 2264 size 1.5 6 16
+box    wood    at 3128 0 2271.25 size 16 6 1.5
+box    wood    at 3136.75 0 2280 size 1.5 6 16
+box    wood    at 3375.25 0 2280 size 1.5 6 16
+box    wood    at 3424.75 0 2280 size 1.5 6 16

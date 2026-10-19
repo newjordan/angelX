@@ -1,0 +1,278 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [],
+  "map_sha256": "32e0539943eb162bab907fa270e167ed2e58b1e4f08d43f2705201d58b2b2c48",
+  "metadata_sha256": "de7068b113a2d8b3f186386680d8ef8d5681b83074e6480d4becacfbdf928af4",
+  "notes_sha256": "522f7eb7144cebab6f1a6cdfd795875489cea155e04d32b7b3a0acb9912cc3b8",
+  "outputs": {
+    "v1/bone-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 3,
+      "sha256": "7ccb6521e350f22af2439acb4a027c11b23745db71f1959c7f584b84efd1232f",
+      "source_scale": 0.13704496788008566,
+      "state": "bone"
+    },
+    "v1/causeway-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 0.9993,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 2,
+      "sha256": "0945ba596734e9b9f4747449a25b4ee3426dbefe1619103a05532d25c84d9b57",
+      "source_scale": 0.13733905579399142,
+      "state": "causeway"
+    },
+    "v1/lava-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 0.9958,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 4,
+      "sha256": "f802283b15b30752366b28b7159c92e19cd30f7a96ebbf65eafdb130fcae86f9",
+      "source_scale": 0.13733905579399142,
+      "state": "lava"
+    },
+    "v1/mist-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 5,
+      "sha256": "fa1d8cb1233be674eaded380723c2a92ad15036e4a5734e6eb61211c197f1419",
+      "source_scale": 0.13733905579399142,
+      "state": "mist"
+    },
+    "v1/rock-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 0,
+      "sha256": "3e951e7edd22e6d91e2365deb442543a7c522f32e2e70dd7c6e27a0b5687a82b",
+      "source_scale": 0.13733905579399142,
+      "state": "rock"
+    },
+    "v1/stone-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 1,
+      "sha256": "2e48ba09f9c54d1ee7b0005369bb162613c9560d84e63bd574d6988234fe080f",
+      "source_scale": 0.13733905579399142,
+      "state": "stone"
+    },
+    "v2/bone-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 3,
+      "sha256": "7ccb6521e350f22af2439acb4a027c11b23745db71f1959c7f584b84efd1232f",
+      "source_scale": 0.13704496788008566,
+      "state": "bone"
+    },
+    "v2/causeway-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 0.9993,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 2,
+      "sha256": "0945ba596734e9b9f4747449a25b4ee3426dbefe1619103a05532d25c84d9b57",
+      "source_scale": 0.13733905579399142,
+      "state": "causeway"
+    },
+    "v2/lava-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 0.9958,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 4,
+      "sha256": "f802283b15b30752366b28b7159c92e19cd30f7a96ebbf65eafdb130fcae86f9",
+      "source_scale": 0.13733905579399142,
+      "state": "lava"
+    },
+    "v2/mist-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 5,
+      "sha256": "fa1d8cb1233be674eaded380723c2a92ad15036e4a5734e6eb61211c197f1419",
+      "source_scale": 0.13733905579399142,
+      "state": "mist"
+    },
+    "v2/rock-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 0,
+      "sha256": "3e951e7edd22e6d91e2365deb442543a7c522f32e2e70dd7c6e27a0b5687a82b",
+      "source_scale": 0.13733905579399142,
+      "state": "rock"
+    },
+    "v2/stone-0.png": {
+      "anchor_xy": [
+        32,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 256,
+      "opaque_pixels": 4096,
+      "piece": 1,
+      "sha256": "2e48ba09f9c54d1ee7b0005369bb162613c9560d84e63bd574d6988234fe080f",
+      "source_scale": 0.13733905579399142,
+      "state": "stone"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "griffinwing.canyon-tex",
+  "source_path": "/work/artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
+  "source_sha256": "8e232d4b80ce7b285919e705266f33bfca707d7cf7438655a712669489449fcf",
+  "tool_version": 2
+}

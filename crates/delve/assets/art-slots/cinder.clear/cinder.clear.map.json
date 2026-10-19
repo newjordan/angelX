@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    24
+  ],
+  "anchor_xy": [
+    12,
+    12
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 3,
+  "geometry": "Only Board::pop cells light up; do not add false cleared cells or cover the next pair/landing warning.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "e910f8f79a9bf33fa843076af8d8553861eb03fb1f951dbb77351c336f0df09a",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Tight ignition star with a hot center.",
+      "name": "piece-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        64.0,
+        60.5
+      ],
+      "source_rect_xywh": [
+        111,
+        304,
+        128,
+        121
+      ],
+      "state": "tight-ignition-star-with-a-hot-center"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Compact expanding orange core, short rays, and a few debris flecks.",
+      "name": "clear-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        100.0,
+        108.0
+      ],
+      "source_rect_xywh": [
+        371,
+        244,
+        200,
+        216
+      ],
+      "state": "clear-1"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Larger radial burst with broad rays, smoke lobes, stones, and cool sparks.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.0,
+        141.5
+      ],
+      "source_rect_xywh": [
+        616,
+        196,
+        274,
+        283
+      ],
+      "state": "larger-radial-burst-with-broad-rays-smoke-lobes-stones-and-cool-"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Peak filled pop with the widest silhouette and dense rays.",
+      "name": "clear-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.5,
+        180.5
+      ],
+      "source_rect_xywh": [
+        914,
+        142,
+        329,
+        361
+      ],
+      "state": "clear-2"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Peak breaking apart; core remains strong amid debris and smoke.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        141.5,
+        144.5
+      ],
+      "source_rect_xywh": [
+        34,
+        563,
+        283,
+        289
+      ],
+      "state": "peak-breaking-apart-core-remains-strong-amid-debris-and-smoke"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Cracked smaller core with shortening rays and drifting chunks.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        357,
+        597,
+        242,
+        259
+      ],
+      "state": "cracked-smaller-core-with-shortening-rays-and-drifting-chunks"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Reduced ember core with scattered smoke and sparks.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        108.0
+      ],
+      "source_rect_xywh": [
+        660,
+        633,
+        243,
+        216
+      ],
+      "state": "reduced-ember-core-with-scattered-smoke-and-sparks"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small scattered embers and smoke puffs.",
+      "name": "clear-3",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        97.5,
+        91.0
+      ],
+      "source_rect_xywh": [
+        984,
+        641,
+        195,
+        182
+      ],
+      "state": "clear-3"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Compact fading ember/smoke cluster.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        87.0,
+        90.5
+      ],
+      "source_rect_xywh": [
+        88,
+        987,
+        174,
+        181
+      ],
+      "state": "compact-fading-ember-smoke-cluster"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Smaller connected ember cluster with sparse cyan sparks.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        66.0,
+        66.0
+      ],
+      "source_rect_xywh": [
+        419,
+        1014,
+        132,
+        132
+      ],
+      "state": "smaller-connected-ember-cluster-with-sparse-cyan-sparks"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Few connected embers and a small debris piece.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        51.5,
+        53.0
+      ],
+      "source_rect_xywh": [
+        719,
+        1027,
+        103,
+        106
+      ],
+      "state": "few-connected-embers-and-a-small-debris-piece"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Tiny final ember cluster.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        32.5,
+        29.0
+      ],
+      "source_rect_xywh": [
+        1053,
+        1057,
+        65,
+        58
+      ],
+      "state": "tiny-final-ember-cluster"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "24\u00d724; top-left (cell x,cell y-2).",
+  "sizes": {
+    "v1": [
+      24,
+      24
+    ],
+    "v2": [
+      24,
+      24
+    ]
+  },
+  "slot": "cinder.clear",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": 224,
+    "metadata_sha256": "ace172830f0cb1ff9343a5f3da04322cdb3dc30fd1a47b7330678e8560a33614",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.clear/v01/source-sheet.png",
+    "original_sha256": "f67e4ecfb989cec1f2dff98636a077fbf28e2e2da24bcf1b45d77b4c44e3a116",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "8392a3e89083e9dc78fef0b9e677f16cbb6c9eec3940469677d1891e3e28ad95",
+  "timing": "Three frames selected by floor((8-flash)/3): nominal 3/3/2 ticks. Flying pots remain independent (renderer::draw)."
+}

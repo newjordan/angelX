@@ -5,9 +5,11 @@ where fungal
 hp 820
 size 1.7
 move hover speed=1.0
-attack ring shots=6 speed=5 every=85 damage=12 shot=orb
-attack aimed shots=2 speed=7 every=60 damage=10 shot=orb
-phases mines split crossfire surge every=78 volleys=2 damage=12
+attack ring shots=6 speed=5 every=95 damage=12 shot=orb
+attack aimed shots=2 speed=7 every=60 damage=10 shot=orb from=rage
+phases mines split crossfire surge every=100 volleys=2 damage=12
+windup slam every=220 damage=16 shots=3 speed=5 arc=60 cry=BLOOM
+windup inhale every=260 damage=12 shots=8 speed=5 shot=spore from=rage cry=HUUUP
 rage 30%
 drops gold 180, gem 2
 art

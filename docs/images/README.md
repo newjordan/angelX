@@ -43,6 +43,7 @@ frames side by side, scaled 3× with nearest-neighbour.
 | [The March](realm/castles.png) | Five castles of the March; the serving house's knight at its gate. |
 | [The Delve's gate](realm/gate.png) | The gate courtyard: the stair down, the signpost, two knights. |
 | [The King's Hall](realm/kings-hall.png) | King Brannoc on his throne, the war table and the Great Forge. |
+| [Accelerando at the hall](realm/accelerando-hall.png) | The rebuilt gate-hall beside the mine; a sign outside reads *accelerando spoken here* in six Accelerando glyphs. Captured by `write_barony_shots`, scaled 3× with nearest-neighbour. |
 | [The lists](realm/joust.png) | A course against Sir Kay as the lances meet. |
 
 ## The Delve and the loop's crawl (0.2.0)

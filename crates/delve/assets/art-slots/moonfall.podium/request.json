@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 26x26, anchor bottom-centre (13,26); the bottom edge is the south edge of the herald's tile row; stage 384x224; a knight is 16x24 in this town.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "cry-0",
+        "cry-1",
+        "cry-2",
+        "cry-3"
+      ],
+      "source_pose_count": 4,
+      "state": "cry"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "id": "moonfall.podium",
+  "role": "prop",
+  "timing": "idle 12, cry 4 frames of 6 ticks (30 Hz). Art never sets a hitbox."
+}

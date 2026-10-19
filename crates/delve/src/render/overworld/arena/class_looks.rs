@@ -19,6 +19,8 @@ use super::knights::Facing;
 use crate::rules::{Hero, classes};
 
 mod art;
+pub(super) mod bard;
+pub(super) mod peasant;
 
 /// One way of seeing a class: the body, and the held thing at rest and in
 /// the strike. Layers are placed against the body's top-left.
@@ -47,6 +49,8 @@ pub enum Look {
     Berserker,
     Mage,
     Healer,
+    Bard,
+    Peasant,
 }
 
 /// Where a figure is in its movement.
@@ -61,7 +65,7 @@ pub enum Pose {
 }
 
 impl Look {
-    pub const ALL: [Look; 7] = [
+    pub const ALL: [Look; 9] = [
         Look::Archer,
         Look::Shieldmaiden,
         Look::Gunner,
@@ -69,6 +73,8 @@ impl Look {
         Look::Berserker,
         Look::Mage,
         Look::Healer,
+        Look::Bard,
+        Look::Peasant,
     ];
 
     /// The look of a class, by its name in `classes::CLASSES`.
@@ -81,6 +87,8 @@ impl Look {
             "Berserker" => Look::Berserker,
             "Mage" => Look::Mage,
             "Healer" => Look::Healer,
+            "Bard" => Look::Bard,
+            "Peasant" => Look::Peasant,
             _ => return None,
         })
     }
@@ -108,6 +116,8 @@ impl Look {
             Look::Berserker => "Berserker",
             Look::Mage => "Mage",
             Look::Healer => "Healer",
+            Look::Bard => "Bard",
+            Look::Peasant => "Peasant",
         }
     }
 
@@ -120,6 +130,8 @@ impl Look {
             Look::Berserker => &art::BERSERKER,
             Look::Mage => &art::MAGE,
             Look::Healer => &art::HEALER,
+            Look::Bard => bard::views(),
+            Look::Peasant => peasant::views(),
         }
     }
 
@@ -254,6 +266,14 @@ pub(super) fn saddle(look: Look, seat: u32) -> (Img, Img) {
             &["..u....", "..uS...", "..SSu..", ".uSSSu.", ".u8777.", "xSSSSSx", "..Sgtk.", "..Sott.", "...ot.."],
             &["xSuS7", "xSuS7", "SSuS7", "SSuS7", "SSuSS", "SSuSS", "SuSSS", "87777"],
         ),
+        Look::Peasant => (
+            &[".ooooo.", ".otttt.", ".otttt.", ".ooooo."],
+            &["otttO", "otttO", "otttO", "otttO", "OOOOO", "OOOOO", "OOOOO", "OOOOO"],
+        ),
+        Look::Bard => (
+            &[".44444.", ".4uuu4.", ".4u4u4.", ".4uuu4.", ".44444."],
+            &["44444", "4uuu4", "4u4u4", "4uuu4", "4u4u4", "4uuu4", "4uuu4", "44444"],
+        ),
         Look::Healer => (
             &["..JhJ..", ".Jhiih.", ".hiJot.", ".hiJtk.", ".hhJot.", "..JhJ.."],
             &["hhJh7", "hhJ77", "hJh77", "hhJh7", "OOOOO", "hhJhh", "hhhhh", "JJJJG"],
@@ -332,6 +352,8 @@ pub(super) fn dress_driver(im: &mut Img, (x, y): (i32, i32), facing: Facing, fli
 /// Toward the viewer, across facing right, or away, as the team runs.
 pub(super) fn driver_head(look: Look, facing: Facing, seat: u32) -> Img {
     let rows: &[&str] = match (look, facing) {
+        (Look::Peasant, _) => &["oooo", "ottt", "ottt", "oooo", "...."],
+        (Look::Bard, _) => &["4444", "4..4", "4444", "4..4", "4444"],
         (Look::Mage, Facing::Down) => &["..x.", ".xS.", "xS7S", ".tt.", "...."],
         (Look::Mage, Facing::Side) => &[".x..", "..S.", "SS7S", ".gt.", "...."],
         (Look::Mage, Facing::Up) => &["..x.", ".xS.", "x7SS", ".SS.", "...."],
@@ -355,6 +377,16 @@ pub(super) fn driver_head(look: Look, facing: Facing, seat: u32) -> Img {
         (Look::Berserker, Facing::Up) => &["....", "ThhT", ".RR.", ".RR.", "...."],
     };
     Img::from_rows(rows).recolor(steel(look)).recolor(super::knights::seat_colours(seat))
+}
+
+/// Which class's own shot `colour` names, if it names one.
+pub(super) fn class_of(colour: &str) -> Option<super::room_scene::ClassShot> {
+    use crate::rules::classes::{ARCANE, HOLY};
+    match colour {
+        c if c == ARCANE => Some(super::room_scene::ClassShot::Arcane),
+        c if c == HOLY => Some(super::room_scene::ClassShot::Holy),
+        _ => None,
+    }
 }
 
 /// A class's own shot at `(x, y)` flying along `(vx, vy)`, if `colour` is

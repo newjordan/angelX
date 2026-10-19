@@ -1,10 +1,36 @@
 //! The way into the Delve: `/dungeon` sends the knight to its gate on the
-//! map; clicking the mini-viz there (or F4) opens the intro; Enter begins.
+//! map; clicking its gate on the map (or F4) opens the intro; Enter begins.
 use super::*;
 use crate::drive::together_shooter::{Pack, knights};
 use crate::ui::viz::delve_intro_viz::{Field, Intro};
 
 impl App {
+    /// Pick the actual gate sprite in the last rendered map projection. A
+    /// terminal cell covers several map pixels; transparent corners do not hit.
+    pub(crate) fn delve_map_hit(&self, x: u16, y: u16) -> bool {
+        use crate::stage::world_viz::overworld::{map::TILE, wishes};
+        let Some((area, view)) = self.overworld_map else { return false; };
+        if !self.walk_map_shown() || !crate::ui::mouse::point_in(area, x, y) {
+            return false;
+        }
+        let gate = wishes::delve_gate();
+        let sprite = wishes::delve_sprite(self.world.delve_lit, 0);
+        let left = gate.tx * TILE + (gate.tw * TILE - sprite.w) / 2;
+        let top = (gate.ty + gate.th) * TILE - 1 - sprite.h;
+        let px = i32::from(x - area.x);
+        let py = i32::from(y - area.y);
+        let w = i32::from(area.width);
+        let h = i32::from(area.height);
+        let x0 = view.x + px * view.w / w;
+        let x1 = view.x + ((px + 1) * view.w + w - 1) / w;
+        let y0 = view.y + py * view.h / h;
+        let y1 = view.y + ((py + 1) * view.h + h - 1) / h;
+        (y0.max(top)..y1.min(top + sprite.h)).any(|sy| {
+            (x0.max(left)..x1.min(left + sprite.w))
+                .any(|sx| sprite.get(sx - left, sy - top).is_some())
+        })
+    }
+
     /// Send the knight to the Delve's gate.
     pub(crate) fn call_delve(&mut self) -> String {
         self.world.delve_called = true;
@@ -14,7 +40,7 @@ impl App {
             self.open_intro();
             return "Your knight stands at the Delve's gate.".into();
         }
-        "Your knight sets out for the Delve, by the Mines. When he reaches its gate, click the mini-viz (or press F4) to enter.".into()
+        "Your knight sets out for the Delve, by the Mines. When he reaches its gate, click the dungeon on the map (or press F4) to enter.".into()
     }
 
     /// The knight has reached the gate and waits there.
@@ -57,7 +83,7 @@ impl App {
             self.dungeon.gate_said = true;
             self.messages.push(Message {
                 role: Role::System,
-                text: "Your knight stands at the Delve's gate. Click the mini-viz (or press F4) to enter.".into(),
+                text: "Your knight stands at the Delve's gate. Click the dungeon on the map (or press F4) to enter.".into(),
             });
             self.redraw_requested = true;
         }

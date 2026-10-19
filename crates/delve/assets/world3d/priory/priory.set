@@ -1,0 +1,212 @@
+set priory
+# Puddingstone Priory: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: clipped bushes (12,4) (14,4), the flight plate (19,10).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    grass   at 192 -4 104 size 32 4 208
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 112 size 160 4 192
+box    grass   at 288 -4 112 size 160 4 192
+box    ground  at 376 -4 56 size 16 4 80
+box    grass   at 8 -4 112 size 16 4 32
+box    grass   at 376 -4 112 size 16 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 192 -4 216 size 352 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10.5 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 10.5 6 8 size 21 19 16
+box    trunk   at 27 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 27 6 8 size 19 17 16
+box    trunk   at 39 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 39 7 8 size 19 18 16
+box    trunk   at 56 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 56 6 8 size 21 17 16
+box    trunk   at 73 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 73 8 8 size 19 18 16
+box    trunk   at 85 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 85 6 8 size 19 19 16
+box    trunk   at 103 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 103 8 8 size 19 18 16
+box    trunk   at 120 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 120 6 8 size 18 17 16
+box    trunk   at 138 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 138 9 8 size 19 18 16
+box    trunk   at 152 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 152 8 8 size 21 19 16
+box    trunk   at 165.5 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 165.5 9 8 size 21 17 16
+sphere foliage at 5 0 -9 size 25 32 18
+sphere foliage at 27 0 -9 size 28 34 18
+sphere foliage at 44 0 -9 size 24 30 18
+sphere foliage at 54 0 -9 size 28 32 18
+sphere foliage at 71 0 -9 size 27 37 18
+sphere foliage at 91 0 -9 size 23 33 18
+sphere foliage at 104 0 -9 size 22 31 18
+sphere foliage at 122 0 -9 size 27 34 18
+sphere foliage at 137 0 -9 size 22 30 18
+sphere foliage at 151 0 -9 size 29 32 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 219 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 219 8 8 size 19 18 16
+box    trunk   at 231 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 231 9 8 size 21 17 16
+box    trunk   at 245 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 245 9 8 size 20 16 16
+box    trunk   at 264 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 264 9 8 size 20 19 16
+box    trunk   at 283 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 283 7 8 size 21 19 16
+box    trunk   at 298 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 298 8 8 size 19 19 16
+box    trunk   at 313 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 313 6 8 size 19 16 16
+box    trunk   at 326 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 326 9 8 size 20 16 16
+box    trunk   at 347 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 347 8 8 size 19 17 16
+box    trunk   at 361 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 361 8 8 size 18 17 16
+box    trunk   at 374 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 374 6 8 size 20 18 16
+sphere foliage at 229 0 -9 size 27 34 18
+sphere foliage at 251 0 -9 size 22 33 18
+sphere foliage at 260 0 -9 size 25 37 18
+sphere foliage at 279 0 -9 size 22 31 18
+sphere foliage at 300 0 -9 size 24 37 18
+sphere foliage at 314 0 -9 size 25 33 18
+sphere foliage at 325 0 -9 size 26 36 18
+sphere foliage at 346 0 -9 size 29 33 18
+sphere foliage at 362 0 -9 size 28 32 18
+sphere foliage at 377 0 -9 size 25 33 18
+
+# the south wall, columns 0 to 23
+box    foliage at 192 -4 212 size 384 8 8  # TODO prims: wedge
+box    foliage at 192 -4 220 size 384 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 26 size 16 16 20
+box    trunk   at 8 0 38 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 38 size 16 16 21
+box    trunk   at 8 0 55 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 55 size 16 19 20
+box    trunk   at 8 0 73 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 73 size 16 18 21
+box    trunk   at 8 0 87 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 87 size 16 17 18
+
+# the west wall, rows 8 to 12 (at 58% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 139 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 8 4 139 size 16 9 21
+box    trunk   at 8 0 155 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 155 size 16 18 19
+box    trunk   at 8 0 170 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 170 size 16 18 21
+box    trunk   at 8 0 181 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 181 size 16 16 18
+box    trunk   at 8 0 199 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 199 size 16 16 18
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 26 size 16 19 20
+box    trunk   at 376 0 43 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 43 size 16 18 19
+box    trunk   at 376 0 59 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 59 size 16 19 21
+box    trunk   at 376 0 75 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 75 size 16 16 21
+box    trunk   at 376 0 85 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 85 size 16 17 18
+
+# the east wall, rows 8 to 12 (at 54% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 138 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 376 4 138 size 16 8.5 20
+box    trunk   at 376 0 155 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 155 size 16 16 19
+box    trunk   at 376 0 168 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 168 size 16 16 19
+box    trunk   at 376 0 183 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 183 size 16 18 19
+box    trunk   at 376 0 198 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 198 size 16 16 19
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# cottage at 3,2 6x3 (at 69% of its height, for the camera)
+box    stone   at 96 0 66 size 90 12.5 24 id cottage-1
+box    slate   at 96 12.5 66 size 92 8 26  # TODO prims: gable
+box    door    at 96 0 78.5 size 8 8 1
+box    window  at 63.5 4.5 78.5 size 6 3.5 1
+box    window  at 80.5 4.5 78.5 size 6 3.5 1
+box    window  at 120 4.5 78.5 size 6 3.5 1
+
+# cottage at 4,11 5x2 (at 53% of its height, for the camera)
+box    stone   at 104 0 197 size 74 9.5 18 id cottage-2
+box    slate   at 104 9.5 197 size 76 6 20  # TODO prims: gable
+box    door    at 104 0 206.5 size 8 6 1
+box    window  at 77.5 3.5 206.5 size 6 2.5 1
+box    window  at 90.5 3.5 206.5 size 6 2.5 1
+box    window  at 124 3.5 206.5 size 6 2.5 1
+
+# site at 16,2 5x3
+box    wood    at 258 0 38 size 2 7 2
+box    wood    at 333 0 38 size 2 7 2
+box    wood    at 258 0 77 size 2 7 2
+box    wood    at 333 0 77 size 2 7 2
+box    cloth   at 295.5 5 38 size 75 1 1 id site  # TODO prims: fence
+box    cloth   at 295.5 5 77 size 75 1 1  # TODO prims: fence
+box    cloth   at 258 5 57.5 size 1 1 39  # TODO prims: fence
+box    cloth   at 333 5 57.5 size 1 1 39  # TODO prims: fence
+box    wood    at 271 0 71 size 16 3 6
+gem    rock    at 325 0 75 size 5 4 5  # TODO prims: rock
+gem    rock    at 328 0 72 size 5 4 5 turn 30  # TODO prims: rock
+gem    rock    at 331 0 75 size 5 4 5 turn 60  # TODO prims: rock
+
+# plate at 19,10 2x1
+box    wood    at 320 0 168 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# landmark (assets/world3d/priory/landmark.set, hand-placed)
+# Puddingstone Priory: the chapel with its bell tower and spire across the back,
+# and a cloister arcade under a lean-to slate roof along the east.
+box      stone   at 98 0 -2 size 108 30 32 id priory-nave
+gable    slate   at 98 30 -2 size 116 22 40 id priory-nave-roof
+box      window  at 70 10 14.4 size 6 14 1.8 id priory-nave-win-1
+box      window  at 98 10 14.4 size 6 14 1.8 id priory-nave-win-2
+box      window  at 126 10 14.4 size 6 14 1.8 id priory-nave-win-3
+box      stone   at 158 0 0 size 24 48 28 id priory-bell-tower
+box      window  at 158 32 14.4 size 8 14 1.8 id priory-belfry
+pyramid  slate   at 158 48 0 size 30 26 30 id priory-spire
+box      metal   at 158 74 0 size 2 8 2 id priory-cross-stem
+box      metal   at 158 78 0 size 8 2 2 id priory-cross-arm
+arch-6   stone   at 240 0 12.5 size 32 30 6 id priory-arcade-1
+arch-6   stone   at 272 0 12.5 size 32 30 6 id priory-arcade-2
+arch-6   stone   at 304 0 12.5 size 32 30 6 id priory-arcade-3
+arch-6   stone   at 336 0 12.5 size 32 30 6 id priory-arcade-4
+box      stone   at 288 0 4 size 130 24 10 id priory-cloister-back
+wedge    slate   at 288 30 4 size 140 14 26 id priory-cloister-roof

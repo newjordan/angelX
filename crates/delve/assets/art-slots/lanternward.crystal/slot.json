@@ -1,0 +1,235 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4963
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4826
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5086
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6217
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5827
+    }
+  ],
+  "flags": [],
+  "map_sha256": "a0b94f8898f40ee90ad89cf76726fa05a1981ec0037d7b66e60b7981ddb79847",
+  "metadata_sha256": "52d2a8c5b7030f5f9e1f7880fb320b59da88da34abaa103f9eb601f27107a2e9",
+  "notes_sha256": "f3991fe89eaee8d0216e9d56be592e52f23e347ad7c03062f07eaadde7bc5334",
+  "outputs": {
+    "v1/dormant-0.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 84,
+      "piece": 0,
+      "sha256": "bf627fd791d029c9775af7a4c2d5b078b624abdd5919dfa42fd1ced6e9de38f8",
+      "source_scale": 0.03663003663003663,
+      "state": "dormant"
+    },
+    "v1/dormant-1.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 1,
+      "sha256": "ccd37bdf2d468b81939d27bda2618e39e995b8f61abf4b8ad699969ee629fc6b",
+      "source_scale": 0.03663003663003663,
+      "state": "dormant"
+    },
+    "v1/lit-0.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9419,
+      "frame": 0,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 86,
+      "piece": 2,
+      "sha256": "e529a603b9a267e5d1d8dffa5b656fcc322cfc2ce9f78f5b0ade5fa3fd3585fe",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    },
+    "v1/lit-1.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9765,
+      "frame": 1,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 3,
+      "sha256": "2434b465c14ed43d173e50c7688179f9805df8484617707b16780ccf524f5394",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    },
+    "v1/lit-2.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9529,
+      "frame": 2,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 4,
+      "sha256": "523aabc19183a07f13f460c505ad7fd80d50719c07324a3b30b55365e8797542",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    },
+    "v2/dormant-0.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 84,
+      "piece": 0,
+      "sha256": "bf627fd791d029c9775af7a4c2d5b078b624abdd5919dfa42fd1ced6e9de38f8",
+      "source_scale": 0.03663003663003663,
+      "state": "dormant"
+    },
+    "v2/dormant-1.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 1,
+      "sha256": "ccd37bdf2d468b81939d27bda2618e39e995b8f61abf4b8ad699969ee629fc6b",
+      "source_scale": 0.03663003663003663,
+      "state": "dormant"
+    },
+    "v2/lit-0.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9419,
+      "frame": 0,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 86,
+      "piece": 2,
+      "sha256": "e529a603b9a267e5d1d8dffa5b656fcc322cfc2ce9f78f5b0ade5fa3fd3585fe",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    },
+    "v2/lit-1.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9765,
+      "frame": 1,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 3,
+      "sha256": "2434b465c14ed43d173e50c7688179f9805df8484617707b16780ccf524f5394",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    },
+    "v2/lit-2.png": {
+      "anchor_xy": [
+        5,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        10,
+        16
+      ],
+      "colour_agreement": 0.9529,
+      "frame": 2,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 85,
+      "piece": 4,
+      "sha256": "523aabc19183a07f13f460c505ad7fd80d50719c07324a3b30b55365e8797542",
+      "source_scale": 0.03663003663003663,
+      "state": "lit"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "lanternward.crystal",
+  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.crystal/v01/source-sheet.png",
+  "source_sha256": "facce1627165f33b8527bca8d694c96a1d33dc0001df5392856471284515cf5c",
+  "tool_version": 2
+}

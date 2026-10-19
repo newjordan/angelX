@@ -1,0 +1,30 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  4,
+  10
+ ],
+ "pieces": [
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "idle-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "idle-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  }
+ ]
+}

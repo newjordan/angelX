@@ -4,6 +4,7 @@ use super::*;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
+mod anthropic_messages;
 mod deepseek_messages;
 mod local_deepseek;
 
@@ -225,6 +226,9 @@ pub(crate) enum ProviderContract {
     /// A seat wired through the configured DeepSeek namespace
     /// (`ANGEL_DEEPSEEK_*`, including an `ANGEL_DEEPSEEK_URL` forwarder).
     DeepSeek,
+    /// The first-party Anthropic Messages seat (`ANGEL_ANTHROPIC_*`, including
+    /// an `ANGEL_ANTHROPIC_URL` forwarder): it replays its signed thinking.
+    Anthropic,
 }
 
 pub struct HttpClub {
@@ -366,9 +370,12 @@ pub struct HttpClub {
     /// model string, so a route that merely *looks* DeepSeek cannot inherit
     /// provider-private reasoning replay or the cloud model's capabilities.
     provider_contract: Option<ProviderContract>,
-    /// Speak DeepSeek's Anthropic-compatible Messages API, as DeepSeek's own
-    /// harness does, instead of Chat Completions (`ANGEL_DEEPSEEK_API=messages`).
-    deepseek_messages: bool,
+    /// Speak a Messages API instead of Chat Completions: DeepSeek's
+    /// Anthropic-compatible one, as DeepSeek's own harness does
+    /// (`ANGEL_DEEPSEEK_API=messages`), or the first-party Anthropic API.
+    messages_flavor: Option<deepseek_messages::Flavor>,
+    /// `anthropic-workspace-id` for a first-party Messages seat.
+    anthropic_workspace: Option<String>,
 }
 
 /// Authority attached to this exact built request, never sent as provider JSON.
@@ -1396,12 +1403,22 @@ impl HttpClub {
                     .then(|| reasoning_env_var("ANGEL_DEEPSEEK_REASONING_EFFORT"))
                     .flatten()
             })
+            // The Anthropic seat's documented knob is `ANGEL_ANTHROPIC_EFFORT`.
+            .or_else(|| {
+                (self.provider_contract == Some(ProviderContract::Anthropic))
+                    .then(|| reasoning_env_var("ANGEL_ANTHROPIC_EFFORT"))
+                    .flatten()
+            })
             .or_else(|| reasoning_env_var("ANGEL_REASONING_EFFORT"))
             .map(|effort| effort.trim().to_string())
             .filter(|effort| !effort.is_empty())
             .or_else(|| {
                 model_defaults::entry(&self.model_identity().unwrap_or_default())
                     .and_then(|e| e.default_effort)
+            })
+            .or_else(|| {
+                (self.provider_contract == Some(ProviderContract::Anthropic))
+                    .then(|| anthropic_messages::DEFAULT_EFFORT.to_string())
             })
     }
 
@@ -1539,6 +1556,17 @@ impl HttpClub {
                 Some("DeepSeek model card".to_string()),
             );
         }
+        // The Messages API requires `max_tokens`; the seat sends a fixed cap
+        // unless `ANGEL_ANTHROPIC_MAX_TOKENS` names one.
+        if self.provider_contract == Some(ProviderContract::Anthropic) {
+            return (
+                OutputBudgetPolicy::Explicit {
+                    tokens: anthropic_messages::DEFAULT_MAX_TOKENS,
+                    source: OutputBudgetSource::ModelCard,
+                },
+                Some("Anthropic Messages default".to_string()),
+            );
+        }
         if glm_thinking_locked_on(&model_l) && self.official_glm_host() {
             return (
                 OutputBudgetPolicy::Explicit {
@@ -1636,7 +1664,8 @@ impl HttpClub {
             quota_gate: Mutex::new(None),
             provision_directive: Mutex::new(None),
             provider_contract: None,
-            deepseek_messages: false,
+            messages_flavor: None,
+            anthropic_workspace: None,
         }
     }
 
@@ -1679,7 +1708,15 @@ impl HttpClub {
     /// Speak DeepSeek's Messages API: the Chat body this seat builds is
     /// translated on the way out, and each reply back (`deepseek_messages`).
     pub(crate) fn with_deepseek_messages(mut self) -> Self {
-        self.deepseek_messages = true;
+        self.messages_flavor = Some(deepseek_messages::Flavor::DeepSeek);
+        self
+    }
+
+    /// Speak the first-party Anthropic Messages API the same way, under its
+    /// own rules (`anthropic_messages`), optionally inside one workspace.
+    pub(crate) fn with_anthropic_messages(mut self, workspace: Option<String>) -> Self {
+        self.messages_flavor = Some(deepseek_messages::Flavor::Anthropic);
+        self.anthropic_workspace = workspace;
         self
     }
 
@@ -2164,7 +2201,9 @@ impl HttpClub {
     /// live KV prefix only when history re-renders the tokens it generated
     /// (without it every hop re-prefills the whole context).
     fn replays_private_reasoning(&self, model_l: &str) -> bool {
-        self.is_deepseek_v4_provider_route(model_l) || is_private_host(&self.base_url)
+        self.is_deepseek_v4_provider_route(model_l)
+            || self.provider_contract == Some(ProviderContract::Anthropic)
+            || is_private_host(&self.base_url)
     }
 
     /// The provider's own API host, parsed rather than substring-matched, so a
@@ -2261,6 +2300,14 @@ impl HttpClub {
                 }
             }
         }
+        // The Claude seat profile (`book::claude_seat`): the first-party
+        // Anthropic seat is never sent its left-out pages, in a ledger read
+        // here or in an introduction below.
+        let claude_seat = self.provider_contract == Some(ProviderContract::Anthropic)
+            && crate::agent::harness::book::claude_seat::enabled();
+        if claude_seat {
+            crate::agent::harness::book::claude_seat::strip_ledger_reads(messages, &mut outbound);
+        }
         // Brevity instruction for token-metered SOTA links and self-hosted
         // serves: spliced into the outbound JSON, so the history is never
         // cloned to carry one message.
@@ -2281,10 +2328,14 @@ impl HttpClub {
             && crate::agent::harness::book::introduction::enabled()
         {
             let standing = caveman.as_ref().map(|(at, text)| (*at, text.as_str()));
-            crate::agent::harness::book::introduction::apply(
-                &mut outbound,
-                crate::agent::harness::book::introduction::introductions(messages, standing),
-            );
+            let introductions =
+                || crate::agent::harness::book::introduction::introductions(messages, standing);
+            let introductions = if claude_seat {
+                crate::agent::harness::book::claude_seat::omitting(introductions)
+            } else {
+                introductions()
+            };
+            crate::agent::harness::book::introduction::apply(&mut outbound, introductions);
         }
         // Pre-provisioning (economizer + optimizer — `provision.rs`). A judge
         // directive staged by the chat entry wins per-field; deterministic
@@ -2910,10 +2961,9 @@ impl HttpClub {
         abort: Option<&ureq::AbortHandle>,
         origin: Option<(&str, &'static str)>,
     ) -> Result<(ureq::Response, super::AccountingAttempt<'_>), String> {
-        let url = if self.deepseek_messages {
-            deepseek_messages::messages_url(&self.base_url)
-        } else {
-            self.chat_completions_url()
+        let url = match self.messages_flavor {
+            Some(flavor) => deepseek_messages::messages_url_for(flavor, &self.base_url),
+            None => self.chat_completions_url(),
         };
         let p = &self.policy;
         // Quota circuit breaker: while a weekly/monthly exhaustion is cooling
@@ -2942,11 +2992,17 @@ impl HttpClub {
                 .post(&url)
                 .set("Content-Type", "application/json");
             if let Some(key) = self.bearer_token()? {
-                req = if self.deepseek_messages {
-                    req.set("x-api-key", &key)
-                        .set("anthropic-version", "2023-06-01")
-                } else {
-                    req.set("Authorization", &format!("Bearer {key}"))
+                req = match self.messages_flavor {
+                    Some(deepseek_messages::Flavor::DeepSeek) => req
+                        .set("x-api-key", &key)
+                        .set("anthropic-version", anthropic_messages::API_VERSION),
+                    Some(deepseek_messages::Flavor::Anthropic) => {
+                        let workspace = self.anthropic_workspace.as_deref();
+                        anthropic_messages::request_headers(&key, workspace)
+                            .into_iter()
+                            .fold(req, |req, (name, value)| req.set(name, &value))
+                    }
+                    None => req.set("Authorization", &format!("Bearer {key}")),
                 };
             }
             if let Some(abort) = abort {
@@ -3169,10 +3225,9 @@ impl HttpClub {
         let v: serde_json::Value =
             serde_json::from_reader(accounting.response_reader(r.into_reader()))
                 .map_err(|e| format!("decode response: {e}"))?;
-        let v = if self.deepseek_messages {
-            deepseek_messages::to_chat_response(&v)
-        } else {
-            v
+        let v = match self.messages_flavor {
+            Some(flavor) => deepseek_messages::to_chat_response_for(&v, flavor),
+            None => v,
         };
         accounting.observe(
             v.get("usage")
@@ -3193,8 +3248,8 @@ impl HttpClub {
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
-        if self.deepseek_messages {
-            let body = deepseek_messages::to_messages_body(&body)?;
+        if let Some(flavor) = self.messages_flavor {
+            let body = deepseek_messages::to_messages_body_for(&body, flavor)?;
             return encode_json_bytes(&body).map_err(|e| format!("encode request: {e}"));
         }
         // Reuse a thread-local buffer so multi-hop turns don't re-allocate the
@@ -4148,8 +4203,8 @@ impl HttpClub {
                 // (the chunked terminator) still holds the connection.
                 let mut tail_unread = false;
                 let mut messages_stream = self
-                    .deepseek_messages
-                    .then(deepseek_messages::StreamTranslator::default);
+                    .messages_flavor
+                    .map(deepseek_messages::StreamTranslator::new);
                 let mut raw: Vec<u8> = Vec::new();
                 let mut rule_tripped: Option<(usize, String)> = None;
                 // A retryable TTSR attempt is speculative. The caller cannot
@@ -4345,6 +4400,12 @@ impl HttpClub {
                 if tail_unread && poolable {
                     release_stream_tail(reader);
                 }
+                if let Some(usage) = messages_stream
+                    .as_ref()
+                    .and_then(deepseek_messages::StreamTranslator::native_usage)
+                {
+                    wire.set_usage(usage);
+                }
 
                 if acc.finish_reason.as_deref() == Some("length") {
                     // Keep cut-off *prose* for a SOTA link (nothing half-written),
@@ -4363,6 +4424,12 @@ impl HttpClub {
                     return Err(TRUNCATED_OUTPUT_ERR.to_string());
                 }
                 let reasoning = acc.take_reasoning();
+                // A first-party Messages seat replays its signed thinking
+                // blocks verbatim, not their (by default empty) text.
+                let reasoning = messages_stream
+                    .as_mut()
+                    .and_then(deepseek_messages::StreamTranslator::take_replay)
+                    .unwrap_or(reasoning);
                 let had_reasoning = !reasoning.is_empty();
                 wire.set_finish_reason(acc.finish_reason.as_deref());
                 let reply = acc.into_reply(!tools.is_empty());

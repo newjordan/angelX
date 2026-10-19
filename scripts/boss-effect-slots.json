@@ -1,0 +1,3423 @@
+{
+  "cinderjaw": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/cinderjaw",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.62,
+        0.52
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "point_rim": [
+      [
+        146,
+        79,
+        29
+      ],
+      [
+        169,
+        118,
+        57
+      ],
+      [
+        216,
+        169,
+        94
+      ],
+      [
+        236,
+        182,
+        74
+      ]
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        228,
+        5
+      ],
+      [
+        242,
+        176,
+        11
+      ]
+    ]
+  },
+  "the-index": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        28,
+        28
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/the-index",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.63,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        237,
+        188
+      ],
+      [
+        242,
+        222,
+        178
+      ]
+    ]
+  },
+  "mother-of-spores": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/mother-of-spores",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.62,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        146,
+        79,
+        29
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        216,
+        169,
+        94
+      ]
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "hue_reference": [
+        154,
+        90,
+        138
+      ],
+      "hue_reference_asset": "projectile.png; original spore ink",
+      "rim_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        136,
+        215
+      ],
+      [
+        239,
+        134,
+        212
+      ]
+    ]
+  },
+  "waxen-warden": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/waxen-warden",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.64,
+        0.53
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        236,
+        195
+      ],
+      [
+        242,
+        222,
+        174
+      ]
+    ]
+  },
+  "the-bone-choir": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        28,
+        28
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/the-bone-choir",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.59,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        224,
+        176
+      ],
+      [
+        242,
+        209,
+        167
+      ]
+    ]
+  },
+  "crypt-tithe-marshal": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        18,
+        18
+      ],
+      "v2": [
+        32,
+        32
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/crypt-tithe-marshal",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_socket": {
+      "projectile": [
+        0.64,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        236,
+        196
+      ],
+      [
+        242,
+        220,
+        197
+      ]
+    ]
+  },
+  "crypt-tax-keeper": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "tell_exposure": 0.9,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        233,
+        126
+      ],
+      [
+        242,
+        183,
+        54
+      ]
+    ],
+    "source": "crates/delve/assets/boss-effect-src/crypt-tax-keeper",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        82,
+        117,
+        151
+      ],
+      [
+        110,
+        138,
+        142
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "crypt-relic-liege": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        229,
+        184
+      ],
+      [
+        242,
+        194,
+        81
+      ]
+    ],
+    "source": "crates/delve/assets/boss-effect-src/crypt-relic-liege",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        99,
+        101,
+        92
+      ],
+      [
+        169,
+        118,
+        57
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "iron-tusk-chief": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": true,
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "display": {
+      "v1": [
+        14,
+        14
+      ],
+      "v2": [
+        26,
+        26
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source": "crates/delve/assets/boss-effect-src/iron-tusk-chief",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "cell_warning_inks": [
+      [
+        236,
+        182,
+        74
+      ]
+    ],
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85
+    },
+    "projectile_signal_inks": [
+      [
+        242,
+        231,
+        190
+      ],
+      [
+        242,
+        216,
+        157
+      ]
+    ]
+  },
+  "red-pick-chief": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        240,
+        208,
+        153
+      ],
+      [
+        221,
+        161,
+        99
+      ]
+    ],
+    "source": "crates/delve/assets/boss-effect-src/red-pick-chief",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        99,
+        101,
+        92
+      ],
+      [
+        216,
+        169,
+        94
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "the-foreman": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        184,
+        81
+      ],
+      [
+        216,
+        151,
+        59
+      ]
+    ],
+    "source": "crates/delve/assets/boss-effect-src/the-foreman",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        81,
+        83,
+        73
+      ],
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        146,
+        79,
+        29
+      ],
+      [
+        236,
+        182,
+        74
+      ]
+    ]
+  },
+  "late-fee-leviathan": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "timing": "simulation-owned; do not extend warning or impact lifetime",
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        229,
+        184
+      ],
+      [
+        121,
+        217,
+        208
+      ]
+    ],
+    "source": "crates/delve/assets/boss-effect-src/late-fee-leviathan",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        82,
+        117,
+        151
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        199,
+        180,
+        143
+      ]
+    ]
+  },
+  "archive-bellkeeper": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        239,
+        184
+      ],
+      [
+        220,
+        216,
+        129
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/archive-bellkeeper",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        75,
+        89,
+        31
+      ],
+      [
+        106,
+        123,
+        36
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "fungal-rootwarden": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        218,
+        179
+      ],
+      [
+        242,
+        173,
+        94
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/fungal-rootwarden",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        105,
+        121,
+        62
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        236,
+        182,
+        74
+      ]
+    ]
+  },
+  "fungal-spore-crown": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        10
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        235,
+        184
+      ],
+      [
+        242,
+        215,
+        162
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/fungal-spore-crown",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        82,
+        117,
+        151
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        179,
+        194,
+        196
+      ]
+    ]
+  },
+  "grinwick": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 0.8,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        230,
+        184
+      ],
+      [
+        242,
+        218,
+        165
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/grinwick",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        105,
+        121,
+        62
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "hellforge-ash-castellan": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 0.85,
+    "impact_exposure": 0.95,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        214,
+        184
+      ],
+      [
+        218,
+        180,
+        166
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/hellforge-ash-castellan",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        105,
+        121,
+        62
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        236,
+        182,
+        74
+      ]
+    ]
+  },
+  "hellforge-chain-keeper": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 0.8,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        230,
+        184
+      ],
+      [
+        242,
+        200,
+        157
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/hellforge-chain-keeper",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        122,
+        74,
+        18
+      ],
+      [
+        99,
+        101,
+        92
+      ],
+      [
+        169,
+        118,
+        57
+      ],
+      [
+        179,
+        194,
+        196
+      ]
+    ]
+  },
+  "hellforge-free-captain": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "legacy-tell-0.png",
+      "legacy-tell-1.png",
+      "legacy-tell-2.png",
+      "legacy-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "rejected_roles": {
+      "tell": "Delivered opaque checkerboard; measured one border-touching component, no usable alpha. Original warning geometry retained pending transparent replacement."
+    },
+    "impact_exposure": 0.85,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        222,
+        184
+      ],
+      [
+        230,
+        176,
+        140
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/hellforge-free-captain",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts"
+  },
+  "hellforge-fuel-reeve": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 0.9,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        212,
+        120
+      ],
+      [
+        242,
+        170,
+        66
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/hellforge-fuel-reeve",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        146,
+        79,
+        29
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "hellforge-slag-sovereign": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "legacy-tell-0.png",
+      "legacy-tell-1.png",
+      "legacy-tell-2.png",
+      "legacy-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "rejected_roles": {
+      "tell": "Delivered opaque checkerboard; measured one border-touching component, no usable alpha. Original warning geometry retained pending transparent replacement."
+    },
+    "impact_exposure": 0.8,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        213,
+        49
+      ],
+      [
+        242,
+        169,
+        13
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/hellforge-slag-sovereign",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts"
+  },
+  "salvage-claimant": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24,
+      "rim_quantile": 0.97
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        232,
+        202,
+        176
+      ],
+      [
+        242,
+        184,
+        95
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/salvage-claimant",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        104,
+        70,
+        41
+      ],
+      [
+        58,
+        109,
+        93
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        179,
+        194,
+        196
+      ]
+    ]
+  },
+  "shoggoth-heart": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        242,
+        184
+      ],
+      [
+        226,
+        242,
+        184
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/shoggoth-heart",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        69,
+        96,
+        112
+      ],
+      [
+        122,
+        124,
+        114
+      ],
+      [
+        111,
+        164,
+        109
+      ],
+      [
+        179,
+        194,
+        196
+      ]
+    ]
+  },
+  "the-big-ripper": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        231,
+        149
+      ],
+      [
+        242,
+        213,
+        82
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/the-big-ripper",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        75,
+        89,
+        31
+      ],
+      [
+        105,
+        121,
+        62
+      ],
+      [
+        190,
+        145,
+        75
+      ],
+      [
+        246,
+        180,
+        80
+      ]
+    ]
+  },
+  "unknown-memory-warden": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        235,
+        184
+      ],
+      [
+        127,
+        242,
+        240
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/unknown-memory-warden",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        32,
+        121,
+        166
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        179,
+        194,
+        196
+      ]
+    ]
+  },
+  "unknown-silence-warden": {
+    "projectile": [
+      "fx-v1-projectile-0.png",
+      "fx-v1-projectile-1.png"
+    ],
+    "tell": [
+      "fx-v1-tell-0.png",
+      "fx-v1-tell-1.png",
+      "fx-v1-tell-2.png",
+      "fx-v1-tell-3.png"
+    ],
+    "impact": [
+      "fx-v1-impact-0.png",
+      "fx-v1-impact-1.png",
+      "fx-v1-impact-2.png",
+      "fx-v1-impact-3.png",
+      "fx-v1-impact-4.png"
+    ],
+    "cell_warning_priority": false,
+    "display": {
+      "v1": [
+        16,
+        16
+      ],
+      "v2": [
+        30,
+        30
+      ],
+      "study_v1": [
+        [
+          12,
+          12
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "study_v2": [
+        [
+          20,
+          20
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ]
+      ]
+    },
+    "source_socket": {
+      "projectile": [
+        0.5,
+        0.5
+      ],
+      "tell": [
+        0.5,
+        0.5
+      ],
+      "impact": [
+        0.5,
+        0.5
+      ]
+    },
+    "readability": {
+      "exposure": 1.1,
+      "value_power": 0.65,
+      "core_quantile": 0.85,
+      "quantizer": [
+        0,
+        0
+      ],
+      "signal_saturation_floor": 0.24
+    },
+    "legacy_mask_boss": "cinderjaw",
+    "tell_exposure": 1.0,
+    "impact_exposure": 1.0,
+    "collision": "simulation-owned point; 0.16-unit expansion; legacy9x9 canvas is not a visual size",
+    "flight_ticks": [
+      4,
+      4
+    ],
+    "impact_ticks": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "projectile_v2": [
+      "fx-v2-projectile-0.png",
+      "fx-v2-projectile-1.png"
+    ],
+    "projectile_signal_inks": [
+      [
+        242,
+        224,
+        184
+      ],
+      [
+        242,
+        220,
+        177
+      ]
+    ],
+    "anchor": "centre; registered source body/contact socket",
+    "source": "crates/delve/assets/boss-effect-src/unknown-silence-warden",
+    "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
+    "source_point_rim": true,
+    "point_rim": [
+      [
+        120,
+        70,
+        32
+      ],
+      [
+        105,
+        121,
+        62
+      ],
+      [
+        148,
+        150,
+        140
+      ],
+      [
+        199,
+        180,
+        143
+      ]
+    ]
+  }
+}

@@ -1,0 +1,407 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    12.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "aa608c7783b747be7acabf4126295a90d539b340fba964b4e172c0763083e0bd",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "label": "Plain north wall face, timber braces and ore fill.",
+      "name": "face-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        115.5,
+        146.0
+      ],
+      "source_rect_xywh": [
+        56,
+        92,
+        231,
+        292
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "label": "Cracked north wall face.",
+      "name": "face-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        120.0,
+        146.0
+      ],
+      "source_rect_xywh": [
+        356,
+        92,
+        240,
+        292
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "label": "North wall face with lit hanging mine lantern.",
+      "name": "face-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        146.0
+      ],
+      "source_rect_xywh": [
+        658,
+        92,
+        244,
+        292
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "label": "North face corner/end cap, right-side timber/stone post.",
+      "name": "corner-nw",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.5,
+        148.5
+      ],
+      "source_rect_xywh": [
+        970,
+        87,
+        231,
+        297
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "label": "North inner corner, left-side post and joining face.",
+      "name": "corner-ne",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.5,
+        151.5
+      ],
+      "source_rect_xywh": [
+        56,
+        462,
+        231,
+        303
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "West side-cap A, straight top-down timber beam with ore edges.",
+      "name": "west-0",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        63.5,
+        162.0
+      ],
+      "source_rect_xywh": [
+        419,
+        461,
+        127,
+        324
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "West side-cap B, cracked timber variant.",
+      "name": "west-1",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        64.0,
+        162.0
+      ],
+      "source_rect_xywh": [
+        708,
+        461,
+        128,
+        324
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "East side-cap A, straight top-down timber beam with ore edges.",
+      "name": "east-0",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        61.5,
+        162.5
+      ],
+      "source_rect_xywh": [
+        1019,
+        460,
+        123,
+        325
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "East side-cap B, weathered timber variant.",
+      "name": "east-1",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        64.0,
+        159.5
+      ],
+      "source_rect_xywh": [
+        108,
+        848,
+        128,
+        319
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "South cap, long horizontal beam with ore rows.",
+      "name": "south",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        144.0,
+        81.0
+      ],
+      "source_rect_xywh": [
+        322,
+        945,
+        288,
+        162
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "South-west outer corner cap.",
+      "name": "corner-sw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        124.5,
+        128.0
+      ],
+      "source_rect_xywh": [
+        656,
+        889,
+        249,
+        256
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.025,
+      "label": "South-east outer corner cap.",
+      "name": "corner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        125.0,
+        128.5
+      ],
+      "source_rect_xywh": [
+        951,
+        889,
+        250,
+        257
+      ],
+      "state": "owall"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.owall.mines",
+  "source_sha256": "f751c491d3123c6449d09aec77d0c9a55a72156042394180684131787b001b10",
+  "timing": ""
+}

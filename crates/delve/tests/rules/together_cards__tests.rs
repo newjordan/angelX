@@ -345,7 +345,7 @@ fn a_held_card_promises_no_more_than_a_deck_may_hold() {
         ("orbit 3", Effect::Orbit(2)),
         ("burst 50", Effect::Burst(25)),
         ("volley 1", Effect::Volley(5)),
-        ("shots 2", Effect::Shots(1)),
+        ("shots 3", Effect::Shots(2)),
     ] {
         let checked = held(&format!("name X\nkind hold\n{line}\n"));
         assert_eq!(checked.card.effects, [effect], "{line}");
@@ -361,4 +361,85 @@ fn a_held_card_promises_no_more_than_a_deck_may_hold() {
     assert!(effects.contains("volley 5-8"), "{effects}");
     assert!(effects.contains("armor 1-2: mail"), "{effects}");
     assert!(!effects.contains("3 damage per hit"), "{effects}");
+}
+
+/// A wish's card, as the phrasebook names them (`wish-<id>-<tier>`).
+fn wish_card(id: &str, name: &str, lines: &str) -> Card {
+    check(&format!("wish-{id}-1"), &format!("name {name}\nkind hold\n{lines}\n")).unwrap().card
+}
+
+#[test]
+fn wishes_of_one_word_give_less_each_further_one() {
+    let a = wish_card("heavy", "Heavy Hits", "damage 20");
+    let b = wish_card("harder", "Harder Hits", "damage 20");
+    let c = wish_card("hardest", "Hardest Hits", "damage 20");
+    assert_eq!(Bonus::of([&a]).damage, 20);
+    // 20, then half of 20: 30 is over the wish cap of 25.
+    assert_eq!(Bonus::of([&a, &b]).damage, wish_cap("damage"));
+    let r1 = wish_card("q1", "Quick", "rate 10");
+    let r2 = wish_card("q2", "Quicker", "rate 10");
+    let r3 = wish_card("q3", "Quickest", "rate 10");
+    assert_eq!(Bonus::of([&r1, &r2]).rate, 15, "10 and half of 10");
+    assert_eq!(Bonus::of([&r1, &r2, &r3]).rate, 18, "and a quarter: 17.5");
+    let _ = c;
+}
+
+#[test]
+fn twenty_stacked_wishes_stop_at_every_word_s_wish_cap() {
+    let lines = [
+        "damage 40", "rate 30", "speed 25", "velocity 60", "size 3", "knock 3", "burn 3",
+        "poison 3", "fart 3", "vamp 3", "shots 2", "armor 2",
+    ];
+    let cards: Vec<Card> = (0..20)
+        .map(|i| wish_card(&format!("w{i}"), "Bullet Wish", lines[i % lines.len()]))
+        .collect();
+    let b = Bonus::of(cards.iter());
+    for (word, got) in [
+        ("damage", b.damage), ("rate", b.rate), ("speed", b.speed), ("velocity", b.velocity),
+        ("size", b.size), ("knock", b.knock), ("burn", b.burn), ("poison", b.poison),
+        ("fart", b.fart), ("vamp", b.vamp), ("shots", b.shots), ("armor", b.armor),
+    ] {
+        assert!(got <= wish_cap(word), "{word} {got} over its wish cap {}", wish_cap(word));
+    }
+}
+
+#[test]
+fn a_deep_knight_s_stack_is_held_to_the_floor_s_budget_and_floor_one_s_three_are_not() {
+    let three = [
+        wish_card("a", "Faster Bullets", "velocity 20"),
+        wish_card("b", "Heavy Hits", "damage 12"),
+        wish_card("c", "Quick Fire", "rate 10"),
+    ];
+    assert_eq!(Bonus::within(three.iter(), Some(1)), Bonus::of(three.iter()), "floor 1's three wishes fit");
+    let lines = ["damage 25", "rate 20", "speed 20", "velocity 40", "size 2", "knock 2", "burn 2", "poison 2", "fart 2", "vamp 2", "armor 2"];
+    let many: Vec<Card> = lines.iter().enumerate().map(|(i, l)| wish_card(&format!("m{i}"), "Bullet Wish", l)).collect();
+    let free = Bonus::of(many.iter());
+    let floor1 = Bonus::within(many.iter(), Some(1));
+    let floor6 = Bonus::within(many.iter(), Some(6));
+    assert!(floor1.damage < floor6.damage && floor6.damage < free.damage, "{} {} {}", floor1.damage, floor6.damage, free.damage);
+    assert!(floor1.rate < free.rate);
+}
+
+#[test]
+fn homing_needs_a_creature_and_a_projectile_wish() {
+    let homing = wish_card("homing", "Homing Bullets", "homing 1");
+    let alone = Bonus::of([&homing]);
+    assert_eq!(alone.homing, 0, "a bullet wish alone does not hunt");
+    assert_eq!(alone.damage, crate::rules::combos::STAND_IN, "it hits a little harder instead");
+    let frogs = check("wish-frogs-1", "name Exploding Frogs\nkind spell\nsummon 2 swarm\ncooldown 8\n").unwrap().card;
+    let both = Bonus::of([&homing, &frogs]);
+    assert_eq!(both.homing, 1, "a creature wish beside it: the bullets hunt");
+}
+
+#[test]
+fn a_creature_bullet_is_its_own_recipe() {
+    let sperm = wish_card("sperm", "Sperm Bullets", "homing 1");
+    assert_eq!(Bonus::of([&sperm]).homing, 1);
+}
+
+#[test]
+fn found_cards_need_no_recipe() {
+    let book = Book::builtin();
+    let fork = book.get("fork").unwrap();
+    assert_eq!(Bonus::of([fork]).fork, 1);
 }

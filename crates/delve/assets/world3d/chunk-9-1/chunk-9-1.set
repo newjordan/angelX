@@ -1,0 +1,56 @@
+set chunk-9-1
+# The kingdom, chunk 9,1 in The Coast: tiles 216..240 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 384
+plate 1536 1024
+
+# ground
+box    grass   at 3464 -4 344 size 16 4 176
+box    path    at 3496 -4 384 size 48 4 256
+box    grass   at 3568 -4 312 size 96 4 112
+box    sand    at 3624 -4 288 size 16 4 64
+box    water   at 3736 -4 288 size 208 1 64
+box    grass   at 3624 -4 400 size 16 4 160
+box    sand    at 3640 -4 368 size 16 4 96
+box    water   at 3744 -4 368 size 192 1 96
+box    path    at 3568 -4 376 size 96 4 16
+box    grass   at 3568 -4 424 size 96 4 80
+box    grass   at 3640 -4 448 size 16 4 64
+box    sand    at 3656 -4 448 size 16 4 64
+box    water   at 3752 -4 448 size 176 1 64
+box    path    at 3464 -4 440 size 16 4 16
+box    grass   at 3464 -4 456 size 16 4 16
+box    path    at 3464 -4 488 size 16 4 48
+box    grass   at 3536 -4 488 size 32 4 48
+box    sand    at 3576 -4 480 size 48 4 32
+box    grass   at 3608 -4 472 size 16 4 16
+box    rock    at 3624 -4 496 size 48 4 32
+box    grass   at 3656 -4 488 size 16 4 16
+box    sand    at 3672 -4 496 size 16 4 32
+box    water   at 3760 -4 496 size 160 1 32
+box    sand    at 3568 -4 504 size 32 4 16
+box    rock    at 3592 -4 504 size 16 4 16
+box    rock    at 3656 -4 504 size 16 4 16
+
+# set dressing
+cylinder wood    at 3635 0 376 size 3.5 3 3.5
+cylinder wood    at 3640 0 378 size 3.5 3 3.5
+cylinder wood    at 3645 0 376 size 3.5 3 3.5
+cylinder wood    at 3604 0 406 size 5 4 5
+cylinder wood    at 3611 0 406 size 5 4 5
+cylinder wood    at 3604 0 411 size 5 4 5
+
+# rock
+box    rock    at 3624 0 488 size 48 3 16
+box    rock    at 3600 0 504 size 32 3 16
+box    rock    at 3624 0 504 size 16 9 16
+box    rock    at 3648 0 504 size 32 3 16
+rock-14 rock    at 3609 1.5 489 size 15 7 13.5 turn 90
+rock-51 rock    at 3623 1.5 488 size 14 10 12.6 turn 180
+rock-14 rock    at 3641 1.5 489 size 17 9 15.3 turn 90
+rock-27 rock    at 3591 1.5 503 size 17 9 15.3 turn 270
+rock-21 rock    at 3607 1.5 505 size 16 8 14.4 turn 180
+rock-49 rock    at 3624 7.5 503 size 15 6 13.5 turn 180
+rock-43 rock    at 3640 1.5 503 size 15 7 13.5 turn 90
+rock-30 rock    at 3656 1.5 505 size 17 8 15.3 turn 270

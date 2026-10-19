@@ -16,7 +16,7 @@ use ratatui::{
 use std::fmt::Write;
 use std::num::NonZeroU16;
 
-include!("diacritics.rs");
+use angel_stage::marks::mark;
 
 pub(crate) struct DotProtocol {
     size: Size,
@@ -67,6 +67,17 @@ impl DotProtocol {
             None => geometry.rasterize(image),
         }
         .ok_or("invalid generated dot canvas")?;
+        // angelX's own window takes the pixels as they are: no PNG, no
+        // escape codes, no payload cap.
+        if crate::ui::glass::active() {
+            crate::ui::glass::upload_picture(
+                id,
+                (geometry.width, geometry.height),
+                rgba.into_raw(),
+                (size.width, size.height),
+            );
+            return Ok(Self { size, id, upload: None });
+        }
         let mut png = Vec::new();
         image::codecs::png::PngEncoder::new_with_quality(
             &mut png,
@@ -141,20 +152,32 @@ impl DotProtocol {
 /// over `area`.
 pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer) {
     let color = Color::Rgb((id >> 16) as u8, (id >> 8) as u8, id as u8);
-    let width = area.width.min(size.width);
-    let height = area.height.min(size.height);
+    let max_span = angel_stage::marks::DIACRITICS.len() as u16;
+    let width = area.width.min(size.width).min(max_span);
+    let height = area.height.min(size.height).min(max_span);
+    let forced_one = CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap());
+    // `\u{10eeee}` is `[0xF4, 0x8E, 0xBB, 0xAE]` (4 bytes) plus two combining
+    // marks (2..=4 bytes each) = 8..=12 bytes total. Building on the stack avoids
+    // 2,880 heap `String` allocations per 80x36 frame and lets ratatui's
+    // `CompactString` inline every cell symbol without touching the allocator.
+    let mut scratch = [0xF4u8, 0x8E, 0xBB, 0xAE, 0, 0, 0, 0, 0, 0, 0, 0];
     for y in 0..height {
+        let y_len = mark(usize::from(y))
+            .encode_utf8(&mut scratch[4..8])
+            .len();
+        let row_len = 4 + y_len;
         for x in 0..width {
             if let Some(cell) = buffer.cell_mut((area.x + x, area.y + y)) {
                 // Each cell carries explicit row/column coordinates. Overlays
                 // may replace any cell without a hidden row write erasing them.
-                cell.set_symbol(&format!(
-                    "\u{10eeee}{}{}",
-                    DOT_DIACRITICS[usize::from(y)],
-                    DOT_DIACRITICS[usize::from(x)]
-                ))
-                .set_fg(color)
-                .set_diff_option(CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap()));
+                let x_len = mark(usize::from(x))
+                    .encode_utf8(&mut scratch[row_len..])
+                    .len();
+                let sym = std::str::from_utf8(&scratch[..row_len + x_len])
+                    .expect("U+10EEEE and the marks encode valid UTF-8");
+                cell.set_symbol(sym)
+                    .set_fg(color)
+                    .set_diff_option(forced_one);
             }
         }
     }
@@ -213,6 +236,10 @@ pub(crate) fn tmux_passthrough() -> bool {
     }
     #[cfg(not(test))]
     {
+        // The GPU window reads graphics straight from the cells.
+        if crate::ui::glass::active() {
+            return false;
+        }
         static TMUX: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *TMUX.get_or_init(|| {
             std::env::var_os("TMUX").is_some()

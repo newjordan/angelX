@@ -1,0 +1,48 @@
+set tower-entry
+# Tower Entry: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: a low table and a candle at (49,155), the stair up (19,3).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# bookcase at 3,4 4x1 (at 27% of its height, for the camera)
+box    wood    at 80 0 72 size 62 6 14 id bookcase
+box    cloth   at 80 0.5 79.25 size 60 5 0.5
+
+# desk at 10,3 4x1 (at 54% of its height, for the camera)
+box    wood    at 192 0 56 size 62 5 14 id desk-1
+box    plaster at 192 5 56 size 63 0.5 15
+
+# desk at 15,9 4x1 (at 64% of its height, for the camera)
+box    wood    at 272 0 152 size 62 5.5 14 id desk-2
+box    plaster at 272 5.5 152 size 63 0.5 15
+
+# rug at 10,6 4x6
+box    rug     at 192 0 144 size 62 0.6 94 id rug
+
+# plate at 19,3 2x1
+box    stone   at 320 0 56 size 30 1.5 14 id plate-1  # TODO prims: stairs
+
+# plate at 11,12 2x1
+box    stone   at 192 0 200 size 30 1.5 14 id plate-2  # TODO prims: stairs
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    cloth   at 76 14 15.75 size 10 26 2.5
+box    window  at 270 22 15.75 size 8 10 2.5

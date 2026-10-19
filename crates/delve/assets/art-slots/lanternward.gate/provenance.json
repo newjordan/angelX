@@ -1,0 +1,16 @@
+{
+  "delivery": "lanternward.gate/v01",
+  "delivery_status": "The delivery's own generation.json says not accepted: its reviewer judged a transparent PNG on a dark viewer and saw a dark backdrop or halo. On a neutral grey the sheet is truly transparent (measured fully_opaque_fraction 0.0) and the importer's alpha >= 128 threshold removes the sub-threshold halo. Accepted by the pilot review on 2026-10-18.",
+  "generation_sha256": "6ab36529ded52e9e85b1829a506f247c8ee02113237abe4ab86ef0763b1f347a",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "570cc76613e0657049840335db2e2efe8df4e4f8549ff30956621be2bb403ab5",
+  "native_contract": "Native 16x16, anchor bottom-centre (8,16).",
+  "notes_sha256": "05027c8fe612b983a906b5657455d870dbb418fa075594c3414941a6421c1ada",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "132cdcd1fc5813badebfca017c1f464d0a654f92cb24c576a45aa9944964bdff",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1; the pilot review found the second generation's bar steps uneven; source-sheet-2.png is kept outside the repo and not used)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.gate/v01/source-sheet.png",
+  "source_sha256": "ec02e83e1b28cfd733c3d44d174d8b7c97b3e2e84953b1cea51d3cf81f1f247d"
+}

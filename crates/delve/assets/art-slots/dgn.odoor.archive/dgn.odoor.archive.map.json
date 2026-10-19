@@ -1,0 +1,391 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    12.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "Side doors rejected after native review; no rotation or misleading closed-looking open cap."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "7278774ce8e93969662894f3f1198f333e89412f506bd4bc939cd56ebeb4c81a",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North barred door, straight-on front elevation.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        52,
+        214,
+        281,
+        248
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North open door and dark passage.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.0,
+        123.5
+      ],
+      "source_rect_xywh": [
+        437,
+        214,
+        280,
+        247
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North half-open barred door.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        819,
+        214,
+        281,
+        248
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "West barred door, viewed as a top-down cap strip.",
+      "name": "west-barred",
+      "piece": 3,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        141.0,
+        71.0
+      ],
+      "source_rect_xywh": [
+        1203,
+        298,
+        282,
+        142
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "West open door, viewed as a top-down cap strip.",
+      "name": "west-open",
+      "piece": 4,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        140.5,
+        70.5
+      ],
+      "source_rect_xywh": [
+        52,
+        739,
+        281,
+        141
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "East barred door, viewed as a top-down cap strip.",
+      "name": "east-barred",
+      "piece": 5,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        140.5,
+        70.5
+      ],
+      "source_rect_xywh": [
+        436,
+        739,
+        281,
+        141
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "East open door, viewed as a top-down cap strip.",
+      "name": "east-open",
+      "piece": 6,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        140.5,
+        70.5
+      ],
+      "source_rect_xywh": [
+        819,
+        739,
+        281,
+        141
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "South barred threshold, viewed from above.",
+      "name": "south-barred",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        141.0,
+        63.5
+      ],
+      "source_rect_xywh": [
+        1203,
+        753,
+        282,
+        127
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "South open threshold, viewed from above.",
+      "name": "south-open",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        142.0,
+        63.0
+      ],
+      "source_rect_xywh": [
+        51,
+        1205,
+        284,
+        126
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down, descending north.",
+      "name": "stairs-down",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        105.0,
+        118.0
+      ],
+      "source_rect_xywh": [
+        472,
+        1119,
+        210,
+        236
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Larger ornate boss seal door, barred and front elevation.",
+      "name": "boss",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.5,
+        139.0
+      ],
+      "source_rect_xywh": [
+        807,
+        1083,
+        305,
+        278
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Top-down floor seal marker.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        88.0,
+        85.5
+      ],
+      "source_rect_xywh": [
+        1257,
+        1164,
+        176,
+        171
+      ],
+      "state": "odoor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.odoor.archive",
+  "source_sha256": "a4685da4fee4cc3401c303dc5a60c20e98128bb80e10155d2a0cfae82f878d4d",
+  "timing": ""
+}

@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3784
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4879
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4283
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7126
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4135
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4029
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4393
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4483
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3460
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6543
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8487
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 13025
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "b5c879c86d33ef1f8b4250b73d5e00d6f9366e7b721f8ceaf9d3366f99f4d532",
+  "metadata_sha256": "64b6145c58fe766e864decaa5976324a22edf66ae7410090cf470a482e21a3a9",
+  "notes_sha256": "8f447afa90700dc6ccbb12b85dc15683dcf230cdd719e116e27a5a07bfa8f3af",
+  "outputs": {
+    "v1/cask.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 421,
+      "piece": 0,
+      "sha256": "7902c216a31248c39defe48df6b9d61bb4da70b3c4cbc0cb166d06473a0fcead",
+      "source_scale": 0.08955223880597014,
+      "state": "cask"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 390,
+      "piece": 1,
+      "sha256": "48cdc2edb1fb41107b68893a66434ded841151197342651972b67db41b4c1310",
+      "source_scale": 0.08888888888888889,
+      "state": "tilted-ready-held-cask-clear-warm-wood-and-broad-hoops"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 376,
+      "piece": 2,
+      "sha256": "bc9d17a37b9ee4e368474a1da2c65a5ef310d1a7e824a976e5eec42feede4148",
+      "source_scale": 0.09917355371900827,
+      "state": "right-facing-airborne-cask-with-hoops-in-perspective"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 27,
+      "opaque_pixels": 338,
+      "piece": 3,
+      "sha256": "d70783e17c0d40d9f032bd216df6c6dbbac85034c1f88481520a2ff3b49d5b00",
+      "source_scale": 0.09266409266409266,
+      "state": "compressed-impact-cask-with-flying-stave-chips-reads-as-impact-t"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 481,
+      "piece": 4,
+      "sha256": "85abc971a06cca6ed5bf5eeab3693d94f2e67cfdc87d0b711644fd8deaf53fb3",
+      "source_scale": 0.0975609756097561,
+      "state": "end-facing-cask-showing-the-circular-stave-end-and-hoop-construc"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 397,
+      "piece": 5,
+      "sha256": "e1f2604258382596d06b716a44682a104d998528d4cdfab8e78bc733d7fc0b2a",
+      "source_scale": 0.09022556390977443,
+      "state": "sideways-contact-roll-pose-with-the-end-cap-visible"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 438,
+      "piece": 6,
+      "sha256": "c60bcfdde516a82d4dcb4d96a94fe55c1523ec5a2760865b8b86519a8dd846ea",
+      "source_scale": 0.09195402298850575,
+      "state": "chipped-damaged-upright-cask"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 33,
+      "opaque_pixels": 455,
+      "piece": 7,
+      "sha256": "3cf7c3e4a8a1a46346afc5cd870c5476aca82be920f8ba7f638b92e7b5b0db0a",
+      "source_scale": 0.0933852140077821,
+      "state": "more-heavily-battered-cask-with-skewed-buckled-hoops"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 326,
+      "piece": 8,
+      "sha256": "53627d5ab8532e21ee05fe655f4b120272f12777df60014adccdfe150829021e",
+      "source_scale": 0.10810810810810811,
+      "state": "detached-wooden-cask-lid"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 215,
+      "piece": 9,
+      "sha256": "d4e89b66537e9d1d2f44f0c8c12e6f0d52262064feec4c5f878078bc24c31b91",
+      "source_scale": 0.09716599190283401,
+      "state": "detached-metal-hoop"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 13,
+      "opaque_pixels": 109,
+      "piece": 10,
+      "sha256": "c4a8633c9b7aa44e6876c6dec3aa9a033d490d8f04ec02b42a3667c498349b96",
+      "source_scale": 0.09056603773584905,
+      "state": "detached-throw-streak-stylized-cream-motion-sweep-with-bead-like"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 152,
+      "piece": 11,
+      "sha256": "1db576e57807c3e7d7c91b0060d57a4aa58e2555dbcd0efa5b23e79216fefc75",
+      "source_scale": 0.09716599190283401,
+      "state": "detached-slam-crown-with-wood-fragments"
+    },
+    "v2/cask.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 421,
+      "piece": 0,
+      "sha256": "7902c216a31248c39defe48df6b9d61bb4da70b3c4cbc0cb166d06473a0fcead",
+      "source_scale": 0.08955223880597014,
+      "state": "cask"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 390,
+      "piece": 1,
+      "sha256": "48cdc2edb1fb41107b68893a66434ded841151197342651972b67db41b4c1310",
+      "source_scale": 0.08888888888888889,
+      "state": "tilted-ready-held-cask-clear-warm-wood-and-broad-hoops"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 376,
+      "piece": 2,
+      "sha256": "bc9d17a37b9ee4e368474a1da2c65a5ef310d1a7e824a976e5eec42feede4148",
+      "source_scale": 0.09917355371900827,
+      "state": "right-facing-airborne-cask-with-hoops-in-perspective"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 27,
+      "opaque_pixels": 338,
+      "piece": 3,
+      "sha256": "d70783e17c0d40d9f032bd216df6c6dbbac85034c1f88481520a2ff3b49d5b00",
+      "source_scale": 0.09266409266409266,
+      "state": "compressed-impact-cask-with-flying-stave-chips-reads-as-impact-t"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 481,
+      "piece": 4,
+      "sha256": "85abc971a06cca6ed5bf5eeab3693d94f2e67cfdc87d0b711644fd8deaf53fb3",
+      "source_scale": 0.0975609756097561,
+      "state": "end-facing-cask-showing-the-circular-stave-end-and-hoop-construc"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 397,
+      "piece": 5,
+      "sha256": "e1f2604258382596d06b716a44682a104d998528d4cdfab8e78bc733d7fc0b2a",
+      "source_scale": 0.09022556390977443,
+      "state": "sideways-contact-roll-pose-with-the-end-cap-visible"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 438,
+      "piece": 6,
+      "sha256": "c60bcfdde516a82d4dcb4d96a94fe55c1523ec5a2760865b8b86519a8dd846ea",
+      "source_scale": 0.09195402298850575,
+      "state": "chipped-damaged-upright-cask"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 33,
+      "opaque_pixels": 455,
+      "piece": 7,
+      "sha256": "3cf7c3e4a8a1a46346afc5cd870c5476aca82be920f8ba7f638b92e7b5b0db0a",
+      "source_scale": 0.0933852140077821,
+      "state": "more-heavily-battered-cask-with-skewed-buckled-hoops"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 326,
+      "piece": 8,
+      "sha256": "53627d5ab8532e21ee05fe655f4b120272f12777df60014adccdfe150829021e",
+      "source_scale": 0.10810810810810811,
+      "state": "detached-wooden-cask-lid"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 215,
+      "piece": 9,
+      "sha256": "d4e89b66537e9d1d2f44f0c8c12e6f0d52262064feec4c5f878078bc24c31b91",
+      "source_scale": 0.09716599190283401,
+      "state": "detached-metal-hoop"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 13,
+      "opaque_pixels": 109,
+      "piece": 10,
+      "sha256": "c4a8633c9b7aa44e6876c6dec3aa9a033d490d8f04ec02b42a3667c498349b96",
+      "source_scale": 0.09056603773584905,
+      "state": "detached-throw-streak-stylized-cream-motion-sweep-with-bead-like"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 152,
+      "piece": 11,
+      "sha256": "1db576e57807c3e7d7c91b0060d57a4aa58e2555dbcd0efa5b23e79216fefc75",
+      "source_scale": 0.09716599190283401,
+      "state": "detached-slam-crown-with-wood-fragments"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "brasswake.cask",
+  "source_path": "/work/artifacts/art-prod/slots/brasswake.cask/v01/source-sheet.png",
+  "source_sha256": "1cc9b0186eb6dce983d84666bfe4752465f624213bf57673297d3cf764552401",
+  "tool_version": 2
+}

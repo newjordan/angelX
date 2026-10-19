@@ -1,0 +1,1152 @@
+[
+ {
+  "id": "lanternward.hero",
+  "label": "KNIGHT",
+  "size": [
+   32,
+   32
+  ],
+  "anchor": [
+   16,
+   32
+  ],
+  "collision": {
+   "kind": "circle",
+   "r": 5
+  },
+  "shape": "box",
+  "fill": "u",
+  "ink": "W",
+  "states": {
+   "idle": [
+    12,
+    12
+   ],
+   "run": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "strafe": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "hop": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "flip": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "slash-1": [
+    2,
+    2,
+    3,
+    3,
+    3
+   ],
+   "slash-2": [
+    2,
+    2,
+    3,
+    3,
+    3
+   ],
+   "slash-3": [
+    4,
+    4,
+    4,
+    6,
+    6
+   ],
+   "lunge": [
+    3,
+    3,
+    3,
+    3,
+    4,
+    4
+   ],
+   "charge": [
+    6,
+    6
+   ],
+   "spin": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "jump-attack": [
+    2,
+    2,
+    2,
+    4,
+    4
+   ],
+   "block": [
+    6,
+    6
+   ],
+   "parry": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "hurt": [
+    5,
+    5
+   ],
+   "item-get": [
+    20,
+    20,
+    20
+   ],
+   "down": [
+    12,
+    12
+   ],
+   "fall": [
+    6,
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "Seat colours by recolour; every state faces right, the stage flips for left. Until painted the Delve's own knight stands in."
+ },
+ {
+  "id": "lanternward.snuffer",
+  "label": "SNUF",
+  "size": [
+   18,
+   20
+  ],
+  "anchor": [
+   9,
+   20
+  ],
+  "collision": {
+   "kind": "circle",
+   "r": 6
+  },
+  "shape": "round",
+  "fill": "s",
+  "ink": "3",
+  "states": {
+   "idle": [
+    10,
+    10
+   ],
+   "drift": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "tell": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "lunge": [
+    4,
+    4
+   ],
+   "recover": [
+    14,
+    14
+   ],
+   "hit": [
+    4,
+    4
+   ],
+   "stagger": [
+    10,
+    10
+   ],
+   "die": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "hooded": [
+    10,
+    10
+   ]
+  },
+  "placeholder": true,
+  "note": "A hooded wisp with a wick-stub tail and two pale eyes. Hooded is the Gloam cloak a blade passes through."
+ },
+ {
+  "id": "lanternward.turret",
+  "label": "TURRET",
+  "size": [
+   22,
+   24
+  ],
+  "anchor": [
+   11,
+   24
+  ],
+  "collision": {
+   "kind": "circle",
+   "r": 8
+  },
+  "shape": "box",
+  "fill": "g",
+  "ink": "O",
+  "states": {
+   "idle": [
+    12,
+    12
+   ],
+   "tell": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "fire": [
+    3,
+    3
+   ],
+   "recover": [
+    15,
+    15,
+    15,
+    15
+   ],
+   "stun": [
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "Iron-bound; the tell glows through the aim."
+ },
+ {
+  "id": "lanternward.warden",
+  "label": "WARDEN",
+  "size": [
+   48,
+   56
+  ],
+  "anchor": [
+   24,
+   56
+  ],
+  "collision": {
+   "kind": "circle",
+   "r": 18
+  },
+  "shape": "box",
+  "fill": "G",
+  "ink": "6",
+  "states": {
+   "sleep": [
+    30
+   ],
+   "idle": [
+    12,
+    12
+   ],
+   "walk": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "beam-tell": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "beam": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "slam-tell": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "slam": [
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "summon": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "hit": [
+    3,
+    3
+   ],
+   "rear": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "stagger": [
+    10,
+    10,
+    10
+   ],
+   "die": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "heart-shut": [
+    12
+   ],
+   "heart-open": [
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "A hulking lantern-bearer; the lamp-heart is a separate overlay (heart-shut, heart-open) at the chest."
+ },
+ {
+  "id": "lanternward.brazier",
+  "label": "BRAZ",
+  "size": [
+   14,
+   20
+  ],
+  "anchor": [
+   7,
+   20
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "R",
+  "ink": "4",
+  "states": {
+   "out": [
+    12
+   ],
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "gutter": [
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.rest",
+  "label": "REST",
+  "size": [
+   14,
+   20
+  ],
+  "anchor": [
+   7,
+   20
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "O",
+  "ink": "6",
+  "states": {
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "The checkpoint brazier; always lit."
+ },
+ {
+  "id": "lanternward.ember",
+  "label": "EMBER",
+  "size": [
+   14,
+   12
+  ],
+  "anchor": [
+   7,
+   12
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "round",
+  "fill": "B",
+  "ink": "4",
+  "states": {
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "The ember bowl a flame is taken from."
+ },
+ {
+  "id": "lanternward.great",
+  "label": "GREAT",
+  "size": [
+   16,
+   22
+  ],
+  "anchor": [
+   8,
+   22
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "p",
+  "ink": "5",
+  "states": {
+   "out": [
+    12
+   ],
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "Behind bars; only a thrown bolt reaches it."
+ },
+ {
+  "id": "lanternward.chest",
+  "label": "CHEST",
+  "size": [
+   16,
+   12
+  ],
+  "anchor": [
+   8,
+   12
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "B",
+  "ink": "5",
+  "states": {
+   "closed": [
+    12
+   ],
+   "open": [
+    12
+   ],
+   "hidden": [
+    12
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.pot",
+  "label": "POT",
+  "size": [
+   10,
+   11
+  ],
+  "anchor": [
+   5,
+   11
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "round",
+  "fill": "r",
+  "ink": "O",
+  "states": {
+   "whole": [
+    12
+   ],
+   "broken": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.grass",
+  "label": "GRASS",
+  "size": [
+   16,
+   14
+  ],
+  "anchor": [
+   8,
+   14
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "tuft",
+  "fill": "m",
+  "ink": "Y",
+  "states": {
+   "tuft": [
+    12,
+    12
+   ],
+   "cut": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.sign",
+  "label": "SIGN",
+  "size": [
+   10,
+   15
+  ],
+  "anchor": [
+   5,
+   15
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "P",
+  "ink": "T",
+  "states": {
+   "idle": [
+    12
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.crystal",
+  "label": "CRYSTAL",
+  "size": [
+   10,
+   16
+  ],
+  "anchor": [
+   5,
+   16
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "tall",
+  "fill": "q",
+  "ink": "3",
+  "states": {
+   "dormant": [
+    12,
+    12
+   ],
+   "lit": [
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "A switch. Wakes to a thrown or a reflected bolt."
+ },
+ {
+  "id": "lanternward.gate",
+  "label": "GATE",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "j",
+  "ink": "h",
+  "states": {
+   "closed": [
+    12
+   ],
+   "open": [
+    6
+   ],
+   "opening": [
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "Bars across a doorway."
+ },
+ {
+  "id": "lanternward.plate",
+  "label": "PLATE",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "box",
+  "fill": "S",
+  "ink": "O",
+  "states": {
+   "up": [
+    12
+   ],
+   "down": [
+    12
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.block",
+  "label": "BLOCK",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "square",
+   "half": 8
+  },
+  "shape": "box",
+  "fill": "J",
+  "ink": "i",
+  "states": {
+   "idle": [
+    12
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.cracked",
+  "label": "CRACK",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "G",
+  "ink": "k",
+  "states": {
+   "intact": [
+    12
+   ],
+   "blown": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.lock",
+  "label": "LOCK",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "I",
+  "ink": "6",
+  "states": {
+   "locked": [
+    12
+   ],
+   "open": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "The small-key door."
+ },
+ {
+  "id": "lanternward.boss-door",
+  "label": "BOSS",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "n",
+  "ink": "7",
+  "states": {
+   "chained": [
+    12
+   ],
+   "open": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "The Boss Key door."
+ },
+ {
+  "id": "lanternward.sigil",
+  "label": "SIGIL",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "0",
+  "ink": "3",
+  "states": {
+   "hidden": [
+    12
+   ],
+   "revealing": [
+    4,
+    4,
+    4
+   ],
+   "found": [
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.beacon",
+  "label": "BEACON",
+  "size": [
+   24,
+   36
+  ],
+  "anchor": [
+   12,
+   36
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "tall",
+  "fill": "g",
+  "ink": "6",
+  "states": {
+   "cold": [
+    12
+   ],
+   "kindling": [
+    6,
+    6
+   ],
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.fissure",
+  "label": "FISSURE",
+  "size": [
+   14,
+   10
+  ],
+  "anchor": [
+   7,
+   10
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "k",
+  "ink": "7",
+  "states": {
+   "shut": [
+    12
+   ],
+   "open": [
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.heart",
+  "label": "HEART",
+  "size": [
+   7,
+   7
+  ],
+  "anchor": [
+   3,
+   7
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "7",
+  "ink": "7",
+  "states": {
+   "idle": [
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.gem",
+  "label": "GEM",
+  "size": [
+   6,
+   7
+  ],
+  "anchor": [
+   3,
+   7
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "4",
+  "ink": "6",
+  "states": {
+   "idle": [
+    6,
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.bomb",
+  "label": "BOMB",
+  "size": [
+   8,
+   9
+  ],
+  "anchor": [
+   4,
+   9
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "k",
+  "ink": "7",
+  "states": {
+   "idle": [
+    8
+   ],
+   "fuse": [
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.container",
+  "label": "HEARTC",
+  "size": [
+   12,
+   12
+  ],
+  "anchor": [
+   6,
+   12
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "7",
+  "ink": "5",
+  "states": {
+   "idle": [
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.bolt",
+  "label": "BOLT",
+  "size": [
+   6,
+   6
+  ],
+  "anchor": [
+   3,
+   6
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "g",
+  "ink": "O",
+  "states": {
+   "iron": [
+    4
+   ],
+   "light": [
+    3,
+    3
+   ],
+   "bright": [
+    2,
+    2
+   ],
+   "dim": [
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.wisp",
+  "label": "WISP",
+  "size": [
+   8,
+   10
+  ],
+  "anchor": [
+   4,
+   10
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "6",
+  "ink": "w",
+  "states": {
+   "idle": [
+    8,
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": "The hint companion: a floating wick-wisp."
+ },
+ {
+  "id": "lanternward.folk",
+  "label": "FOLK",
+  "size": [
+   12,
+   18
+  ],
+  "anchor": [
+   6,
+   18
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "e",
+  "ink": "Y",
+  "states": {
+   "idle": [
+    12,
+    12
+   ],
+   "talk": [
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": "A kingsman of the Keep; E talks."
+ },
+ {
+  "id": "lanternward.lever",
+  "label": "LEVER",
+  "size": [
+   12,
+   14
+  ],
+  "anchor": [
+   6,
+   14
+  ],
+  "collision": {
+   "kind": "tile"
+  },
+  "shape": "box",
+  "fill": "G",
+  "ink": "6",
+  "states": {
+   "up": [
+    12
+   ],
+   "pulled": [
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": ""
+ },
+ {
+  "id": "lanternward.mark",
+  "label": "LOCK",
+  "size": [
+   10,
+   10
+  ],
+  "anchor": [
+   5,
+   10
+  ],
+  "collision": {
+   "kind": "none"
+  },
+  "shape": "round",
+  "fill": "6",
+  "ink": "5",
+  "states": {
+   "idle": [
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "The wick-spark over a locked target."
+ }
+]

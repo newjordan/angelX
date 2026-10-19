@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.crypt-tax-keeper.tell/v01/source-sheet.png",
+  "source_sha256": "5d7e977d529ca05b8c91e676b02018463f7662e27e470710b91732d44defa346",
+  "original_sheet_sha256": "5d7e977d529ca05b8c91e676b02018463f7662e27e470710b91732d44defa346",
+  "metadata_sha256": "d003b577f9808d953a8005a33c069b32367aaeadd8bbff6c372fd644a2c9cb11",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        402,
+        243,
+        149,
+        139
+      ],
+      "alpha_area": 12019,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "2598e76f495aeacf44b8fb33ff243a45b1db6f7f6dd0a2fdda3ed6d529672784"
+    },
+    {
+      "source_rect_xywh": [
+        1005,
+        190,
+        200,
+        217
+      ],
+      "alpha_area": 24583,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "d930a69d8582fb26b71f0d85659e5a3e301526c82ee0e657bc61fb49fa42c35d"
+    },
+    {
+      "source_rect_xywh": [
+        132,
+        273,
+        99,
+        103
+      ],
+      "alpha_area": 5029,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "9fa1c4d7ff5e6155569accfe3c88040e6849cadd343417efee85dc0aff4c9133"
+    },
+    {
+      "source_rect_xywh": [
+        701,
+        224,
+        182,
+        185
+      ],
+      "alpha_area": 18184,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "745d111b3ecd08b279d51614a965e909deca0ad0db0c2a5075264112b4e4ab40"
+    },
+    {
+      "source_rect_xywh": [
+        109,
+        639,
+        126,
+        95
+      ],
+      "alpha_area": 5371,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "41534bf6f77c59b7ec814ae9786c816bb76cdad15f26c0dc6b914fa32be1ccfb"
+    },
+    {
+      "source_rect_xywh": [
+        396,
+        601,
+        165,
+        144
+      ],
+      "alpha_area": 10772,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "fa0c748beef9657a24d54cb8a7efd05047a05dac06bac18bf9f5b5b8b7edff2e"
+    },
+    {
+      "source_rect_xywh": [
+        672,
+        591,
+        232,
+        148
+      ],
+      "alpha_area": 15766,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "28f29bd369cd8312b96146752ac6a552ff2dd118fed73ce6183a81cb98632f0d"
+    },
+    {
+      "source_rect_xywh": [
+        977,
+        566,
+        245,
+        195
+      ],
+      "alpha_area": 22274,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "2a58303d625ae756609405229372dac43be67576d950154a4f6255413599b763"
+    },
+    {
+      "source_rect_xywh": [
+        109,
+        955,
+        145,
+        159
+      ],
+      "alpha_area": 8539,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "f288c0ab0e4393e95ab47f1fc1cae4ce23640afeb4e91b1269a9311284e9ef3c"
+    },
+    {
+      "source_rect_xywh": [
+        446,
+        992,
+        89,
+        98
+      ],
+      "alpha_area": 3389,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "9688a47d9180f529d97d2aedd8487c05b26cebf22e0316f1bfb631559f42e1ee"
+    },
+    {
+      "source_rect_xywh": [
+        752,
+        1036,
+        75,
+        41
+      ],
+      "alpha_area": 1145,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "803314f40af966f59723feb84e1aa251fbc861ce2fa879364fed60f64853fe5a"
+    },
+    {
+      "source_rect_xywh": [
+        1090,
+        1029,
+        27,
+        27
+      ],
+      "alpha_area": 562,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "adbe3c9286281d55c5323ab01732c99d28302f98e8837fd0bc5ba40b20046054"
+    }
+  ]
+}

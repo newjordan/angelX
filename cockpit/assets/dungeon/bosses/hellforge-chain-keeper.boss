@@ -6,7 +6,8 @@ hp 620
 size 1.4
 move chase speed=1.2
 attack aimed shots=3 speed=6 every=80 damage=10 shot=ember
-phases lead crossfire every=91 volleys=2 damage=10
+phases drift crossfire every=100 volleys=2 damage=10
+windup charge every=200 damage=14 speed=30 cry=CLANK
 rage 35%
 drops gold 110, gem 1
 art

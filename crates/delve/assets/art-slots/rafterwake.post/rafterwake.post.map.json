@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    14,
+    36
+  ],
+  "anchor_xy": [
+    7,
+    18
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Decorative only; never imply a new solid wall or hide ladder/plank edges.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "d25762cbda034502030fc16065986272b5a1408d51f0afe6ae60ebc84d2f52c6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Plain intact straight dark timber post.",
+      "name": "post",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        43.5,
+        163.0
+      ],
+      "source_rect_xywh": [
+        120,
+        57,
+        87,
+        326
+      ],
+      "state": "post"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Post with upper iron tie band.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        44.5,
+        163.0
+      ],
+      "source_rect_xywh": [
+        424,
+        57,
+        89,
+        326
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Post with lower iron tie band.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        43.5,
+        163.0
+      ],
+      "source_rect_xywh": [
+        739,
+        57,
+        87,
+        326
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Post with a small attached diagonal timber brace.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        69.5,
+        163.0
+      ],
+      "source_rect_xywh": [
+        1050,
+        57,
+        139,
+        326
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Post with a modest upper joint/cap detail.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        49.0,
+        172.0
+      ],
+      "source_rect_xywh": [
+        110,
+        450,
+        98,
+        344
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Post with a flared iron base foot.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        58.5,
+        164.5
+      ],
+      "source_rect_xywh": [
+        412,
+        461,
+        117,
+        329
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Post with upper tie and flared base foot.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        58.5,
+        170.0
+      ],
+      "source_rect_xywh": [
+        725,
+        450,
+        117,
+        340
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Post with lightly nicked edges.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        45.5,
+        166.0
+      ],
+      "source_rect_xywh": [
+        1051,
+        461,
+        91,
+        332
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Post with a prominent diagonal split/crack.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        44.5,
+        164.0
+      ],
+      "source_rect_xywh": [
+        118,
+        859,
+        89,
+        328
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Post with a middle iron tie band.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        45.5,
+        164.5
+      ],
+      "source_rect_xywh": [
+        425,
+        858,
+        91,
+        329
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Darker, older timber post.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        45.5,
+        164.5
+      ],
+      "source_rect_xywh": [
+        739,
+        858,
+        91,
+        329
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Isolated iron tie plate and rivets.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        85.0,
+        39.5
+      ],
+      "source_rect_xywh": [
+        1013,
+        985,
+        170,
+        79
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "14\u00d736, at x=2/238 every 36 px down the 254\u00d7620 backdrop; top-left pivot (0,0).",
+  "sizes": {
+    "v1": [
+      14,
+      36
+    ],
+    "v2": [
+      14,
+      36
+    ]
+  },
+  "slot": "rafterwake.post",
+  "source_sha256": "743dcfd9e2ab3ad5a5536e1ee4efdf4abc3fc11cde3f6db4fedb97e253b4c4b9",
+  "timing": "Static tiles in backdrop()."
+}

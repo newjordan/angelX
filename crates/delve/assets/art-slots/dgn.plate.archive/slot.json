@@ -1,0 +1,66 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata"
+  ],
+  "map_sha256": "341c5e0146c78ba0f775637c291fe02c27cec9d50fb3066bc6e3a08e8a3ec45b",
+  "metadata_sha256": null,
+  "notes_sha256": "259b69f7fe1f29a7e487717a19aeed043efe51c8756733d7d0c6e7a3a7118e51",
+  "outputs": {
+    "v1/plate.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "sha256": "42e763b96db2ed8041622995d7b0841a94aad568092f1655e799c8eeca5e8173",
+      "source_scale": 0.22966507177033493,
+      "state": "plate"
+    },
+    "v2/plate.png": {
+      "anchor_xy": [
+        384,
+        224
+      ],
+      "approved": true,
+      "canvas_wh": [
+        768,
+        448
+      ],
+      "colour_agreement": 0.9999,
+      "frame": 0,
+      "half_cell_coverage": 21504,
+      "opaque_pixels": 344064,
+      "piece": 0,
+      "sha256": "62486499c476d6b6f230613c386260539a3753c2ff28874d9df1bf24dda1cb66",
+      "source_scale": 0.45933014354066987,
+      "state": "plate"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "dgn.plate.archive",
+  "source_path": "/work/artifacts/art-prod/slots/dgn.plate.archive/v01/source-sheet.png",
+  "source_sha256": "be9694c572d8a0f7c05ae8cdc6b9202bd44edf302c61943e6bc5c6a23d8363d8",
+  "tool_version": 2
+}

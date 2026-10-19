@@ -1,0 +1,130 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    96
+  ],
+  "anchor_xy": [
+    40,
+    96
+  ],
+  "comments": [
+    "Registered as one bank on the bottom of the round base. The lit crop has the ajar door 14 source pixels below the base line; a reviewed sub-crop ends it on the line shared with the other two (the door tip is the only thing cut). Painted 60 of 80 px wide.",
+    "Left OFF at runtime (runtime false): the door is painted on the south face, at the bottom, but the rules and the stage put the south tower's door on its NORTH face (the doorstep tile is the row above the footprint, SOUTH_DOOR in rules/moonfall/town.rs), so the picture would show a door nobody can use and hide the one that works. The bank is staged, approved by eye and ready if a north-door redraw arrives.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 7e623e) to an olive ink (69793e) and the dark brown outline (source about 251f1b) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: day-0, night-0 (door barred), lit-0 (door ajar). The crops are tight and separated by empty columns 502-524 and 1011-1035.",
+  "notes_sha256": "e788f2d1b706cabdf70252e9acb92c0848ad80d0f3ccf05c641cd80d498a7e04",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: pale blue-grey glass, closed plank door at the bottom (south face), bell in the open timber belfry, an empty iron basket.",
+      "name": "day-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": false,
+      "source_pivot_xy": [
+        242.5,
+        775
+      ],
+      "source_rect_xywh": [
+        17,
+        120,
+        485,
+        775
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: deep indigo glass, the door barred with planks, no light.",
+      "name": "night-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": false,
+      "source_pivot_xy": [
+        242.5,
+        775
+      ],
+      "source_rect_xywh": [
+        525,
+        120,
+        486,
+        775
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber glass, door ajar with an amber slice, amber lantern on the belfry.",
+      "name": "lit-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          0,
+          484,
+          775
+        ]
+      },
+      "runtime": false,
+      "source_pivot_xy": [
+        242,
+        775
+      ],
+      "source_rect_xywh": [
+        1036,
+        120,
+        484,
+        789
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 80x96, anchor bottom-centre (40,96); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "sizes": {
+    "v1": [
+      80,
+      96
+    ],
+    "v2": [
+      80,
+      96
+    ]
+  },
+  "slot": "moonfall.tower-south",
+  "source_sha256": "ac014fe0591a6b85cdf2b61a889b622a75d73d626d803ca283fc182ae724e803",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

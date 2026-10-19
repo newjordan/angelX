@@ -1,0 +1,23 @@
+power wish:volley 3
+teacher Sela Three-Arrows
+place Old Watch
+room Crag
+look a lean woman in a watch-coat gone green at the seams, three goose-fletched arrows in her hatband
+line One arrow is a question. Three is a conversation.
+hook The level-2 card gains one line: ...and a small mark of three flames, points inward, scratched under the fletching.
+step Watchman's rounds | stand a full night watch with Sela in the Old Watch tower | nights_watch_stood 1 | Three abreast. That's how they came home. | cue stand
+step The goose argument | win a Trencher Toss round at Goose Green | pastime_rounds_won 1 | Even the goose. Especially the goose. | needs pastime_rounds_won
+step The Fellowship's range | clear the hedge maze's heart loosing only triple volleys | volley_targets_hit 3 | Feed them first, then loose. | cue volley
+step The quarrel, retold | buy Sela's old seat one drink at Maud's and listen | tavern_tales_heard 1 | You've heard it from the ground now. Mine has more weather in it. | cue tale
+trial Three abreast | fell a hall's monsters with three-in-one-volley kills only | volley_pure_halls 1 | Conversation over.
+reward Volley tier 3
+title Three-Arrow
+keepsake the Watchband, a goose-feather band for the wrist, three plumes
+ties Goose Green is Goodwife Barley's and Pib's ground; the beacon pool is Gil's first lamp; the tavern is Old Carom's.
+art
+..b8b..
+.b888b.
+..888..
+.b.8.b.
+..b8b..
+...8...

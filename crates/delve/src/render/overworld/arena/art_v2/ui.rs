@@ -161,10 +161,9 @@ pub(super) fn result(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
         }
     }
     well(cv, 16.0, 11.0, 352.0, 202.0);
-    cv.text(30.0, 24.0, "PRIVY DASH", 'T');
+    cv.text(30.0, 24.0, "PRIVY DASH", 'O');
     let name = h
-        .knight_name()
-        .unwrap_or_else(|| h.name.clone())
+        .shown_name()
         .to_uppercase();
     cv.text(155.0, 24.0, &name.chars().take(16).collect::<String>(), 'i');
     let seconds = |t: u32| {
@@ -174,7 +173,7 @@ pub(super) fn result(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
         )
     };
     let time = seconds(r.total);
-    cv.text(354.0 - text_width(&time) as f32, 24.0, &time, 'T');
+    cv.text(354.0 - text_width(&time) as f32, 24.0, &time, 'O');
     cv.rect(24.0, 42.0, 336.0, 108.0, art::BLACK);
     for i in 0..4 {
         let x = 42.0 + i as f32 * 80.0;
@@ -244,7 +243,7 @@ pub(super) fn result(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
     // Wide enough for a seven-letter name and its time, the times flush
     // right, so a long name never runs into its number.
     well(cv, 278.0, 82.0, 82.0, 48.0);
-    cv.text(284.0, 87.0, "PARTY BEST", 'T');
+    cv.text(284.0, 87.0, "PARTY BEST", 'O');
     for (i, b) in run.pits.ranked().iter().take(3).enumerate() {
         cv.text(
             284.0,
@@ -257,7 +256,7 @@ pub(super) fn result(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
     }
     let label = r.quality.word();
     let mut title = Img::new(text_width(label), 7);
-    title.text(0, 0, label, 'T');
+    title.text(0, 0, label, 'O');
     let title = super::super::enlarge(&title, 2.0);
     cv.stamp(&title, (384 - title.w) as f32 * 0.5, 164.0, true);
     center(
@@ -289,7 +288,8 @@ pub(super) fn stamp_overlay(cv: &mut Canvas, over: &Img) {
             }
         }
     }
-    cv.stamp(&styled, 0.0, 0.0, true);
+    // The screen's marks keep their samples under the atmosphere.
+    cv.stamp_kept(&styled);
 }
 
 pub(super) fn race_board(cv: &mut Canvas, race: &crate::rules::chariot::Chariot) {
@@ -302,7 +302,7 @@ pub(super) fn race_board(cv: &mut Canvas, race: &crate::rules::chariot::Chariot)
     let order = race.order();
     let place = 1 + order.iter().position(|&i| i == 0).unwrap_or(0);
     well(cv, 4.0, 4.0, 228.0, 39.0);
-    cv.text(12.0, 10.0, &race.call().to_uppercase(), 'T');
+    cv.text(12.0, 10.0, &race.call().to_uppercase(), 'O');
     cv.text(
         12.0,
         21.0,

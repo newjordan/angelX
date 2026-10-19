@@ -1,0 +1,48 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  3,
+  6
+ ],
+ "pieces": [
+  {
+   "name": "iron-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "light-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "light-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "bright-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "bright-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "dim-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  }
+ ]
+}

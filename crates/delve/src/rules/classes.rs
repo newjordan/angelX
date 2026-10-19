@@ -19,12 +19,14 @@ pub struct Class {
     pub hand: Option<&'static [&'static str]>,
 }
 
-pub const CLASSES: [Class; 7] = [
+pub const CLASSES: [Class; 9] = [
     Class { name: "Archer", hall: "Rookery", kit: "percival", ink: 'l', spells: &[], hand: None },
     Class { name: "Shieldmaiden", hall: "Gatehouse", kit: "lynette", ink: 'Q', spells: &[], hand: None },
     Class { name: "Gunner", hall: "Smithy", kit: "gareth", ink: '7', spells: &[], hand: None },
     Class { name: "Swordsman", hall: "Round Table", kit: "galahad", ink: 'W', spells: &[], hand: None },
     Class { name: "Berserker", hall: "Mines", kit: "ironbraid", ink: 'R', spells: &[], hand: None },
+    Class { name: "Peasant", hall: "Homecoming", kit: "peasant", ink: 'O', spells: &[], hand: None },
+    Class { name: "Bard", hall: "Scriptorium", kit: "bard", ink: '4', spells: &[], hand: None },
     Class {
         name: "Mage",
         hall: "Labyrinth College",
@@ -51,6 +53,7 @@ pub fn shot_look(hero: &Hero) -> Option<(String, String)> {
     let (colour, shape) = match of(hero)?.name {
         "Mage" => (ARCANE, "bolt"),
         "Healer" => (HOLY, "spark"),
+        "Bard" => ("gold", "note"),
         _ => return None,
     };
     Some((colour.to_string(), shape.to_string()))
@@ -65,6 +68,7 @@ pub fn shot_sound(hero: &Hero) -> Option<&'static str> {
     match of(hero)?.name {
         "Mage" => Some("shot_arcane"),
         "Healer" => Some("shot_spark"),
+        "Bard" => Some("shot_spark"),
         _ => None,
     }
 }
@@ -236,6 +240,8 @@ impl Run {
         hero.max_hp = kit.max_hp + hero.home_hp;
         hero.hp = ((hero.max_hp as f32 * share).round() as u32).clamp(1, hero.max_hp);
         hero.knight = Some(kit.id.to_string());
+        hero.flee_ticks = 0;
+        if hero.peasant() { hero.armor = 0; }
         let name = hero.name.to_uppercase();
         self.sounds.push("play_card");
         self.found = Some((

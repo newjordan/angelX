@@ -91,6 +91,33 @@ Great Forge, his grandsire's, stands cold at the end of his hall, the crown
 of all the others, waiting for the first fire. When it burns, the
 underground is the kingdom's.
 
+### The runic script
+
+Accelerando is the runic script of Caer Dwfn. The dwarfs cut its angular
+strokes into stone and metal: over Brannoc's hall, on forge seals and
+dwarf-forged weapons, along mine shafts, and on tablets in abandoned halls.
+Their writing survives where their fires went out.
+
+Each authored inscription carries an actual message and keeps its readable
+source text. A forge seal names a maker and an oath; a mine marker names a
+shaft and warns what lies beyond it; a recovered tablet preserves part of
+the kingdom's history. The visual alphabet and reversible text encoding
+come from [Accelerando-8192](https://github.com/gillverd/accelerando-8192).
+
+Outside the rebuilt gate-hall, a board on two timber posts reads
+*accelerando spoken here*. Its six glyphs are drawn directly from the
+Accelerando alphabet; the inscription asset keeps the source phrase, token
+IDs, glyph strokes and upstream revision together.
+
+![The rebuilt gate-hall and its Accelerando sign, captured by the game renderer](images/realm/accelerando-hall.png)
+
+Planned inscription encounters let the company learn recurring words such
+as *forge*, *home*, *danger* and *oath* through repeated signs and their
+translations. Brannoc can read longer passages, and recovered lexicons can
+open more of the old writing. Reclaiming the halls also means recovering
+the dwarfs' written history. Other inscriptions and translation progression
+are future game work.
+
 ## Home: the Undercroft
 
 The company lives in the cellar under the Delve's gate. Tobbin keeps his

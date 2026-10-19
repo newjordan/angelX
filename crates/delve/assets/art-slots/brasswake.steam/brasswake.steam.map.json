@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Review: first row is one complete four-frame cycle; repeated rows stay unwired. Clamp hot highlights in cache and keep exact danger borders above decoration.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Foe::danger/draw exact rush borders own the 96\u00d720 footprint and safe space; preserve direction arrows.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "b3dd568aba40878a913ea0e7f15a09e57d083e940a7cf917dfe10091f48f6b17",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Initial small curl, right-pointing.",
+      "name": "effects-steam-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        87.0,
+        57.0
+      ],
+      "source_rect_xywh": [
+        41,
+        249,
+        174,
+        114
+      ],
+      "state": "effects-steam-0"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Expanding low front with a longer leading edge.",
+      "name": "effects-steam-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.5,
+        76.5
+      ],
+      "source_rect_xywh": [
+        306,
+        210,
+        243,
+        153
+      ],
+      "state": "effects-steam-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Largest peak front, broad curl and dense point.",
+      "name": "effects-steam-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.5,
+        91.5
+      ],
+      "source_rect_xywh": [
+        586,
+        192,
+        319,
+        183
+      ],
+      "state": "effects-steam-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Breaking front with detached trailing lobes.",
+      "name": "effects-steam-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.5,
+        80.0
+      ],
+      "source_rect_xywh": [
+        943,
+        210,
+        275,
+        160
+      ],
+      "state": "effects-steam-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Slightly taller compact start.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        95.5,
+        74.5
+      ],
+      "source_rect_xywh": [
+        40,
+        563,
+        191,
+        149
+      ],
+      "state": "slightly-taller-compact-start"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Growing forward thrust.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        82.0
+      ],
+      "source_rect_xywh": [
+        296,
+        548,
+        262,
+        164
+      ],
+      "state": "growing-forward-thrust"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Peak front, widest lower wedge.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        169.0,
+        107.5
+      ],
+      "source_rect_xywh": [
+        579,
+        515,
+        338,
+        215
+      ],
+      "state": "peak-front-widest-lower-wedge"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Broken front with detached puffs.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.5,
+        87.0
+      ],
+      "source_rect_xywh": [
+        953,
+        538,
+        275,
+        174
+      ],
+      "state": "broken-front-with-detached-puffs"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Small fading/start curl.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.0,
+        53.0
+      ],
+      "source_rect_xywh": [
+        58,
+        925,
+        156,
+        106
+      ],
+      "state": "small-fading-start-curl"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Medium layered wedge.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        69.0
+      ],
+      "source_rect_xywh": [
+        296,
+        908,
+        249,
+        138
+      ],
+      "state": "medium-layered-wedge"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Peak form with strong cool core.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        162.0,
+        90.0
+      ],
+      "source_rect_xywh": [
+        600,
+        874,
+        324,
+        180
+      ],
+      "state": "peak-form-with-strong-cool-core"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Separated wisps in the same right-facing shape.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        71.5
+      ],
+      "source_rect_xywh": [
+        961,
+        903,
+        242,
+        143
+      ],
+      "state": "separated-wisps-in-the-same-right-facing-shape"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732 at (danger screen centre\u221216,py(danger bottom\u221232)). It decorates a 96\u00d720 rule lane, not its entire area.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "brasswake.steam",
+  "source_sha256": "90d2ce6a1c6c91a80180a5ee428f6cd279765e971667be7134d9e5bafa774c50",
+  "timing": "Four frames across 9-tick rush action (draw())."
+}

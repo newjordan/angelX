@@ -1,0 +1,215 @@
+{
+  "id": "the-index",
+  "source_path": "./cockpit/assets/boss-library/existing/the-index/v01/source-sheet-refined.png",
+  "source_sha256": "91baa85f5e7318478b8d48f9746548fbb0b0a27627f548a70ce87161460d9b2c",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "A librarian who became its catalogue: squat floating living stack of thick sea-green and blue leather books, ONE great open tome for its head with expressive dark eyes in the paper and a folded page nose. Two arms made of folded manuscript sheets ending in huge book-cover mitts, dangling bookmark ribbons like robes. Brass spine corners and ivory page edges, water-damaged and impatient. No legible writing, no skull head.",
+  "definition_header": "name THE INDEX\ntext A librarian who read until it became the catalogue. It keeps every word that ever went down.\nby angelX\nwhere archive\nhp 820\nsize 1.6\nmove hover speed=1.4\nattack spiral shots=3 speed=5 every=12 damage=10 shot=orb\nattack aimed shots=3 speed=8 every=55 damage=14 shot=bone\nphases curve weave seeker every=65 volleys=2 damage=10\nrage 45%\ndrops gem 4, wax 4, gold 250",
+  "source_definition_sha256": "ac25062b0b01fc89e627f21623948b570a007403a47aeb38d8e381cc2b6800c7",
+  "definition_sha256": "e4215e4f688036c37ff25396ecf587d2873cb0aab85248cf49e856b674a32ecf",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        50,
+        168,
+        260,
+        250
+      ],
+      "opaque_component_pixels": 37707,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "1903e7906983ac52bfdfe46b08eac7f8b157f781eca26c2216b79679004cabaa"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        350,
+        129,
+        288,
+        282
+      ],
+      "opaque_component_pixels": 45993,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "9e99186bb6ca35a94e15c592b0da2c624f1eebee6271af6dcdd7962f85b40b2d"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        690,
+        169,
+        224,
+        247
+      ],
+      "opaque_component_pixels": 34627,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "fd73cd4a42f098d6da0732ce63ce61094df7b32de82c5139c44aef113162451b"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        974,
+        105,
+        246,
+        311
+      ],
+      "opaque_component_pixels": 44790,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "4bc1ed63f5c3b988d87c97fb7b9a6c91872ec9f4ba7952ea8ed24e4775cbe07c"
+    },
+    {
+      "id": "overhead/part/stacked-book-body",
+      "source_rect_xywh": [
+        70,
+        538,
+        203,
+        206
+      ],
+      "opaque_component_pixels": 30788,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-stacked-book-body.png",
+      "sha256": "65298d35ac60a75003804b062029f89b376fc67b544c32ff9fce859494fbd4f9"
+    },
+    {
+      "id": "overhead/part/open-tome-head",
+      "source_rect_xywh": [
+        368,
+        564,
+        241,
+        173
+      ],
+      "opaque_component_pixels": 25590,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-open-tome-head.png",
+      "sha256": "9cb7a13c13421ae907226c295cce8b06b3d8b32cc6fff4c55853ba78f1ddd7e0"
+    },
+    {
+      "id": "overhead/part/folded-page-arm",
+      "source_rect_xywh": [
+        704,
+        538,
+        210,
+        204
+      ],
+      "opaque_component_pixels": 24795,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-folded-page-arm.png",
+      "sha256": "3dd926184a974260d4fb82f4092f61d3edd1524ebb76f27b8d79e509f7c712df"
+    },
+    {
+      "id": "overhead/part/bookmark-ribbon-cluster",
+      "source_rect_xywh": [
+        1034,
+        529,
+        166,
+        230
+      ],
+      "opaque_component_pixels": 18130,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-bookmark-ribbon-cluster.png",
+      "sha256": "d4420cdbe7783aca060e801665747c40546741900bcbbdef2ff03751159f0205"
+    },
+    {
+      "id": "side/part/stacked-book-body",
+      "source_rect_xywh": [
+        68,
+        884,
+        209,
+        206
+      ],
+      "opaque_component_pixels": 32683,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-stacked-book-body.png",
+      "sha256": "63d30267721d6a9ca30a2ceaacc42ad8b96bf111d8cde38b763bddb8c8c8548c"
+    },
+    {
+      "id": "side/part/open-tome-head",
+      "source_rect_xywh": [
+        393,
+        917,
+        201,
+        157
+      ],
+      "opaque_component_pixels": 20077,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-open-tome-head.png",
+      "sha256": "bed10a8297efdea5e1118047d1a83db13e9d44e31fc05058a39345871cc91975"
+    },
+    {
+      "id": "side/part/folded-page-arm",
+      "source_rect_xywh": [
+        689,
+        903,
+        239,
+        200
+      ],
+      "opaque_component_pixels": 26426,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-folded-page-arm.png",
+      "sha256": "fdede0f3607671fdb9abba92e7e5fc5cb01c7e7dafd9cf2a64a1123c807cbf47"
+    },
+    {
+      "id": "side/part/bookmark-ribbon-cluster",
+      "source_rect_xywh": [
+        1025,
+        906,
+        175,
+        185
+      ],
+      "opaque_component_pixels": 15150,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-bookmark-ribbon-cluster.png",
+      "sha256": "efa77b5621e8b9bec44337da14bd1598b36a7dff6e43f4327bdb618bb5bedac4"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

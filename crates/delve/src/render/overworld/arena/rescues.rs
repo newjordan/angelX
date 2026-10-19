@@ -13,6 +13,11 @@ pub(super) fn cage(cv: &mut Img, run: &Run) {
     let Some(captive) = run.captive.as_ref().filter(|c| c.room == run.at) else {
         return;
     };
+    // The swamp's captive is the white horse, in the Mire King's pen.
+    if captive.who == crate::rules::swamp::HORSE {
+        super::swamp::pen(cv, run, captive);
+        return;
+    }
     let (x, y) = at(captive.x, captive.y);
     let gone = captive
         .freed
@@ -32,6 +37,11 @@ pub(super) fn cage(cv: &mut Img, run: &Run) {
     };
     let im = Img::from_rows(bars);
     cv.stamp(&im, x - im.w / 2, y - im.h + 3);
+}
+
+/// The cage's bars, shut or open (the swamp's pen borrows them for now).
+pub(super) fn cage_bars(open: bool) -> Img {
+    Img::from_rows(if open { &OPEN } else { &CAGE })
 }
 
 /// The people at home, each where they like to stand.

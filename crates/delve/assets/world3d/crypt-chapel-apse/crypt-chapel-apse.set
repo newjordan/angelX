@@ -1,0 +1,154 @@
+set crypt-chapel-apse
+# The Chapel Apse: 32 x 20 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 512 320
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 256 -4 40 size 512 4 80
+box    floor   at 40 -4 200 size 80 4 240
+box    floor   at 104 -4 88 size 16 4 16
+box    floor   at 256 -4 200 size 224 4 240
+box    floor   at 408 -4 88 size 16 4 16
+box    floor   at 472 -4 200 size 80 4 240
+box    floor   at 112 -4 160 size 64 4 96
+box    floor   at 400 -4 160 size 64 4 96
+box    floor   at 104 -4 272 size 16 4 96
+box    floor   at 408 -4 272 size 16 4 96
+box    floor   at 88 -4 280 size 16 4 80
+box    floor   at 128 -4 280 size 32 4 80
+box    floor   at 384 -4 280 size 32 4 80
+box    floor   at 424 -4 280 size 16 4 80
+
+# pits: holes in the floor, dark below
+
+# the north wall, columns 0 to 14
+box    stone   at 120 -4 8 size 240 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 17 to 31
+box    stone   at 392 -4 8 size 240 52 16
+box    metal   at 504 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 504 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 14 (at 81% of its height, for the camera)
+box    stone   at 120 -4 308 size 240 10 8  # TODO prims: wedge
+box    stone   at 120 -4 316 size 240 16.5 8
+box    metal   at 8 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 316 size 6 6.5 6
+
+# the south wall, columns 17 to 31 (at 81% of its height, for the camera)
+box    stone   at 392 -4 308 size 240 10 8  # TODO prims: wedge
+box    stone   at 392 -4 316 size 240 16.5 8
+box    metal   at 504 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 504 15 316 size 6 6.5 6
+
+# the west wall, rows 1 to 8
+box    stone   at 8 -4 80 size 16 52 128
+
+# the west wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 8 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 264 size 16 52 80
+
+# the east wall, rows 1 to 8
+box    stone   at 504 -4 80 size 16 52 128
+
+# the east wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 504 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 504 -4 264 size 16 52 80
+
+# the north door, columns 15 to 16
+box    door    at 256 -4 -1 size 32 36 2 id door-north
+box    stone   at 256 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 15 to 16
+box    door    at 256 -4 321 size 32 5 2 id door-south
+
+# the west door, rows 9 to 10
+box    door    at -1 -4 160 size 2 36 32 id door-west
+box    stone   at 8 32 160 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 9 to 10
+box    door    at 513 -4 160 size 2 36 32 id door-east
+box    stone   at 504 32 160 size 16 16 32  # TODO prims: arch
+
+# tomb at 3,2 3x1 (at 49% of its height, for the camera)
+box    stone   at 72 0 40 size 44 4 12 id tomb-1
+box    stone   at 72 4 40 size 46 1.5 14
+
+# tomb at 7,2 2x1 (at 49% of its height, for the camera)
+box    stone   at 128 0 40 size 28 4 12 id tomb-2
+box    stone   at 128 4 40 size 30 1.5 14
+
+# tomb at 23,2 2x1 (at 49% of its height, for the camera)
+box    stone   at 384 0 40 size 28 4 12 id tomb-3
+box    stone   at 384 4 40 size 30 1.5 14
+
+# tomb at 26,2 3x1 (at 49% of its height, for the camera)
+box    stone   at 440 0 40 size 44 4 12 id tomb-4
+box    stone   at 440 4 40 size 46 1.5 14
+
+# tomb at 2,3 1x4 (at 66% of its height, for the camera)
+box    stone   at 40 0 80 size 12 5.5 60 id tomb-5
+box    stone   at 40 5.5 80 size 14 2 62
+
+# tomb at 11,3 1x5 (at 49% of its height, for the camera)
+box    stone   at 184 0 88 size 12 4 76 id tomb-6
+box    stone   at 184 4 88 size 14 1.5 78
+
+# tomb at 20,3 1x5 (at 49% of its height, for the camera)
+box    stone   at 328 0 88 size 12 4 76 id tomb-7
+box    stone   at 328 4 88 size 14 1.5 78
+
+# tomb at 29,3 1x4 (at 66% of its height, for the camera)
+box    stone   at 472 0 80 size 12 5.5 60 id tomb-8
+box    stone   at 472 5.5 80 size 14 2 62
+
+# tomb at 11,12 1x5 (at 74% of its height, for the camera)
+box    stone   at 184 0 232 size 12 6.5 76 id tomb-9
+box    stone   at 184 6.5 232 size 14 2 78
+
+# tomb at 20,12 1x5 (at 74% of its height, for the camera)
+box    stone   at 328 0 232 size 12 6.5 76 id tomb-10
+box    stone   at 328 6.5 232 size 14 2 78
+
+# tomb at 2,13 1x4 (at 74% of its height, for the camera)
+box    stone   at 40 0 240 size 12 6.5 60 id tomb-11
+box    stone   at 40 6.5 240 size 14 2 62
+
+# tomb at 29,13 1x4 (at 74% of its height, for the camera)
+box    stone   at 472 0 240 size 12 6.5 60 id tomb-12
+box    stone   at 472 6.5 240 size 14 2 62
+
+# tomb at 3,17 3x1 (at 62% of its height, for the camera)
+box    stone   at 72 0 280 size 44 5.5 12 id tomb-13
+box    stone   at 72 5.5 280 size 46 1.5 14
+
+# tomb at 7,17 2x1 (at 62% of its height, for the camera)
+box    stone   at 128 0 280 size 28 5.5 12 id tomb-14
+box    stone   at 128 5.5 280 size 30 1.5 14
+
+# tomb at 23,17 2x1 (at 62% of its height, for the camera)
+box    stone   at 384 0 280 size 28 5.5 12 id tomb-15
+box    stone   at 384 5.5 280 size 30 1.5 14
+
+# tomb at 26,17 3x1 (at 62% of its height, for the camera)
+box    stone   at 440 0 280 size 44 5.5 12 id tomb-16
+box    stone   at 440 5.5 280 size 46 1.5 14
+
+# torches by the doors (at 94% of its height, for the camera)
+box    metal   at 232 18 16 size 3 6 3
+cone   fire    at 232 24 16 size 4 7 4
+box    metal   at 280 18 16 size 3 6 3
+cone   fire    at 280 24 16 size 4 7 4
+box    metal   at 16 18 136 size 3 6 3
+cone   fire    at 16 24 136 size 4 7 4
+box    metal   at 16 5 184 size 3 5.5 3
+cone   fire    at 16 10.5 184 size 4 6.5 4
+box    metal   at 496 18 136 size 3 6 3
+cone   fire    at 496 24 136 size 4 7 4
+box    metal   at 496 5 184 size 3 5.5 3
+cone   fire    at 496 10.5 184 size 4 6.5 4

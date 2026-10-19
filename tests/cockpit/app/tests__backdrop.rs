@@ -308,34 +308,6 @@ fn backdrop_off_skips_live_loop_fast_tick() {
     assert!(app.needs_fast_tick());
 }
 
-/// Agent-bay portal must not 33ms-tick when the side column is off.
-#[test]
-fn backdrop_off_skips_agentviz_fast_tick() {
-    let _lock = env_lock();
-    let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let _on = TestEnvGuard::unset("ANGEL_BACKDROP");
-    assert!(
-        crate::App::side_column_visuals_allowed(),
-        "default in-process backdrop still allows side-column visuals"
-    );
-    let mut app = seed_preview_app();
-    app.agentviz_portal.force_rendering_for_test();
-    assert!(app.agentviz_wants_fast_tick());
-    assert!(app.needs_fast_tick());
-
-    let _off = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    assert!(!crate::App::side_column_visuals_allowed());
-    assert!(
-        !app.agentviz_wants_fast_tick(),
-        "text-only cockpit must not fast-tick an invisible portal"
-    );
-    assert!(
-        !app.needs_fast_tick(),
-        "backdrop-off portal must stay on the idle lane"
-    );
-}
-
 /// A2: when the Stage is painted, scenery ticks resume.
 #[test]
 fn visible_stage_earns_world_sim_ticks() {

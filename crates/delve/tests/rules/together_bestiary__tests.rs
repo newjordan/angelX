@@ -42,7 +42,10 @@ fn in_the_book(kind: EnemyKind) -> bool {
         | EnemyKind::Risen
         | EnemyKind::Broodmarrow
         | EnemyKind::Oathbound
-        | EnemyKind::Whirlgrave => true,
+        | EnemyKind::Whirlgrave
+        | EnemyKind::BogHand
+        | EnemyKind::Drowned
+        | EnemyKind::Wisp => true,
     }
 }
 
@@ -53,7 +56,7 @@ fn every_monster_that_falls_has_its_page() {
     kinds.sort();
     kinds.dedup();
     assert_eq!(kinds.len(), ENTRIES.len(), "one page each");
-    assert_eq!(ENTRIES.len(), 37, "and every kind that falls");
+    assert_eq!(ENTRIES.len(), 40, "and every kind that falls");
 }
 
 #[test]

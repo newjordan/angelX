@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Review: selected complete four-frame subset; extra cycles/components remain unwired. Bumper burst remains retained-unused, as in existing renderer.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Native iteration: select same-family alternate ignition/peak components where first-cycle highlights fall below 0.90 colour agreement. Every active frame now clears the existing diagnostic; repeated unselected components keep their flags."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Ball::impact reports the contact; burst adds no collision. Drain contact is (80,134).",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "a82694750f03738ee9dd291f4928312d068e2c9db10827a355bfd75fdae011ec",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Tiny initial copper point with teal blunt lobes and nearby debris.",
+      "name": "impact-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        73.5,
+        64.0
+      ],
+      "source_rect_xywh": [
+        87,
+        301,
+        147,
+        128
+      ],
+      "state": "impact-0"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Compact contact grows, with a taller copper core and broader teal body.",
+      "name": "impact-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        98.5,
+        90.5
+      ],
+      "source_rect_xywh": [
+        372,
+        249,
+        197,
+        181
+      ],
+      "state": "impact-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Larger starburst with lifted debris blocks.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.0,
+        118.5
+      ],
+      "source_rect_xywh": [
+        654,
+        202,
+        240,
+        237
+      ],
+      "state": "proposal-03"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Broad connected peak with a strong upright core.",
+      "name": "impact-3",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        132.0
+      ],
+      "source_rect_xywh": [
+        956,
+        177,
+        262,
+        264
+      ],
+      "state": "impact-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Impact flares wider, keeping its connected center.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.5,
+        113.5
+      ],
+      "source_rect_xywh": [
+        42,
+        567,
+        257,
+        227
+      ],
+      "state": "impact-flares-wider-keeping-its-connected-center"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Full broad burst, dense lobes and heavier scattered chunks.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        140.5,
+        139.0
+      ],
+      "source_rect_xywh": [
+        336,
+        525,
+        281,
+        278
+      ],
+      "state": "full-broad-burst-dense-lobes-and-heavier-scattered-chunks"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Peak breaks at the core; lobes and debris separate.",
+      "name": "impact-2",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.5,
+        132.5
+      ],
+      "source_rect_xywh": [
+        642,
+        545,
+        277,
+        265
+      ],
+      "state": "impact-2"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Similar broken peak with a stronger outward split.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.5,
+        126.0
+      ],
+      "source_rect_xywh": [
+        961,
+        546,
+        255,
+        252
+      ],
+      "state": "similar-broken-peak-with-a-stronger-outward-split"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Core begins collapsing while the surrounding pieces disperse.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        113.0,
+        109.0
+      ],
+      "source_rect_xywh": [
+        45,
+        916,
+        226,
+        218
+      ],
+      "state": "core-begins-collapsing-while-the-surrounding-pieces-disperse"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Mostly separated copper and teal masses with a small remaining core.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.0,
+        113.5
+      ],
+      "source_rect_xywh": [
+        353,
+        912,
+        230,
+        227
+      ],
+      "state": "mostly-separated-copper-and-teal-masses-with-a-small-remaining-c"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Sparse, dimming pieces around a fading central fragment.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        102.5,
+        99.5
+      ],
+      "source_rect_xywh": [
+        673,
+        935,
+        205,
+        199
+      ],
+      "state": "sparse-dimming-pieces-around-a-fading-central-fragment"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Small final debris and a tiny teal/copper remnant.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        72.5,
+        69.5
+      ],
+      "source_rect_xywh": [
+        1015,
+        984,
+        145,
+        139
+      ],
+      "state": "small-final-debris-and-a-tiny-teal-copper-remnant"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732; display impact centre\u2212(16,16).",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "mossbell.impact",
+  "source_sha256": "dcd74d277b34e955f82b029735c9946fac73ccfb07263b3d8483f0b5bd19b220",
+  "timing": "Four frames indexed floor((16-burst)/4); ordinary contact sets burst=12, so playback begins at frame 1 and uses three frames for 4 ticks each (Ball::contact, draw())."
+}

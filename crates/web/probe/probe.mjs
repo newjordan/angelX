@@ -25,9 +25,23 @@
 //                                    or stepped back with a key held, and
 //                                    its biggest step against its usual;
 //                                    with --shots, a strip across a roll
+//   --fire                           fire trials (the Delve): standing, and
+//                                    running east or west, press an arrow
+//                                    (aim and fire) and find the first frame
+//                                    that draws an own shot (`__angel.game()`
+//                                    own_shots); report the press to it in
+//                                    ms and frames, and how far from the
+//                                    drawn knight it showed, in frame
+//                                    pixels; with --shots, the frames of
+//                                    one running trial from the press on
+//   --fire-trials 12                 how many
 //   --reconnect                      cut the network and check the seat
 //   --cuts 3,8                       how long each cut is, seconds
 //   --software                       WebGL on SwiftShader instead of the GPU
+//   --webgpu                         WebGPU on the machine's GPU through Vulkan
+//                                    (headless Chromium needs these flags; the
+//                                    page is then asked for the renderer with
+//                                    ?present=gpu, or picks it by itself)
 //   --hide                           hide the tab 3 s with a key held
 //   --shots <dir>                    save a screenshot per run
 //   --json <file>                    write every number
@@ -99,24 +113,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 //           are outvoted by the ground.
 function tracker() {
   return `(() => {
-    const own = __angel.presenter === 'canvas2d' ? ${rgbaWord} : ${own};
+    // The canvas fallback and the GPU renderer both take the RGBA copy.
+    const own = /^(canvas2d|gpu-)/.test(__angel.presenter) ? ${rgbaWord} : ${own};
     const mode = ${JSON.stringify(track)};
     let u32 = null, prev = null, cam = 0;
     window.__seen = new Map();
     window.__ownAt = null;
     window.__ownLast = null;
-    __angel.onframe = (heap, ptr, w, h, frame) => {
+    __angel.onframe = (heap, ptr, w, h, frame, staged) => {
       if (!u32 || u32.buffer !== heap.buffer) u32 = new Uint32Array(heap.buffer);
       const base = ptr >>> 2, n = w * h;
       let at = null;
       if (mode === 'own') {
         // Where the game drew its own character; a new place counts once
-        // the frame's pixels around it changed from the frame before.
+        // the frame's pixels around it changed from the frame before. A
+        // frame drawn from its parts (a stage) has no finished pixels here:
+        // where the game drew it is the place.
         const o = __angel.own();
         const last = window.__ownLast || null;
         if (o) {
           const p = [Math.round(o[0]), Math.round(o[1])];
-          if (!last || !prev || prev.length !== n) {
+          if (staged || !last || !prev || prev.length !== n) {
             at = p;
           } else if (p[0] === last[0] && p[1] === last[1]) {
             at = last;
@@ -199,7 +216,9 @@ async function chromium(name) {
     '--autoplay-policy=no-user-gesture-required', '--window-size=1600,1000',
     // The machine's GPU through ANGLE, as a desktop browser has it; with
     // --software, SwiftShader, as a machine whose GPU is blocklisted.
-    ...(flag('software') ? ['--enable-unsafe-swiftshader'] : ['--use-angle=gl', '--enable-gpu', '--ignore-gpu-blocklist']),
+    ...(flag('software') ? ['--enable-unsafe-swiftshader']
+      : flag('webgpu') ? ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist']
+      : ['--use-angle=gl', '--enable-gpu', '--ignore-gpu-blocklist']),
     'about:blank'],
   { stdio: 'ignore' });
   const own = { proc, dir };
@@ -282,6 +301,10 @@ const KEY = {
   s: { code: 'KeyS', key: 's', windowsVirtualKeyCode: 83 },
   e: { code: 'KeyE', key: 'e', windowsVirtualKeyCode: 69 },
   space: { code: 'Space', key: ' ', windowsVirtualKeyCode: 32 },
+  up: { code: 'ArrowUp', key: 'ArrowUp', windowsVirtualKeyCode: 38 },
+  down: { code: 'ArrowDown', key: 'ArrowDown', windowsVirtualKeyCode: 40 },
+  left: { code: 'ArrowLeft', key: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+  right: { code: 'ArrowRight', key: 'ArrowRight', windowsVirtualKeyCode: 39 },
 };
 
 function median(xs) {
@@ -303,6 +326,17 @@ async function run(name) {
     await send('Log.enable');
     await send('Emulation.setDeviceMetricsOverride', { width: r.width, height: r.height, deviceScaleFactor: r.dpr, mobile: false });
     await send('Emulation.setCPUThrottlingRate', { rate: r.throttle });
+    if (flag('webgpu')) {
+      // A browser just started may have no GPU process yet, and then its first
+      // requestAdapter answers none (or its first contexts are lost as the
+      // process settles): draw with the page's own WebGL once first, so the
+      // run measures the renderer and not the cold start.
+      const warm = new URL(link);
+      warm.searchParams.set('present', 'legacy');
+      await send('Page.navigate', { url: warm.toString() });
+      await until(evaluate, "window.__angel && __angel.status !== 'loading'", 30000, 'the module (warm-up)');
+      await sleep(1500);
+    }
     await send('Page.navigate', { url: link });
     await until(evaluate, "window.__angel && __angel.status !== 'loading'", 30000, 'the module');
     const ready = await evaluate('({ status: __angel.status, loadedMs: __angel.loadedMs, presenter: __angel.presenter })');
@@ -358,8 +392,19 @@ async function run(name) {
     out.memoryKB = [memoryWas / 1024, s.memory / 1024];
     if (shots) {
       fs.mkdirSync(shots, { recursive: true });
-      const shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(`${shots}/${name}.png`, Buffer.from(shot.data, 'base64'));
+      // Headless Chromium's screenshot leaves a WebGPU canvas out, and a
+      // WebGL one is only readable in the task of its frame: so the canvas
+      // itself is read, in a frame's own task, for the presenters that draw
+      // from the GPU renderer; the screenshot serves the rest.
+      let png = null;
+      if (/^gpu-/.test(out.presenter)) {
+        await evaluate("window.__shot = null; __angel.onframe = () => { __shot = document.getElementById('screen').toDataURL('image/png'); __angel.onframe = null; }");
+        await until(evaluate, 'window.__shot', 5000, 'a frame to read');
+        png = Buffer.from((await evaluate('__shot')).split(',')[1], 'base64');
+      } else {
+        png = Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64');
+      }
+      fs.writeFileSync(`${shots}/${name}.png`, png);
     }
 
     // Key to own character moved, in display frames. Each frame the page
@@ -469,6 +514,8 @@ async function run(name) {
       }
     }
 
+    if (flag('fire')) out.fire = await fireTrials(b, key);
+
     if (flag('hide')) {
       // Hold D, hide the tab behind another for 3 s, show it again. The
       // page must stop drawing, let go of D (the knight stops where it
@@ -531,6 +578,121 @@ async function run(name) {
     b.close();
   }
   return out;
+}
+
+// Fire key to the own shot on screen. Each frame the page notes when it
+// was drawn, where the game drew its own knight, and how many own shots it
+// drew and the nearest one's offset from the knight (`__angel.game()`).
+// A trial waits for no own shot on screen, presses an arrow (aim and fire),
+// and finds the first frame after the press with one.
+async function fireTrials(b, key) {
+  const { send, evaluate } = b;
+  const n = Number(opt('fire-trials', 12));
+  await evaluate(`(() => {
+    window.__fire = [];
+    window.__grab = null;
+    __angel.onframe = (heap, ptr, w, h, frame) => {
+      const g = __angel.game() || {};
+      const o = __angel.own();
+      __fire.push([performance.now(), frame, o ? o[0] : null, o ? o[1] : null, g.own_shots || 0,
+        g.own_shot_gap_px ?? null, g.own_shot_dx_px ?? null, g.own_shot_dy_px ?? null, g.own_shot_gap ?? null,
+        g.shot_ghosts ?? null, g.shot_handovers ?? null, g.shot_unmatched ?? null]);
+      if (__fire.length > 6000) __fire.shift();
+      const G = window.__grab;
+      if (G && G.frames.length < G.n && frame > G.from) {
+        G.frames.push(new Uint32Array(heap.buffer, ptr, w * h).slice());
+        G.own.push(o);
+        G.w = w; G.h = h;
+      }
+    };
+  })()`);
+  // Off the bottom wall first, into the room (the Delve's fights start a
+  // knight there, under the bar of keys).
+  await key('keyDown', 'w');
+  await sleep(Number(opt('fire-north-ms', 900)));
+  await key('keyUp', 'w');
+  const trials = [];
+  let strip = null, stripOwn = null;
+  for (let t = 0; t < n; t++) {
+    // Standing, then running east, then west, in turn; the aim is up, so a
+    // shot left behind a running knight shows as a sideways offset.
+    const kind = ['stand', 'east', 'west'][t % 3];
+    const walk = kind === 'east' ? 'd' : kind === 'west' ? 'a' : null;
+    const end = Date.now() + 2000;
+    while (Date.now() < end && (await evaluate('__angel.game()?.own_shots || 0')) > 0) await sleep(50);
+    await sleep(100 + Math.random() * 40);
+    if (walk) {
+      await key('keyDown', walk);
+      await sleep(350);
+    }
+    await key('keyDown', 'up');
+    const at = await evaluate('[__angel.inputFrame, __angel.inputAt]');
+    const grab = shots && kind === 'east' && !strip;
+    if (grab) await evaluate(`window.__grab = { from: ${at[0]}, n: 24, frames: [], own: [] }`);
+    await sleep(90);
+    await key('keyUp', 'up');
+    await sleep(500);
+    if (walk) await key('keyUp', walk);
+    const seen = await evaluate(`__fire.filter(f => f[1] > ${at[0]} && f[4] > 0)[0] || null`);
+    // Each frame from the press for half a second: [ms after the press,
+    // own shots drawn, ghosts among them, handovers so far, unmatched].
+    const trace = await evaluate(`__fire.filter(f => f[1] > ${at[0]} && f[0] - ${at[1]} < 500)
+      .map(f => [Math.round(f[0] - ${at[1]}), f[4], f[9], f[10], f[11]])`);
+    trials.push(seen ? {
+      kind,
+      trace,
+      ms: +(seen[0] - at[1]).toFixed(1),
+      frames: seen[1] - at[0],
+      gapPx: seen[5], dxPx: seen[6], dyPx: seen[7], gapUnits: seen[8],
+    } : { kind, ms: null });
+    if (grab) {
+      // The frames from the press on, as PNGs (the module's words are
+      // 0xAARRGGBB; the canvas fallback's are already RGBA).
+      stripOwn = await evaluate('window.__grab.own');
+      strip = await evaluate(`(() => {
+        const G = window.__grab; window.__grab = null;
+        const c = document.createElement('canvas'); c.width = G.w; c.height = G.h;
+        const ctx = c.getContext('2d'), img = ctx.createImageData(G.w, G.h);
+        const rgba = __angel.presenter === 'canvas2d';
+        return G.frames.map(f => {
+          const d = img.data;
+          for (let i = 0; i < f.length; i++) {
+            const w = f[i];
+            if (rgba) { d[4*i] = w & 255; d[4*i+1] = (w >>> 8) & 255; d[4*i+2] = (w >>> 16) & 255; }
+            else { d[4*i] = (w >>> 16) & 255; d[4*i+1] = (w >>> 8) & 255; d[4*i+2] = w & 255; }
+            d[4*i+3] = 255;
+          }
+          ctx.putImageData(img, 0, 0);
+          return c.toDataURL('image/png').split(',')[1];
+        });
+      })()`);
+    }
+  }
+  await evaluate('__angel.onframe = null');
+  if (strip) {
+    fs.mkdirSync(shots, { recursive: true });
+    strip.forEach((d, i) => fs.writeFileSync(`${shots}/fire-${String(i + 1).padStart(2, '0')}.png`, Buffer.from(d, 'base64')));
+    // Where the knight was drawn on each, for cropping.
+    fs.writeFileSync(`${shots}/fire-own.json`, JSON.stringify(stripOwn));
+  }
+  // The game's own-shot counts at the end (the Delve: ghosts handed to the
+  // server's shots, the gaps eased, ghosts it never matched).
+  const counts = await evaluate('__angel.game()');
+  const ok = trials.filter(t => t.ms !== null);
+  const by = kind => ok.filter(t => kind === 'all' || t.kind === kind || (kind === 'run' && t.kind !== 'stand'));
+  const sum = kind => {
+    const xs = by(kind);
+    return {
+      n: xs.length,
+      msMedian: +median(xs.map(t => t.ms)).toFixed(1),
+      msMax: +Math.max(...xs.map(t => t.ms)).toFixed(1),
+      framesMedian: median(xs.map(t => t.frames)),
+      gapPxMedian: +median(xs.map(t => t.gapPx)).toFixed(1),
+      sidewaysPxMedian: +median(xs.map(t => Math.abs(t.dxPx))).toFixed(1),
+      gapUnitsMedian: +median(xs.map(t => t.gapUnits)).toFixed(2),
+    };
+  };
+  return { stand: sum('stand'), run: sum('run'), missed: trials.length - ok.length, counts, trials };
 }
 
 const results = [];

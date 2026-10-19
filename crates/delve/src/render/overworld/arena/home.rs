@@ -716,6 +716,15 @@ fn keeper(who: &str, tick: u32, busy: bool) -> Img {
     }
 }
 
+/// The most lines a quest board laid over play shows: its title, what to
+/// do now, and one line more.
+pub(super) const QUEST_LINES: usize = 3;
+
+/// A quest's board over play, kept small: the first `QUEST_LINES` lines.
+pub(super) fn quest_board(lines: &[(String, char)]) -> Img {
+    board(&lines[..lines.len().min(QUEST_LINES)])
+}
+
 /// A board of lines in the 5x7 hand: night slate in a timber edge, like
 /// the realm's signs (`chrome::Tone::SIGN`), and its shadow.
 pub(super) fn board(lines: &[(String, char)]) -> Img {
@@ -725,7 +734,7 @@ pub(super) fn board(lines: &[(String, char)]) -> Img {
     chrome::panel(&mut im, (0, 0, w, h), chrome::Tone::SIGN);
     for (i, (text, ink)) in lines.iter().enumerate() {
         let tw = text_width(text);
-        im.text((w - tw) / 2, 3 + i as i32 * 9, text, *ink);
+        im.text((w - tw) / 2, 3 + i as i32 * 9, text, chrome::dusk_mark(*ink));
     }
     im
 }
@@ -778,7 +787,7 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
     for (mark, n, have) in &items {
         im.stamp(mark, x, row_y + (7 - mark.h) / 2);
         x += mark.w + 2;
-        x = im.text(x, row_y, n, if *have { 'H' } else { '7' }) + 7;
+        x = im.text(x, row_y, n, if *have { 'i' } else { '7' }) + 7;
     }
     if !locked {
         // HOLD E, and the bar it fills.

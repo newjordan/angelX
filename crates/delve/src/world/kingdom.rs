@@ -1,9 +1,9 @@
 //! One geography for the walking surface and its overview.
 use super::doors::{self, Door};
+use super::biome::{self, Biome};
 use super::map::{self, MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
 use crate::realm::Wish;
 use super::college;
-use super::houses;
 use super::wishes::{self, Lot};
 use crate::rules::{Room, RoomKind, Tile, countryside};
 use std::cmp::Reverse;
@@ -44,6 +44,9 @@ fn destination(door: Door) -> RoomKind {
             // Artisan Quarter's on the market square behind it.
             Place::Smithy => RoomKind::Smithy,
             Place::ArtisanQuarter => RoomKind::Market,
+            // The Colosseum's door opens on its entrance hall, and its
+            // gates on the arena games (`rules::colosseum`).
+            Place::Colosseum => RoomKind::ColosseumHall,
             _ => RoomKind::RealmHall,
         },
         Door::Castle(_) => RoomKind::RealmHall,
@@ -54,6 +57,7 @@ pub fn outdoor(kind: RoomKind) -> bool {
         && kind != RoomKind::KingsHall
         && (!crate::rules::college::is_room(kind)
             || kind == RoomKind::CollegeGrounds)
+        && !crate::rules::colosseum::is_arena(kind)
 }
 fn short(name: &str) -> String {
     let words = name.replace(['/', '-'], " ");
@@ -64,13 +68,12 @@ fn short(name: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
-/// A region of the kingdom: the countryside places that belong together,
-/// the ground they are built within, and where its name is lettered.
+/// A region of the kingdom: one biome (`super::biome`), the countryside
+/// places built in it, and where its name is lettered.
 pub struct Region {
     pub name: &'static str,
-    /// Tiles `(x, y, w, h)` its places are built within.
-    area: (i32, i32, i32, i32),
-    /// The tile its name is centred on: a row cleared for it, or water.
+    pub biome: Biome,
+    /// The tile its name is centred on: a row of open green.
     label: (i32, i32),
     /// Its countryside places, each with the tile it is built nearest.
     pub places: &'static [(RoomKind, (i32, i32))],
@@ -79,142 +82,152 @@ pub struct Region {
 impl Region {
     /// Whether tile `(x, y)` lies in the region's ground.
     pub fn holds(&self, x: i32, y: i32) -> bool {
-        let (ax, ay, aw, ah) = self.area;
-        (ax..ax + aw).contains(&x) && (ay..ay + ah).contains(&y)
+        biome::at(x, y) == self.biome
+    }
+
+    /// The tiles `(x0, y0, x1, y1)` its ground spans, end exclusive.
+    fn bounds(&self) -> (i32, i32, i32, i32) {
+        self.biome.chunks().fold((MAP_W, MAP_H, 0, 0), |(x0, y0, x1, y1), (cx, cy)| {
+            (
+                x0.min(cx * map::CHUNK_W),
+                y0.min(cy * map::CHUNK_H),
+                x1.max((cx + 1) * map::CHUNK_W),
+                y1.max((cy + 1) * map::CHUNK_H),
+            )
+        })
     }
 }
 
-/// The kingdom's regions, north to south. The authored places (the Keep,
-/// the Mines, the Village, the Colosseum...) stand where the realm puts
-/// them; every countryside place is built in its own region, so a region
-/// reads as one cluster with its name in the open ground among it.
-pub const REGIONS: [Region; 12] = [
+const fn region(biome: Biome, places: &'static [(RoomKind, (i32, i32))]) -> Region {
     Region {
-        name: "The Woods",
-        area: (9, 0, 23, 22),
-        label: (19, 21),
-        places: &[
-            (RoomKind::HedgeMaze, (11, 11)),
-            (RoomKind::Bothy, (17, 11)),
-            (RoomKind::Timberyard, (23, 11)),
-            (RoomKind::Orchard, (14, 16)),
-            (RoomKind::Ruins, (21, 16)),
+        name: match biome {
+            Biome::CastleTown => "Castle Town",
+            Biome::Greenwood => "Greenwood",
+            Biome::Highlands => "The Highlands",
+            Biome::Wastes => "The Wastes",
+            Biome::Coast => "The Coast",
+            Biome::Fen => "The Fen",
+            Biome::TiltYards => "The Tilt-Yards",
+            Biome::Fairground => "The Fairground",
+            Biome::WindCountry => "Wind Country",
+            Biome::Longbow => "Longbow Country",
+            Biome::March => "The March",
+        },
+        biome,
+        label: match biome {
+            Biome::CastleTown => (60, 72),
+            Biome::Greenwood => (60, 12),
+            Biome::Highlands => (112, 42),
+            Biome::Wastes => (180, 38),
+            Biome::Coast => (221, 100),
+            Biome::Fen => (16, 100),
+            Biome::TiltYards => (176, 77),
+            Biome::Fairground => (40, 134),
+            Biome::WindCountry => (150, 116),
+            Biome::Longbow => (202, 136),
+            // On the open green between the castles where the South Road
+            // comes through to the far lane.
+            Biome::March => (87, 165),
+        },
+        places,
+    }
+}
+
+/// The kingdom's regions, one to a biome. The authored places (the Keep,
+/// the Mines, the Village, the Colosseum...) stand in their set pieces;
+/// every countryside place is built in its own biome, on the free lot
+/// nearest its spot, so a biome reads as one country with its name on an
+/// open green among it (`docs/KINGDOM-OPEN.md`).
+pub const REGIONS: [Region; 11] = [
+    region(Biome::CastleTown, &[(RoomKind::Bathhouse, (113, 70))]),
+    region(
+        Biome::Greenwood,
+        &[
+            (RoomKind::HedgeMaze, (12, 22)),
+            (RoomKind::Bothy, (36, 8)),
+            (RoomKind::Timberyard, (60, 28)),
+            (RoomKind::Orchard, (36, 40)),
+            (RoomKind::Ruins, (12, 38)),
         ],
-    },
-    Region {
-        name: "The Mountain",
-        area: (32, 0, 32, 22),
-        label: (43, 8),
-        // The griffins' eyrie on its slopes, for a practice flight.
-        places: &[(RoomKind::Eyrie, (47, 13))],
-    },
-    Region {
-        name: "The Wastes",
-        area: (64, 0, 16, 22),
-        label: (71, 9),
-        places: &[],
-    },
-    Region {
-        name: "The High Roads",
-        area: (76, 11, 18, 11),
-        label: (85, 21),
-        places: &[
-            (RoomKind::Crag, (78, 11)),
-            (RoomKind::Aviary, (84, 11)),
-            (RoomKind::Belfry, (90, 11)),
-            (RoomKind::Aqueduct, (78, 16)),
-            (RoomKind::Priory, (84, 16)),
+    ),
+    region(
+        Biome::Highlands,
+        // The griffins' eyrie on the peak above the Mines.
+        &[
+            (RoomKind::Eyrie, (108, 8)),
+            (RoomKind::Crag, (84, 8)),
+            (RoomKind::Aviary, (132, 8)),
+            (RoomKind::Belfry, (156, 8)),
+            (RoomKind::Aqueduct, (60, 40)),
+            (RoomKind::Priory, (130, 40)),
         ],
-    },
-    Region {
-        name: "The Coast",
-        area: (94, 11, 16, 12),
-        // On the sea.
-        label: (104, 11),
-        places: &[
-            (RoomKind::Lighthouse, (104, 14)),
-            (RoomKind::Cliffs, (98, 14)),
-            (RoomKind::Saltworks, (98, 19)),
-            (RoomKind::Strand, (104, 19)),
+    ),
+    region(Biome::Wastes, &[]),
+    region(
+        Biome::Coast,
+        &[
+            (RoomKind::Lighthouse, (220, 8)),
+            (RoomKind::Cliffs, (200, 51)),
+            (RoomKind::Saltworks, (200, 88)),
+            (RoomKind::Strand, (220, 118)),
         ],
-    },
-    Region {
-        name: "Castle Town",
-        area: (32, 22, 16, 22),
-        label: (35, 32),
-        places: &[(RoomKind::Bathhouse, (42, 38))],
-    },
-    Region {
-        name: "The Wetland",
-        area: (0, 33, 32, 16),
-        // On the mere.
-        label: (12, 37),
-        places: &[
-            (RoomKind::Millpond, (21, 34)),
-            (RoomKind::Sluice, (27, 34)),
-            (RoomKind::SunkenAbbey, (21, 39)),
-            (RoomKind::Riverbank, (27, 39)),
-            (RoomKind::Causeway, (9, 44)),
+    ),
+    region(
+        Biome::Fen,
+        &[
+            (RoomKind::SunkenAbbey, (14, 70)),
+            (RoomKind::Millpond, (34, 70)),
+            (RoomKind::Sluice, (34, 104)),
+            (RoomKind::Riverbank, (58, 104)),
+            (RoomKind::Causeway, (14, 118)),
         ],
-    },
-    Region {
-        name: "The Fair",
-        area: (8, 55, 31, 10),
-        label: (28, 61),
-        places: &[
-            (RoomKind::Fairground, (22, 56)),
-            (RoomKind::Mummers, (28, 56)),
-            (RoomKind::Laundry, (34, 56)),
+    ),
+    region(
+        Biome::TiltYards,
+        &[
+            (RoomKind::TollBridge, (134, 50)),
+            (RoomKind::Wheelwright, (180, 50)),
+            (RoomKind::Caravan, (130, 68)),
+            (RoomKind::Hippodrome, (160, 70)),
+            (RoomKind::Ranch, (182, 68)),
         ],
-    },
-    Region {
-        name: "Wind Country",
-        area: (46, 55, 50, 10),
-        label: (64, 61),
-        places: &[
-            (RoomKind::GooseGreen, (48, 56)),
-            (RoomKind::Windmill, (54, 56)),
-            (RoomKind::Pasture, (60, 56)),
-            (RoomKind::Downs, (66, 56)),
-            (RoomKind::Kitewright, (72, 56)),
-            (RoomKind::SignalHill, (80, 57)),
+    ),
+    region(
+        Biome::Fairground,
+        &[
+            (RoomKind::Fairground, (90, 120)),
+            (RoomKind::Mummers, (58, 120)),
+            (RoomKind::Laundry, (90, 102)),
         ],
-    },
-    Region {
-        name: "Longbow Country",
-        area: (70, 40, 24, 14),
-        label: (82, 51),
-        places: &[
-            (RoomKind::Scarecrow, (73, 42)),
-            (RoomKind::LongbowGreen, (80, 42)),
-            (RoomKind::Fletchery, (87, 42)),
+    ),
+    region(
+        Biome::WindCountry,
+        &[
+            (RoomKind::GooseGreen, (108, 102)),
+            (RoomKind::Windmill, (158, 104)),
+            (RoomKind::Pasture, (104, 122)),
+            (RoomKind::Downs, (84, 136)),
+            (RoomKind::Kitewright, (108, 136)),
+            (RoomKind::SignalHill, (134, 136)),
         ],
-    },
-    Region {
-        name: "The Tilt-Yards",
-        area: (78, 66, 18, 22),
-        label: (86, 77),
-        places: &[
-            (RoomKind::Hippodrome, (79, 67)),
-            (RoomKind::Ranch, (85, 67)),
-            (RoomKind::TollBridge, (91, 67)),
-            (RoomKind::Caravan, (79, 72)),
-            (RoomKind::Wheelwright, (85, 72)),
+    ),
+    region(
+        Biome::Longbow,
+        &[
+            (RoomKind::Scarecrow, (182, 104)),
+            (RoomKind::LongbowGreen, (204, 120)),
+            (RoomKind::Fletchery, (182, 136)),
         ],
-    },
-    Region {
-        name: "The March",
-        area: (0, 88, 112, 33),
-        label: (57, 90),
-        places: &[],
-    },
+    ),
+    region(Biome::March, &[]),
 ];
 
-/// Open ground in the town core, between the Keep and the Village and on
-/// the north road, kept clear for the King's court and its land office.
+/// Open ground on Castle Town's green, between the Keep and the Village
+/// beside the high street, kept clear for the King's court and its land
+/// office.
 pub const OPEN_PLOT: Lot = Lot {
-    tx: 33,
-    ty: 35,
+    tx: 74,
+    ty: 68,
     tw: 5,
     th: 5,
 };
@@ -278,7 +291,7 @@ fn build(wish_list: &[Wish]) -> Geography {
             Lot { tx, ty, tw, th }
         })
         .collect();
-    taken.extend(houses::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
+    taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
     taken.extend([college::lot(), wishes::delve_gate()]);
     let wish_lots = wishes::lots(wish_list);
     taken.extend(wish_lots.iter().flatten().copied());
@@ -311,11 +324,14 @@ fn build(wish_list: &[Wish]) -> Geography {
             if !outdoor(kind) || sites.iter().any(|s| s.room == kind) {
                 continue;
             }
-            let (ax, ay, aw, ah) = region.area;
+            let (x0, y0, x1, y1) = region.bounds();
             let free = |x: i32, y: i32, taken: &[Lot]| {
+                // Three tiles of ground between neighbours, a tile off every
+                // set piece.
                 !taken.iter().any(|l| {
-                    x < l.tx + l.tw + 2 && x + 4 + 2 > l.tx && y < l.ty + l.th + 2 && y + 3 + 2 > l.ty
-                }) && REGIONS.iter().map(name_strip).all(|(x0, x1, sy)| {
+                    x < l.tx + l.tw + 3 && x + 4 + 3 > l.tx && y < l.ty + l.th + 3 && y + 3 + 3 > l.ty
+                }) && (y - 1..y + 5).all(|ty| (x - 1..x + 5).all(|tx| !map::in_set_piece(tx, ty)))
+                    && REGIONS.iter().map(name_strip).all(|(x0, x1, sy)| {
                     // A lot and its door keep off a region's name, the row
                     // above it, and the two below (where a plaque goes).
                     x + 3 < x0 - 1 || x > x1 + 1 || y + 3 < sy - 1 || y > sy + 2
@@ -327,13 +343,17 @@ fn build(wish_list: &[Wish]) -> Geography {
             };
             // In its region; failing that (a wish took the ground), the free
             // lot nearest its spot anywhere.
-            let nearest = |(x0, y0, x1, y1): (i32, i32, i32, i32)| {
+            let nearest = |(x0, y0, x1, y1): (i32, i32, i32, i32), within: &dyn Fn(&(i32, i32)) -> bool| {
                 (y0.max(3)..y1.min(MAP_H - 4))
                     .flat_map(|y| (x0.max(3)..x1.min(MAP_W - 5)).map(move |x| (x, y)))
+                    .filter(|p| within(p))
                     .filter(|&(x, y)| free(x, y, &taken))
                     .min_by_key(|&(x, y)| ((x - goal.0).pow(2) + (y - goal.1).pow(2), y, x))
             };
-            let best = nearest((ax, ay, ax + aw, ay + ah)).or_else(|| nearest((0, 0, MAP_W, MAP_H)));
+            let home = |(x, y): &(i32, i32)| {
+                [(*x, *y), (x + 3, *y), (*x, y + 3), (x + 3, y + 3)].iter().all(|&(cx, cy)| region.holds(cx, cy))
+            };
+            let best = nearest((x0, y0, x1, y1), &home).or_else(|| nearest((0, 0, MAP_W, MAP_H), &|_| true));
             let Some((x, y)) = best else {
                 continue;
             };
@@ -517,10 +537,57 @@ fn build(wish_list: &[Wish]) -> Geography {
         }
         if let Some(mut at) = end {
             while at != site.stand {
+                let next = parents[idx(at)].unwrap();
                 roads[idx(at)] = true;
                 tiles[idx(at)] = Tile::Floor;
                 reached[idx(at)] = true;
-                at = parents[idx(at)].unwrap();
+                // Lanes are two tiles wide: the tile beside each step too,
+                // where nothing stands.
+                let side = if next.0 == at.0 { (at.0 + 1, at.1) } else { (at.0, at.1 + 1) };
+                if bounds(side)
+                    && !closed_tiles()[idx(side)]
+                    && !taken.iter().any(|l| l.contains(side.0, side.1))
+                    && !cleared.iter().any(|l| l.contains(side.0, side.1))
+                    && !wish_lots.iter().flatten().any(|l| l.contains(side.0, side.1))
+                    && !strips.iter().any(|&(x0, x1, sy)| side.1 == sy && (x0..=x1).contains(&side.0))
+                    && !matches!(Realm::get().at(side.0, side.1), b'L' | b'F')
+                {
+                    roads[idx(side)] = true;
+                    tiles[idx(side)] = Tile::Floor;
+                    reached[idx(side)] = true;
+                }
+                at = next;
+            }
+        }
+    }
+    // A verge either side of every road and lane: woods, dead trees and
+    // open ground beside a road are cleared to meadow, so two knights walk
+    // abreast and nobody brushes a trunk. Never a building, a lot, a
+    // region's name, rock, water or lava.
+    let mut verge = Vec::new();
+    for y in 0..MAP_H {
+        for x in 0..MAP_W {
+            if !roads[idx((x, y))] {
+                continue;
+            }
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let next = (x + dx, y + dy);
+                    if !bounds(next)
+                        || roads[idx(next)]
+                        || closed_tiles()[idx(next)]
+                        || taken.iter().any(|l| l.contains(next.0, next.1))
+                        || cleared.iter().any(|l| l.contains(next.0, next.1))
+                        || wish_lots.iter().flatten().any(|l| l.contains(next.0, next.1))
+                        || strips.iter().any(|&(x0, x1, sy)| next.1 == sy && (x0..=x1).contains(&next.0))
+                    {
+                        continue;
+                    }
+                    if matches!(Realm::get().at(next.0, next.1), b'T' | b'd' | b'.' | b'c' | b'a' | b's') {
+                        tiles[idx(next)] = Tile::Floor;
+                        verge.push(next);
+                    }
+                }
             }
         }
     }
@@ -540,7 +607,7 @@ fn build(wish_list: &[Wish]) -> Geography {
             }
         }
     }
-    for at in named {
+    for at in named.into_iter().chain(verge) {
         cleared_mask[idx(at)] = true;
     }
     Geography {
@@ -586,10 +653,13 @@ fn closed_tiles() -> &'static [bool] {
                 let (x, y) = place_tile(ax, ay);
                 (x, y, w, h)
             })
-            .chain(houses::footprints())
+            .chain(super::castles::footprints())
             .chain({
+                // The College and the Delve's gate stand on open ground:
+                // their walls are as solid as any set piece's.
                 let l = college::lot();
-                [(l.tx, l.ty, l.tw, l.th)]
+                let g = wishes::delve_gate();
+                [(l.tx, l.ty, l.tw, l.th), (g.tx, g.ty, g.tw, g.th)]
             });
         for (x0, y0, w, h) in placed {
             for y in y0..y0 + h {

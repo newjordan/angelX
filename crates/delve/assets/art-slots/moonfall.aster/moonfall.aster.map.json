@@ -1,0 +1,102 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    17,
+    32
+  ],
+  "pieces": [
+    {
+      "name": "idle-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "idle-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "ride-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-left-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-left-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-left-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-right-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-right-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "ride-right-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "lame-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "lame-left-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "pour-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "pour-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "pour-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    }
+  ]
+}

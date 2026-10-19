@@ -1,0 +1,177 @@
+{
+  "anchor_canvas_wh": [
+    56,
+    36
+  ],
+  "anchor_xy": [
+    28,
+    36
+  ],
+  "comments": [
+    "Registered as one bank on the hinge log: every drawing's bottom edge is the hinge, the pivot x the centre of the log, one shared scale (the tallest, upright drawing sets it). The flat leaf is 48 px wide, the width of the three tiles it lies across. The first three drawings taper toward the far end (a trapezoid), the last two are rectangles: a perspective drawing against the stage's square tiles, left as delivered.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 7f6a40) to an olive ink (69793e) and the dark brown outline (source about 261d1e) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Five drawings on a 3x2 grid in reading order = request order: down-0, rising-0, rising-1, rising-2, up-0 (flat, 25, 50, 75 degrees, upright). The crops are tight and separated.",
+  "notes_sha256": "c1e658fa30644d907d5c924cb2a7765df3187851dc22e76a7d13e4dfe486445b",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "down-0: the leaf lies flat, five crosswise planks, side beams, pale caps, the hinge log at the bottom.",
+      "name": "down-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        232.5,
+        283
+      ],
+      "source_rect_xywh": [
+        25,
+        161,
+        465,
+        283
+      ],
+      "state": "down",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "rising-0: the first lift (about 25 degrees): the far edge rises, a dark underside shows.",
+      "name": "rising-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        231.5,
+        309
+      ],
+      "source_rect_xywh": [
+        537,
+        135,
+        463,
+        309
+      ],
+      "state": "rising",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "rising-1: about 50 degrees.",
+      "name": "rising-1",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        221.5,
+        322
+      ],
+      "source_rect_xywh": [
+        1060,
+        121,
+        443,
+        322
+      ],
+      "state": "rising",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "rising-2: about 75 degrees, nearly upright, the underside dark.",
+      "name": "rising-2",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        185.5,
+        345
+      ],
+      "source_rect_xywh": [
+        71,
+        571,
+        371,
+        345
+      ],
+      "state": "rising",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "up-0: upright, face-on, planks seen from the front.",
+      "name": "up-0",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        203,
+        325
+      ],
+      "source_rect_xywh": [
+        566,
+        587,
+        406,
+        325
+      ],
+      "state": "up",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 56x36, anchor bottom-centre (28,36); the bottom edge is the south edge of the bridge's two rows of tiles, its hinge; stage 384x224; a knight is 16x24 in this town.",
+  "sizes": {
+    "v1": [
+      56,
+      36
+    ],
+    "v2": [
+      56,
+      36
+    ]
+  },
+  "slot": "moonfall.bridge",
+  "source_sha256": "297603081f0237f4d36b888e43e447cdfa69dbf905fef4701ae48e8278c2a2c8",
+  "timing": "down 12, rising 3 frames of 6, up 12 ticks (30 Hz). Art never sets a hitbox."
+}

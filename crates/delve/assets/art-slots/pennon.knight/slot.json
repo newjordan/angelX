@@ -1,0 +1,560 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8004
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8812
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8520
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6494
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 9636
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6168
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 11601
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8227
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 12670
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 13268
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4434
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 13262
+    }
+  ],
+  "flags": [],
+  "map_sha256": "42acfbf9783f74b89d1e1c807307f496c1c27f2fe23397871b788f506ee71c79",
+  "metadata_sha256": "51c9d2d0873792c0741b215c416ba1a0c7301443530b8ce0519ce6b7973ce931",
+  "notes_sha256": "6f4c4a72b7c21db549012e1d7ad612805d37990d49fa40474fc78ff99fe7f36f",
+  "outputs": {
+    "v1/knight-aim-down.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 610,
+      "piece": 7,
+      "seat_mask_sha256": "aedd2f004e3afabca9d44ecf7b05efc8cccbc6a9f6ab05f0b1436d258beb61da",
+      "sha256": "ebbf6dae71f7a67717053efcd4691a9389db0962663e1936a40e8f2a0122e3b0",
+      "source_scale": 0.14241486068111456,
+      "state": "aim-down"
+    },
+    "v1/knight-aim-up.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 67,
+      "opaque_pixels": 832,
+      "piece": 6,
+      "seat_mask_sha256": "12a3ae1074cd20c74d197953086a1ccba9a98284c9c8145b5fb1f93abed75cc2",
+      "sha256": "7f9e5a76347372faef3acf40cee170f072886fa0a78a53e956f036832d1e88bc",
+      "source_scale": 0.14241486068111456,
+      "state": "aim-up"
+    },
+    "v1/knight-duck.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 44,
+      "opaque_pixels": 570,
+      "piece": 10,
+      "seat_mask_sha256": "b6d8ccfdfe098c44855c060afe5a1a3630ec2a4cd09297d9c89b4c80f268dcf3",
+      "sha256": "f9a3bc9c5ebe3305762fb37cdd5435d9c504ea08beb7453151f8f7444e4dd83f",
+      "source_scale": 0.14241486068111456,
+      "state": "duck"
+    },
+    "v1/knight-fall.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 66,
+      "opaque_pixels": 847,
+      "piece": 4,
+      "seat_mask_sha256": "ce2c75243f8daa0a5fbf73897af5fe766a38de541aeacab9ffa7b2d1dbbd792b",
+      "sha256": "313cde877500a0238a0e0fb9b251437933f0c01a0d3d344c2f71e9d1ea206536",
+      "source_scale": 0.14241486068111456,
+      "state": "fall"
+    },
+    "v1/knight-hit.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9908,
+      "frame": 0,
+      "half_cell_coverage": 70,
+      "opaque_pixels": 866,
+      "piece": 8,
+      "seat_mask_sha256": "10f0016505b0aa067a12dd4e1d83b41fc5e2d02b832d238bd8bd1bfcb268ce74",
+      "sha256": "d9c42ae3ece9a82b20cf077d1ab5c03f5e81220adca1df9dd686dd49f3361369",
+      "source_scale": 0.14241486068111456,
+      "state": "hit"
+    },
+    "v1/knight-idle.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 57,
+      "opaque_pixels": 701,
+      "piece": 0,
+      "seat_mask_sha256": "f76070a9e2797ae2e904d43e6456799a1e46bfeaef802460ba75b7898cc33423",
+      "sha256": "2e46ddd777d49cee31f34886e2b13b9de3ad072f415ee42088bad70e54761cc0",
+      "source_scale": 0.14241486068111456,
+      "state": "idle"
+    },
+    "v1/knight-jump.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 644,
+      "piece": 3,
+      "seat_mask_sha256": "ccabf3741768993a9b595fa68d4f2bdf470d78e0d2cc62aa86aa0757fdc656f9",
+      "sha256": "fa3325a3316ae1377102dd93101ec43ddb7c3b855aaf69e168e64f76267746bc",
+      "source_scale": 0.14241486068111456,
+      "state": "jump"
+    },
+    "v1/knight-land.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 52,
+      "opaque_pixels": 675,
+      "piece": 5,
+      "seat_mask_sha256": "74813961318a2a33f2723a9466017c40e299fd8e8b88e4b70af4e8c07a59f27e",
+      "sha256": "9f69feaf455fbd25b40102288e6ed0fc9e7be9e492bb8aace0a4871014cb95d9",
+      "source_scale": 0.14241486068111456,
+      "state": "land"
+    },
+    "v1/knight-run-1.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 57,
+      "opaque_pixels": 720,
+      "piece": 1,
+      "seat_mask_sha256": "0a2ceb38d493772ac7b5c51a2fbdfad6ad5381b8e6356813b549d0a79ea8a6a0",
+      "sha256": "0fe1fa6de48d54ce4c29950c931d0936735a1b4c2ab192098049743cf9cbb892",
+      "source_scale": 0.14241486068111456,
+      "state": "run"
+    },
+    "v1/knight-run-2.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 53,
+      "opaque_pixels": 685,
+      "piece": 2,
+      "seat_mask_sha256": "765871e54cdc70f941dd2354ba3bdefdb11690d16e76a173de2b15acd70564bc",
+      "sha256": "77d9857a2eb5f06bb6d654e44947aa848e91b44898ddfbab17d58d3acd3359db",
+      "source_scale": 0.14241486068111456,
+      "state": "run"
+    },
+    "v1/knight-shoot.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 0,
+      "half_cell_coverage": 62,
+      "opaque_pixels": 793,
+      "piece": 11,
+      "seat_mask_sha256": "ab00a32a30bff2e84998eac6020457e36c5df2507069aeb4327887ee9c6812d8",
+      "sha256": "cd2d9694dc9b8972ca5742e42d50be90b1bd61fba2349cecf7777ec9378654f9",
+      "source_scale": 0.14241486068111456,
+      "state": "shoot"
+    },
+    "v1/knight-victory.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 72,
+      "opaque_pixels": 932,
+      "piece": 9,
+      "seat_mask_sha256": "dadd17e70d62db63a0ca5ce601ac996a5f4ec8d7887390c7ce0cb5354e8e848b",
+      "sha256": "33ee14a19ff07dbd9c46609c58263ccba253ca1a52e6bcb6a72abe52befbec9f",
+      "source_scale": 0.14241486068111456,
+      "state": "victory"
+    },
+    "v2/knight-aim-down.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 610,
+      "piece": 7,
+      "seat_mask_sha256": "aedd2f004e3afabca9d44ecf7b05efc8cccbc6a9f6ab05f0b1436d258beb61da",
+      "sha256": "ebbf6dae71f7a67717053efcd4691a9389db0962663e1936a40e8f2a0122e3b0",
+      "source_scale": 0.14241486068111456,
+      "state": "aim-down"
+    },
+    "v2/knight-aim-up.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 67,
+      "opaque_pixels": 832,
+      "piece": 6,
+      "seat_mask_sha256": "12a3ae1074cd20c74d197953086a1ccba9a98284c9c8145b5fb1f93abed75cc2",
+      "sha256": "7f9e5a76347372faef3acf40cee170f072886fa0a78a53e956f036832d1e88bc",
+      "source_scale": 0.14241486068111456,
+      "state": "aim-up"
+    },
+    "v2/knight-duck.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 44,
+      "opaque_pixels": 570,
+      "piece": 10,
+      "seat_mask_sha256": "b6d8ccfdfe098c44855c060afe5a1a3630ec2a4cd09297d9c89b4c80f268dcf3",
+      "sha256": "f9a3bc9c5ebe3305762fb37cdd5435d9c504ea08beb7453151f8f7444e4dd83f",
+      "source_scale": 0.14241486068111456,
+      "state": "duck"
+    },
+    "v2/knight-fall.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 66,
+      "opaque_pixels": 847,
+      "piece": 4,
+      "seat_mask_sha256": "ce2c75243f8daa0a5fbf73897af5fe766a38de541aeacab9ffa7b2d1dbbd792b",
+      "sha256": "313cde877500a0238a0e0fb9b251437933f0c01a0d3d344c2f71e9d1ea206536",
+      "source_scale": 0.14241486068111456,
+      "state": "fall"
+    },
+    "v2/knight-hit.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9908,
+      "frame": 0,
+      "half_cell_coverage": 70,
+      "opaque_pixels": 866,
+      "piece": 8,
+      "seat_mask_sha256": "10f0016505b0aa067a12dd4e1d83b41fc5e2d02b832d238bd8bd1bfcb268ce74",
+      "sha256": "d9c42ae3ece9a82b20cf077d1ab5c03f5e81220adca1df9dd686dd49f3361369",
+      "source_scale": 0.14241486068111456,
+      "state": "hit"
+    },
+    "v2/knight-idle.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 57,
+      "opaque_pixels": 701,
+      "piece": 0,
+      "seat_mask_sha256": "f76070a9e2797ae2e904d43e6456799a1e46bfeaef802460ba75b7898cc33423",
+      "sha256": "2e46ddd777d49cee31f34886e2b13b9de3ad072f415ee42088bad70e54761cc0",
+      "source_scale": 0.14241486068111456,
+      "state": "idle"
+    },
+    "v2/knight-jump.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 644,
+      "piece": 3,
+      "seat_mask_sha256": "ccabf3741768993a9b595fa68d4f2bdf470d78e0d2cc62aa86aa0757fdc656f9",
+      "sha256": "fa3325a3316ae1377102dd93101ec43ddb7c3b855aaf69e168e64f76267746bc",
+      "source_scale": 0.14241486068111456,
+      "state": "jump"
+    },
+    "v2/knight-land.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 52,
+      "opaque_pixels": 675,
+      "piece": 5,
+      "seat_mask_sha256": "74813961318a2a33f2723a9466017c40e299fd8e8b88e4b70af4e8c07a59f27e",
+      "sha256": "9f69feaf455fbd25b40102288e6ed0fc9e7be9e492bb8aace0a4871014cb95d9",
+      "source_scale": 0.14241486068111456,
+      "state": "land"
+    },
+    "v2/knight-run-1.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 57,
+      "opaque_pixels": 720,
+      "piece": 1,
+      "seat_mask_sha256": "0a2ceb38d493772ac7b5c51a2fbdfad6ad5381b8e6356813b549d0a79ea8a6a0",
+      "sha256": "0fe1fa6de48d54ce4c29950c931d0936735a1b4c2ab192098049743cf9cbb892",
+      "source_scale": 0.14241486068111456,
+      "state": "run"
+    },
+    "v2/knight-run-2.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 53,
+      "opaque_pixels": 685,
+      "piece": 2,
+      "seat_mask_sha256": "765871e54cdc70f941dd2354ba3bdefdb11690d16e76a173de2b15acd70564bc",
+      "sha256": "77d9857a2eb5f06bb6d654e44947aa848e91b44898ddfbab17d58d3acd3359db",
+      "source_scale": 0.14241486068111456,
+      "state": "run"
+    },
+    "v2/knight-shoot.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 0,
+      "half_cell_coverage": 62,
+      "opaque_pixels": 793,
+      "piece": 11,
+      "seat_mask_sha256": "ab00a32a30bff2e84998eac6020457e36c5df2507069aeb4327887ee9c6812d8",
+      "sha256": "cd2d9694dc9b8972ca5742e42d50be90b1bd61fba2349cecf7777ec9378654f9",
+      "source_scale": 0.14241486068111456,
+      "state": "shoot"
+    },
+    "v2/knight-victory.png": {
+      "anchor_xy": [
+        24,
+        46
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 72,
+      "opaque_pixels": 932,
+      "piece": 9,
+      "seat_mask_sha256": "dadd17e70d62db63a0ca5ce601ac996a5f4ec8d7887390c7ce0cb5354e8e848b",
+      "sha256": "33ee14a19ff07dbd9c46609c58263ccba253ca1a52e6bcb6a72abe52befbec9f",
+      "source_scale": 0.14241486068111456,
+      "state": "victory"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "pennon.knight",
+  "source_path": "/work/artifacts/art-prod/slots/pennon.knight/v01/source-sheet.png",
+  "source_sha256": "832f3c281b0a3debf2e4f060bfc56adf9766acb8f780985005442680f54e1d8f",
+  "tool_version": 2
+}

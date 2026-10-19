@@ -1,0 +1,133 @@
+{
+  "alpha_threshold": 128,
+  "file": "/work/artifacts/art-prod/slots/dgn.hud.chrome/v01/source-sheet.png",
+  "fully_opaque_fraction": 0.0007,
+  "piece_count": 12,
+  "pieces": [
+    {
+      "alpha_area": 41251,
+      "index": 0,
+      "source_rect_xywh": [
+        190,
+        338,
+        215,
+        212
+      ]
+    },
+    {
+      "alpha_area": 41422,
+      "index": 1,
+      "source_rect_xywh": [
+        504,
+        338,
+        215,
+        212
+      ]
+    },
+    {
+      "alpha_area": 41274,
+      "index": 2,
+      "source_rect_xywh": [
+        817,
+        338,
+        214,
+        212
+      ]
+    },
+    {
+      "alpha_area": 41342,
+      "index": 3,
+      "source_rect_xywh": [
+        1131,
+        338,
+        215,
+        212
+      ]
+    },
+    {
+      "alpha_area": 16992,
+      "index": 4,
+      "source_rect_xywh": [
+        184,
+        755,
+        253,
+        90
+      ]
+    },
+    {
+      "alpha_area": 11202,
+      "index": 5,
+      "source_rect_xywh": [
+        513,
+        763,
+        197,
+        74
+      ]
+    },
+    {
+      "alpha_area": 26988,
+      "index": 6,
+      "source_rect_xywh": [
+        802,
+        730,
+        315,
+        124
+      ]
+    },
+    {
+      "alpha_area": 8387,
+      "index": 7,
+      "source_rect_xywh": [
+        1197,
+        756,
+        135,
+        83
+      ]
+    },
+    {
+      "alpha_area": 17134,
+      "index": 8,
+      "source_rect_xywh": [
+        210,
+        1060,
+        174,
+        167
+      ]
+    },
+    {
+      "alpha_area": 24814,
+      "index": 9,
+      "source_rect_xywh": [
+        502,
+        1026,
+        219,
+        217
+      ]
+    },
+    {
+      "alpha_area": 18795,
+      "index": 10,
+      "source_rect_xywh": [
+        820,
+        1051,
+        178,
+        183
+      ]
+    },
+    {
+      "alpha_area": 22172,
+      "index": 11,
+      "source_rect_xywh": [
+        1068,
+        1094,
+        287,
+        101
+      ]
+    }
+  ],
+  "size_wh": [
+    1536,
+    1536
+  ],
+  "warnings": []
+}

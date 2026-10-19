@@ -1,0 +1,226 @@
+set signal-hill
+# The Hill of Extremely Loud Flags: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: signs.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 9 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 9 8 8 size 16.2 25 14.4
+box    trunk   at 25 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 25 5 8 size 18 26 14.4
+box    trunk   at 39 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 39 6 8 size 18 29 14.4
+box    trunk   at 55 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 55 6 8 size 17.1 28 14.4
+box    trunk   at 71 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 71 7 8 size 16.2 31 14.4
+box    trunk   at 89 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 89 8 8 size 16.2 28 14.4
+box    trunk   at 105 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 105 6 8 size 17.1 29 14.4
+box    trunk   at 117 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 117 5 8 size 16.2 31 14.4
+box    trunk   at 139 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 139 5 8 size 18 29 14.4
+box    trunk   at 149 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 149 8 8 size 18 28 14.4
+box    trunk   at 166 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 166 5 8 size 17.1 29 14.4
+cone   foliage at 8 0 -9 size 20.8 41 18
+cone   foliage at 26 0 -9 size 20.8 43 18
+cone   foliage at 43 0 -9 size 19.2 45 18
+cone   foliage at 60 0 -9 size 20 42 18
+cone   foliage at 73 0 -9 size 19.2 45 18
+cone   foliage at 91 0 -9 size 22.4 38 18
+cone   foliage at 104 0 -9 size 22.4 45 18
+cone   foliage at 119 0 -9 size 20 45 18
+cone   foliage at 139 0 -9 size 22.4 44 18
+cone   foliage at 151 0 -9 size 17.6 41 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 218 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 218 5 8 size 18 31 14.4
+box    trunk   at 233 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 233 8 8 size 17.1 28 14.4
+box    trunk   at 249 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 249 6 8 size 18 30 14.4
+box    trunk   at 261 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 261 5 8 size 16.2 31 14.4
+box    trunk   at 281 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 281 7 8 size 17.1 27 14.4
+box    trunk   at 293 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 293 8 8 size 16.2 27 14.4
+box    trunk   at 311 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 311 7 8 size 17.1 30 14.4
+box    trunk   at 331 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 331 6 8 size 18 29 14.4
+box    trunk   at 346 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 346 5 8 size 18.9 28 14.4
+box    trunk   at 359 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 359 5 8 size 18 25 14.4
+box    trunk   at 374 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 374 7 8 size 16.2 26 14.4
+cone   foliage at 230 0 -9 size 23.2 38 18
+cone   foliage at 250 0 -9 size 22.4 43 18
+cone   foliage at 263 0 -9 size 20.8 40 18
+cone   foliage at 284 0 -9 size 23.2 38 18
+cone   foliage at 294 0 -9 size 18.4 43 18
+cone   foliage at 311 0 -9 size 19.2 45 18
+cone   foliage at 325 0 -9 size 22.4 40 18
+cone   foliage at 348 0 -9 size 21.6 45 18
+cone   foliage at 358 0 -9 size 22.4 39 18
+cone   foliage at 379 0 -9 size 22.4 44 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26.5 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 8 6 26.5 size 14.4 26 18.9
+box    trunk   at 8 0 37 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 37 size 14.4 25 17.1
+box    trunk   at 8 0 56 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 56 size 14.4 29 16.2
+box    trunk   at 8 0 69 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 8 6 69 size 14.4 25 16.2
+box    trunk   at 8 0 85.5 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 8 8 85.5 size 14.4 26 18.9
+
+# the west wall, rows 8 to 12 (at 74% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 139 size 4 7 4  # TODO prims: cylinder
+cone   foliage at 8 4 139 size 14.4 18.5 17.1
+box    trunk   at 8 0 150 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 8 5 150 size 14.4 24 18.9
+box    trunk   at 8 0 165 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 8 6 165 size 14.4 24 16.2
+box    trunk   at 8 0 182 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 8 6 182 size 14.4 29 18.9
+box    trunk   at 8 0 198.5 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 8 8 198.5 size 14.4 30 17.1
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 26 size 14.4 26 18
+box    trunk   at 376 0 40 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 376 7 40 size 14.4 28 18.9
+box    trunk   at 376 0 59 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 59 size 14.4 24 18
+box    trunk   at 376 0 74 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 74 size 14.4 28 16.2
+box    trunk   at 376 0 86.5 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 86.5 size 14.4 30 17.1
+
+# the east wall, rows 8 to 12 (at 66% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 138.5 size 4 7.5 4  # TODO prims: cylinder
+cone   foliage at 376 5 138.5 size 14.4 17 18.9
+box    trunk   at 376 0 154 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 154 size 14.4 27 18.9
+box    trunk   at 376 0 170 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 170 size 14.4 25 16.2
+box    trunk   at 376 0 182 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 182 size 14.4 30 18
+box    trunk   at 376 0 197.5 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 376 6 197.5 size 14.4 26 18.9
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 18 3  # TODO prims: fence
+
+# the east door, rows 6 to 7
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 18 3  # TODO prims: fence
+
+# cottage at 3,2 4x2 (at 44% of its height, for the camera)
+box    stone   at 80 0 53 size 58 8 18 id cottage
+box    slate   at 80 8 53 size 60 5 20  # TODO prims: gable
+box    door    at 80 0 62.5 size 8 5 1
+box    window  at 64 3 62.5 size 6 2 1
+
+# flags at 16,2 5x2 (at 38% of its height, for the camera)
+box    wood    at 296 0 48.5 size 78 6 27 id flags
+box    wood    at 296 6 48.5 size 80 0.5 29  # TODO prims: gable
+box    wood    at 262 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 265.38 9.5 48 size 5.25 2.5 1
+box    wood    at 275.6 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 278.98 9.5 48 size 5.25 2.5 1
+box    wood    at 289.2 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 292.58 9.5 48 size 5.25 2.5 1
+box    wood    at 302.8 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 306.17 9.5 48 size 5.25 2.5 1
+box    wood    at 316.4 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 319.78 9.5 48 size 5.25 2.5 1
+box    wood    at 330 6.5 48 size 1.5 5.5 1.5
+box    cloth   at 333.38 9.5 48 size 5.25 2.5 1
+
+# outcrop at 7,10 3x2 (at 73% of its height, for the camera)
+box    rock    at 136 0 176 size 46 5 30 id outcrop-1  # TODO prims: rock
+gem    rock    at 118 3.5 168 size 13 13 12 turn 25  # TODO prims: rock
+gem    rock    at 137 3.5 168 size 13 10.5 12 turn 38  # TODO prims: rock
+gem    rock    at 153 3.5 169 size 13 12 12 turn 8  # TODO prims: rock
+gem    rock    at 122 3.5 185 size 13 15.5 12 turn 14  # TODO prims: rock
+gem    rock    at 135 3.5 186 size 13 14 12 turn 36  # TODO prims: rock
+gem    rock    at 154 3.5 185 size 13 11 12 turn 34  # TODO prims: rock
+
+# outcrop at 15,10 3x2 (at 27% of its height, for the camera)
+box    rock    at 264 0 176 size 46 6.76 30 id outcrop-2  # TODO prims: rock
+gem    rock    at 247 5 167 size 13 1.76 12 turn 41  # TODO prims: rock
+gem    rock    at 265 5 167 size 13 1.76 12 turn 23  # TODO prims: rock
+gem    rock    at 280 5 167 size 13 1.76 12 turn 47  # TODO prims: rock
+gem    rock    at 249 5 183 size 13 1.76 12 turn 13  # TODO prims: rock
+gem    rock    at 263 5 184 size 13 1.76 12 turn 41  # TODO prims: rock
+gem    rock    at 282 5 184 size 13 1.76 12 turn 14  # TODO prims: rock
+
+# landmark (assets/world3d/signal-hill/landmark.set, hand-placed)
+# The Hill of Extremely Loud Flags: the signal beacon on a rocky crest, its
+# brazier lit, and a row of tall flag poles with big flags along the back.
+rock-5   rock    at 96 0 -10 size 72 22 44 id signal-crest
+frustum  stone   at 96 16 -6 size 32 44 30 id signal-tower
+cylinder metal   at 96 60 -6 size 24 4 24 id signal-brazier
+cone-6    fire    at 96 64 -6 size 14 16 14 id signal-fire
+cylinder wood    at 236 0 8 size 4 54 4 id signal-pole-1
+box      cloth   at 248 40 8 size 22 13 1.5 id signal-flag-1
+cylinder wood    at 272 0 8 size 4 68 4 id signal-pole-2
+box      cloth   at 284 54 8 size 22 13 1.5 id signal-flag-2
+cylinder wood    at 308 0 8 size 4 58 4 id signal-pole-3
+box      cloth   at 320 44 8 size 22 13 1.5 id signal-flag-3
+cylinder wood    at 344 0 8 size 4 72 4 id signal-pole-4
+box      cloth   at 356 58 8 size 22 13 1.5 id signal-flag-4

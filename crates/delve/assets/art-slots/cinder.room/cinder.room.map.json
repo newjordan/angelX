@@ -1,0 +1,69 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 1,
+  "expected_existing_pieces": 0,
+  "geometry": "room() panel is (90+offset,3,156,210); collision is Board grid, not shelves. Keep pots, marks and UI unobscured.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "ba195a1bf54237b6e17f0790790d6f1db108965fc66b5e626ff4c0d30b5c1cf9",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "room",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        768.0,
+        432.0
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1536,
+        864
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224; top-left (0,0). Board 144\u00d7200 starts (96,9); preserve its clearance and sidebar areas.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "cinder.room",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": null,
+    "original_path": "/work/artifacts/art-prod/slots/cinder.room/v01/source-sheet.png",
+    "original_sha256": "39baa4996c449d3c6b74541d6c32a2e941871565b22f89a957136012dc76f4e5",
+    "room_gain": 0.54,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "03cc6229035ad87197516e4e74d011c5fd1c9a46b4dfe4942b6cacd5bbc37543",
+  "timing": "Cached static room at offsets 0/-2/+2; shake chosen from Board::impact (renderer::room/draw)."
+}

@@ -14,30 +14,28 @@
 //!
 //! | route | 0.1.6 advisory | fires |
 //! |-------|----------------|-------|
-//! | `⠼⠁` | post-edit logic | the turn's first successful edit, once |
-//! | `⠼⠃` | green verifier | a full verifier passed on changed code, once until the green goes stale |
-//! | `⠼⠉` | final mile | a bounded turn near its horizon with a changed workspace |
-//! | `⠼⠙` | first write | operator-armed inspection budget spent with no edit |
-//! | `⠼⠑` | no edit | an answer that claims progress with no edit (stop checkpoint) |
-//! | `⠼⠋` | weak verification | a green that ran only tests the model wrote |
-//! | `⠼⠛` | mutation thrash | the same edit issued three times |
-//! | `⠼⠓` | peripheral fan-out | four edits under docs or fixtures, none in the code |
-//! | `⠼⠊` | error cascade | every call failed for six hops running |
+//! | `⠼⠁` | green verifier | a full verifier passed on changed code, once until the green goes stale |
+//! | `⠼⠃` | final mile | a bounded turn near its horizon with a changed workspace |
+//! | `⠼⠉` | first write | operator-armed inspection budget spent with no edit |
+//! | `⠼⠙` | no edit | an answer that claims progress with no edit (stop checkpoint) |
+//! | `⠼⠑` | weak verification | a green that ran only tests the model wrote |
+//! | `⠼⠋` | mutation thrash | the same edit issued three times |
+//! | `⠼⠛` | peripheral fan-out | four edits under docs or fixtures, none in the code |
+//! | `⠼⠓` | error cascade | every call failed for six hops running |
 
 use super::{Primary, Route, Sub};
 use crate::agent::harness::*;
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const CELL: char = '⠼';
-pub(crate) const POST_EDIT: Route = Route::new(CELL, '⠁');
-pub(crate) const GREEN: Route = Route::new(CELL, '⠃');
-pub(crate) const FINAL_MILE: Route = Route::new(CELL, '⠉');
-pub(crate) const FIRST_WRITE: Route = Route::new(CELL, '⠙');
-pub(crate) const NO_EDIT: Route = Route::new(CELL, '⠑');
-pub(crate) const WEAK: Route = Route::new(CELL, '⠋');
-pub(crate) const THRASH: Route = Route::new(CELL, '⠛');
-pub(crate) const FANOUT: Route = Route::new(CELL, '⠓');
-pub(crate) const CASCADE: Route = Route::new(CELL, '⠊');
+pub(crate) const GREEN: Route = Route::new(CELL, '⠁');
+pub(crate) const FINAL_MILE: Route = Route::new(CELL, '⠃');
+pub(crate) const FIRST_WRITE: Route = Route::new(CELL, '⠉');
+pub(crate) const NO_EDIT: Route = Route::new(CELL, '⠙');
+pub(crate) const WEAK: Route = Route::new(CELL, '⠑');
+pub(crate) const THRASH: Route = Route::new(CELL, '⠋');
+pub(crate) const FANOUT: Route = Route::new(CELL, '⠛');
+pub(crate) const CASCADE: Route = Route::new(CELL, '⠓');
 
 /// The same edit issued this many times: `ANGEL_MUTATION_THRASH_NUDGE=3`, the
 /// value the 0.1.6 task defaults set.
@@ -48,29 +46,14 @@ pub(crate) const FANOUT_EDITS: usize = 4;
 /// task defaults: six for a rapid bounded turn, four otherwise.
 pub(crate) const FINAL_MILE_HOPS: usize = 4;
 pub(crate) const RAPID_FINAL_MILE_HOPS: usize = 6;
-/// The page of `⠼⠉` an inspection-only hop meets again: the last sentence.
+/// The page of `⠼⠃` an inspection-only hop meets again: the last sentence.
 pub(crate) const FINAL_MILE_AGAIN: usize = 4;
 
 pub(crate) const PRIMARY: Primary = Primary {
     cell: CELL,
     name: "advisories",
-    surface: "the hop advisories: review an edit, a green verifier, the final mile, the first write, weak checks, thrash, fan-out, an error cascade",
+    surface: "the hop advisories: a green verifier, the final mile, the first write, weak checks, thrash, fan-out, an error cascade",
     subs: &[
-        Sub {
-            route: POST_EDIT,
-            name: "post-edit",
-            signal: "the first edit landed; review it before testing",
-            action: "",
-            ideas: "",
-            pages: &[
-                "Review the edit logically before testing: trace the state transitions, invariants, cleanup/empty cases, and error paths implied by the task.",
-                "Prefer the code that *implements or emits* the behavior (library/pkg/src machinery) over generated testdata, docs, or example trees.",
-                "If the bug names multiple surfaces (code + config/markdown/model file), check whether each still needs a change.",
-                "Respect explicit no-build and externally delegated verification instructions; in those cases finish with the candidate and a truthful pending-verification note.",
-                "Otherwise, if the edit already covers them, run one smallest relevant verifier from a *pre-existing* project test entry point and finish.",
-                "Do not invent new tests as proof, stack broader checks without a concrete diagnostic, or thrash the same edit.",
-            ],
-        },
         Sub {
             route: GREEN,
             name: "green",
@@ -214,7 +197,7 @@ pub(crate) fn rejects_inspection(
 }
 
 /// `ANGEL_FIRST_WRITE_CALLS`: inspection calls before the first edit at which
-/// `⠼⠙` is given. Off (0) unless the operator arms it: an evidence audit
+/// `⠼⠉` is given. Off (0) unless the operator arms it: an evidence audit
 /// legitimately reads for a long time.
 pub(crate) fn first_write_limit() -> usize {
     env_usize("ANGEL_FIRST_WRITE_CALLS", 0)
@@ -224,11 +207,6 @@ pub(crate) fn first_write_limit() -> usize {
 /// with a first-write limit, as at 0.1.6.
 pub(crate) fn no_edit_guard_armed() -> bool {
     env_flag("ANGEL_NO_EDIT_ANSWER_GUARD", false) && first_write_limit() > 0
-}
-
-/// `ANGEL_POST_EDIT_LOGIC_REVIEW`: on unless the operator turns it off.
-pub(crate) fn post_edit_review_enabled() -> bool {
-    env_flag("ANGEL_POST_EDIT_LOGIC_REVIEW", true)
 }
 
 /// The same edit issued again and again, by its identity: the path and the

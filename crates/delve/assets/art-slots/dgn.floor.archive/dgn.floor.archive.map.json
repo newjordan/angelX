@@ -1,0 +1,349 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: preserve original slab contours; remove 3x3 median and raise contrast 15%. Room lighting is a separate cached post-process."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "669661879d5f405c76857d773790040e275aa6430ed38b2d66d1fc572916239f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Plain: dark stone slabs with shallow teal water and a restrained oak fitting.",
+      "median_filter": 0,
+      "name": "plain",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        132.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        60,
+        129,
+        264,
+        255
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Worn: irregular waterlogged stones with exposed damp joints and an oak edge detail.",
+      "median_filter": 0,
+      "name": "worn",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        132.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        444,
+        129,
+        264,
+        255
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Cracked: split stone slabs with water showing through the cracks.",
+      "median_filter": 0,
+      "name": "cracked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        127.5
+      ],
+      "source_rect_xywh": [
+        829,
+        129,
+        263,
+        255
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Patched: stone floor with dark oak plank repairs.",
+      "median_filter": 0,
+      "name": "patched",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        132.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        1212,
+        129,
+        264,
+        255
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Stained: mossy/water-darkened stone with a fallen leaf and soaked paper fragment.",
+      "median_filter": 0,
+      "name": "stained",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        128.5
+      ],
+      "source_rect_xywh": [
+        61,
+        640,
+        263,
+        257
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "inset_fraction": 0.045,
+      "label": "Rich: stone and water with a brass floor medallion and oak detail.",
+      "median_filter": 0,
+      "name": "rich",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        132.0,
+        129.0
+      ],
+      "source_rect_xywh": [
+        444,
+        639,
+        264,
+        258
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "label": "Wall edge: floor below a straight dark stone wall band and shadow edge.",
+      "name": "trim-0",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        128.5
+      ],
+      "source_rect_xywh": [
+        829,
+        640,
+        263,
+        257
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.75,
+        "value": 0.6
+      },
+      "label": "Arch edge: floor meeting a stone arch, with a brass lamp fitting and a fallen book.",
+      "name": "trim-1",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        128.5
+      ],
+      "source_rect_xywh": [
+        1213,
+        640,
+        263,
+        257
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Crack decal: branching broken stone and teal water, isolated on transparency.",
+      "name": "crack",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        125.0,
+        151.5
+      ],
+      "source_rect_xywh": [
+        67,
+        1129,
+        250,
+        303
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Puddle decal: shallow teal puddle with detached droplets.",
+      "name": "puddle",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        119.5,
+        117.0
+      ],
+      "source_rect_xywh": [
+        457,
+        1163,
+        239,
+        234
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Debris decal: soaked book, loose pages, stones, and wood fragments.",
+      "name": "debris",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        130.0,
+        141.5
+      ],
+      "source_rect_xywh": [
+        830,
+        1139,
+        260,
+        283
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Biome detail decal: brass wall reading-lamp fitting with green-gold glass.",
+      "name": "detail",
+      "piece": 11,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        118.5,
+        134.5
+      ],
+      "source_rect_xywh": [
+        1226,
+        1146,
+        237,
+        269
+      ],
+      "state": "floor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.floor.archive",
+  "source_sha256": "830ec89d0753cda1c88269f8e08981f0c2475d366f742dfdadb46b4fe527fff4",
+  "timing": ""
+}

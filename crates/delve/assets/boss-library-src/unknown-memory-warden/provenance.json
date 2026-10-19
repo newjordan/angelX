@@ -1,0 +1,215 @@
+{
+  "id": "unknown-memory-warden",
+  "source_path": "./cockpit/assets/boss-library/existing/unknown-memory-warden/v01/source-sheet-refined.png",
+  "source_sha256": "f2c75911416609e51f1c229ecb8d2a194b327ac70e6a284ce61b11b5f2373820",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Hovering memory guardian assembled from broad blue-black stone tablets around a squat ivory mask with ONE pale cyan vertical eye. Three offset stone memory-ring slabs float behind its head like a broken halo, thick separated forearm blocks and a tapered floating robe of slate segments. A few cyan seams, no text or runes shaped as letters. Curious solemn guardian with comic crooked mask.",
+  "definition_header": "name THE MEMORY WARDEN\ntext The Unknown remembers the first seal.\nby angelX\nwhere unknown\nhp 620\nsize 1.4\nmove hover speed=1.2\nattack spiral shots=3 speed=5 every=85 damage=10 shot=orb\nphases laser gap_ring every=91 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "936dede78255521426cd662618ab740fb06732e95badd3f9bc0980e5a908c33c",
+  "definition_sha256": "936dede78255521426cd662618ab740fb06732e95badd3f9bc0980e5a908c33c",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        47,
+        117,
+        263,
+        335
+      ],
+      "opaque_component_pixels": 53889,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "c39e90e7d292c51e502c7d7f59bce92466119a7aa4049ac85bd01d3ff619cd6f"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        355,
+        130,
+        311,
+        322
+      ],
+      "opaque_component_pixels": 54463,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "16ff15802cbfab5ba7b372721a21e242195e29c47e685df23e53946d522e27a5"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        708,
+        144,
+        179,
+        323
+      ],
+      "opaque_component_pixels": 35168,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "3d9da5a2593dddd8f7be9d150a77606efef6517c853dbca24a47fb6662314607"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        972,
+        139,
+        253,
+        327
+      ],
+      "opaque_component_pixels": 44065,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "d7d744c0221e2bd8144ba87884fc4f4650c0a71136df8f6f8ee14d9d4fc38529"
+    },
+    {
+      "id": "overhead/part/slate-tablet-body",
+      "source_rect_xywh": [
+        80,
+        591,
+        196,
+        242
+      ],
+      "opaque_component_pixels": 31726,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-slate-tablet-body.png",
+      "sha256": "bebd9fa83d55fcb3c9b312c5afff1d3c614f12d682d0e4723be7c73e412040e4"
+    },
+    {
+      "id": "overhead/part/single-eye-mask",
+      "source_rect_xywh": [
+        419,
+        607,
+        133,
+        181
+      ],
+      "opaque_component_pixels": 15125,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-single-eye-mask.png",
+      "sha256": "751a97c07fbf09e834f26359f05b5b671bbd2bfabc2361826bae9fb009324fef"
+    },
+    {
+      "id": "overhead/part/floating-arm-block",
+      "source_rect_xywh": [
+        679,
+        611,
+        178,
+        193
+      ],
+      "opaque_component_pixels": 21336,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-floating-arm-block.png",
+      "sha256": "74002a750901707ee6f1b8d2995e900073598a588bfbe12d39237895d657bc1b"
+    },
+    {
+      "id": "overhead/part/broken-memory-halo",
+      "source_rect_xywh": [
+        978,
+        587,
+        228,
+        228
+      ],
+      "opaque_component_pixels": 22442,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-broken-memory-halo.png",
+      "sha256": "26ab88e9ae40823936901e8d9838cc0ad7256ad61b5e4b89cd368b6392463b5b"
+    },
+    {
+      "id": "side/part/slate-tablet-body",
+      "source_rect_xywh": [
+        96,
+        939,
+        178,
+        220
+      ],
+      "opaque_component_pixels": 25926,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-slate-tablet-body.png",
+      "sha256": "562cd0c3afb28fb8c6ef14dfc5278fe2e991e19fb9062dc8245d9f5a1ddf8d75"
+    },
+    {
+      "id": "side/part/single-eye-mask",
+      "source_rect_xywh": [
+        445,
+        958,
+        121,
+        149
+      ],
+      "opaque_component_pixels": 11309,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-single-eye-mask.png",
+      "sha256": "eea57dc29819529e335dd79916599b386c6999e423de3f963a8234ad2374b5d7"
+    },
+    {
+      "id": "side/part/floating-arm-block",
+      "source_rect_xywh": [
+        689,
+        968,
+        214,
+        152
+      ],
+      "opaque_component_pixels": 19721,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-floating-arm-block.png",
+      "sha256": "38976ff2f1e076567423fe0bf544b2b88627727440357602ff5dcf7186aa34f6"
+    },
+    {
+      "id": "side/part/broken-memory-halo",
+      "source_rect_xywh": [
+        1013,
+        901,
+        164,
+        257
+      ],
+      "opaque_component_pixels": 21054,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-broken-memory-halo.png",
+      "sha256": "a5899b6a7625b4fa7100deef302578d15e317df35ffcafa174c8f75b64ece528"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

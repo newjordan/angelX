@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24.0,
+    32
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "216\u00d719 rule sweep lane and exact marks stay visible independently; source arc cannot imply safety in unpainted parts.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "8c0134b0b175b10e40658421401903bff4d308599cb14652174dad4cdcf5e6c4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Row 1, frame 1: teal smoke blooms around the emerging steel hook; ochre floor scuffs and small debris establish contact.",
+      "name": "fx-sweep-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.0,
+        138
+      ],
+      "source_rect_xywh": [
+        55,
+        233,
+        206,
+        138
+      ],
+      "state": "sweep"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Row 1, frame 2: the broad bright teal/steel lateral arc forms, pulled by the hook, with a warm scuff trail.",
+      "name": "fx-sweep-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.0,
+        139
+      ],
+      "source_rect_xywh": [
+        334,
+        233,
+        274,
+        139
+      ],
+      "state": "sweep"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Row 1, frame 3: the low sweep separates into thinning smoke, hook and flying debris.",
+      "name": "fx-sweep-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.0,
+        128
+      ],
+      "source_rect_xywh": [
+        673,
+        241,
+        246,
+        128
+      ],
+      "state": "sweep"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Row 1, frame 4: smoke puffs and small fragments disperse.",
+      "name": "fx-sweep-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        102.0,
+        101
+      ],
+      "source_rect_xywh": [
+        1003,
+        267,
+        204,
+        101
+      ],
+      "state": "sweep"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Row 2, frame 1: larger smoke and hook emergence with a stronger floor strike.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.5,
+        173
+      ],
+      "source_rect_xywh": [
+        39,
+        552,
+        253,
+        173
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Row 2, frame 2: peak sweep, broadest and brightest arc in this row.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        153.0,
+        183
+      ],
+      "source_rect_xywh": [
+        326,
+        547,
+        306,
+        183
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Row 2, frame 3: the arc breaks into smoke lobes and scattered debris.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        176
+      ],
+      "source_rect_xywh": [
+        661,
+        554,
+        272,
+        176
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Row 2, frame 4: late scattered smoke and fragments.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        144
+      ],
+      "source_rect_xywh": [
+        980,
+        586,
+        237,
+        144
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Row 3, frame 1: strongest/largest emergence and warm floor burst.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.5,
+        211
+      ],
+      "source_rect_xywh": [
+        34,
+        907,
+        273,
+        211
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Row 3, frame 2: peak broad arc with hook leading edge.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        154.0,
+        218
+      ],
+      "source_rect_xywh": [
+        338,
+        903,
+        308,
+        218
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Row 3, frame 3: separated trailing smoke and debris.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.5,
+        183
+      ],
+      "source_rect_xywh": [
+        682,
+        940,
+        263,
+        183
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Row 3, frame 4: sparse final particles and fading smoke.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.0,
+        149
+      ],
+      "source_rect_xywh": [
+        985,
+        973,
+        232,
+        149
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732 at (danger screen centre\u221224,py(TOP)\u221232); effect does not span the entire 216 px danger lane.",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "rafterwake.sweep",
+  "source_sha256": "bd11e47a424ea6439bbe7ecaebb08e5f6935e59abca3cbd3d6ca768c5a4fc3c0",
+  "timing": "Four frames over the same 10-tick action schedule as drop (draw())."
+}

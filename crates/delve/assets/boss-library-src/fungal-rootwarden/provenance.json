@@ -1,0 +1,215 @@
+{
+  "id": "fungal-rootwarden",
+  "source_path": "./cockpit/assets/boss-library/existing/fungal-rootwarden/v01/source-sheet-refined.png",
+  "source_sha256": "17a3d0b75a579d78e7e51bf771c5f606751a09d57e6a916536e735430cd4b652",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Squat rooted-wood guardian with a broad knotted oak torso, mossy bark mask face, two short branching root antlers and small amber eyes. Huge root mitten hands, short splayed root feet, thick mushroom-and-moss shoulder pads. Cream shelf fungi and muted olive growth; no giant umbrella cap. Ancient stubborn groundskeeper with enormous brow and tiny mouth.",
+  "definition_header": "name THE ROOTWARDEN\ntext Old roots close the way until their keeper falls.\nby angelX\nwhere fungal\nhp 620\nsize 1.4\nmove chase speed=1.1\nattack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=orb\nphases split mines every=104 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "a911c2b373637420460e654954431c406d67735069220d3ee1add403cc324c31",
+  "definition_sha256": "a911c2b373637420460e654954431c406d67735069220d3ee1add403cc324c31",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        45,
+        144,
+        246,
+        278
+      ],
+      "opaque_component_pixels": 44410,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "a3d4f5afe9c1ae66ba9d4f3b35686cae76d02a843b8e50de54194cf2f8f4dadf"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        351,
+        163,
+        319,
+        255
+      ],
+      "opaque_component_pixels": 45883,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "878cc75ec397dafdcd05cb7e73201972b672abc46600cec8bc1bd5db2d2e2030"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        723,
+        144,
+        148,
+        273
+      ],
+      "opaque_component_pixels": 27575,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "b514671afbe1f103a7d69163bae4ac2c506e9239864ff60d9c07ec85dbce4e8e"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        960,
+        157,
+        249,
+        260
+      ],
+      "opaque_component_pixels": 38253,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "bcf2896a2c24a4359b6a47b2c374624dfa1256c363a99c9610e2d8fe95483f60"
+    },
+    {
+      "id": "overhead/part/knotted-root-body",
+      "source_rect_xywh": [
+        75,
+        540,
+        224,
+        229
+      ],
+      "opaque_component_pixels": 34177,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-knotted-root-body.png",
+      "sha256": "f28ff8e4198adda4d56aadc769e4700b2af3ff75e2e2540ca8ed5bbc8242514c"
+    },
+    {
+      "id": "overhead/part/bark-mask-antlers",
+      "source_rect_xywh": [
+        406,
+        540,
+        163,
+        210
+      ],
+      "opaque_component_pixels": 17642,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-bark-mask-antlers.png",
+      "sha256": "613860228a833f5964ba203c78e805115c0c3cf93926741e9f9ca8ab2c716044"
+    },
+    {
+      "id": "overhead/part/root-mitten-arm",
+      "source_rect_xywh": [
+        690,
+        549,
+        194,
+        192
+      ],
+      "opaque_component_pixels": 22636,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-root-mitten-arm.png",
+      "sha256": "7c5632aa4ef949fd620c9957e66e14039f6604dcad2863215f09d930cbd7532c"
+    },
+    {
+      "id": "overhead/part/fungal-shoulder-clump",
+      "source_rect_xywh": [
+        1007,
+        573,
+        176,
+        170
+      ],
+      "opaque_component_pixels": 18631,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-fungal-shoulder-clump.png",
+      "sha256": "b1a7fb429ad3d7cdb8b2ad250cc25d736029c048f762cf1737e643ef067bb40c"
+    },
+    {
+      "id": "side/part/knotted-root-body",
+      "source_rect_xywh": [
+        76,
+        884,
+        230,
+        225
+      ],
+      "opaque_component_pixels": 35660,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-knotted-root-body.png",
+      "sha256": "c33ed460b7f2c743a5e1ddce87d08f5d4454946efac5bc02189c34061fb78c44"
+    },
+    {
+      "id": "side/part/bark-mask-antlers",
+      "source_rect_xywh": [
+        425,
+        875,
+        152,
+        195
+      ],
+      "opaque_component_pixels": 15245,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-bark-mask-antlers.png",
+      "sha256": "4ea56fdb3c0f358fc3ae11dad1977cccc752b9a0fe15517f60bca200a8cc8cbc"
+    },
+    {
+      "id": "side/part/root-mitten-arm",
+      "source_rect_xywh": [
+        698,
+        908,
+        208,
+        174
+      ],
+      "opaque_component_pixels": 23088,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-root-mitten-arm.png",
+      "sha256": "0cbe7f42389a8086e00bce61a6091b7a245cee127bebd9ac5aaadf5d279a1f17"
+    },
+    {
+      "id": "side/part/fungal-shoulder-clump",
+      "source_rect_xywh": [
+        999,
+        919,
+        185,
+        160
+      ],
+      "opaque_component_pixels": 18436,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-fungal-shoulder-clump.png",
+      "sha256": "985e48677670c7bb1cc70c287daea861e1407c9ce45536b7184026c443a7edb6"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

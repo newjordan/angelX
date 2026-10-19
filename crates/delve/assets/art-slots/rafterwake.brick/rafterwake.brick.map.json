@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    18
+  ],
+  "anchor_xy": [
+    12,
+    9
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Danger=(clamp(player x\u221214,8,204),checkpoint deck y\u221270,28,70); contact checked once when tell reaches zero. Danger marks must retain the full footprint even though brick art is smaller.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "a226f1a8a1bca58db130090b6441f362cbe36cfca8d9dbd5ea0fc46c2234b0d3",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Intact standard brick, three-quarter side plane with a slight falling tilt.",
+      "name": "brick",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        95.5,
+        68.5
+      ],
+      "source_rect_xywh": [
+        60,
+        178,
+        191,
+        137
+      ],
+      "state": "brick"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Standard brick with a chipped right corner.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        97.0,
+        71.0
+      ],
+      "source_rect_xywh": [
+        374,
+        173,
+        194,
+        142
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Standard brick with a larger visible chip at the right edge.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        100.0,
+        79.0
+      ],
+      "source_rect_xywh": [
+        689,
+        163,
+        200,
+        158
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Brick at impact with a compact ochre dust puff and detached chips.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        88.0,
+        100.5
+      ],
+      "source_rect_xywh": [
+        1014,
+        161,
+        176,
+        201
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Larger intact block variant.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.0,
+        95.0
+      ],
+      "source_rect_xywh": [
+        41,
+        531,
+        250,
+        190
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Larger block with a pronounced broken corner and one large loose chip.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.0,
+        103.0
+      ],
+      "source_rect_xywh": [
+        348,
+        515,
+        254,
+        206
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Large impact breakup with multiple masonry chunks and dust.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        140.5
+      ],
+      "source_rect_xywh": [
+        672,
+        492,
+        265,
+        281
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Separated debris chunks with a compact dust puff.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        104.0,
+        112.5
+      ],
+      "source_rect_xywh": [
+        1003,
+        549,
+        208,
+        225
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Smaller intact brick variant.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        86.0,
+        61.0
+      ],
+      "source_rect_xywh": [
+        70,
+        958,
+        172,
+        122
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Small brick with one chipped corner.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        85.0,
+        62.0
+      ],
+      "source_rect_xywh": [
+        388,
+        956,
+        170,
+        124
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Small block breaking into several chunks and dust.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        94.0,
+        98.0
+      ],
+      "source_rect_xywh": [
+        713,
+        941,
+        188,
+        196
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Final debris group of separated chunks and dust.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        89.0,
+        84.0
+      ],
+      "source_rect_xywh": [
+        1023,
+        960,
+        178,
+        168
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "24\u00d718; top-left (screen Danger.x+2,py(interpolated y)); pivot convention (12,18).",
+  "sizes": {
+    "v1": [
+      24,
+      18
+    ],
+    "v2": [
+      24,
+      18
+    ]
+  },
+  "slot": "rafterwake.brick",
+  "source_sha256": "70f911f38dde23e13264575967a0622a319317d6e6d150a27ca082dd002de431",
+  "timing": "Sparse event elapsed%150==90 when height>72 and <370; warning=30, burst=12. Draw descends 50 px during warning (Lane::step_at, draw())."
+}

@@ -169,6 +169,52 @@ pub struct PitHud {
     pub board: Vec<(String, String)>,
 }
 
+/// The room's wish allowance, read from the existing window and knight.
+/// Wishes do not accumulate between rooms.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WishHud {
+    /// Wishes held: plain ones, and super ones.
+    Ready { wishes: u8, great: u8 },
+    Spent,
+    Closed,
+    Fallen,
+}
+
+impl WishHud {
+    pub fn remaining(self) -> u8 {
+        match self {
+            Self::Ready { wishes, great } => wishes + great,
+            _ => 0,
+        }
+    }
+
+    /// A super wish is held.
+    pub fn great(self) -> bool {
+        matches!(self, Self::Ready { great, .. } if great > 0)
+    }
+
+    pub fn state(self) -> &'static str {
+        match self {
+            Self::Ready { great, .. } if great > 0 => "T super wish",
+            Self::Ready { .. } => "T wish",
+            Self::Spent => "spent",
+            Self::Closed => "next floor",
+            Self::Fallen => "fallen",
+        }
+    }
+
+    /// Knight `hero`'s wishes as the HUD shows them.
+    pub fn of(hero: &Hero) -> WishHud {
+        if hero.hp == 0 {
+            Self::Fallen
+        } else if hero.wishes + hero.great_wishes > 0 {
+            Self::Ready { wishes: hero.wishes, great: hero.great_wishes }
+        } else {
+            Self::Closed
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hud {
     pub name: String,
@@ -212,9 +258,16 @@ pub struct Hud {
     /// This knight carries the floor's Boss Key.
     #[serde(default)]
     pub key: bool,
+    /// Derived locally; older HUD snapshots may omit it.
+    #[serde(default)]
+    pub wishes: Option<WishHud>,
 }
 
 impl Run {
+    pub fn wish_hud(&self, id: u32) -> Option<WishHud> {
+        self.players.get(&id).map(WishHud::of)
+    }
+
     /// The take key's weapon for knight `id`: the nearest lying within
     /// reach, as `(key, name)`.
     pub fn weapon_beside(&self, id: u32) -> Option<&Card> {
@@ -243,7 +296,11 @@ impl Run {
             .map(|w| w.name.clone())
             .or_else(|| card_name(hero.arm.as_deref()))
             .unwrap_or_else(|| hero.weapon.name().to_string());
-        let weapon = format!("{weapon}{}", tier(hero.temper));
+        let weapon = match hero.possessed {
+            // A borrowed body's arms, not the knight's (`bodies`).
+            Some(kind) => bodies::arms_name(kind, self.dungeon.pack),
+            None => format!("{weapon}{}", tier(hero.temper)),
+        };
         let guard_name = card_name(hero.guard_card.as_deref()).unwrap_or_else(|| "Roll".into());
         let guard = match hero.guard {
             cards::Guard::Roll => {
@@ -293,7 +350,26 @@ impl Run {
                 },
             ),
         };
-        let spells = hero
+        let spells = if let Some(kind) = hero.possessed {
+            // A borrowed body's one spell, on the first key; the knight's
+            // cards wait.
+            let spell = bodies::spell(kind).map(|spell| {
+                let left = hero.body_rearm;
+                let state = if left == 0 {
+                    "ready".to_string()
+                } else {
+                    format!("{}s", left.div_ceil(HZ))
+                };
+                Slot::new(
+                    keys.spells[0],
+                    spell.name,
+                    1.0 - left as f32 / bodies::SPELL_REARM as f32,
+                    state,
+                )
+            });
+            (0..cards::SPELL_SLOTS).map(|slot| if slot == 0 { spell.clone() } else { None }).collect()
+        } else {
+            hero
             .spells
             .iter()
             .zip(hero.spell_cooldowns)
@@ -313,7 +389,8 @@ impl Run {
                     state,
                 ))
             })
-            .collect();
+            .collect()
+        };
         // The quaff key drinks the first card; the rest wait their turn.
         let hand = (0..cards::HAND)
             .map(|slot| {
@@ -324,8 +401,21 @@ impl Run {
             .collect();
         let ult = hero.ult();
         let ready = hero.ult_charge >= ults::ULT_FULL;
-        let status = if hero.hp == 0 {
-            "FALLEN: the stairs revive".to_string()
+        let friend = |id: u32| {
+            self.players
+                .get(&id)
+                .map(|h| h.shown_name())
+                .unwrap_or_default()
+        };
+        let status = if hero.hp == 0 && !hero.absent {
+            match self.skull_carrier(id) {
+                Some(carrier) => format!("FALLEN: {} carries your skull", friend(carrier)),
+                None => "FALLEN: a friend can carry your skull".to_string(),
+            }
+        } else if let Some(skull) = hero.carrying_skull {
+            format!("SKULL: {} on a weak foe raises {}", keys.interact, friend(skull))
+        } else if let Some(kind) = hero.possessed {
+            format!("RAISED as a {}: until the Sanctuary", format!("{kind:?}").to_lowercase())
         } else if hero.vigil {
             "VIGIL: mending those near".to_string()
         } else if hero.stone {
@@ -334,7 +424,7 @@ impl Run {
             String::new()
         };
         Some(Hud {
-            name: hero.knight_name().unwrap_or_else(|| hero.name.clone()),
+            name: hero.shown_name(),
             hp: hero.hp,
             max_hp: hero.max_hp,
             gear: hero.gear,
@@ -370,6 +460,7 @@ impl Run {
             valour: self.pips(id),
             temper: hero.temper,
             key: self.key_bearer() == Some(id),
+            wishes: self.wish_hud(id),
         })
     }
 }

@@ -1,0 +1,82 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only.",
+    "POLISH-A: continuous smooth radial grade replaces the rectangular fighter recess; native and cell caches apply independent final luminance grades."
+  ],
+  "delivered_pieces": 1,
+  "expected_existing_pieces": 0,
+  "geometry": "room()/draw(); no movement collision. Keep exact high/low contact lanes and narrow gap visible.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "b7d7317d9f1be8b685e372eb7babf41a99fa4777342c4b49edbd6b60ca1490b6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "room",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224 at (0,0); fighter baselines end y=156; title and score strips stay clear.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "latch.room",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": null,
+    "original_path": "/work/artifacts/art-prod/slots/latch.room/v01/source-sheet.png",
+    "original_sha256": "bd12b157bb73e89199640b05878f3387cb8ed3782d5c64ffa2726dad8880611d",
+    "room_gain": {
+      "centre": 0.13,
+      "centre_xy": [
+        216,
+        121
+      ],
+      "falloff": "smoothstep squared elliptical radius",
+      "radius_xy": [
+        150,
+        90
+      ],
+      "rim": 0.4
+    },
+    "script": "crates/delve/assets/art-slots/cinder.chrome/polish.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "604bd19482a30f6b3a6855e13bebd2188e36994ea80a8f35f8c41f009f86d4c5",
+  "timing": "Static OnceLock room (room())."
+}

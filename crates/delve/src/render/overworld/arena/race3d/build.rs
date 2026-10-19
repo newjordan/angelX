@@ -95,12 +95,13 @@ pub(super) fn hoop(m: &mut Mesh, c: V3, r_axis: V3, u_axis: V3, radius: f32, thi
 
 /// The course's fixed mesh, built once.
 pub(super) fn course(course: Course) -> &'static Mesh {
-    static MESHES: [OnceLock<Mesh>; 3] = [OnceLock::new(), OnceLock::new(), OnceLock::new()];
+    static MESHES: [OnceLock<Mesh>; 4] = [const { OnceLock::new() }; 4];
     let t = r3::track(course);
     match course {
         Course::Shaft => MESHES[0].get_or_init(|| shaft(t)),
         Course::Cart => MESHES[1].get_or_init(|| gallery(t)),
         Course::Griffin => MESHES[2].get_or_init(|| gorge(t)),
+        Course::Touge => MESHES[3].get_or_init(|| touge(t)),
     }
 }
 
@@ -128,6 +129,43 @@ fn lantern(m: &mut Mesh, t: &Track, s: f32, x: f32, high: f32, pool: bool) {
         m.push_tri([q[0], q[1], q[2]], [uv(q[0]), uv(q[1]), uv(q[2])], mat::TORCH_POOL);
         m.push_tri([q[0], q[2], q[3]], [uv(q[0]), uv(q[2]), uv(q[3])], mat::TORCH_POOL);
     }
+}
+
+/// Plain road, barrier, mountain and torch meshes; no bespoke texture art.
+fn touge(t: &Track) -> Mesh {
+    let mut m = Mesh::new();
+    let mut s = 0.0;
+    while s < t.len() {
+        let e = (s + 2.0).min(t.len());
+        let at = t.at(s);
+        let half = at.width * 0.5;
+        floor(&mut m, t, s, e, -half, half, 0.0, 2.0, mat::PATH);
+        for side in [-1.0, 1.0] {
+            wall(&mut m, t, s, e, side * half, 0.0, 0.7, 2.0, mat::STONE_DARK);
+            floor(&mut m, t, s, e, side * (half - 0.2), side * half, 0.03, 2.0, mat::HAY);
+            if at.ground == Ground::Rails {
+                wall(&mut m, t, s, e, side * (half + 0.2), 0.0, 4.0, 2.0, mat::ROCK);
+            } else {
+                wall(&mut m, t, s, e, side * (half + 10.0), -6.0, if side < 0.0 { 12.0 } else { 3.0 }, 2.0, mat::ROCK);
+            }
+        }
+        if at.ground == Ground::Rails {
+            floor(&mut m, t, s, e, -half - 0.2, half + 0.2, 4.0, 2.0, mat::ROCK);
+        }
+        if s as u32 % 16 == 0 {
+            for side in [-1.0, 1.0] {
+                lantern(&mut m, t, s + 0.5, side * (half - 0.35), 2.1, true);
+                block(&mut m, t, s + 0.5, side * (half - 0.35), 1.1, (0.06, 0.06, 1.0), mat::WOOD);
+            }
+        }
+        if s as u32 % 8 == 0 {
+            floor(&mut m, t, s, s + 2.0, -0.05, 0.05, 0.03, 2.0, mat::HAY);
+        }
+        s = e;
+    }
+    // A visible line shared by all three laps.
+    floor(&mut m, t, 0.0, 0.7, -4.8, 4.8, 0.04, 0.7, mat::ARMOR);
+    m
 }
 
 fn shaft(t: &Track) -> Mesh {
@@ -388,7 +426,9 @@ pub(super) fn ball_material(seat: u32) -> (u8, u8) {
         1 => (mat::STABLE_TIMBER, mat::CLOTH_GOLD),
         2 => (mat::ARMOR, mat::CLOTH_BLUE),
         3 => (mat::HORSE_GREY, mat::CLOTH_GOLD),
-        _ => (mat::CRYSTAL, mat::CLOTH_GOLD),
+        4 => (mat::CRYSTAL, mat::CLOTH_GOLD),
+        5 => (mat::HORSE_BAY, mat::CLOTH_BLUE),
+        _ => (mat::HORSE_CHESTNUT, mat::CLOTH_GOLD),
     }
 }
 
@@ -487,7 +527,7 @@ pub(super) fn drawn_at(t: &Track, rider: &Rider) -> (f32, f32, f32) {
             rider.z + (lift - rider.z) * k,
         );
     }
-    (rider.s, rider.x, rider.z)
+    (if t.looped { rider.s.rem_euclid(t.len()) } else { rider.s }, rider.x, rider.z)
 }
 
 /// Whether a rival is left out of `seat`'s view: one just behind or beside
@@ -501,6 +541,13 @@ pub(super) fn hidden(race: &Race3d, seat: Option<u32>, id: u32) -> bool {
         return false;
     };
     let (mine, theirs) = (drawn_at(t, me).0, drawn_at(t, other).0);
+    if race.course == Course::Touge {
+        // A first-person lens can sit inside the neighbouring team's rig
+        // when they run abreast. Reuse the chase view's near-rival hiding:
+        // the whole rig appears once it pulls clear ahead of the cockpit.
+        let gap = (theirs - mine + t.len() * 0.5).rem_euclid(t.len()) - t.len() * 0.5;
+        return gap > -CAMERA_BACK - 1.0 && gap < 3.0;
+    }
     theirs < mine - 1.2 && theirs > mine - CAMERA_BACK - 1.0
 }
 
@@ -574,7 +621,7 @@ pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
                 cuboid(m, p(t, bolt.s, bolt.x, bolt.z), f * 0.6, rt * 0.05, V3::UP * 0.05, mat::EMBER);
             }
         }
-        Course::Cart => {}
+        Course::Cart | Course::Touge => {}
     }
     for (&id, rider) in &race.riders {
         if hidden(race, seat, id) {
@@ -583,6 +630,25 @@ pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
         let (s, x, z) = drawn_at(t, rider);
         let (f, rt, _) = frame(t, s);
         match race.course {
+            Course::Touge => {
+                let (sin, cos) = rider.drift.heading.sin_cos();
+                let forward = f * cos + rt * sin;
+                let right = rt * cos - f * sin;
+                let c = p(t, s, x, z);
+                // Existing tub geometry stands in for a chariot cockpit.
+                cart(m, c, forward, right, 0.0, id);
+                for side in [-1.0, 1.0] {
+                    let horse = c + forward * 2.8 + right * (side * 0.55);
+                    cuboid(m, horse + V3::UP * 0.85, forward * 0.55, right * 0.20, V3::UP * 0.25, mat::HORSE_BAY);
+                    cuboid(m, horse + forward * 0.5 + V3::UP * 1.25, forward * 0.16, right * 0.18, V3::UP * 0.3, mat::HORSE_BAY);
+                    cuboid(m, c + forward * 1.0 + right * (side * 0.5) + V3::UP * 0.65, forward * 0.9, right * 0.025, V3::UP * 0.025, mat::TACK_LEATHER);
+                    for leg in [-1.0, 1.0] {
+                        let step = (rider.spin * 2.0 + side + leg).sin() * 0.15;
+                        cuboid(m, horse + forward * (leg * 0.4 + step) + V3::UP * 0.3,
+                            forward * 0.08, right * 0.2, V3::UP * 0.3, mat::HORSE_CHESTNUT);
+                    }
+                }
+            }
             Course::Shaft => ball(m, p(t, s, x, z + BALL_R), f, rt, rider.spin, id),
             Course::Cart => {
                 let tip = if rider.crash > 0 && rider.wreck != Wreck::Gap { rider.spin } else { 0.0 };

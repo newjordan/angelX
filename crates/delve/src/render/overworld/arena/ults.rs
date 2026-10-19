@@ -12,6 +12,8 @@ use crate::rules::{Hero, Run};
 /// Under the figures: domes, target rings, wings and images.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
+    super::class_looks::bard::song_rings(cv, run);
+    super::class_looks::peasant::desertion(cv, run);
     for sphere in &run.spheres {
         let (cx, cy) = at(sphere.x, sphere.y);
         let r = sphere.r * UNIT;
@@ -87,6 +89,7 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
 /// sparkle at its knight's feet.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
+    super::class_looks::bard::sleep_marks(cv, run);
     for hero in run.players.values().filter(|h| h.hp > 0) {
         if let Some((target, left)) = hero.aiming
             && let Some(enemy) = run.enemies.iter().find(|e| e.id == target)

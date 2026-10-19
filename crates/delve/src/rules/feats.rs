@@ -4,7 +4,7 @@
 //! The run only notices (`feats`, by id). The realm keeps which ones the
 //! party has earned — each once — and the boxes they came with; the
 //! cockpit tells the run to announce a new one, and the party opens the
-//! boxes before Fortune's audience, at the Herald's coffer in her hall.
+//! boxes at the Herald's coffer in Fortune's hall.
 
 use super::*;
 use crate::realm::{Spoil, Spoils};
@@ -75,272 +75,272 @@ pub struct Feat {
 pub const FEATS: &[Feat] = &[
     Feat {
         id: "first_delve",
-        name: "Welcome to the Delve",
-        says: "You walked down a staircase. The bar was on the floor, and you cleared it.",
+        name: "First Descent",
+        says: "Went down the first staircase.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "flawless",
         name: "Untouchable",
-        says: "A whole room, and not a scratch. The monsters have filed a complaint.",
+        says: "Cleared a room without taking a hit.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "bonded",
         name: "Better Together",
-        says: "Two knights, one room, zero monsters. Friendship is a weapon. It is now a currency too.",
+        says: "Two knights cleared a room together.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "my_ult",
-        name: "That's My Ultimate",
-        says: "You pressed R at exactly the right moment. Or any moment. It worked.",
+        name: "Hour of Glory",
+        says: "Unleashed an ultimate ability.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "spin",
-        name: "Spin to Win",
-        says: "Dame Fortune's wheel has been spun. The audience is thrilled. The audience is always thrilled.",
+        name: "Wheel of Fortune",
+        says: "Spun Dame Fortune's wheel.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "home_improvement",
         name: "Home Improvement",
-        says: "You spent your hard-won spoils on furniture. Very responsible. Very boring. Here, have a box.",
+        says: "Paid for an upgrade to the home.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "it_was_a_chest",
-        name: "It Was a Chest",
-        says: "Correction: it was a mouth. In the Herald's defence, it was also a chest.",
+        name: "Not a Chest",
+        says: "Opened a chest that was a mimic.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "sticky_fingers",
         name: "Sticky Fingers",
-        says: "A goblin ran off with a sack of gold while you watched. Consolation prize enclosed. It is smaller.",
+        says: "Let a loot goblin escape with its haul.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "not_yet",
         name: "Not Yet",
-        says: "You died and declined to stay dead. The chapel's bond holds. The Herald is impressed and slightly unnerved.",
+        says: "Revived after falling in battle.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "fresh_meat",
         name: "Fresh Meat",
-        says: "The Flesher hooked you and reeled you in. You are still here. The Flesher is as surprised as you are.",
+        says: "Was caught on the Flesher's hook.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "first_lesson",
         name: "Ector's Pupil",
-        says: "You learned something from Sir Ector. He'd like it noted that he taught Arthur, too, and Arthur was worse.",
+        says: "Learned a lesson from Sir Ector.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "daredevil",
         name: "Daredevil",
-        says: "You took one of Dame Fortune's dares and kept it. She has started calling you 'darling'. Run.",
+        says: "Completed one of Fortune's dares.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "cat_person",
         name: "Cat Person",
-        says: "Lady Tallow fetched ten piles of spoils in one delve. She would like a raise. She would like a throne.",
+        says: "Lady Tallow fetched ten items in one delve.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "siege_perilous",
         name: "The Siege Perilous",
-        says: "You sat in the Siege Perilous and lived. Galahad is going to be insufferable about this.",
+        says: "Sat the Siege Perilous and proved worthy.",
         tier: Tier::Gold,
     },
     Feat {
         id: "secret_room",
         name: "Through the Wall",
-        says: "You blew a hole in a wall and found a room nobody told the Herald about. He has checked the plans. There are no plans.",
+        says: "Blasted open a hidden room.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "ribbit",
-        name: "Kiss Me, I'm a Knight",
-        says: "Hexed into a frog three times in one delve. The Herald has stopped trying to tell you apart from the real ones.",
+        name: "Frog Knight",
+        says: "Was hexed into a frog three times.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "event_horizon",
         name: "Event Horizon",
-        says: "You hit the Hollow One so hard its Black Hole fell shut. The Herald would like to know what was on the other side. Don't tell him.",
+        says: "Broke the Hollow One's Black Hole.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "rune_runner",
         name: "Rune Runner",
-        says: "Four runes in one delve. You run at glowing things on the floor now. The Herald has seen how that ends, and it ends with a mimic.",
+        says: "Took four runes in one delve.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "rescuer",
-        name: "Out of the Cage",
-        says: "You opened a cage and somebody walked out. Now they live in your basement. That's how it works down here.",
-        tier: Tier::Bronze,
-    },
-    Feat {
-        id: "must_see_tv",
-        name: "Must-See TV",
-        says: "A million viewers watched you crawl. The Herald has been asked for autographs. The Herald does not sign.",
+        name: "Cage Breaker",
+        says: "Freed a captive from a cage.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "roadkill",
         name: "Roadkill",
-        says: "A rock fell on a monster. You were standing nearby, so the Herald is giving you the credit.",
+        says: "Killed a monster with a falling rock.",
+        tier: Tier::Silver,
+    },
+    Feat {
+        id: "mind_the_gap",
+        name: "Mind the Gap",
+        says: "A gauntlet threw a monster off its feet and into the dark. The Herald is still listening for it to land.",
         tier: Tier::Silver,
     },
     Feat {
         id: "splitting_headache",
         name: "Splitting Headache",
-        says: "You killed a slime, both its halves, and all four of its quarters. An entire family tree, pruned.",
+        says: "Killed seven slimes in one delve.",
         tier: Tier::Silver,
     },
     Feat {
         id: "demolitions",
         name: "Demolitions Expert",
-        says: "One keg, three monsters. The sapper who planted it is having a very bad day. Was having.",
+        says: "Felled three foes with one blast.",
         tier: Tier::Silver,
     },
     Feat {
         id: "not_today_goblin",
         name: "Not Today, Goblin",
-        says: "You caught a loot goblin. He wants you to know he was going to share.",
+        says: "Caught a loot goblin before it escaped.",
         tier: Tier::Silver,
     },
     Feat {
         id: "bigger_they_are",
-        name: "The Bigger They Are",
-        says: "A floor's guardian is down. It had a name and a backstory. Now it has a drop table.",
+        name: "Giant Killer",
+        says: "Defeated a floor's guardian.",
         tier: Tier::Silver,
     },
     Feat {
         id: "overkill",
         name: "Overkill",
-        says: "Three hundred damage in a single hit. The monster had a fraction of that. The Herald respects excess.",
+        says: "Landed a single hit worth 300 damage.",
         tier: Tier::Silver,
     },
     Feat {
         id: "fragile",
-        name: "Fragile, Handle With Care",
-        says: "A whole floor of Glass Jaw, and you walked off it. Everything hit twice as hard. You too.",
+        name: "Glass Knight",
+        says: "Took the stairs down under Glass Jaw.",
         tier: Tier::Silver,
     },
     Feat {
         id: "out_of_time",
         name: "Out of Time",
-        says: "The floor fell in and you took the stairs anyway. Fashionably late to your own escape.",
+        says: "Escaped a floor as it collapsed.",
         tier: Tier::Silver,
     },
     Feat {
         id: "party_of_four",
         name: "Party of Four",
-        says: "Four knights in one delve. The Herald has had to buy more chairs.",
+        says: "Four knights joined one delve.",
         tier: Tier::Silver,
-    },
-    Feat {
-        id: "prime_time",
-        name: "Prime Time",
-        says: "Ten million viewers. Dame Fortune has fainted. The Herald is handling it, and would like a raise.",
-        tier: Tier::Gold,
     },
     Feat {
         id: "master_of_arms",
         name: "Master of Arms",
-        says: "All four of Sir Ector's lessons, learned. He has nothing left to teach you, and finds that suspicious.",
+        says: "Learned all four of Sir Ector's lessons.",
         tier: Tier::Gold,
     },
     Feat {
         id: "fortunes_favourite",
         name: "Fortune's Favourite",
-        says: "Five of Fortune's dares kept in one delve. Her purse is empty. Her heart is full. Her lawyers are calling.",
+        says: "Kept five of Fortune's dares in one delve.",
         tier: Tier::Gold,
     },
     Feat {
         id: "pit_tyrant",
         name: "Into the Pit",
-        says: "You went into the Pit on purpose and killed what lives there. The Talisman is yours. So are the Herald's nightmares.",
+        says: "Slew the Pit Tyrant and took the Talisman.",
         tier: Tier::Gold,
     },
     Feat {
+        id: "white_horse",
+        name: "The White Horse",
+        says: "Freed the white horse from the swamp.",
+        tier: Tier::Silver,
+    },
+    Feat {
         id: "full_house",
-        name: "A Full House",
-        says: "Mabel, Anselm, Pip and Maud, all home. The Undercroft is crowded. The Herald has started a rota.",
+        name: "Full House",
+        says: "Brought every rescued resident home.",
         tier: Tier::Gold,
     },
     Feat {
         id: "dragonslayer",
         name: "Dragonslayer",
-        says: "You killed the dragon. The old stories end here. Yours, apparently, does not.",
+        says: "Slew the dragon of Dragon Keep.",
         tier: Tier::Gold,
     },
     Feat {
         id: "below_the_bottom",
         name: "Below the Bottom",
-        says: "There was a floor under Dragon Keep. Nobody told the Herald. You found it anyway.",
+        says: "Reached the floor below Dragon Keep.",
         tier: Tier::Gold,
     },
     Feat {
         id: "full_hall",
-        name: "A Full Hall",
-        says: "Every plinth in the Trophy Hall has something on it. Sir Kay has run out of things to complain about. He is furious.",
+        name: "Full Hall",
+        says: "Filled every plinth in the Trophy Hall.",
         tier: Tier::Gold,
     },
     Feat {
         id: "fealty",
-        name: "A Baron Sworn",
-        says: "A dwarf king knelt in his own hall and swore it to the crown. He grumbled the whole way down, and the whole way up.",
+        name: "Baron Sworn",
+        says: "Won the dwarf king's fealty.",
         tier: Tier::Silver,
     },
     Feat {
         id: "hammers_ring",
         name: "The Hammers Ring",
-        says: "A forge of Caer Dwfn burns again. A hundred years cold, and the first thing it made was a racket.",
+        says: "Relit a forge of Caer Dwfn.",
         tier: Tier::Gold,
     },
     Feat {
         id: "unhorsed",
-        name: "Over the Tail",
-        says: "A champion of the realm went over his horse's tail and onto the sand. The horse looked relieved.",
+        name: "Unhorsed",
+        says: "Knocked a champion from his horse.",
         tier: Tier::Silver,
     },
     Feat {
         id: "laurel_of_the_lists",
-        name: "Laurel of the Lists",
-        says: "A friend beaten at the lists, before the whole gallery. They asked for a rematch before they had got the sand out of their visor.",
+        name: "Victor's Laurel",
+        says: "Won a bout against a friend at the lists.",
         tier: Tier::Silver,
     },
     Feat {
         id: "champion",
-        name: "Champion of the Lists",
-        says: "Sir Lancelot, beaten at the lists. He was gracious about it. He is gracious about everything. It's exhausting.",
+        name: "Lists Champion",
+        says: "Defeated Sir Lancelot at the lists.",
         tier: Tier::Gold,
     },
     Feat {
         id: "popinjay",
-        name: "Down Goes the Popinjay",
-        says: "Three arrows, three hits, and a wooden parrot that will never be the same. The fletcher wept a little.",
+        name: "Popinjay",
+        says: "Hit every popinjay target without a miss.",
         tier: Tier::Bronze,
     },
     Feat {
         id: "unwashed",
         name: "The Great Unwashed",
-        says: "You beat the whole Delve and never once visited the privy. The Herald is told it was a matter of principle. The armour would like a word.",
+        says: "Slew the dragon without using a privy.",
         tier: Tier::Gold,
     },
     Feat {
         id: "the_grail",
-        name: "The Search Is the Grail",
-        says: "You went to the bottom of everything and met what was there. It was you, mostly. Well done.",
+        name: "The Grail",
+        says: "Reached the Threshold and found the Grail.",
         tier: Tier::Legendary,
     },
 ];
@@ -361,13 +361,21 @@ impl Run {
         }
     }
 
-    /// The cockpit's word that an achievement is new: show its banner.
+    /// The cockpit's word that an achievement is new. Down in a delve it
+    /// is kept for the match's end (`deeds`), never thrown up over the
+    /// fighting (the operator, 2026-10-18: "they are unecessary until the
+    /// end of the match"); up in the realm its banner shows.
     pub fn announce(&mut self, id: &str) {
-        if let Some(feat) = feat(id) {
-            self.banner = Some((self.tick, feat.id.to_string()));
-            self.cues.push("achievement".into());
-            self.sounds.push("wheel_land");
+        let Some(feat) = feat(id) else { return };
+        if !self.at_home_now() {
+            if !self.deeds.iter().any(|d| d == feat.id) {
+                self.deeds.push(feat.id.to_string());
+            }
+            return;
         }
+        self.banner = Some((self.tick, feat.id.to_string()));
+        self.cues.push("achievement".into());
+        self.sounds.push("wheel_land");
     }
 
     /// The banner up now, if any: the achievement it shows.

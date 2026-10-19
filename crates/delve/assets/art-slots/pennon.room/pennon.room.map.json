@@ -1,0 +1,60 @@
+{
+  "anchor_canvas_wh": [
+    1200,
+    676
+  ],
+  "anchor_xy": [
+    600,
+    338
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Cache crops the vertical wall to x=80..334; horizontal panorama tiles only the far sky above the physical support lip. No painted floor enters the collision layer.",
+    "Horizontal panorama retains aspect: 1200x676 bank, only top 112 rows used as distant sky. Painted parapet is discarded."
+  ],
+  "delivered_pieces": 1,
+  "expected_existing_pieces": 0,
+  "geometry": "ramparts()/supports()/landing() govern gaps; foreground may not bridge empty sections or hide support lips. Camera clamp is inherited from Rafterwake.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "10b7f5b429a59ecb5465c76210847ac835b97631f55c79123a36676bf779dcdf",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 7; No delivered reading-order label",
+      "name": "backdrop",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "backdrop"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "1200\u00d7144 world, 254\u00d7144 crop at (12,38). Existing very dim distant recesses, masonry sections, merlons and signal pennants.",
+  "sizes": {
+    "v1": [
+      1200,
+      676
+    ],
+    "v2": [
+      1200,
+      676
+    ]
+  },
+  "slot": "pennon.room",
+  "source_sha256": "f584ed3a668e3e9102cd6bd6f249e492a464dc606a29a618b6dd979ec4a0e3ab",
+  "timing": "Three static seed%3 layouts cached; seed shifts section edges by 0/4/8 px (ramparts(), backdrop())."
+}

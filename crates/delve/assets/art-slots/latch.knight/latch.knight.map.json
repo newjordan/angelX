@@ -1,0 +1,275 @@
+{
+  "anchor_canvas_wh": [
+    128,
+    80
+  ],
+  "anchor_xy": [
+    38,
+    80
+  ],
+  "comments": [
+    "Only explicitly mapped existing states are active; source count warnings and supplemental poses remain visible.",
+    "Seat masks include plume, cloth and painted shield field; steel/brass/leather are excluded before quantization.",
+    "Supplemental source pivots use the same body/feet socket rather than the midpoint of a long spear; all retained poses fit without shrinking the active bank."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 5,
+  "geometry": "Same timing-only Duel as Clasp; high shield must remain helmet-high, low at shins, counter reaches contact near (232+recoil+shake,130).",
+  "mapping_basis": "Inspected 12 posed figures; explicit native feet pivots and selected existing states.",
+  "notes_sha256": "a79437d88cf4199368e809cc5061aa6b1a2f126fd60c11fa8fd319e1228ab6fa",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "High guard with level spear, shield held close.",
+      "name": "knight-thrust-brace",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        133,
+        280
+      ],
+      "source_rect_xywh": [
+        30,
+        143,
+        301,
+        280
+      ],
+      "state": "knight-thrust-brace"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Crouched low guard, spear lowered and shield near the legs.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        229
+      ],
+      "source_rect_xywh": [
+        351,
+        194,
+        297,
+        229
+      ],
+      "state": "crouched-low-guard-spear-lowered-and-shield-near-the-legs"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "High parry with the shield snapped overhead.",
+      "name": "knight-guard-high",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        122,
+        289
+      ],
+      "source_rect_xywh": [
+        658,
+        135,
+        286,
+        289
+      ],
+      "state": "knight-guard-high"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Low guard / parry crouch with spear low.",
+      "name": "knight-guard-low",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        135,
+        220
+      ],
+      "source_rect_xywh": [
+        958,
+        204,
+        290,
+        220
+      ],
+      "state": "knight-guard-low"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "High counter thrust with level spear and shield forward.",
+      "name": "knight-thrust-contact",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        128,
+        274
+      ],
+      "source_rect_xywh": [
+        30,
+        527,
+        366,
+        274
+      ],
+      "state": "knight-thrust-contact"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Low counter thrust, crouched.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        249
+      ],
+      "source_rect_xywh": [
+        336,
+        553,
+        341,
+        249
+      ],
+      "state": "low-counter-thrust-crouched"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Miss / stagger, body pitched forward with blue sweat marks.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        250
+      ],
+      "source_rect_xywh": [
+        651,
+        552,
+        382,
+        250
+      ],
+      "state": "miss-stagger-body-pitched-forward-with-blue-sweat-marks"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Hit flinch, compressed stance with shield pulled in.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        110.5,
+        278
+      ],
+      "source_rect_xywh": [
+        1024,
+        524,
+        221,
+        278
+      ],
+      "state": "hit-flinch-compressed-stance-with-shield-pulled-in"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Victory stance with raised shield; spear remains level.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        277
+      ],
+      "source_rect_xywh": [
+        19,
+        907,
+        292,
+        277
+      ],
+      "state": "victory-stance-with-raised-shield-spear-remains-level"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Defeat collapse, kneeling low with spear on the ground.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        205
+      ],
+      "source_rect_xywh": [
+        321,
+        980,
+        338,
+        205
+      ],
+      "state": "defeat-collapse-kneeling-low-with-spear-on-the-ground"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Anticipation / read, forward loaded stance.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        128,
+        268
+      ],
+      "source_rect_xywh": [
+        660,
+        917,
+        313,
+        268
+      ],
+      "state": "anticipation-read-forward-loaded-stance"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Recovery stance returning upright.",
+      "name": "knight-thrust-recover",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        122,
+        238
+      ],
+      "source_rect_xywh": [
+        977,
+        947,
+        265,
+        238
+      ],
+      "state": "knight-thrust-recover"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "**128\u00d780 canvases**, stamped 1:1 at (126-shake,76+miss offset). They contain a much narrower body and long weapon clearance; do not trim to the body or mistake report body size for file size. Canvas foot convention (64,80), exact foot sockets unknown, test.",
+  "sizes": {
+    "v1": [
+      128,
+      80
+    ],
+    "v2": [
+      128,
+      80
+    ]
+  },
+  "slot": "latch.knight",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "metadata_sha256": "85fe1bfe4c0e9b66acddbba9552d14413791c8a139ca1b6d4d89500b22acedaa",
+    "original_path": "/work/artifacts/art-prod/slots/latch.knight/v01/source-sheet.png",
+    "original_sha256": "5aa3ed147d31f3e5519ead282f66a0bc64fca02e945a1a72998caa6b9cd4c4fd",
+    "script": "crates/delve/assets/art-slots/cinder.chrome/actors.py"
+  },
+  "source_sha256": "66310357c02da353c3d793126a6728383c8dc2ccc8fbd5be4a31a42b4d2031b7",
+  "timing": "Five bodies. Guards held by input; Clean selects brace at freeze==STOP, contact while freeze>0 or recovery age<RECOVER/2, then recover. Defaults 4 freeze, 18 recovery; Miss drops stamp by 3 px (renderer::knight)."
+}

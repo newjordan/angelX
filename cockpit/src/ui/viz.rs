@@ -1,7 +1,7 @@
 //! Live visualizations: agent graphs, loops, RL curves, spend, lifecycles.
 
 pub(crate) mod agentviz;
-pub(crate) mod agentviz_portal;
+pub(crate) mod council;
 pub(crate) mod council_table;
 mod delve_hud;
 pub(crate) mod delve_intro_viz;

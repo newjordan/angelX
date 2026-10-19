@@ -1,0 +1,105 @@
+{
+  "boss": "hellforge-free-captain",
+  "camera": "overhead",
+  "definition_sha256": "ae589487b986857439a8eb0f2c65df3e6f8b616e5b693a0831854e32e7174d2c",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 28.16 L*, rest presence 87.68%, edge 93.18%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "captain armor boots"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "captain armor boots",
+      "crested helm",
+      "cutlass arm",
+      "slag shield arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      49,
+      54
+    ],
+    "v2": [
+      87,
+      96
+    ]
+  },
+  "identity_props": [
+    "captain armor boots",
+    "crested helm",
+    "cutlass arm",
+    "slag shield arm"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 35,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9691601049868767,
+      "opaque_pixels": 1524,
+      "sha256": "2619935931d461ba9fa7db316a318300ec2ee1935a3cbc30ea2d0495e853098c",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 34,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9700822737471952,
+      "opaque_pixels": 1337,
+      "sha256": "7868df0bfb912f542dc54e14d6a670221e94829337182a8b34b057e9953d6f1a",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9789539487393207,
+      "opaque_pixels": 4799,
+      "sha256": "533ad8d67ed78ce204396f47ce38009d96839359b56d7118c8b9d6ec0caaa963",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9767772511848342,
+      "opaque_pixels": 4220,
+      "sha256": "a736d76f2b293ebc22dad7e609e7f336500ae18620f7d24cbaa617e8b3009e84",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

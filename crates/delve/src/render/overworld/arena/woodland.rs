@@ -94,7 +94,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     {
         let (c, r, w, h) = e.at;
         let ink = if run.home.countryside.has(8) {
-            'O'
+            'o'
         } else {
             'B'
         };
@@ -157,7 +157,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
     if kind == RoomKind::Bothy {
         let (x, y) = at(10.0, 17.0);
-        ring(cv, x, y, if stage == 0 || stage == 4 { 'O' } else { 'g' });
+        ring(cv, x, y, if stage == 0 || stage == 4 { 'o' } else { 'g' });
         // Striped badger, hat and soup kettle beside the actual F ring.
         cv.rect(x - 6, y - 9, 12, 6, 'h');
         cv.rect(x - 3, y - 9, 3, 5, 'b');

@@ -44,7 +44,7 @@ fn eastern_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
             before.pixels().eq(instructions.pixels()),
             "post board suppresses game instructions"
         );
-        tray::corner(&mut instructions, &r, None);
+        tray::corner(&mut instructions, &r, None, false);
         for y in 0..instructions.h {
             for x in 0..instructions.w {
                 if before.get(x, y).is_some() {

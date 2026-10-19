@@ -1,0 +1,334 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "f50226c4f9eb923a565e13846dd3a9d82a1fe2204d49962346e4184703b14125",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Standing brass and dark iron archive torch, left-leaning flame frame.",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        74.0,
+        407
+      ],
+      "source_rect_xywh": [
+        98,
+        75,
+        148,
+        407
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same torch body, taller upright flame frame.",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        75.5,
+        450
+      ],
+      "source_rect_xywh": [
+        406,
+        33,
+        151,
+        450
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same torch body, forked right-leaning flame frame.",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        75.0,
+        425
+      ],
+      "source_rect_xywh": [
+        717,
+        58,
+        150,
+        425
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Brass hooded reading lamp with candle and restrained green-gold light.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        118.5,
+        369
+      ],
+      "source_rect_xywh": [
+        975,
+        134,
+        237,
+        369
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Waterlogged dark-oak barrel with brass hoops.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        117.0,
+        283
+      ],
+      "source_rect_xywh": [
+        40,
+        569,
+        234,
+        283
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Broken oak shelf fragment with a pile of soaked books and parchment.",
+      "name": "bones",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        166.5,
+        290
+      ],
+      "source_rect_xywh": [
+        322,
+        561,
+        333,
+        290
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Hanging web, chain and small brass medallion/garland detail.",
+      "name": "web",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.0,
+        306
+      ],
+      "source_rect_xywh": [
+        662,
+        546,
+        246,
+        306
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Broken stone arch fragment with a drowned book.",
+      "name": "prop-0",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        139.0,
+        283
+      ],
+      "source_rect_xywh": [
+        944,
+        569,
+        278,
+        283
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Bound bundle of soaked scrolls with brass clasp.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        280
+      ],
+      "source_rect_xywh": [
+        23,
+        936,
+        285,
+        280
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Irregular shallow teal water-stain decal.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.0,
+        217
+      ],
+      "source_rect_xywh": [
+        334,
+        960,
+        284,
+        217
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Cracked flagstone/algae decal with a small book corner.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        226
+      ],
+      "source_rect_xywh": [
+        640,
+        965,
+        285,
+        226
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.5
+      },
+      "label": "Soft green-gold light-pool glow.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        128.0,
+        104.0
+      ],
+      "source_rect_xywh": [
+        961,
+        983,
+        256,
+        208
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.archive",
+  "source_sha256": "d521e8bfcc0286dd9c5151d2cbe2b0dd7cbb390bca515cd4653d4492273943f5",
+  "timing": ""
+}

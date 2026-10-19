@@ -6,7 +6,8 @@ hp 620
 size 1.4
 move chase speed=1.1
 attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=orb
-phases split mines every=104 volleys=2 damage=10
+phases lob mines every=110 volleys=2 damage=10
+windup slam every=210 damage=14 shots=3 speed=5 arc=60 cry=ROOTS
 rage 35%
 drops gold 110, gem 1
 art

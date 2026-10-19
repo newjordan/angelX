@@ -41,6 +41,8 @@ fn ravage_by(run: &mut Run, d: f32, lane: f32) -> Ravage {
         step: 8,
         damage: 16,
         age: 0,
+        boss_art: None,
+        blow: 0,
     };
     run.ravages.push(ravage);
     ravage
@@ -153,9 +155,13 @@ fn the_leviathan_keeps_the_archive_and_ravages_at_a_knight() {
             .any(|a| a.pattern == bosses::Pattern::Ravage)
     );
     run.spawn_boss(index);
+    // Its ravage joins in the middle of the fight (`from=middle`).
     for _ in 0..12 * HZ {
         for hero in run.players.values_mut() {
             hero.hp = hero.max_hp;
+        }
+        for boss in run.enemies.iter_mut().filter(|e| e.boss.is_some()) {
+            boss.hp = boss.max_hp * 6 / 10;
         }
         run.step(&BTreeMap::new());
         if !run.ravages.is_empty() {
@@ -163,7 +169,7 @@ fn the_leviathan_keeps_the_archive_and_ravages_at_a_knight() {
         }
     }
     assert_eq!(run.ravages.len(), 1);
-    assert_eq!(run.ravages[0].rings, 5);
+    assert_eq!(run.ravages[0].rings, 4);
     assert!(run.cues.iter().any(|c| c == "ravage"));
 }
 

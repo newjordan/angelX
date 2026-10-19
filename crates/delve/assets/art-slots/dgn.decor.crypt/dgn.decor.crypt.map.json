@@ -1,0 +1,335 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: static prop/decal grade separates it from the moving foe palette."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "654f9fc0ae5c57f4ca27eee1b2e75ac8810c13b59e80084bb043430deea6fe5d",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Iron brazier, flame pose 1.",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        317
+      ],
+      "source_rect_xywh": [
+        65,
+        222,
+        271,
+        317
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, flame pose 2.",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.0,
+        346
+      ],
+      "source_rect_xywh": [
+        450,
+        193,
+        264,
+        346
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, flame pose 3.",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.5,
+        371
+      ],
+      "source_rect_xywh": [
+        844,
+        168,
+        257,
+        371
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Bone-wax candle in iron lantern.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        107.0,
+        370
+      ],
+      "source_rect_xywh": [
+        1245,
+        166,
+        214,
+        370
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Iron-banded crypt barrel.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        143.0,
+        335
+      ],
+      "source_rect_xywh": [
+        57,
+        633,
+        286,
+        335
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.4,
+        "value": 0.62
+      },
+      "label": "Ossuary bones with stone chips.",
+      "name": "bones",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        175.0,
+        245
+      ],
+      "source_rect_xywh": [
+        407,
+        717,
+        350,
+        245
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Cobweb spanning broken stone uprights.",
+      "name": "web",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        175.0,
+        296
+      ],
+      "source_rect_xywh": [
+        796,
+        679,
+        350,
+        296
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Cracked sarcophagus lid with skull relief.",
+      "name": "prop-0",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        350
+      ],
+      "source_rect_xywh": [
+        1211,
+        645,
+        298,
+        350
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Wall-mounted iron torch and flame.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.5,
+        321
+      ],
+      "source_rect_xywh": [
+        67,
+        1073,
+        257,
+        321
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Branching flagstone crack decal.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        168.5,
+        338
+      ],
+      "source_rect_xywh": [
+        425,
+        1097,
+        337,
+        338
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Dark crypt stain with bone and stone fragments.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.0,
+        302
+      ],
+      "source_rect_xywh": [
+        818,
+        1144,
+        328,
+        302
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.5
+      },
+      "label": "Warm radial light pool.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        134.0,
+        130.5
+      ],
+      "source_rect_xywh": [
+        1208,
+        1140,
+        268,
+        261
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.crypt",
+  "source_sha256": "4531cce7c062cc04254bb7bc20ac3bd86e64d5ec3e403feb224adc75700bc599",
+  "timing": ""
+}

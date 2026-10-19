@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "canvas": [
+    64,
+    64
+  ],
+  "anchor": [
+    32,
+    54
+  ],
+  "states": {
+    "explosion": {
+      "durations_ms": [
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75,
+        75
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "explosion-0.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-1.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-2.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-3.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-4.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-5.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-6.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-7.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-8.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-9.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-10.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "explosion-11.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        }
+      ]
+    },
+    "muzzle": {
+      "durations_ms": [
+        65,
+        65,
+        65
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "muzzle-0.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "muzzle-1.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "muzzle-2.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        }
+      ]
+    },
+    "impact": {
+      "durations_ms": [
+        75,
+        75,
+        75,
+        75
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "impact-0.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "impact-1.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "impact-2.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "impact-3.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        }
+      ]
+    },
+    "dust": {
+      "durations_ms": [
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "dust-0.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "dust-1.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "dust-2.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "dust-3.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "dust-4.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        }
+      ]
+    },
+    "spark": {
+      "durations_ms": [
+        65,
+        65,
+        65
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "spark-0.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "spark-1.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        },
+        {
+          "file": "spark-2.png",
+          "required_materials": {},
+          "material_regions": [],
+          "features": []
+        }
+      ]
+    }
+  }
+}

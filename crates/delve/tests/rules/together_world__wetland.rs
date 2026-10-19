@@ -29,8 +29,10 @@ fn wetland_adventure_regression(mut run: Run) {
                 2 => (24.0, 26.8, 0, 1),
                 _ => (1.2, 14.0, -1, 0),
             };
+            let party = run.players.len() as f32;
             for (n, h) in run.players.values_mut().enumerate() {
-                let offset = (n as f32 - 1.5) * 1.8;
+                // All of them must fit the doorway: it takes the whole party.
+                let offset = (n as f32 - (party - 1.0) / 2.0) * 0.6;
                 (h.x, h.y) = if d % 2 == 0 {
                     (x + offset, y)
                 } else {

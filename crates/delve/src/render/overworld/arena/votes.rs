@@ -18,7 +18,7 @@ fn star(im: &mut Img, x: i32, y: i32, filled: bool) {
 }
 fn title(im: &mut Img, x: i32, y: i32, text: &str) {
     let mut label = Img::new(super::super::ink::text_width(text), 7);
-    label.text(0, 0, text, 'T');
+    label.text(0, 0, text, 'O');
     for dy in 0..label.h {
         for dx in 0..label.w {
             if let Some(color) = label.get(dx, dy) {
@@ -46,7 +46,7 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             let w = super::super::ink::text_width(text) + 20;
             let x = (NATIVE_W - w) / 2;
             chrome::panel(over, (x, 12, w, 21), chrome::Tone::BRASS);
-            over.text(x + 10, 19, text, 'T');
+            over.text(x + 10, 19, text, 'O');
         }
         return;
     }
@@ -55,10 +55,10 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
     chrome::panel(&mut im, (0, 0, w, h), chrome::Tone::FRAMED);
     chrome::ring(&mut im, (0, 0, w, h), 4);
     title(&mut im, 14, 12, "WHAT'S NEW");
-    im.text(w - 77, 16, &format!("P{id}  0.2.2"), 'T');
-    im.text(14, 33, "FEATURE", 'T');
-    im.text(218, 33, "YOU", 'T');
-    im.text(276, 33, "PARTY", 'T');
+    im.text(w - 77, 16, &format!("P{id}  0.2.2"), 'O');
+    im.text(14, 33, "FEATURE", 'O');
+    im.text(218, 33, "YOU", 'O');
+    im.text(276, 33, "PARTY", 'O');
     let mut rows = Vec::new();
     let mut group = "";
     let mut selected_row = 0;
@@ -80,7 +80,7 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
     for (row, &(index, label)) in rows.iter().skip(start).take(SHOWN).enumerate() {
         let y = 47 + row as i32 * 12;
         let Some(index) = index else {
-            im.text(14, y, &label.to_uppercase(), 'T');
+            im.text(14, y, &label.to_uppercase(), 'O');
             continue;
         };
         if index == selected {
@@ -101,7 +101,7 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             .and_then(|r| r.get(item.id));
         match rating {
             Some(Rating::Untried(_)) => {
-                im.text(214, y, "UNTRIED", 'T');
+                im.text(214, y, "UNTRIED", 'O');
             }
             _ => {
                 let stars = match rating {
@@ -132,6 +132,6 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
         )
     };
     im.text(14, h - 24, controls, 'i');
-    im.text(14, h - 13, keys, 'T');
+    im.text(14, h - 13, keys, 'O');
     over.stamp(&im, 8, 8);
 }

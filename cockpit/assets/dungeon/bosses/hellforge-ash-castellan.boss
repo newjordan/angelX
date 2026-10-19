@@ -5,8 +5,9 @@ where hellforge
 hp 620
 size 1.4
 move anchor
-attack ring shots=8 speed=5 every=95 damage=10 shot=ember
-phases twin_spiral sweep every=91 volleys=2 damage=10
+attack ring shots=6 speed=5 every=95 damage=10 shot=ember
+phases twin_spiral sweep every=100 volleys=2 damage=10
+windup slam every=200 damage=14 shots=2 speed=6 arc=60 cry=HOLD!
 rage 35%
 drops gold 110, gem 1
 art

@@ -1,0 +1,222 @@
+set hippodrome
+# The Rusty Hippodrome: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the oval track, the start line at the east end, the bookie's booth (17,4.5), race-day bunting, the coach gate (19,12).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 10 9 8 size 20 18 16
+box    trunk   at 23 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 23 9 8 size 21 16 16
+box    trunk   at 42 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 42 9 8 size 21 16 16
+box    trunk   at 59 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 59 7 8 size 20 16 16
+box    trunk   at 72 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 72 7 8 size 20 17 16
+box    trunk   at 91 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 91 9 8 size 21 16 16
+box    trunk   at 102 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 102 9 8 size 21 19 16
+box    trunk   at 120 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 120 7 8 size 18 16 16
+box    trunk   at 138 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 138 8 8 size 19 19 16
+box    trunk   at 152 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 152 7 8 size 18 17 16
+box    trunk   at 165.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 165.5 8 8 size 21 16 16
+sphere foliage at 5 0 -9 size 22 31 18
+sphere foliage at 24 0 -9 size 28 35 18
+sphere foliage at 37 0 -9 size 29 33 18
+sphere foliage at 55 0 -9 size 24 33 18
+sphere foliage at 72 0 -9 size 26 36 18
+sphere foliage at 92 0 -9 size 23 34 18
+sphere foliage at 100 0 -9 size 28 36 18
+sphere foliage at 122 0 -9 size 23 37 18
+sphere foliage at 133 0 -9 size 24 30 18
+sphere foliage at 150 0 -9 size 29 33 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 217 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 217 9 8 size 18 19 16
+box    trunk   at 232 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 232 9 8 size 21 17 16
+box    trunk   at 246 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 246 7 8 size 19 16 16
+box    trunk   at 263 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 263 7 8 size 19 17 16
+box    trunk   at 282 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 282 9 8 size 19 16 16
+box    trunk   at 298 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 298 6 8 size 19 19 16
+box    trunk   at 310 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 310 8 8 size 19 18 16
+box    trunk   at 330 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 330 6 8 size 21 18 16
+box    trunk   at 343 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 343 8 8 size 21 16 16
+box    trunk   at 361 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 361 6 8 size 18 17 16
+box    trunk   at 373 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 373 9 8 size 19 17 16
+sphere foliage at 235 0 -9 size 22 35 18
+sphere foliage at 244 0 -9 size 24 31 18
+sphere foliage at 266 0 -9 size 28 37 18
+sphere foliage at 278 0 -9 size 29 33 18
+sphere foliage at 297 0 -9 size 29 33 18
+sphere foliage at 312 0 -9 size 27 32 18
+sphere foliage at 324 0 -9 size 28 34 18
+sphere foliage at 341 0 -9 size 25 34 18
+sphere foliage at 360 0 -9 size 23 35 18
+sphere foliage at 377 0 -9 size 24 30 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 25 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 25 size 16 19 18
+box    trunk   at 8 0 41 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 41 size 16 17 20
+box    trunk   at 8 0 58 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 58 size 16 18 20
+box    trunk   at 8 0 70 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 70 size 16 17 18
+box    trunk   at 8 0 85 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 85 size 16 17 20
+
+# the west wall, rows 8 to 12 (at 51% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 138 size 4 6 4  # TODO prims: cylinder
+sphere foliage at 8 4.5 138 size 16 8 19
+box    trunk   at 8 0 152 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 152 size 16 16 19
+box    trunk   at 8 0 166 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 166 size 16 18 19
+box    trunk   at 8 0 187 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 187 size 16 17 18
+box    trunk   at 8 0 199 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 199 size 16 17 18
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 26 size 16 16 20
+box    trunk   at 376 0 38 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 38 size 16 19 20
+box    trunk   at 376 0 54 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 54 size 16 19 20
+box    trunk   at 376 0 74 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 74 size 16 19 18
+box    trunk   at 376 0 86.5 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 86.5 size 16 16 19
+
+# the east wall, rows 8 to 12 (at 44% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 4 137.5 size 16 8 19
+box    trunk   at 376 0 149 size 4 10.5 4  # TODO prims: cylinder
+sphere foliage at 376 7.5 149 size 16 15 18
+box    trunk   at 376 0 165 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 165 size 16 19 19
+box    trunk   at 376 0 185 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 185 size 16 18 20
+box    trunk   at 376 0 197 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 197 size 16 19 19
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# stand at 3,2 6x2 (at 27% of its height, for the camera)
+box    wood    at 96 0 60.5 size 94 5.81 5 id stand-1  # TODO prims: stairs
+box    wood    at 96 0 55.5 size 94 5.81 5
+box    wood    at 96 0 50.5 size 94 5.81 5
+box    wood    at 96 0 45.5 size 94 5.81 5
+box    wood    at 96 0 40.5 size 94 5.81 5
+box    wood    at 96 0 35.5 size 94 5.81 5
+
+# stand at 15,2 6x2 (at 27% of its height, for the camera)
+box    wood    at 288 0 60.5 size 94 5.81 5 id stand-2  # TODO prims: stairs
+box    wood    at 288 0 55.5 size 94 5.81 5
+box    wood    at 288 0 50.5 size 94 5.81 5
+box    wood    at 288 0 45.5 size 94 5.81 5
+box    wood    at 288 0 40.5 size 94 5.81 5
+box    wood    at 288 0 35.5 size 94 5.81 5
+
+# cottage at 8,9 2x2 (at 51% of its height, for the camera)
+box    wood    at 144 0 165 size 26 9 18 id cottage
+box    roof    at 144 9 165 size 28 6 20  # TODO prims: gable
+box    door    at 144 0 174.5 size 8 6 1
+
+# site at 16,11 5x2
+box    wood    at 258 0 182 size 2 7 2
+box    wood    at 333 0 182 size 2 7 2
+box    wood    at 258 0 205 size 2 7 2
+box    cloth   at 295.5 5 182 size 75 1 1 id site  # TODO prims: fence
+box    cloth   at 258 5 193.5 size 1 1 23  # TODO prims: fence
+box    wood    at 271 0 199 size 16 3 6
+
+# landmark (assets/world3d/hippodrome/landmark.set, hand-placed)
+# The Rusty Hippodrome: the grandstands' upper tiers climbing behind the lower ones, a roof over each, a triumphal arch over the north gate.
+# the west grandstand: tiers rising to the back, a roof on four posts
+stairs-6 wood  at 96 0 8 size 96 50 16
+box    wood    at 52 30 6 size 4 30 4
+box    wood    at 140 30 6 size 4 30 4
+box    wood    at 52 30 14 size 4 30 4
+box    wood    at 140 30 14 size 4 30 4
+gable  roof    at 96 58 8 size 108 14 28
+# the east grandstand
+stairs-6 wood  at 288 0 8 size 96 50 16
+box    wood    at 244 30 6 size 4 30 4
+box    wood    at 332 30 6 size 4 30 4
+box    wood    at 244 30 14 size 4 30 4
+box    wood    at 332 30 14 size 4 30 4
+gable  roof    at 288 58 8 size 108 14 28
+# the gate: two stone piers either side of the north door, an arch over it
+box    stone   at 168 0 8 size 11 44 11
+box    stone   at 216 0 8 size 11 44 11
+arch-8 stone   at 192 44 8 size 64 22 12
+box    stone   at 168 44 8 size 14 4 14
+box    stone   at 216 44 8 size 14 4 14

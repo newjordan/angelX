@@ -26,7 +26,7 @@ install -Dm0755 cockpit/target/release/angel "$HOME/.local/bin/angel"
 
 `bin/angelX` performs the same locked, no-default-feature build automatically
 for headless commands. It preserves stdout and stderr, refuses to fall back to a
-stale binary after a failed runner build, skips the WebGPU portal, and never
+stale binary after a failed runner build, and never
 loads broad home-directory env files. Pass an explicitly trusted shell env file
 with `ANGEL_RUNNER_ENV_FILE=/path/to/runner.env`, or export only the required
 provider variables in the invoking process.

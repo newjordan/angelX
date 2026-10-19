@@ -1,0 +1,112 @@
+set chunk-3-4
+# The kingdom, chunk 3,4 in Castle Town: tiles 72..96 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 1152
+plate 1536 1024
+
+# ground
+box    grass   at 1232 -4 1080 size 160 4 112
+box    path    at 1336 -4 1152 size 48 4 256
+box    grass   at 1448 -4 1032 size 176 4 16
+box    grass   at 1432 -4 1112 size 144 4 144
+box    crop    at 1520 -4 1064 size 32 4 48
+box    grass   at 1520 -4 1184 size 32 4 192
+box    grass   at 1176 -4 1208 size 48 4 144
+box    path    at 1256 -4 1144 size 112 4 16
+box    grass   at 1208 -4 1216 size 16 4 128
+box    path    at 1264 -4 1160 size 96 4 16
+box    grass   at 1264 -4 1224 size 96 4 112
+box    grass   at 1376 -4 1232 size 32 4 96
+box    crop    at 1416 -4 1208 size 48 4 48
+box    grass   at 1472 -4 1232 size 64 4 96
+box    grass   at 1416 -4 1256 size 48 4 48
+
+# crop furrows
+box    crop    at 1520 0 1043.5 size 30 2.5 2
+box    crop    at 1520 0 1048.5 size 30 2.5 2
+box    crop    at 1520 0 1053.5 size 30 2.5 2
+box    crop    at 1520 0 1058.5 size 30 2.5 2
+box    crop    at 1520 0 1063.5 size 30 2.5 2
+box    crop    at 1520 0 1068.5 size 30 2.5 2
+box    crop    at 1520 0 1073.5 size 30 2.5 2
+box    crop    at 1520 0 1078.5 size 30 2.5 2
+box    crop    at 1520 0 1083.5 size 30 2.5 2
+box    crop    at 1416 0 1187.5 size 46 2.5 2
+box    crop    at 1416 0 1192.5 size 46 2.5 2
+box    crop    at 1416 0 1197.5 size 46 2.5 2
+box    crop    at 1416 0 1202.5 size 46 2.5 2
+box    crop    at 1416 0 1207.5 size 46 2.5 2
+box    crop    at 1416 0 1212.5 size 46 2.5 2
+box    crop    at 1416 0 1217.5 size 46 2.5 2
+box    crop    at 1416 0 1222.5 size 46 2.5 2
+box    crop    at 1416 0 1227.5 size 46 2.5 2
+
+# Land Office: a hall with a pillared porch at 74,68 4x3
+box    stone   at 1216 0 1117 size 60 16 22 id land-office
+hip    slate   at 1216 16 1117 size 63 11 25
+box    stone   at 1230.4 16 1114.8 size 4 12.35 4
+box    door    at 1216 0 1128.25 size 7 11 1
+box    window  at 1193.5 6.72 1128.25 size 5 4.8 1
+box    window  at 1208.5 6.72 1128.25 size 5 4.8 1
+box    window  at 1223.5 6.72 1128.25 size 5 4.8 1
+box    window  at 1238.5 6.72 1128.25 size 5 4.8 1
+cylinder stone   at 1207.5 0 1132.5 size 2.5 14 2.5
+cylinder stone   at 1213.5 0 1132.5 size 2.5 14 2.5
+cylinder stone   at 1218.5 0 1132.5 size 2.5 14 2.5
+cylinder stone   at 1224.5 0 1132.5 size 2.5 14 2.5
+box    stone   at 1216 14 1131 size 20 2 6
+gable  slate   at 1216 16 1131 size 7 5 22 turn 90
+
+# set dressing
+box    hedge   at 1416 0 1107 size 42 3.5 2
+box    hedge   at 1416 0 1117 size 42 3 2
+box    crop    at 1416 0 1112 size 40 2 6
+cylinder wood    at 1460 0 1126 size 5 4 5
+cylinder wood    at 1467 0 1126 size 5 4 5
+cylinder wood    at 1460 0 1131 size 5 4 5
+box    wood    at 1256 0 1224 size 12 3.5 5
+box    water   at 1256 0 1224 size 10 3.75 3
+box    wood    at 1188 0 1240 size 1.5 4 1.5
+box    wood    at 1228 0 1240 size 1.5 4 1.5
+box    wood    at 1208 2.75 1240 size 42 1.25 1.2
+box    wood    at 1480 0 1272 size 12 3.5 5
+box    water   at 1480 0 1272 size 10 3.75 3
+
+# woods (at 35% of its height, for the camera)
+cylinder trunk   at 1223.5 0 1192 size 3 5 3
+blob-56 foliage at 1223.5 2.5 1192 size 18 8 17.1 turn 180
+frustum trunk   at 1240 0 1194 size 3 5.5 3
+blob-42 foliage at 1240 2.5 1194 size 19 9.5 18.05 turn 270
+cylinder trunk   at 1256 0 1192 size 3 4 3
+blob-3 foliage at 1256 2 1192 size 19 7.5 18.05 turn 270
+cylinder trunk   at 1272 0 1192 size 3 3.5 3
+blob-54 foliage at 1272 1.5 1192 size 19 8 18.05 turn 270
+cylinder trunk   at 1224 0 1208 size 3 10 3
+blob-24 foliage at 1224 5 1208 size 19 20 18.05
+frustum trunk   at 1239 0 1206 size 3 11 3
+blob-21 foliage at 1239 6 1206 size 17 16 16.15
+cylinder trunk   at 1255 0 1206 size 3 10.5 3
+blob-29 foliage at 1255 5.5 1206 size 17 19 16.15 turn 90
+frustum trunk   at 1272 0 1207 size 3 9 3
+blob-40 foliage at 1272 4 1207 size 17 16 16.15 turn 90
+cylinder trunk   at 1416 0 1240 size 3 5 3
+cone   foliage at 1416 3.5 1240 size 19 9 19
+cone   foliage at 1416 9 1240 size 13.68 9 13.68
+cylinder trunk   at 1432 0 1242 size 3 5.5 3
+cone   foliage at 1432 3.5 1242 size 19 11.5 19
+cone   foliage at 1432 10.5 1242 size 13.68 11 13.68
+cylinder trunk   at 1416 0 1256 size 3 8 3
+cone   foliage at 1416 5 1256 size 19 19.22 19
+cone   foliage at 1416 16.78 1256 size 13.68 19.22 13.68
+cylinder trunk   at 1430 0 1256 size 3 10 3
+cone   foliage at 1430 7 1256 size 19 17.36 19
+cone   foliage at 1430 17.64 1256 size 13.68 17.36 13.68
+frustum trunk   at 1416.5 0 1272.5 size 3 9 3
+cone   foliage at 1416.5 6 1272.5 size 18 17.36 18
+cone   foliage at 1416.5 16.64 1272.5 size 12.96 17.36 12.96
+frustum trunk   at 1432 0 1272 size 3 10 3
+cone   foliage at 1432 7 1272 size 19 16.12 19
+cone   foliage at 1432 16.88 1272 size 13.68 16.12 13.68
+box    hedge   at 1448 0 1256 size 16 6.5 15
+blob-3 hedge   at 1448 4 1256 size 16 5 15

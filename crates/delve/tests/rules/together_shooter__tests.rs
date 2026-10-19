@@ -27,7 +27,8 @@ fn slay_all(run: &mut Run) {
     for enemy in &mut run.enemies {
         enemy.hp = 0;
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
+    while run.hitstop.left > 0 { run.step(&BTreeMap::new()); }
 }
 
 fn shot(x: f32, y: f32, vx: f32, vy: f32, hostile: bool) -> Projectile {
@@ -385,15 +386,15 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
             card: card.into(),
             x,
             y,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         }];
     };
     place(&mut run, "gold");
     let score = run.score;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.score, score + 50, "a take card is spent at once");
     place(&mut run, "potion");
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(run.room().items.is_empty());
     assert_eq!(
         run.players[&1].hand,
@@ -401,7 +402,7 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
         "a play card goes to the hand"
     );
     run.players.get_mut(&1).unwrap().hp = 50;
-    run.step(&inputs(Input {
+    run.step_sim_for_test(&inputs(Input {
         play: 1,
         ..Default::default()
     }));
@@ -409,21 +410,21 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
     assert!(run.players[&1].hand.is_empty());
     place(&mut run, "crossbow");
     for _ in 0..10 {
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
     assert_eq!(
         run.players[&1].weapon,
         Weapon::Bow,
         "walking over a weapon never takes it"
     );
-    run.step(&inputs(Input {
+    run.step_sim_for_test(&inputs(Input {
         take: true,
         ..Default::default()
     }));
     assert_eq!(run.players[&1].weapon, Weapon::Crossbow);
     assert_eq!(run.room().items[0].card, "bow");
     for _ in 0..10 {
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
     assert_eq!(
         run.players[&1].weapon,
@@ -435,14 +436,22 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
 
 #[test]
 fn treasure_chests_open_into_a_prize_and_two_rolls() {
-    let mut run = Run::new(4, 1, None);
-    let treasure = index_of(&run, RoomKind::Treasure);
-    run.enter(treasure, Some(2));
-    assert_eq!(run.phase, Phase::Exploring);
-    let chest = run.room().chest.unwrap();
-    let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y) = (chest.x, chest.y + 1.5);
-    run.step(&BTreeMap::new());
+    // One chest in four bites (`wake_mimic`): the first seed whose chest is
+    // a chest.
+    let run = (4..32)
+        .map(|seed| {
+            let mut run = Run::new(seed, 1, None);
+            let treasure = index_of(&run, RoomKind::Treasure);
+            run.enter(treasure, Some(2));
+            assert_eq!(run.phase, Phase::Exploring);
+            let chest = run.room().chest.unwrap();
+            let hero = run.players.get_mut(&1).unwrap();
+            (hero.x, hero.y) = (chest.x, chest.y + 1.5);
+            run.step(&BTreeMap::new());
+            run
+        })
+        .find(|run| run.room().chest.is_some())
+        .expect("a chest that is a chest");
     assert!(run.room().chest.unwrap().open);
     let items = &run.room().items;
     assert!(items.len() >= 2, "{items:?}");
@@ -469,7 +478,7 @@ fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = middle;
     let first = run.dungeon.pack;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.floor(), 2);
     assert_ne!(run.dungeon.pack, first);
     assert_eq!(run.at, 0);
@@ -502,10 +511,10 @@ fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     let (lx, ly) = run.light.unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (lx, ly);
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
     let tick = run.tick;
-    run.step(&inputs(Input {
+    run.step_sim_for_test(&inputs(Input {
         fire: true,
         ..Default::default()
     }));
@@ -535,11 +544,15 @@ fn delve_entity_work_stays_bounded_during_a_long_lair_fight() {
     let lair = index_of(&run, RoomKind::Lair);
     run.clear_prerequisites_for_test();
     run.enter(lair, Some(2));
+    // The dragon and its escort, however many the floor's camp mustered:
+    // a long fight never grows the company.
+    let company = run.enemies.len();
+    assert!(company <= 8, "{company}");
     for _ in 0..18_000 {
         run.players.get_mut(&1).unwrap().invulnerable = 999;
         run.step(&BTreeMap::new());
         assert!(run.projectiles.len() <= MAX_PROJECTILES);
-        assert!(run.enemies.len() <= 3);
+        assert!(run.enemies.len() <= company);
     }
     assert!(run.active());
 }
@@ -568,7 +581,7 @@ fn a_guest_joins_beside_the_host_and_leaves_without_stranding_loot() {
         card: "gold".into(),
         x: 1.0,
         y: 1.0,
-        held_off: Some(2),
+        held_off: Some(2), took: Vec::new(),
     });
     run.leave(2);
     assert_eq!(run.players.len(), 1);
@@ -593,6 +606,40 @@ fn a_guest_joins_beside_the_host_and_leaves_without_stranding_loot() {
 }
 
 #[test]
+fn loot_is_shared_each_knight_takes_their_own_and_the_treasury_once() {
+    let mut run = Run::new(7, 1, Some("Frank"));
+    fight(&mut run);
+    run.enemies.clear();
+    let at = run.at;
+    let (hx, hy) = (run.players[&1].x, run.players[&1].y);
+    {
+        let guest = run.players.get_mut(&2).unwrap();
+        (guest.x, guest.y) = (hx + 6.0, hy);
+    }
+    run.dungeon.rooms[at].items = vec![Item { card: "potion".into(), x: hx, y: hy, held_off: None, took: Vec::new() }];
+    run.step_sim_for_test(&BTreeMap::new());
+    assert_eq!(run.players[&1].hand, ["potion"], "the first knight takes theirs");
+    assert_eq!(run.room().items.len(), 1, "it lies on for the other");
+    for _ in 0..5 {
+        run.step_sim_for_test(&BTreeMap::new());
+    }
+    assert_eq!(run.players[&1].hand, ["potion"], "a knight takes their own once");
+    {
+        let guest = run.players.get_mut(&2).unwrap();
+        (guest.x, guest.y) = (hx, hy);
+    }
+    run.step_sim_for_test(&BTreeMap::new());
+    assert_eq!(run.players[&2].hand, ["potion"], "the second knight takes theirs");
+    assert!(run.room().items.is_empty(), "gone once every knight has theirs");
+    // Gold goes to the party's one treasury: taken once, for all.
+    run.dungeon.rooms[at].items = vec![Item { card: "gold".into(), x: hx, y: hy, held_off: None, took: Vec::new() }];
+    let score = run.score;
+    run.step_sim_for_test(&BTreeMap::new());
+    assert!(run.room().items.is_empty());
+    assert_eq!(run.score, score + 50);
+}
+
+#[test]
 fn the_found_line_names_the_taker_for_three_seconds() {
     let mut run = Run::new(5, 1, Some("Ada"));
     assert!(run.found_line().is_none());
@@ -605,7 +652,7 @@ fn the_found_line_names_the_taker_for_three_seconds() {
 }
 
 #[test]
-fn stone_host_is_inert_invulnerable_and_does_not_prevent_a_wipe() {
+fn stone_host_is_inert_invulnerable_and_keeps_the_party_up() {
     let mut run = Run::new(42, 1, Some("Guest"));
     let host = run.players.get_mut(&1).unwrap();
     host.stone = true;
@@ -626,7 +673,36 @@ fn stone_host_is_inert_invulnerable_and_does_not_prevent_a_wipe() {
     assert_eq!((run.players[&1].x, run.players[&1].y), position);
     assert_eq!(run.players[&1].bombs, 2);
     assert!(run.projectiles.is_empty());
+    // The guest falls while the host's knight is stone (its player away):
+    // the run waits for them rather than ending.
     run.players.get_mut(&2).unwrap().hp = 0;
+    run.step(&BTreeMap::new());
+    assert_ne!(run.phase, Phase::Wiped);
+    // A host who plays no knight is no one to wait for.
+    run.players.get_mut(&1).unwrap().absent = true;
+    run.step(&BTreeMap::new());
+    assert_eq!(run.phase, Phase::Wiped);
+}
+
+#[test]
+fn one_knight_falling_while_a_friend_is_away_never_ends_the_run() {
+    // The play box, 2026-10-17: the host plays no knight, one friend away
+    // (stone), the other falls; that ended the run.
+    let mut run = Run::new(42, 1, Some("Guest"));
+    run.join_seat(3, "Third");
+    run.players.get_mut(&1).unwrap().absent = true;
+    {
+        let away = run.players.get_mut(&3).unwrap();
+        away.stone = true;
+        away.away = true;
+    }
+    run.players.get_mut(&2).unwrap().hp = 0;
+    for _ in 0..60 {
+        run.step(&BTreeMap::new());
+    }
+    assert_ne!(run.phase, Phase::Wiped, "the run waits for the away friend");
+    // The friend comes back and falls too: now everyone is down.
+    run.players.get_mut(&3).unwrap().hp = 0;
     run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
 }
@@ -811,7 +887,7 @@ fn monster_doors_glow_then_pour_and_the_room_holds_until_the_last_wave() {
         for enemy in &mut run.enemies {
             enemy.hp = 0;
         }
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
     assert_eq!(run.phase, Phase::Fighting, "waves are still to come");
     assert!(run.barred());
@@ -878,6 +954,32 @@ fn spikes_strike_on_their_beat_and_dashing_knights_pass() {
     }
     let at = hurt_at.expect("the spikes struck");
     assert_eq!(hazards::spikes(at, 0), hazards::Spikes::Up);
+}
+
+#[test]
+fn falling_rocks_stop_once_the_room_is_cleared() {
+    let mut run = Run::new(1, 1, None);
+    fight(&mut run);
+    run.calm_for_test();
+    run.traps = vec![Trap::Rockfall];
+    let mut fell = false;
+    for _ in 0..6 * HZ {
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.hp, hero.invulnerable) = (hero.max_hp, 0);
+        run.step(&BTreeMap::new());
+        fell |= !run.rocks.is_empty();
+    }
+    assert!(fell, "the trap drops rocks while the room is fought");
+    slay_all(&mut run);
+    assert!(run.room().cleared, "the room is won");
+    run.traps = vec![Trap::Rockfall];
+    run.rocks.clear();
+    for _ in 0..12 * HZ {
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.hp, hero.invulnerable) = (hero.max_hp, 0);
+        run.step(&BTreeMap::new());
+        assert!(run.rocks.is_empty(), "no rock falls in a cleared room");
+    }
 }
 
 #[test]
@@ -1318,6 +1420,9 @@ fn every_knight_swings_a_sword_that_cuts_shots_from_the_air() {
     run.calm_for_test();
     let hero = run.players[&1].clone();
     run.enemies.truncate(1);
+    // Sturdy enough that one stroke bites without felling it, whichever
+    // kind the room put first.
+    (run.enemies[0].max_hp, run.enemies[0].hp) = (999, 999);
     run.enemies[0].x = hero.x;
     run.enemies[0].y = hero.y - 1.8;
     run.enemies[0].age = TELEGRAPH;
@@ -1504,7 +1609,7 @@ fn the_first_floors_guardian_leaves_a_sanctuary_before_the_stairs() {
     assert!(run.cues.iter().any(|c| c == "sanctuary"));
     assert_eq!(run.hallowed, Some(run.tick), "its sign goes up");
     assert!(run.can_reforge(1));
-    assert_eq!(run.music(), Some("sanctuary"));
+    assert!(run.music().is_some_and(|m| crate::rules::music::REST.iter().any(|t| t.name == m)), "a Sanctuary plays a fireside tune");
     let (_, altar_y) = run.room().altar();
     assert!(
         altar_y < middle.1 - 4.0,

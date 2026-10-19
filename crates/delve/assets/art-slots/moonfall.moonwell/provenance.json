@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.moonwell/v01",
+  "delivery_status": "Accepted by the delivery and by the pilot review on 2026-10-18; transparent background, seven separated drawings.",
+  "generation_sha256": "69642c00b03b008855ed8d738109a6a99a563548efd79ddf5000547eba6b751e",
+  "generations": 3,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "bdebe26070feaa520a0101cc52fa3131fdc72e6d3b1814863efb6f6e5cc44b05",
+  "native_contract": "Native 40x44, anchor bottom-centre (20,44).",
+  "notes_sha256": "0a9ab4ba89b055ce6fb17a6ac8d665af789296bdaabbe7580789c3de8b5701a6",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "77f479c61ea3cfe430f0b67fcd7afdd86f54d810a24ab5beefe932ec210ed56a",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 3)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.moonwell/v01/source-sheet.png",
+  "source_sha256": "63904bbb5c99302d3f11b099572d3a6a284b74d12a555d75233979ea2959e6fd"
+}

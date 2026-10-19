@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.rune-block/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED.",
+  "generation_sha256": "9bdca7fcbc97f530c0cbc59908314f15da9760e1214d7255b0c67309cd48faae",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "db45282a2cfb4cf7968a06089e5c706865968ae49f44cca61254a8f455f8a252",
+  "native_contract": "Native 16x16, anchor bottom-centre (8,16).",
+  "notes_sha256": "592091e6e778062de916bcd594126332a15a1b3e85bbf168819c17fc7906be88",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "6808753ae8fb7a4a59c3385ba17be13c9e63b43bddc98c4fa04af84d4790db7f",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.rune-block/v01/source-sheet.png",
+  "source_sha256": "4528d6ce39906def1a28c0cd81afae45ca9ae90f9703cb0f04f0afac3122b623"
+}

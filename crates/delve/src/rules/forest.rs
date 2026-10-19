@@ -97,6 +97,7 @@ pub fn firefly(index: usize, tick: u64) -> (f32, f32) {
 
 impl Run {
     pub(super) fn tick_forest(&mut self) {
+        if self.forest_road_showing() || self.roundtable_showing() { return; }
         let near = |x: f32, y: f32| {
             self.players
                 .values()

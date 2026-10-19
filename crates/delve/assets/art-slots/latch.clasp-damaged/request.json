@@ -1,0 +1,15 @@
+{
+  "fit": "80x80",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damage-action"
+    }
+  ],
+  "game": "latch",
+  "geometry": "Duel::height=-1/+1 selects contact y=120/144; draw() lane starts x=192, width=25, height=2. Counter legality is Beat/ticks/guard, never the image outline.",
+  "id": "latch.clasp-damaged",
+  "role": "boss",
+  "timing": "Nine source poses; tell 36, missed attack/recovery 18, clean flinch 18 plus STOP=4 freeze. Rest 24 initially, then 21/18 after counters. Damage poses at counters 1/2; defeat at 3 after final clean (Duel::step_at; renderer::pose)."
+}

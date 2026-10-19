@@ -1,0 +1,18 @@
+# Puddingstone Priory: the chapel with its bell tower and spire across the back,
+# and a cloister arcade under a lean-to slate roof along the east.
+box      stone   at 98 0 -2 size 108 30 32 id priory-nave
+gable    slate   at 98 30 -2 size 116 22 40 id priory-nave-roof
+box      window  at 70 10 14.4 size 6 14 1.8 id priory-nave-win-1
+box      window  at 98 10 14.4 size 6 14 1.8 id priory-nave-win-2
+box      window  at 126 10 14.4 size 6 14 1.8 id priory-nave-win-3
+box      stone   at 158 0 0 size 24 48 28 id priory-bell-tower
+box      window  at 158 32 14.4 size 8 14 1.8 id priory-belfry
+pyramid  slate   at 158 48 0 size 30 26 30 id priory-spire
+box      metal   at 158 74 0 size 2 8 2 id priory-cross-stem
+box      metal   at 158 78 0 size 8 2 2 id priory-cross-arm
+arch-6   stone   at 240 0 12.5 size 32 30 6 id priory-arcade-1
+arch-6   stone   at 272 0 12.5 size 32 30 6 id priory-arcade-2
+arch-6   stone   at 304 0 12.5 size 32 30 6 id priory-arcade-3
+arch-6   stone   at 336 0 12.5 size 32 30 6 id priory-arcade-4
+box      stone   at 288 0 4 size 130 24 10 id priory-cloister-back
+wedge    slate   at 288 30 4 size 140 14 26 id priory-cloister-roof

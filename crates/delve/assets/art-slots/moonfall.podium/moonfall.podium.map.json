@@ -1,0 +1,141 @@
+{
+  "anchor_canvas_wh": [
+    26,
+    26
+  ],
+  "anchor_xy": [
+    13,
+    26
+  ],
+  "comments": [
+    "Registered as one bank on the plinth: the pivot x is the centre of the plinth, the bottom edge the plinth's lowest line, one shared scale. Only the pennant changes between the drawings."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Five drawings on a 3x2 grid in reading order = request order: idle-0, cry-0 .. cry-3. The crops are tight and separated.",
+  "notes_sha256": "00bad1aed6fda86c4cbd5bf511179040451e86b01698c3efb0deb9f4afae17c9",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: timber dais on a stone plinth, lectern with a scroll, brass-ball pole, the aqua pennant hanging limp.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        208.5,
+        451
+      ],
+      "source_rect_xywh": [
+        48,
+        39,
+        417,
+        451
+      ],
+      "state": "idle",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "cry-0: the pennant streams right in an up-curl.",
+      "name": "cry-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        208,
+        450
+      ],
+      "source_rect_xywh": [
+        560,
+        39,
+        416,
+        450
+      ],
+      "state": "cry",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "cry-1: the pennant streams right, flat.",
+      "name": "cry-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        208.5,
+        451
+      ],
+      "source_rect_xywh": [
+        1072,
+        39,
+        417,
+        451
+      ],
+      "state": "cry",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "cry-2: the pennant streams right in a down-curl.",
+      "name": "cry-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        208.5,
+        453
+      ],
+      "source_rect_xywh": [
+        48,
+        549,
+        417,
+        453
+      ],
+      "state": "cry",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "cry-3: the pennant streams right with a double wave.",
+      "name": "cry-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        208,
+        453
+      ],
+      "source_rect_xywh": [
+        560,
+        549,
+        420,
+        453
+      ],
+      "state": "cry",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 26x26, anchor bottom-centre (13,26); the bottom edge is the south edge of the herald's tile row; stage 384x224; a knight is 16x24 in this town.",
+  "sizes": {
+    "v1": [
+      26,
+      26
+    ],
+    "v2": [
+      26,
+      26
+    ]
+  },
+  "slot": "moonfall.podium",
+  "source_sha256": "f6f4067a61892fce8cec96ae8b801ac7e51cfd52fe8b7b2936c224ec0a24767c",
+  "timing": "idle 12, cry 4 frames of 6 ticks (30 Hz). Art never sets a hitbox."
+}

@@ -1,0 +1,5 @@
+# Sheet notes
+
+Pieces in reading order: 1 north barred door; 2 north open passage; 3 north half-open gate; 4 west barred top-down gap; 5 west open gap; 6 east barred top-down gap; 7 east open gap; 8 south barred threshold; 9 south open threshold; 10 stairs descending north; 11 ornate boss seal door; 12 floor seal marker.
+
+The final selected version is generation 2. The basalt/iron palette and silhouettes are readable, and the east pieces have some distinct detail. Main weakness: automated crop measurement finds 10 connected groups rather than 12, indicating two neighboring pieces touch or merge at the alpha boundary. The generator also returned a 1254x1254 image despite the 1536x1536 instruction, and this was not rescaled. Generation 3 was attempted to correct spacing but measured worse (7 groups), so generation 2 was retained. Alpha was thresholded to hard binary 0/255 to satisfy the alpha contract; inspect source-sheet.json for the crop report. This delivery does not fully meet the separation or exact-size contract.

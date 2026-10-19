@@ -1,0 +1,123 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    96
+  ],
+  "anchor_xy": [
+    40,
+    96
+  ],
+  "comments": [
+    "Registered as one bank on the lowest line of the door step and footing; the pivot x is the centre of the footing blocks. Painted 56 of 80 px wide and 96 px tall, so it leaves about twelve pixels of ground at each side of its footprint. The delivered sheet is a producer cut-out (the generated sheet had a baked checkerboard); the cut was judged on grey and on the simulated native strip. The basket on the roof is painted dark and empty: the stage draws the flame.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 7c6344) to an olive ink (69793e) and the dark brown outline (source about 241e1d) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: day-0, night-0, lit-0. The crops are tight and separated by empty columns, so none is merged.",
+  "notes_sha256": "717ded4862bfe20b0a3344851f47539312976d17a1f3907c789e862ec863e3ef",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: pale blue-grey glass in the arched window, door shut, bell hanging in the belfry, the fire basket dark.",
+      "name": "day-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        237,
+        832
+      ],
+      "source_rect_xywh": [
+        31,
+        107,
+        485,
+        832
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: deep indigo window glass, door shut, the fire basket dark.",
+      "name": "night-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        237.5,
+        832
+      ],
+      "source_rect_xywh": [
+        530,
+        107,
+        474,
+        832
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber window, door ajar with an amber slice, the fire basket dark.",
+      "name": "lit-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        236.5,
+        832
+      ],
+      "source_rect_xywh": [
+        1031,
+        107,
+        473,
+        832
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 80x96, anchor bottom-centre (40,96); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "sizes": {
+    "v1": [
+      80,
+      96
+    ],
+    "v2": [
+      80,
+      96
+    ]
+  },
+  "slot": "moonfall.tower-north",
+  "source_sha256": "2c120d67f47eeed33ca3778666e7a41b33570d8abfe586b120671c02a5ca684b",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

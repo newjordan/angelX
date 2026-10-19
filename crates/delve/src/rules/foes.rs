@@ -21,8 +21,11 @@ use super::*;
 #[derive(Default)]
 pub(super) struct Deeds {
     pub(super) clouds: Vec<skills::Cloud>,
-    pub(super) pulls: Vec<(f32, f32)>,
-    pub(super) sweeps: Vec<((f32, f32), (f32, f32), f32, u32, (f32, f32))>,
+    /// A breath drawing knights in: where to, and the nearest it draws them.
+    pub(super) pulls: Vec<(f32, f32, f32)>,
+    /// A dash's or a landing's swept path: from, to, reach, damage, heading,
+    /// and the charge-up it is part of (`signatures::tag`; 0 for none).
+    pub(super) sweeps: Vec<((f32, f32), (f32, f32), f32, u32, (f32, f32), u32)>,
     pub(super) sounds: Vec<&'static str>,
     pub(super) shake: u32,
     /// New monsters: kind, where, and their stage (a slime's size).
@@ -49,10 +52,15 @@ pub(super) struct Deeds {
     pub(super) slams: Vec<(f32, f32)>,
     /// A guardian's Ravages, cast.
     pub(super) ravages: Vec<super::tide::Ravage>,
+    /// A guardian's charge-up shots, held to the room its caps leave
+    /// (`signatures::hold`).
+    pub(super) bursts: Vec<Projectile>,
     /// Black Holes the Hollow Ones opened: where, and by whom.
     pub(super) holes: Vec<(f32, f32, u32)>,
     /// The third company's moves (`critters`).
     pub(super) crit: super::critters::Doings,
+    /// The swamp's horrors' (`horrors`).
+    pub(super) swamp: super::horrors::Doings,
 }
 
 /// A sapper's keg: ticks until it blows.
@@ -427,6 +435,7 @@ impl Run {
         self.tick_ravage(deeds.ravages);
         self.tick_holes(deeds.holes);
         self.apply_critters(deeds.crit);
+        self.apply_horrors(deeds.swamp);
         for (x, y) in deeds.kegs {
             if self.kegs.len() < 8 {
                 self.kegs.push(Keg {
@@ -469,7 +478,7 @@ impl Run {
         for (x, y, reach, damage, (dx, dy)) in deeds.rams {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < reach {
                     hero.hurt(damage);
                     // Run down and thrown aside.
@@ -523,7 +532,7 @@ impl Run {
             .into_iter()
             .map(|(dx, dy)| ((x + dx).clamp(2.5, w - 2.5), (y + dy).clamp(2.5, h - 2.5)))
             .find(|&(x, y)| {
-                room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) == Tile::Floor
+                room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground()
             });
             let Some((x, y)) = spot else {
                 continue;
@@ -576,7 +585,7 @@ impl Run {
             let tile = self
                 .room()
                 .tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32);
-            if tile != Tile::Floor && !(kind.flies() && tile == Tile::Hazard) {
+            if !tile.ground() && !(kind.flies() && tile == Tile::Hazard) {
                 return None;
             }
         }
@@ -638,10 +647,10 @@ impl Run {
             .into_iter()
             .map(|(dx, dy)| ((x + dx).clamp(2.5, w - 2.5), (y + dy).clamp(2.5, h - 2.5)))
             .find(|&(x, y)| {
-                room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) == Tile::Floor
+                room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground()
             });
             // The landing itself bites, crossways, teeth already out.
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < FLING_STOMP {
                     hero.hurt(FLING_BITE);
                     self.sounds.push("hero_hurt");
@@ -670,7 +679,7 @@ impl Run {
                 && self
                     .players
                     .values()
-                    .any(|h| h.hp > 0 && !h.stone && (h.x - keg.x).hypot(h.y - keg.y) < 1.1);
+                    .any(|h| h.targetable() && (h.x - keg.x).hypot(h.y - keg.y) < 1.1);
             if keg.fuse == 0 || stepped {
                 blown.push((keg.x, keg.y));
                 keg.fuse = 0;
@@ -678,7 +687,7 @@ impl Run {
         }
         self.kegs.retain(|k| k.fuse > 0);
         for (x, y) in blown {
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if (hero.x - x).hypot(hero.y - y) < KEG_REACH {
                     hero.hurt(18);
                 }
@@ -709,7 +718,7 @@ impl Run {
         }
         self.lobs.retain(|l| l.fall > 0);
         for (x, y) in landed {
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if (hero.x - x).hypot(hero.y - y) < LOB_REACH {
                     hero.hurt(14);
                 }
@@ -747,8 +756,13 @@ impl Run {
             match kind {
                 EnemyKind::Slime if stage < 2 => {
                     for side in [-1.0f32, 1.0] {
+                        // A half never lands in a wall or a block, where no
+                        // shot reaches it: beside it, it lands where it fell.
+                        let half = x + side * 0.9;
+                        let ground = self.room().tile((half / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground();
+                        let half = if ground { half } else { x };
                         if self
-                            .spawn_staged(EnemyKind::Slime, x + side * 0.9, y, stage + 1)
+                            .spawn_staged(EnemyKind::Slime, half, y, stage + 1)
                             .is_some()
                             && let Some(enemy) = self.enemies.last_mut()
                         {
@@ -845,7 +859,7 @@ impl Run {
         let room = &self.dungeon.rooms[self.at];
         let grid = Grid { room, barred: true };
         let wells: Vec<(f32, f32)> = self.wells.iter().map(|w| (w.x, w.y)).collect();
-        for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+        for hero in self.players.values_mut().filter(|h| h.targetable()) {
             for &(wx, wy) in &wells {
                 let (dx, dy) = (wx - hero.x, wy - hero.y);
                 let d = dx.hypot(dy);

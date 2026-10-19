@@ -18,8 +18,28 @@
 //! pixels.
 
 pub mod art_v2;
+mod boss_art;
+mod entrance_art;
+/// Review-only native/browser selector: zero is production; 1..4 are recipe trials.
+#[cfg(feature = "boss-library-review")]
+#[unsafe(no_mangle)]
+pub extern "C" fn boss_library_review(sample: u32) {
+    boss_art::library_review(sample as usize);
+}
+/// Export the same shaded receiver without boss figures or nameplates.
+#[cfg(feature = "testing")]
+pub fn boss_floor_review<T>(draw: impl FnOnce() -> T) -> T {
+    boss_art::library_floor_review(draw)
+}
+/// Review-only display trials; all simulation geometry remains unchanged.
+#[cfg(feature = "testing")]
+#[unsafe(no_mangle)]
+pub extern "C" fn boss_effect_review(sample: u32) {
+    boss_art::effect_review(sample as usize);
+}
 mod barony;
 pub(super) mod college;
+mod colosseum;
 pub(super) mod ranch;
 mod bones;
 pub mod class_looks;
@@ -27,6 +47,7 @@ mod bounties;
 mod cards;
 mod countryside;
 mod draw_list;
+pub mod dungeon_map;
 mod coastal;
 mod woodland;
 mod wetland;
@@ -37,15 +58,33 @@ mod windcountry;
 mod bowcountry;
 mod town;
 mod nooks;
+mod open;
 mod props;
 mod eastern;
 mod feel;
+mod floor_stats;
 mod fx;
+mod gauntlets;
 use crate::rules::Shot;
+use crate::rules::wishcraft::Tint;
 mod northern;
 mod critters;
 mod forest;
+mod forest_road;
+// The Round Table adventures: the shared stage, then one file each.
+mod roundtable;
+
+mod lanternward;
+
+mod moonfall;
+
+mod bannerpeak;
+
+mod griffinwing;
+
+mod lightgallop;
 mod fortune;
+mod cauldron;
 mod frogs;
 mod gate;
 mod hand;
@@ -59,18 +98,62 @@ mod lessons;
 mod marks;
 mod signatures;
 mod merchant;
+mod party;
 mod pastimes;
+mod teachers;
 pub mod plates;
+mod dungeon_art;
+pub mod hud_art;
 mod pitstop;
 pub mod race3d;
+mod cinder;
+mod latch;
+#[doc(hidden)]
+pub mod slot_art;
+mod brasswake;
+mod rafterwake;
+mod pennon;
+mod mossbell;
 mod votes;
 mod rescues;
+mod room_scene;
+mod shot_meshes;
+pub mod dimensions;
+mod pickup_cards;
+mod pickup_meshes;
+pub mod stage_frame;
 mod runes;
 mod secrets;
 mod side;
 pub mod sprites;
 mod stage;
+mod swamp;
+pub mod swamp_art;
+pub mod siege_stage;
 mod stature;
+
+/// Exact protected furnace pigment for terminal half-cell sampling.
+pub fn cell_signature_core(c: [u8; 3]) -> bool {
+    boss_art::cell_signature_core(c)
+}
+
+/// Cached local combat ink at the native kit's terminal brightness.
+pub fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
+    boss_art::cell_effect_ink(c)
+}
+
+pub fn cell_projectile_signal(c: [u8; 3]) -> bool {
+    boss_art::cell_projectile_signal(c)
+}
+
+pub fn cell_projectile_core(c: [u8; 3]) -> bool {
+    boss_art::cell_projectile_core(c)
+}
+
+pub fn has_boss_projectiles(run: &Run) -> bool {
+    run.projectiles.iter().filter_map(crate::rules::bosses::Art::of_shot).any(boss_art::native_projectile)
+}
+
 mod foe_material;
 mod strike;
 mod tavern;
@@ -79,14 +162,26 @@ mod tide;
 pub mod tray;
 mod trophies;
 mod ults;
+mod vfx;
 mod void;
 mod volleys;
 mod wanted;
+mod wax_art;
+mod wax_maze;
 mod works;
 mod world;
 mod yard;
 
 pub use cards::card_art;
+pub use dungeon_map::MapView;
+pub use party::{
+    BAND_H, HUD_H, band_rows, hud_band, hud_rows, lift as seat_lift, lift_frame as seat_lift_frame,
+    lift_frame_with as seat_lift_frame_with, lift_with as seat_lift_with, seat_size, view_rows,
+};
+pub use room_scene::{
+    Body, ClassShot, Emitter, Figure, ForgedColour, ForgedShape, Hue, Motes, RoomScene, SceneLight, SceneShot, ShotForm,
+    look_key, scene_for, scene_for_live,
+};
 #[cfg(any(test, feature = "testing"))]
 pub use hippodrome::race_camera;
 
@@ -169,7 +264,7 @@ use super::kit::{RockKind, Tiles, chest, district_sign, torch};
 use super::light::{DUSK, Light, STEPS, light_at, seam, step_down, warm};
 use crate::rules::{imps, looks};
 use crate::rules::{
-    BOMB_REARM, COLS, EnemyKind, HEIGHT, Pack, Phase, ROWS, Room, RoomKind, Run, TELEGRAPH,
+    COLS, EnemyKind, HEIGHT, Pack, Phase, ROWS, Room, RoomKind, Run, TELEGRAPH,
     TILE_UNITS, Tile, Trap, VIGIL_REACH, WIDTH, ledge::FOOT,
 };
 
@@ -230,7 +325,7 @@ impl Field {
 
     /// Fit `scenery` with `figures` over it into `out`.
     fn blit(&self, scenery: &Img, figures: &Img, out: &mut Img) {
-        self.blit_ranked(scenery, figures, out, None);
+        self.blit_ranked(scenery, figures, out, None, None);
     }
 
     fn blit_ranked(
@@ -239,6 +334,7 @@ impl Field {
         figures: &Img,
         out: &mut Img,
         ranked: Option<(&[u32], usize, (i32, i32))>,
+        alerts: Option<&std::collections::BTreeSet<Rgb>>,
     ) {
         if self.den == 1 {
             let k = self.num;
@@ -270,7 +366,8 @@ impl Field {
         // fade instead of turning into noise.
         let rank = |c: Rgb| {
             let l = 299 * u32::from(c[0]) + 587 * u32::from(c[1]) + 114 * u32::from(c[2]);
-            if is_signal(c) { l + 1_000_000 } else { l }
+            if alerts.is_some_and(|inks| inks.contains(&c)) { l + 2_000_000 }
+            else if is_signal(c) { l + 1_000_000 } else { l }
         };
         let (tw, th) = (
             NATIVE_W * self.num / self.den + 1,
@@ -347,6 +444,7 @@ fn style(pack: Pack) -> Style {
             rock: RockKind::Char,
             pool: ('0', 'q'),
         },
+        Pack::Swamp => swamp_art::STYLE,
     }
 }
 
@@ -468,6 +566,7 @@ fn floor_mark(pack: Pack, x: i32, y: i32) -> Option<char> {
         Pack::Archive => pages(x, y),
         Pack::Fungal => moss(x, y),
         Pack::Unknown => lattice(x, y),
+        Pack::Swamp => swamp_art::ground(x, y),
     }
 }
 
@@ -515,7 +614,7 @@ fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Option<char> 
             }
         }
         // Standing water is open water, drawn whole by `floor_marks`.
-        Pack::Cavern | Pack::Archive => None,
+        Pack::Cavern | Pack::Archive | Pack::Swamp => None,
         // Spore pools: a glowing green shimmer that drifts.
         Pack::Fungal => {
             if shore == 1 {
@@ -593,6 +692,14 @@ fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
     scenery_cached_exact(run)
 }
 
+/// Prepare the actual first snapshot before the display loop starts. This
+/// fills room-specific scenery and actor caches without advancing the run.
+pub fn prepare_entry(run: &Run, focus: Option<u32>) {
+    let (w, h) = art_v2::size();
+    let _ = frame_for(run, w as i32, h as i32, focus);
+    let _ = frame_for_live(run, w as i32, h as i32, focus);
+}
+
 /// A live seat's frame. Same pixels as `frame_for`, except a torch flicker
 /// may show the previous step until its bake lands off the paint thread.
 /// A snapshot still uses `frame_for`, which stays exact.
@@ -626,6 +733,8 @@ type SteadyKey = (
     usize,
     bool,
     u64,
+    usize,
+    bool,
 );
 
 fn steady_key(run: &Run) -> SteadyKey {
@@ -640,6 +749,8 @@ fn steady_key(run: &Run) -> SteadyKey {
         run.traps.len(),
         run.wishing,
         home_print(run),
+        dungeon_art::side_state(run),
+        props_meshes_on(),
     )
 }
 
@@ -686,7 +797,10 @@ fn bake_sender() -> &'static std::sync::mpsc::Sender<(u64, SteadyKey, u64, Run)>
             .name("delve-scenery".into())
             .spawn(move || {
                 while let Ok((generation, steady, flicker, run)) = rx.recv() {
-                    let img = std::sync::Arc::new(scenery(&run));
+                    // This thread draws the room the way the paint thread asked.
+                    props_meshes(steady.11);
+                    let img = lit_scenery(&run);
+                    props_meshes(false);
                     let Some(slot) = LIVE_SCENERY.get() else {
                         continue;
                     };
@@ -716,7 +830,7 @@ fn bake_sender() -> &'static std::sync::mpsc::Sender<(u64, SteadyKey, u64, Run)>
 /// at once there). A room change is still drawn now.
 fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
     let steady = steady_key(run);
-    let flicker = run.tick / 6;
+    let flicker = torch_step(run);
     let slot = LIVE_SCENERY.get_or_init(|| std::sync::Mutex::new(None));
     let sync_generation = {
         let mut guard = slot.lock().unwrap_or_else(|err| err.into_inner());
@@ -735,7 +849,7 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
                 return stale;
             }
             #[cfg(target_arch = "wasm32")]
-            Some(live) if live.steady == steady && !drawn_elsewhere(run) => {
+            Some(live) if live.steady == steady && !drawn_elsewhere(run) && laid_plate(run).is_none() => {
                 let staged = live.staged.get_or_insert_with(|| Staged {
                     flicker,
                     run: Box::new(run.clone()),
@@ -747,6 +861,7 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
                 };
                 if done && let Some(staged) = live.staged.take() {
                     live.img = std::sync::Arc::new(staged.bake.cv);
+                    remember_lights(&live.img, staged.bake.lights);
                     live.flicker = staged.flicker;
                 }
                 return std::sync::Arc::clone(&live.img);
@@ -759,7 +874,7 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
             None => 1,
         }
     };
-    let img = std::sync::Arc::new(scenery(run));
+    let img = lit_scenery(run);
     if let Ok(mut guard) = slot.lock() {
         *guard = Some(LiveScenery {
             generation: sync_generation,
@@ -787,6 +902,7 @@ fn scenery_cached_exact(run: &Run) -> std::sync::Arc<Img> {
         usize,
         bool,
         u64,
+        (bool, usize, bool),
     );
     static CACHE: OnceLock<std::sync::Mutex<Option<(Key, std::sync::Arc<Img>)>>> = OnceLock::new();
     let key: Key = (
@@ -796,11 +912,12 @@ fn scenery_cached_exact(run: &Run) -> std::sync::Arc<Img> {
         run.room().fingerprint() ^ run.dungeon.pack as u64,
         run.barred(),
         run.phase == Phase::Fighting,
-        run.tick / 6,
+        torch_step(run),
         run.room().chest.map(|c| c.open),
         run.traps.len(),
         run.wishing,
         home_print(run),
+        (dungeon_art::supported(run), dungeon_art::side_state(run), props_meshes_on()),
     );
     let cache = CACHE.get_or_init(Default::default);
     if let Ok(slot) = cache.lock()
@@ -809,11 +926,18 @@ fn scenery_cached_exact(run: &Run) -> std::sync::Arc<Img> {
     {
         return std::sync::Arc::clone(img);
     }
-    let img = std::sync::Arc::new(scenery(run));
+    let img = lit_scenery(run);
     if let Ok(mut slot) = cache.lock() {
         *slot = Some((key, std::sync::Arc::clone(&img)));
     }
     img
+}
+
+/// The torches' step the scenery is drawn at: five a second, but an open
+/// floor's map is drawn once and kept (its whole floor is too much to draw
+/// five times a second; a window lights its fires itself, `room_scene`).
+fn torch_step(run: &Run) -> u64 {
+    if run.room().kind == RoomKind::Depths { 0 } else { run.tick / 6 }
 }
 
 /// What the Undercroft has built, for the kept drawing.
@@ -860,24 +984,113 @@ fn near_wall(room: &Room, x: i32, y: i32) -> i32 {
 }
 
 fn scenery(run: &Run) -> Img {
+    scenery_with_lights(run).0
+}
+
+/// The room's still art and the lights that lit it (none for a room drawn
+/// elsewhere).
+fn scenery_with_lights(run: &Run) -> (Img, Vec<Light>) {
     let _draw = scenery_draw_lock();
+    // A room in 3D is, to a page that draws no scenes (a terminal), its
+    // plate laid back down on its floor. A window that draws scenes stands
+    // the room's world where this lies, and takes only its lights from here:
+    // for it the room is drawn as ever.
+    if let Some(mut image) = laid_plate(run).and_then(|world| world.picture()) {
+        // What lies on its floor that the game moves (its traps, a chest, a
+        // cracked wall) lies on the plate; its doorways' bars stand among the
+        // crowd (`room_list`).
+        let mut lights = Vec::new();
+        room_details(run, &mut image, &mut lights);
+        return (image, lights);
+    }
     if let Some(image) = scenery_elsewhere(run) {
-        return image;
+        // A delivered room kit's fixtures are its fires.
+        let lights = if dungeon_art::supported(run) && !entrance_art::supported(run) {
+            dungeon_art::lights(run)
+        } else {
+            Vec::new()
+        };
+        return (image, lights);
     }
     let mut bake = DungeonBake::new(run);
     while !bake.step(run) {}
-    bake.cv
+    (bake.cv, bake.lights)
+}
+
+/// The room's world, when it is drawn in 3D (`world3d`). A deep floor
+/// stands up only on a page that draws scenes; elsewhere (a terminal, the
+/// legacy presenter) it keeps the 2D black look, and only with every room
+/// in 3D (`ANGEL_WORLD3D=1`) is a lit room's plate laid down there.
+fn world3d(run: &Run) -> Option<crate::world3d::room::RoomWorld> {
+    if !props_meshes_on() && !crate::world3d::enabled() {
+        return None;
+    }
+    let room = run.room();
+    crate::world3d::room::world(room, run.dungeon.pack, run.dungeon.depth, room_px(room))
+}
+
+/// A room in 3D whose still art is its plate laid down: on a page that draws
+/// no scenes (`props_meshes` off), where the world is not stood up.
+fn laid_plate(run: &Run) -> Option<crate::world3d::room::RoomWorld> {
+    if props_meshes_on() { None } else { world3d(run) }
+}
+
+/// Whether a room in 3D stands its world up on this page (a window that
+/// draws scenes), where its still art is not drawn.
+fn world_stood(run: &Run) -> bool {
+    props_meshes_on() && world3d(run).is_some()
+}
+
+/// The room's still art to keep, its lights remembered beside it.
+fn lit_scenery(run: &Run) -> std::sync::Arc<Img> {
+    let (img, lights) = scenery_with_lights(run);
+    let img = std::sync::Arc::new(img);
+    remember_lights(&img, lights);
+    img
+}
+
+/// The lights of the last few drawings of rooms, by drawing: a window that
+/// lights the room itself takes them from here (`room_scene`).
+type BakedLights = Vec<(std::sync::Weak<Img>, std::sync::Arc<Vec<Light>>)>;
+static BAKED_LIGHTS: std::sync::Mutex<BakedLights> = std::sync::Mutex::new(Vec::new());
+
+fn remember_lights(img: &std::sync::Arc<Img>, lights: Vec<Light>) {
+    let mut baked = BAKED_LIGHTS.lock().unwrap_or_else(|err| err.into_inner());
+    baked.retain(|(drawing, _)| drawing.strong_count() > 0);
+    if baked.len() >= 8 {
+        baked.remove(0);
+    }
+    baked.push((std::sync::Arc::downgrade(img), std::sync::Arc::new(lights)));
+}
+
+/// The lights that lit `img` (none when it was drawn elsewhere or long ago).
+fn baked_lights(img: &std::sync::Arc<Img>) -> std::sync::Arc<Vec<Light>> {
+    let baked = BAKED_LIGHTS.lock().unwrap_or_else(|err| err.into_inner());
+    baked
+        .iter()
+        .find(|(drawing, _)| drawing.upgrade().is_some_and(|d| std::sync::Arc::ptr_eq(&d, img)))
+        .map(|(_, lights)| std::sync::Arc::clone(lights))
+        .unwrap_or_default()
 }
 
 /// Whether `run`'s room is drawn whole by its own module: the Wanted hall,
 /// the side-on halls and every room at home. A dungeon room is drawn here,
 /// in stages (`DungeonBake`).
 fn drawn_elsewhere(run: &Run) -> bool {
-    run.room().kind == RoomKind::Wanted || run.side_on() || run.at_home_now()
+    dungeon_art::supported(run) || run.room().kind == RoomKind::Wanted || run.side_on() || run.at_home_now()
+}
+
+/// Whether `room_details` drew this room's fixtures, so that a page drawing
+/// props has had the chest's sprite left out: the plain scenery path, and a
+/// dungeon room's kit art (`dungeon_art`), which paints them on top of its own.
+fn fixtures_drawn_here(run: &Run) -> bool {
+    !entrance_art::supported(run) && (dungeon_art::supported(run) || !drawn_elsewhere(run))
 }
 
 /// The scenery of a room drawn elsewhere (`drawn_elsewhere`), or `None`.
 fn scenery_elsewhere(run: &Run) -> Option<Img> {
+    if entrance_art::supported(run) { return Some((*entrance_art::scene(run, 1)).clone()); }
+    if dungeon_art::supported(run) { return Some(dungeon_art::scenery(run)); }
     if !drawn_elsewhere(run) {
         return None;
     }
@@ -894,10 +1107,11 @@ fn scenery_elsewhere(run: &Run) -> Option<Img> {
             RoomKind::Yard => yard::scenery(run),
             RoomKind::Trophies => trophies::scenery(run),
             RoomKind::Tavern => tavern::scenery(run),
-            RoomKind::Hall | RoomKind::Stockpile | RoomKind::Workshop | RoomKind::Quarters => {
+            RoomKind::Hall | RoomKind::Stockpile | RoomKind::Muster | RoomKind::Workshop | RoomKind::Quarters => {
                 home::settlement_scenery(run)
             }
             kind if crate::rules::college::is_room(kind) => college::scenery(run),
+            kind if crate::rules::colosseum::is_room(kind) => colosseum::scenery(run),
             kind if crate::rules::ranch::is_room(kind) => ranch::scenery(run),
             kind if kind.in_world() => world::scenery(run),
             _ => home::scenery(run),
@@ -960,13 +1174,16 @@ fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
     // Standing water in the Mines and the Archive is open water, as the
     // world's: banks that wander, worn round at the corners, deep in the
     // middle.
-    let pools = matches!(pack, Pack::Cavern | Pack::Archive);
+    let pools = matches!(pack, Pack::Cavern | Pack::Archive | Pack::Swamp);
     for y in rows.clone() {
         for x in 0..pw {
-            if room.tile(x / TILE, y / TILE) == Tile::Hazard {
+            let tile = room.tile(x / TILE, y / TILE);
+            if tile == Tile::Hazard {
                 if !pools && let Some(ch) = hazard_mark(pack, room, x, y, t) {
                     cv.put(x, y, ch);
                 }
+            } else if tile == Tile::Bog {
+                // The mire, drawn whole below.
             } else if let Some(c) = still.get(x, y) {
                 cv.set(x, y, c);
             }
@@ -977,6 +1194,11 @@ fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
     if pools && any_water {
         let wet = |x: i32, y: i32| room.tile(x.div_euclid(TILE), y.div_euclid(TILE)) == Tile::Hazard;
         super::material::water_field(cv, (0, rows.start, pw, rows.end - rows.start), &wet, 140 + pack as u32, (run.tick / 6) as u32);
+    }
+    let any_bog = (r0..=r1).any(|r| (0..room.cols as i32).any(|c| room.tile(c, r) == Tile::Bog));
+    if any_bog {
+        let bog = |x: i32, y: i32| room.tile(x.div_euclid(TILE), y.div_euclid(TILE)) == Tile::Bog;
+        swamp_art::bog_field(cv, (0, rows.start, pw, rows.end - rows.start), &bog, (run.tick / 6) as u32);
     }
 }
 
@@ -1011,6 +1233,11 @@ fn still_floor(run: &Run, w: i32, h: i32) -> std::sync::Arc<Img> {
         if c.len() > 96 {
             c.clear();
         }
+        // An open floor's map is many rooms' worth: keep only the newest.
+        let most = (crate::rules::layout::MAX_COLS * crate::rules::layout::MAX_ROWS) as i32 * TILE * TILE;
+        if w * h > most {
+            c.retain(|k, _| k.2 * k.3 <= most);
+        }
         c.insert(key, std::sync::Arc::clone(&layer));
     }
     layer
@@ -1030,7 +1257,9 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
             let (x, y) = (col * TILE, row * TILE);
             let v = hash(col, row, 101 + run.at as u32);
             match room.tile(col, row) {
-                Tile::Wall if corner(room, col, row) => {
+                // An open map's rock: dark, as round an old room.
+                Tile::Wall if open::deep_rock(room, col, row) => {}
+                Tile::Wall if corner(room, col, row) && room.kind != RoomKind::Depths => {
                     let im = sprites::brazier(fighting, tick / 4, v);
                     cv.stamp(&im, x + (TILE - im.w) / 2, y + TILE - im.h);
                     let s = if fighting { 0.55 } else { 0.28 };
@@ -1046,6 +1275,7 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
                         Pack::Cavern => (&['n', 'b', 'I', 'B', 'P', 'r', 'o'], true),
                         Pack::Fungal => (&['n', 'D', 'F', 'E', 'e', 'l', 'm'], true),
                         Pack::Hellforge | Pack::Unknown => (&['k', 'K', 'X', 'g', 'j', 'G', 'J'], pack == Pack::Unknown),
+                        Pack::Swamp => (swamp_art::WALL_RAMP, true),
                     };
                     super::material::wall_tile(cv, (x, y), TILE, open, ramp, rough, 300 + pack as u32);
                 }
@@ -1056,6 +1286,8 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
                 Tile::Block if pack == Pack::Crypt => cv.stamp(&sprites::tomb(v), x, y),
                 Tile::Block if pack == Pack::Archive => cv.stamp(&sprites::shelf(v), x, y),
                 Tile::Block if pack == Pack::Fungal => cv.stamp(&sprites::mushroom(v), x, y),
+                // The swamp's reed clumps on their tussocks.
+                Tile::Block if pack == Pack::Swamp => swamp_art::reeds(cv, x, y, v),
                 // The Shoggoth's body fills its threshold's north: drawn whole below.
                 Tile::Block if room.kind == RoomKind::Threshold && row <= 3 => {}
                 Tile::Block if pack == Pack::Unknown => {
@@ -1077,7 +1309,9 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
 fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     let room = run.room();
     let tick = run.tick as u32;
-    let barred = run.barred();
+    // An open map's stairs stay shut while its guardian lives.
+    let barred = run.barred() || run.open_guarded();
+    open::fixtures(run, cv, lights);
     // Torches flank every doorway; bars close it while the fight lasts.
     for (side, &(col, row)) in doors(room).iter().enumerate() {
         if !room.doors[side] {
@@ -1130,6 +1364,13 @@ fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
             }
         }
     }
+    room_details(run, cv, lights);
+}
+
+/// Fixtures retain their rules-owned shapes when the delivered room kit is used.
+fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
+    let room = run.room();
+    let tick = run.tick as u32;
     if room.kind == crate::rules::RoomKind::Sanctuary {
         // The reforge altar: Tobbin's travelling anvil on a stone plinth,
         // candles either side, its coals always lit.
@@ -1151,7 +1392,10 @@ fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     if let Some(c) = room.chest {
         let im = chest(!c.open);
         let (x, y) = at(c.x, c.y);
-        cv.stamp(&im, x - im.w / 2, y - im.h / 2);
+        // A page that draws props gets the chest as a shape (`figures_with`).
+        if !props_meshes_on() {
+            cv.stamp(&im, x - im.w / 2, y - im.h / 2);
+        }
     }
     // Traps at rest are part of the room: plates in the floor, grilles in the walls.
     for trap in &run.traps {
@@ -1325,10 +1569,17 @@ fn light_rows(cv: &mut Img, lights: &[Light], (cool, lit): (char, char), lift: f
             })
             .collect()
     });
+    let mut near: Vec<Light> = Vec::with_capacity(lights.len());
     for y in rows {
+        // Only the lights whose reach crosses this row (an open map has
+        // a great many, each lighting a few rows): the same sum, in the
+        // same order, as over them all.
+        let py = y as f32 + 0.5;
+        near.clear();
+        near.extend(lights.iter().filter(|li| ((py - li.y) * 1.2).abs() < li.r).copied());
         for x in 0..cv.w {
             let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
-            let (local, fire) = light_at(lights, px, py);
+            let (local, fire) = light_at(&near, px, py);
             // The dapple repeats every screen across a great hall.
             let level = (DUSK
                 + dapple[(y.rem_euclid(NATIVE_H) * NATIVE_W + x.rem_euclid(NATIVE_W)) as usize]
@@ -1371,7 +1622,24 @@ fn light_rows(cv: &mut Img, lights: &[Light], (cool, lit): (char, char), lift: f
 
 /// Stamp `im` with its feet at native `(x, y)`.
 fn stand(cv: &mut Img, im: &Img, x: i32, y: i32) {
+    note_body(im, x - im.w / 2, y - im.h + 1);
     cv.stamp(im, x - im.w / 2, y - im.h + 1);
+}
+
+/// While a figure is taken apart, the sprites it stands up are noted with
+/// their look's key, so a window can draw an HD picture of that look in
+/// their place (`room_scene::Body`).
+fn note_body(im: &Img, x: i32, y: i32) {
+    with_capture(|capture| {
+        if let Some(bodies) = &mut capture.member {
+            bodies.push(room_scene::Body {
+                key: room_scene::look_key(im),
+                x,
+                y,
+                img: im.clone(),
+            });
+        }
+    });
 }
 
 /// Feet at a world point. A live frame keeps the fractional pixel as
@@ -1384,7 +1652,7 @@ fn stand_at(cv: &mut Img, im: &Img, ux: f32, uy: f32, dy: i32) {
     let px = ux * UNIT;
     let py = uy * UNIT;
     let (x, y) = (px.floor() as i32, py.floor() as i32);
-    if live_frame() {
+    if live_frame() && !capturing() {
         cv.stamp_sub(
             im,
             (x - im.w / 2) as f32 + (px - px.floor()),
@@ -1484,8 +1752,23 @@ fn hazards(cv: &mut Img, run: &Run) {
 
 /// A monster or boss as the room draws it this tick, at the size it
 /// stands (`stature`).
+#[cfg(any(test, feature = "testing"))]
 fn foe_figure(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
+    foe_figure_with(run, enemy, tick, false)
+}
+
+/// The renderer's existing foot registration, shared with paired-floor evidence.
+#[cfg(any(test, feature = "testing"))]
+pub fn boss_display_feet(run: &Run, enemy: &crate::rules::Enemy) -> (f32, f32) {
+    (enemy.x, enemy.y + signatures::foot_lift(run, enemy))
+}
+
+fn foe_figure_with(run: &Run, enemy: &crate::rules::Enemy, tick: u32, modern: bool) -> Img {
     if let Some(boss) = enemy.boss.and_then(|i| run.bosses.get(usize::from(i))) {
+        if let Some(im) = crate::rules::bosses::Art::for_id(&boss.id)
+            .and_then(|art| boss_art::library_figure(run, enemy, art, modern)) {
+            return (*im).clone();
+        }
         if let Some(im) = signatures::figure(run, enemy, boss, tick) {
             return im;
         }
@@ -1539,6 +1822,7 @@ fn foe_figure(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
             enemy.radius() / sprites::SLIME_REACH,
         ),
         kind if kind.critter() => (critters::art(run, enemy, tick), 1.0),
+        kind if kind.horror() => (swamp::figure(run, enemy, tick), enemy.radius() / kind.radius()),
         kind if enemy.radius() > kind.radius() * 1.1 => {
             (sprites::enemy(kind, tick), enemy.radius() / kind.radius())
         }
@@ -1555,28 +1839,98 @@ fn foe_figure(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
 }
 
 fn figures(cv: &mut Img, run: &Run) {
-    figures_with(cv, run, false);
+    figures_with(cv, run, false, (0,0));
 }
 
-fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
+fn figures_with(cv: &mut Img, run: &Run, modern: bool, view: (i32,i32)) {
     let tick = run.tick as u32;
     let room = run.room();
     // Side-on, a body's position is its middle: figures stand on its feet.
     let feet = if run.side_on() { FOOT } else { 0.0 };
     for item in &room.items {
         let (x, y) = at(item.x, item.y);
-        let im = cards::floor_card(run.book.get(&item.card), tick);
-        cv.stamp(&im, x - im.w / 2, y - im.h / 2);
+        let im = cards::turning_card(run.book.get(&item.card), (x, y), tick);
+        match run.book.get(&item.card) {
+            // Never both, never neither: a card the book does not know has no shape, so it keeps its blank back.
+            Some(card) if capturing() && (props_meshes_on() || pickup_cards_on()) => {
+                let recipe = pickup_meshes::recipe(card);
+                let plate = Some(pickup_cards::plate_for(card));
+                with_capture(|capture| {
+                    capture.pickups.push(pickup_meshes::ScenePickup {
+                        x: x as f32,
+                        y: y as f32,
+                        kind: recipe.kind,
+                        plate,
+                        ink: recipe.ink,
+                        accent: recipe.accent,
+                        shine: recipe.shine,
+                        tick,
+                    });
+                });
+            }
+            _ => cv.stamp(&im, x - im.w / 2, y - im.h / 2),
+        }
+        // The school's locks: a card above the reader's rank wears a
+        // padlock and the rank it needs, and stays for someone who can.
+        let locked = match (
+            run.players.values().find(|h| h.hp > 0),
+            run.book.get(&item.card),
+        ) {
+            (Some(hero), Some(card)) => crate::rules::school::locked(&run.home.school, hero, card),
+            _ => false,
+        };
+        if locked {
+            let (lx, ly) = (x - im.w / 2 - 1, y - im.h / 2 - 1);
+            cv.rect(lx + 1, ly + 1, 5, 5, 'K');
+            cv.frame(lx, ly, 7, 7, 'h');
+            cv.put(lx + 2, ly, 'h');
+            cv.put(lx + 4, ly, 'h');
+            cv.put(lx + 2, ly - 1, 'o');
+            cv.put(lx + 4, ly - 1, 'o');
+            cv.put(lx + 3, ly + 3, 'o');
+        }
+    }
+    // Only where `room_details` leaves the sprite out (a dungeon room's scenery).
+    if capturing() && props_meshes_on() && fixtures_drawn_here(run) {
+        if let Some(c) = room.chest {
+            let (x, y) = at(c.x, c.y);
+            let im = chest(!c.open);
+            let (ink, accent) = pickup_meshes::sprite_inks(&im, 'Z', '4');
+            with_capture(|capture| {
+                capture.pickups.push(pickup_meshes::ScenePickup {
+                    x: x as f32,
+                    y: y as f32,
+                    kind: pickup_meshes::PickupKind::Chest,
+                    plate: None,
+                    ink,
+                    accent,
+                    shine: false,
+                    tick,
+                });
+            });
+        }
     }
     hand::over(cv, run);
     runes::floor(cv, run);
     secrets::draught(cv, run);
     secrets::snibbet(cv, run);
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp == 0) {
-        // A fallen knight is a skeleton that has come apart where they stood.
+        // A fallen knight is a skeleton that has come apart where they stood,
+        // its skull among the bones until a friend picks it up.
         let (x, y) = at(hero.x, hero.y + feet);
-        bones::draw(cv, hero, id, run.tick, run.phase == Phase::Wiped, x, y);
+        let carried = run.skull_carrier(id).is_some();
+        let with_skull = !carried && hero.skull_at.is_none();
+        bones::draw(cv, hero, id, run.tick, run.phase == Phase::Wiped, x, y, with_skull);
+        if let Some((sx, sy)) = hero.skull_at.filter(|_| !carried) {
+            // Dropped where its carrier fell.
+            let im = bones::skull();
+            let (px, py) = at(sx, sy + feet);
+            cv.stamp(&im, px - im.w / 2, py - im.h);
+        }
     }
+    // While a friend carries a skull, the monsters weak enough to raise a
+    // knight in wear one over their heads.
+    let raising = run.skull_carried();
     hireling::delve(cv, run);
     frogs::wild(cv, run);
     frogs::shown(cv, run);
@@ -1584,13 +1938,60 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
     // and escorts stand over them), then the other monsters, then the
     // knights, who are never lost behind a monster. Within a rank whoever
     // stands lower in the room is in front.
-    let mut crowd: Vec<(f32, u8, Box<dyn FnOnce(&mut Img) + '_>)> = Vec::new();
+    // Each with the fraction of a pixel its feet stand past their whole
+    // pixel, for a window that draws it between pixels (`Capture`).
+    let mut crowd: Vec<(f32, u8, (f32, f32), Box<dyn FnOnce(&mut Img) + '_>)> = Vec::new();
+    // A pack's delivered room kit stands among the crowd by its feet; a
+    // room in 3D has its world's blocks instead (`world3d`).
+    let delivered = dungeon_art::supported(run);
+    let in_3d = world3d(run).is_some();
+    if delivered && !modern && !in_3d {
+        let scenery = dungeon_art::scene(run, 1);
+        for object in scenery.objects.iter().copied() {
+            crowd.push((
+                object.feet as f32 / UNIT,
+                2,
+                (0.0, 0.0),
+                Box::new(move |cv| {
+                    dungeon_art::stamp_object(cv, run, 1, object);
+                }),
+            ));
+        }
+    }
+    // A room in 3D has no still art to bar its doorways (`room_fixtures`):
+    // while the fight lasts their bars stand in them among the crowd, on
+    // the doorway's foot.
+    if in_3d && (run.barred() || run.open_guarded()) {
+        let room = run.room();
+        for (side, &(col, row)) in doors(room).iter().enumerate() {
+            if !room.doors[side] {
+                continue;
+            }
+            let bars = sprites::portcullis(side % 2 == 0);
+            let (x, y) = (col * TILE, row * TILE);
+            let feet = (y + bars.h) as f32 / UNIT;
+            crowd.push((feet, 2, (0.0, 0.0), Box::new(move |cv: &mut Img| cv.stamp(&bars, x, y))));
+        }
+    }
+    // A floor that stands up in 3D grades its monsters under its knights.
+    let graded = crate::world3d::room::stands_here(run);
     for enemy in &run.enemies {
+        if enemy.boss.is_some() && boss_art::library_hidden() { continue; }
         let rank = u8::from(enemy.boss.is_none());
-        crowd.push((enemy.y, rank, Box::new(move |cv: &mut Img| {
-            let mut im = foe_figure(run, enemy, tick);
+        let lift = if run.side_on() { 0.0 } else { signatures::foot_lift(run, enemy) };
+        let frac = pixel_fraction(enemy.x, enemy.y + lift);
+        crowd.push((enemy.y, rank, frac, Box::new(move |cv: &mut Img| {
+            // Held to the brand guide where it is made, so every view of it
+            // agrees: a monster never outshines a knight (docs/BRAND.md).
+            // Monsters are held under the knights only in the lit 3D rooms
+            // (docs/BRAND.md); the 2D world keeps their own inks.
+            let figure = foe_figure_with(run, enemy, tick, modern);
+            let mut im = if graded { room_scene::graded(figure) } else { figure };
             if enemy.frozen > 0 {
                 im = ults::iced(&im);
+            } else if enemy.chilled > 0 {
+                // Slowed by a frost wish: rime over every other pixel.
+                im = rimed(&im);
             }
             if enemy.kind == EnemyKind::Warboar {
                 // It faces where it means to go.
@@ -1609,7 +2010,11 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 foes_marks(cv, run, enemy, tick);
             }
             critters::marks(cv, run, enemy, tick);
-            let mut im = marks::flashed(&im, enemy, run);
+            swamp::marks(cv, enemy, tick);
+            let library = enemy.boss.and_then(|i| run.bosses.get(i as usize))
+                .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
+                .is_some_and(boss_art::library_registered);
+            let mut im = if library { im } else { marks::flashed(&im, enemy, run) };
             let foot_lift = signatures::foot_lift(run, enemy);
             let (x, y) = if !run.side_on() {
                 at(enemy.x, enemy.y + foot_lift)
@@ -1641,14 +2046,15 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 }
                 foe_material::shadow(cv, x, y + im.h / 3, im.w, false);
                 cv.stamp(&im, x - im.w / 2, y - im.h * 2 / 3);
-                marks::enemy_bar(cv, enemy, x, y - im.h * 2 / 3 + im.h, &im);
+                marks::enemy_bar(cv, run, enemy, x, y - im.h * 2 / 3 + im.h, &im, view);
                 marks::last_stand(cv, run, enemy, tick);
                 return;
             }
             if enemy.age < TELEGRAPH {
                 // A visible warning under a solid silhouette: spawning is not
                 // invisibility, including the first paused frame of a new run.
-                let radius = (im.w.max(im.h) / 2 + 2) as f32;
+                let radius = if library { enemy.radius() * UNIT + 2.0 }
+                    else { (im.w.max(im.h) / 2 + 2) as f32 };
                 for step in 0..64 {
                     let angle = step as f32 / 64.0 * std::f32::consts::TAU;
                     cv.put(
@@ -1659,15 +2065,26 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 }
             }
             if !(modern && art_v2::foe_supported(run, enemy)) {
-                foe_material::shadow(cv, x, y, im.w, enemy.kind.flies());
-                if live_frame() && !run.side_on() {
+                if delivered && !library {
+                    if !modern {dungeon_art::contact(cv,run,x,y,im.w);}
+                    if enemy.boss.is_none() {im=dungeon_art::foe_rim(&im,run.dungeon.pack);}
+                } else if !library {foe_material::shadow(cv, x, y, im.w, enemy.kind.flies());}
+                if live_frame() && !run.side_on() && !library {
                     stand_at(cv, &im, enemy.x, enemy.y + foot_lift, 0);
                 } else {
                     stand(cv, &im, x, y);
                 }
             }
-            marks::enemy_bar(cv, enemy, x, y, &im);
+            marks::enemy_bar(cv, run, enemy, x, y, &im, view);
+            if run.carries_key(enemy) {
+                marks::key_mark(cv, x, y, &im, tick);
+            }
             marks::last_stand(cv, run, enemy, tick);
+            if raising && crate::rules::Run::raisable(enemy) {
+                let skull = bones::skull();
+                let bob = [0, 1, 2, 1][(tick / 6 % 4) as usize];
+                cv.stamp(&skull, x - skull.w / 2, y - im.h - skull.h - 3 - bob);
+            }
         })));
     }
     // The light home, in a slain dragon's lair.
@@ -1705,27 +2122,34 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
         .iter()
         .filter(|(id, h)| h.hp > 0 && h.privy == 0 && h.soak == 0 && !riding.contains(id))
     {
-        crowd.push((hero.y, 2, Box::new(move |cv: &mut Img| {
+        let rank = if delivered && modern && !art_v2::knight_supported(run, hero, id) { 3 } else { 2 };
+        crowd.push((hero.y, rank, pixel_fraction(hero.x, hero.y + feet), Box::new(move |cv: &mut Img| {
             let (x, y) = at(hero.x, hero.y + feet);
             // A card's aura glows on the ground under the knight.
             if let Some(aura) = hero.newest(&run.book, looks::Slot::Aura) {
                 let glow = knights::frame_img(aura.frame(run.tick));
                 cv.stamp(&glow, x - glow.w / 2, y - glow.h / 2);
             }
+            // A raised shield just struck is knocked back and flashes.
+            let struck = vfx::struck(run, id);
             let im = if let Some(avatar) = &hero.avatar {
-                knights::avatar_figure(hero, &avatar.pixels, run.shield_out(id))
+                knights::avatar_struck(hero, &avatar.pixels, run.shield_out(id), struck)
             } else if hero.pit.stop.is_some() {
                 knights::pit_figure(hero, id, tick)
             } else {
                 // The knight at the stage of dress their health leaves them,
                 // with the shield they hold up turned to the aim.
-                knights::figure_with(hero, id, run.shield_out(id))
+                knights::figure_struck(hero, id, run.shield_out(id), struck)
             };
             // What their cards put on them: a bigger shield, spikes, a helm.
             let mut im = knights::dress(&im, &hero.worn(&run.book), run.tick);
             // Their shadow on the floor, under whatever they are about.
             if !(modern && art_v2::knight_supported(run, hero, id)) {
-                knights::shadow(cv, x, y);
+                if delivered && !modern {dungeon_art::contact(cv,run,x,y,20);} else {knights::shadow(cv, x, y);}
+            }
+            if let Some(kind) = hero.possessed {
+                // Raised by a friend's skull: in that monster's body.
+                im = stature::monster(kind, sprites::enemy(kind, tick), 1.0);
             }
             if hero.frog() {
                 // Hexed: a frog, for now.
@@ -1741,6 +2165,13 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             }
             if hero.aim_x < -0.3 {
                 im = im.flip_h();
+            }
+            if hero.carrying_skull.is_some() {
+                // A friend's skull, held up over the head, clear of the
+                // seat's own mark.
+                let skull = bones::skull();
+                let bob = [0, 1, 2, 1][(tick / 6 % 4) as usize];
+                cv.stamp(&skull, x - skull.w / 2, y - im.h - CARRIED_SKULL_GAP - skull.h - bob);
             }
             if hero.has_rune(crate::rules::runes::RuneKind::Invisibility) {
                 // Under Invisibility: only half there.
@@ -1766,16 +2197,9 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             }
             if let Some(left) = hero.rolling() {
                 // Tucked and tumbling: the knight turns a full circle along the
-                // roll, with dust kicked up behind.
+                // roll; its dust is the floor's (`vfx`).
                 let turned = knights::rolled(&im, left);
                 stand_at(cv, &turned, hero.x, hero.y + feet, 2);
-                let (rx, ry) = hero.roll_dir();
-                let puff = sprites::dust(left.min(12));
-                cv.stamp(
-                    &puff,
-                    x - puff.w / 2 - (rx * 10.0) as i32,
-                    y - puff.h / 2 - (ry * 6.0) as i32,
-                );
                 return;
             }
             if hero.tossed > 0 {
@@ -1838,7 +2262,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             }
             // The helmet and tabard that health has cost, in the air.
             knights::flung(cv, hero, x, y, if hero.aim_x < 0.0 { 1 } else { -1 });
-            marks::hero_bar(cv, hero, x, y);
+            marks::hero_bar(cv, run, hero, x, y);
             // The knight's true hit point: one bright pixel.
             let (hx, hy) = at(hero.x, hero.y);
             cv.put(hx, hy, 'w');
@@ -1889,47 +2313,200 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                     '2',
                 );
             }
-            if hero.bomb_cooldown > BOMB_REARM - 12 {
-                let age = (BOMB_REARM - hero.bomb_cooldown) as f32;
-                let r = (3.0 + age * 3.2) * UNIT;
-                let n = (r * 3.0) as i32;
-                for k in 0..n {
-                    let a = k as f32 / n as f32 * std::f32::consts::TAU;
-                    cv.put(
-                        x + (a.cos() * r).round() as i32,
-                        y + (a.sin() * r).round() as i32,
-                        if k % 2 == 0 { '6' } else { '5' },
-                    );
-                }
-            }
         })));
     }
-    crowd.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.total_cmp(&b.0)));
-    for (_, _, paint) in crowd {
-        paint(cv);
+    // Among a delivered room kit, depth first so the kit stands in front
+    // of and behind the crowd; otherwise by rank (`dungeon_art`).
+    crowd.sort_by(|a, b| {
+        if delivered {
+            a.0.total_cmp(&b.0).then(a.1.cmp(&b.1))
+        } else {
+            a.1.cmp(&b.1).then(a.0.total_cmp(&b.0))
+        }
+    });
+    if capturing() {
+        // Each one painted alone and handed over whole, with its shadow,
+        // its bar and its marks; what comes after them goes over them.
+        // Each paints over the room as painted so far (a shadow darkens
+        // what it falls on), and keeps the pixels it changed.
+        let mut base = cv.clone();
+        let mut scratch = cv.clone();
+        // The two match: only what each figure paints is compared.
+        scratch.untouch();
+        for (depth, rank, frac, paint) in crowd {
+            with_capture(|capture| capture.member = Some(Vec::new()));
+            if delivered && modern && rank == 3 {
+                dungeon_art::legacy_body(&mut scratch, run, depth, paint);
+            } else {
+                paint(&mut scratch);
+            }
+            let bodies = with_capture(|capture| capture.member.take()).flatten().unwrap_or_default();
+            if let Some((x, y, img)) = scratch.take_changes(&mut base) {
+                // A monster: rank 0 a guardian, 1 the rest.
+                let foe = rank < 2;
+                with_capture(|capture| {
+                    capture.figures.push(room_scene::Figure { img, x, y, frac, depth, bodies, foe });
+                });
+            }
+        }
+        // What comes after paints over the room and its figures (a glow
+        // keeps behind them); only what it changes is kept (`room_scene`).
+        // Painted outside the capture's borrow: shots hand themselves over
+        // to it (`draw_parts_outside`).
+        let mut after = scratch;
+        runes::auras(&mut after, run);
+        vfx::under_shots(&mut after, run);
+        shots(&mut after, run, modern);
+        with_capture(|capture| {
+            capture.after = after;
+            capture.base = Some(base);
+        });
+        return;
+    }
+    for (feet, rank, _, paint) in crowd {
+        if delivered && modern && rank == 3 {
+            dungeon_art::legacy_body(cv, run, feet, paint);
+        } else {
+            paint(cv);
+        }
     }
     runes::auras(cv, run);
+    vfx::under_shots(cv, run);
     shots(cv, run, modern);
+}
+
+/// The part of a pixel an arena point stands past its whole pixel (`at`).
+fn pixel_fraction(ux: f32, uy: f32) -> (f32, f32) {
+    let (px, py) = (ux * UNIT, uy * UNIT);
+    (px - px.floor(), py - py.floor())
+}
+
+/// A frame being taken apart (`room_scene`): the crowd is painted one
+/// figure at a time and kept, and what is painted after the crowd goes on
+/// a canvas of its own, over the figures.
+pub(super) struct Capture {
+    pub figures: Vec<room_scene::Figure>,
+    pub after: Img,
+    /// The room and its figures as they stood before `after` was painted.
+    pub base: Option<Img>,
+    /// The sprites the figure being painted now stands up.
+    pub member: Option<Vec<room_scene::Body>>,
+    /// Shots handed over whole instead of painted (`draw_parts_outside`).
+    pub shots: Vec<room_scene::SceneShot>,
+    /// Floor pickups handed over as shapes when the page draws props.
+    pub pickups: Vec<pickup_meshes::ScenePickup>,
+    /// Floor pickups handed over as ray-marched solids when the frame goes
+    /// out in parts to a page that draws no props.
+    pub solids: Vec<room_scene::SceneSolid>,
+}
+
+std::thread_local! {
+    static CAPTURE: std::cell::RefCell<Option<Capture>> = const { std::cell::RefCell::new(None) };
+}
+
+fn capturing() -> bool {
+    CAPTURE.with(|c| c.borrow().is_some())
+}
+
+std::thread_local! {
+    static PROPS_MESHES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The page draws solid props, so floor pickups are handed over as shapes
+/// instead of stamped. A flat page leaves this off and keeps today's sprites.
+pub fn props_meshes(on: bool) {
+    PROPS_MESHES.with(|c| c.set(on));
+}
+
+fn props_meshes_on() -> bool {
+    PROPS_MESHES.with(|c| c.get())
+}
+
+std::thread_local! {
+    static PICKUP_CARDS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The page draws shapes, so what lies on the floor is handed over to turn
+/// there as a card (`pickup_cards::nodes`); off, it is drawn here turning
+/// (`pickup_cards::turning_sprite`).
+pub fn pickup_cards(on: bool) {
+    PICKUP_CARDS.with(|c| c.set(on));
+}
+
+fn pickup_cards_on() -> bool {
+    PICKUP_CARDS.with(|c| c.get())
+}
+
+fn with_capture<T>(f: impl FnOnce(&mut Capture) -> T) -> Option<T> {
+    CAPTURE.with(|c| c.borrow_mut().as_mut().map(f))
+}
+
+/// Take the room apart while `paint` runs: returns what it painted and the
+/// capture (its figures, and the canvas painted after them).
+pub(super) fn captured<T>(room: (i32, i32), win: (i32, i32, i32, i32), paint: impl FnOnce() -> T) -> (T, Capture) {
+    struct Arm(Option<Capture>);
+    impl Drop for Arm {
+        fn drop(&mut self) {
+            CAPTURE.with(|c| *c.borrow_mut() = self.0.take());
+        }
+    }
+    let before = CAPTURE.with(|c| {
+        c.borrow_mut().replace(Capture {
+            figures: Vec::new(),
+            after: Img::window(room.0, room.1, win),
+            base: None,
+            member: None,
+            shots: Vec::new(),
+            pickups: Vec::new(),
+            solids: Vec::new(),
+        })
+    });
+    let mut arm = Arm(before);
+    let out = paint();
+    let capture = CAPTURE.with(|c| std::mem::replace(&mut *c.borrow_mut(), arm.0.take()));
+    std::mem::forget(arm);
+    (out, capture.expect("the capture armed above"))
 }
 
 /// Shots retain their authored two-pixel collision cores; halo is separate.
 fn shots(cv: &mut Img, run: &Run, modern: bool) {
+    // A window draws shots itself, lifted and lit: they are handed over
+    // whole (`room_scene::SceneShot`) instead of painted.
+    let apart = capturing() && parts_outside();
     // Shots are drawn at twice their sprite size: a hairline reads as noise
     // at speed, a two-pixel stroke reads as an arrow.
     let mut mark = Img::new(25, 25);
+    let dimensions = apart.then(|| dimensions::Dimensions::of(run));
     for shot in &run.projectiles {
         // Beams, marks and mines first; a beam or a waiting shot is done.
         if volleys::draw(cv, run, shot) {
             continue;
         }
         if modern && art_v2::shot_supported(shot) {continue;}
+        // A monster's shot drawn as what it does: a dart, an orb, a lob,
+        // or a streak as long as it is fast under its sprite.
+        if volleys::family(cv, run, shot) {
+            continue;
+        }
         let (x, y) = at(shot.x, shot.y);
-        let hue = match shot.kind {
-            Shot::Ember | Shot::Flame | Shot::Sacred | Shot::Ball => fx::Hue::Warm,
-            Shot::Hex | Shot::Spore => fx::Hue::Gas,
+        if let Some(art) = crate::rules::bosses::Art::of_shot(shot) {
+            if modern && boss_art::native_projectile(art) {continue;}
+            boss_art::projectile(cv, art, x, y, shot.vx, shot.vy, run.tick);
+            continue;
+        }
+        if class_looks::peasant::stone_shot(cv, shot, x, y) { continue; }
+        if dungeon_art::supported(run) && dungeon_art::knight_shot(cv, shot, x, y) {continue;}
+        let hue = match (shot.tint(), shot.kind) {
+            (Some(Tint::Burn), _) => fx::Hue::Warm,
+            (Some(Tint::Chill), _) => fx::Hue::Cold,
+            (Some(Tint::Poison), _) => fx::Hue::Gas,
+            (None, Shot::Ember | Shot::Flame | Shot::Sacred | Shot::Ball) => fx::Hue::Warm,
+            (None, Shot::Hex | Shot::Spore) => fx::Hue::Gas,
             _ => fx::Hue::Cold,
         };
-        fx::glow(cv, x, y, hue);
+        if !apart {
+            fx::glow(cv, x, y, hue);
+        }
         mark.clear_all();
         if shot.empowered {
             // Through a friend's wall: a gold halo around the shot.
@@ -1946,60 +2523,197 @@ fn shots(cv: &mut Img, run: &Run, modern: bool) {
                 mark.put(12 + dx, 12 + dy, '6');
             }
         }
+        // What the shot is, as a window that builds it in 3D reads it.
+        let form;
+        let mut fine: Option<Img> = None;
         if let Some(sprite) = shot
             .sprite_card()
             .and_then(|id| run.book.get(id))
             .and_then(|card| card.looks.shot.as_ref())
         {
-            // A card's own shot, turned the way it flies.
+            // A card's own shot, turned the way it flies, and no bigger
+            // than a shot. Drawn on the canvas's own pixels (`fine`), not
+            // twice size, it keeps every pixel of art up to `CARD_FINE_SIDE`;
+            // a window that builds shots itself is handed it at twice size,
+            // shrunk to fit.
             let mut im = knights::frame_img(sprite.frame(run.tick));
             if shot.vx < 0.0 {
                 im = im.flip_h();
             }
-            mark.stamp(&im, 12 - im.w / 2, 12 - im.h / 2);
+            let side = im.w.max(im.h);
+            if side > CARD_FINE_SIDE {
+                im = enlarge(&im, CARD_FINE_SIDE as f32 / side as f32);
+            }
+            if apart {
+                let mut small = im.clone();
+                if side > CARD_SHOT_SIDE {
+                    small = enlarge(&small, CARD_SHOT_SIDE as f32 / small.w.max(small.h) as f32);
+                }
+                mark.stamp(&small, 12 - small.w / 2, 12 - small.h / 2);
+            } else {
+                fine = Some(im);
+            }
+            form = ShotForm::Card;
         } else if shot.sprite_card().is_some() {
             sprites::shot(&mut mark, (12, 12), (shot.vx, shot.vy), shot.kind);
+            form = ShotForm::Kind(shot.kind);
         } else if let Some((colour, _)) = &shot.look
             && class_looks::shot(&mut mark, (12, 12), (shot.vx, shot.vy), colour, run.tick)
         {
             // A class's own shot: the Mage's arcane bolt, the Healer's spark.
+            form = class_looks::class_of(colour).map_or(ShotForm::Kind(shot.kind), ShotForm::Class);
         } else if let Some((colour, shape)) = &shot.look {
             sprites::forged_shot(&mut mark, 12, 12, colour, shape);
+            form = ShotForm::Forged(ForgedColour::of(colour), ForgedShape::of(shape));
         } else {
             sprites::shot(&mut mark, (12, 12), (shot.vx, shot.vy), shot.kind);
+            form = ShotForm::Kind(shot.kind);
+        }
+        // What a wish made of it (`wishcraft`): a boomerang's curling
+        // wake, its fire, frost or venom, and its size.
+        if shot.traits.boomerang {
+            wake(&mut mark, (shot.vx, shot.vy), shot.traits.back == 2);
+        }
+        let mark = match shot.tint() {
+            Some(tint) => {
+                let mut im = tinted(&mark, tint);
+                brand_trail(&mut im, (shot.vx, shot.vy), tint, run.tick);
+                im
+            }
+            None => mark.clone(),
+        };
+        // A sized wish strikes wider (`wishcraft`) but is drawn no bigger
+        // than a shot.
+        if apart {
+            let (fx, fy) = pixel_fraction(shot.x, shot.y);
+            // Arena units a second to the room's pixels a second.
+            let per_second = UNIT;
+            let light = match (shot.kind, hue) {
+                (Shot::Sacred, _) => room_scene::Hue::Holy,
+                (_, fx::Hue::Warm) => room_scene::Hue::Fire,
+                (_, fx::Hue::Gas) => room_scene::Hue::Gas,
+                (_, fx::Hue::Cold) => room_scene::Hue::Cold,
+            };
+            let bright = !matches!(
+                shot.kind,
+                Shot::Blade | Shot::Arrow | Shot::Bolt | Shot::Bone | Shot::Ore | Shot::Page
+            );
+            let scene_shot = room_scene::SceneShot {
+                x: x as f32 + fx,
+                y: y as f32 + fy,
+                vx: shot.vx * per_second,
+                vy: shot.vy * per_second,
+                hue: light,
+                bright,
+                hostile: shot.hostile,
+                empowered: shot.empowered,
+                form,
+                dimension: dimensions.as_ref().map_or_else(Default::default, |d| d.shot(shot)),
+                mark: mark.clone(),
+            };
+            with_capture(|capture| capture.shots.push(scene_shot));
+            continue;
         }
         cv.stamp_twice(&mark, x - 24, y - 24);
+        if let Some(im) = fine {
+            let im = match shot.tint() {
+                Some(tint) => tinted(&im, tint),
+                None => im,
+            };
+            cv.stamp(&im, x - im.w / 2, y - im.h / 2);
+        }
     }
 }
 
-/// Bursts and granted wishes: an ember ring opening where a handgonne ball
-/// burst; an arcane ring and rising motes round a knight whose wish landed.
-fn flourishes(cv: &mut Img, run: &Run) {
-    use crate::rules::{BLAST_TICKS, HZ};
-    for &(x, y, left) in &run.blasts {
-        let (cx, cy) = at(x, y);
-        let k = f32::from(BLAST_TICKS - left) / f32::from(BLAST_TICKS);
-        let r = 4.0 + k * 18.0;
-        let n = (r * 4.0) as i32;
-        for i in 0..n {
-            let a = i as f32 / n as f32 * std::f32::consts::TAU;
-            let ink = match (i + left as i32) % 3 {
-                0 => 'c',
-                1 => '@',
-                _ => 'o',
-            };
-            if !hash(i, left as i32, 31).is_multiple_of(3) {
-                let ink = if k > 0.6 { 'S' } else { ink };
-                for dr in [0.0, 1.0] {
-                    cv.put(
-                        cx + (a.cos() * (r + dr)) as i32,
-                        cy + (a.sin() * (r + dr) * 0.6) as i32,
-                        ink,
-                    );
-                }
+/// A monster a frost wish has chilled: its own colours under a rime of
+/// pale blue, every other pixel.
+fn rimed(im: &Img) -> Img {
+    let ice = tinted(im, Tint::Chill);
+    let mut out = im.clone();
+    for y in 0..im.h {
+        for x in 0..im.w {
+            if (x + y) % 2 == 0
+                && let Some(c) = ice.get(x, y)
+            {
+                out.set(x, y, c);
             }
         }
     }
+    out
+}
+
+/// A boomerang's wake: a short trail curling off behind it, to one side
+/// going out and the other coming home, so its turn shows.
+fn wake(mark: &mut Img, (vx, vy): (f32, f32), home: bool) {
+    let length = vx.hypot(vy).max(1e-3);
+    let (ux, uy) = (vx / length, vy / length);
+    let side = if home { -1.0 } else { 1.0 };
+    let (px, py) = (-uy * side, ux * side);
+    for k in 3..=9 {
+        let k = k as f32;
+        let bend = k * k / 14.0;
+        let ink = if k < 6.0 { 'h' } else { 'G' };
+        mark.put(
+            12 - (ux * k).round() as i32 + (px * bend).round() as i32,
+            12 - (uy * k).round() as i32 + (py * bend).round() as i32,
+            ink,
+        );
+    }
+}
+
+/// What streams off a branded shot behind it: embers off a burning one,
+/// frost glints off a chilling one, drips off a venomous one.
+fn brand_trail(mark: &mut Img, (vx, vy): (f32, f32), tint: Tint, tick: u64) {
+    let length = vx.hypot(vy).max(1e-3);
+    let (ux, uy) = (vx / length, vy / length);
+    let (px, py) = (-uy, ux);
+    let inks: [char; 3] = match tint {
+        Tint::Burn => ['c', '@', '7'],
+        Tint::Chill => ['w', '3', '1'],
+        Tint::Poison => ['Y', 'C', 'y'],
+    };
+    for k in 0..5 {
+        let back = 4.0 + k as f32 * 1.6;
+        let sway = match (tick as i32 / 2 + k) % 3 {
+            0 => -1.0,
+            1 => 0.0,
+            _ => 1.0,
+        };
+        // Venom drips down; the others stream behind.
+        let drop = if tint == Tint::Poison { k as f32 * 0.6 } else { 0.0 };
+        mark.put(
+            12 - (ux * back).round() as i32 + (px * sway).round() as i32,
+            12 - (uy * back).round() as i32 + (py * sway + drop).round() as i32,
+            inks[(k as usize).min(2)],
+        );
+    }
+}
+
+/// A shot in its brand's colours: fire's reds and golds, frost's blues,
+/// venom's greens, light for light.
+fn tinted(im: &Img, tint: Tint) -> Img {
+    let ramp: &[char] = match tint {
+        Tint::Burn => &['8', '7', 'o', '@', '6', 'c'],
+        Tint::Chill => &['0', '1', '2', '3', 'w', '9'],
+        Tint::Poison => &['D', 'E', 'y', 'C', 'Y', 'A'],
+    };
+    let mut out = Img::new(im.w, im.h);
+    for y in 0..im.h {
+        for x in 0..im.w {
+            if let Some([r, g, b]) = im.get(x, y) {
+                let l = (299 * u32::from(r) + 587 * u32::from(g) + 114 * u32::from(b)) / 1000;
+                let i = (l as usize * ramp.len() / 256).min(ramp.len() - 1);
+                out.put(x, y, ramp[i]);
+            }
+        }
+    }
+    out
+}
+
+/// Granted wishes: an arcane ring and rising motes round a knight whose
+/// wish landed. (A handgonne ball's burst is the fight's: `vfx`.)
+fn flourishes(cv: &mut Img, run: &Run) {
+    use crate::rules::HZ;
     for &(id, at_tick) in &run.boons {
         let Some(hero) = run.players.get(&id).filter(|h| h.hp > 0 && h.privy == 0) else {
             continue;
@@ -2124,20 +2838,24 @@ fn verdict(cv: &mut Img, run: &Run) {
     let sign = district_sign(text);
     let y = (NATIVE_H - sign.h) / 2;
     cv.stamp(&sign, (NATIVE_W - sign.w) / 2, y);
-    // And the way on (`rules::again`): Enter asks, and once a knight has,
-    // how long until the party goes.
-    let hint = match &run.again {
+    let hint = again_hint(run);
+    let w = super::ink::text_width(&hint);
+    let mut plate = Img::new(w + 7, 12);
+    chrome::panel(&mut plate, (0, 0, w + 6, 11), chrome::Tone::KEY);
+    plate.text(3, 2, &hint, 'O');
+    cv.stamp(&plate, (NATIVE_W - plate.w) / 2, y + sign.h + 2);
+}
+
+/// The way on from a finished run (`rules::again`): Enter asks, and once a
+/// knight has, how long until the party goes.
+fn again_hint(run: &Run) -> String {
+    match &run.again {
         None => "ENTER: BACK TO THE KINGDOM".to_string(),
         Some(again) => {
             let secs = again.left.div_ceil(crate::rules::HZ).max(1);
             format!("BACK TO THE KINGDOM IN {secs}  ENTER: NOW")
         }
-    };
-    let w = super::ink::text_width(&hint);
-    let mut plate = Img::new(w + 7, 12);
-    chrome::panel(&mut plate, (0, 0, w + 6, 11), chrome::Tone::KEY);
-    plate.text(3, 2, &hint, '6');
-    cv.stamp(&plate, (NATIVE_W - plate.w) / 2, y + sign.h + 2);
+    }
 }
 
 /// For a few seconds after a Sanctuary opens: its name, and what it is for.
@@ -2149,13 +2867,19 @@ fn sanctuary_sign(cv: &mut Img, run: &Run) {
         // Only in the Sanctuary itself: a knight who walks straight out
         // leaves its sign behind.
         (Some(at), _) if in_sanctuary && run.tick.saturating_sub(at) < 4 * hz => {
-            (at, "SANCTUARY", "T: ONE WISH", 4)
+            (at, "SANCTUARY", "REST: WOUNDS CLOSE", 4)
         }
         // A folly has the screen: its title card, not the wish sign.
         (_, Some(w))
             if run.room().kind != crate::rules::RoomKind::Sanctuary && !run.folly_running() =>
         {
-            (w.opened, "A WISH", "T TO MAKE IT", 2)
+            let title = match (w.great, w.given) {
+                (true, _) => "A SUPER WISH",
+                (_, 3) => "THREE WISHES",
+                (_, 2) => "TWO WISHES",
+                _ => "A WISH",
+            };
+            (w.opened, title, if w.great { "T: TWO STEPS AT ONCE" } else { "T TO MAKE THEM" }, 3)
         }
         _ => return,
     };
@@ -2168,7 +2892,7 @@ fn sanctuary_sign(cv: &mut Img, run: &Run) {
     let w = super::ink::text_width(hint);
     let mut plate = Img::new(w + 7, 12);
     chrome::panel(&mut plate, (0, 0, w + 6, 11), chrome::Tone::KEY);
-    plate.text(3, 2, hint, '6');
+    plate.text(3, 2, hint, 'O');
     cv.stamp(&plate, (NATIVE_W - plate.w) / 2, y + sign.h + 2);
 }
 
@@ -2176,7 +2900,21 @@ fn sanctuary_sign(cv: &mut Img, run: &Run) {
 /// `focus` (or between the living knights), kept inside the room. An
 /// ordinary room is exactly one view, so its camera never moves.
 pub fn camera(run: &Run, focus: Option<u32>) -> (i32, i32) {
+    let (x, y) = camera_exact(run, focus);
+    (x.floor() as i32, y.floor() as i32)
+}
+
+/// The camera between whole pixels: `camera` is its whole pixel. A window
+/// that draws the room itself scrolls by this, so the room glides under a
+/// knight it follows instead of stepping a pixel at a time.
+pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
     let (pw, ph) = room_px(run.room());
+    let corner = |(cx, cy): (f32, f32)| {
+        (
+            (cx * UNIT - NATIVE_W as f32 / 2.0).clamp(0.0, (pw - NATIVE_W).max(0) as f32),
+            (cy * UNIT - NATIVE_H as f32 / 2.0).clamp(0.0, (ph - NATIVE_H).max(0) as f32),
+        )
+    };
     if run.room().kind == RoomKind::Kingdom {
         let hero = focus
             .and_then(|id| run.players.get(&id))
@@ -2184,14 +2922,10 @@ pub fn camera(run: &Run, focus: Option<u32>) -> (i32, i32) {
             // A host who plays no knight sends none (`Hero::absent`): the
             // party's first.
             .or_else(|| run.players.values().next());
-        let (cx, cy) = hero
+        let centre = hero
             .map(|h| h.camera.unwrap_or((h.x, h.y - 1.0)))
             .unwrap_or((WIDTH / 2.0, HEIGHT / 2.0));
-        let (cx, cy) = at(cx, cy);
-        return (
-            (cx - NATIVE_W / 2).clamp(0, pw - NATIVE_W),
-            (cy - NATIVE_H / 2).clamp(0, ph - NATIVE_H),
-        );
+        return corner(centre);
     }
     let alive = |h: &&crate::rules::Hero| h.hp > 0;
     let watched: Vec<(f32, f32)> = match focus.and_then(|id| run.players.get(&id)).filter(alive) {
@@ -2221,15 +2955,10 @@ pub fn camera(run: &Run, focus: Option<u32>) -> (i32, i32) {
         .iter()
         .fold((0.0, 0.0), |(ax, ay), &(x, y)| (ax + x, ay + y));
     let n = watched.len().max(1) as f32;
-    let (cx, cy) = if watched.is_empty() {
-        (pw / 2, ph / 2)
-    } else {
-        at(sx / n, sy / n)
-    };
-    (
-        (cx - NATIVE_W / 2).clamp(0, (pw - NATIVE_W).max(0)),
-        (cy - NATIVE_H / 2).clamp(0, (ph - NATIVE_H).max(0)),
-    )
+    if watched.is_empty() {
+        return corner(((pw / 2) as f32 / UNIT, (ph / 2) as f32 / UNIT));
+    }
+    corner((sx / n, sy / n))
 }
 
 /// One view of `full` from `(ox, oy)`.
@@ -2252,7 +2981,7 @@ pub(super) fn pointer(
     name: &str,
     edge: bool,
 ) -> Vec<(i32, i32, i32, i32)> {
-    for (ink, grow) in [('K', 1.5), ('6', 0.0)] {
+    for (ink, grow) in [('K', 1.5), ('O', 0.0)] {
         for py in -10..=10 {
             for px in -10..=10 {
                 let along = px as f32 * ux + py as f32 * uy;
@@ -2274,7 +3003,7 @@ pub(super) fn pointer(
         ay.round() as i32 - 21
     }
     .clamp(4, NATIVE_H - 13);
-    let tag = chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
+    let tag = chrome::label(over, (lx, ly), &label, 'O', chrome::Tone::KEY);
     vec![tag, (ax as i32 - 10, ay as i32 - 10, 21, 21)]
 }
 
@@ -2315,7 +3044,7 @@ pub(super) fn near_prompt(cv: &mut Img, run: &Run, (x, y): (i32, i32), label: &s
     let label = format!("E: {label}");
     let w = super::ink::text_width(&label);
     let (lx, ly) = ((x - w / 2).clamp(3, cv.w - w - 3), (y - 30).max(2));
-    chrome::label(cv, (lx, ly), &label, '6', chrome::Tone::KEY);
+    chrome::label(cv, (lx, ly), &label, 'O', chrome::Tone::KEY);
 }
 
 /// A way that is shut: two planks nailed across it.
@@ -2356,87 +3085,7 @@ fn field_banner(over: &mut Img, run: &Run, (ox, oy): (i32, i32), focus: Option<u
         let label = format!("E: {} {FIELD_PRICE}G", next.name.to_uppercase());
         let w = super::ink::text_width(&label);
         let (lx, ly) = ((x - w / 2).clamp(3, NATIVE_W - w - 3), y + 3);
-        chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
-    }
-}
-
-/// The Wax Maze: wax on every corridor, holy water in the corners, the
-/// four wraiths (pale and fleeing after holy water), the title card, and
-/// the standings in wax.
-fn folly_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
-    use crate::rules::folly::Temper;
-    let Some(maze) = run.folly.as_ref().filter(|m| m.room == run.at) else {
-        return;
-    };
-    let cols = run.room().cols as i32;
-    let done = maze.done;
-    let place = |i: u16| {
-        let (tx, ty) = (i as i32 % cols, i as i32 / cols);
-        let (x, y) = at((tx as f32 + 0.5) * TILE_UNITS, (ty as f32 + 0.5) * TILE_UNITS);
-        (x - ox, y - oy)
-    };
-    // Once the podium is called, the maze is just a crypt again.
-    for &i in maze.wax.iter().filter(|_| !done) {
-        let (x, y) = place(i);
-        over.rect(x - 1, y - 1, 3, 3, 'T');
-        over.put(x - 1, y - 1, '9');
-    }
-    for &i in maze.holy.iter().filter(|_| !done) {
-        let (x, y) = place(i);
-        let bob = [0, 1, 1, 0][(run.tick / 8 % 4) as usize];
-        over.rect(x - 1, y - 7 - bob, 3, 2, 'h');
-        over.rect(x - 3, y - 5 - bob, 7, 7, 'z');
-        over.rect(x - 2, y - 4 - bob, 2, 3, 'w');
-    }
-    let pale = maze.pale > 0;
-    let flash = pale && maze.pale < 2 * crate::rules::HZ && run.tick / 4 % 2 == 0;
-    let ghost = [
-        "...xxxxxx...",
-        "..xxxxxxxx..",
-        ".xxxxxxxxxx.",
-        ".xxwwxxwwxx.",
-        ".xxwkxxwkxx.",
-        ".xxxxxxxxxx.",
-        ".xxxxxxxxxx.",
-        ".xxxxxxxxxx.",
-        ".xxxxxxxxxx.",
-        ".xx.xxx.xxx.",
-        ".x...x...xx.",
-    ];
-    for w in maze.wraiths.iter().filter(|w| !done && (w.rest == 0 || run.tick / 6 % 2 == 0)) {
-        let body = if flash {
-            'W'
-        } else if pale {
-            'Q'
-        } else {
-            match w.temper {
-                Temper::Hound => '7',
-                Temper::Cutter => 'c',
-                Temper::Flanker => '2',
-                Temper::Drifter => '4',
-            }
-        };
-        let (tx, ty) = w.pos(pale);
-        let (x, y) = at(tx * TILE_UNITS, ty * TILE_UNITS);
-        let (x, y) = (x - ox - 6, y - oy - 8 + [0, 1, 0, -1][(run.tick / 5 % 4) as usize]);
-        for (ry, row) in ghost.iter().enumerate() {
-            for (rx, c) in row.chars().enumerate() {
-                let ink = match c {
-                    'x' => body,
-                    'w' => if pale { 'H' } else { 'W' },
-                    'k' => if pale { 'H' } else { 'q' },
-                    _ => continue,
-                };
-                over.put(x + rx as i32, y + ry as i32, ink);
-            }
-        }
-    }
-    // The standings in wax, top right, and the candle's seconds.
-    let head = if maze.done { "WAX MAZE  DONE".to_string() } else { format!("WAX MAZE  {}S", maze.left()) };
-    let rows: Vec<(u32, u32)> = maze.eaten.iter().map(|(&id, &n)| (id, u32::from(n))).collect();
-    folly_board(over, run, &head, &rows);
-    if maze.titled() {
-        folly_title(over, "THE WAX MAZE", "EAT WAX. FLEE WRAITHS.");
+        chrome::label(over, (lx, ly), &label, 'O', chrome::Tone::KEY);
     }
 }
 
@@ -2757,10 +3406,10 @@ fn folly_board(over: &mut Img, run: &Run, head: &str, rows: &[(u32, u32)]) {
     let (w, row) = (118, 11);
     let x0 = NATIVE_W - w - 5;
     chrome::panel(over, (x0 - 4, 1, w + 8, row * (rows.len() as i32 + 1) + 5), chrome::Tone::SLATE);
-    over.text(x0, 4, head, '6');
+    over.text(x0, 4, head, 'O');
     for (k, &(id, n)) in rows.iter().enumerate() {
         let y = 4 + (k as i32 + 1) * row;
-        let ink = ['5', '1', 'A', '4'][(id as usize).clamp(1, 4) - 1];
+        let ink = knights::seat_mark(id);
         over.rect(x0, y + 1, 5, 5, ink);
         let name: String = run
             .players
@@ -2771,7 +3420,7 @@ fn folly_board(over: &mut Img, run: &Run, head: &str, rows: &[(u32, u32)]) {
             .collect();
         over.text(x0 + 8, y, &name, 'O');
         let count = format!("{n}");
-        over.text(x0 + w - super::ink::text_width(&count), y, &count, '9');
+        over.text(x0 + w - super::ink::text_width(&count), y, &count, 'i');
     }
 }
 
@@ -2780,8 +3429,8 @@ fn folly_title(over: &mut Img, a: &str, b: &str) {
     let tw = super::ink::text_width(b).max(super::ink::text_width(a));
     // High in the view: the middle is where an unused wish waits.
     let (bx, by) = ((NATIVE_W - tw) / 2 - 8, 44);
-    chrome::panel(over, (bx, by, tw + 16, 34), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
-    over.text((NATIVE_W - super::ink::text_width(a)) / 2, by + 7, a, '6');
+    chrome::panel(over, (bx, by, tw + 16, 34), chrome::Tone::FRAMED);
+    over.text((NATIVE_W - super::ink::text_width(a)) / 2, by + 7, a, 'O');
     over.text((NATIVE_W - super::ink::text_width(b)) / 2, by + 20, b, 'O');
 }
 
@@ -2798,7 +3447,7 @@ pub(super) fn heat_board(over: &mut Img, run: &Run) {
     chrome::panel(over, (x0 - 4, y0 - 4, w + 8, row * heat.seats.len() as i32 + 5), chrome::Tone::SLATE);
     for (i, &id) in heat.seats.iter().enumerate() {
         let y = y0 + i as i32 * row;
-        let ink = ['5', '1', 'A', '4'][(id as usize).clamp(1, 4) - 1];
+        let ink = knights::seat_mark(id);
         over.rect(x0, y + 1, 5, 5, ink);
         let name: String = run
             .players
@@ -2836,7 +3485,7 @@ fn way_on_marker(over: &mut Img, run: &Run, (ox, oy): (i32, i32), tick: u32) {
     let (px, py) = at(x, y);
     let (sx, sy) = ((px - ox) as f32 + ux * nudge, (py - oy) as f32 + uy * nudge);
     let (sx, sy) = (sx.clamp(10.0, (NATIVE_W - 10) as f32), sy.clamp(10.0, (NATIVE_H - 10) as f32));
-    for (ink, grow) in [('K', 1.5), ('6', 0.0)] {
+    for (ink, grow) in [('K', 1.5), ('O', 0.0)] {
         for dy in -9..=9 {
             for dx in -9..=9 {
                 let along = dx as f32 * ux + dy as f32 * uy;
@@ -2859,12 +3508,31 @@ fn way_on_marker(over: &mut Img, run: &Run, (ox, oy): (i32, i32), tick: u32) {
             sy as i32 - 2 * TILE,
         ),
     };
-    let (lx, ly) = (lx.clamp(4, NATIVE_W - tw - 4), ly.clamp(4, NATIVE_H - 13));
-    chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
+    let (mut lx, mut ly) = (lx.clamp(4, NATIVE_W - tw - 4), ly.clamp(4, NATIVE_H - 13));
+    // Not under the minimap in the corner: to the other side of the arrow,
+    // else below the minimap.
+    if let Some((rx, ry, rw, rh)) = dungeon_map::reserved(run) {
+        let hits = |x: i32, y: i32| {
+            let (x0, y0, w, h) = chrome::label_rect((x, y), &label);
+            x0 < rx + rw && x0 + w > rx && y0 < ry + rh && y0 + h > ry
+        };
+        if hits(lx, ly) && dir % 2 == 0 {
+            let across = (sx as i32 - 2 * TILE - tw).clamp(4, NATIVE_W - tw - 4);
+            if !hits(across, ly) {
+                lx = across;
+            }
+        }
+        if hits(lx, ly) {
+            ly = ry + rh + 3;
+        }
+    }
+    chrome::label(over, (lx, ly), &label, 'O', chrome::Tone::KEY);
 }
 
 fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     let (cx, cy) = ((ox + NATIVE_W / 2) as f32, (oy + NATIVE_H / 2) as f32);
+    // Under the Wax Maze's strip, not behind it.
+    let top = wax_maze::strip_bottom(run).map_or(0.0, |b| (b + 5) as f32);
     let mut mark = |x: i32, y: i32, ink: char| {
         if (ox..ox + NATIVE_W).contains(&x) && (oy..oy + NATIVE_H).contains(&y) {
             return;
@@ -2874,7 +3542,7 @@ fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
             .min((NATIVE_H / 2 - 4) as f32 / dy.abs().max(0.01));
         let (ex, ey) = (
             (NATIVE_W / 2) as f32 + dx * k,
-            (NATIVE_H / 2) as f32 + dy * k,
+            ((NATIVE_H / 2) as f32 + dy * k).max(top),
         );
         let len = dx.hypot(dy).max(0.01);
         let (ux, uy) = (dx / len, dy / len);
@@ -2889,13 +3557,22 @@ fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
             }
         }
     };
+    // On an open map, only what is awake and near enough to matter.
+    let open = run.open_map();
     for enemy in &run.enemies {
         let (x, y) = at(enemy.x, enemy.y);
+        if open && (enemy.dormant || (x as f32 - cx).abs() > NATIVE_W as f32 * 1.5 || (y as f32 - cy).abs() > NATIVE_H as f32 * 1.5) {
+            continue;
+        }
         mark(x, y, '7');
     }
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0) {
         let (x, y) = at(hero.x, hero.y);
-        mark(x, y, ['5', '1', 'A', '4'][(id as usize).clamp(1, 4) - 1]);
+        mark(x, y, knights::seat_mark(id));
+    }
+    // The Wax Maze's wraiths out of sight, in their own inks.
+    for ((x, y), ink) in wax_maze::beyond(run) {
+        mark(x, y, ink);
     }
 }
 
@@ -2931,6 +3608,10 @@ fn reading(run: &Run) -> bool {
         return true;
     }
     let kind = run.room().kind;
+    // A Colosseum arena is its game: its board is always up.
+    if crate::rules::colosseum::is_arena(kind) {
+        return true;
+    }
     Game::ALL
         .iter()
         .filter(|g| g.room() == kind)
@@ -2956,6 +3637,14 @@ fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> (I
 }
 
 fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> (Img, Img) {
+    if run.mossbell_showing() { return mossbell::layers(run, focus); }
+    if run.brasswake_showing() { return brasswake::layers(run, focus); }
+    if run.forest_road_showing() { return forest_road::layers(run, focus); }
+    if let Some(scene) = roundtable::layers(run, focus) { return scene; }
+    if run.pennon_showing() { return pennon::layers(run, focus); }
+    if run.rafterwake_showing() { return rafterwake::layers(run, focus); }
+    if run.latch_showing() { return latch::layers(run, focus); }
+    if run.cinder_showing() { return cinder::layers(run, focus); }
     if run.room().kind == RoomKind::Kingdom {
         return kingdom::layers_with(run, focus, legible, modern);
     }
@@ -2969,17 +3658,54 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
     if stage::takeover(run) {
         return stage::layers(run, focus, legible);
     }
+    let over = room_layer(run, focus, legible, modern);
+    let origin = view_origin(run, focus);
+    let mut over = crop(&over, origin);
+    let mut scenery = if modern { Img::new(NATIVE_W, NATIVE_H) } else { crop(&scenery_cached(run), origin) };
+    if run.circle() > 0 && !run.at_home_now() {
+        // Below a hell gate the rooms are lit from underneath.
+        gate::tint(&mut scenery, run.circle());
+    }
+    if run.mode == crate::rules::fortune::Mode::LightsOut && !run.at_home_now() {
+        lights_out(&mut scenery, &mut over, run, origin);
+    }
+    // A library boss's own graded ground (`boss_art`).
+    if !modern {
+        boss_art::library_ground(&mut scenery, run, origin);
+    }
+    // The swamp's fog: the same dark, in patches.
+    if swamp::fogged(run) {
+        swamp::fog(&mut scenery, &mut over, run, origin);
+    }
+    // The skills bar's veil: the room's still art darkened under it; all
+    // that stands, moves or marks the floor keeps its full ink.
+    if legible && !hud_in_band() && let Some(rect) = tray::bar_rect(run, focus, NATIVE_W, NATIVE_H) {
+        room_scene::darken(&mut scenery, rect);
+    }
+    screen_marks(&mut over, run, focus, legible, modern, origin);
+    (scenery, over)
+}
+
+/// The room's moving parts in room pixels, over its still art: what stands
+/// and moves in it, the marks over them and the room's boards.
+fn room_layer(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> Img {
     let (pw, ph) = room_px(run.room());
     let mut over = Img::new(pw, ph);
+    room_list(run, focus, legible, modern).paint(&mut over);
+    over
+}
+
+/// The room's paint list (`room_layer`).
+fn room_list(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> DrawList<'_> {
     // The seat's view of the room, for the marks that keep inside it.
     let view = view_origin(run, focus);
     let mut scene = DrawList::default();
-    scene.add(Layer::Ground, |cv| hazards(cv, run));
+    scene.add(Layer::Ground, move |cv| hazards(cv, run));
     let fortune_hall = run.room().kind == RoomKind::Fortune;
     let in_yard = run.room().kind == RoomKind::Yard;
     let in_hall = run.room().kind == RoomKind::Trophies;
     let in_tavern = run.room().kind == RoomKind::Tavern;
-    scene.add(Layer::Ground, |cv| {
+    scene.add(Layer::Ground, move |cv| {
         if run.at_home_now() {
             if fortune_hall {
                 fortune::figures(cv, run);
@@ -3005,11 +3731,19 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
                 _ => {}
             }
             countryside::figures(cv, run);
+            colosseum::figures(cv, run);
             pastimes::figures(cv, run);
+            cinder::sign(cv, run);
+            latch::sign(cv, run);
+            brasswake::sign(cv, run);
+            rafterwake::sign(cv, run);
+            pennon::sign(cv, run);
+            mossbell::sign(cv, run);
+            teachers::figures(cv, run);
             world::entrance_ring(cv, run);
         }
     });
-    scene.add(Layer::Ground, |cv| {
+    scene.add(Layer::Ground, move |cv| {
         if matches!(
             run.room().kind,
             RoomKind::MineHead | RoomKind::KingsHall | RoomKind::Gate | RoomKind::Forge
@@ -3018,7 +3752,7 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
             barony::folk(cv, run);
         }
     });
-    scene.add(Layer::Ground, |cv| {
+    scene.add(Layer::Ground, move |cv| {
         if !run.at_home_now() {
             // A floor the realm holds: its banners, its steward's hall.
             holdings::start_banners(cv, run);
@@ -3028,46 +3762,53 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
             nooks::figures(cv, run);
         }
     });
-    scene.add(Layer::Ground, |cv| college::figures(cv, run));
-    scene.add(Layer::Ground, |cv| ranch::figures_with(cv, run, modern));
-    scene.add(Layer::Ground, |cv| works::under_with(cv, run, modern));
-    scene.add(Layer::Ground, |cv| merchant::figures(cv, run));
-    scene.add(Layer::Ground, |cv| ults::under(cv, run));
-    scene.add(Layer::Ground, |cv| foes_hazards(cv, run));
-    scene.add(Layer::Ground, |cv| critters::world(cv, run));
-    scene.add(Layer::Ground, |cv| tide::ravages(cv, run));
-    scene.add(Layer::Ground, |cv| void::holes(cv, run));
-    scene.add(Layer::Ground, |cv| rescues::cage(cv, run));
-    scene.add(Layer::Ground, |cv| hand::ground_layer(cv, run));
-    scene.add(Layer::Ground, |cv| gate::draw(cv, run));
-    scene.add(Layer::Ground, |cv| feel::under(cv, run));
-    scene.add(Layer::Ground, |cv| clay_pots(cv, run));
-    scene.add(Layer::Ground, |cv| hop_floor(cv, run));
-    scene.add(Layer::Ground, |cv| signatures::under_with(cv, run, modern));
-    scene.add(Layer::Figures, |cv| figures_with(cv, run, modern));
-    scene.add(Layer::Over, |cv| aerie::poop(cv, run));
-    scene.add(Layer::Over, |cv| {
+    scene.add(Layer::Ground, move |cv| college::figures(cv, run));
+    scene.add(Layer::Ground, move |cv| ranch::figures_with(cv, run, modern));
+    scene.add(Layer::Ground, move |cv| works::under_with(cv, run, modern));
+    scene.add(Layer::Ground, move |cv| gauntlets::under(cv, run));
+    scene.add(Layer::Ground, move |cv| merchant::figures(cv, run));
+    scene.add(Layer::Ground, move |cv| ults::under(cv, run));
+    scene.add(Layer::Ground, move |cv| foes_hazards(cv, run));
+    scene.add(Layer::Ground, move |cv| boss_art::landings(cv, run));
+    scene.add(Layer::Ground, move |cv| critters::world(cv, run));
+    scene.add(Layer::Ground, move |cv| tide::ravages(cv, run));
+    scene.add(Layer::Ground, move |cv| void::holes(cv, run));
+    scene.add(Layer::Ground, move |cv| rescues::cage(cv, run));
+    scene.add(Layer::Ground, move |cv| hand::ground_layer(cv, run));
+    scene.add(Layer::Ground, move |cv| gate::draw(cv, run));
+    scene.add(Layer::Ground, move |cv| feel::under(cv, run));
+    scene.add(Layer::Ground, move |cv| vfx::under_figures(cv, run));
+    scene.add(Layer::Ground, move |cv| clay_pots(cv, run));
+    scene.add(Layer::Ground, move |cv| cauldron::under(cv, run));
+    scene.add(Layer::Ground, move |cv| hop_floor(cv, run));
+    scene.add(Layer::Ground, move |cv| wax_maze::floor(cv, run));
+    scene.add(Layer::Ground, move |cv| signatures::under_with(cv, run, modern));
+    scene.add(Layer::Figures, move |cv| figures_with(cv, run, modern, view));
+    scene.add(Layer::Over, move |cv| aerie::poop(cv, run));
+    scene.add(Layer::Over, move |cv| {
         if legible {
             pitstop::board(cv, run);
             frogs::plates(cv, run);
         }
     });
-    scene.add(Layer::Over, |cv| wanted::nameplates(cv, run, view));
-    scene.add(Layer::Over, |cv| marks::take_prompts(cv, run, legible, view));
-    scene.add(Layer::Over, |cv| marks::thief_cries(cv, run, legible, view));
-    scene.add(Layer::Over, |cv| tallow(cv, run));
-    scene.add(Layer::Over, |cv| hooks(cv, run));
-    scene.add(Layer::Over, |cv| fan_boxes(cv, run));
-    scene.add(Layer::Over, |cv| sparks(cv, run));
-    scene.add(Layer::Over, |cv| orbits(cv, run));
-    scene.add(Layer::Over, |cv| summoned(cv, run));
-    scene.add(Layer::Over, |cv| flourishes(cv, run));
-    scene.add(Layer::Over, |cv| feel::over(cv, run));
-    scene.add(Layer::Over, |cv| works::over(cv, run));
-    scene.add(Layer::Over, |cv| signatures::over(cv, run));
-    scene.add(Layer::Over, |cv| wanted::over(cv, run, view));
-    scene.add(Layer::Over, |cv| ults::over(cv, run));
-    scene.add(Layer::Boards, |cv| {
+    scene.add(Layer::Over, move |cv| wanted::nameplates(cv, run, view, modern));
+    scene.add(Layer::Over, move |cv| marks::take_prompts(cv, run, legible, view));
+    scene.add(Layer::Over, move |cv| marks::thief_cries(cv, run, legible, view));
+    scene.add(Layer::Over, move |cv| tallow(cv, run));
+    scene.add(Layer::Over, move |cv| hooks(cv, run));
+    scene.add(Layer::Over, move |cv| sparks(cv, run));
+    scene.add(Layer::Over, move |cv| orbits(cv, run));
+    scene.add(Layer::Over, move |cv| summoned(cv, run));
+    scene.add(Layer::Over, move |cv| flourishes(cv, run));
+    scene.add(Layer::Over, move |cv| feel::over(cv, run));
+    scene.add(Layer::Over, move |cv| works::over(cv, run));
+    scene.add(Layer::Over, move |cv| gauntlets::over(cv, run));
+    scene.add(Layer::Over, move |cv| signatures::over(cv, run));
+    scene.add(Layer::Over, move |cv| wanted::over(cv, run, view));
+    scene.add(Layer::Over, move |cv| ults::over(cv, run));
+    scene.add(Layer::Over, move |cv| wax_maze::wraiths(cv, run));
+    scene.add(Layer::Over, move |cv| cauldron::over(cv, run, legible, view));
+    scene.add(Layer::Boards, move |cv| {
         if run.at_home_now() && legible {
             if fortune_hall {
                 fortune::boards(cv, run);
@@ -3093,13 +3834,15 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
                 RoomKind::RealmHall => holdings::castle_boards(cv, run, focus),
                 _ => {}
             }
+            colosseum::boards(cv, run);
             if reading(run) {
                 pastimes::boards(cv, run);
                 countryside::boards(cv, run);
             }
         }
     });
-    scene.add(Layer::Boards, |cv| {
+    scene.add(Layer::Boards, move |cv| cauldron::boards(cv, run, focus, legible, view));
+    scene.add(Layer::Boards, move |cv| {
         if legible {
             merchant::boards(cv, run);
             if run.room().kind == RoomKind::Holding {
@@ -3110,7 +3853,7 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
             }
         }
     });
-    scene.add(Layer::Boards, |cv| {
+    scene.add(Layer::Boards, move |cv| {
         if legible
             && matches!(
                 run.room().kind,
@@ -3120,24 +3863,26 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
             barony::boards(cv, run);
         }
     });
-    scene.paint(&mut over);
+    scene
+}
+
+/// The screen's own marks, after the camera's crop, in view pixels: the
+/// tray, the arrows to the way on, the boards and banners.
+fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, modern: bool, origin: (i32, i32)) {
     let banner = legible.then(|| run.banner_now()).flatten();
-    let origin = view_origin(run, focus);
-    let mut over = crop(&over, origin);
-    let mut scenery = if modern { Img::new(NATIVE_W, NATIVE_H) } else { crop(&scenery_cached(run), origin) };
-    if run.circle() > 0 && !run.at_home_now() {
-        // Below a hell gate the rooms are lit from underneath.
-        gate::tint(&mut scenery, run.circle());
-    }
-    if run.mode == crate::rules::fortune::Mode::LightsOut && !run.at_home_now() {
-        lights_out(&mut scenery, &mut over, run, origin);
-    }
-    // The screen's own marks, after the crop.
     let mut screen = DrawList::default();
+    // A seat's view has neither: they sit in the band below it.
+    let hud_here = legible && !hud_in_band();
     screen.add(Layer::Screen, |cv| {
-        if legible {
+        if hud_here {
             // The tray goes under the edge marks, which must stay in sight.
-            tray::corner(cv, run, focus);
+            tray::corner(cv, run, focus, modern);
+        }
+    });
+    // The minimap sits under the edge marks too.
+    screen.add(Layer::Screen, |cv| {
+        if hud_here {
+            dungeon_map::minimap(cv, run, focus);
         }
     });
     screen.add(Layer::Screen, |cv| beyond(cv, run, origin));
@@ -3152,7 +3897,7 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
         }
     });
     screen.add(Layer::Screen, |cv| heat_board(cv, run));
-    screen.add(Layer::Screen, |cv| folly_layer(cv, run, origin));
+    screen.add(Layer::Screen, |cv| wax_maze::screen(cv, run));
     screen.add(Layer::Screen, |cv| bats_layer(cv, run));
     screen.add(Layer::Screen, |cv| gantry_layer(cv, run, origin));
     screen.add(Layer::Screen, |cv| powder_layer(cv, run, origin));
@@ -3175,8 +3920,7 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
     });
     screen.add(Layer::Screen, |cv| college::prompt(cv, run, focus, legible));
     screen.add(Layer::Screen, |cv| if legible { college::dialogue(cv, run); });
-    screen.paint(&mut over);
-    (scenery, over)
+    screen.paint(cv);
 }
 
 /// One camera origin shared by both art pipelines, including hit shake.
@@ -3345,8 +4089,10 @@ fn foes_hazards(cv: &mut Img, run: &Run) {
             fx + ((tx - fx) as f32 * k) as i32,
             fy + ((ty - fy) as f32 * k) as i32 - arc as i32,
         );
-        let im = sprites::bomb(tick);
-        cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+        if !lifted_outside() {
+            let im = sprites::bomb(tick);
+            cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+        }
     }
     for well in &run.wells {
         let (wx, wy) = at(well.x, well.y);
@@ -3388,8 +4134,10 @@ fn foes_hazards(cv: &mut Img, run: &Run) {
             fx + ((tx - fx) as f32 * k) as i32,
             fy + ((ty - fy) as f32 * k) as i32 - arc as i32,
         );
-        let im = sprites::flung_impling(tick);
-        cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+        if !lifted_outside() {
+            let im = sprites::flung_impling(tick);
+            cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+        }
     }
 }
 
@@ -3443,61 +4191,19 @@ fn hooks(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Fan boxes floating down: a gold ring that tightens where each will
-/// land, and the box swaying down on its parachute.
-fn fan_boxes(cv: &mut Img, run: &Run) {
-    use crate::rules::audience::BOX_FALL;
-    let tick = run.tick as u32;
-    for parcel in &run.fan_boxes {
-        let (x, y) = at(parcel.x, parcel.y);
-        // 1 at the top of the fall, 0 on the ground.
-        let k = parcel.fall as f32 / BOX_FALL as f32;
-        let r = 5.0 + 10.0 * k;
-        let n = 28;
-        for i in (0..n).step_by(2) {
-            let a = i as f32 / n as f32 * std::f32::consts::TAU;
-            cv.put(
-                x + (a.cos() * r) as i32,
-                y + (a.sin() * r * 0.55) as i32,
-                '5',
-            );
-        }
-        let sway = (parcel.fall as f32 * 0.18).sin() * 3.0 * k;
-        let im = sprites::fan_box(tick);
-        let (bx, by) = (x + sway as i32, y - (k * 72.0) as i32);
-        cv.stamp(&im, bx - im.w / 2, by - im.h + 2);
-    }
-}
-
-/// A new achievement, the way the Herald announces them: a board across
-/// the top of the view, the name, the Herald's line, and the box.
+/// A deed recorded by the Herald, with its coffer reward.
 fn achievement_banner(cv: &mut Img, run: &Run, feat: &crate::rules::feats::Feat) {
     use super::ink::text_width;
-    // The Herald's line, wrapped to the board.
-    let mut lines: Vec<String> = Vec::new();
-    let mut line = String::new();
-    for word in feat.says.to_uppercase().split_whitespace() {
-        if !line.is_empty() && text_width(&format!("{line} {word}")) > 300 {
-            lines.push(std::mem::take(&mut line));
-        }
-        if !line.is_empty() {
-            line.push(' ');
-        }
-        line.push_str(word);
-    }
-    lines.push(line);
-    let rows: Vec<(String, char)> = std::iter::once(("NEW ACHIEVEMENT!".to_string(), '6'))
-        .chain(std::iter::once((feat.name.to_uppercase(), '9')))
-        .chain(lines.into_iter().map(|l| (l, 'h')))
-        .chain(std::iter::once((
-            format!("REWARD: {}", feat.tier.name().to_uppercase()),
-            '5',
-        )))
-        .collect();
+    // Three short lines: what it is, its name, what was done.
+    let rows: Vec<(String, char)> = vec![
+        (format!("{} ACHIEVEMENT", crate::rules::feats::tier_word(feat.tier).to_uppercase()), 'O'),
+        (feat.name.to_uppercase(), 'i'),
+        (feat.says.to_uppercase(), 'h'),
+    ];
     let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
     let h = rows.len() as i32 * 9 + 7;
     let mut board = Img::new(w + 1, h + 1);
-    chrome::panel(&mut board, (0, 0, w, h), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
+    chrome::panel(&mut board, (0, 0, w, h), chrome::Tone::FRAMED);
     for (i, (text, ink)) in rows.iter().enumerate() {
         board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
     }
@@ -3521,10 +4227,10 @@ fn dare_board(cv: &mut Img, run: &Run) {
         return;
     };
     let rows = [
-        ("FORTUNE DARES YOU".to_string(), '6'),
-        (dare.kind.name().to_uppercase(), '9'),
+        ("FORTUNE DARES YOU".to_string(), 'O'),
+        (dare.kind.name().to_uppercase(), 'i'),
         (dare.kind.says().to_uppercase(), 'h'),
-        ("HER PURSE: GOLD AND A GEM EACH".to_string(), '5'),
+        ("HER PURSE: GOLD AND A GEM EACH".to_string(), 'O'),
     ];
     let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
     let h = rows.len() as i32 * 9 + 7;
@@ -3545,8 +4251,11 @@ fn dare_board(cv: &mut Img, run: &Run) {
 /// ends, when one is up: its foot's row, at most (a row a knight).
 fn top_right_board_bottom(run: &Run) -> Option<i32> {
     let here = run.at;
-    let folly = run.folly.as_ref().is_some_and(|f| f.room == here)
-        || run.bats.as_ref().is_some_and(|f| f.room == here)
+    // The Wax Maze's strip is one row along the top.
+    if let Some(bottom) = wax_maze::strip_bottom(run) {
+        return Some(bottom);
+    }
+    let folly = run.bats.as_ref().is_some_and(|f| f.room == here)
         || run.gantry.as_ref().is_some_and(|f| f.room == here)
         || run.powder.as_ref().is_some_and(|f| f.room == here)
         || run.hop.as_ref().is_some_and(|f| f.room == here);
@@ -3619,6 +4328,13 @@ fn lights_out(scenery: &mut Img, over: &mut Img, run: &Run, (ox, oy): (i32, i32)
 }
 
 /// A sprite drawn `k` times its size, nearest-neighbour: a giant.
+/// The most a card's own shot art spans before it is drawn at twice size,
+/// in pixels: about a bolt's.
+const CARD_SHOT_SIDE: i32 = 8;
+/// The most a card's own shot art spans drawn on the canvas's own pixels:
+/// the footprint of `CARD_SHOT_SIDE` at twice size, four times the detail.
+const CARD_FINE_SIDE: i32 = 2 * CARD_SHOT_SIDE;
+
 fn enlarge(im: &Img, k: f32) -> Img {
     let (w, h) = (
         (im.w as f32 * k).round() as i32,
@@ -3657,6 +4373,188 @@ pub fn frame_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32)
     Field::fit(w, h).map(nx - cx, ny - cy)
 }
 
+/// A seat's whole screen, `w` by `h` (`seat_size`): the party's band
+/// along its top, the room's view below it as `frame_for` draws it with
+/// nothing over it, and the HUD's band under that (`hud_band`).
+pub fn seat_frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
+    seat_frame_with(run, w, h, focus, &MapView::default())
+}
+
+/// `seat_frame` with what the seat's client asks of the map (`MapView`).
+pub fn seat_frame_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> Img {
+    in_seat(|| party::lift_frame_with(&frame_for(run, w, view_rows(h), focus), run, focus, map))
+}
+
+/// A seat's whole screen as parts (`seat_frame`, in parts): the bands in
+/// its screen marks, the room's parts moved down between them.
+pub fn seat_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
+    seat_scene_with(run, w, h, focus, &MapView::default())
+}
+
+/// `seat_scene` with what the seat's client asks of the map (`MapView`).
+pub fn seat_scene_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> RoomScene {
+    in_seat(|| party::lift_with(scene_for(run, w, view_rows(h), focus), run, focus, map))
+}
+
+/// Where an arena point lands on a seat's whole screen `w` by `h`
+/// (`frame_px` below the band).
+pub fn seat_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32) -> (i32, i32) {
+    let band = band_rows(h);
+    let (x, y) = frame_px(run, w, view_rows(h), focus, ux, uy);
+    (x, y + band)
+}
+
+/// Thrown things in the air on a seat's whole screen (`lifted` below the
+/// band).
+pub fn seat_lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) -> Vec<Lifted> {
+    let band = band_rows(h);
+    let mut out = lifted(run, w, view_rows(h), focus, alpha);
+    for thing in &mut out {
+        thing.y += band as f32;
+    }
+    out
+}
+
+/// Thrown things the window draws itself (crates/glass): bombs, implings
+/// and globs in the air leave the picture (their landing rings stay) and are
+/// reported by `lifted`, so the window can lift them toward the camera.
+static LIFTED_OUTSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Draw thrown things outside the picture (true) or in it (false, the
+/// default: a terminal shows them in the frame).
+pub fn draw_lifted_outside(on: bool) {
+    LIFTED_OUTSIDE.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn lifted_outside() -> bool {
+    LIFTED_OUTSIDE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Frames handed to a window in parts (`RoomScene`) instead of drawn as one
+/// picture: the window draws them itself (crates/glass).
+#[cfg(not(test))]
+static PARTS_OUTSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+// Tests run in parallel threads and several set this switch to look at a
+// frame in parts: each test thread keeps its own, so one test's parts never
+// show up in another's painted frame.
+#[cfg(test)]
+std::thread_local! {
+    static PARTS_OUTSIDE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+// A seat's screen holds the skills bar, the minimap and the room's hold
+// banner in a band of its own under the room's view (`party::hud_band`), so
+// nothing lies over the view. Set while a seat's view is drawn (`in_seat`);
+// a terminal's own frame keeps them over its view. Per thread, as tests
+// draw both in parallel.
+std::thread_local! {
+    static HUD_IN_BAND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// `f` drawing a seat's view: its HUD goes in the seat's band, not over the
+/// view (`hud_in_band`).
+pub fn in_seat<T>(f: impl FnOnce() -> T) -> T {
+    struct Back(bool);
+    impl Drop for Back {
+        fn drop(&mut self) {
+            HUD_IN_BAND.with(|c| c.set(self.0));
+        }
+    }
+    let _back = Back(HUD_IN_BAND.with(|c| c.replace(true)));
+    f()
+}
+
+/// Whether the view being drawn is a seat's, its HUD in the band below it.
+pub(crate) fn hud_in_band() -> bool {
+    HUD_IN_BAND.with(|c| c.get())
+}
+
+/// Hand frames over in parts (true) or draw them whole (false, the
+/// default: a terminal shows the picture).
+pub fn draw_parts_outside(on: bool) {
+    #[cfg(not(test))]
+    PARTS_OUTSIDE.store(on, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(test)]
+    PARTS_OUTSIDE.with(|c| c.set(on));
+}
+
+pub fn parts_outside() -> bool {
+    #[cfg(not(test))]
+    return PARTS_OUTSIDE.load(std::sync::atomic::Ordering::Relaxed);
+    #[cfg(test)]
+    return PARTS_OUTSIDE.with(|c| c.get());
+}
+
+/// What is in the air.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LiftedKind {
+    /// A hob's bomb.
+    Bomb,
+    /// A Broodmarrow's impling.
+    Impling,
+    /// A critter's glob.
+    Glob,
+}
+
+/// One thrown thing in the air, for a window that draws it: where its
+/// shadow is (the point under it on the ground, in the frame's pixels), how
+/// far along its flight is (0 thrown, 1 landing), and which picture of it
+/// shows now (`lifted_sprite`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lifted {
+    pub kind: LiftedKind,
+    pub x: f32,
+    pub y: f32,
+    pub k: f32,
+    pub variant: u8,
+}
+
+/// Everything in the air on a `w` × `h` frame, as `frame_px` places it.
+/// `alpha` is how far the drawing is between this tick and the next, so a
+/// flight moves at the frame rate, not the 30 Hz tick.
+pub fn lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) -> Vec<Lifted> {
+    use crate::rules::critters::GLOB_FALL;
+    use crate::rules::foes::{FLING_FALL, LOB_FALL};
+    let tick = run.tick as u32;
+    let mut out = Vec::new();
+    let mut add = |kind, from: (f32, f32), to: (f32, f32), fall: u32, total: u32, variant| {
+        let k = (1.0 - (fall as f32 - alpha.clamp(0.0, 1.0)) / total as f32).clamp(0.0, 1.0);
+        let gx = from.0 + (to.0 - from.0) * k;
+        let gy = from.1 + (to.1 - from.1) * k;
+        let (x, y) = frame_px(run, w, h, focus, gx, gy);
+        out.push(Lifted {
+            kind,
+            x: x as f32,
+            y: y as f32,
+            k,
+            variant,
+        });
+    };
+    for lob in &run.lobs {
+        let fuse = u8::from(!(tick / 2).is_multiple_of(2));
+        add(LiftedKind::Bomb, lob.from, (lob.x, lob.y), lob.fall, LOB_FALL, fuse);
+    }
+    for fling in &run.flings {
+        let flap = u8::from(!(tick / 3).is_multiple_of(2));
+        add(LiftedKind::Impling, fling.from, (fling.x, fling.y), fling.fall, FLING_FALL, flap);
+    }
+    for glob in &run.critters.globs {
+        add(LiftedKind::Glob, glob.from, (glob.x, glob.y), glob.fall, GLOB_FALL, 0);
+    }
+    out
+}
+
+/// A thrown thing's picture at native size (one native pixel per pixel),
+/// as the frame would have drawn it.
+pub fn lifted_sprite(kind: LiftedKind, variant: u8) -> Img {
+    match kind {
+        LiftedKind::Bomb => sprites::bomb(u32::from(variant) * 2),
+        LiftedKind::Impling => sprites::flung_impling(u32::from(variant) * 3),
+        LiftedKind::Glob => sprites::glob(),
+    }
+}
+
 /// Who is here, on a frame already drawn (`rules::presence`): "AWAY" over
 /// each knight whose player is not, and a banner while the room holds for
 /// its party. Drawn last, over either art, on every seat's own frame.
@@ -3676,14 +4574,16 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
         }
         tags.push((bx, by));
         chrome::panel(img, (bx, by, tw, 11), chrome::Tone::SLATE);
-        img.text(bx + 3, by + 2, "AWAY", 'T');
+        img.text(bx + 3, by + 2, "AWAY", 'O');
     }
-    // A fallen or finished run says so itself.
-    if !run.active() {
+    skull_tags(img, run, focus);
+    // A fallen or finished run says so itself; a seat says the hold in its
+    // band, under the view (`hold_line`).
+    if !run.active() || hud_in_band() {
         return;
     }
     let banner = match run.held {
-        crate::rules::Hold::Open => return,
+        crate::rules::Hold::Open => return fellowship_banner(img, run, focus),
         crate::rules::Hold::Arriving => "THE PARTY GATHERS",
         crate::rules::Hold::Empty => "THE ROOM WAITS FOR ITS KNIGHTS",
     };
@@ -3693,10 +4593,106 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
     }
     let x = (w - bw) / 2;
     chrome::panel(img, (x, 12, bw, 21), chrome::Tone::BRASS);
-    img.text(x + 10, 19, banner, 'T');
+    img.text(x + 10, 19, banner, 'O');
+}
+
+/// The room's hold as a seat's band says it (`party::hud_band`): the line,
+/// and whether it is lit (to the waiting, a fellowship line flashes, a
+/// third of a second each way). `None` while nothing holds.
+pub(super) fn hold_line(run: &Run, focus: Option<u32>) -> Option<(String, bool)> {
+    if !run.active() {
+        return None;
+    }
+    match run.held {
+        crate::rules::Hold::Open => run
+            .fellowship_line(focus)
+            .map(|(line, mine)| (line, !mine || run.tick / u64::from(crate::rules::HZ / 3) % 2 == 0)),
+        crate::rules::Hold::Arriving => Some(("THE PARTY GATHERS".to_string(), true)),
+        crate::rules::Hold::Empty => Some(("THE ROOM WAITS FOR ITS KNIGHTS".to_string(), true)),
+    }
+}
+
+/// While knights wait in a doorway or on the stairs for the rest of the
+/// party (`Run::fellowship_line`): to the waiting, "WAITING FOR FELLOWSHIP"
+/// flashing; to their friends, where they are awaited.
+fn fellowship_banner(img: &mut Img, run: &Run, focus: Option<u32>) {
+    let Some((line, mine)) = run.fellowship_line(focus) else {
+        return;
+    };
+    let bw = super::ink::text_width(&line) + 20;
+    if bw > img.w || img.h < 40 {
+        return;
+    }
+    // Flashing: brass, then slate, a third of a second each.
+    let lit = !mine || run.tick / u64::from(crate::rules::HZ / 3) % 2 == 0;
+    let x = (img.w - bw) / 2;
+    chrome::panel(img, (x, 12, bw, 21), if lit { chrome::Tone::BRASS } else { chrome::Tone::SLATE });
+    img.text(x + 10, 19, &line, if lit { 'O' } else { 'h' });
+}
+
+/// How far above a carrier's head the skull they carry floats, in the
+/// room's pixels: clear of the seat's own mark.
+const CARRIED_SKULL_GAP: i32 = 5;
+
+/// The skulls' words: over a skull lying on the floor (to its own knight,
+/// what a friend can do with it), over a knight raised in a monster's body
+/// (their name, so friends know them), and over this seat's knight while
+/// it carries one (what to do with it).
+fn skull_tags(img: &mut Img, run: &Run, focus: Option<u32>) {
+    if !run.active() || run.phase == Phase::Wiped {
+        return;
+    }
+    let (w, h) = (img.w, img.h);
+    // The tags stand off their figures by the room's own pixels, at the
+    // scale this frame shows them.
+    let scale = {
+        let (a, _) = frame_px(run, w, h, focus, 0.0, 0.0);
+        let (b, _) = frame_px(run, w, h, focus, 10.0, 0.0);
+        ((b - a) as f32 / (10.0 * UNIT)).max(1.0)
+    };
+    let mut tags: Vec<(String, f32, f32, i32)> = Vec::new();
+    for (&id, hero) in &run.players {
+        if let Some((sx, sy)) = run.skull_lying(id) {
+            let text = if focus == Some(id) { "A FRIEND CAN CARRY YOUR SKULL" } else { "SKULL" };
+            tags.push((text.to_string(), sx, sy, 8));
+        }
+        if hero.hp > 0 && hero.possessed.is_some() {
+            let name: String = hero
+                .shown_name()
+                .to_uppercase()
+                .chars()
+                .take(14)
+                .collect();
+            tags.push((name, hero.x, hero.y, 22));
+        }
+        if focus == Some(id) && hero.hp > 0 && hero.carrying_skull.is_some() {
+            tags.push(("E ON A WEAK FOE".to_string(), hero.x, hero.y, 16 + CARRIED_SKULL_GAP + 8));
+        }
+    }
+    for (text, ux, uy, lift) in tags {
+        let tw = super::ink::text_width(&text) + 6;
+        let (x, y) = frame_px(run, w, h, focus, ux, uy);
+        let by = y - (lift as f32 * scale).round() as i32 - 11;
+        // A tag wider than the room beside its anchor slides in along the
+        // edge rather than being dropped: the words must always show.
+        let bx = (x - tw / 2).min(w - tw).max(0);
+        if by < 0 || bx + tw > w || by + 11 > h {
+            continue;
+        }
+        chrome::panel(img, (bx, by, tw, 11), chrome::Tone::SLATE);
+        img.text(bx + 3, by + 2, &text, 'O');
+    }
 }
 
 pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
+    if let Some((results, age)) = run.results_showing(focus) {
+        return floor_stats::frame(run, results, age, w, h);
+    }
+    if run.forest_road_showing() { return forest_road::frame(run, w, h, focus); }
+    if let Some(img) = roundtable::frame(run, w, h, focus) { return img; }
+    if art_v2::enabled() && entrance_art::supported(run) && w >= NATIVE_W && h >= NATIVE_H && run.floor_plate(focus).is_none() {
+        return entrance_art::frame(run, w, h, focus);
+    }
     if art_v2::enabled() && art_v2::supported(run) && run.floor_plate(focus).is_none() {
         return art_v2::frame(run, w, h, focus);
     }
@@ -3705,14 +4701,14 @@ pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
 
 pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if let Some(plate) = run.floor_plate(focus) {
-        return plates::frame(plate, w, h);
+        return plates::frame(plate.title().unwrap_or(plate), w, h);
     }
     let mut out = Img::black(w.max(0), h.max(0));
     if w < 12 || h < 8 {
         return out;
     }
     let legible = w >= NATIVE_W && h >= NATIVE_H;
-    let (scenery, over) = layers(run, focus, legible);
+    let (scenery, over) = boss_art::library_cells(!legible, || layers(run, focus, legible));
     let field = Field::fit(w, h);
     if run.room().kind == RoomKind::Kingdom && field.den != 1 {
         let ranks = super::kingdom::atlas_ranks(&run.kingdom.wishes);
@@ -3725,11 +4721,17 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
                 super::MAP_W as usize * TILE as usize,
                 camera(run, focus),
             )),
+            None,
         );
     } else {
-        field.blit(&scenery, &over, &mut out);
+        if !legible && let Some(alerts) = boss_art::library_warning_inks(run) {
+            field.blit_ranked(&scenery, &over, &mut out, None, Some(alerts));
+        } else {
+            field.blit(&scenery, &over, &mut out);
+        }
     }
-    out
+    // A room in 3D is true colour, its plate never snapped (`world3d`).
+    if dungeon_art::supported(run) && laid_plate(run).is_none() {dungeon_art::palette_frame(out)} else {out}
 }
 
 #[cfg(test)]
@@ -3771,6 +4773,15 @@ impl AsRef<[u8]> for LazyFrame {
     }
 }
 
+/// Full collision-boundary scenery for dungeon review, independent of seat crop.
+#[cfg(any(test, feature = "testing"))]
+pub fn dungeon_scenery_for_test(run: &Run, scale: i32) -> Img {
+    let scene = dungeon_art::scene(run, scale);
+    let mut im = scene.base.clone();
+    dungeon_art::flames(&mut im, run, scale, &scene);
+    im
+}
+
 /// A seat's overlay layer as its screen shows it (cropped to its view):
 /// the marks, names and boards drawn over the scenery.
 #[cfg(any(test, feature = "testing"))]
@@ -3786,3 +4797,19 @@ pub fn privy_panel_for_test(cv: &mut Img, run: &Run, focus: Option<u32>) {
 #[cfg(test)]
 #[path = "../../../tests/render/overworld__scenery_sheet.rs"]
 mod scenery_sheet;
+
+/// Shared label positions for the table's terminal overlay.
+pub fn mossbell_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{mossbell::labels(run,focus)}
+
+pub fn brasswake_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{brasswake::labels(run,focus)}
+
+pub fn rafterwake_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{rafterwake::labels(run,focus)}
+pub fn rafterwake_contour_colour(run:&Run,focus:Option<u32>)->Option<[u8;3]>{rafterwake::contour_colour(run,focus)}
+
+pub fn pennon_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{pennon::labels(run,focus)}
+pub fn pennon_contour_colour(run:&Run,focus:Option<u32>)->Option<[u8;3]>{pennon::contour_colour(run,focus)}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn forest_road_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
+    forest_road::layers(run, focus)
+}

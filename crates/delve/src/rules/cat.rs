@@ -5,7 +5,7 @@
 //! She keeps near her knight (the first of the party), hisses at any
 //! monster that comes too close (it freezes, startled, for a second), and
 //! fetches spoils lying on the floor, trotting them back to her knight. No
-//! monster can touch her; she would like that noted. The audience adores
+//! monster can touch her; she would like that noted. The household adores
 //! her. The Herald does not.
 
 use super::home::Station;
@@ -164,7 +164,6 @@ impl Run {
                 cat.hiss = HISS_EVERY;
                 cat.hissed = self.tick;
                 self.cues.push("tallow_hiss".into());
-                self.thrill(5);
             }
         }
         let room = &self.dungeon.rooms[self.at];
@@ -209,7 +208,6 @@ impl Run {
                 cat.fetched += 1;
                 self.sounds.push("card_pickup");
                 self.cues.push("tallow_fetch".into());
-                self.thrill(5);
                 if cat.fetched >= 10 {
                     self.notice("cat_person");
                 }

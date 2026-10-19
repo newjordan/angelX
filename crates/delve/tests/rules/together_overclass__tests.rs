@@ -11,6 +11,32 @@ fn input(fire: bool) -> BTreeMap<u32, Input> {
     )])
 }
 
+/// A wish of every family (`combos`), held: every super effect's recipe
+/// made, so a test of what a super effect does needs no other wish.
+pub(crate) fn combo_kit(run: &mut Run, id: u32) {
+    let kit = cards::check(
+        "wish-kit-1",
+        "name Kit\nkind hold\ntext frog bullet storm fire shadow corn gun mail fast\nspeed 5\n",
+    )
+    .unwrap()
+    .card;
+    run.book.insert(kit);
+    let hero = run.players.get_mut(&id).unwrap();
+    hero.deck.push("wish-kit-1".into());
+    hero.rebonus(&run.book);
+}
+
+fn master(run: &mut Run, id: u32) {
+    // The school's locks: these tests wish the Adept and Master tiers, so
+    // their knight stands a Master of the school.
+    let key = crate::rules::home::Home::school_key(&run.players[&id]);
+    let standing = crate::rules::school::Standing {
+        rank: crate::rules::school::Rank::Master,
+        ..Default::default()
+    };
+    run.home.school.knights.insert(key, standing);
+}
+
 #[test]
 fn orbit_drawing_and_damage_positions_share_the_decks_two_orbit_cap() {
     let mut run = Run::new(4, 1, None);
@@ -28,26 +54,92 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
+/// The floor's boss room, entered: its gates set aside, so the stairs
+/// room is the boss's (`floor_boss_here`).
+fn boss_fight(run: &mut Run) {
+    run.boss_gates = None;
+    let room = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
+    run.enter_for_test(room);
+}
+
 #[test]
-fn a_cleared_room_opens_a_window_and_the_next_fight_closes_it() {
-    let mut run = Run::new(4, 2, Some("Matt"));
-    fight(&mut run);
-    assert!(!run.can_wish(1), "no wishes mid-fight");
+fn a_delve_starts_with_three_wishes_each_floor_brings_two_and_its_boss_a_super_one() {
+    let mut run = Run::at_home(4, 2, Some("Matt"), Default::default(), Default::default());
+    run.descend_for_test();
+    for id in 1..=2 {
+        let hero = &run.players[&id];
+        assert_eq!((hero.wishes, hero.great_wishes), (overclass::START_WISHES, 0), "a delve starts with three each");
+    }
+    boss_fight(&mut run);
+    assert!(run.can_wish(1), "wishes are held through a fight");
+    assert_eq!(run.players[&1].great_wishes, 0);
     run.clear_for_test();
-    assert!(run.can_wish(1) && run.can_wish(2));
-    assert!(run.cues.iter().any(|c| c == "window"));
+    assert_eq!((run.players[&1].great_wishes, run.players[&2].great_wishes), (1, 1), "the floor's boss fell: a super wish each");
+    assert!(run.window.as_ref().is_some_and(|w| w.great), "and the game says so");
+    run.descend_for_test();
+    assert_eq!(run.players[&1].wishes, overclass::START_WISHES + overclass::FLOOR_WISHES, "a new floor: two more each");
+    assert_eq!(run.window.as_ref().map(|w| w.given), Some(overclass::FLOOR_WISHES));
+}
+
+#[test]
+fn a_super_wish_takes_two_steps_and_a_refused_wish_spends_nothing() {
+    let mut run = Run::new(4, 2, Some("Matt"));
     let volley = phrasebook::get("volley").unwrap();
-    assert_eq!(run.grant(1, &volley).unwrap(), "Triple Volley I");
-    assert!(!run.can_wish(1), "one wish a window");
-    assert!(run.can_wish(2), "each knight their own");
-    let other = run
-        .dungeon
-        .rooms
-        .iter()
-        .position(|r| r.kind == RoomKind::Fight && !r.cleared)
-        .unwrap();
-    run.enter_for_test(other);
-    assert!(run.window.is_none() || run.phase != Phase::Fighting);
+    assert!(run.wish(1, &volley).is_err(), "no wish held, none made");
+    run.give_wishes(1, 1);
+    combo_kit(&mut run, 1);
+    assert_eq!(run.wish(1, &volley).unwrap(), "Triple Volley II", "a super wish first, two steps up the ladder");
+    assert_eq!((run.players[&1].wishes, run.players[&1].great_wishes), (1, 0));
+    // The step above is a teacher's (`questline`): refused, and the plain
+    // wish is still held.
+    assert!(run.wish(1, &volley).is_err());
+    assert_eq!(run.players[&1].wishes, 1);
+    // A super wish with one step left takes it and leaves a plain wish.
+    master(&mut run, 2);
+    let fork = phrasebook::get("fork").unwrap();
+    run.grant(2, &fork).unwrap();
+    let knight = run.players.get_mut(&2).unwrap();
+    (knight.wishes, knight.great_wishes) = (0, 1);
+    run.wish(2, &fork).unwrap();
+    assert_eq!(
+        (run.players[&2].wishes, run.players[&2].great_wishes),
+        (1, 0),
+        "one step left on the ladder: it is taken, and a plain wish is kept"
+    );
+}
+
+#[test]
+fn wish_hud_reads_each_knights_held_wishes_without_changing_the_wire() {
+    use hud::{Keys, WishHud};
+    let mut run = Run::new(4, 2, Some("Matt"));
+    for id in 3..=4 {
+        run.join_seat(id, &format!("Knight {id}"));
+        assert_eq!(run.players[&id].wishes, overclass::START_WISHES, "a friend who joins a delve under way holds a start's wishes");
+    }
+    for id in 1..=4 {
+        run.players.get_mut(&id).unwrap().wishes = 0;
+        assert_eq!(run.wish_hud(id), Some(WishHud::Closed));
+    }
+    run.give_wishes(2, 1);
+    for id in 1..=4 {
+        assert_eq!(run.hud(id, &Keys::FIRST).unwrap().wishes, Some(WishHud::Ready { wishes: 2, great: 1 }));
+    }
+    let volley = phrasebook::get("volley").unwrap();
+    run.wish(4, &volley).unwrap();
+    assert_eq!(run.wish_hud(4), Some(WishHud::Ready { wishes: 2, great: 0 }));
+    let before = crate::wire::publish(&run).unwrap();
+    for id in 1..=4 {
+        run.hud(id, &Keys::FIRST).unwrap();
+    }
+    assert_eq!(before, crate::wire::publish(&run).unwrap());
+    run.players.get_mut(&3).unwrap().hp = 0;
+    assert_eq!(run.wish_hud(3), Some(WishHud::Fallen));
+    assert_eq!(run.wish_hud(99), None);
+
+    // A legacy local HUD can still be read; this is not a Run/wire field.
+    let mut legacy = serde_json::to_value(run.hud(1, &Keys::FIRST).unwrap()).unwrap();
+    legacy.as_object_mut().unwrap().remove("wishes");
+    assert_eq!(serde_json::from_value::<hud::Hud>(legacy).unwrap().wishes, None);
 }
 
 #[test]
@@ -59,6 +151,7 @@ fn a_granted_volley_flies_three_wide_on_its_cadence_and_climbs() {
         enemy.hp = 99_999;
     }
     let volley = phrasebook::get("volley").unwrap();
+    combo_kit(&mut run, 1);
     run.grant(1, &volley).unwrap();
     assert_eq!(run.players[&1].bonus.volley, 8);
     let mut fired = Vec::new();
@@ -92,6 +185,8 @@ fn a_granted_volley_flies_three_wide_on_its_cadence_and_climbs() {
 fn bouncing_homing_chaining_mending_shots_do_what_they_say() {
     // The entrance room: open floor, no pillars in a shot's way.
     let mut run = Run::new(4, 2, Some("Matt"));
+    master(&mut run, 1);
+    combo_kit(&mut run, 1);
     run.calm_for_test();
     for (id, wish) in [(1, "ricochet"), (1, "seeker"), (1, "chain"), (1, "mend")] {
         run.window = Some(Default::default());
@@ -180,6 +275,7 @@ fn write_wish_shots() {
 #[test]
 fn a_thrown_blade_flies_out_and_comes_home_and_morningstars_strike() {
     let mut run = Run::new(4, 2, None);
+    master(&mut run, 1);
     run.outfit(1, knights::knight("galahad").unwrap());
     run.calm_for_test();
     run.enemies.clear();
@@ -208,6 +304,8 @@ fn a_thrown_blade_flies_out_and_comes_home_and_morningstars_strike() {
         "and was caught"
     );
     // A morningstar strikes what it touched, on its next beat.
+    master(&mut run, 1);
+    combo_kit(&mut run, 1);
     run.window = Some(Default::default());
     run.grant(1, &phrasebook::get("morningstar").unwrap())
         .unwrap();
@@ -325,6 +423,7 @@ fn write_flourish_shots() {
 #[test]
 fn blasting_powder_bursts_on_the_neighbours() {
     let mut run = Run::new(4, 2, None);
+    master(&mut run, 1);
     fight(&mut run);
     run.calm_for_test();
     let spots = [(24.0, 12.0), (25.8, 12.0)];
@@ -335,6 +434,7 @@ fn blasting_powder_bursts_on_the_neighbours() {
         (enemy.x, enemy.y, enemy.origin_x, enemy.origin_y) = (x, y, x, y);
     }
     run.window = Some(Default::default());
+    combo_kit(&mut run, 1);
     run.grant(1, &phrasebook::get("powder").unwrap()).unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y, hero.fire_cooldown) = (24.0, 22.0, 0);
@@ -355,4 +455,31 @@ fn blasting_powder_bursts_on_the_neighbours() {
     }
     let neighbour = run.enemies.iter().find(|e| e.id == side).unwrap();
     assert!(neighbour.hp < 9_999, "the burst reached the one beside it");
+}
+
+#[test]
+fn an_old_save_s_knights_load_and_hold_their_wishes_to_the_floor_they_stand_on() {
+    let raw = include_str!("fixtures/balance_party.json");
+    let v: serde_json::Value = serde_json::from_str(raw).unwrap();
+    let heroes: Vec<Hero> = serde_json::from_value(v["heroes"].clone()).unwrap();
+    assert!(heroes.iter().all(|h| h.wish_floor == 0), "a save from before has no floor kept");
+    let mut run = Run::new(4, 1, None);
+    run.descend_for_test();
+    run.step(&input(false));
+    assert!(run.players.values().all(|h| h.wish_floor == run.dungeon.depth));
+}
+
+#[test]
+fn a_learned_wish_s_grant_names_its_grade_and_what_its_super_effect_waits_on() {
+    let text = format!(
+        "{}\nwish homing-shots | Homing Shots\nsay homing shots\ntier homing 1 :: Your shots bend toward the nearest monster.\ntier homing 2 :: Harder.\nart\n77777777\n77777777\n77777777\n",
+        phrasebook::LEARNED
+    );
+    let wish = phrasebook::read(&text).pop().unwrap();
+    let mut run = Run::new(4, 1, None);
+    let said = run.grant(1, &wish).unwrap();
+    assert!(said.starts_with("Crude Homing Shots I"), "{said}");
+    assert!(said.contains("Homing waits on Creature"), "{said}");
+    assert!(said.contains("Families: Projectile"), "{said}");
+    assert_eq!(run.players[&1].bonus.homing, 0);
 }

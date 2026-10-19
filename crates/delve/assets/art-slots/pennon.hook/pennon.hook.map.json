@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24.0,
+    32
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Rule hook Area=156\u00d723; visual repetition is decorative and does not extend collision. Danger rectangle continues to show the exact safe boundary.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "dea6e2add4ad7dcdc92af924555232e567d069b4371592376e6ed35478eaac63",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Detached hook trail enters compactly from the left.",
+      "name": "fx-hook-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        99.5,
+        127
+      ],
+      "source_rect_xywh": [
+        52,
+        233,
+        199,
+        127
+      ],
+      "state": "hook"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; The hook arc widens and sweeps right with a brass glint.",
+      "name": "fx-hook-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.0,
+        160
+      ],
+      "source_rect_xywh": [
+        332,
+        220,
+        276,
+        160
+      ],
+      "state": "hook"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Peak hook arc, with a curled forward edge and debris.",
+      "name": "fx-hook-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.0,
+        196
+      ],
+      "source_rect_xywh": [
+        657,
+        204,
+        272,
+        196
+      ],
+      "state": "hook"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Hook fragments and sparks break apart horizontally.",
+      "name": "fx-hook-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        121
+      ],
+      "source_rect_xywh": [
+        963,
+        275,
+        266,
+        121
+      ],
+      "state": "hook"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Small low force nub.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        94.0,
+        78
+      ],
+      "source_rect_xywh": [
+        69,
+        631,
+        188,
+        78
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Expanding lateral force wedge with a cool steel rim.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        151
+      ],
+      "source_rect_xywh": [
+        335,
+        594,
+        261,
+        151
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Peak force lobe with amber center, debris, and impact star.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        146.0,
+        204
+      ],
+      "source_rect_xywh": [
+        646,
+        561,
+        292,
+        204
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Force lobe collapses into scattered motes.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        128
+      ],
+      "source_rect_xywh": [
+        976,
+        614,
+        252,
+        128
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Small ground-hugging dust puff and chips.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        112
+      ],
+      "source_rect_xywh": [
+        38,
+        993,
+        229,
+        112
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Dust bank rolls laterally.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        120
+      ],
+      "source_rect_xywh": [
+        338,
+        994,
+        243,
+        120
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Peak dust bank with chunky debris and sparks.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.0,
+        187
+      ],
+      "source_rect_xywh": [
+        667,
+        944,
+        254,
+        187
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Terminal fade with separated small motes.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        86
+      ],
+      "source_rect_xywh": [
+        977,
+        1023,
+        243,
+        86
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732 at each world x in danger lane in 40 px steps, bottom at FLOOR; repeated sprites can overlap by 8 px.",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "pennon.hook",
+  "source_sha256": "6b363e2e9ff40ef1818b6ff9c17ffd8efeb7cd7b6a1fc3c8980cd5e78eafabc3",
+  "timing": "Four frames over 10 action ticks, same index as drop (draw())."
+}

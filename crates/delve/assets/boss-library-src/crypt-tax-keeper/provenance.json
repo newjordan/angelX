@@ -1,0 +1,215 @@
+{
+  "id": "crypt-tax-keeper",
+  "source_path": "./cockpit/assets/boss-library/existing/crypt-tax-keeper/v01/source-sheet-refined.png",
+  "source_sha256": "ab5ac4036ece92ad2fd2fe0c50c09f7e4c5d63b6c1a8ee9817d87f40700d9caf",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Hovering independent reliquary lord shaped like a squat ornate oak coffin coffer in aged brass armor. Hooded ivory death-mask face above a huge brass keyhole breastplate, two short chain arms with mittenlike bone knuckles, ragged violet cloth skirts hanging below. A bulging leather tax satchel and a tiny crooked crown emphasize pompous authority. Distinct from staff-carrying marshal.",
+  "definition_header": "name RELIC TAX KEEPER\ntext An independent reliquary lord, sometimes outside the stair court's tribute pact.\nby angelX\nwhere crypt\nhp 580\nsize 1.4\nmove hover speed=1.0\nattack ring shots=6 speed=5 every=95 damage=10 shot=bone\nphases burst reaim every=91 volleys=2 damage=10\nrage 30%\ndrops gold 90, gem 1",
+  "source_definition_sha256": "a2150acee5bb84b3b2e476e98ca3f690470626ef431cff907f59857210bd5236",
+  "definition_sha256": "36e5e6c1db35b907d14fafcbb38399ad4cd196f9108928a96dee88a3bc88c1ef",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        34,
+        172,
+        287,
+        290
+      ],
+      "opaque_component_pixels": 47466,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "127b848755a3b0d2b2f01c740fb7d9c80c4e7837e7e4303a74732a2953501047"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        336,
+        176,
+        355,
+        291
+      ],
+      "opaque_component_pixels": 51840,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "48e8dc795e044cb6a456a09a4f8b43b5850c8274d7bdee6a1db39e135304233c"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        709,
+        173,
+        192,
+        284
+      ],
+      "opaque_component_pixels": 33600,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "ccd3fa4fdc8051761fd2fd921c095c0208ef0267cefb2b9eb84156709a5dd72d"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        975,
+        176,
+        255,
+        291
+      ],
+      "opaque_component_pixels": 39454,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "fbb6bcbab143adb01c1a8b0a773e62f73f385d93bd0079724eaecee39316c717"
+    },
+    {
+      "id": "overhead/part/coffer-body",
+      "source_rect_xywh": [
+        59,
+        611,
+        227,
+        235
+      ],
+      "opaque_component_pixels": 36640,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-coffer-body.png",
+      "sha256": "0a8a655a8cc5d108e0d3f8012710c2e2e6a4da360656b595ac6c8bc874fcf9bf"
+    },
+    {
+      "id": "overhead/part/hood-mask",
+      "source_rect_xywh": [
+        421,
+        627,
+        168,
+        195
+      ],
+      "opaque_component_pixels": 19012,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-hood-mask.png",
+      "sha256": "0713819db4940acca6472ab9487e43feac556898087b6d64f224b8564026df5f"
+    },
+    {
+      "id": "overhead/part/chain-arm",
+      "source_rect_xywh": [
+        733,
+        575,
+        166,
+        252
+      ],
+      "opaque_component_pixels": 22767,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-chain-arm.png",
+      "sha256": "0cbd3f143c45e0781f17fb57201efd4f3f4cd0f6dea76de3a16d8b87ec46f5d7"
+    },
+    {
+      "id": "overhead/part/tax-satchel",
+      "source_rect_xywh": [
+        1018,
+        633,
+        192,
+        179
+      ],
+      "opaque_component_pixels": 24036,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-tax-satchel.png",
+      "sha256": "7b36615485d321606109fca70a0008b12c07b7f981d9ea6b195231587eed55de"
+    },
+    {
+      "id": "side/part/coffer-body",
+      "source_rect_xywh": [
+        74,
+        938,
+        200,
+        240
+      ],
+      "opaque_component_pixels": 34720,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-coffer-body.png",
+      "sha256": "dc8a9df3f7e0779ef72e1e3dc9ef05aa0649bdfbdcc4314304f38155ef8b4c5b"
+    },
+    {
+      "id": "side/part/hood-mask",
+      "source_rect_xywh": [
+        422,
+        961,
+        182,
+        191
+      ],
+      "opaque_component_pixels": 18582,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-hood-mask.png",
+      "sha256": "9b0d02020111caeda85d732b1aee05dd19e2ecaec249795650ae948a0a98b556"
+    },
+    {
+      "id": "side/part/chain-arm",
+      "source_rect_xywh": [
+        715,
+        970,
+        209,
+        184
+      ],
+      "opaque_component_pixels": 16521,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-chain-arm.png",
+      "sha256": "033e0672c1f9e11369a51487fa60d4bd615af685e267c1b84c64ab105660f1b7"
+    },
+    {
+      "id": "side/part/tax-satchel",
+      "source_rect_xywh": [
+        1023,
+        989,
+        164,
+        147
+      ],
+      "opaque_component_pixels": 17899,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-tax-satchel.png",
+      "sha256": "10e6c5d52f833a34f2f8fbb5e5450271bb5e00283a6d0c847e509b71f4e2cf6d"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

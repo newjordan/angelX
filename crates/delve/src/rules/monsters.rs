@@ -96,6 +96,15 @@ pub enum EnemyKind {
     /// knights, monsters' shots and the knights' own arrows alike. The
     /// room stops meaning anything while it stands.
     Whirlgrave,
+    /// The swamp's horrors (`horrors`): a hand under the bog that rises
+    /// where a knight stands, ripples first, and holds them;
+    BogHand,
+    /// a drowned knight who wades the mire, lifts his rusted blade, and
+    /// cleaves in front of him;
+    Drowned,
+    /// and a will-o'-wisp that keeps off over the water, flares and draws
+    /// knights to it, then bursts.
+    Wisp,
 }
 
 impl EnemyKind {
@@ -139,6 +148,9 @@ impl EnemyKind {
             EnemyKind::Broodmarrow => 1.35,
             EnemyKind::Oathbound => 0.8,
             EnemyKind::Whirlgrave => 0.85,
+            EnemyKind::BogHand => 0.7,
+            EnemyKind::Drowned => 0.85,
+            EnemyKind::Wisp => 0.5,
         }
     }
 
@@ -186,6 +198,9 @@ impl EnemyKind {
             // Half of one wound twice over.
             EnemyKind::Oathbound => 240,
             EnemyKind::Whirlgrave => 150,
+            EnemyKind::BogHand => horrors::HAND_HP,
+            EnemyKind::Drowned => horrors::DROWNED_HP,
+            EnemyKind::Wisp => horrors::WISP_HP,
         }
     }
 
@@ -209,6 +224,7 @@ impl EnemyKind {
                 | EnemyKind::Hound
                 | EnemyKind::Broodmarrow
                 | EnemyKind::Whirlgrave
+                | EnemyKind::Drowned
         )
     }
 
@@ -220,6 +236,7 @@ impl EnemyKind {
                 | EnemyKind::Dragon
                 | EnemyKind::Hollow
                 | EnemyKind::Mirrorling
+                | EnemyKind::Wisp
         )
     }
 
@@ -256,12 +273,23 @@ impl EnemyKind {
             EnemyKind::Broodmarrow => 700,
             EnemyKind::Oathbound => 180,
             EnemyKind::Whirlgrave => 300,
+            EnemyKind::BogHand => 140,
+            EnemyKind::Drowned => 280,
+            EnemyKind::Wisp => 120,
         }
     }
 }
 
+fn no_guard(n: &u32) -> bool {
+    *n == 0
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Enemy {
+    /// What a boss standing alone carries for the company that never came
+    /// (`BOSS_ALONE_TO`): each kind's drop is rolled when the boss falls.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hoard: Vec<EnemyKind>,
     /// Floor-local faction and finite camp slot (absent in legacy and special modes).
     #[serde(default)]
     pub faction: Option<u8>,
@@ -289,6 +317,9 @@ pub struct Enemy {
     /// Ticks it stands stunned or held in time.
     #[serde(default)]
     pub frozen: u32,
+    /// The first simulation tick awake again. Damage never clears sleep.
+    #[serde(default, skip_serializing_if = "bard::awake")]
+    pub sleep_until: u64,
     /// Its own state: what it is doing (a slime's size, a boar's charge),
     /// ticks at it, and which way.
     #[serde(default)]
@@ -297,6 +328,10 @@ pub struct Enemy {
     pub timer: u32,
     #[serde(default)]
     pub dir: (f32, f32),
+    /// What a raised shield has turned since it last went down: past
+    /// `critters::GUARD_BREAK` of its health, it is knocked aside.
+    #[serde(default, skip_serializing_if = "no_guard")]
+    pub guard: u32,
     /// Ticks left of the flash a hit leaves, and the health last tick,
     /// which a drop from tells a hit (`mark_hits`).
     #[serde(default)]
@@ -326,6 +361,10 @@ pub struct Enemy {
     /// Ticks left of a bell's ring on it: quickened (`critters::quicken`).
     #[serde(default)]
     pub rung: u32,
+    /// Ticks left of a wish's chill on it: it walks at the chill's pace
+    /// (`wishcraft`).
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub chilled: u32,
     /// Volleys in its signature or boss sequence; rage changes its pace,
     /// never the order of the chain.
     #[serde(default)]
@@ -335,9 +374,18 @@ pub struct Enemy {
     pub wits: press::Wits,
     #[serde(default, skip_serializing_if = "signatures::State::quiet")]
     pub signature: signatures::State,
+    /// The open floor's chamber it lives in (`depths`): it never goes
+    /// farther than its leash from it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home: Option<u8>,
+    /// Waiting in its chamber for a knight to come: no step, no shot.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dormant: bool,
 }
 
 impl Enemy {
+    pub fn asleep(&self, tick: u64) -> bool { self.sleep_until > tick }
+
     pub fn radius(&self) -> f32 {
         self.size.unwrap_or_else(|| self.kind.radius())
     }
@@ -384,6 +432,9 @@ pub(super) fn act(
         return;
     }
     if lich::act(enemy, heroes, grid, shots, deeds) {
+        return;
+    }
+    if horrors::act(enemy, heroes, grid, shots, deeds) {
         return;
     }
     let target = heroes.iter().copied().min_by(|a, b| {
@@ -451,7 +502,10 @@ pub(super) fn act(
             | EnemyKind::Risen
             | EnemyKind::Broodmarrow
             | EnemyKind::Oathbound
-            | EnemyKind::Whirlgrave => (0.0, 0.0),
+            | EnemyKind::Whirlgrave
+            | EnemyKind::BogHand
+            | EnemyKind::Drowned
+            | EnemyKind::Wisp => (0.0, 0.0),
         // Hops: a lunge, then a pause to chew.
         EnemyKind::Mimic if age % 36 < 14 => step(7.5, (cx, cy)),
         EnemyKind::Mimic => (0.0, 0.0),
@@ -475,10 +529,12 @@ fn act_boss(
     shots: &mut Vec<Projectile>,
     deeds: &mut foes::Deeds,
 ) {
-    if signatures::act(enemy, boss, heroes, grid, seed, deeds) {
+    if signatures::act(enemy, boss, heroes, grid, seed, deeds)
+        || signatures::wind(enemy, boss, heroes, grid, seed, deeds)
+    {
         return;
     }
-    use bosses::{Move, Pattern};
+    use bosses::{Move, Pattern, Stage};
     let target = heroes.iter().copied().min_by(|a, b| {
         (a.0 - enemy.x)
             .hypot(a.1 - enemy.y)
@@ -515,34 +571,36 @@ fn act_boss(
         Mover::Walker
     };
     (enemy.x, enemy.y) = grid.slide((enemy.x, enemy.y), motion, enemy.radius(), mover);
-    let raging = boss.rage > 0.0 && (enemy.hp as f32) < boss.rage * enemy.max_hp as f32;
+    // Its fight builds stage by stage: each line joins at its `from`, and
+    // only its rage quickens it.
+    let stage = boss.stage(enemy.hp, enemy.max_hp);
     for (index, attack) in boss.attacks.iter().enumerate() {
-        if matches!(attack.pattern, Pattern::Named(_)) {
+        if matches!(attack.pattern, Pattern::Named(_)) || attack.from > stage {
             // A named pattern is fired with the rest of the monsters'
             // (`patterns::volley`).
             continue;
         }
-        let every = if raging {
+        let every = if stage == Stage::Rage {
             (attack.every * 2 / 3).max(4)
         } else {
             attack.every.max(4)
         };
-        // And sooner still as it nears its end.
-        let every = enemy.beat(every);
         if !(age + index as u32 * 11).is_multiple_of(every) {
             continue;
         }
         if attack.pattern == Pattern::Ravage {
             // The floor itself, round where it stands; only at someone.
             if target.is_some() {
-                deeds.ravages.push(tide::Ravage::cast(
+                let mut ravage = tide::Ravage::cast(
                     (enemy.x, enemy.y),
                     attack.shots,
                     attack.arc,
                     attack.speed,
                     attack.damage,
                     seed ^ u64::from(age) << 12 ^ u64::from(enemy.id),
-                ));
+                );
+                ravage.boss_art = bosses::Art::for_id(&boss.id);
+                deeds.ravages.push(ravage);
                 deeds.cues.push("ravage");
             }
             continue;
@@ -585,5 +643,5 @@ fn act_boss(
             });
         }
     }
-    desperate::last_stand(enemy, target, shots, deeds);
+    // No last stand: a guardian's rage is its charge-ups.
 }

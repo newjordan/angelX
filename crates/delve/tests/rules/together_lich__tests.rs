@@ -3,14 +3,26 @@ use super::*;
 /// An open first-floor room of the Crypt, emptied and calmed, with knight
 /// one (and two, if `pair`) standing on the left.
 fn quiet_room(pair: bool) -> Run {
-    let mut run = Run::new(4, 1, pair.then_some("Friend"));
+    let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
+    // The friend joins once the floor is laid: a lone knight's room, the
+    // spots below in it.
+    if pair {
+        run.join("Friend");
+    }
     let room = run
         .dungeon
         .rooms
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
+    // An open room: whatever stone or pits the floor gave it, cleared.
+    let open = &mut run.dungeon.rooms[room];
+    for row in 1..open.rows - 1 {
+        for col in 1..open.cols - 1 {
+            open.set(col, row, Tile::Floor);
+        }
+    }
     run.enter_for_test(room);
     run.calm_for_test();
     run.enemies.clear();

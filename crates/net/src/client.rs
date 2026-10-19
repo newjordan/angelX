@@ -107,6 +107,22 @@ pub trait GameClient: Sized {
     fn sheet(&self) -> String {
         String::new()
     }
+    /// The last frame drawn as a stage, encoded into `out` for a page that
+    /// draws stages itself (`angel-stage`'s wire format, at `now_ms` for
+    /// what flickers and drifts): false for a game that draws only finished
+    /// frames, or before it has a stage. Asking turns the game's stage on:
+    /// its next frames may come only as stages.
+    fn stage(&mut self, _now_ms: f64, _out: &mut Vec<u8>) -> bool {
+        false
+    }
+    /// The page lost what it was sent (a lost GPU context): the next stage
+    /// sends every picture again.
+    fn stage_reset(&mut self) {}
+    /// Whether the page draws a stage's 3D props (`angel-stage`'s `STG3`
+    /// frames), said before each stage: where it does not, the game draws
+    /// with what a stage had before them (flat sprites). The default is a
+    /// game with no props to draw.
+    fn stage_props(&mut self, _on: bool) {}
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -420,6 +436,10 @@ impl<G: GameClient> Runtime<G> {
 
     pub fn game(&self) -> Option<&G> {
         self.game.as_ref()
+    }
+
+    pub fn game_mut(&mut self) -> Option<&mut G> {
+        self.game.as_mut()
     }
 
     pub fn controls(&self) -> &'static str {

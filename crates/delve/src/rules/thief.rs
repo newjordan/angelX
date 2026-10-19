@@ -106,7 +106,7 @@ impl Run {
             .enemies
             .iter()
             .filter(|e| {
-                e.kind == EnemyKind::Goblin && e.hp > 0 && e.age >= TELEGRAPH && e.frozen == 0
+                e.kind == EnemyKind::Goblin && e.hp > 0 && e.age >= TELEGRAPH && e.frozen == 0 && !e.asleep(self.tick)
             })
             .map(|e| e.id)
             .collect();
@@ -128,7 +128,7 @@ impl Run {
         let knights: Vec<(u32, f32, f32)> = self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone && h.privy == 0)
+            .filter(|(_, h)| h.targetable() && h.privy == 0)
             .map(|(&hid, h)| (hid, h.x, h.y))
             .collect();
         let nearest = knights.iter().copied().min_by(|a, b| {
@@ -194,7 +194,7 @@ impl Run {
             let mark = self
                 .players
                 .iter()
-                .filter(|(_, h)| h.hp > 0 && !h.stone && h.privy == 0 && h.stealable())
+                .filter(|(_, h)| h.targetable() && h.privy == 0 && h.stealable())
                 .map(|(_, h)| (h.x, h.y))
                 .min_by(|a, b| {
                     (a.0 - gx)
@@ -247,7 +247,7 @@ impl Run {
         let victim = self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone && h.privy == 0 && h.dash_ticks == 0)
+            .filter(|(_, h)| h.targetable() && h.privy == 0 && h.dash_ticks == 0)
             .find(|(_, h)| (h.x - to.0).hypot(h.y - to.1) < touch && h.stealable())
             .map(|(&hid, _)| hid);
         if let Some(hid) = victim {
@@ -349,7 +349,7 @@ impl Run {
         if let Some(hero) = self
             .players
             .values_mut()
-            .filter(|h| h.hp > 0 && !h.stone)
+            .filter(|h| h.targetable())
             .min_by(|a, b| {
                 (a.x - x)
                     .hypot(a.y - y)

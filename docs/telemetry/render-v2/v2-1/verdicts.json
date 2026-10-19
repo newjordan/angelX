@@ -1,0 +1,62 @@
+[
+ {
+  "metric": "M2-blast4",
+  "glass_median": 0.968,
+  "kitty_median": 0.329,
+  "glass_p99": 4.82,
+  "kitty_p99": 2.518,
+  "diff_median": 0.639,
+  "ci95": [
+   0.628,
+   0.651
+  ],
+  "n_glass": 9019,
+  "n_kitty": 1500,
+  "verdict": "kitty"
+ },
+ {
+  "metric": "M3-1080p",
+  "glass_median": 1.526,
+  "kitty_median": 3.027,
+  "glass_p99": 4.245,
+  "kitty_p99": 4.436,
+  "diff_median": -1.501,
+  "ci95": [
+   -1.556,
+   -1.455
+  ],
+  "n_glass": 7218,
+  "n_kitty": 600,
+  "verdict": "glass"
+ },
+ {
+  "metric": "M4-placements-1000",
+  "glass_median": 0.873,
+  "kitty_median": 1.263,
+  "glass_p99": 2.473,
+  "kitty_p99": 1.719,
+  "diff_median": -0.39,
+  "ci95": [
+   -0.404,
+   -0.378
+  ],
+  "n_glass": 7202,
+  "n_kitty": 600,
+  "verdict": "glass"
+ },
+ {
+  "metric": "M6-churn-256",
+  "glass_median": 1.369,
+  "kitty_median": 10.005,
+  "glass_p99": 12.101,
+  "kitty_p99": 21.078,
+  "diff_median": -8.636,
+  "ci95": [
+   -8.724,
+   -8.516
+  ],
+  "n_glass": 4747,
+  "n_kitty": 600,
+  "verdict": "glass"
+ }
+]

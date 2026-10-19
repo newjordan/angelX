@@ -1,0 +1,215 @@
+{
+  "id": "waxen-warden",
+  "source_path": "./cockpit/assets/boss-library/existing/waxen-warden/v01/source-sheet-refined.png",
+  "source_sha256": "3725035821021bb6a2cf086354cb21527c0e14379554ada28e7aeebefa53e3f6",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "An enormous hovering candle-wax guardian in a ragged cool slate-blue mantle. Round drooping ivory melted-wax body, two short lit candle wicks on its crown, a recessed mournful skull-like face with two pale cyan eyes. Heavy wax drips form little mitten hands and a tapered hovering base. Ancient kindly candle keeper with weary comic eyebrows. Keep it a wax spirit, not a skeleton knight.",
+  "definition_header": "name THE WAXEN WARDEN\ntext It keeps the last candles lit and sings the dead to sleep.\nby Muse\nwhere crypt\nhp 650\nsize 1.4\nmove hover speed=1.6\nattack aimed shots=1 speed=6 every=65 damage=12 shot=bone\nphases gap_ring reaim flower every=78 volleys=2 damage=10\nrage 40%\ndrops bone 5, wax 4, gold 180",
+  "source_definition_sha256": "9381f8929ec43c1d9a4164fcbb4b3131bfb9b19d0532e497ec8f2a6393eb0c03",
+  "definition_sha256": "aef995a09702965878e8b1fe0a14217e8be27745c77594ff59965283af314db7",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        43,
+        133,
+        245,
+        317
+      ],
+      "opaque_component_pixels": 41395,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "5d421b8d2453b955432d95db444f72cd5b9ce3378f9a715d6715f4ce5fea73b3"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        347,
+        109,
+        279,
+        348
+      ],
+      "opaque_component_pixels": 55468,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "90f565c34e26ddc13dd73bb51238e39df2fa0e494d3e3bd88046b70a8e63095a"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        666,
+        139,
+        238,
+        312
+      ],
+      "opaque_component_pixels": 38995,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "8baa95eaee1a7ffcd053313a73db6c2fbaa174c27dfd40850ce236a0356375ba"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        976,
+        135,
+        250,
+        324
+      ],
+      "opaque_component_pixels": 42498,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "4314a55b597792ff494a4da8cb6d126f10d8052d36200ec623f63230b5d3392c"
+    },
+    {
+      "id": "overhead/part/wax-body",
+      "source_rect_xywh": [
+        66,
+        597,
+        212,
+        219
+      ],
+      "opaque_component_pixels": 28161,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-wax-body.png",
+      "sha256": "d8431f1352f47c1d7994b9e3cf5c2359d084a63cb0ace29864b0fe796e65348d"
+    },
+    {
+      "id": "overhead/part/skull-face",
+      "source_rect_xywh": [
+        414,
+        613,
+        141,
+        187
+      ],
+      "opaque_component_pixels": 18462,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-skull-face.png",
+      "sha256": "aae8301b876399a75a17467f85d1e9dfb2bc0157ddd24f13f3de5a414bc7c608"
+    },
+    {
+      "id": "overhead/part/candle-crown",
+      "source_rect_xywh": [
+        704,
+        606,
+        180,
+        198
+      ],
+      "opaque_component_pixels": 17021,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-candle-crown.png",
+      "sha256": "27d460f23b5fad86ac345d823fb0ef18b962da49c14a6a9ea99affc6d2e66600"
+    },
+    {
+      "id": "overhead/part/mantle-hand",
+      "source_rect_xywh": [
+        1006,
+        608,
+        197,
+        200
+      ],
+      "opaque_component_pixels": 23366,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-mantle-hand.png",
+      "sha256": "a1fa59fee9cfceca89c939be881aba11e7347733d53d65a899e39699d4c1dc42"
+    },
+    {
+      "id": "side/part/wax-body",
+      "source_rect_xywh": [
+        89,
+        966,
+        181,
+        208
+      ],
+      "opaque_component_pixels": 23765,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-wax-body.png",
+      "sha256": "80408686006be4f2639ed96c4c1aaf854eec4a5b68fbf23e8d9196e8d3d870f5"
+    },
+    {
+      "id": "side/part/skull-face",
+      "source_rect_xywh": [
+        449,
+        982,
+        118,
+        174
+      ],
+      "opaque_component_pixels": 14445,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-skull-face.png",
+      "sha256": "6340f4e1d9f1467964a9a1ba3d614be92ac0c1cf29ce2f640d980a7454946c9f"
+    },
+    {
+      "id": "side/part/candle-crown",
+      "source_rect_xywh": [
+        705,
+        969,
+        171,
+        172
+      ],
+      "opaque_component_pixels": 14234,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-candle-crown.png",
+      "sha256": "b80bcc167663777ce4d38d1355fac9fbe8df364afb61028ac345bc64ca05428c"
+    },
+    {
+      "id": "side/part/mantle-hand",
+      "source_rect_xywh": [
+        1007,
+        981,
+        199,
+        172
+      ],
+      "opaque_component_pixels": 21443,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-mantle-hand.png",
+      "sha256": "f054be7f28b635432d329a2acc13014c07a6a7ad78454a7db5415b4955cdc45c"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

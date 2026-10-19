@@ -1,0 +1,12 @@
+# Cuckoo Observatory: a slate dome with its lit slit and the telescope out over
+# the stone tower, a smaller dome tower on the east, snow-capped crags at the back.
+sphere   slate   at 128 30 40 size 56 52 48 id obs-dome
+box      window  at 128 44 62.5 size 7 24 3 id obs-slit
+wedge    metal   at 128 60 80 size 7 14 36 id obs-telescope
+rock-6   rock    at 36 0 -9 size 72 52 50 id obs-crag-w
+pyramid  plaster at 36 38 -9 size 38 18 32 id obs-snow-w
+rock-9   rock    at 366 0 -9 size 56 44 50 id obs-crag-e
+pyramid  plaster at 366 32 -9 size 32 16 30 id obs-snow-e
+cylinder stone   at 314 0 -2 size 32 30 32 id obs-annex
+sphere   slate   at 314 30 -2 size 34 22 34 id obs-annex-dome
+box      window  at 314 34 13.3 size 5 12 1.6 id obs-annex-slit

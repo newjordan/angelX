@@ -1,0 +1,180 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    36
+  ],
+  "anchor_xy": [
+    12,
+    36
+  ],
+  "comments": [
+    "The delivered sheet redraws the tower in every cell and its stone texture drifts between cells. The importer is run on a prepared sheet (prepare.py in this folder): the tower is cell 1 for every state and each cell contributes only its own fire. Every pixel is a delivered pixel; none is painted or filtered. The original delivery SHA is in provenance.json.",
+    "All seven windows are identical, so one scale and one pixel grid register the tower the same in every frame; the source pivot is the tower base centre at the bottom of the window.",
+    "The tallest flame (lit-0) sets the shared scale. The shared 75-ink palette has no saturated orange: the flame cores snap to its gold and the outer flame to its red, so flame frames measure below the 0.90 colour-agreement diagnostic against the unquantized sample."
+  ],
+  "delivered_pieces": 7,
+  "expected_existing_pieces": 7,
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "mapping_basis": "Visual review of the prepared sheet and the delivered sheet, 2026-10-18. Reading order equals the request order: the cold tower (cold-0), a small flame and a larger flame leaning right (kindling-0, kindling-1), then four large flames: upright, leaning left, short and broad, leaning right (lit-0..3).",
+  "notes_sha256": "8ed02a924c1ff1be95c0a0bc58cec29d8ec5c48b7eb098b4bbcd905840b8730f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "cold-0: the tower and iron bowl with ash and two dead coals; no flame.",
+      "name": "cold-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        24,
+        24,
+        273,
+        489
+      ],
+      "state": "cold",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "kindling-0: a small flame over two glowing embers.",
+      "name": "kindling-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        321,
+        24,
+        273,
+        489
+      ],
+      "state": "kindling",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "kindling-1: a larger flame leaning right over the embers.",
+      "name": "kindling-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        618,
+        24,
+        273,
+        489
+      ],
+      "state": "kindling",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: large tall upright flame.",
+      "name": "lit-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        915,
+        24,
+        273,
+        489
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: large flame leaning left.",
+      "name": "lit-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        24,
+        537,
+        273,
+        489
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: large short, broad flame.",
+      "name": "lit-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        321,
+        537,
+        273,
+        489
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3: large flame leaning right.",
+      "name": "lit-3",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        489
+      ],
+      "source_rect_xywh": [
+        618,
+        537,
+        273,
+        489
+      ],
+      "state": "lit",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 24x36, anchor bottom-centre (12,36); stage 384x224 at 16 px per tile; a knight is 16x16; the beacon is a tower and iron bowl more than two knights tall.",
+  "sizes": {
+    "v1": [
+      24,
+      36
+    ],
+    "v2": [
+      24,
+      36
+    ]
+  },
+  "slot": "lanternward.beacon",
+  "source_sha256": "4d0396d52ee242f144859106f606a9e68ee8d61c35b4e60546991ef6d541056f",
+  "timing": "cold 12 ticks; kindling 2x6 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

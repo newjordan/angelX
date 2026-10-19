@@ -1,0 +1,189 @@
+{
+  "freezes_per_minute": 0,
+  "frozen_ticks": 0,
+  "longest_frozen_run": 0,
+  "scene": "the-bone-choir",
+  "snapshots": [
+    {
+      "save": "d7136ac138d4977d",
+      "step": 60,
+      "tick": 155,
+      "wire": "4dcf5361a44bb142"
+    },
+    {
+      "save": "2e0924c57dd31674",
+      "step": 120,
+      "tick": 215,
+      "wire": "e2cd6474f1a84d29"
+    },
+    {
+      "save": "a9ea6a744ab54f1e",
+      "step": 180,
+      "tick": 275,
+      "wire": "ce939a7bd28a2155"
+    },
+    {
+      "save": "6c04e47702a52a9b",
+      "step": 240,
+      "tick": 335,
+      "wire": "0e2df33bfb8af84f"
+    },
+    {
+      "save": "ac33db7517397976",
+      "step": 300,
+      "tick": 395,
+      "wire": "d4e805b1d8708a72"
+    },
+    {
+      "save": "e61f9de330cc26cf",
+      "step": 360,
+      "tick": 455,
+      "wire": "0e02f2dc21cb1404"
+    },
+    {
+      "save": "dab88b50069f5595",
+      "step": 420,
+      "tick": 515,
+      "wire": "9a319fc7f8ce8af3"
+    },
+    {
+      "save": "dff7e3081f939189",
+      "step": 480,
+      "tick": 575,
+      "wire": "9ba7c0369de3ef1b"
+    },
+    {
+      "save": "989c3c49f1dacce9",
+      "step": 540,
+      "tick": 635,
+      "wire": "58842a7162bf0467"
+    },
+    {
+      "save": "d18bdd24f166666e",
+      "step": 600,
+      "tick": 695,
+      "wire": "95fca8243b8431e1"
+    },
+    {
+      "save": "9cb62caeaba47c50",
+      "step": 660,
+      "tick": 755,
+      "wire": "9b876bdb217c31d7"
+    },
+    {
+      "save": "90f073c6ed552ee8",
+      "step": 720,
+      "tick": 815,
+      "wire": "34d524c2f4459969"
+    },
+    {
+      "save": "d39b27aeb61e6b95",
+      "step": 780,
+      "tick": 875,
+      "wire": "b01a0e307017f213"
+    },
+    {
+      "save": "f004d68494026d86",
+      "step": 840,
+      "tick": 935,
+      "wire": "4cc7d31494527c9a"
+    },
+    {
+      "save": "d3f4165e53ba60b1",
+      "step": 900,
+      "tick": 995,
+      "wire": "1d54eee5978cd846"
+    },
+    {
+      "save": "ef34b50c0efcedd9",
+      "step": 960,
+      "tick": 1055,
+      "wire": "4bbb8de7baed5c0b"
+    },
+    {
+      "save": "9cdefc4247398b45",
+      "step": 1020,
+      "tick": 1115,
+      "wire": "22b5cf744a7490c8"
+    },
+    {
+      "save": "7d4ff77070e115a0",
+      "step": 1080,
+      "tick": 1175,
+      "wire": "de7c73e25729916d"
+    },
+    {
+      "save": "43a13969acd7b6a7",
+      "step": 1140,
+      "tick": 1235,
+      "wire": "49420a74b6225863"
+    },
+    {
+      "save": "527b3cf8bf738935",
+      "step": 1200,
+      "tick": 1295,
+      "wire": "bc4e66f9a58c09e1"
+    },
+    {
+      "save": "223989a23329d485",
+      "step": 1260,
+      "tick": 1355,
+      "wire": "b4a819ed48c2aa2f"
+    },
+    {
+      "save": "6974ed79a0a5a373",
+      "step": 1320,
+      "tick": 1415,
+      "wire": "0214a7a91da8ea3c"
+    },
+    {
+      "save": "5d5f1c4926e555f7",
+      "step": 1380,
+      "tick": 1475,
+      "wire": "d8a1ba0e9bd3ad5f"
+    },
+    {
+      "save": "bc918c6eac8968d9",
+      "step": 1440,
+      "tick": 1535,
+      "wire": "d075f47bd2d07981"
+    },
+    {
+      "save": "19c165bc2a57870b",
+      "step": 1500,
+      "tick": 1595,
+      "wire": "22d209dfa023bcc5"
+    },
+    {
+      "save": "7d028c16d5d5066c",
+      "step": 1560,
+      "tick": 1655,
+      "wire": "4581a71b3897c187"
+    },
+    {
+      "save": "5b50980caeda983f",
+      "step": 1620,
+      "tick": 1715,
+      "wire": "b93aa4ce4f11e470"
+    },
+    {
+      "save": "0f62fee35d9062e2",
+      "step": 1680,
+      "tick": 1775,
+      "wire": "0b80afc3fcaf0ef4"
+    },
+    {
+      "save": "75acff0fab24fc44",
+      "step": 1740,
+      "tick": 1835,
+      "wire": "0a4e51fe662ba945"
+    },
+    {
+      "save": "3c1e09e0b6beed0c",
+      "step": 1800,
+      "tick": 1895,
+      "wire": "c148cd892c44077a"
+    }
+  ],
+  "steps": 1800
+}

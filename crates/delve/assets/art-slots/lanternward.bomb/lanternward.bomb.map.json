@@ -1,0 +1,30 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  4,
+  9
+ ],
+ "pieces": [
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "fuse-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "fuse-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  }
+ ]
+}

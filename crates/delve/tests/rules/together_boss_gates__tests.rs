@@ -9,6 +9,14 @@ fn reloaded(run: &Run) -> Run {
     loaded
 }
 
+/// The elite at the head of the chief's camp here, with the Boss Key.
+fn carrier(run: &Run) -> &Enemy {
+    run.enemies
+        .iter()
+        .find(|e| run.carries_key(e))
+        .expect("the chief's camp has its key carrier")
+}
+
 fn reach_without_gate(run: &Run) -> Vec<bool> {
     let g = run.boss_gates.as_ref().unwrap();
     let mut seen = vec![false; run.dungeon.rooms.len()];
@@ -45,21 +53,17 @@ fn boss_gates_profiles_have_checked_independent_leaders_and_reachable_resource_s
                 g.economy.profile,
                 boss_population::profile(&run.dungeon, run.seed, run.raid_id)
             );
-            let required = g.leaders.iter().filter(|l| l.prerequisite).count();
-            match g.economy.profile.structure {
-                Structure::Hive => {
-                    assert_eq!(required, 1);
-                    assert!(g.leaders.len() <= 2);
+            // One chief a floor, mid-floor; the guardian holds the stairs.
+            assert_eq!(g.leaders.len(), 1);
+            assert!(g.leaders[0].prerequisite);
+            assert_eq!(
+                g.access,
+                match g.economy.profile.structure {
+                    Structure::Clans => boss_gates::Access::Any,
+                    Structure::Hive | Structure::Stronghold => boss_gates::Access::All,
                 }
-                Structure::Clans => {
-                    assert_eq!(g.access, boss_gates::Access::Any);
-                    assert!(required >= 3);
-                }
-                Structure::Stronghold => {
-                    assert_eq!(g.access, boss_gates::Access::All);
-                    assert!(required >= 2);
-                }
-            }
+            );
+            assert_eq!(g.guardian_boss.is_none(), depth == FLOORS);
             let seen = reach_without_gate(&run);
             for (i, l) in g.leaders.iter().enumerate() {
                 assert!(
@@ -77,16 +81,24 @@ fn boss_gates_profiles_have_checked_independent_leaders_and_reachable_resource_s
                 assert!(!def.attacks.is_empty() || def.phases.is_some());
                 assert!((300..=900).contains(&def.hp));
                 run.enter(l.room, Some(2));
-                let boss = run.enemies.iter().find(|e| e.boss == Some(l.boss)).unwrap();
-                assert_eq!(boss.kind, EnemyKind::Boss);
+                // No boss: the camp's toughest, an elite, carries the key.
+                assert!(!run.enemies.iter().any(|e| e.is_boss()));
+                let elite = carrier(&run);
+                assert!(elite.elite && elite.boss.is_none());
                 assert_eq!(
-                    boss.max_hp,
-                    def.hp * run.toughness() / 100 * run.boss_health() / 100
+                    elite.camp_slot,
+                    run.boss_gates.as_ref().unwrap().key_carrier(l.room)
                 );
-                assert_eq!(boss.faction, Some(l.faction));
+                assert!(
+                    run.enemies
+                        .iter()
+                        .filter(|e| e.camp_slot.is_some())
+                        .all(|e| e.max_hp <= elite.max_hp)
+                );
+                assert_eq!(elite.faction, Some(l.faction));
                 assert_eq!(
                     run.room()
-                        .tile((boss.x / TILE_UNITS) as i32, (boss.y / TILE_UNITS) as i32),
+                        .tile((elite.x / TILE_UNITS) as i32, (elite.y / TILE_UNITS) as i32),
                     Tile::Floor
                 );
                 assert!(run.valid_snapshot());
@@ -264,14 +276,16 @@ fn boss_gates_visits_ordinary_clears_and_removal_without_death_do_not_count() {
     );
     run.enter(g.leaders[0].room, Some(2));
     run.calm_for_test();
+    let slot = carrier(&run).camp_slot;
     for e in &mut run.enemies {
-        if e.boss.is_none() {
+        if e.camp_slot != slot {
             e.hp = 0;
         }
     }
     run.step(&BTreeMap::new());
     assert!(!run.boss_gates.as_ref().unwrap().leaders[0].defeated);
-    run.enemies.clear(); // not a zero-HP kill; must not clear this boss room
+    assert!(run.enemies.iter().any(|e| run.carries_key(e)));
+    run.enemies.clear(); // not a zero-HP kill; must not clear the chief's room
     run.step(&BTreeMap::new());
     assert!(!run.room().cleared);
     assert_eq!(run.boss_gates.as_ref().unwrap().leaders, g.leaders);
@@ -279,23 +293,18 @@ fn boss_gates_visits_ordinary_clears_and_removal_without_death_do_not_count() {
 
 #[test]
 fn boss_gates_last_leader_death_with_wipe_reentry_and_replay_do_not_duplicate_rewards() {
-    let mut run = stronghold(1, 2);
-    kill_leader(&mut run, 0);
-    let w = run.boss_gates.as_ref().unwrap().leaders[1].clone();
+    let mut run = stronghold(1, 1);
+    let w = run.boss_gates.as_ref().unwrap().leaders[0].clone();
     run.enter(w.room, Some(2));
     run.calm_for_test();
+    let mut corpse = carrier(&run).clone();
+    corpse.hp = 0;
     for enemy in &mut run.enemies {
         enemy.hp = 0;
     }
-    let corpse = run
-        .enemies
-        .iter()
-        .find(|e| e.boss == Some(w.boss))
-        .unwrap()
-        .clone();
     run.players.get_mut(&1).unwrap().hp = 0;
     run.players.get_mut(&1).unwrap().winds = 0;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
     assert!(run.boss_gates.as_ref().unwrap().unlocked());
     assert!(
@@ -308,14 +317,14 @@ fn boss_gates_last_leader_death_with_wipe_reentry_and_replay_do_not_duplicate_re
     run.enemies.push(corpse);
     assert!(
         !run.valid_snapshot(),
-        "a replayed boss cannot be an active snapshot"
+        "a replayed key carrier cannot be an active snapshot"
     );
     run.settle_kills(); // replay after the corpse was removed
     assert_eq!(run.room().items.len(), items);
     assert_eq!(run.score, score);
     run.players.get_mut(&1).unwrap().hp = 100;
     run.enter(w.room, Some(2));
-    assert!(!run.enemies.iter().any(|e| e.boss == Some(w.boss)));
+    assert!(!run.enemies.iter().any(|e| e.elite || e.is_boss()));
     run.clear_for_test();
     assert!(
         !run.cues
@@ -338,7 +347,7 @@ fn boss_gates_guardian_death_with_wipe_cannot_respawn_or_double_award_the_boss()
     let hero = run.players.get_mut(&1).unwrap();
     hero.hp = 0;
     hero.winds = 0;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
     assert!(run.boss_gates.as_ref().unwrap().guardian_defeated);
     run = reloaded(&run);
@@ -455,8 +464,8 @@ fn boss_gates_malformed_graphs_and_active_snapshots_are_rejected() {
     run.boss_gates.as_mut().unwrap().leaders[0].room = usize::MAX;
     rejected(run);
     let mut run = base.clone();
-    run.boss_gates.as_mut().unwrap().leaders[1] =
-        run.boss_gates.as_ref().unwrap().leaders[0].clone();
+    let twin = run.boss_gates.as_ref().unwrap().leaders[0].clone();
+    run.boss_gates.as_mut().unwrap().leaders.push(twin);
     rejected(run);
     let mut run = base.clone();
     run.boss_gates.as_mut().unwrap().leaders[0].room = run.boss_gates.as_ref().unwrap().guardian;
@@ -537,14 +546,24 @@ fn boss_gates_giants_feast_keeps_native_boss_scaling_and_normal_giant_mobs() {
     let mut run = on_floor(2, 10, Mode::GiantsFeast);
     let w = run.boss_gates.as_ref().unwrap().leaders[0].clone();
     run.enter(w.room, Some(2));
-    let boss = run.enemies.iter().find(|e| e.boss == Some(w.boss)).unwrap();
-    assert_eq!(boss.max_hp, run.bosses[usize::from(w.boss)].hp);
-    assert!(
-        run.enemies
-            .iter()
-            .filter(|e| e.boss.is_none())
-            .all(|e| e.max_hp == e.kind.hp() * 9 / 5)
-    );
+    // The chief's camp: giant mobs, its key carrier an elite giant.
+    let slot = carrier(&run).camp_slot;
+    for e in &run.enemies {
+        let giant = e.kind.hp() * 9 / 5;
+        if e.camp_slot == slot {
+            assert_eq!(e.max_hp, giant * 5 / 2, "{e:?}");
+        } else {
+            assert_eq!(e.max_hp, giant, "{e:?}");
+        }
+    }
+    assert!(run.valid_snapshot());
+    // The floor's one boss keeps its native scaling.
+    kill_leader(&mut run, 0);
+    let gate = run.boss_gates.as_ref().unwrap().guardian;
+    let apex = run.boss_gates.as_ref().unwrap().guardian_boss.unwrap();
+    run.enter(gate, Some(2));
+    let boss = run.enemies.iter().find(|e| e.boss == Some(apex)).unwrap();
+    assert_eq!(boss.max_hp, run.bosses[usize::from(apex)].hp);
     assert!(run.valid_snapshot());
 }
 
@@ -572,8 +591,7 @@ fn boss_gates_pit_remains_optional_and_never_counts_as_a_leader() {
 
 #[test]
 fn boss_gates_native_wire_copies_carry_progress() {
-    let mut host = stronghold(1, 2);
-    kill_leader(&mut host, 0);
+    let mut host = stronghold(1, 1);
     let mut guest = host.wire_copy();
     assert_eq!(guest.boss_gates, host.boss_gates);
     assert!(crate::wire::drawable(&guest));
@@ -581,7 +599,7 @@ fn boss_gates_native_wire_copies_carry_progress() {
     host.enter(gate, Some(2));
     guest = host.wire_copy();
     assert!(guest.guardian_locked());
-    kill_leader(&mut host, 1);
+    kill_leader(&mut host, 0);
     host.enter(gate, Some(2)); // guest may miss the chief's last tick entirely
     guest = host.wire_copy();
     assert_eq!(guest.boss_gates, host.boss_gates);
@@ -594,6 +612,7 @@ fn boss_gates_duplicate_dead_bosses_in_one_settlement_award_only_once() {
     let w = run.boss_gates.as_ref().unwrap().leaders[0].clone();
     run.enter(w.room, Some(2));
     run.calm_for_test();
+    let slot = carrier(&run).camp_slot;
     for e in &mut run.enemies {
         e.hp = 0;
     }
@@ -602,7 +621,7 @@ fn boss_gates_duplicate_dead_bosses_in_one_settlement_award_only_once() {
     let mut duplicate = run
         .enemies
         .iter()
-        .find(|e| e.boss == Some(w.boss))
+        .find(|e| e.camp_slot == slot)
         .unwrap()
         .clone();
     duplicate.id += 1000;
@@ -624,7 +643,7 @@ fn boss_gates_duplicate_dead_bosses_in_one_settlement_award_only_once() {
 }
 
 #[test]
-fn boss_ecology_terrain_yields_change_budget_leaders_and_apex_distribution() {
+fn boss_ecology_terrain_yields_change_support_but_not_the_ramp_or_the_one_chief() {
     use boss_ecology::Structure;
     let mut run = on_floor(5, 21, Mode::LongWayDown);
     let mut sparse = run.dungeon.clone();
@@ -658,15 +677,19 @@ fn boss_ecology_terrain_yields_change_budget_leaders_and_apex_distribution() {
                 .map(|c| u16::from(c.base_budget))
                 .sum::<u16>()
     );
-    assert_eq!(a.leaders.len(), 1);
-    assert_eq!(
-        b.leaders.len(),
-        2,
-        "productive outer brood supports an optional second leader"
-    );
-    assert!(a.guardian_boss.is_none());
-    assert!(b.guardian_boss.is_some(), "rich brood supports a rare apex");
-    assert!(!b.leaders[1].prerequisite);
+    // The fight rooms muster by the floor's ramp, rich beds or bare; the
+    // richer brood feeds the guardian's escort.
+    let fights = |g: &BossGateState| -> Vec<u8> {
+        g.economy
+            .camps
+            .iter()
+            .filter(|c| c.room != g.guardian)
+            .map(|c| c.base_budget)
+            .collect()
+    };
+    assert_eq!(fights(&a), fights(&b));
+    assert_eq!((a.leaders.len(), b.leaders.len()), (1, 1));
+    assert!(a.guardian_boss.is_some() && b.guardian_boss.is_some());
 }
 
 #[test]
@@ -684,20 +707,30 @@ fn boss_ecology_supported_structures_have_distinct_density_and_rosters() {
             / g.economy.camps.len();
         densities.push(mean);
         run.enter(g.leaders[0].room, Some(2));
-        let minions: Vec<_> = run
-            .enemies
-            .iter()
-            .filter(|e| e.camp_slot.is_some())
-            .collect();
+        // The chief's camp is led by its key carrier, an elite, never a boss
+        // (the floor's one boss is its guardian). On the first floors the
+        // carrier stands alone: its company is booked gone and rides with
+        // it as its hoard; below, the company stands in the room.
+        assert!(run.enemies.iter().all(|e| !e.is_boss()), "no boss in a chief's camp");
+        let minions: Vec<EnemyKind> = if depth <= BOSS_ALONE_TO {
+            let camp = run.boss_gates.as_ref().unwrap().economy.camp(g.leaders[0].room).unwrap();
+            assert_eq!(run.enemies.len(), 1, "the carrier alone");
+            let carrier = &run.enemies[0];
+            assert!(carrier.elite && run.carries_key(carrier));
+            assert_eq!(carrier.hoard, camp.roster);
+            camp.roster.clone()
+        } else {
+            run.enemies.iter().filter(|e| e.camp_slot.is_some()).map(|e| e.kind).collect()
+        };
         assert!(minions.len() >= 3);
         match depth {
-            1 => assert!(minions.iter().any(|e| e.kind == EnemyKind::Skeleton)),
+            1 => assert!(minions.contains(&EnemyKind::Skeleton)),
             2 => assert!(
                 minions
                     .iter()
-                    .any(|e| matches!(e.kind, EnemyKind::Sapper | EnemyKind::Hob))
+                    .any(|k| matches!(k, EnemyKind::Sapper | EnemyKind::Hob))
             ),
-            5 => assert!(minions.iter().filter(|e| e.kind == EnemyKind::Bat).count() >= 3),
+            5 => assert!(minions.iter().filter(|&&k| k == EnemyKind::Bat).count() >= 3),
             _ => unreachable!(),
         }
         assert!(
@@ -709,32 +742,83 @@ fn boss_ecology_supported_structures_have_distinct_density_and_rosters() {
 }
 
 #[test]
-fn boss_ecology_chief_real_death_redirects_capped_reserve_once_and_weakens_future_camps() {
-    let mut run = on_floor(2, 41, Mode::LongWayDown);
+fn boss_ecology_alone_guardian_keeps_its_whole_hoard_when_the_party_leaves_and_returns() {
+    for depth in [1, 2] {
+        // A floor whose guardian is a boss of the pack's catalogue.
+        let mut run = (0..64)
+            .map(|seed| on_floor(depth, seed, Mode::LongWayDown))
+            .find(|r| r.boss_gates.as_ref().unwrap().guardian_boss.is_some())
+            .expect("a floor with a guardian boss");
+        // The route's leaders fallen: the guardian's room opens.
+        for leader in &mut run.boss_gates.as_mut().unwrap().leaders {
+            leader.defeated = true;
+        }
+        let room = run.boss_gates.as_ref().unwrap().guardian;
+        run.enter(room, Some(2));
+        run.enter(0, Some(0));
+        run.enter(room, Some(2));
+        // On the first floors the guardian stands alone; its company is
+        // booked gone and rides with it as spoils, however often the party
+        // comes and goes.
+        assert!(run.enemies.iter().all(|e| e.camp_slot.is_none()), "floor {depth}");
+        let guardian = run.enemies.iter().find(|e| e.is_boss()).expect("the guardian");
+        if let Some(camp) = run.boss_gates.as_ref().unwrap().economy.camp(room) {
+            assert!(!camp.roster.is_empty());
+            assert_eq!(guardian.hoard, camp.roster, "floor {depth}");
+        } else {
+            assert!(!guardian.hoard.is_empty(), "floor {depth}");
+        }
+    }
+}
+
+#[test]
+fn boss_gates_snapshots_refuse_an_out_of_range_laid_size_or_hoard() {
+    let base = on_floor(1, 13, Mode::LongWayDown);
+    assert!(base.valid_snapshot());
+    for laid in [(0, 0), (COLS - 1, ROWS), (COLS, ROWS - 1), (layout::MAX_COLS + 1, ROWS), (COLS, layout::MAX_ROWS + 1)] {
+        let mut run = base.clone();
+        run.dungeon.rooms[0].laid = Some(laid);
+        assert!(!run.valid_snapshot(), "laid {laid:?}");
+    }
+    let mut run = base.clone();
+    run.dungeon.rooms[0].laid = Some((layout::MAX_COLS, layout::MAX_ROWS));
+    assert!(run.valid_snapshot());
+    let room = base.boss_gates.as_ref().unwrap().leaders[0].room;
+    let mut run = base.clone();
+    run.enter(room, Some(2));
+    assert!(run.valid_snapshot());
+    let carrier = run.enemies.iter_mut().find(|e| e.elite).unwrap();
+    carrier.hoard = vec![EnemyKind::Bat; 24];
+    assert!(run.valid_snapshot());
+    let carrier = run.enemies.iter_mut().find(|e| e.elite).unwrap();
+    carrier.hoard = vec![EnemyKind::Bat; 25];
+    assert!(!run.valid_snapshot(), "an oversized hoard is refused");
+}
+
+#[test]
+fn boss_ecology_chief_real_death_cuts_its_camps_off_once_and_keeps_the_ramp() {
+    // Below the first floors, where the carrier's company stands with it.
+    let mut run = on_floor(4, 41, Mode::LongWayDown);
     let g = run.boss_gates.clone().unwrap();
     let l = g.leaders[0].clone();
     run.enter(l.room, Some(2));
     let before = run.boss_gates.as_ref().unwrap().economy.clone();
     run.settle_kills(); // living chief and mere entry are not a political event
     assert_eq!(run.boss_gates.as_ref().unwrap().economy, before);
+    let slot = carrier(&run).camp_slot;
     let ordinary = run
         .enemies
         .iter_mut()
-        .find(|e| e.camp_slot.is_some())
+        .find(|e| e.camp_slot.is_some() && e.camp_slot != slot)
         .unwrap();
     ordinary.hp = 0;
     run.settle_kills();
     assert!(run.boss_gates.as_ref().unwrap().economy.factions[0].controlled);
-    let mut corpse = run
-        .enemies
-        .iter()
-        .find(|e| e.boss == Some(l.boss))
-        .unwrap()
-        .clone();
+    let mut corpse = carrier(&run).clone();
     corpse.hp = 0;
     run.enemies
         .iter_mut()
-        .find(|e| e.boss == Some(l.boss))
+        .find(|e| e.camp_slot == slot)
         .unwrap()
         .hp = 0;
     let before_loss = run.boss_gates.as_ref().unwrap().economy.clone();
@@ -743,10 +827,6 @@ fn boss_ecology_chief_real_death_redirects_capped_reserve_once_and_weakens_futur
     let after = run.boss_gates.as_ref().unwrap().economy.clone();
     assert!(!after.factions[0].controlled);
     assert_eq!(after.factions[0].reserve, 0);
-    assert_eq!(
-        after.factions[1].reserve,
-        (before_loss.factions[1].reserve + before_loss.factions[0].reserve.min(3)).min(9)
-    );
     assert_eq!(
         after.camp(l.room).unwrap().budget,
         active,
@@ -757,7 +837,8 @@ fn boss_ecology_chief_real_death_redirects_capped_reserve_once_and_weakens_futur
             .camps
             .iter()
             .zip(&before_loss.camps)
-            .any(|(a, b)| a.faction == 0 && !a.deployed && a.budget < b.budget)
+            .all(|(a, b)| a.deployed || a.budget == b.budget),
+        "the rooms still to come keep the floor's ramp"
     );
     assert!(run.boss_support_line().unwrap().contains("control lost"));
     let score = run.score;
@@ -768,8 +849,12 @@ fn boss_ecology_chief_real_death_redirects_capped_reserve_once_and_weakens_futur
     assert_eq!((run.score, run.room().items.len()), (score, items));
     run = reloaded(&run);
     run.enter(l.room, Some(2));
-    assert!(!run.enemies.iter().any(|e| e.boss == Some(l.boss)));
-    assert_eq!(run.boss_gates.as_ref().unwrap().economy, after);
+    assert!(!run.enemies.iter().any(|e| e.camp_slot == slot || e.is_boss()));
+    // Cut off once: the faction stays lost and the camps keep their books
+    // (what a summoner had called retires on the way back in).
+    let again = &run.boss_gates.as_ref().unwrap().economy;
+    assert_eq!(again.factions, after.factions);
+    assert_eq!(again.camps, after.camps);
 }
 
 #[test]
@@ -812,22 +897,13 @@ fn boss_ecology_finite_deployment_casualties_and_active_cap_survive_wipe_reentry
 }
 
 #[test]
-fn boss_ecology_optional_leader_not_required_and_starved_hive_can_finish() {
-    let mut run = (0..1000)
-        .find_map(|seed| {
-            let r = on_floor(5, seed, Mode::LongWayDown);
-            (r.boss_gates.as_ref().unwrap().leaders.len() == 2
-                && r.boss_gates.as_ref().unwrap().guardian_boss.is_some())
-            .then_some(r)
-        })
-        .expect("rich hive fixture");
+fn boss_ecology_one_hive_chief_opens_the_stair_and_its_guardian_can_finish() {
+    let mut run = on_floor(5, 7, Mode::LongWayDown);
     let g = run.boss_gates.clone().unwrap();
-    assert!(!g.leaders[1].prerequisite);
-    kill_leader(&mut run, 1);
-    assert!(
-        !run.boss_gates.as_ref().unwrap().unlocked(),
-        "optional outer brood is not the core lock"
-    );
+    assert_eq!(g.economy.profile.structure, boss_ecology::Structure::Hive);
+    assert_eq!(g.leaders.len(), 1);
+    assert!(g.guardian_boss.is_some());
+    assert!(!run.boss_gates.as_ref().unwrap().unlocked());
     kill_leader(&mut run, 0);
     let state = run.boss_gates.as_ref().unwrap();
     assert!(state.unlocked());
@@ -945,7 +1021,7 @@ fn boss_ecology_secret_transition_and_immutable_geography_survive_guest_deltas()
 
 #[test]
 fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs() {
-    let (mut rich, mut apex, mut optional_stronghold) = (0, 0, 0);
+    let mut apex = 0;
     for seed in 0..32 {
         for first in [Pack::Crypt, Pack::Cavern] {
             for depth in 1..=DEEPEST {
@@ -956,37 +1032,20 @@ fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs(
                 let g = run.boss_gates.clone().unwrap();
                 let seen = reach_without_gate(&run);
                 assert!(g.leaders.iter().all(|l| seen[l.room]));
-                if depth == 5 && g.economy.profile.mean() >= 4 {
-                    rich += 1;
-                    apex += usize::from(g.guardian_boss.is_some());
-                }
-                if g.economy.profile.structure == boss_ecology::Structure::Stronghold {
-                    optional_stronghold += usize::from(g.leaders.iter().any(|l| !l.prerequisite));
-                }
+                apex += usize::from(g.guardian_boss.is_some());
+                assert_eq!(g.guardian_boss.is_none(), depth == FLOORS);
                 assert!(run.valid_snapshot());
-                // ANY never demands every chief, even when some chiefs are alive.
-                if g.access == boss_gates::Access::Any {
-                    kill_leader(&mut run, g.leaders.len() - 1);
-                    assert!(run.boss_gates.as_ref().unwrap().unlocked());
-                    assert!(
-                        run.boss_gates
-                            .as_ref()
-                            .unwrap()
-                            .leaders
-                            .iter()
-                            .any(|l| !l.defeated)
-                    );
-                }
+                // The floor's one chief opens the stair, ANY or ALL alike.
+                assert!(!run.boss_gates.as_ref().unwrap().unlocked());
+                kill_leader(&mut run, 0);
+                assert!(run.boss_gates.as_ref().unwrap().unlocked());
             }
         }
     }
-    assert!(
-        apex > 0 && apex < rich,
-        "rich beds support an apex only on a quarter of seeded hive profiles"
-    );
-    assert!(
-        optional_stronghold > 0,
-        "not every stronghold boss belongs to the ALL gate pact"
+    assert_eq!(
+        apex,
+        32 * 2 * (DEEPEST as usize - 1),
+        "every floor but the dragon's has its guardian"
     );
 }
 
@@ -1021,7 +1080,7 @@ fn boss_ecology_optional_pit_death_with_wipe_is_finite_without_route_or_economic
         .hp = 0;
     run.players.get_mut(&1).unwrap().hp = 0;
     run.players.get_mut(&1).unwrap().winds = 0;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
     let g = run.boss_gates.as_ref().unwrap();
     assert!(g.pit_defeated);
@@ -1144,7 +1203,7 @@ fn boss_ecology_native_dragon_light_home_still_admits_won_state() {
     let light = run.light.unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = light;
-    run.step(&BTreeMap::new()); // real travel consumes the exit into Won
+    run.step_sim_for_test(&BTreeMap::new()); // real travel consumes the exit into Won
     assert_eq!(run.phase, Phase::Won);
     assert!(run.valid_snapshot());
     guest = run.wire_copy();
@@ -1359,11 +1418,7 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
             host.step(&BTreeMap::new()); // normal settlement/rewards, producer remains alive
             rewarded += host.score - score;
             assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
-            assert!(
-                host.enemies
-                    .iter()
-                    .any(|e| e.boss == Some(leader.boss) && e.hp > 0)
-            );
+            assert!(host.enemies.iter().any(|e| host.carries_key(e)));
             assert!(!host.boss_gates.as_ref().unwrap().leaders[0].defeated);
             // Replayed corpses must neither reward, split nor debit again.
             let before = (host.score, host.room().items.len(), host.boss_gates.clone());
@@ -1644,7 +1699,7 @@ fn boss_ecology_poisoned_secrets_are_invalid_and_a_genuine_discovery_reaches_cli
             2 => (x, host.dungeon.rooms[secret.host].height() - 0.1),
             _ => (0.1, y),
         };
-        host.step(&BTreeMap::new());
+        host.step_sim_for_test(&BTreeMap::new());
         assert_eq!(host.at, secret.vault);
         assert_eq!(host.wire_copy().at, secret.vault);
         reloaded(&host);

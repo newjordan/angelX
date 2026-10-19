@@ -1,0 +1,499 @@
+{
+  "anchor_canvas_wh": [
+    18,
+    18
+  ],
+  "anchor_xy": [
+    9.0,
+    9.0
+  ],
+  "comments": [
+    "Source design unchanged; BOX reduction, binary alpha and shared inks.",
+    "Side states remain staged where native barred/open silhouettes are ambiguous."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Existing labels, counts, meters and keybindings draw after the chrome.",
+  "mapping_basis": "Reviewed delivered reading order; per-grid Mines/Keep crops repair merged detector groups.",
+  "notes_sha256": "f964ab3be6cc2df4a5149b1874cafcf13ac807e974ae2346d5e26ec9c8c24303",
+  "pieces": [
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "READY action plate \u2014 square navy face, bright brass rails and four iron corner studs.",
+      "name": "ready",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          18,
+          18
+        ],
+        "v2": [
+          36,
+          36
+        ]
+      },
+      "source_pivot_xy": [
+        107.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        190,
+        338,
+        215,
+        212
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "COOLDOWN action plate \u2014 same square footprint, dark iron rails and muted brass wear.",
+      "name": "cooldown",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          18,
+          18
+        ],
+        "v2": [
+          36,
+          36
+        ]
+      },
+      "source_pivot_xy": [
+        107.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        504,
+        338,
+        215,
+        212
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "DISABLED action plate \u2014 near-black navy face and subdued iron rim.",
+      "name": "disabled",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          18,
+          18
+        ],
+        "v2": [
+          36,
+          36
+        ]
+      },
+      "source_pivot_xy": [
+        107.0,
+        106.0
+      ],
+      "source_rect_xywh": [
+        817,
+        338,
+        214,
+        212
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "PRESSED action plate \u2014 brighter brass rails and visibly inset dark center.",
+      "name": "pressed",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          18,
+          18
+        ],
+        "v2": [
+          36,
+          36
+        ]
+      },
+      "source_pivot_xy": [
+        107.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        1131,
+        338,
+        215,
+        212
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Health bar frame \u2014 long narrow navy trough with brass top/bottom and iron end caps.",
+      "name": "health",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          28,
+          10
+        ],
+        "v2": [
+          56,
+          20
+        ]
+      },
+      "source_pivot_xy": [
+        126.5,
+        45.0
+      ],
+      "source_rect_xywh": [
+        184,
+        755,
+        253,
+        90
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Stamina/mana bar frame \u2014 shorter trough with matching but distinct end caps.",
+      "name": "stamina",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          24,
+          9
+        ],
+        "v2": [
+          48,
+          18
+        ]
+      },
+      "source_pivot_xy": [
+        98.5,
+        37.0
+      ],
+      "source_rect_xywh": [
+        513,
+        763,
+        197,
+        74
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Boss health frame \u2014 wide ornate iron/brass frame with centered upper name notch.",
+      "name": "boss",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          48,
+          18
+        ],
+        "v2": [
+          96,
+          36
+        ]
+      },
+      "source_pivot_xy": [
+        157.5,
+        62.0
+      ],
+      "source_rect_xywh": [
+        802,
+        730,
+        315,
+        124
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Seat nameplate pip \u2014 compact iron plate with a red jewel socket.",
+      "name": "seat",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          18,
+          11
+        ],
+        "v2": [
+          36,
+          22
+        ]
+      },
+      "source_pivot_xy": [
+        67.5,
+        41.5
+      ],
+      "source_rect_xywh": [
+        1197,
+        756,
+        135,
+        83
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Floor/room indicator \u2014 compact square navy plate with iron studs and brass directional points.",
+      "name": "floor",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          22,
+          22
+        ],
+        "v2": [
+          44,
+          44
+        ]
+      },
+      "source_pivot_xy": [
+        87.0,
+        83.5
+      ],
+      "source_rect_xywh": [
+        210,
+        1060,
+        174,
+        167
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Minimap frame \u2014 open square frame with ornate metal corners and brass details.",
+      "name": "minimap",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          38,
+          38
+        ],
+        "v2": [
+          76,
+          76
+        ]
+      },
+      "source_pivot_xy": [
+        109.5,
+        108.5
+      ],
+      "source_rect_xywh": [
+        502,
+        1026,
+        219,
+        217
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Status icon plate \u2014 round navy medallion with iron sides and brass accents.",
+      "name": "status",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          12,
+          12
+        ],
+        "v2": [
+          24,
+          24
+        ]
+      },
+      "source_pivot_xy": [
+        89.0,
+        91.5
+      ],
+      "source_rect_xywh": [
+        820,
+        1051,
+        178,
+        183
+      ],
+      "state": "hud"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.72
+      },
+      "label": "Toast/message plate \u2014 wide straight-sided frame with a plain empty navy middle.",
+      "name": "toast",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          40,
+          14
+        ],
+        "v2": [
+          80,
+          28
+        ]
+      },
+      "source_pivot_xy": [
+        143.5,
+        50.5
+      ],
+      "source_rect_xywh": [
+        1068,
+        1094,
+        287,
+        101
+      ],
+      "state": "hud"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-native",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "18x18 action plate; other envelopes per piece",
+  "sizes": {
+    "v1": [
+      18,
+      18
+    ],
+    "v2": [
+      36,
+      36
+    ]
+  },
+  "slot": "dgn.hud.chrome",
+  "source_sha256": "19cf3b730ca989efd72026e268f3ad9c1fa6e7a910127349da56ffcb5e6bc7b3",
+  "timing": "Read-only live readiness, health, charge and map data; no presentation clock."
+}

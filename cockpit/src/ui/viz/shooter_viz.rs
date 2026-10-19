@@ -1,5 +1,7 @@
 //! The dungeon delve's surface: native pixel art with a half-block fallback,
 //! with the party, the floor map and the controls in text around it.
+mod race3d;
+
 use super::delve_hud;
 use crate::drive::together_realm::{Realm, Status};
 use crate::drive::together_shooter::hud::Keys;
@@ -76,7 +78,9 @@ pub(super) fn hero_color(id: u32) -> Color {
         1 => KNIGHT,
         2 => BLUE,
         3 => Color::Rgb(0x8a, 0xa3, 0x4a),
-        _ => GOLD,
+        4 => GOLD,
+        5 => Color::Rgb(0x50, 0xc6, 0xb3),
+        _ => Color::Rgb(0xe3, 0xd2, 0xc3),
     }
 }
 
@@ -102,9 +106,9 @@ pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
 /// (live play draws each seat's picture on its own client).
 #[cfg(test)]
 pub(crate) fn paint_room(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
-    if arena::art_v2::enabled() {
+    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.pennon_showing() || run.rafterwake_showing() || arena::art_v2::enabled() {
         if let Some((base,fx))=arena::art_v2::terminal_layers_live(run,focus) {
-            crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);
+            if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
             return;
         }
     }
@@ -135,9 +139,19 @@ pub(crate) fn paint_picture(frame: &mut Frame, area: Rect, picture: &Picture) {
 /// The room in cells from the seat's own picture (black before its first),
 /// with the tray and panels over it as the cell route draws them.
 pub(crate) fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture: Option<&Picture>, focus: Option<u32>) {
-    match picture {
-        Some(picture) => paint_picture(frame, area, picture),
-        None => frame.render_widget(Clear, area),
+    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.rafterwake_showing() || run.pennon_showing() {
+        let (base, fx) = arena::art_v2::terminal_layers_live(run, focus).expect("Mini-game cell layers");
+        if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
+    } else {
+        match picture {
+            Some(picture) => {
+                paint_picture(frame, area, picture);
+                if arena::has_boss_projectiles(run) {
+                    crate::stage::world_viz::art::paint_projectile_cells(frame, area, &picture.img());
+                }
+            },
+            None => frame.render_widget(Clear, area),
+        }
     }
     paint_overlay(frame, area, run, focus);
 }
@@ -151,6 +165,45 @@ pub(crate) fn paint_room_ui(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32
 
 /// The tray and the art's panels over the room's cells.
 fn paint_overlay(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
+    paint_game_panels(frame, area, run, focus);
+    let id = focus.unwrap_or(1);
+    if run.can_hold_leave(id) && area.width >= 24 && area.height >= 2 {
+        let n = (10 * run.leave_progress(id) / angel_delve::rules::exits::LEAVE_TICKS) as usize;
+        let text = format!("Esc: leave [{}{}]", "=".repeat(n), " ".repeat(10 - n));
+        // Older stages carry the native HUD in their seat picture. Cover
+        // its two sampled rows before placing the legible cell label.
+        let backing = Rect::new(area.right() - 24, area.bottom() - 2, 24, 2);
+        frame.render_widget(Block::default().style(Style::new().bg(Color::Rgb(0x19, 0x29, 0x34))), backing);
+        let hud = Rect::new(area.right() - 24, area.bottom() - 1, 24, 1);
+        frame.render_widget(Paragraph::new(text).style(Style::new().fg(PARCHMENT).bg(Color::Rgb(0x19, 0x29, 0x34))), hud);
+    }
+}
+
+fn paint_game_panels(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
+    if run.forest_road_showing() {crate::stage::world_viz::art::paint_forest_road_panels(frame,area,run,focus);return;}
+    if run.roundtable_showing() {crate::stage::world_viz::art::paint_roundtable_panels(frame,area,run,focus);return;}
+    if run.race3d_showing() { race3d::paint(frame, area, run, focus); return; }
+    if run.pennon_showing() {crate::stage::world_viz::art::paint_pennon_panels(frame,area,run,focus);return;}
+    if run.rafterwake_showing() {
+        crate::stage::world_viz::art::paint_rafterwake_panels(frame,area,run,focus);
+        return;
+    }
+    if run.brasswake_showing() {
+        crate::stage::world_viz::art::paint_brasswake_panels(frame,area,run,focus);
+        return;
+    }
+    if run.mossbell_showing() {
+        crate::stage::world_viz::art::paint_mossbell_panels(frame,area,run,focus);
+        return;
+    }
+    if run.latch_showing() {
+        crate::stage::world_viz::art::paint_latch_panels(frame, area, run, focus.unwrap_or(1));
+        return;
+    }
+    if run.cinder_showing() {
+        crate::stage::world_viz::art::paint_cinder_panels(frame, area, run, focus.unwrap_or(1));
+        return;
+    }
     let id=focus.unwrap_or_else(||run.playtest.local_seat());
     if run.floor_plate(focus).is_none() && (!arena::art_v2::enabled() || (run.chariot.is_none() && !run.playtest.seats.get(&id).is_some_and(|s|s.open))) {
         delve_hud::paint_tray(frame,area,run,id,Keys::of(id,focus.is_none()));
@@ -367,7 +420,6 @@ pub(crate) fn render_room(
             Phase::Wiped => "FALLEN  R: HOME",
         }
     };
-    use crate::drive::together_shooter::audience::viewers;
     use crate::drive::together_shooter::fortune::Mode;
     let mode = if run.mode == Mode::LongWayDown {
         String::new()
@@ -398,12 +450,7 @@ pub(crate) fn render_room(
             }
             _ => "The Undercroft",
         };
-        let best = if run.home.best_show > 0 {
-            format!("    Best show {}", viewers(run.home.best_show))
-        } else {
-            String::new()
-        };
-        format!("{place}{mode}{best}    {state}")
+        format!("{place}{mode}    {state}")
     } else {
         let circle = match run.circle() {
             0 => String::new(),
@@ -414,12 +461,11 @@ pub(crate) fn render_room(
             ),
         };
         format!(
-            "Floor {}/{}  {}{circle}{mode}{collapse}    Score {}    Viewers {}    {state}",
+            "Floor {}/{}  {}{circle}{mode}{collapse}    Score {}    {state}",
             run.floor(),
             crate::drive::together_shooter::DEEPEST,
             run.dungeon.pack.name(),
             run.score,
-            viewers(run.audience),
         )
     };
     line(
@@ -466,20 +512,37 @@ pub(crate) fn render_room(
     };
     let compact = usize::from(side.height) < run.players.len() * 14 + gate.len().min(3);
     let mut hud_rows: Vec<ratatui::text::Line<'static>> = Vec::new();
-    for (&id, hero) in &run.players {
+    let mut chrome_rows = Vec::new();
+    let own = run.playtest.local_seat();
+    let mut knights: Vec<_> = run.players.iter().collect();
+    knights.sort_by_key(|(id, _)| (**id != own, **id));
+    for (&id, hero) in knights {
         // The second knight's keys only for a second knight on this keyboard.
         let Some(hud) = run.hud(id, Keys::of(id, !hosted)) else {
             continue;
         };
         let named = hero.knight_name();
         let who = format!("P{id} {}", named.as_deref().unwrap_or(hero.name.as_str()));
-        hud_rows.extend(delve_hud::lines(
-            &hud,
-            hero_color(id),
-            &who,
-            side.width,
-            compact,
-        ));
+        // The picture carries the party along its top and the skills bar
+        // along its foot; the cells say it only where there is no picture.
+        if native {
+            chrome_rows.push((hud_rows.len(), "seat"));
+            hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                who,
+                Style::new().fg(hero_color(id)),
+            )));
+        } else {
+            chrome_rows.push((hud_rows.len(), "seat"));
+            chrome_rows.push((hud_rows.len() + 1, "health"));
+            chrome_rows.push((hud_rows.len() + if compact { 4 } else { 5 }, "stamina"));
+            hud_rows.extend(delve_hud::lines(
+                &hud,
+                hero_color(id),
+                &who,
+                side.width,
+                compact,
+            ));
+        }
         // A wish to make, and the key that makes it.
         if run.can_reforge(id) || run.can_wish(id) {
             hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
@@ -512,6 +575,8 @@ pub(crate) fn render_room(
         hud_rows.push(ratatui::text::Line::default());
     }
     let mut rows: Vec<(String, Color)> = Vec::new();
+    let mut map_chrome = None;
+    let mut floor_chrome = None;
     if let Some((enemy, boss)) = run.enemies.iter().find_map(|e| {
         e.boss
             .and_then(|i| run.bosses.get(usize::from(i)))
@@ -783,7 +848,7 @@ pub(crate) fn render_room(
             rows.push(("FORTUNE'S DARE".to_string(), PARCHMENT));
             rows.push((format!("  {}", dare.kind.name()), STONE));
             rows.push((
-                format!("  {}", dare.standing(run.tick, run.audience)),
+                format!("  {}", dare.standing(run.tick)),
                 if dare.kept {
                     GOLD
                 } else if dare.broken {
@@ -808,6 +873,7 @@ pub(crate) fn render_room(
             ));
             rows.push((String::new(), DIM));
         }
+        floor_chrome=Some(rows.len());
         rows.push((run.dungeon.pack.name().to_string(), PARCHMENT));
         // The chiefs, the key and the camps, in plain words, here only.
         for (i, said) in gate.into_iter().enumerate() {
@@ -815,19 +881,40 @@ pub(crate) fn render_room(
                 rows.push((chunk, if i == 0 { GOLD } else { STONE }));
             }
         }
+        let map_start=rows.len();
         for map_row in floor_map(run) {
             rows.push((map_row, STONE));
         }
+        map_chrome=Some((map_start,rows.len()-map_start));
         for legend in MAP_LEGEND {
             rows.push((legend.to_string(), DIM));
         }
     }
     let hud_height = hud_rows.len().min(usize::from(side.height)) as u16;
+    if arena::hud_art::enabled(run) {
+        for (row, name) in chrome_rows {
+            if row < usize::from(side.height) {
+                delve_hud::paint_chrome(frame, Rect::new(side.x,side.y+row as u16,side.width,1),name);
+            }
+        }
+    }
     for (y, hud_line) in (side.y..side.bottom()).zip(hud_rows) {
         frame.render_widget(
             Paragraph::new(hud_line),
             Rect::new(side.x, y, side.width, 1),
         );
+    }
+    if arena::hud_art::enabled(run) {
+        if let Some(row)=floor_chrome {
+            let y=side.y+hud_height+row as u16;
+            if y < side.bottom() {delve_hud::paint_chrome(frame,Rect::new(side.x,y,side.width,1),"floor");}
+        }
+        if let Some((row,height))=map_chrome {
+            let y=side.y+hud_height+row as u16;
+            if y < side.bottom() {
+                delve_hud::paint_chrome(frame,Rect::new(side.x,y,side.width,(height as u16).min(side.bottom()-y)),"minimap");
+            }
+        }
     }
     for (y, (text, color)) in (side.y + hud_height..side.bottom()).zip(rows) {
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
@@ -874,7 +961,9 @@ pub(crate) fn render_room(
         p1.skills_line()
     };
     let held = if key_releases { "" } else { "  hold to walk" };
-    let last = if run.can_leave_activity(1) {
+    let last = if run.can_hold_leave(1) {
+        "Esc: leave (hold 0.5s) · Pad: hold Menu · Couch P2: hold Delete".to_string()
+    } else if run.can_leave_activity(1) {
         "[ LEAVE: Backspace ]  Esc → Leave · Couch P2: Delete".to_string()
     } else if !hosted && run.can_leave_activity(2) {
         "[ LEAVE: Delete ]  Esc → Leave · Knight 1 is safely outside".to_string()
@@ -1645,9 +1734,28 @@ pub(crate) fn render_seat(
     let Some(room) = room_viewport(area, expanded) else {
         return false;
     };
-    let size = arena::art_v2::size();
-    // Every display frame is a new picture: the seat's own knight answers
-    // its keys at once, everyone else moves between ticks.
+    // The seat's whole screen: the party's band over the room's view.
+    let size = arena::seat_size();
+    if crate::ui::glass::active() && arena::parts_outside() {
+        // The GPU window draws the frame from its parts (a stage).
+        let budget = if seat.has_scene() {
+            render_wait()
+        } else {
+            std::time::Duration::from_millis(250)
+        };
+        let Some(scene) = seat.draw_scene(now, budget) else {
+            return false;
+        };
+        let placed = crate::ui::viewer::game_placement(room, size);
+        crate::ui::glass::stage(&scene, room, placed, frame.buffer_mut());
+        // Thrown things follow the stage's floor where it tips away.
+        let tilt = if scene.is_flat() { 0.0 } else { arena::stage_frame::TILT };
+        crate::ui::glass::lifted(&seat.lifted(), size, placed, tilt);
+        return true;
+    }
+    // Terminal picture path. Every display frame is a new picture: the
+    // seat's own knight answers its keys at once, everyone else moves
+    // between ticks. Glass never reaches here: it draws from parts above.
     let sequence = now.duration_since(*EPOCH.get_or_init(std::time::Instant::now)).as_micros() as u64;
     let draw = seat.drawer();
     viewer.render_game_async(frame, room, sequence, size, render_wait(), move || draw(now))
@@ -1696,5 +1804,39 @@ mod native_tests {
         let room = room_viewport(Rect::new(0, 0, 160, 48), true).unwrap();
         assert_eq!(room, Rect::new(1, 3, 133, 39));
         assert!(room_viewport(Rect::new(0, 0, 40, 12), true).is_none());
+    }
+}
+
+#[cfg(test)]
+mod escape_review {
+    use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[test]
+    #[ignore = "writes four-seat native and actual cell escape HUD captures"]
+    fn write_escape_hold_review() {
+        let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_ESCAPE_SHOTS").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        angel_delve::settings::set(angel_delve::settings::Settings { art_v2: true, feel_ledger: false, open_floors: false });
+        for (name, make) in [("brasswake", Run::brasswake_for_test as fn() -> Run), ("mossbell", Run::mossbell_for_test)] {
+            let mut run = make();
+            for id in 2..=4 { run.join_seat(id, &format!("Knight {id}")); }
+            run.floor_plates.clear();
+            run.step(&std::collections::BTreeMap::from([(1, angel_delve::rules::Input { interact: true, ..Default::default() })]));
+            for _ in 0..90 { run.step(&Default::default()); }
+            for moment in ["hint", "hold"] {
+                if moment == "hold" {
+                    for _ in 0..8 { run.step(&std::collections::BTreeMap::from([(1, angel_delve::rules::Input { leave_held: true, ..Default::default() })])); }
+                }
+                let mut native = arena::frame_for(&run, 768, 448, Some(1));
+                angel_delve::render::escape::paint(&mut native, &run, Some(1));
+                image::save_buffer(dir.join(format!("{name}-{moment}-native.png")), &native.rgb_bytes(), native.w as u32, native.h as u32, image::ColorType::Rgb8).unwrap();
+                let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
+                terminal.draw(|f| paint_room_ui(f, Rect::new(0, 0, 96, 28), &run, Some(1))).unwrap();
+                let rgb = |c| match c { Color::Rgb(r,g,b) => [r,g,b], _ => [0,0,0] };
+                let cells: Vec<_> = terminal.backend().buffer().content().iter().map(|c| serde_json::json!({"glyph":c.symbol(),"fg":rgb(c.fg),"bg":rgb(c.bg)})).collect();
+                std::fs::write(dir.join(format!("{name}-{moment}-cells.json")), serde_json::to_vec(&cells).unwrap()).unwrap();
+            }
+        }
     }
 }

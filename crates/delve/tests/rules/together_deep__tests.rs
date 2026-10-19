@@ -11,11 +11,12 @@ fn clear_all(run: &mut Run) {
         for hero in run.players.values_mut() {
             hero.hp = hero.max_hp;
         }
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
         if run.enemies.is_empty() && !run.waves.pending() {
             break;
         }
     }
+    while run.hitstop.left > 0 { run.step(&BTreeMap::new()); }
 }
 
 fn slay_the_dragon() -> Run {
@@ -48,7 +49,7 @@ fn the_light_takes_the_party_home_with_everything() {
     let hero = run.players.get_mut(&1).unwrap();
     hero.carried.add(Spoil::Gold, 40);
     (hero.x, hero.y) = (lx, ly);
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
     assert!(run.cues.iter().any(|c| c == "homeward"));
     assert!(
@@ -61,13 +62,16 @@ fn the_light_takes_the_party_home_with_everything() {
 fn the_stairs_go_down_into_the_archive_the_fungal_deep_and_the_unknown() {
     let mut run = slay_the_dragon();
     // Off the stairs first (a dragon falling at your feet drops no one).
-    let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y) = (6.0, 6.0);
-    run.step(&BTreeMap::new());
+    for hero in run.players.values_mut() {
+        (hero.x, hero.y) = (6.0, 6.0);
+    }
+    run.step_sim_for_test(&BTreeMap::new());
+    // The stairs take the whole party, so every knight steps onto them.
     let (w, h) = (run.room().width(), run.room().height());
-    let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y) = (w / 2.0, h / 2.0 + 3.0);
-    run.step(&BTreeMap::new());
+    for hero in run.players.values_mut() {
+        (hero.x, hero.y) = (w / 2.0, h / 2.0 + 3.0);
+    }
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.floor(), 4);
     assert_eq!(run.dungeon.pack, Pack::Archive);
     assert_eq!(run.room().kind, RoomKind::Sanctuary);

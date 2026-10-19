@@ -1,0 +1,28 @@
+# Splinter's Timberyard: the log stacks heaped up in steps, a timber gantry over the north gate hauling a log.
+# the west stack, heaped in steps above the lowest three layers
+box    trunk   at 88 15 32 size 64 5 26
+box    trunk   at 88 20 32 size 58 5 26
+box    trunk   at 88 25 32 size 52 5 26
+box    trunk   at 88 30 32 size 46 5 26
+box    trunk   at 88 35 32 size 40 5 26
+box    trunk   at 88 40 32 size 34 5 26
+box    trunk   at 88 45 32 size 28 5 26
+# the east stack
+box    trunk   at 296 15 32 size 64 5 26
+box    trunk   at 296 20 32 size 58 5 26
+box    trunk   at 296 25 32 size 52 5 26
+box    trunk   at 296 30 32 size 46 5 26
+box    trunk   at 296 35 32 size 40 5 26
+box    trunk   at 296 40 32 size 34 5 26
+box    trunk   at 296 45 32 size 28 5 26
+# the gantry: two posts either side of the north door, a beam, a hoist block, chains and a log
+box    wood    at 168 0 8 size 10 60 10
+box    wood    at 216 0 8 size 10 60 10
+box    wood    at 192 54 8 size 62 7 10
+box    metal   at 186 32 8 size 1.5 22 1.5
+box    metal   at 198 32 8 size 1.5 22 1.5
+box    trunk   at 192 30 8 size 32 5 5
+# the sawmill along the east wall: plank shed, steep roof, chimney
+box    wood    at 376 0 56 size 14 30 76
+gable  roof    at 376 30 56 size 76 12 24 turn 90
+box    brick   at 373 30 24 size 6 24 6

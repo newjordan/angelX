@@ -1,0 +1,17 @@
+{
+  "delivery": "griffinwing.ridge/v01",
+  "delivery_status": "Producer note (wave 6): ACCEPTED WITH CLEANUP.",
+  "generation_sha256": "ad60970e40d9155924584f197d349a9a60ca7442c38c63b23b45882c2b55f4e8",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "measured_by": "crates/delve/assets/griffinwing/prepare-art.py (the delivery carries no crop metadata): the importer reads a byte-identical copy of the sheet beside measured crops",
+  "metadata_sha256": "18c99a5bd3b638f4ab88e594d54789b65c88e53331ab5f8038a1dab116454f00",
+  "native_contract": "Native 128x96, anchor bottom-centre (64,96); the drawing is 2.24 to 1, so letterboxed to 128x57.",
+  "notes_sha256": "1442cbc37410c785a0581532e56c245e8e5f3754f6b250c507f9a5318512b8cf",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "ba56f7ec34d2e0e1677eeb0fe2677c40763be78d33bf29d7e96481ca3e299018",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.ridge/v01/source-sheet.png",
+  "source_sha256": "cae5b369ee20a2d0197489a197ff51290bd84766968913117724419b6058f9dc"
+}

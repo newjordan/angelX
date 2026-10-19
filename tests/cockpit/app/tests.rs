@@ -282,6 +282,20 @@ fn render_app_text(app: &mut App, width: u16, height: u16) -> String {
     test_backend_text(terminal.backend())
 }
 
+/// The world's row of actions floats as the object dock: open it, page to
+/// `action` and return the click target it floats there, with the frame.
+fn float_dock_action(app: &mut App, width: u16, height: u16, action: WorldButton) -> (Rect, String) {
+    app.object_dock.open_settled();
+    for _ in 0..8 {
+        let text = render_app_text(app, width, height);
+        if let Some((rect, _)) = app.world_buttons.iter().find(|(_, button)| *button == action) {
+            return (*rect, text);
+        }
+        app.apply_world_button(WorldButton::DockNext);
+    }
+    panic!("the dock never floated {action:?}; buttons={:?}", app.world_buttons);
+}
+
 fn normalize_rendered_text(text: &str) -> String {
     text.chars()
         .map(|character| {
@@ -3563,18 +3577,8 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
     let starting_renown = app.world.renown();
-    let world_frame = render_app_text(&mut app, 144, 48);
-    let library = app
-        .world_buttons
-        .iter()
-        .find(|(_, button)| *button == WorldButton::ScryglassLibrary)
-        .map(|(rect, _)| *rect)
-        .unwrap_or_else(|| {
-            panic!(
-                "ordinary world footer exposes the library; buttons={:?}\n{world_frame}",
-                app.world_buttons
-            )
-        });
+    // The ordinary world floats the library from its dock.
+    let (library, _) = float_dock_action(&mut app, 144, 48, WorldButton::ScryglassLibrary);
     app.on_mouse(mouse_ev(
         MouseEventKind::Down(MouseButton::Left),
         library.x,
@@ -4941,7 +4945,7 @@ fn compact_core_records_calibration_without_arming_hidden_ceremony() {
     render_app_text(&mut app, 80, 24);
     assert!(
         !app.needs_fast_tick(),
-        "thinking={} pending={} reasoning={} rolling={} reflow={} shell={} ceremony={} portal={} broker={} stage={}",
+        "thinking={} pending={} reasoning={} rolling={} reflow={} shell={} ceremony={} broker={} stage={}",
         app.thinking.is_some(),
         app.pending_turn.is_some(),
         app.reasoning_roll_pending(),
@@ -4949,7 +4953,6 @@ fn compact_core_records_calibration_without_arming_hidden_ceremony() {
         app.transcript_reflow_wants_fast_tick(),
         app.shell_focused,
         app.lifecycle_ceremony_animating(),
-        app.agentviz_wants_fast_tick(),
         app.ui_broker.has_pending(),
         app.stage_display_wants_fast_tick(),
     );
@@ -10325,14 +10328,17 @@ fn cockpit_reference_layout_renders_expected_zones() {
         "agent shell",
         "agent",
         // The canonical home is the useful top-down realm, never a startup
-        // arrival ceremony.
-        "[Library]",
-        "[Back]",
+        // arrival ceremony: its actions float from the dock's handle.
+        "│ ▸ ",
         "message",
         "[MODEL:practice]",
         "[THINK:native]",
     ] {
         assert!(text.contains(needle), "missing {needle:?}\n{text}");
+    }
+    let mut realm = seed_preview_app();
+    for action in [WorldButton::ScryglassLibrary, WorldButton::Back] {
+        float_dock_action(&mut realm, 144, 48, action);
     }
     assert!(
         !text.contains("NEXT CLUB")
@@ -10525,20 +10531,12 @@ fn vault_back_button_restores_the_living_world() {
         crate::tests::contains_dotmax(&world),
         "living world did not return\n{world}"
     );
+    // In the living world, Back floats from the dock.
+    let (world_back, _) = float_dock_action(&mut app, 144, 48, WorldButton::Back);
     app.on_mouse(mouse_ev(
         MouseEventKind::Down(MouseButton::Left),
-        app.world_buttons
-            .iter()
-            .find(|(_, button)| matches!(button, WorldButton::Back))
-            .unwrap()
-            .0
-            .x,
-        app.world_buttons
-            .iter()
-            .find(|(_, button)| matches!(button, WorldButton::Back))
-            .unwrap()
-            .0
-            .y,
+        world_back.x,
+        world_back.y,
     ));
     assert_eq!(
         app.module_host.focused().map(|id| id.as_str()),
@@ -10665,16 +10663,9 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
     let context = app.world.quest().region();
     let (_, arrived) = render_dotmax_world_cells(&mut app);
     assert!(app.world_pane_visible && !app.world.ambient_interior_visible());
-    assert!(
-        app.world_buttons
-            .iter()
-            .any(|(_, button)| matches!(button, WorldButton::ScryglassMap))
-    );
-    assert!(
-        app.world_buttons
-            .iter()
-            .any(|(_, button)| matches!(button, WorldButton::Back))
-    );
+    // The world's actions float from the dock.
+    assert!(app.object_dock.offers(WorldButton::ScryglassMap));
+    assert!(app.object_dock.offers(WorldButton::Back));
 
     app.world.note_tool_call("apply_patch", "cockpit miniviz");
     for _ in 0..12 {
@@ -10783,7 +10774,8 @@ fn wide_unicode_causal_caption_preserves_ellipsis_and_back_control() {
         "資料/設計🧪/実装/検証/結果.md",
     );
 
-    let text = render_app_text(&mut app, 60, 24);
+    // Back floats from the dock beside the caption.
+    let (_, text) = float_dock_action(&mut app, 60, 24, WorldButton::Back);
     assert!(
         !text.contains("→ Scriptorium"),
         "compact world omits decorative captions\n{text}"
@@ -10793,7 +10785,7 @@ fn wide_unicode_causal_caption_preserves_ellipsis_and_back_control() {
         "wide tool arguments do not crowd the world controls"
     );
     assert!(
-        text.contains("[Back]"),
+        text.contains("Back"),
         "causal caption must not displace the compact Back control\n{text}"
     );
     assert!(
@@ -10937,19 +10929,15 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
         crate::tests::contains_dotmax(&riding),
         "literal-to-landmark ribbon present\n{riding}"
     );
-    assert!(riding.contains("[Map]"), "map verb present\n{riding}");
     assert!(
         riding
             .chars()
             .any(|c| ('\u{2801}'..='\u{28FF}').contains(&c)),
         "the saddle view paints braille dots\n{riding}"
     );
-    assert!(
-        app.world_buttons
-            .iter()
-            .any(|(_, b)| matches!(b, WorldButton::ScryglassMap)),
-        "map verb hitbox registered"
-    );
+    // The map verb floats from the dock, its hitbox with it.
+    let (_, floated) = float_dock_action(&mut app, 96, 36, WorldButton::ScryglassMap);
+    assert!(floated.contains("Map"), "map verb present\n{floated}");
 
     // ⟦Map⟧ returns to the Realm route without mutating agent navigation.
     app.scryglass
@@ -12430,10 +12418,29 @@ fn million_input_milestone_stays_in_place_and_does_not_settle_the_turn() {
         "milestones stay out of transcript scrollback"
     );
     assert!(app.spend_coin.is_some());
+    assert_eq!(app.spend_coin.as_ref().unwrap().coins, 1);
     assert_eq!(
         app.tool_strip.note(),
         Some("gold coin · you just spent 1.0M input tokens — continuing")
     );
+}
+
+#[test]
+fn spend_coin_milestone_counts_queue_without_erasing_coins_in_flight() {
+    let mut app = seed_preview_app();
+    app.show_spend_coin(999_999);
+    assert!(app.spend_coin.is_none());
+    app.show_spend_coin(1_000_000);
+    let started = app.spend_coin.as_ref().unwrap().started;
+    assert_eq!(app.spend_coin.as_ref().unwrap().coins, 1);
+    app.show_spend_coin(2_000_000);
+    assert_eq!(app.spend_coin.as_ref().unwrap().coins, 3);
+    assert_eq!(app.spend_coin.as_ref().unwrap().started, started);
+    let duration = crate::ui::viz::spend_viz::burst_duration_secs(3, app.spend_coin_motion());
+    app.spend_coin.as_mut().unwrap().started = Instant::now()
+        - std::time::Duration::from_secs_f64(duration + 1.0);
+    app.show_spend_coin(5_000_000);
+    assert_eq!(app.spend_coin.as_ref().unwrap().coins, 5, "expired burst must reset");
 }
 
 #[test]
@@ -13706,8 +13713,8 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     app.world.settle_at_for_test(world_viz::Building::Smithy);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Smithy));
-    let arrival = render_app_text(&mut app, 120, 40);
-    assert!(arrival.contains("[Enter]"), "{arrival}");
+    let (_, arrival) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
+    assert!(arrival.contains("Enter"), "{arrival}");
 
     app.world.enter_interior();
     let inside = render_app_text(&mut app, 120, 40);
@@ -13722,8 +13729,8 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     app.world.settle_at_for_test(world_viz::Building::Chapel);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Chapel));
-    let unsupported = render_app_text(&mut app, 120, 40);
-    assert!(unsupported.contains("[Enter]"), "{unsupported}");
+    let (_, unsupported) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
+    assert!(unsupported.contains("Enter"), "{unsupported}");
 }
 
 #[test]

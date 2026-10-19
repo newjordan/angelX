@@ -2,10 +2,15 @@
 //! earlier departures wait safely at the entrance while friends play on.
 use super::*;
 
+/// Half a second of host steps, independent of rendering and client sampling.
+pub const LEAVE_TICKS: u32 = HZ.div_ceil(2);
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
     pub entry: Option<Entry>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub holding: BTreeMap<u32, u32>,
     pub outside: BTreeMap<u32, Entry>,
 }
 
@@ -36,7 +41,7 @@ pub fn room(kind: RoomKind) -> bool {
                 | RoomKind::Loft
                 | RoomKind::Secret
                 | RoomKind::Lair
-                | RoomKind::Workshop
+                | RoomKind::Muster | RoomKind::Workshop
                 | RoomKind::Stockpile
                 | RoomKind::Quarters
         )
@@ -55,7 +60,9 @@ impl State {
                         && y >= 0.0
                 })
         };
-        self.entry.as_ref().is_none_or(valid)
+        self.holding.len() <= MAX_PLAYERS as usize
+            && self.holding.iter().all(|(&id, &t)| (1..=MAX_PLAYERS).contains(&id) && t < LEAVE_TICKS)
+            && self.entry.as_ref().is_none_or(valid)
             && self.outside.len() <= MAX_PLAYERS as usize
             && self
                 .outside
@@ -67,8 +74,48 @@ impl State {
 impl Run {
     pub fn can_leave_activity(&self, id: u32) -> bool {
         self.players.get(&id).is_some_and(|_| {
-            !self.exits.outside.contains_key(&id) && (room(self.room().kind) || self.at_privy(id))
+            !self.exits.outside.contains_key(&id) && (room(self.room().kind) || self.minigame_showing() || self.at_privy(id))
         })
+    }
+
+    /// A game with its own stage or rules, including its result board.
+    pub fn minigame_showing(&self) -> bool {
+        self.forest_road_showing() || self.roundtable_showing() || self.cinder_showing() || self.latch_showing() || self.mossbell_showing()
+            || self.brasswake_showing() || self.rafterwake_showing() || self.pennon_showing()
+            || self.joust.is_some() || self.chariot.is_some() || self.race3d_showing()
+            || self.pastimes.round.is_some() || !self.pastimes.heats.is_empty()
+            || self.folly.as_ref().is_some_and(|s| s.room == self.at)
+            || self.bats.as_ref().is_some_and(|s| s.room == self.at)
+            || self.gantry.as_ref().is_some_and(|s| s.room == self.at)
+            || self.powder.as_ref().is_some_and(|s| s.room == self.at)
+            || self.hop.as_ref().is_some_and(|s| s.room == self.at)
+            || self.nook.as_ref().is_some_and(|s| s.room == self.at)
+    }
+
+    pub fn can_hold_leave(&self, id: u32) -> bool {
+        self.can_leave_activity(id) && (self.minigame_showing() || self.at_privy(id))
+    }
+
+    pub fn leave_progress(&self, id: u32) -> u32 {
+        self.exits.holding.get(&id).copied().unwrap_or(0)
+    }
+
+    pub(super) fn tick_leave_hold(&mut self, inputs: &mut BTreeMap<u32, Input>) {
+        let ids: Vec<_> = self.players.keys().copied().collect();
+        self.exits.holding.retain(|id, _| ids.contains(id));
+        for id in ids {
+            if !self.can_hold_leave(id) || !inputs.get(&id).is_some_and(|i| i.valid() && i.leave_held) {
+                self.exits.holding.remove(&id);
+                continue;
+            }
+            let ticks = self.leave_progress(id) + 1;
+            if ticks >= LEAVE_TICKS {
+                self.exits.holding.remove(&id);
+                if self.leave_activity(id) { inputs.insert(id, Input::default()); }
+            } else {
+                self.exits.holding.insert(id, ticks);
+            }
+        }
     }
 
     fn at_privy(&self, id: u32) -> bool {
@@ -86,21 +133,35 @@ impl Run {
         if index == self.at {
             return;
         }
-        if !room(self.dungeon.rooms[index].kind) {
+        self.exits.holding.clear();
+        if !room(self.dungeon.rooms[index].kind)
+            && ![self.folly_room, self.gantry_room, self.race3d_room].contains(&Some(index)) {
             self.exits.entry = None;
         } else {
+            // Where each knight stands in the room left, kept inside it: a
+            // race's own track may put a knight past the room's edge, and an
+            // entry outside the room is no snapshot at all (`Exits::valid`),
+            // so every page would refuse the run and the save would not come
+            // back (the race on the play box, 2026-10-17).
+            let r = &self.dungeon.rooms[self.at];
+            let (w, h) = (r.width(), r.height());
+            let inside = |x: f32, top: f32| if x.is_finite() { x.clamp(0.0, top) } else { top / 2.0 };
             self.exits.entry = Some(Entry {
                 at: self.at,
                 party: self
                     .players
                     .iter()
-                    .map(|(&id, h)| (id, (h.x, h.y)))
+                    .map(|(&id, k)| (id, (inside(k.x, w), inside(k.y, h))))
                     .collect(),
             });
         }
     }
 
     pub(super) fn activity_return(&self) -> Option<Entry> {
+        // Out of a Colosseum arena is back into its entrance hall.
+        if let Some(hall) = self.arena_return() {
+            return Some(hall);
+        }
         if let Some(back) = &self.kingdom.return_to
             && (!back.party.is_empty() || self.exits.entry.is_none())
             && let Some(at) = world::room_of(&self.dungeon, RoomKind::Kingdom)
@@ -159,12 +220,15 @@ impl Run {
         hero.ult = None;
         hero.hexed = 0;
         hero.chilled = 0;
+        hero.mired = 0;
     }
 
     pub fn leave_activity(&mut self, id: u32) -> bool {
         if !self.can_leave_activity(id) {
             return false;
         }
+        self.exits.holding.remove(&id);
+        self.hitstop.buffered.remove(&id);
         // A privy is a personal pop-up, not a party room transition.
         if self.at_privy(id) {
             let at = self.players[&id]
@@ -198,14 +262,9 @@ impl Run {
             .collect();
         self.depart_lists(id);
         if let Some(c) = &mut self.chariot {
-            if c.driver == id {
-                if let Some(&next) = remaining.first() {
-                    c.driver = next;
-                } else {
-                    self.chariot = None;
-                }
-            }
+            c.depart(id);
         }
+        self.forfeit_stage(id);
         if self.college.owner == Some(id) {
             self.college = Default::default();
         }
@@ -221,6 +280,16 @@ impl Run {
         }
         self.sounds.push("door_open");
         true
+    }
+
+    fn forfeit_stage(&mut self, id: u32) {
+        if let Some(s) = &mut self.folly { s.eaten.remove(&id); }
+        if let Some(s) = &mut self.bats { s.scores.remove(&id); }
+        if let Some(s) = &mut self.gantry { s.jumped.remove(&id); s.height.remove(&id); }
+        if let Some(s) = &mut self.powder { s.broken.remove(&id); }
+        if let Some(s) = &mut self.hop { s.crossings.remove(&id); }
+        if let Some(s) = &mut self.nook { s.score.remove(&id); s.jars.remove(&id); s.brews.remove(&id); }
+        if let Some(s) = &mut self.race3d { s.riders.remove(&id); }
     }
 
     /// A knight waits outside while friends play on inside. Once everyone
@@ -254,8 +323,18 @@ impl Run {
     pub(super) fn rejoin(&mut self, id: u32) {
         self.exits.outside.remove(&id);
         let (w, h) = (self.dungeon.rooms[self.at].width(), self.dungeon.rooms[self.at].height());
+        // On an open map, beside a friend standing (else at the arrival):
+        // the map's foot is rock.
+        let spot = self.dungeon.open.as_ref().filter(|_| self.open_map()).map(|open| {
+            let near = self
+                .players
+                .iter()
+                .find(|(other, h)| **other != id && h.hp > 0 && !h.absent && !self.exits.outside.contains_key(other))
+                .map_or(open.arrival, |(_, h)| (h.x, h.y));
+            self.open_spots(open.map, near, 2)[1]
+        });
         if let Some(hero) = self.players.get_mut(&id) {
-            (hero.x, hero.y) = (w / 2.0, h - 4.5);
+            (hero.x, hero.y) = spot.unwrap_or((w / 2.0, h - 4.5));
             hero.camera = None;
             hero.invulnerable = HZ;
         }
@@ -273,7 +352,12 @@ impl Run {
             })
             .collect();
         self.exits = State::default();
-        self.kingdom.return_to = None;
+        // Back into the Colosseum's hall from an arena, the visit goes on:
+        // its great door still leads out to the kingdom.
+        if self.dungeon.rooms[back.at].kind != RoomKind::ColosseumHall {
+            self.kingdom.return_to = None;
+        }
+        self.clear_game_stages(Some(self.at));
         self.enter(back.at, None);
         for (&i, h) in &mut self.players {
             if let Some(&(x, y)) = positions.get(&i) {
@@ -398,6 +482,18 @@ impl Run {
             }
             return Some(view);
         }
+        if let Some(round) = self.pastimes.round.as_ref().filter(|r| r.game == crate::rules::pastimes::Game::Gander) {
+            // A knight who has left the hall sees where they went.
+            if let Some(view) = self.outside_view(id) {
+                return Some(view);
+            }
+            // The joust hall is one shared hall: every seat's view carries
+            // it whole, so friends joust each other on their own screens.
+            let mut view = self.clone();
+            view.pastimes.round = Some(round.clone());
+            view.pastimes.heats.clear();
+            return Some(view);
+        }
         if let Some(round) = self.pastimes.heats.get(&id) {
             let mut view = self.outside_view(id).unwrap_or_else(|| self.clone());
             view.pastimes.round = Some(round.clone());
@@ -434,9 +530,22 @@ impl Run {
         Some(view)
     }
 
+    fn clear_game_stages(&mut self, room: Option<usize>) {
+        // The floor can remember a puzzle in another room. A retreat ends
+        // only this stage; a detached view discards all of their pictures.
+        if self.folly.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.folly = None; }
+        if self.bats.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.bats = None; }
+        if self.gantry.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.gantry = None; }
+        if self.powder.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.powder = None; }
+        if self.hop.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.hop = None; }
+        if self.nook.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.nook = None; }
+        if self.race3d.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.race3d = None; }
+    }
+
     pub(super) fn clear_activity(&mut self) {
         // The rides end with the room (`activity::RIDES`).
         self.end_outside_activities();
+        self.clear_game_stages(None);
         self.forest.leave();
         self.college = Default::default();
         self.pastimes.leave();

@@ -1,0 +1,132 @@
+set unknown-void-puddle
+# The Void Puddle: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 16 size 384 4 32
+box    floor   at 48 -4 128 size 96 4 192
+box    floor   at 192 -4 128 size 128 4 192
+box    floor   at 336 -4 128 size 96 4 192
+box    floor   at 112 -4 112 size 32 4 64
+box    floor   at 272 -4 112 size 32 4 64
+box    floor   at 112 -4 208 size 32 4 32
+box    floor   at 272 -4 208 size 32 4 32
+
+# pits: holes in the floor, dark below
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# shard at 3,2 1x1
+gem    stone   at 56 0 42 size 8 27 8 turn 25 id shard-1
+
+# shard at 10,2 1x1
+gem    stone   at 168 0 42 size 8 29 8 turn 39 id shard-2
+
+# shard at 13,2 1x1
+gem    stone   at 216 0 42 size 8 26 8 turn 12 id shard-3
+
+# shard at 20,2 1x1
+gem    stone   at 328 0 42 size 8 26 8 turn 48 id shard-4
+
+# shard at 2,4 1x1
+gem    stone   at 40 0 74 size 8 27 8 turn 1 id shard-5
+
+# shard at 21,4 1x1
+gem    stone   at 344 0 74 size 8 30 8 turn 52 id shard-6
+
+# shard at 3,5 1x1
+gem    stone   at 56 0 90 size 8 30 8 turn 52 id shard-7
+
+# shard at 20,5 1x1
+gem    stone   at 328 0 90 size 8 26 8 turn 54 id shard-8
+
+# shard at 3,8 1x1
+gem    stone   at 56 0 138 size 8 27 8 turn 37 id shard-9
+
+# shard at 20,8 1x1
+gem    stone   at 328 0 138 size 8 31 8 turn 47 id shard-10
+
+# shard at 2,9 1x1
+gem    stone   at 40 0 154 size 8 28 8 turn 80 id shard-11
+
+# shard at 21,9 1x1
+gem    stone   at 344 0 154 size 8 28 8 turn 2 id shard-12
+
+# shard at 3,11 1x1
+gem    stone   at 56 0 186 size 8 31 8 turn 71 id shard-13
+
+# shard at 10,11 1x1
+gem    stone   at 168 0 186 size 8 28 8 turn 2 id shard-14
+
+# shard at 13,11 1x1
+gem    stone   at 216 0 186 size 8 31 8 turn 29 id shard-15
+
+# shard at 20,11 1x1
+gem    stone   at 328 0 186 size 8 26 8 turn 78 id shard-16
+
+# torches by the doors (at 81% of its height, for the camera)
+box    metal   at 168 18 16 size 3 6 3
+cone   fire    at 168 24 16 size 4 7 4
+box    metal   at 216 18 16 size 3 6 3
+cone   fire    at 216 24 16 size 4 7 4
+box    metal   at 16 18 88 size 3 6 3
+cone   fire    at 16 24 88 size 4 7 4
+box    metal   at 16 4 136 size 3 5 3
+cone   fire    at 16 9 136 size 4 5.5 4
+box    metal   at 368 18 88 size 3 6 3
+cone   fire    at 368 24 88 size 4 7 4
+box    metal   at 368 4 136 size 3 5 3
+cone   fire    at 368 9 136 size 4 5.5 4

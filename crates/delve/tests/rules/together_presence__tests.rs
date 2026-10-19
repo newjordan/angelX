@@ -6,7 +6,7 @@ fn fight() -> Run {
     let mut run = Run::new(31, 1, Some("Friend"));
     run.descend_for_test();
     let room = (0..run.dungeon.rooms.len())
-        .find(|&i| run.dungeon.rooms[i].kind == RoomKind::Fight && !run.dungeon.rooms[i].great())
+        .find(|&i| run.dungeon.rooms[i].kind == RoomKind::Fight)
         .expect("a fight room on the first floor");
     run.enter_for_test(room);
     run.hallowed = None;
@@ -40,14 +40,17 @@ fn a_knight_whose_player_is_away_is_stone_and_nothing_hurts_it() {
 }
 
 #[test]
-fn coming_back_wakes_the_knight_warded_and_a_vigil_stays_stone() {
+fn coming_back_stands_the_knight_as_stone_until_it_moves_and_a_vigil_stays_stone() {
     let mut run = fight();
     run.set_away(2, true);
     run.step(&BTreeMap::new());
     run.set_away(2, false);
     let hero = &run.players[&2];
-    assert!(!hero.away && !hero.stone);
+    assert!(!hero.away && hero.stone && hero.idle, "back, but stone till it moves");
     assert!(hero.invulnerable >= presence::WAKE_WARD);
+    let step = Input { move_y: 1, ..Input::default() };
+    run.step(&BTreeMap::from([(2, step)]));
+    assert!(!run.players[&2].stone && !run.players[&2].idle, "its first move wakes it");
     // A knight keeping vigil when its player went is still keeping it.
     let hero = run.players.get_mut(&2).unwrap();
     hero.vigil = true;

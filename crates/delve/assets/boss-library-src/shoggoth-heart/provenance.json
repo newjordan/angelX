@@ -1,0 +1,215 @@
+{
+  "id": "shoggoth-heart",
+  "source_path": "./cockpit/assets/boss-library/existing/shoggoth-heart/v01/source-sheet-refined.png",
+  "source_sha256": "99613631b7db251a41cf89e871a47e4ec8bd9c7d22949ee141f4407ee97fa860",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Threshold HEART guardian: squat rounded charcoal-teal jelly mass with a cluster of THREE curious ivory eyes above one small wry mouth. A large pale mint heart-shaped inner crystal visible in its broad belly, thick short translucent club tentacle arms and four little rounded pseudopod feet. Pearlescent blue-green rims and dark solid shadow mass, no gore or anatomical flesh, no huge luminous haze.",
+  "definition_header": "name THE SHOGGOTH HEART\ntext The threshold has a heart; only the wardens can expose it.\nby angelX\nwhere unknown\nhp 620\nsize 1.4\nmove anchor\nattack ring shots=10 speed=4 every=100 damage=12 shot=orb\nattack aimed shots=2 speed=6 every=80 damage=10 shot=orb\nphases gap_ring sweep surge laser every=78 volleys=2 damage=12\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "e78bcc9a91dc7dd1073ad9a6e575e13629e24b41c46a01200ae2952d5f3046fb",
+  "definition_sha256": "e78bcc9a91dc7dd1073ad9a6e575e13629e24b41c46a01200ae2952d5f3046fb",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        65,
+        176,
+        243,
+        225
+      ],
+      "opaque_component_pixels": 35334,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "194d44532e7e81375d99a17ec64f4081898799446a1f353c503c9e5098466987"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        354,
+        147,
+        259,
+        240
+      ],
+      "opaque_component_pixels": 40529,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "ebcdf013a91feb4e868738e875242a68cffd65454776af1a1f6f2ff67833126b"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        668,
+        196,
+        247,
+        207
+      ],
+      "opaque_component_pixels": 33592,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "f759a311729ae694a850f0ca9343c27c18614b62ebe347c63ebde7e0cd48e7f5"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        947,
+        143,
+        233,
+        256
+      ],
+      "opaque_component_pixels": 38500,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "e3142cbd86db129f05100d587d56962db1329179bb3a4a561de3cb17c1e5543b"
+    },
+    {
+      "id": "overhead/part/jelly-body",
+      "source_rect_xywh": [
+        65,
+        533,
+        245,
+        218
+      ],
+      "opaque_component_pixels": 35483,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-jelly-body.png",
+      "sha256": "e7fb295530f7ed67e4146d1ad053ab27af450a2adcce98fae801f18add612e32"
+    },
+    {
+      "id": "overhead/part/three-eye-face",
+      "source_rect_xywh": [
+        417,
+        585,
+        158,
+        120
+      ],
+      "opaque_component_pixels": 13644,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-three-eye-face.png",
+      "sha256": "2c7640c8de6dbea50b8f3f207ce927cea6c2698bf278eed26ec146d9bedaa6c2"
+    },
+    {
+      "id": "overhead/part/club-tentacle",
+      "source_rect_xywh": [
+        719,
+        538,
+        163,
+        195
+      ],
+      "opaque_component_pixels": 20763,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-club-tentacle.png",
+      "sha256": "fd502f1a37d70e45666126aa025018d350c892d507f57bb23a5139efda2a2451"
+    },
+    {
+      "id": "overhead/part/mint-heart-crystal",
+      "source_rect_xywh": [
+        1027,
+        573,
+        133,
+        135
+      ],
+      "opaque_component_pixels": 12049,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-mint-heart-crystal.png",
+      "sha256": "5c223ee1af1f7588bcb2629f046ea3063fe08738627bd4339f5c524ddd3594b2"
+    },
+    {
+      "id": "side/part/jelly-body",
+      "source_rect_xywh": [
+        66,
+        895,
+        246,
+        206
+      ],
+      "opaque_component_pixels": 35102,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-jelly-body.png",
+      "sha256": "f9365d676dbb34236d29890f0c12a4da0bfe5a67318b5c6d5e8bd3ad17d96fde"
+    },
+    {
+      "id": "side/part/three-eye-face",
+      "source_rect_xywh": [
+        428,
+        949,
+        155,
+        115
+      ],
+      "opaque_component_pixels": 12028,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-three-eye-face.png",
+      "sha256": "b5b1f2cf203fc080baaedd5a1d9e2bf7d60551b885f5216245b657ed140d95e6"
+    },
+    {
+      "id": "side/part/club-tentacle",
+      "source_rect_xywh": [
+        702,
+        900,
+        209,
+        188
+      ],
+      "opaque_component_pixels": 22065,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-club-tentacle.png",
+      "sha256": "6faf96f69009fdf8a2160a6cbe463ac0394938f20d43027e1450c1b17fd659e1"
+    },
+    {
+      "id": "side/part/mint-heart-crystal",
+      "source_rect_xywh": [
+        1027,
+        933,
+        136,
+        137
+      ],
+      "opaque_component_pixels": 12564,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-mint-heart-crystal.png",
+      "sha256": "b13c5d0480be9e1678282c1ea5dcdbe1c01338e13b25bdef1edf597984fcced3"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

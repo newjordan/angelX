@@ -1,0 +1,123 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    76
+  ],
+  "anchor_xy": [
+    40,
+    76
+  ],
+  "comments": [
+    "Registered as one bank on the lowest line of the door frame and footing; the pivot x is the centre of the footing stones. Painted 75 of 80 px wide. The scroll rail overlaps the ground-floor window beside the door in every state; that is how it was drawn.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 816347) to an olive ink (69793e) and the dark brown outline (source about 231d1b) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: day-0, night-0, lit-0. The crops are tight and separated by the empty columns 507-519 and 1016-1027, so none is merged.",
+  "notes_sha256": "7b55125c05cca64feb2f10c762fca39c6ac53967ff9e70b26eb28ab185a2b55b",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: pale blue-grey glass, shutters open, door shut, lantern dark, three scrolls on the drying rail.",
+      "name": "day-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        249.5,
+        505
+      ],
+      "source_rect_xywh": [
+        8,
+        251,
+        499,
+        505
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: indigo glass, ground-floor shutter closed, door shut, lantern dark.",
+      "name": "night-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        248,
+        505
+      ],
+      "source_rect_xywh": [
+        520,
+        251,
+        496,
+        505
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber windows, door ajar with an amber slice, amber lantern.",
+      "name": "lit-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        249.5,
+        506
+      ],
+      "source_rect_xywh": [
+        1028,
+        250,
+        499,
+        506
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 80x76, anchor bottom-centre (40,76); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "sizes": {
+    "v1": [
+      80,
+      76
+    ],
+    "v2": [
+      80,
+      76
+    ]
+  },
+  "slot": "moonfall.scriptorium",
+  "source_sha256": "1085790f59c8a03f0223a70b35e880840686940426430b93f4ed1ce6f4e84eac",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

@@ -240,11 +240,11 @@ pub(super) fn card(cv: &mut Img, run: &Run) {
         }
     }
     let mut title = Img::new(text_width(&circle_name(circle)) + 2, 8);
-    title.text(1, 0, &circle_name(circle).to_uppercase(), 'w');
+    title.text(1, 0, &circle_name(circle).to_uppercase(), 'i');
     let big = enlarge(&title, 3.0);
     let sub_text = circle_title(circle).to_uppercase();
     let mut sub = Img::new(text_width(&sub_text) + 2, 8);
-    sub.text(1, 0, &sub_text, 'w');
+    sub.text(1, 0, &sub_text, 'i');
     let sub = enlarge(&sub, 2.0);
     let heat = |im: &Img, ramp: &[char]| {
         let mut out = Img::new(im.w, im.h);

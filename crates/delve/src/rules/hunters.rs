@@ -179,7 +179,7 @@ impl Run {
             });
         }
         for (x, y) in rot {
-            for hero in self.players.values_mut().filter(|h| h.hp > 1 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.hp > 1 && h.targetable()) {
                 if (hero.x - x).hypot(hero.y - y) < ROT_REACH {
                     hero.hp -= 1;
                     self.room_hurt = true;
@@ -238,7 +238,7 @@ impl Run {
                 let caught = self
                     .players
                     .iter()
-                    .filter(|(_, h)| h.hp > 0 && !h.stone && h.dash_ticks == 0 && h.immune == 0)
+                    .filter(|(_, h)| h.targetable() && h.dash_ticks == 0 && h.immune == 0)
                     .find(|(_, h)| (h.x - hook.x).hypot(h.y - hook.y) < 1.1)
                     .map(|(&id, _)| id);
                 if let Some(id) = caught {

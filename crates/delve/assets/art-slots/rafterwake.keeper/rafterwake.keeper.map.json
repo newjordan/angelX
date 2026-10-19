@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    80
+  ],
+  "anchor_xy": [
+    32,
+    80
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 18,
+  "geometry": "Sweep Danger=(16,TOP\u221219,216,19); drop=(clamp(player x\u221224,8,192),TOP\u2212100,48,100). Danger::contains uses x left-inclusive/right-exclusive and y top-exclusive/bottom-inclusive. Bump requires rising knight y in [TOP\u221260,TOP\u221222], |x\u2212keeper x|<40 and not Tell.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "f82c76cc97b25d29605c6f72e3ef07dfc43aeab4d654d1c9ff2f194c3d79b2ae",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Idle: planted profile stance, pulley on back, open hook hanging, swept teal crest and amber slit.",
+      "name": "keeper-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        152,
+        311
+      ],
+      "source_rect_xywh": [
+        21,
+        120,
+        266,
+        311
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 2; Windup A: braces and hoists the suspended weight overhead.",
+      "name": "keeper-drop-tell",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        119,
+        359
+      ],
+      "source_rect_xywh": [
+        333,
+        72,
+        274,
+        359
+      ],
+      "state": "drop-anticipation"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 3; Attack A: drives the weight down; chain and weight show the drop.",
+      "name": "keeper-drop",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        163,
+        266
+      ],
+      "source_rect_xywh": [
+        627,
+        165,
+        285,
+        266
+      ],
+      "state": "drop-action"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 4; Recovery A: weight is set down as the keeper settles.",
+      "name": "keeper-recover",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        153,
+        266
+      ],
+      "source_rect_xywh": [
+        969,
+        165,
+        271,
+        266
+      ],
+      "state": "recovery"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 5; Windup B: crouched and draws hook/chain back.",
+      "name": "keeper-sweep-tell",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        152,
+        282
+      ],
+      "source_rect_xywh": [
+        14,
+        524,
+        287,
+        282
+      ],
+      "state": "sweep-anticipation"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 6; Attack B: compact close-range hook sweep; refined to remain isolated within its cell.",
+      "name": "keeper-sweep",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        119,
+        273
+      ],
+      "source_rect_xywh": [
+        342,
+        533,
+        230,
+        273
+      ],
+      "state": "sweep-action"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 7; Walk/step 1: forward work-step with lifted boot.",
+      "name": "keeper-walk-1",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        136,
+        296
+      ],
+      "source_rect_xywh": [
+        701,
+        514,
+        260,
+        296
+      ],
+      "state": "walk"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 8; Walk/step 2: complementary step with weight shifted.",
+      "name": "keeper-walk-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        142,
+        287
+      ],
+      "source_rect_xywh": [
+        979,
+        524,
+        266,
+        287
+      ],
+      "state": "walk"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 9; Hit flinch: recoils with arms raised and crest thrown back.",
+      "name": "keeper-flinch",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        156,
+        287
+      ],
+      "source_rect_xywh": [
+        39,
+        893,
+        260,
+        287
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 10; Damage stage 1: one hoop springs outward and faceplate is dented.",
+      "name": "keeper-damage-1",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        158,
+        291
+      ],
+      "source_rect_xywh": [
+        332,
+        886,
+        274,
+        291
+      ],
+      "state": "damage-variants"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 11; Damage stage 2: more battered plate/hoop and lowered stance.",
+      "name": "keeper-damage-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        150,
+        277
+      ],
+      "source_rect_xywh": [
+        648,
+        902,
+        255,
+        277
+      ],
+      "state": "damage-variants"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 12; Defeat: collapsed on the ground with pulley and hook settled alongside.",
+      "name": "keeper-defeat",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        202,
+        199
+      ],
+      "source_rect_xywh": [
+        943,
+        991,
+        292,
+        199
+      ],
+      "state": "defeat"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "64\u00d780; canvas foot (32,80), top-left (screen keeper x\u221232,py(TOP)\u221280). Nested damage_variants in recipe produce two variants per supported acting pose; PNG base-tell files are fallback/loading references, four-stage tells are selected while telling.",
+  "sizes": {
+    "v1": [
+      64,
+      80
+    ],
+    "v2": [
+      64,
+      80
+    ]
+  },
+  "slot": "rafterwake.keeper",
+  "source_sha256": "d1cc2da05640dd156d87ba7ca99cbb5a1cc84d45b009c46376808abbaf0ac02f",
+  "timing": "Twelve base poses plus four-stage tells per attack; 2 walk frames\u00d77 ticks. Starts Walk=45; tell=33/29/25, action=10, rest=48/40/32 then Walk=30. Recovery pose when rest ticks<12. Flinch=12, player bump cooldown=24; hp stage 6\u20135/4\u20133/2\u20131 (Keeper::step/stage, Lane::step_at, draw())."
+}

@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    5,
+    5
+  ],
+  "anchor_xy": [
+    2,
+    2
+  ],
+  "comments": [
+    "Rejected delivery: grain/identity weak. Runtime derives a dim 5x5 echo from the reviewed 9x9 marble, or retains old trail when ball is absent.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Historical positions only, not a wider ball or danger strip.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "3a2606c02a38da92d073e81ae4e1f5f5f3d399b155a4b384444b3748cc716ca0",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Faint compact oval trace.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.5,
+        57.0
+      ],
+      "source_rect_xywh": [
+        83,
+        296,
+        217,
+        114
+      ],
+      "state": "faint-compact-oval-trace"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Broader oval with a brighter interior rim.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        81.0
+      ],
+      "source_rect_xywh": [
+        434,
+        274,
+        261,
+        162
+      ],
+      "state": "broader-oval-with-a-brighter-interior-rim"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Fuller rounded trace.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        156.0,
+        109.5
+      ],
+      "source_rect_xywh": [
+        781,
+        238,
+        312,
+        219
+      ],
+      "state": "fuller-rounded-trace"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Peak broad, dense oval trace.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        174.5,
+        129.5
+      ],
+      "source_rect_xywh": [
+        1154,
+        220,
+        349,
+        259
+      ],
+      "state": "peak-broad-dense-oval-trace"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Broad peak echo with slight unevenness and a lifted edge.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        170.0,
+        135.5
+      ],
+      "source_rect_xywh": [
+        40,
+        680,
+        340,
+        271
+      ],
+      "state": "broad-peak-echo-with-slight-unevenness-and-a-lifted-edge"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Breaking oval with detached rim flecks.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        432,
+        719,
+        300,
+        217
+      ],
+      "state": "breaking-oval-with-detached-rim-flecks"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Open broken ring with scattered fragments.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        163.5,
+        107.5
+      ],
+      "source_rect_xywh": [
+        791,
+        720,
+        327,
+        215
+      ],
+      "state": "open-broken-ring-with-scattered-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Smaller, sparser broken ring.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.0,
+        78.5
+      ],
+      "source_rect_xywh": [
+        1208,
+        748,
+        266,
+        157
+      ],
+      "state": "smaller-sparser-broken-ring"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Small dim trace.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        87.0,
+        62.5
+      ],
+      "source_rect_xywh": [
+        110,
+        1210,
+        174,
+        125
+      ],
+      "state": "small-dim-trace"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Short curved remnant with a few flecks.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        84.5,
+        49.0
+      ],
+      "source_rect_xywh": [
+        496,
+        1226,
+        169,
+        98
+      ],
+      "state": "short-curved-remnant-with-a-few-flecks"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Tiny fading curved remnant.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        64.0,
+        46.0
+      ],
+      "source_rect_xywh": [
+        892,
+        1232,
+        128,
+        92
+      ],
+      "state": "tiny-fading-curved-remnant"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Nearly vanished final flecks.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        43.5,
+        25.5
+      ],
+      "source_rect_xywh": [
+        1286,
+        1253,
+        87,
+        51
+      ],
+      "state": "nearly-vanished-final-flecks"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-staged",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "5\u00d75, pivot (2,2), sampled display centre\u2212(2,2).",
+  "sizes": {
+    "v1": [
+      5,
+      5
+    ],
+    "v2": [
+      5,
+      5
+    ]
+  },
+  "slot": "mossbell.trail",
+  "source_sha256": "45be7ff15bef82426fb7c42414e1c4dc3f6be258681fcb0228ad63a4734d783a",
+  "timing": "Same 5\u00d75 image at four Ball::trail samples while save=0 (draw())."
+}

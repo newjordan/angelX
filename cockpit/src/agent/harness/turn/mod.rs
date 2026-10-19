@@ -1552,8 +1552,6 @@ fn run_turn_tiered(
     // The hop advisories of 0.1.6 (`⠼`, and `⡅` in a competition): each is a
     // route with its own turn, given under the condition 0.1.6 gave it.
     let mut green_verify_nudge_emitted = false;
-    let post_edit_review = book::d3456_advisories::post_edit_review_enabled();
-    let mut post_edit_logic_reviewed = false;
     let mut weak_verification_pending = false;
     let mut weak_verification_told = false;
     let mut mutation_thrash = book::d3456_advisories::MutationThrash::default();
@@ -1585,7 +1583,8 @@ fn run_turn_tiered(
     let confirm_green_runs = book::v_verification::confirm_green_extra_runs(competition);
     let confirm_green_on_chance =
         book::v_verification::confirm_green_by_chance(task_active, competition);
-    // Files the model edited with file tools this turn, for the chance check.
+    // Files the model edited with file tools this turn, for the chance check
+    // (which also asks Git what changed, whatever wrote it).
     let mut edited_paths: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     // The model's last red test run and the workspace it failed on. A task-mode
     // answer on that same code carries `⠧⠁` to the stop checkpoint.
@@ -3383,7 +3382,8 @@ fn run_turn_tiered(
                 // acceptance command, the confirming re-run, background-job state —
                 // but none of them can deny the answer. Their findings are stop
                 // facts; the first answer that carries any is shown them once as a
-                // warpath ending in `⠟⠁`, and every later answer stands.
+                // warpath ending in `⠟⠁`, and every later answer stands, save one
+                // stop for a failed confirming re-run (`⠧⠑`).
                 let mut stop_facts: Vec<book::Raise> = Vec::new();
                 let mut add_fact = |raise: book::Raise| {
                     if !stop_facts.iter().any(|seen| seen.route == raise.route) {
@@ -3498,8 +3498,8 @@ fn run_turn_tiered(
                     }
                 }
                 // One pass can be luck: repeat the model's last green run on the
-                // unchanged code before its first stop. Once the checkpoint is
-                // spent the answer stands, so the re-run would buy nothing.
+                // unchanged code at its stop. Once `⠧⠑` has had its stop the
+                // answer stands, so the re-run would buy nothing.
                 let confirm_runs = if confirm_green_runs > 0 {
                     confirm_green_runs
                 } else if confirm_green_on_chance
@@ -3514,7 +3514,7 @@ fn run_turn_tiered(
                     0
                 };
                 if confirm_runs > 0
-                    && !checkpoint.spent()
+                    && checkpoint.shows_flaky()
                     && last_green_run.as_ref().is_some_and(|green| {
                         green.workspace.is_some()
                             && green.workspace == current_workspace_fingerprint
@@ -4971,12 +4971,6 @@ fn run_turn_tiered(
                     }
                     green_verify_achieved = false;
                     green_verify_nudge_emitted = false;
-                }
-                // The first successful edit of the turn: review it before
-                // testing, once.
-                if post_edit_review && successful_mutation_this_hop && !post_edit_logic_reviewed {
-                    post_edit_logic_reviewed = true;
-                    raised.push(book::Raise::new(book::d3456_advisories::POST_EDIT, None));
                 }
                 // The final mile. Inspection alone while a verifier is owed hears
                 // the last sentence again, as its own page; the calls still run.

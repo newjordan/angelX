@@ -1,0 +1,132 @@
+{
+  "alpha_threshold": 128,
+  "file": "source-sheet.png",
+  "pieces": [
+    {
+      "alpha_area": 82098,
+      "index": 0,
+      "source_rect_xywh": [
+        28,
+        84,
+        280,
+        317
+      ]
+    },
+    {
+      "alpha_area": 81135,
+      "index": 1,
+      "source_rect_xywh": [
+        342,
+        82,
+        275,
+        319
+      ]
+    },
+    {
+      "alpha_area": 83654,
+      "index": 2,
+      "source_rect_xywh": [
+        635,
+        84,
+        282,
+        318
+      ]
+    },
+    {
+      "alpha_area": 65493,
+      "index": 3,
+      "source_rect_xywh": [
+        961,
+        84,
+        266,
+        325
+      ]
+    },
+    {
+      "alpha_area": 62170,
+      "index": 4,
+      "source_rect_xywh": [
+        30,
+        473,
+        262,
+        324
+      ]
+    },
+    {
+      "alpha_area": 62802,
+      "index": 5,
+      "source_rect_xywh": [
+        338,
+        471,
+        263,
+        326
+      ]
+    },
+    {
+      "alpha_area": 62772,
+      "index": 6,
+      "source_rect_xywh": [
+        649,
+        470,
+        265,
+        327
+      ]
+    },
+    {
+      "alpha_area": 14582,
+      "index": 7,
+      "source_rect_xywh": [
+        944,
+        590,
+        287,
+        59
+      ]
+    },
+    {
+      "alpha_area": 13814,
+      "index": 8,
+      "source_rect_xywh": [
+        31,
+        981,
+        275,
+        57
+      ]
+    },
+    {
+      "alpha_area": 83542,
+      "index": 9,
+      "source_rect_xywh": [
+        336,
+        839,
+        269,
+        333
+      ]
+    },
+    {
+      "alpha_area": 87786,
+      "index": 10,
+      "source_rect_xywh": [
+        635,
+        842,
+        287,
+        330
+      ]
+    },
+    {
+      "alpha_area": 65642,
+      "index": 11,
+      "source_rect_xywh": [
+        960,
+        896,
+        268,
+        260
+      ]
+    }
+  ],
+  "review": "Measured per grid cell after connected-component merging; front states inspected intact.",
+  "size_wh": [
+    1254,
+    1254
+  ],
+  "warnings": []
+}

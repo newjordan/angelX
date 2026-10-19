@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.bell/v01",
+  "delivery_status": "Accepted with cleanup by the wave-2 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): a clean damped swing on an identical frame; the weathered timber snaps to olive flecks at native size; transparent background, seven separated drawings.",
+  "generation_sha256": "84f4c423bf56cef3f54874ea5f5c2391b28b9b05a1aca0412b1f1e71e0ba0714",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "8f3259be1c0550756e8c1bcb82002bbb5dd768f1fc774b4df91e4935182dae3d",
+  "native_contract": "Native 24x36, anchor bottom-centre (12,36).",
+  "notes_sha256": "8d567958a8c5c2a9e78c2d51ee4a1bf26040ba96c42e81b15095206210773683",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "28b61a945e56f71fe97d84a640376a258796cbdce4aff71448112188779e58a9",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bell/v01/source-sheet.png",
+  "source_sha256": "5768360cc0d716c61b0f3a3039106513ab8d85b28480719fcf451623b2646565"
+}

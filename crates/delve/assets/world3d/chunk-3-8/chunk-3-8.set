@@ -1,0 +1,127 @@
+set chunk-3-8
+# The kingdom, chunk 3,8 in Wind Country: tiles 72..96 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 2176
+plate 1536 1024
+
+# ground
+box    grass   at 1184 -4 2064 size 64 4 32
+box    path    at 1248 -4 2072 size 64 4 48
+box    grass   at 1408 -4 2088 size 256 4 80
+box    grass   at 1176 -4 2104 size 48 4 48
+box    path    at 1208 -4 2168 size 16 4 176
+box    path    at 1240 -4 2112 size 48 4 32
+box    grass   at 1272 -4 2144 size 16 4 96
+box    grass   at 1168 -4 2144 size 32 4 32
+box    path    at 1192 -4 2192 size 16 4 128
+box    path    at 1232 -4 2152 size 32 4 48
+box    grass   at 1256 -4 2176 size 16 4 96
+box    grass   at 1320 -4 2160 size 80 4 64
+box    crop    at 1416 -4 2152 size 112 4 48
+box    grass   at 1504 -4 2184 size 64 4 112
+box    path    at 1168 -4 2168 size 32 4 16
+box    grass   at 1168 -4 2184 size 32 4 16
+box    path    at 1224 -4 2216 size 16 4 80
+box    grass   at 1240 -4 2200 size 16 4 48
+box    grass   at 1416 -4 2200 size 112 4 48
+box    grass   at 1160 -4 2216 size 16 4 48
+box    path    at 1176 -4 2224 size 16 4 64
+box    crop    at 1288 -4 2208 size 48 4 32
+box    grass   at 1336 -4 2208 size 48 4 32
+box    path    at 1304 -4 2232 size 144 4 16
+box    grass   at 1424 -4 2232 size 96 4 16
+box    sand    at 1160 -4 2248 size 16 4 16
+box    path    at 1296 -4 2248 size 128 4 16
+box    grass   at 1376 -4 2248 size 32 4 16
+box    sand    at 1456 -4 2248 size 128 4 16
+box    grass   at 1528 -4 2248 size 16 4 16
+box    water   at 1168 -4 2272 size 32 1 32
+box    wood    at 1192 -4 2272 size 16 4 32
+box    water   at 1224 -4 2272 size 48 1 32
+box    sand    at 1320 -4 2264 size 144 4 16
+box    water   at 1456 -4 2272 size 128 1 32
+box    sand    at 1528 -4 2264 size 16 4 16
+box    water   at 1320 -4 2288 size 144 1 32
+box    water   at 1528 -4 2288 size 16 1 32
+box    sand    at 1160 -4 2296 size 16 4 16
+box    path    at 1192 -4 2296 size 48 4 16
+box    sand    at 1224 -4 2296 size 16 4 16
+box    water   at 1240 -4 2296 size 16 1 16
+box    water   at 1400 -4 2296 size 16 1 16
+box    sand    at 1456 -4 2296 size 96 4 16
+box    water   at 1512 -4 2296 size 16 1 16
+
+# crop furrows
+box    crop    at 1416 0 2131.5 size 110 2.5 2
+box    crop    at 1416 0 2136.5 size 110 2.5 2
+box    crop    at 1416 0 2141.5 size 110 2.5 2
+box    crop    at 1416 0 2146.5 size 110 2.5 2
+box    crop    at 1416 0 2151.5 size 110 2.5 2
+box    crop    at 1416 0 2156.5 size 110 2.5 2
+box    crop    at 1416 0 2161.5 size 110 2.5 2
+box    crop    at 1416 0 2166.5 size 110 2.5 2
+box    crop    at 1416 0 2171.5 size 110 2.5 2
+box    crop    at 1288 0 2195.5 size 46 2.5 2
+box    crop    at 1288 0 2200.5 size 46 2.5 2
+box    crop    at 1288 0 2205.5 size 46 2.5 2
+box    crop    at 1288 0 2210.5 size 46 2.5 2
+box    crop    at 1288 0 2215.5 size 46 2.5 2
+box    crop    at 1288 0 2220.5 size 46 2.5 2
+
+# WHEYWARD DOWNS: a dairy hut and hay bales at 84,136 4x3 (at 74% of its height, for the camera)
+box    wood    at 1361 0 2212 size 30 11 20 id wheyward-downs
+hip    thatch  at 1361 11 2212 size 33 8 23
+box    stone   at 1368.2 11 2210 size 4 9.8 4
+box    door    at 1355 0 2222.25 size 7 8 1
+cylinder thatch  at 1381.12 0 2206 size 7 5 7
+cylinder thatch  at 1391.12 0 2206 size 7 5 7
+cylinder thatch  at 1381.12 0 2215 size 7 5 7
+cylinder thatch  at 1391.12 0 2215 size 7 5 7
+fence-4 wood    at 1391.96 0 2221.5 size 28.08 5 2
+frustum trunk   at 1384 0 2184 size 3 6.5 3
+blob-64 foliage at 1384 2.5 2184 size 14 10.5 13.3 turn 90
+box    wood    at 1400 0 2184 size 14 4 8
+box    wood    at 1400 4 2184 size 10 3 6
+blob-10 foliage at 1400 0 2200 size 13 10 12
+
+# fingerposts
+box    wood    at 1284 0 2056 size 1.5 19 1.5
+pyramid wood    at 1284 19 2056 size 2.2 1.5 2.2
+box    wood    at 1284 16 2052 size 0.6 1.8 6.5
+box    wood    at 1284 13.5 2060 size 0.6 1.8 6.5
+
+# set dressing
+cone   thatch  at 1459 0 2230.5 size 4.5 4 4.5
+cone   thatch  at 1464 0 2233.5 size 4.5 4 4.5
+cone   thatch  at 1469 0 2230.5 size 4.5 4 4.5
+box    stone   at 1512 0 2248 size 9 4 3
+box    stone   at 1512 0 2250.5 size 6 2 2
+
+# woods (at 40% of its height, for the camera)
+frustum trunk   at 1160 0 2056 size 3 4 3
+blob-13 foliage at 1160 2 2056 size 19 6 18.05
+cylinder trunk   at 1159.5 0 2104.5 size 3 9 3
+blob-19 foliage at 1159.5 4 2104.5 size 18 19 17.1 turn 270
+box    hedge   at 1176 0 2056 size 16 5 15
+blob-14 hedge   at 1176 3 2056 size 16 5.5 15
+box    hedge   at 1192 0 2056 size 16 5 15
+blob-42 hedge   at 1192 3 2056 size 16 5.5 15
+box    hedge   at 1512 0 2056 size 16 5 15
+blob-14 hedge   at 1512 3.5 2056 size 16 4.5 15
+box    hedge   at 1528 0 2056 size 16 5 15
+blob-34 hedge   at 1528 3 2056 size 16 4.5 15
+box    hedge   at 1160 0 2072 size 15 7 16
+blob-52 hedge   at 1160 4.5 2072 size 15 5 16
+box    hedge   at 1160 0 2088 size 15 6 16
+blob-44 hedge   at 1160 3.5 2088 size 15 6 16
+box    hedge   at 1160 0 2120 size 15 6 16
+blob-12 hedge   at 1160 3.5 2120 size 15 6 16
+
+# bridges
+box    wood    at 1176 -3 2272 size 16 5.5 32
+box    wood    at 1208 -3 2272 size 16 5.5 32
+box    wood    at 1167.25 0 2264 size 1.5 6 16
+box    wood    at 1216.75 0 2264 size 1.5 6 16
+box    wood    at 1167.25 0 2280 size 1.5 6 16
+box    wood    at 1216.75 0 2280 size 1.5 6 16

@@ -1,0 +1,232 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    36
+  ],
+  "anchor_xy": [
+    12,
+    36
+  ],
+  "comments": [
+    "Registered as one bank: the frame's feet (outer edges of the two foot blocks) share one baseline and the pivot x is their centre, not the crop centre; the roof overhangs a few source pixels on the right.",
+    "One scale for the whole bank; the stage stamps the bottom-centre at the bell post's foot.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the snap sent the olive-brown flecks (69793e) to a brown (684629) and the dark-green outline ink (182414) to a dark brown (331a0c); both are admitted shared inks, no pixel moves or is added."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "The Bell post stands on a free tile west of the well, foot at the post point; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the straight bell is idle-0; the swings right 28, left 28, right 18, left 18, right 10 and left 6 degrees are ring-0..5 (a damped swing). The timber frame and slate cap are the same drawing in every cell.",
+  "notes_sha256": "8d567958a8c5c2a9e78c2d51ee4a1bf26040ba96c42e81b15095206210773683",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: the bell hangs straight, rope vertical.",
+      "name": "idle-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        419
+      ],
+      "source_rect_xywh": [
+        52,
+        47,
+        288,
+        419
+      ],
+      "state": "idle",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "ring-0: bell swung right about 28 degrees, clapper and rope trail left.",
+      "name": "ring-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        419
+      ],
+      "source_rect_xywh": [
+        435,
+        47,
+        289,
+        419
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "ring-1: bell swung left about 28 degrees, clapper and rope trail right.",
+      "name": "ring-1",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        418
+      ],
+      "source_rect_xywh": [
+        819,
+        47,
+        289,
+        418
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "ring-2: bell swung right about 18 degrees.",
+      "name": "ring-2",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        418
+      ],
+      "source_rect_xywh": [
+        1203,
+        47,
+        289,
+        418
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "ring-3: bell swung left about 18 degrees.",
+      "name": "ring-3",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        418
+      ],
+      "source_rect_xywh": [
+        52,
+        559,
+        288,
+        418
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "ring-4: bell swung right about 10 degrees.",
+      "name": "ring-4",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        418
+      ],
+      "source_rect_xywh": [
+        435,
+        559,
+        289,
+        418
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "ring-5: bell swung left about 6 degrees, nearly still.",
+      "name": "ring-5",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        418
+      ],
+      "source_rect_xywh": [
+        819,
+        559,
+        289,
+        418
+      ],
+      "state": "ring",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 24x36, anchor bottom-centre (12,36); stage 384x224 at 16 px per tile; a knight is 16x24 in this town; the bell frame is about 1.5 knights tall.",
+  "sizes": {
+    "v1": [
+      24,
+      36
+    ],
+    "v2": [
+      24,
+      36
+    ]
+  },
+  "slot": "moonfall.bell",
+  "source_sha256": "5768360cc0d716c61b0f3a3039106513ab8d85b28480719fcf451623b2646565",
+  "timing": "idle 12; ring 6x4 ticks (30 Hz). Art never sets a hitbox."
+}

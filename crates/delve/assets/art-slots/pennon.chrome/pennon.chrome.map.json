@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Approved source plates are nine-sliced in the cache into existing header, combo and podium rectangles; labels stay live."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Live and podium ranking share work/falls/finish; keep local YOU gutter, ward indicator and control footer readable. No baked numbers or changed wording.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "1e6d9512e910943a6ff0fd24411feee0038f6ae065e34e4902eba7f229e9ace4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Merlon-notched title plate with blue pennons.",
+      "name": "header",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.0,
+        52.5
+      ],
+      "source_rect_xywh": [
+        65,
+        259,
+        224,
+        105
+      ],
+      "state": "header"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Empty border-only square frame.",
+      "name": "panel",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        78.0,
+        76.0
+      ],
+      "source_rect_xywh": [
+        419,
+        225,
+        156,
+        152
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Compact navy panel.",
+      "name": "chain",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        81.0,
+        42.0
+      ],
+      "source_rect_xywh": [
+        700,
+        273,
+        162,
+        84
+      ],
+      "state": "chain"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Wide result panel.",
+      "name": "podium",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.0,
+        63.0
+      ],
+      "source_rect_xywh": [
+        973,
+        241,
+        228,
+        126
+      ],
+      "state": "podium"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Combo plaque with crossed spear/rivet ornament.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.0,
+        59.0
+      ],
+      "source_rect_xywh": [
+        71,
+        587,
+        214,
+        118
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Three-row podium plate.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.5,
+        60.0
+      ],
+      "source_rect_xywh": [
+        385,
+        589,
+        219,
+        120
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Shield-shaped rank badge.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        68.5,
+        99.0
+      ],
+      "source_rect_xywh": [
+        726,
+        545,
+        137,
+        198
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Pennon-shaped rank badge.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        84.0,
+        83.5
+      ],
+      "source_rect_xywh": [
+        1006,
+        564,
+        168,
+        167
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Small blank key cap.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        50.0,
+        46.5
+      ],
+      "source_rect_xywh": [
+        124,
+        949,
+        100,
+        93
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Wide blank key cap.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        100.5,
+        38.5
+      ],
+      "source_rect_xywh": [
+        371,
+        957,
+        201,
+        77
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Result banner.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        61.0
+      ],
+      "source_rect_xywh": [
+        676,
+        936,
+        242,
+        122
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Separate pennon-and-rivet title ornament.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        26.5,
+        61.5
+      ],
+      "source_rect_xywh": [
+        1064,
+        926,
+        53,
+        123
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224; gameplay x=12..265,y=38..181; title above, sidebar beyond x=276, controls below. Result panel (16,16,352,202).",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "pennon.chrome",
+  "source_sha256": "7a2b4e653b5fb9ae9c152b0dbc7c957b4f8ab77d4a2dcd65822991e81e0a78aa",
+  "timing": "Live chain and work, final result at finish/75\u00d7HZ; E rematch on next fresh press (text_labels()/draw())."
+}

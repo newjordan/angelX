@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.scriptorium/v01",
+  "delivery_status": "Accepted by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): the re-run is kept, widened from 59 to 74 of 80 px, door about 24 px; transparent background, three separated drawings.",
+  "generation_sha256": "d5a4c9ea7d8d81bfa575d5757b509f9223d1fab4ed0a64131c6f97b9a277f0a4",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "cad9792461140a7e6edc51a569743fa8100e7e3c9bb6d08d1502d08df018774a",
+  "native_contract": "Native 80x76, anchor bottom-centre (40,76).",
+  "notes_sha256": "7b55125c05cca64feb2f10c762fca39c6ac53967ff9e70b26eb28ab185a2b55b",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "06026d9b466be64f026845e5dc9bd6b405e9415fc969a36bcef3e61ccf2328e3",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 2)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.scriptorium/v01/source-sheet.png",
+  "source_sha256": "1085790f59c8a03f0223a70b35e880840686940426430b93f4ed1ce6f4e84eac"
+}

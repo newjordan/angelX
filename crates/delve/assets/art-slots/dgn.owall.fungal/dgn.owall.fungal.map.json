@@ -1,0 +1,407 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    12.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "262b8005a096c5f4aa27887b54d76c21e320a1267a280f98e1f449167066ee8c",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "Plain north face with a broad root-and-earth wall and ochre cap mushrooms.",
+      "name": "face-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        113.0,
+        167.5
+      ],
+      "source_rect_xywh": [
+        66,
+        83,
+        226,
+        335
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "Cracked north face with a large central fissure.",
+      "name": "face-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        112.0,
+        160.0
+      ],
+      "source_rect_xywh": [
+        363,
+        98,
+        224,
+        320
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "North face with a warm fungal light cluster.",
+      "name": "face-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        113.0,
+        167.5
+      ],
+      "source_rect_xywh": [
+        659,
+        83,
+        226,
+        335
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "NW inner corner form, with the face turning into the side cap.",
+      "name": "corner-nw",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.0,
+        171.0
+      ],
+      "source_rect_xywh": [
+        955,
+        76,
+        226,
+        342
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "NE inner corner form.",
+      "name": "corner-ne",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        162.5
+      ],
+      "source_rect_xywh": [
+        72,
+        483,
+        225,
+        325
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "West side cap A, narrow vertical top-down strip.",
+      "name": "west-0",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        47.0,
+        161.0
+      ],
+      "source_rect_xywh": [
+        435,
+        494,
+        94,
+        322
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "West side cap B variant.",
+      "name": "west-1",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        47.0,
+        159.5
+      ],
+      "source_rect_xywh": [
+        724,
+        494,
+        94,
+        319
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "East side cap A.",
+      "name": "east-0",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        48.5,
+        159.5
+      ],
+      "source_rect_xywh": [
+        1021,
+        494,
+        97,
+        319
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "East side cap B variant.",
+      "name": "east-1",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        48.5,
+        159.5
+      ],
+      "source_rect_xywh": [
+        125,
+        858,
+        97,
+        319
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "South cap strip.",
+      "name": "south",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        126.5,
+        47.0
+      ],
+      "source_rect_xywh": [
+        348,
+        990,
+        253,
+        94
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "SW outer corner cap.",
+      "name": "corner-sw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        110.0,
+        96.0
+      ],
+      "source_rect_xywh": [
+        662,
+        930,
+        220,
+        192
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "SE outer corner cap.",
+      "name": "corner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        110.5,
+        96.0
+      ],
+      "source_rect_xywh": [
+        958,
+        930,
+        221,
+        192
+      ],
+      "state": "owall"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.owall.fungal",
+  "source_sha256": "5c2badd0a9ab27b0e10ef15f7e77f2b57f84e1d616f03b3f96726ef89b9f27bb",
+  "timing": ""
+}

@@ -1,0 +1,142 @@
+{
+  "anchor_canvas_wh": [
+    96,
+    192
+  ],
+  "anchor_xy": [
+    48,
+    192
+  ],
+  "comments": [
+    "Two slate plates in each drawing, mirror-symmetric about the centre; the stage cuts down the middle and the sim sets the real gap. Shared scale and feet over all five.",
+    "Imported, left off: the stage has no hook for it (the rules keep no warn clock, only the gap's triangle wave, and each plate is a wall from the gap to the cliff up to eleven units across while the painted plate is a fifth as wide as it is tall). See assets/griffinwing/ART.md."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "A pair of plates closing on a gap; the sim sets the gap on its own clock (warn lamps follow the rules' warn clock); art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered sheet, 2026-10-19: five drawings left to right, idle then warn-0 to warn-3 (idle all six lamps dark; warn-0 the bottom pair lit, warn-1 the middle pair, warn-2 the top pair, warn-3 all six).",
+  "notes_sha256": "aef064ac38679d03a200e01079de0d21326929766a50a612a73fd93ed5a53f7e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        156.0,
+        657.0
+      ],
+      "source_rect_xywh": [
+        50,
+        54,
+        312,
+        657
+      ],
+      "state": "idle",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "warn-0",
+      "name": "warn-0",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        157.5,
+        657.0
+      ],
+      "source_rect_xywh": [
+        432,
+        54,
+        315,
+        657
+      ],
+      "state": "warn",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "warn-1",
+      "name": "warn-1",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        156.0,
+        657.0
+      ],
+      "source_rect_xywh": [
+        829,
+        54,
+        312,
+        657
+      ],
+      "state": "warn",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "warn-2",
+      "name": "warn-2",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        157.5,
+        658.0
+      ],
+      "source_rect_xywh": [
+        1223,
+        53,
+        315,
+        658
+      ],
+      "state": "warn",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "warn-3",
+      "name": "warn-3",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        156.0,
+        657.0
+      ],
+      "source_rect_xywh": [
+        1611,
+        54,
+        312,
+        657
+      ],
+      "state": "warn",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 96x192, anchor bottom-centre (48,192); stage 384x224.",
+  "sizes": {
+    "v1": [
+      96,
+      192
+    ],
+    "v2": [
+      96,
+      192
+    ]
+  },
+  "slot": "griffinwing.shutter",
+  "source_sha256": "fbff24397963f72d11ba9d51cf5a8a903bafd3ead98d8eef198f1729534b6f6e",
+  "timing": "idle 1 ticks; warn 4x6 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

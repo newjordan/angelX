@@ -1,0 +1,269 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    46
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Visual registration: horizontal crop centre, bottom at shared feet. Reject lowest-band mean: a stretched boot forced every pose too small.",
+    "Rule foot is canvas height minus 2: preserve the renderer +2 stamp offset; leave two transparent rows below the feet."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 12,
+  "geometry": "Enemy-shot hurtbox 16\u00d737 (16\u00d719 duck), centred on feet x; Area::hits uses same dimensions. supports()/landing() from Rafterwake own \u00b14 px lip. Muzzle x=sample x+dir\u00d718, y=sample feet\u221210 duck/\u221229 up/\u221212 down/\u221218 level.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "6f4c4a72b7c21db549012e1d7ad612805d37990d49fa40474fc78ff99fe7f36f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Idle: upright, alert, bow held across the front.",
+      "name": "knight-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.0,
+        271
+      ],
+      "source_rect_xywh": [
+        62,
+        121,
+        226,
+        271
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 2; Run A: low forward spring with rear leg kicked back.",
+      "name": "knight-run-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.5,
+        252
+      ],
+      "source_rect_xywh": [
+        359,
+        143,
+        265,
+        252
+      ],
+      "state": "run"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 3; Run B: longer stride with the bow braced forward.",
+      "name": "knight-run-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        259
+      ],
+      "source_rect_xywh": [
+        678,
+        142,
+        262,
+        259
+      ],
+      "state": "run"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 4; Jump: compact rising leap, bow held close.",
+      "name": "knight-jump",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        119.0,
+        257
+      ],
+      "source_rect_xywh": [
+        991,
+        86,
+        238,
+        257
+      ],
+      "state": "jump"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 5; Fall: tumbling/recoiling airborne pose.",
+      "name": "knight-fall",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.5,
+        288
+      ],
+      "source_rect_xywh": [
+        10,
+        493,
+        295,
+        288
+      ],
+      "state": "fall"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 6; Land: deep crouched squash with bow lowered.",
+      "name": "knight-land",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        200
+      ],
+      "source_rect_xywh": [
+        373,
+        576,
+        267,
+        200
+      ],
+      "state": "land"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 7; Aim-up: planted stance, bow angled up-right.",
+      "name": "knight-aim-up",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        285
+      ],
+      "source_rect_xywh": [
+        658,
+        486,
+        271,
+        285
+      ],
+      "state": "aim-up"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 8; Aim-down: low crouch, bow angled down-right.",
+      "name": "knight-aim-down",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        125.5,
+        221
+      ],
+      "source_rect_xywh": [
+        986,
+        550,
+        251,
+        221
+      ],
+      "state": "aim-down"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 9; Hit: dramatic backward recoil, legs lifted.",
+      "name": "knight-hit",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.0,
+        269
+      ],
+      "source_rect_xywh": [
+        29,
+        905,
+        294,
+        269
+      ],
+      "state": "hit"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 10; Victory: upright celebration with bow raised.",
+      "name": "knight-victory",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.5,
+        323
+      ],
+      "source_rect_xywh": [
+        380,
+        851,
+        257,
+        323
+      ],
+      "state": "victory"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 11; Duck: very compact crouch, bow tucked close.",
+      "name": "knight-duck",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.0,
+        186
+      ],
+      "source_rect_xywh": [
+        676,
+        988,
+        230,
+        186
+      ],
+      "state": "duck"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 12; Shoot: forward firing stance with flash.",
+      "name": "knight-shoot",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        143.0,
+        243
+      ],
+      "source_rect_xywh": [
+        954,
+        931,
+        286,
+        243
+      ],
+      "state": "shoot"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d748, occupied height 45 in report; top-left screen feet\u2212(24,46), foot local (24,46). Recipe e/f/g/h cloth is converted to I/r/o/t then seat-mapped; preserve mask/material distinction.",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "pennon.knight",
+  "source_sha256": "832f3c281b0a3debf2e4f060bfc56adf9766acb8f780985005442680f54e1d8f",
+  "timing": "Twelve bodies; run 2\u00d75 ticks. Land pose_ticks=4 then same-step decrement; respawn land=6. Jump/fall driven by velocity; shoot/aim held by input (not cooldown). Shot cooldown=12; down=18, protection=30, freeze=2, COYOTE=4, BUFFER=5. GRAVITY=112,JUMP=1536,RUN=640 fixed units (Lane::step_at)."
+}

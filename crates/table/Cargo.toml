@@ -1,0 +1,13 @@
+[package]
+name = "angel-table"
+version = "0.1.0"
+description = "The Round Table: a host-arbitrated work board for multiplayer agent seats"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+angel-net = { path = "../net" }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"

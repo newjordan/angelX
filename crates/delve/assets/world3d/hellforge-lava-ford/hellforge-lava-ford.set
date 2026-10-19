@@ -1,0 +1,110 @@
+set hellforge-lava-ford
+# The Lava Ford, a chamber of Dragon Keep: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 16 size 384 4 32
+box    floor   at 16 -4 128 size 32 4 192
+box    floor   at 104 -4 128 size 16 4 192
+box    floor   at 192 -4 128 size 64 4 192
+box    floor   at 280 -4 128 size 16 4 192
+box    floor   at 368 -4 128 size 32 4 192
+box    floor   at 72 -4 112 size 16 4 128
+box    floor   at 312 -4 112 size 16 4 128
+box    floor   at 48 -4 112 size 32 4 96
+box    floor   at 88 -4 112 size 16 4 96
+box    floor   at 136 -4 112 size 48 4 96
+box    floor   at 248 -4 112 size 48 4 96
+box    floor   at 296 -4 112 size 16 4 96
+box    floor   at 336 -4 112 size 32 4 96
+box    floor   at 64 -4 208 size 64 4 32
+box    floor   at 136 -4 208 size 48 4 32
+box    floor   at 248 -4 208 size 48 4 32
+box    floor   at 320 -4 208 size 64 4 32
+
+# lava, 2 below the floor line
+box    fire    at 64 -4 40 size 64 2 16
+box    fire    at 136 -4 48 size 48 2 32
+box    fire    at 248 -4 48 size 48 2 32
+box    fire    at 320 -4 40 size 64 2 16
+box    fire    at 48 -4 56 size 32 2 16
+box    fire    at 88 -4 56 size 16 2 16
+box    fire    at 296 -4 56 size 16 2 16
+box    fire    at 336 -4 56 size 32 2 16
+box    fire    at 48 -4 176 size 32 2 32
+box    fire    at 88 -4 176 size 16 2 32
+box    fire    at 136 -4 176 size 48 2 32
+box    fire    at 248 -4 176 size 48 2 32
+box    fire    at 296 -4 176 size 16 2 32
+box    fire    at 336 -4 176 size 32 2 32
+box    fire    at 72 -4 184 size 16 2 16
+box    fire    at 312 -4 184 size 16 2 16
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# torches by the doors (at 81% of its height, for the camera)
+box    metal   at 168 18 16 size 3 6 3
+cone   fire    at 168 24 16 size 4 7 4
+box    metal   at 216 18 16 size 3 6 3
+cone   fire    at 216 24 16 size 4 7 4
+box    metal   at 16 18 88 size 3 6 3
+cone   fire    at 16 24 88 size 4 7 4
+box    metal   at 16 4 136 size 3 5 3
+cone   fire    at 16 9 136 size 4 5.5 4
+box    metal   at 368 18 88 size 3 6 3
+cone   fire    at 368 24 88 size 4 7 4
+box    metal   at 368 4 136 size 3 5 3
+cone   fire    at 368 9 136 size 4 5.5 4

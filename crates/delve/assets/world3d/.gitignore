@@ -1,0 +1,5 @@
+# Painted plates are an asset pack, not history: they load at runtime from this
+# folder (synced from the paint kit, /work/artifacts/world3d/paint) and ship as a
+# pack. Each item's plate.set-sha256 (the set it was painted from) is committed.
+*/plate.png
+*/swatches.png

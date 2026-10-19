@@ -190,6 +190,46 @@ pub(crate) fn changed_rust_paths_for_verification(root: &Path) -> Option<Vec<Str
     Some(paths.into_iter().collect())
 }
 
+/// Files matching `globs` that differ from `HEAD` or are new and not ignored,
+/// relative to `root`, whatever wrote them: a file tool, a shell here-doc,
+/// `sed -i`, a generator. `None` when this is not a Git checkout, Git does not
+/// answer in time, or more than 1024 paths changed.
+pub(crate) fn changed_paths_matching(root: &Path, globs: &[&str]) -> Option<Vec<String>> {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut scope = globs.to_vec();
+    scope.push(":(exclude)off-limits/**");
+    let mut diff_args = vec![
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--name-only",
+        "--relative",
+        "-z",
+        "HEAD",
+        "--",
+    ];
+    diff_args.extend(&scope);
+    let mut untracked_args = vec!["ls-files", "--others", "--exclude-standard", "-z", "--"];
+    untracked_args.extend(&scope);
+    let changed = git_output(root, &diff_args, deadline)?;
+    let untracked = git_output(root, &untracked_args, deadline)?;
+    if changed.len().max(untracked.len()) > 2 * 1024 * 1024 {
+        return None;
+    }
+    let mut paths = std::collections::BTreeSet::new();
+    for raw in changed
+        .split(|b| *b == 0)
+        .chain(untracked.split(|b| *b == 0))
+        .filter(|row| !row.is_empty())
+    {
+        paths.insert(std::str::from_utf8(raw).ok()?.to_owned());
+        if paths.len() > 1024 {
+            return None;
+        }
+    }
+    Some(paths.into_iter().collect())
+}
+
 /// Tracked files that differ from `HEAD` (edited, staged or deleted), relative
 /// to `root`. `None` when this is not a Git checkout or Git does not answer in
 /// time; untracked files are not included.

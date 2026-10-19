@@ -219,7 +219,11 @@ fn the_server_steps_on_its_own_thread_and_the_checkpoint_is_written_off_it() {
     let dir = std::env::temp_dir().join(format!("angel-sim-thread-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let save = dir.join("session.json");
-    let mut sim = Sim::spawn(fight());
+    let run = fight();
+    // Client graphics admission is outside this server-clock measurement.
+    angel_delve::render::overworld::arena::slot_art::warm_all();
+    angel_delve::render::overworld::arena::prepare_entry(&run, Some(1));
+    let mut sim = Sim::spawn(run);
     assert!(sim.threaded());
     let tick = sim.as_ref().unwrap().tick;
     let x = sim.as_ref().unwrap().players[&1].x;
@@ -245,7 +249,8 @@ fn the_server_steps_on_its_own_thread_and_the_checkpoint_is_written_off_it() {
         ticks as f32 >= elapsed * 30.0 * 0.5 && ticks as f32 <= elapsed * 30.0 + 2.0,
         "about 30 a second: {ticks} in {elapsed:.2} s"
     );
-    assert!(run.players[&1].x > x);
+    assert!(run.players[&1].x > x, "host x {x} -> {}, ticks {ticks}; client {:?}",
+        run.players[&1].x, seat.run().map(|r| (r.tick, r.players[&1].x)));
     // Edits from the terminal go in between ticks.
     if let Some(mut run) = sim.as_mut() {
         run.players.get_mut(&2).unwrap().hp = 1;
@@ -254,7 +259,14 @@ fn the_server_steps_on_its_own_thread_and_the_checkpoint_is_written_off_it() {
     // The checkpoint came from a published tick, written by the service
     // thread: this thread never wrote it.
     let until = Instant::now() + Duration::from_secs(5);
-    while !save.exists() && Instant::now() < until {
+    let checkpoint_advanced = || {
+        std::fs::read(&save)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .and_then(|saved| saved["run"]["tick"].as_u64())
+            .is_some_and(|saved_tick| saved_tick > tick)
+    };
+    while !checkpoint_advanced() && Instant::now() < until {
         std::thread::sleep(Duration::from_millis(10));
     }
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&save).unwrap()).unwrap();

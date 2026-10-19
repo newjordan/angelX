@@ -1,0 +1,30 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    150,
+    150
+  ],
+  "pieces": [
+    {
+      "name": "page-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "turn-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "turn-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    }
+  ]
+}

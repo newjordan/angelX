@@ -78,9 +78,9 @@ mod recovery;
 #[path = "../../../tests/cockpit/loop_ctl/recovery_tests.rs"]
 mod recovery_tests;
 use evidence::{
-    apply_reply_with_tools, attach_measurement_results, budget_tripped, clip_diff_stat, est_tokens,
-    observe_workspace_change, register_costly_actions, register_outcome_actions,
-    register_verified_outcome_actions, says_done, stall_limit_reached,
+    apply_reply_with_tools, asks_wrap_up, attach_measurement_results, budget_tripped,
+    clip_diff_stat, est_tokens, observe_workspace_change, register_costly_actions,
+    register_outcome_actions, register_verified_outcome_actions, says_done, stall_limit_reached,
 };
 
 // Source cartridges' roundtrip checks use the stable loop accounting surface.
@@ -2154,11 +2154,14 @@ impl crate::App {
             }
             if min_met {
                 self.loop_finish(LoopStatus::Done, "findings goal met");
-            } else if claims_done && !self.loop_ctl.steer_notes.is_empty() {
+            } else if claims_done && self.loop_ctl.steer_notes.iter().any(|n| asks_wrap_up(n)) {
                 // With no acceptance command, only the operator can end the
                 // run: the prompt lets the model close it when a note asks it
                 // to wrap up or stop. Before this, \"wrap up\" could not end
                 // a loop, which kept re-prompting (bitcoin loop, 2026-09-24).
+                // The note itself must ask: any note at all once let a model
+                // that took a harness page for the operator end the mlx and
+                // cuda loops overnight (2026-10-16).
                 self.loop_finish(LoopStatus::Stopped, "wrapped up at the operator's request");
             } else {
                 self.loop_ctl.last_setback = Some(d45_iteration::DONE_UNVERIFIED.to_string());

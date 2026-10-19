@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 26x56, anchor bottom-centre (13,56); stage 384x224; a wrought-iron lantern post. The painted post is 0.475 wide:tall, so its canvas is 26 wide, not the first 20x56.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "dark-0"
+      ],
+      "source_pose_count": 1,
+      "state": "dark"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.post",
+  "role": "prop",
+  "timing": "dark 1 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox."
+}

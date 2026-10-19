@@ -144,7 +144,18 @@ impl Run {
         }
         self.found = Some((self.tick, 0, "A secret room!".into()));
         self.notice("secret_room");
-        self.thrill(40);
+    }
+
+    /// A knight's bomb on an open map: the crack comes down when it went
+    /// off beside it.
+    pub(super) fn blast_wall_open(&mut self, at: (f32, f32)) {
+        if self
+            .dungeon
+            .crack()
+            .is_some_and(|(_, cx, cy)| (at.0 - cx).hypot(at.1 - cy) <= super::depths::OPEN_CRACK_REACH)
+        {
+            self.blast_wall(None);
+        }
     }
 
     /// Snibbet's vault: the first knight to walk up to him is paid to
@@ -179,7 +190,6 @@ impl Run {
         self.cues.push("snibbet".into());
         self.sounds.push("card_pickup");
         self.found = Some((self.tick, 0, "It's a secret to everybody.".into()));
-        self.thrill(25);
     }
 
     /// The small secrets waiting in this room, whether or not lifted.
@@ -395,13 +405,12 @@ impl Run {
             card: secret.card.into(),
             x: ix,
             y: iy,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         });
         self.lifted.push(key);
         self.cues.push(format!("secret_found:{}", secret.name));
         self.sounds.push("card_pickup");
         self.found = Some((self.tick, 0, secret.says.into()));
-        self.thrill(15);
     }
 
     /// The first walk into the room with the crack: the Herald notices the

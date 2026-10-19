@@ -1,10 +1,17 @@
 use super::ink::{BLACK, PALETTE, is_signal, palette_index, rgb};
 use super::*;
 
-/// The realm screen that holds a place.
+/// The set piece that holds a place: its authored screen where the realm
+/// sets it.
 fn screen_of(place: Place) -> View {
-    let (sx, sy) = place.screen();
-    View::screen(sx, sy)
+    let (tx, ty) = place.stand();
+    let (ox, oy) = map::screen_origin(tx.div_euclid(SCREEN_W), ty.div_euclid(SCREEN_H));
+    View {
+        x: ox * TILE,
+        y: oy * TILE,
+        w: SCREEN_W * TILE,
+        h: SCREEN_H * TILE,
+    }
 }
 
 fn busy(tick: u32) -> Scene {
@@ -104,6 +111,8 @@ fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
     for (place, expected) in Place::ALL.iter().zip(original_stands) {
         assert_eq!(place.stand(), expected, "{place:?} moved");
     }
+    // The precinct's set pieces now stand along the town's south street,
+    // each reached from the Village.
     for place in [Place::ArtisanQuarter, Place::Colosseum, Place::Tournament] {
         let path = live::route(Place::Village.stand_world(), place.stand_world());
         assert_eq!(
@@ -111,35 +120,31 @@ fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
             Some(&place.stand_world()),
             "{place:?} unreachable"
         );
-        assert!(
-            path.contains(&map::place_tile(23, 32)),
-            "new precinct must use the south gate"
-        );
     }
 }
 
 #[test]
-fn roads_that_leave_a_screen_arrive_on_the_next() {
+fn every_road_joins_the_one_network() {
+    // Roads, streets and bridges are one network from the Keep's door: no
+    // stretch of road ends in a field on its own. (Corner to corner joins:
+    // the Dragon Keep's door tile meets its road at a corner.)
     let realm = Realm::get();
-    let road = |t: u8| matches!(t, b'=' | b':' | b'H');
-    for y in 0..MAP_H {
-        for sx in 1..map::SCREENS_X {
-            let x = sx * SCREEN_W;
-            assert_eq!(
-                road(realm.at(x - 1, y)),
-                road(realm.at(x, y)),
-                "road seam at x={x} y={y}"
-            );
+    let road = |(x, y): (i32, i32)| x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && matches!(realm.at(x, y), b'=' | b':' | b'H');
+    let start = Place::Keep.stand_world();
+    assert!(road(start));
+    let mut seen = std::collections::BTreeSet::from([start]);
+    let mut todo = vec![start];
+    while let Some((x, y)) = todo.pop() {
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)] {
+            let next = (x + dx, y + dy);
+            if road(next) && seen.insert(next) {
+                todo.push(next);
+            }
         }
     }
-    for x in 0..MAP_W {
-        for sy in 1..map::SCREENS_Y {
-            let y = sy * SCREEN_H;
-            assert_eq!(
-                road(realm.at(x, y - 1)),
-                road(realm.at(x, y)),
-                "road seam at x={x} y={y}"
-            );
+    for y in 0..MAP_H {
+        for x in 0..MAP_W {
+            assert!(!road((x, y)) || seen.contains(&(x, y)), "road at {x},{y} joins nothing");
         }
     }
 }
@@ -258,12 +263,10 @@ fn the_knight_frames_his_own_screen() {
         (FRAME_W, FRAME_H),
         "no HUD band: the frame is the world"
     );
-    assert_eq!(
-        View::screen_at(s.knight.x, s.knight.y),
-        screen_of(Place::Keep)
-    );
-    assert_eq!(Place::Lists.screen(), (4, 2));
-    assert_eq!(Place::Keep.screen(), (2, 2), "the town sits mid-realm");
+    // At home in the Keep's set piece, the frame is the set piece whole.
+    assert_eq!(View::screen_at(s.knight.x, s.knight.y), screen_of(Place::Keep));
+    assert_eq!(Place::Lists.screen(), (9, 5));
+    assert_eq!(Place::Keep.screen(), (5, 4), "the town sits in the middle band");
 }
 
 /// Offline renders for review: `ANGEL_OVERWORLD_SHOTS=<dir> cargo test ... -- --ignored`.
@@ -943,11 +946,11 @@ fn the_realm_has_streams_falls_and_lava() {
     assert!(count(b'w') > 4, "streams run");
     assert!(count(b'f') > 0, "somewhere a stream falls off the rock");
     assert!(count(b'L') > 4, "lava in the ash wastes");
-    // The hills just north of Castle Town carry a waterfall.
-    let (sx, sy) = (2, 1);
-    let falls = (0..SCREEN_H)
-        .flat_map(|y| (0..SCREEN_W).map(move |x| (x, y)))
-        .filter(|&(x, y)| matches!(realm.at(sx * SCREEN_W + x, sy * SCREEN_H + y), b'f' | b'w'))
+    // The Highlands just north of Castle Town carry their streams.
+    use crate::stage::world_viz::overworld::map::{CHUNK_H, CHUNK_W};
+    let falls = (0..3 * CHUNK_H)
+        .flat_map(|y| (3 * CHUNK_W..6 * CHUNK_W).map(move |x| (x, y)))
+        .filter(|&(x, y)| matches!(realm.at(x, y), b'f' | b'w'))
         .count();
     assert!(falls > 3, "a stream above the town ({falls} tiles)");
 }
@@ -955,10 +958,13 @@ fn the_realm_has_streams_falls_and_lava() {
 #[test]
 fn water_and_lava_move_slowly() {
     let mut s = busy(6);
-    s.camera = (
-        ((2 * SCREEN_W + 8) * TILE) as f32,
-        ((SCREEN_H + 5) * TILE) as f32,
-    );
+    // Over a stream running down the Highlands.
+    let realm = Realm::get();
+    let (wx, wy) = (0..MAP_H)
+        .flat_map(|y| (0..MAP_W).map(move |x| (x, y)))
+        .find(|&(x, y)| realm.at(x, y) == b'w')
+        .expect("a stream");
+    s.camera = ((wx * TILE) as f32, (wy * TILE) as f32);
     let a = frame_sized(&s, 256, 176);
     s.tick += 1;
     let b = frame_sized(&s, 256, 176);
@@ -976,8 +982,10 @@ fn reading_is_done_by_lantern() {
     s.tool = Some(Tool::Book);
     s.knight = Knight::at_place(Place::Scriptorium);
     let staged = scene::stage(&s);
+    // The knight's own sprite, not the castles' 22-wide tower pieces.
+    let kx = s.knight.x as i32 - 8;
     assert!(
-        staged.props.iter().any(|p| p.img.w == 22),
+        staged.props.iter().any(|p| p.x == kx && p.img.w == 22),
         "the knight sits with his book"
     );
     assert!(
@@ -995,7 +1003,10 @@ fn reading_is_done_by_lantern() {
     let mut walking = s.clone();
     walking.knight.walking = true;
     assert!(
-        scene::stage(&walking).props.iter().all(|p| p.img.w != 22),
+        scene::stage(&walking)
+            .props
+            .iter()
+            .all(|p| p.x != kx || p.img.w != 22),
         "no reading on the road"
     );
 }
@@ -1291,7 +1302,7 @@ fn catalog_wishes_pass_their_checker_without_price_notes() {
 
 #[test]
 fn wish_lots_stand_in_the_wild_apart_and_never_move() {
-    use super::map::{MAP_H, MAP_W, Realm, SCREEN_H, SCREEN_W};
+    use super::map::{MAP_H, MAP_W, Realm, SCREEN_W};
     let built = catalog_built();
     let lots = wishes::lots(&built);
     let realm = Realm::get();
@@ -1303,12 +1314,7 @@ fn wish_lots_stand_in_the_wild_apart_and_never_move() {
         for y in lot.ty..lot.ty + lot.th {
             for x in lot.tx..lot.tx + lot.tw {
                 assert!(x >= 0 && y >= 0 && x < MAP_W && y < MAP_H);
-                let (sx, sy) = (x / SCREEN_W, y / SCREEN_H);
-                assert!(
-                    sx % 2 == 1 || sy % 2 == 1,
-                    "{} sits on an authored screen",
-                    built[i].name
-                );
+                assert!(!map::in_set_piece(x, y), "{} sits on a set piece", built[i].name);
                 assert!(
                     !matches!(realm.at(x, y), b'=' | b':' | b'~' | b'H' | b's' | b'%'),
                     "{} covers a road or water",

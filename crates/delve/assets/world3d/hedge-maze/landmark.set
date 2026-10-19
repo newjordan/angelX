@@ -1,0 +1,20 @@
+# The Hedge of Grievances: the clerk's belvedere tower rising out of the hedge, a clipped archway at the north gate and topiary along the top.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the belvedere tower, rising out of the hedge
+cylinder-12 stone   at 60 0 0 size 30 56 30 id lm-belvedere
+cylinder-12 wood    at 60 56 0 size 32 3 32
+cone-10 slate   at 60 59 0 size 34 18 34
+cylinder-6 metal   at 60 77 0 size 2 8 2
+box    plaster at 66 80 0 size 12 5 1
+# the clipped arch over the north gate, with a ball on top
+arch-12 hedge   at 192 0 -8 size 72 54 16 id lm-hedge-arch
+sphere-10 hedge   at 192 54 -8 size 18 18 14
+# topiary on the hedge's top
+cone-8 hedge   at 120 40 8 size 18 28 18
+sphere-10 hedge   at 150 40 8 size 18 22 18
+cone-8 hedge   at 236 40 8 size 18 28 18
+sphere-10 hedge   at 266 40 8 size 18 22 18
+cone-8 hedge   at 296 40 8 size 18 28 18
+sphere-10 hedge   at 326 40 8 size 18 22 18

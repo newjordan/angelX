@@ -1,0 +1,258 @@
+set crypt-processional
+# The Processional: 42 x 24 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 672 384
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 336 -4 48 size 672 4 96
+box    floor   at 24 -4 240 size 48 4 288
+box    floor   at 128 -4 240 size 64 4 288
+box    floor   at 336 -4 240 size 256 4 288
+box    floor   at 544 -4 240 size 64 4 288
+box    floor   at 648 -4 240 size 48 4 288
+box    floor   at 72 -4 192 size 48 4 160
+box    floor   at 184 -4 192 size 48 4 160
+box    floor   at 488 -4 192 size 48 4 160
+box    floor   at 600 -4 192 size 48 4 160
+box    floor   at 72 -4 336 size 48 4 96
+box    floor   at 184 -4 336 size 48 4 96
+box    floor   at 488 -4 336 size 48 4 96
+box    floor   at 600 -4 336 size 48 4 96
+
+# pits: holes in the floor, dark below
+
+# the north wall, columns 0 to 19
+box    stone   at 160 -4 8 size 320 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 22 to 41
+box    stone   at 512 -4 8 size 320 52 16
+box    metal   at 664 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 664 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 19 (at 81% of its height, for the camera)
+box    stone   at 160 -4 372 size 320 10 8  # TODO prims: wedge
+box    stone   at 160 -4 380 size 320 16.5 8
+box    metal   at 8 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 380 size 6 6.5 6
+
+# the south wall, columns 22 to 41 (at 81% of its height, for the camera)
+box    stone   at 512 -4 372 size 320 10 8  # TODO prims: wedge
+box    stone   at 512 -4 380 size 320 16.5 8
+box    metal   at 664 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 664 15 380 size 6 6.5 6
+
+# the west wall, rows 1 to 10
+box    stone   at 8 -4 96 size 16 52 160
+
+# the west wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    stone   at 8 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 312 size 16 52 112
+
+# the east wall, rows 1 to 10
+box    stone   at 664 -4 96 size 16 52 160
+
+# the east wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    stone   at 664 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 664 -4 312 size 16 52 112
+
+# the north door, columns 20 to 21
+box    door    at 336 -4 -1 size 32 36 2 id door-north
+box    stone   at 336 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 20 to 21
+box    door    at 336 -4 385 size 32 5 2 id door-south
+
+# the west door, rows 11 to 12
+box    door    at -1 -4 192 size 2 36 32 id door-west
+box    stone   at 8 32 192 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 11 to 12
+box    door    at 673 -4 192 size 2 36 32 id door-east
+box    stone   at 664 32 192 size 16 16 32  # TODO prims: arch
+
+# tomb at 3,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 56 0 48 size 12 5.5 28 id tomb-1
+box    stone   at 56 5.5 48 size 14 2 30
+
+# tomb at 8,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 136 0 48 size 12 5.5 28 id tomb-2
+box    stone   at 136 5.5 48 size 14 2 30
+
+# tomb at 13,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 216 0 48 size 12 5.5 28 id tomb-3
+box    stone   at 216 5.5 48 size 14 2 30
+
+# tomb at 28,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 456 0 48 size 12 5.5 28 id tomb-4
+box    stone   at 456 5.5 48 size 14 2 30
+
+# tomb at 33,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 536 0 48 size 12 5.5 28 id tomb-5
+box    stone   at 536 5.5 48 size 14 2 30
+
+# tomb at 38,2 1x2 (at 66% of its height, for the camera)
+box    stone   at 616 0 48 size 12 5.5 28 id tomb-6
+box    stone   at 616 5.5 48 size 14 2 30
+
+# tomb at 4,5 4x1 (at 49% of its height, for the camera)
+box    stone   at 96 0 88 size 60 4 12 id tomb-7
+box    stone   at 96 4 88 size 62 1.5 14
+
+# tomb at 10,5 2x1 (at 49% of its height, for the camera)
+box    stone   at 176 0 88 size 28 4 12 id tomb-8
+box    stone   at 176 4 88 size 30 1.5 14
+
+# tomb at 30,5 2x1 (at 49% of its height, for the camera)
+box    stone   at 496 0 88 size 28 4 12 id tomb-9
+box    stone   at 496 4 88 size 30 1.5 14
+
+# tomb at 34,5 4x1 (at 49% of its height, for the camera)
+box    stone   at 576 0 88 size 60 4 12 id tomb-10
+box    stone   at 576 4 88 size 62 1.5 14
+
+# tomb at 6,6 2x2
+box    stone   at 112 0 112 size 30 5 30 id pillar-1
+box    stone   at 112 5 121.5 size 12 22 7
+box    stone   at 112 27 121.5 size 14 3 9
+
+# tomb at 34,6 2x2
+box    stone   at 560 0 112 size 30 5 30 id pillar-2
+box    stone   at 560 5 121.5 size 12 22 7
+box    stone   at 560 27 121.5 size 14 3 9
+
+# tomb at 3,7 2x2
+box    stone   at 64 0 128 size 30 5 30 id pillar-3
+box    stone   at 64 5 137.5 size 12 22 7
+box    stone   at 64 27 137.5 size 14 3 9
+
+# tomb at 10,7 2x1
+box    stone   at 176 0 120 size 28 9 12 id tomb-11
+box    stone   at 176 9 120 size 30 3 14
+
+# tomb at 30,7 2x1
+box    stone   at 496 0 120 size 28 9 12 id tomb-12
+box    stone   at 496 9 120 size 30 3 14
+
+# tomb at 37,7 2x2
+box    stone   at 608 0 128 size 30 5 30 id pillar-4
+box    stone   at 608 5 137.5 size 12 22 7
+box    stone   at 608 27 137.5 size 14 3 9
+
+# tomb at 7,8 2x1 (at 70% of its height, for the camera)
+box    stone   at 128 0 136 size 28 6 12 id tomb-13
+box    stone   at 128 6 136 size 30 2 14
+
+# tomb at 13,8 1x1 (at 70% of its height, for the camera)
+box    stone   at 216 0 136 size 12 6 12 id tomb-14
+box    stone   at 216 6 136 size 14 2 14
+
+# tomb at 28,8 1x1 (at 70% of its height, for the camera)
+box    stone   at 456 0 136 size 12 6 12 id tomb-15
+box    stone   at 456 6 136 size 14 2 14
+
+# tomb at 33,8 2x1 (at 70% of its height, for the camera)
+box    stone   at 544 0 136 size 28 6 12 id tomb-16
+box    stone   at 544 6 136 size 30 2 14
+
+# tomb at 3,15 2x2 (at 88% of its height, for the camera)
+box    stone   at 64 0 256 size 30 5 30 id pillar-5
+box    stone   at 64 4 265.5 size 12 19.5 7
+box    stone   at 64 23.5 265.5 size 14 2.5 9
+
+# tomb at 7,15 2x1 (at 58% of its height, for the camera)
+box    stone   at 128 0 248 size 28 5 12 id tomb-17
+box    stone   at 128 5 248 size 30 1.5 14
+
+# tomb at 13,15 1x1 (at 74% of its height, for the camera)
+box    stone   at 216 0 248 size 12 6.5 12 id tomb-18
+box    stone   at 216 6.5 248 size 14 2 14
+
+# tomb at 28,15 1x1 (at 74% of its height, for the camera)
+box    stone   at 456 0 248 size 12 6.5 12 id tomb-19
+box    stone   at 456 6.5 248 size 14 2 14
+
+# tomb at 33,15 2x1 (at 58% of its height, for the camera)
+box    stone   at 544 0 248 size 28 5 12 id tomb-20
+box    stone   at 544 5 248 size 30 1.5 14
+
+# tomb at 37,15 2x2 (at 88% of its height, for the camera)
+box    stone   at 608 0 256 size 30 5 30 id pillar-6
+box    stone   at 608 4 265.5 size 12 19.5 7
+box    stone   at 608 23.5 265.5 size 14 2.5 9
+
+# tomb at 6,16 2x3
+box    stone   at 112 0 280 size 30 5 46 id pillar-7
+box    stone   at 112 5 297.5 size 12 22 7
+box    stone   at 112 27 297.5 size 14 3 9
+
+# tomb at 10,16 2x1 (at 58% of its height, for the camera)
+box    stone   at 176 0 264 size 28 5 12 id tomb-21
+box    stone   at 176 5 264 size 30 1.5 14
+
+# tomb at 30,16 2x1 (at 58% of its height, for the camera)
+box    stone   at 496 0 264 size 28 5 12 id tomb-22
+box    stone   at 496 5 264 size 30 1.5 14
+
+# tomb at 34,16 2x3
+box    stone   at 560 0 280 size 30 5 46 id pillar-8
+box    stone   at 560 5 297.5 size 12 22 7
+box    stone   at 560 27 297.5 size 14 3 9
+
+# tomb at 4,18 2x1
+box    stone   at 80 0 296 size 28 9 12 id tomb-23
+box    stone   at 80 9 296 size 30 3 14
+
+# tomb at 10,18 2x1
+box    stone   at 176 0 296 size 28 9 12 id tomb-24
+box    stone   at 176 9 296 size 30 3 14
+
+# tomb at 30,18 2x1
+box    stone   at 496 0 296 size 28 9 12 id tomb-25
+box    stone   at 496 9 296 size 30 3 14
+
+# tomb at 36,18 2x1
+box    stone   at 592 0 296 size 28 9 12 id tomb-26
+box    stone   at 592 9 296 size 30 3 14
+
+# tomb at 3,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 56 0 336 size 12 7 28 id tomb-27
+box    stone   at 56 7 336 size 14 2 30
+
+# tomb at 8,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 136 0 336 size 12 7 28 id tomb-28
+box    stone   at 136 7 336 size 14 2 30
+
+# tomb at 13,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 216 0 336 size 12 7 28 id tomb-29
+box    stone   at 216 7 336 size 14 2 30
+
+# tomb at 28,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 456 0 336 size 12 7 28 id tomb-30
+box    stone   at 456 7 336 size 14 2 30
+
+# tomb at 33,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 536 0 336 size 12 7 28 id tomb-31
+box    stone   at 536 7 336 size 14 2 30
+
+# tomb at 38,20 1x2 (at 79% of its height, for the camera)
+box    stone   at 616 0 336 size 12 7 28 id tomb-32
+box    stone   at 616 7 336 size 14 2 30
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 312 18 16 size 3 6 3
+cone   fire    at 312 24 16 size 4 7 4
+box    metal   at 360 18 16 size 3 6 3
+cone   fire    at 360 24 16 size 4 7 4
+box    metal   at 16 18 168 size 3 6 3
+cone   fire    at 16 24 168 size 4 7 4
+box    metal   at 16 4 216 size 3 4.5 3
+cone   fire    at 16 8.5 216 size 4 5.5 4
+box    metal   at 656 18 168 size 3 6 3
+cone   fire    at 656 24 168 size 4 7 4
+box    metal   at 656 4 216 size 3 4.5 3
+cone   fire    at 656 8.5 216 size 4 5.5 4

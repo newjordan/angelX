@@ -110,14 +110,19 @@ fn decode(workspace: &Path, address: &Address, depth: usize) -> Option<String> {
         Some(page) => {
             let index = DIGITS.iter().position(|digit| *digit == page)?;
             let text = sub.pages.get(index)?;
-            Some(format!(
-                "{}{page}  {}",
-                route.cells(),
-                render_page(workspace, text, depth)?
+            Some(page_line(
+                route,
+                index,
+                &render_page(workspace, text, depth)?,
             ))
         }
         None => Some(decode_route_sub(workspace, route, sub, depth)),
     }
+}
+
+/// One page's line in a reading: its address, then the page as rendered.
+pub(crate) fn page_line(route: Route, index: usize, rendered: &str) -> String {
+    format!("{}{}  {rendered}", route.cells(), DIGITS[index])
 }
 
 /// A page is a verbatim sentence, or — in a personality type — addresses,
@@ -180,7 +185,8 @@ fn decode_route_sub(workspace: &Path, route: Route, sub: &Sub, depth: usize) -> 
     }
     for (index, page) in sub.pages.iter().enumerate() {
         let rendered = render_page(workspace, page, depth).unwrap_or_else(|| page.to_string());
-        out.push_str(&format!("{}{}  {rendered}\n", route.cells(), DIGITS[index]));
+        out.push_str(&page_line(route, index, &rendered));
+        out.push('\n');
     }
     if let Some(evidence) = recorded(workspace, route) {
         out.push_str("Latest evidence:\n");

@@ -1,0 +1,76 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192.0,
+    112.0
+  ],
+  "comments": [
+    "Exact native BOX conversion; binary alpha 128; existing shared palette.",
+    "Walkable perimeter, actual exits and collision furniture are masked by the room painter."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "mapping_basis": "ART-18 accepted source; measured reading order reviewed against notes",
+  "notes_sha256": "8fd5b3ff52ed3e4b3b61c253ab52b524e254181d78a4119a92fd5a8f7efdb401",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.62
+      },
+      "label": "room",
+      "median_filter": 3,
+      "name": "room",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "0d1a0c": "322b2b",
+          "182414": "322b2b",
+          "263b1c": "322b2b"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        821.0,
+        479.0
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1642,
+        958
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384x224; v2 768x448",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "slot": "brasswake.entrance",
+  "source_sha256": "722a8fae4e0a2e2f04610f6ed15bc1725a8de361cf664bc411752cda06226ff1",
+  "timing": "Static; existing room entry and door state only."
+}

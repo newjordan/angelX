@@ -1,0 +1,23 @@
+power wish:bounce 3
+teacher Old Carom
+place the skittle alley beside Maud's taps
+room Tavern
+look a tiny man with chalk dust permanently on his cuffs, polishing a wooden ball that squeaks
+line A wall is a friend who passes the message on.
+hook The level-2 card reads ...and a chalk cross on the table's edge, as if a very small man had measured the shot.
+step Chalk the line | return Old Carom's squeaking ball from wherever monsters hid it | relics_returned 1 | You brought my argument back. Good lad. | cue fetch
+step The banked quintain | strike the quintain's shield with a shot already bounced off the wall | banked_quintain_hits 1 | The wall passed it on. The wall always passes it on. | cue quintain
+step Skittles, honestly | win a round of skittles where every pin falls to a banked ball | skittle_banks 1 | Now you're playing the table, not the pins. | cue skittles
+step The debt of three castles | play one full game at the College's great table and lose on purpose | college_games_played 1 | Losing well is a skill and I have never once had to teach it to a humble man. | needs college_games_played
+trial The Long Bank | clear one hall using only shots bounced twice or more | ricochet_pure_halls 1 | Three walls, one argument, case closed.
+reward Ricochet tier 3
+title the Banked Shot
+keepsake the Chalk Cuff, white cuffs that leave a small chalk mark where a bounced shot strikes
+ties The ball-hunt shares relics_returned with Sela and Sir Castor; the lists cross Sir Ferris's ground.
+art
+..888..
+.8...8.
+.8.8.8.
+.8...8.
+..888..
+...w...

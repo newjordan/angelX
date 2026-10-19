@@ -1,0 +1,41 @@
+# The Fletchery: the long shed under thatch, a rack of giant fletched arrows and an archery target on its stand, behind it.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the long shed
+box    wood    at 80 0 -6 size 100 30 26 id lm-shed
+gable  thatch  at 80 30 -6 size 108 18 32
+# the rack: two posts and the bar the arrows stand in
+box    wood    at 168 0 -4 size 6 40 8 id lm-rack-west
+box    wood    at 246 0 -4 size 6 40 8 id lm-rack-east
+box    wood    at 207 30 -4 size 90 5 8
+# arrows standing in it: shaft, two vanes and a barbed head each
+cylinder-6 wood    at 180 35 -4 size 3 23 3 id lm-arrow-1
+pyramid metal   at 180 58 -4 size 7 9 7
+box    plaster at 180 38 -4 size 9 14 1.5
+box    plaster at 180 38 -4 size 1.5 14 9
+cylinder-6 wood    at 194 35 -4 size 3 31 3 id lm-arrow-2
+pyramid metal   at 194 66 -4 size 7 9 7
+box    plaster at 194 38 -4 size 9 14 1.5
+box    plaster at 194 38 -4 size 1.5 14 9
+cylinder-6 wood    at 208 35 -4 size 3 19 3 id lm-arrow-3
+pyramid metal   at 208 54 -4 size 7 9 7
+box    plaster at 208 38 -4 size 9 14 1.5
+box    plaster at 208 38 -4 size 1.5 14 9
+cylinder-6 wood    at 222 35 -4 size 3 35 3 id lm-arrow-4
+pyramid metal   at 222 70 -4 size 7 9 7
+box    plaster at 222 38 -4 size 9 14 1.5
+box    plaster at 222 38 -4 size 1.5 14 9
+cylinder-6 wood    at 236 35 -4 size 3 27 3 id lm-arrow-5
+pyramid metal   at 236 62 -4 size 7 9 7
+box    plaster at 236 38 -4 size 9 14 1.5
+box    plaster at 236 38 -4 size 1.5 14 9
+# the target on its stand: three rings, and arrows in it
+box    wood    at 292 0 -8 size 4 52 4
+box    wood    at 328 0 -8 size 4 52 4
+sphere-16 thatch  at 310 22 -6 size 50 50 5 id lm-target
+sphere-16 plaster at 310 30 -5.5 size 34 34 6
+sphere-16 slate   at 310 38 -5 size 18 18 7
+box    wood    at 304 47 0 size 1.5 1.5 12
+box    wood    at 317 52 0 size 1.5 1.5 12
+box    wood    at 312 40 0 size 1.5 1.5 12

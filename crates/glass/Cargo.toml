@@ -1,0 +1,35 @@
+[package]
+name = "angel-glass"
+version = "0.1.0"
+description = "angelX's own window: a GPU compositor where the cockpit's text is one layer (docs/RENDER_FOUNDATION.md)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# What a stage is: layers, motes, pictures (shared with the browser).
+angel-stage = { path = "../stage" }
+# The GPU half: pipeline, pictures, stages, atlas, layer compiler. glass makes
+# the device and the window around it. The core picks no wgpu backend, so the
+# dependency below turns on Vulkan and Metal for both.
+angel-gpu = { path = "../gpu" }
+# The cockpit draws into ratatui's buffer; glass is one more backend for it.
+# `underline-color` matches the cockpit's build, so `Cell` has the same fields.
+ratatui-core = { version = "0.1.2", features = ["std", "underline-color"] }
+# Window input arrives as the same events the terminal reader delivers.
+crossterm = { version = "0.29", default-features = false, features = ["events", "bracketed-paste"] }
+wgpu = { version = "30.0.0", default-features = false, features = ["std", "wgsl", "vulkan", "metal"] }
+winit = { version = "0.30", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+# Outlines and bitmaps from font files; the atlas, cache and drawing are ours.
+swash = "0.2"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "1.0.1"
+unicode-width = "0.2"
+# Screenshots taken from inside the window.
+png = "0.18"
+
+[dev-dependencies]
+# The Delve's frames for the `delve_world` example: a real room's stage, drawn
+# here as the window draws it (docs/WORLD-3D.md).
+angel-delve = { path = "../delve", features = ["testing"] }

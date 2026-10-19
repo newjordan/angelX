@@ -1005,7 +1005,7 @@ fn write_deep_film() {
         .map(|(i, _)| i)
         .collect();
     let fight = |run: &mut Run, seconds: u32, save: &mut dyn FnMut(&Run)| {
-        for t in 0..seconds * HZ {
+        for _ in 0..seconds * HZ {
             if run.phase != Phase::Fighting {
                 break;
             }
@@ -1014,9 +1014,6 @@ fn write_deep_film() {
             input.ult = run.players[&1].ult_charge >= ults::ULT_FULL && run.tick.is_multiple_of(2);
             let hero = run.players.get_mut(&1).unwrap();
             hero.hp = hero.hp.max(50);
-            if t == 3 * HZ {
-                run.thrill_for_test(audience::MILESTONE);
-            }
             run.step(&BTreeMap::from([(1, input)]));
             save(run);
         }
@@ -1920,7 +1917,6 @@ fn deep_balance() {
             let mut tally = [(0u32, 0u32, 0u32, 0u64, 0u32); 3];
             let mut packs: Vec<&str> = Vec::new();
             // Fortune's audience over the floor, and its fan boxes.
-            let (mut viewers, mut fans) = (0u32, 0u32);
             for seed in 0..8 {
                 let mut run = Run::new(seed, 1, (party == 2).then_some("Friend"));
                 run.rebuild_home(built.clone(), Default::default());
@@ -1982,8 +1978,6 @@ fn deep_balance() {
                         run.phase = Phase::Exploring;
                     }
                 }
-                viewers += run.audience;
-                fans += run.fans;
             }
             let line = |(n, won, lost, ticks, wiped): (u32, u32, u32, u64, u32)| {
                 if n == 0 {
@@ -2000,13 +1994,11 @@ fn deep_balance() {
                 }
             };
             eprintln!(
-                "DEEP party {party} floor {depth} {:<24} fights {}  guardian {}  threshold {}  viewers {} ({:.1} boxes)",
+                "DEEP party {party} floor {depth} {:<24} fights {}  guardian {}  threshold {}",
                 packs.join("/"),
                 line(tally[0]),
                 line(tally[1]),
                 line(tally[2]),
-                audience::viewers(viewers / 8),
-                fans as f32 / 8.0,
             );
         }
     }

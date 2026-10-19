@@ -1,9 +1,12 @@
 //! The March: the model houses' castles in the realm's south.
 //!
-//! One small castle per model family (`crate::world::houses`), two to a
-//! March screen, each gate on a path down to the March road. Each castle is
-//! built the way its own model chose (walls, tops, towers, roof), and its
-//! name is carved below the road.
+//! One great castle per model family (`crate::world::houses`), each a
+//! curtain wall round its whole footprint with a tower at every corner and
+//! its gate in the south face on the March's roads, its own keep standing
+//! in the ward behind. Each is built the way its own model chose (walls,
+//! tops, towers, roof), and its name is carved below the road. The Keep in
+//! Castle Town and the Dragon Keep get the same wall round their own
+//! buildings (`crate::world::castles`).
 //!
 //! Every pixel is a fact:
 //! - a castle's banner flies only while its house is serving — the route in
@@ -16,15 +19,16 @@
 //! - houses a formation seats ride out of their own castles to join the
 //!   lead knight, and ride home when the formation stands down.
 
-use super::ink::{Img, ink};
+use super::ink::{Img, Rgb, ink};
 use super::kit::{self, Roof, Top, Wall};
-use super::light::Light;
+use super::light::{Light, darker, dusk_ink};
 use super::map::TILE;
 use super::scene::Prop;
+use crate::world::castles::{self, Castle, CastleKind};
 use crate::world::houses::{self, House, HouseId, RoofKind, Tops, Walls};
 
 // Where each castle stands is the world's.
-pub use crate::world::houses::{FOOT, footprint, footprints, stand};
+pub use crate::world::houses::{footprint, footprints, stand};
 
 /// A knight of another house out on the roads, as the map draws him.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -68,26 +72,18 @@ impl std::hash::Hash for March {
     }
 }
 
-/// The darker partner of a signal ink, for the shadowed side of a tabard.
-fn shadow(c: char) -> char {
-    match c {
-        '1' | '2' | '0' => '0',
-        '3' => '2',
-        'w' => '3',
-        'a' | '8' | '7' => '8',
-        '4' | '@' | '$' => 'a',
-        '5' | '6' => '4',
-        'c' | '9' => '$',
-        other => other,
-    }
+/// A house's colours as the map wears them: `(field, shadow, charge)`.
+/// The houses chose signal inks; on the map they fly at dusk, as dyed
+/// cloth in the plain inks (`light::dusk_ink`), the shadow one step down
+/// the field's own bank. Only the banner being up is the fact.
+fn colours(h: &House) -> (Rgb, Rgb, Rgb) {
+    let field = ink(dusk_ink(h.field)).unwrap_or_default();
+    let charge = ink(dusk_ink(h.charge)).unwrap_or_default();
+    (field, darker(field), charge)
 }
 
-/// Swap inks all at once (a chain like `7→5, 5→4` must not run on).
-fn swap(img: &Img, pairs: &[(char, char)]) -> Img {
-    let pairs: Vec<_> = pairs
-        .iter()
-        .filter_map(|&(f, t)| Some((ink(f)?, ink(t)?)))
-        .collect();
+/// Swap colours all at once (a chain like `7→5, 5→4` must not run on).
+fn swap(img: &Img, pairs: &[(Rgb, Rgb)]) -> Img {
     let mut out = img.clone();
     for y in 0..img.h {
         for x in 0..img.w {
@@ -102,7 +98,8 @@ fn swap(img: &Img, pairs: &[(char, char)]) -> Img {
 }
 
 /// Dress a figure in house colours: its red becomes the field, the gold
-/// star on its shield the charge. With no house he keeps the Keep's red.
+/// star on its shield the charge, matching the banner over his castle.
+/// With no house he keeps the Keep's red.
 pub fn dress(img: &Img, house: Option<HouseId>) -> Img {
     let Some(id) = house else {
         return img.clone();
@@ -111,10 +108,12 @@ pub fn dress(img: &Img, house: Option<HouseId>) -> Img {
     if h.placeholder {
         return img.clone();
     }
-    swap(
-        img,
-        &[('7', h.field), ('8', shadow(h.field)), ('5', h.charge)],
-    )
+    let (field, dark, charge) = colours(h);
+    let pairs: Vec<(Rgb, Rgb)> = [('7', field), ('8', dark), ('5', charge)]
+        .into_iter()
+        .filter_map(|(from, to)| Some((ink(from)?, to)))
+        .collect();
+    swap(img, &pairs)
 }
 
 fn wall_of(h: &House) -> Wall {
@@ -152,8 +151,7 @@ fn banner(im: &mut Img, x: i32, y: i32, h: &House, raised: bool, wave: u32) {
     if !raised {
         return;
     }
-    let (field, charge) = (h.field, h.charge);
-    let dark = shadow(field);
+    let (field, dark, charge) = colours(h);
     for dx in 1..=8 {
         // A swallowtail: the fly end is cut back in its middle row.
         let ripple = i32::from((dx + wave as i32) % 4 == 0);
@@ -162,13 +160,13 @@ fn banner(im: &mut Img, x: i32, y: i32, h: &House, raised: bool, wave: u32) {
                 continue;
             }
             let c = if dy == 4 { dark } else { field };
-            im.put(x + dx, y + dy + ripple, c);
+            im.set(x + dx, y + dy + ripple, c);
         }
     }
     // The charge: a small lozenge in the banner's middle.
     for (cx, cy) in [(4, 1), (3, 2), (5, 2), (4, 3), (4, 2)] {
         let ripple = i32::from((cx + wave as i32) % 4 == 0);
-        im.put(x + cx, y + cy + ripple, charge);
+        im.set(x + cx, y + cy + ripple, charge);
     }
 }
 
@@ -241,10 +239,139 @@ fn carving(h: &House) -> Img {
     im
 }
 
+/// One piece of a great castle's wall on the flat map: its left edge and
+/// base in world pixels, and its picture.
+type Piece = (i32, i32, Img);
+
+/// A great castle's walls on the flat map: the curtain wall round its
+/// footprint (along the back, down both sides, across the front with the
+/// gate cut in it), a tower at each corner and, for a house, one each side
+/// of the gate. The front leaves `open` tile columns to the buildings that
+/// stand in the wall themselves (the Keep's own, the Rookery, the Chapel);
+/// `broken` gives a ruin's ragged top. Back to front by base, so whatever
+/// stands in the ward draws between the back wall and the front.
+fn walls(c: &Castle, wall: Wall, top: Top, open: &[i32], broken: bool, gate_lit: bool) -> Vec<Piece> {
+    let (tx, ty, tw, th) = c.foot;
+    let (x0, y0, w, h) = (tx * TILE, ty * TILE, tw * TILE, th * TILE);
+    let ruin = |mut im: Img, seed: u32| {
+        if broken {
+            for x in 0..im.w {
+                let cut = (super::ink::vnoise(x as f32 / 5.0, seed as f32, 93) * 16.0) as i32;
+                for y in 0..cut.min(im.h / 2) {
+                    im.clear(x, y);
+                }
+            }
+            for y in 0..im.h {
+                for x in 0..im.w {
+                    if super::ink::hash(x, y, 94 + seed).is_multiple_of(29) {
+                        im.clear(x, y);
+                    }
+                }
+            }
+        }
+        im
+    };
+    let mut out: Vec<Piece> = Vec::new();
+    out.push((x0, y0 + TILE, ruin(kit::tower(w, 34, 10, Top::Crenel, wall), 1)));
+    let side = |seed| ruin(kit::tower(12, h - 8, h - 18, Top::Crenel, wall), seed);
+    out.push((x0, y0 + h - 1, side(2)));
+    out.push((x0 + w - 12, y0 + h - 1, side(3)));
+    let mut front = kit::tower(w, 40, 10, Top::Crenel, wall);
+    let (gx, _, gw, _) = c.gate;
+    if !open.contains(&gx) {
+        kit::arch(&mut front, (gx - tx) * TILE + 4, 40 - 26, gw * TILE - 8, 26, !gate_lit);
+    }
+    for &col in open {
+        for y in 0..front.h {
+            for x in (col - tx) * TILE..(col - tx + 1) * TILE {
+                front.clear(x, y);
+            }
+        }
+    }
+    out.push((x0, y0 + h, ruin(front, 4)));
+    let corner = kit::tower(22, 58, 12, top, wall);
+    out.push((x0 - 3, y0 + TILE + 2, ruin(corner.clone(), 5)));
+    out.push((x0 + w - 19, y0 + TILE + 2, ruin(corner.clone(), 6)));
+    if !open.contains(&tx) {
+        out.push((x0 - 3, y0 + h + 2, ruin(corner.clone(), 7)));
+    }
+    if !open.contains(&(tx + tw - 1)) {
+        out.push((x0 + w - 19, y0 + h + 2, ruin(corner, 8)));
+    }
+    if matches!(c.kind, CastleKind::House(_)) {
+        let flank = kit::tower(16, 50, 10, top, wall);
+        out.push(((gx - tx) * TILE + x0 - 12, y0 + h + 2, flank.clone()));
+        out.push(((gx + gw - tx) * TILE + x0 - 4, y0 + h + 2, flank));
+    }
+    out
+}
+
+/// The tile columns of a castle's front row that a building of its own
+/// stands in (one of the realm's structures inside its wall).
+fn open_front(c: &Castle) -> Vec<i32> {
+    let (tx, ty, tw, th) = c.foot;
+    let mut cols: Vec<i32> = super::map::STRUCTURES
+        .iter()
+        .map(|&(ax, ay, w, h)| {
+            let (x, y) = super::map::place_tile(ax, ay);
+            (x, y, w, h)
+        })
+        .filter(|&(x, y, w, h)| x >= tx && y >= ty && x + w <= tx + tw && y + h <= ty + th)
+        .flat_map(|(x, _, w, _)| x..x + w)
+        .collect();
+    cols.sort_unstable();
+    cols.dedup();
+    cols
+}
+
+/// Every great castle's walls, drawn once: the houses' in house order with
+/// the gate dark and lit, then the Keep's and the Dragon Keep's.
+fn built() -> &'static [[Vec<Piece>; 2]] {
+    static WALLS: std::sync::OnceLock<Vec<[Vec<Piece>; 2]>> = std::sync::OnceLock::new();
+    WALLS.get_or_init(|| {
+        castles::castles()
+            .iter()
+            .map(|c| {
+                let (wall, top, broken) = match c.kind {
+                    CastleKind::House(id) => {
+                        let h = houses::get(id);
+                        (wall_of(h), top_of(h), false)
+                    }
+                    CastleKind::Keep => (Wall::Stone, Top::Crenel, false),
+                    CastleKind::DragonKeep => (Wall::Dark, Top::Crenel, true),
+                };
+                let open = open_front(c);
+                [false, true].map(|lit| walls(c, wall, top, &open, broken, lit))
+            })
+            .collect()
+    })
+}
+
+/// The road's last row below a castle's stand, where its name is carved.
+fn carving_row((sx, sy): (i32, i32)) -> i32 {
+    let realm = super::map::Realm::get();
+    (sy + 1..sy + 4)
+        .find(|&y| !matches!(realm.at(sx, y), b'=' | b'H'))
+        .unwrap_or(sy + 2)
+}
+
 /// Stage the March in realm coordinates: castles, banners, carvings,
 /// lamplight, and knights of other houses out on the roads.
 pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick: u32) {
     let breath = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
+    for (c, pieces) in castles::castles().iter().zip(built()) {
+        let raised = match c.kind {
+            CastleKind::House(id) => march.raised.contains(&id),
+            _ => false,
+        };
+        for (x, base, img) in &pieces[usize::from(raised)] {
+            props.push(Prop {
+                x: *x,
+                base: *base,
+                img: img.clone(),
+            });
+        }
+    }
     for id in houses::ids() {
         let h = houses::get(id);
         let raised = march.raised.contains(&id);
@@ -254,20 +381,21 @@ pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick
         } else {
             idle(id).clone()
         };
-        let (x, base) = (tx * TILE + (tw * TILE - img.w) / 2, (ty + th) * TILE);
+        // Its own keep stands in the middle of the ward.
+        let (x, base) = (tx * TILE + (tw * TILE - img.w) / 2, (ty + th / 2 + 2) * TILE);
         props.push(Prop { x, base, img });
         let label = carving(h);
         let (sx, sy) = stand(id);
         props.push(Prop {
             x: sx * TILE + TILE / 2 - label.w / 2,
-            base: (sy + 2) * TILE + 2 + label.h,
+            base: carving_row((sx, sy)) * TILE + 2 + label.h,
             img: label,
         });
         if raised {
             // The gate and the hall burn while the house serves.
             lights.push(Light {
                 x: (sx * TILE + TILE / 2) as f32,
-                y: (base - 8) as f32,
+                y: (sy * TILE - 8) as f32,
                 r: 30.0,
                 s: 0.5 * breath(u32::from(id.0)),
                 fire: true,

@@ -1533,6 +1533,360 @@ fn fungal() -> (Brush, Lamp) {
     (b, breathing)
 }
 
+// Split, buttressed willows: the forked silhouettes are the swamp's skyline.
+fn swamp_tree(b: &mut Brush, x: i32, foot: i32, height: i32, lean: i32, near: bool) {
+    let top = foot - height;
+    let width = if near { 13 } else { 6 };
+    let p = if near { 0.73 } else { 0.29 };
+    b.poly(
+        &[
+            (x - width * 2, foot),
+            (x - width, foot - 12),
+            (x - width / 2 + lean, top + 22),
+            (x + lean, top),
+            (x + lean + width / 2, top + 24),
+            (x + width, foot - 10),
+            (x + width * 2, foot),
+        ],
+        WOOD,
+        p * 0.62,
+    );
+    b.poly(
+        &[
+            (x - width, foot - 2),
+            (x + lean, top + 12),
+            (x + lean + 2, top + 24),
+            (x + 1, foot - 8),
+        ],
+        WOOD,
+        p,
+    );
+    for (side, dy, reach) in [(-1, 30, 31), (1, 43, 38), (-1, 62, 43)] {
+        let y = top + dy * height / 110;
+        let root = x + lean / 2;
+        let end = root + side * reach * height / 110;
+        b.poly(
+            &[
+                (root - 3, y + 17),
+                (end, y - 5),
+                (end + side * 7, y - 23),
+                (end + side * 3, y - 3),
+                (root + 3, y + 25),
+            ],
+            WOOD,
+            p * 0.65,
+        );
+        b.stroke((root, y + 17), (end, y - 5), WOOD, p);
+        b.stroke((end, y - 5), (end - side * 14, y - 16), WOOD, p * 0.7);
+        // Hanging beard moss is broken at the ends, never a solid curtain.
+        for i in 0..3 {
+            let xx = end - side * i * 6;
+            let yy = y + i * 3;
+            b.stroke((xx, yy), (xx - 2, yy + 12 + i * 4), MOSS, p * 0.68);
+        }
+    }
+    if near {
+        b.oval(x + 2, foot - 40, 5, 11, WOOD, 0.12);
+        b.stroke((x + 4, foot - 50), (x + 5, foot - 33), WOOD, 0.87);
+        for dx in [-19, -10, 10, 22] {
+            b.stroke((x, foot - 10), (x + dx, foot + 3), WOOD, 0.67);
+        }
+    }
+}
+
+fn swamp(depth: u32) -> (Brush, Lamp) {
+    let hall = depth >= 3;
+    let breathing = if hall {
+        Lamp::warm(283, 125, 90.0)
+    } else {
+        Lamp::cool(211, 101, 103.0)
+    };
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::cool(145, 78, 147.0),
+        Lamp::cool(320, 108, 103.0),
+        Lamp::warm(96, 151, 64.0),
+        Lamp::warm(208, 81, if hall { 66.0 } else { 0.1 }),
+    ]);
+    b.haze(202, 90, 151, 76, 'u', 0.6);
+    // Distant drowned forest behind three low horizontal banks of mist.
+    for (x, h, lean) in [
+        (62, 86, 10),
+        (104, 104, -8),
+        (145, 80, 9),
+        (241, 91, 11),
+        (287, 110, -12),
+        (329, 78, -8),
+    ] {
+        swamp_tree(&mut b, x, 139, h, lean, false);
+    }
+    b.poly(
+        &[
+            (0, 139),
+            (82, 130),
+            (177, 139),
+            (280, 131),
+            (384, 140),
+            (384, 188),
+            (0, 188),
+        ],
+        CAP,
+        0.13,
+    );
+    // Broad floating silt islands, small ripples and cool broken reflections.
+    for i in 0..36 {
+        let x = 30 + (hash(i, 0, 851) % 330) as i32;
+        let y = 140 + (hash(i, 1, 851) % 43) as i32;
+        let w = 5 + (hash(i, 2, 851) % 22) as i32;
+        b.oval(x, y, w, 2, if i % 3 == 0 { MOSS } else { CAP }, 0.27);
+        if i % 4 == 0 {
+            b.stroke((x - w / 2, y - 1), (x + w / 2, y - 1), CAP, 0.55);
+        }
+    }
+    // A broken, receding causeway draws the eye into the haunted clearing.
+    b.poly(
+        &[
+            (119, 188),
+            (169, 145),
+            (192, 124),
+            (205, 124),
+            (195, 148),
+            (178, 188),
+        ],
+        MOSS,
+        0.56,
+    );
+    for (x, y, w) in [
+        (182, 132, 17),
+        (173, 142, 21),
+        (162, 154, 28),
+        (148, 169, 34),
+        (132, 183, 43),
+    ] {
+        b.poly(
+            &[(x, y), (x + w, y - 2), (x + w - 3, y + 3), (x - 3, y + 4)],
+            STONE,
+            0.38,
+        );
+        b.stroke((x, y), (x + w - 2, y - 2), STONE, 0.62);
+    }
+    if hall {
+        // An antler throne, with the crowned monarch's vast moss mantle.
+        b.round(164, 70, 71, 78, 9, WOOD, 0.45);
+        for side in [-1, 1] {
+            let x = 199 + side * 30;
+            b.poly(
+                &[
+                    (x, 98),
+                    (x + side * 6, 53),
+                    (x + side * 17, 33),
+                    (x + side * 10, 62),
+                    (x + side * 4, 106),
+                ],
+                WOOD,
+                0.60,
+            );
+            b.stroke((x + side * 7, 60), (x + side * 23, 45), WOOD, 0.57);
+            b.stroke((x + side * 8, 62), (x + side * 2, 43), WOOD, 0.67);
+        }
+        b.poly(
+            &[
+                (186, 86),
+                (211, 86),
+                (235, 102),
+                (248, 148),
+                (224, 159),
+                (198, 150),
+                (164, 159),
+                (151, 146),
+                (163, 103),
+            ],
+            MOSS,
+            0.79,
+        );
+        b.poly(
+            &[(187, 89), (197, 99), (187, 146), (162, 152), (171, 110)],
+            MOSS,
+            0.46,
+        );
+        b.poly(&[(170, 105), (180, 98), (177, 146), (165, 153)], MOSS, 0.32);
+        b.poly(
+            &[(219, 101), (231, 120), (236, 150), (223, 147), (214, 126)],
+            MOSS,
+            0.84,
+        );
+        b.oval(201, 86, 17, 19, MOSS, 0.79);
+        b.poly(
+            &[
+                (199, 71),
+                (212, 74),
+                (215, 88),
+                (219, 93),
+                (213, 95),
+                (211, 101),
+                (199, 103),
+                (195, 94),
+            ],
+            METAL,
+            0.69,
+        );
+        b.poly(
+            &[
+                (187, 78),
+                (197, 75),
+                (196, 95),
+                (201, 102),
+                (192, 98),
+                (185, 88),
+            ],
+            MOSS,
+            0.38,
+        );
+        b.poly(
+            &[
+                (187, 70),
+                (185, 53),
+                (194, 62),
+                (200, 46),
+                (205, 62),
+                (216, 52),
+                (213, 72),
+            ],
+            WOOD,
+            0.95,
+        );
+        b.stroke((188, 70), (213, 70), WOOD, 0.94);
+        b.round(187, 80, 11, 4, 1, STONE, 0.0);
+        b.round(204, 80, 11, 4, 1, STONE, 0.0);
+        b.im.line(191, 82, 196, 82, '2');
+        b.im.line(207, 82, 211, 82, '2');
+        b.stroke((187, 78), (197, 80), MOSS, 0.25);
+        b.stroke((204, 79), (215, 77), MOSS, 0.23);
+        b.stroke((202, 84), (204, 92), METAL, 0.91);
+        b.stroke((201, 95), (212, 94), MOSS, 0.05);
+        for x in [203, 207, 211] {
+            b.stroke((x, 95), (x, 97), METAL, 0.74);
+        }
+        for dx in [-8, -3, 3, 8] {
+            b.stroke((201 + dx, 97), (199 + dx, 120 - dx.abs()), WOOD, 0.72);
+        }
+        for x in [170, 228] {
+            b.oval(x, 125, 8, 12, MOSS, 0.7);
+        }
+        for (x, y) in [
+            (175, 107),
+            (181, 113),
+            (188, 119),
+            (197, 122),
+            (206, 122),
+            (215, 118),
+            (222, 111),
+        ] {
+            b.oval(x, y, 3, 2, WOOD, 0.92);
+        }
+        b.poly(
+            &[(201, 124), (207, 129), (201, 135), (195, 129)],
+            WOOD,
+            0.92,
+        );
+        // Blanchefleur's cream face and haunches are visible through her pen.
+        b.oval(290, 136, 20, 9, METAL, 0.89);
+        b.poly(
+            &[
+                (301, 137),
+                (303, 112),
+                (308, 105),
+                (316, 110),
+                (313, 129),
+                (307, 141),
+            ],
+            METAL,
+            0.94,
+        );
+        b.poly(
+            &[
+                (306, 106),
+                (307, 98),
+                (311, 104),
+                (314, 99),
+                (315, 107),
+                (326, 114),
+                (326, 119),
+                (314, 117),
+            ],
+            METAL,
+            0.95,
+        );
+        b.im.put(316, 109, 'k');
+        for x in [275, 282, 303, 308] {
+            b.stroke((x, 141), (x - 1, 158), METAL, 0.86);
+        }
+        for x in [263, 331] {
+            b.round(x, 95, 5, 69, 1, WOOD, 0.85);
+        }
+        for y in [99, 137, 155] {
+            b.round(262, y, 74, 4, 1, WOOD, 0.81);
+        }
+        for x in [278, 294, 313] {
+            b.round(x, 137, 3, 24, 1, WOOD, 0.64);
+        }
+        b.round(297, 137, 7, 9, 1, WOOD, 0.9);
+        b.im.put(300, 141, '4');
+    } else {
+        // A ruined crown-shaped gateway beyond the mire, no fungal scenery.
+        b.arch(201, 55, 34, 135, 9, 0.50);
+        for (x, y) in [(168, 61), (181, 43), (199, 34), (218, 43), (230, 60)] {
+            b.poly(&[(x - 5, y + 14), (x, y), (x + 6, y + 14)], STONE, 0.59);
+        }
+        b.haze(204, 130, 91, 10, 'U', 1.2);
+        if depth == 2 {
+            // A huge knuckled hand breaches the nearer pool; another life
+            // is a small cold flame between the drowned trees.
+            b.oval(271, 151, 17, 8, MOSS, 0.67);
+            for (x, y, h) in [
+                (257, 126, 23),
+                (266, 117, 30),
+                (276, 120, 27),
+                (285, 131, 18),
+            ] {
+                b.round(x, y, 6, h, 3, MOSS, 0.88);
+                b.round(x + 1, y + 1, 3, 4, 1, METAL, 0.52);
+            }
+            b.oval(271, 157, 28, 3, CAP, 0.49);
+            b.poly(
+                &[
+                    (121, 105),
+                    (116, 98),
+                    (121, 86),
+                    (122, 78),
+                    (128, 88),
+                    (129, 99),
+                    (126, 105),
+                ],
+                CAP,
+                0.93,
+            );
+            b.im.line(123, 91, 122, 101, '2');
+        }
+    }
+    // Near trees frame the scene; light catches bark and copper bulrushes.
+    swamp_tree(&mut b, 49, 184, 157, 20, true);
+    swamp_tree(&mut b, 355, 187, 169, -19, true);
+    for (x, y) in [(78, 176), (110, 183), (319, 179), (341, 174)] {
+        b.oval(x, y, 16, 4, MOSS, 0.38);
+        for i in -3..=3 {
+            let top = y - 19 - (hash(x, i, 853) % 15) as i32;
+            b.stroke((x + i * 2, y), (x + i * 4, top), MOSS, 0.78);
+            if i % 2 == 0 {
+                b.round(x + i * 4 - 1, top - 5, 3, 8, 1, WOOD, 0.86);
+            }
+        }
+    }
+    b.haze(183, 159, 153, 12, 'S', 0.8);
+    b.lantern(96, 151, 2);
+    (b, breathing)
+}
+
 fn unknown() -> (Brush, Lamp) {
     let breathing = Lamp::cool(208, 101, 79.0);
     let mut b = Brush::new(vec![
@@ -1682,6 +2036,7 @@ fn build(kind: Kind, depth: u32) -> Scene {
         Kind::Archive => archive(),
         Kind::Fungal => fungal(),
         Kind::Unknown => unknown(),
+        Kind::Swamp => swamp(depth),
     };
     let mut base = brush.finish();
     title(&mut base, kind, depth);
@@ -1750,7 +2105,7 @@ fn build(kind: Kind, depth: u32) -> Scene {
         base,
         breaths,
         motes,
-        cool: matches!(kind, Kind::Fungal | Kind::Unknown),
+        cool: matches!(kind, Kind::Fungal | Kind::Unknown | Kind::Swamp),
         spores: kind == Kind::Fungal,
     }
 }
@@ -1769,6 +2124,9 @@ fn cached(kind: Kind, depth: u32) -> &'static Scene {
 
 /// Fully opened artwork; only a cached light pool and ten dust/spore dots move.
 pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
+    if let Some(im) = delivered(kind, depth, 1) {
+        return im.clone();
+    }
     let scene = cached(kind, depth);
     let mut im = scene.base.clone();
     let phase = [0, 2, 1, 3, 2, 1, 2, 0][usize::from(age.min(DURATION - 1) / 7)];
@@ -1796,26 +2154,55 @@ pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
     im
 }
 
+/// Each native grain samples the rich source independently offline. The title
+/// retains its original wording, ink and position in the quiet bottom band.
+fn delivered(kind: Kind, depth: u32, scale: i32) -> Option<&'static Img> {
+    if !super::slot_art::enabled() { return None; }
+    static IMAGES: [OnceLock<Option<Img>>; DESTINATIONS.len() * 2] =
+        [const { OnceLock::new() }; DESTINATIONS.len() * 2];
+    let index = DESTINATIONS.iter().position(|&(k,d)| k == kind && d == depth)?;
+    IMAGES[index * 2 + (scale - 1) as usize].get_or_init(|| {
+        let slot = match kind {
+            Kind::Gate => "dgn.plate.gate", Kind::Crypt => "dgn.plate.crypt",
+            Kind::Mines => "dgn.plate.mines", Kind::Keep => "dgn.plate.keep",
+            Kind::Archive => "dgn.plate.archive", Kind::Fungal => "dgn.plate.fungal",
+            Kind::Unknown => "dgn.plate.unknown",
+            // The swamp's plates are painted here, never delivered.
+            Kind::Swamp => return None,
+        };
+        let name = if scale == 2 { "v2-plate" } else { "plate" };
+        super::slot_art::bytes(slot, name)?;
+        let mut im = super::slot_art::load(slot, name, &[]);
+        let mut label = Img::new(W,H);
+        title(&mut label, kind, depth);
+        if scale == 2 { im.stamp_twice(&label,0,0); } else { im.stamp(&label,0,0); }
+        Some(im)
+    }).as_ref()
+}
+
 pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
-    let mut native = painting(plate.kind, plate.depth, plate.age);
+    let scale = if w >= W * 2 && h >= H * 2 { 2 } else { 1 };
+    let mut native = delivered(plate.kind, plate.depth, scale).cloned()
+        .unwrap_or_else(|| painting(plate.kind, plate.depth, plate.age));
+    let (nw,nh) = (native.w,native.h);
     // Quick horizontal iris: black -> painting in 7 ticks, close in 6.
     // No interpolated RGB: all frames remain exactly on the master palette.
     let aperture = if plate.age < 7 {
-        i32::from(plate.age) * H / 7
+        i32::from(plate.age) * nh / 7
     } else if plate.age > DURATION - 7 {
-        i32::from(DURATION.saturating_sub(plate.age)) * H / 6
+        i32::from(DURATION.saturating_sub(plate.age)) * nh / 6
     } else {
-        H
+        nh
     };
-    let edge = (H - aperture) / 2;
-    for y in 0..H {
-        if y < edge || y >= H - edge {
-            for x in 0..W {
+    let edge = (nh - aperture) / 2;
+    for y in 0..nh {
+        if y < edge || y >= nh - edge {
+            for x in 0..nw {
                 native.set(x, y, BLACK);
             }
         }
     }
-    if w == W && h == H {
+    if w == nw && h == nh {
         return native;
     }
     let mut out = Img::black(w.max(0), h.max(0));
@@ -1835,7 +2222,7 @@ pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
     let (ox, oy) = ((w - tw) / 2, (h - th) / 2);
     for yy in 0..th {
         for xx in 0..tw {
-            if let Some(c) = native.get(xx * W / tw, yy * H / th) {
+            if let Some(c) = native.get(xx * nw / tw, yy * nh / th) {
                 out.set(ox + xx, oy + yy, c);
             }
         }

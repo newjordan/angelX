@@ -4,17 +4,24 @@ use crate::rules::{Enemy, signatures as fight};
 
 pub(super) fn supported(run: &Run, e: &Enemy) -> bool {
     e.frozen == 0
+        && e.chilled == 0
         && (matches!(
             e.kind,
             EnemyKind::Skeleton | EnemyKind::Wraith | EnemyKind::Slime | EnemyKind::Imp
         ) || e
             .boss
             .and_then(|i| run.bosses.get(i as usize))
-            .is_some_and(|b| matches!(b.id.as_str(), fight::RIPPER | fight::ENGINE)))
+            .is_some_and(|b| matches!(b.id.as_str(), fight::RIPPER | fight::ENGINE)
+                || crate::rules::bosses::Art::for_id(&b.id).is_some_and(|a| super::super::boss_art::legacy(a) || super::super::boss_art::library_registered(a))))
 }
-pub(super) fn foe(cv: &mut Canvas, run: &Run, e: &Enemy) {
+pub(super) fn foe(cv: &mut Canvas, run: &Run, e: &Enemy, cell_path: bool) {
     let (x, y) = (e.x * UNIT, e.y * UNIT);
     if let Some(b) = e.boss.and_then(|i| run.bosses.get(i as usize)) {
+        if let Some(art) = crate::rules::bosses::Art::for_id(&b.id)
+            .filter(|a| super::super::boss_art::legacy(*a) || super::super::boss_art::library_registered(*a)) {
+            super::super::boss_art::paint_study(cv, run, e, art, cell_path);
+            return;
+        }
         if b.id == fight::RIPPER {
             ripper(cv, x, y, e, run.tick);
             return;
@@ -228,9 +235,11 @@ pub(super) fn shot_supported(p: &crate::rules::Projectile) -> bool {
     matches!(p.kind, Shot::Wisp | Shot::Ember | Shot::Page | Shot::Ball)
         && p.look.is_none()
         && p.sprite_card().is_none()
+        && !p.wished()
         && !p.empowered
         && p.traits.path.beam.is_none()
         && !p.traits.path.waiting()
+        && p.traits.path.form == crate::rules::patterns::Form::Plain
 }
 pub(super) fn shots(cv: &mut Canvas, run: &Run) {
     use crate::rules::Shot;

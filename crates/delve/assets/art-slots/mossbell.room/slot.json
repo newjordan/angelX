@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "c93f5fca1c6f054a2c943b861a7db632608bc7e6c2f5f7df14c963e45e21d740",
+  "metadata_sha256": null,
+  "notes_sha256": "46c6e737a29c58b21b1352b91b751e11b595a502436884d7e160eff180192d75",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "ed7a3c817484f773c96b11f94998c16c02b98164f9f092e54c7972b1a4cb62d9",
+      "source_scale": 0.22966507177033493,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "ed7a3c817484f773c96b11f94998c16c02b98164f9f092e54c7972b1a4cb62d9",
+      "source_scale": 0.22966507177033493,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "mossbell.room",
+  "source_path": "/work/artifacts/art-prod/slots/mossbell.room/v01/source-sheet.png",
+  "source_sha256": "f62a4be78c4f957c69f01754aeef3780dfc775a775a4a8fcdeaec3f32146f0fc",
+  "tool_version": 2
+}

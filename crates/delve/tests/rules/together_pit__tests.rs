@@ -79,7 +79,7 @@ fn the_slam_gathers_in_a_ring_then_strikes_and_throws_whoever_is_in_it() {
 fn the_pit_tyrant_leaves_the_talisman_and_a_knight_takes_it() {
     let mut run = pit_with(30.0, 14.0);
     run.enemies[0].hp = 0;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(run.cues.iter().any(|c| c == "pit_fall"));
     assert!(run.feats.contains(&"pit_tyrant"));
     let talisman = run
@@ -92,7 +92,7 @@ fn the_pit_tyrant_leaves_the_talisman_and_a_knight_takes_it() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = talisman;
     hero.hp = 10;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     let hero = &run.players[&1];
     assert!(hero.talisman, "carried");
     assert_eq!(hero.hp, hero.max_hp, "and mends");

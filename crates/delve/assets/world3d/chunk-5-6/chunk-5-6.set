@@ -1,0 +1,110 @@
+set chunk-5-6
+# The kingdom, chunk 5,6 in Wind Country: tiles 120..144 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 1664
+plate 1536 1024
+
+# ground
+box    grass   at 2040 -4 1608 size 240 4 144
+box    path    at 2192 -4 1552 size 64 4 32
+box    grass   at 2264 -4 1616 size 80 4 160
+box    grass   at 2168 -4 1608 size 16 4 80
+box    path    at 2200 -4 1632 size 48 4 128
+box    path    at 2168 -4 1704 size 16 4 112
+box    grass   at 1960 -4 1728 size 80 4 96
+box    path    at 2008 -4 1696 size 16 4 32
+box    grass   at 2080 -4 1688 size 128 4 16
+box    path    at 2152 -4 1728 size 16 4 96
+box    path    at 2024 -4 1720 size 16 4 48
+box    grass   at 2080 -4 1704 size 96 4 16
+box    path    at 2136 -4 1744 size 16 4 96
+box    path    at 2192 -4 1712 size 32 4 32
+box    grass   at 2224 -4 1712 size 32 4 32
+box    crop    at 2264 -4 1720 size 48 4 48
+box    grass   at 2296 -4 1744 size 16 4 96
+box    grass   at 2008 -4 1752 size 16 4 80
+box    grass   at 2072 -4 1720 size 80 4 16
+box    path    at 2120 -4 1752 size 16 4 80
+box    path    at 2040 -4 1744 size 16 4 32
+box    grass   at 2072 -4 1736 size 48 4 16
+box    path    at 2104 -4 1760 size 16 4 64
+box    path    at 2184 -4 1736 size 16 4 16
+box    grass   at 2208 -4 1760 size 32 4 64
+box    crop    at 2232 -4 1736 size 16 4 16
+box    grass   at 2024 -4 1768 size 16 4 48
+box    path    at 2072 -4 1752 size 48 4 16
+box    grass   at 2184 -4 1768 size 16 4 48
+box    grass   at 2256 -4 1768 size 64 4 48
+box    grass   at 2056 -4 1776 size 48 4 32
+box    path    at 2088 -4 1776 size 16 4 32
+box    grass   at 2168 -4 1776 size 16 4 32
+box    crop    at 1928 -4 1784 size 16 4 16
+box    grass   at 1968 -4 1784 size 64 4 16
+box    grass   at 2152 -4 1784 size 16 4 16
+
+# crop furrows
+box    crop    at 2264 0 1699.5 size 46 2.5 2
+box    crop    at 2264 0 1704.5 size 46 2.5 2
+box    crop    at 2264 0 1709.5 size 46 2.5 2
+box    crop    at 2264 0 1714.5 size 46 2.5 2
+box    crop    at 2264 0 1719.5 size 46 2.5 2
+box    crop    at 2264 0 1724.5 size 46 2.5 2
+box    crop    at 2264 0 1729.5 size 46 2.5 2
+box    crop    at 2264 0 1734.5 size 46 2.5 2
+box    crop    at 2264 0 1739.5 size 46 2.5 2
+box    crop    at 2232 0 1731.5 size 14 2.5 2
+box    crop    at 2232 0 1736.5 size 14 2.5 2
+box    crop    at 2232 0 1741.5 size 14 2.5 2
+box    crop    at 1928 0 1779.5 size 14 2.5 2
+box    crop    at 1928 0 1784.5 size 14 2.5 2
+box    crop    at 1928 0 1789.5 size 14 2.5 2
+
+# fingerposts
+box    wood    at 2156 0 1544 size 1.5 19 1.5
+pyramid wood    at 2156 19 1544 size 2.2 1.5 2.2
+box    wood    at 2156 16 1540 size 0.6 1.8 6.5
+box    wood    at 2156 13.5 1548 size 0.6 1.8 6.5
+
+# set dressing
+cone   thatch  at 1971 0 1558.5 size 4.5 4 4.5
+cone   thatch  at 1976 0 1561.5 size 4.5 4 4.5
+cone   thatch  at 1981 0 1558.5 size 4.5 4 4.5
+cone   thatch  at 2291 0 1558.5 size 4.5 4 4.5
+cone   thatch  at 2296 0 1561.5 size 4.5 4 4.5
+cone   thatch  at 2301 0 1558.5 size 4.5 4 4.5
+box    stone   at 1928 0 1576 size 9 4 3
+box    stone   at 1928 0 1578.5 size 6 2 2
+box    stone   at 2264 0 1576 size 9 4 3
+box    stone   at 2264 0 1578.5 size 6 2 2
+cone   thatch  at 2131 0 1606.5 size 4.5 4 4.5
+cone   thatch  at 2136 0 1609.5 size 4.5 4 4.5
+cone   thatch  at 2141 0 1606.5 size 4.5 4 4.5
+cone   thatch  at 1955 0 1686.5 size 4.5 4 4.5
+cone   thatch  at 1960 0 1689.5 size 4.5 4 4.5
+cone   thatch  at 1965 0 1686.5 size 4.5 4 4.5
+box    wood    at 2056 0 1688 size 1.5 14 1.5
+box    wood    at 2056 10 1688 size 7 1 1
+box    cloth   at 2056 6 1688 size 2.5 4 1.5
+box    stone   at 2008 0 1720 size 9 4 3
+box    stone   at 2008 0 1722.5 size 6 2 2
+
+# woods (at 34% of its height, for the camera)
+frustum trunk   at 2113 0 1664 size 5 4.5 5
+blob-53 foliage at 2113 3 1664 size 33 8.5 31.35 turn 270
+frustum trunk   at 2264 0 1544.5 size 3 4 3
+blob-28 foliage at 2264 1.5 1544.5 size 18 8 17.1
+frustum trunk   at 2073 0 1655 size 3 4.5 3
+blob-37 foliage at 2073 2 1655 size 17 7.5 16.15 turn 90
+frustum trunk   at 2088 0 1656 size 3 4 3
+blob-2 foliage at 2088 2 1656 size 19 7 18.05 turn 270
+cylinder trunk   at 2071.5 0 1672 size 3 9 3
+blob-14 foliage at 2071.5 4 1672 size 18 16 17.1 turn 270
+cylinder trunk   at 2087 0 1673 size 3 11 3
+blob-44 foliage at 2087 6 1673 size 17 15 16.15 turn 180
+cylinder trunk   at 2088 0 1687 size 3 10 3
+blob-45 foliage at 2088 5 1687 size 19 18 18.05 turn 90
+frustum trunk   at 2104 0 1688 size 3 12 3
+blob-59 foliage at 2104 7 1688 size 19 17 18.05 turn 180
+box    hedge   at 2296 0 1656 size 16 5.5 15
+blob-10 hedge   at 2296 3 1656 size 16 6 15

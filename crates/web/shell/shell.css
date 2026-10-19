@@ -21,7 +21,7 @@ body {
   overscroll-behavior: none;
 }
 
-#stage { position: absolute; inset: 0; }
+#stage { position: absolute; inset: 0 0 40px; }
 
 #screen {
   display: block;
@@ -189,11 +189,11 @@ body.panel-open #toast {
 }
 #full:hover { opacity: 1; }
 
-/* The volume: a note to mute and a slider, left of the full-screen button. */
+/* A separate footer keeps the volume clear of the canvas and its podium. */
 #vol {
   position: absolute;
-  right: 112px;
-  top: 8px;
+  right: 12px;
+  bottom: 8px;
   display: flex;
   align-items: center;
   gap: 6px;

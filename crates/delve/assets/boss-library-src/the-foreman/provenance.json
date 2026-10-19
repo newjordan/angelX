@@ -1,0 +1,215 @@
+{
+  "id": "the-foreman",
+  "source_path": "./cockpit/assets/boss-library/existing/the-foreman/v01/source-sheet-refined.png",
+  "source_sha256": "bca03adb0a3bb02eda3a0ab641941a5a793c27a6b4bc7548a3de89ae8d63f77a",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "A pear-shaped green goblin overseer wearing a pit-pony's leather harness over patched brown workclothes. Huge ears and nose, crooked lower teeth, tiny miner's helmet with ONE brass oil lamp. A short coiled whip in EACH gloved hand, a quota tally board on his back with blank tally scratches only. Heavy scuffed boots and enormous fists. Frazzled overworked comic boss, no pony body.",
+  "definition_header": "name THE FOREMAN\ntext A goblin overseer in a pit-pony's harness: a whip in each hand, a lamp on his helmet, and a quota.\nby angelX\nwhere mines\nhp 760\nsize 1.5\nmove chase speed=1.3\nattack fan shots=5 arc=60 speed=5 every=85 damage=12 shot=ember\nattack aimed shots=2 speed=7 every=50 damage=10 shot=bone\nphases gap_wall bounce lead every=78 volleys=2 damage=12\nrage 30%\ndrops ore 6, gem 2, gold 220",
+  "source_definition_sha256": "2f72620be3bb64d89646b343f66730a1ae5e80316f393adefdf574ef8ce3da08",
+  "definition_sha256": "1c1b11d8190584ff3b551f9cd9391428267abd020f8400900e5e1e9e54845f3a",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        63,
+        166,
+        249,
+        284
+      ],
+      "opaque_component_pixels": 46955,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "8d3024fcb3c1d8dfbe440c2c58dcc2d83c4abfe41f6fcef0032dba8772887bf6"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        342,
+        141,
+        271,
+        294
+      ],
+      "opaque_component_pixels": 44665,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "ae2d934ef2ad61bdaa8a378d025889faa1673b2346eb9a34d23dc48bd9451ce7"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        693,
+        198,
+        222,
+        243
+      ],
+      "opaque_component_pixels": 37508,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "91a7d0c4414fa29cb1b695c6c9f594325ae5dddab5b7b6134f8050853cffd084"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        977,
+        133,
+        243,
+        308
+      ],
+      "opaque_component_pixels": 43499,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "5301cd6f9f721a36992f37fc8be1dcb7665db4b50c91a780c68008015ba3b4fe"
+    },
+    {
+      "id": "overhead/part/harness-torso-boots",
+      "source_rect_xywh": [
+        58,
+        594,
+        237,
+        210
+      ],
+      "opaque_component_pixels": 33240,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-harness-torso-boots.png",
+      "sha256": "fb1a18cfa8fcf4eb5fa7ef67cacae36f87b3155881da41485efcb56bbd618473"
+    },
+    {
+      "id": "overhead/part/goblin-lamp-head",
+      "source_rect_xywh": [
+        397,
+        597,
+        183,
+        162
+      ],
+      "opaque_component_pixels": 18434,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-goblin-lamp-head.png",
+      "sha256": "a25e4329665168adb6ac79e0706c071bfadd6d08f4eb7dbdf849daa8a53296ae"
+    },
+    {
+      "id": "overhead/part/left-whip-arm",
+      "source_rect_xywh": [
+        704,
+        574,
+        174,
+        214
+      ],
+      "opaque_component_pixels": 18614,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-left-whip-arm.png",
+      "sha256": "18bed4751bc1f7259e785ae06ad3ab173baff7b8556d47b4369e918775fcdb0c"
+    },
+    {
+      "id": "overhead/part/right-whip-arm",
+      "source_rect_xywh": [
+        1031,
+        574,
+        171,
+        214
+      ],
+      "opaque_component_pixels": 18240,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-right-whip-arm.png",
+      "sha256": "53c369f029ff1d609ead44c433edbc3ebc34c25abf4608578f3e64f87538c8ea"
+    },
+    {
+      "id": "side/part/harness-torso-boots",
+      "source_rect_xywh": [
+        58,
+        913,
+        241,
+        209
+      ],
+      "opaque_component_pixels": 34293,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-harness-torso-boots.png",
+      "sha256": "de3de22942771ed1035a1fe299d0a134b6f50fa3d26669e5a6bf6b36f8227346"
+    },
+    {
+      "id": "side/part/goblin-lamp-head",
+      "source_rect_xywh": [
+        403,
+        939,
+        175,
+        146
+      ],
+      "opaque_component_pixels": 15030,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-goblin-lamp-head.png",
+      "sha256": "43798ddeb08242a3fca4654e2d31e1292b1dc26f353855d427887d93667d63d4"
+    },
+    {
+      "id": "side/part/left-whip-arm",
+      "source_rect_xywh": [
+        706,
+        908,
+        185,
+        210
+      ],
+      "opaque_component_pixels": 18515,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-left-whip-arm.png",
+      "sha256": "7c3fb286850febf8d4c6d9a2cbbb0b386dd86660391f3de9155bc1ed475072f6"
+    },
+    {
+      "id": "side/part/right-whip-arm",
+      "source_rect_xywh": [
+        1051,
+        916,
+        171,
+        202
+      ],
+      "opaque_component_pixels": 17585,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-right-whip-arm.png",
+      "sha256": "261c4b8af39a23fdae48f9af3228a0af4397d2894e1e6c1b36159c0ce474e647"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

@@ -106,6 +106,9 @@ glyphs), and a funny payoff in the privy's spirit. A finished game:
       wagers on herd horses.
 - [x] (22c1683d) **Duck shoot** (Fairground): everyone at once (heats), and a
       far-rail duck counts double.
+- [ ] **Gander Joust** (Marsh): knights ride war-geese over the tar pit;
+      flap to climb, land on top to unhorse rival riders and friends alike;
+      most unhorsings in 75 s wins. Everyone plays at once (heats).
 - [x] (2426c392) **Half-pipe** (Mummers): the camera was pitched up at the
       backdrop; it now looks down into the channel with the gold launch
       window in view, and the rider's shadow keeps to the wall. The whole
@@ -113,6 +116,12 @@ glyphs), and a funny payoff in the privy's spirit. A finished game:
 - [x] (104acaa4) **Surf** (Millpond): the whole party at once (heats).
 - [x] (104acaa4) **Cart / wheelbarrow** (Timberyard): the whole party at once (heats).
 - [x] (104acaa4) **Belfry volley**: the whole party at once (heats).
+- [ ] **Powder Keg** (the Old Watch): every knight in the room drops kegs at
+      once (heats); F drops a keg that blows a cross of fire through hay
+      bales, charms drop (longer blast, one more keg, quicker boots), a
+      caught knight is sooted out in under a second, kegs chain, and the last
+      knight standing wears the crown (alone: clear 8 bales in a minute).
+      Board: "DROP KEGS · LAST STANDS".
 - [x] (1ff489a9) **Longbow Green**: finished from Codex's parked files.
       The **Popinjay Shoot** (pad A): a painted wooden popinjay slides on a
       rope before the butts; every knight in the room shoots at once
@@ -123,6 +132,14 @@ glyphs), and a funny payoff in the privy's spirit. A finished game:
       archer is crowned, the rest wear an apple with an arrow through it;
       the first win pays the realm 25 gold once, and three for three is a
       feat ("Down Goes the Popinjay"). Board: "WALK, DRAW, LOOSE".
+- [x] (e4e4d945) **Siege Trail** (the Flower Fields' war-camp ring G): a trail
+      of three legs with one fixed event each (the ford, wolves, the flux)
+      feeds three castles that grow taller; every knight lobs at once from
+      their own trebuchet on one shared volley clock, the wind turns each
+      volley, the ground craters, the crew's reload is slower the fewer men
+      stand (and one tangles in the sling at two), and the trail's dead get
+      tiny graves with one-line epitaphs. The most damage outlasted wins the
+      laurel; the rest wear the booby turnip. Board: "AIM, LOB, SURVIVE".
 - [x] (22c1683d) **Firefly Grove**: all eight lanterns pay 40 gold and 2 wax
       once; the grove's song pays 40 gold once.
 - [x] (1651e1cb) **Hedge Maze**: a golden acorn behind the long hedge; the first
@@ -154,6 +171,16 @@ glyphs), and a funny payoff in the privy's spirit. A finished game:
         honk) pecks the thief and takes it back; a friend's honk draws it off.
 
 ## 3. Classes you can change in the kingdom
+
+- [x] (cart/class-school) The school of the seven banners: each class's
+      master stands at its banner stone with a board of three missions
+      (Novice, Adept, Master); finishing them raises a knight's rank
+      (Squire, Adept, Master, kept in the realm save), Adept and Master
+      missions hand over signature gear that never drops, and every wish
+      tier and card carries the rank it needs — lifesteal is a Master's.
+- [x] (cart/lore-framework) The questlines: 22 teachers with a mission
+      tree each; tier 3 of a wish and level III of a skill are taught by
+      their teacher, not wished.
 
 Today the kit (weapon, guard, hand, ultimate) is chosen once, on the intro
 screen.

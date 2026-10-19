@@ -135,6 +135,44 @@ test('install.sh replaces nothing when the package is wrong or will not run', { 
   )
 })
 
+// The real launcher in an unpacked prebuilt whose cockpit prints the window
+// choice it was handed, launched on a desktop with no terminal around it.
+function launchPrebuilt(t, prebuiltJson, args = []) {
+  const dir = scratch(t)
+  const top = join(dir, 'angelX')
+  write(join(top, 'bin/angelX'), readFileSync(join(root, 'bin/angelX')), 0o755)
+  const policy = 'scripts/check/angel-club-policy.sh'
+  write(join(top, policy), readFileSync(join(root, policy)))
+  write(join(top, 'cockpit/target/release/angel'), '#!/bin/sh\necho "ANGEL_GLASS=${ANGEL_GLASS:-}"\n', 0o755)
+  write(join(top, 'PREBUILT.json'), `${JSON.stringify(prebuiltJson, null, 2)}\n`)
+  mkdirSync(join(dir, 'home'))
+  return spawnSync('bash', [join(top, 'bin/angelX'), ...args], {
+    cwd: dir,
+    env: { HOME: join(dir, 'home'), PATH: process.env.PATH, DISPLAY: ':9' },
+    encoding: 'utf8',
+  })
+}
+
+test('a prebuilt opens the window only when its binary carries one', (t) => {
+  const old = launchPrebuilt(t, { version: '0.2.4' })
+  assert.equal(old.status, 0, old.stderr)
+  assert.match(old.stdout, /^ANGEL_GLASS=0$/m, 'an old prebuilt stays in the terminal')
+  const asked = launchPrebuilt(t, { version: '0.2.4' }, ['--glass'])
+  assert.match(asked.stdout, /^ANGEL_GLASS=0$/m, '--glass cannot open a window the binary lacks')
+  assert.match(asked.stderr, /no window of its own/)
+  const glass = launchPrebuilt(t, { version: '9.9.1', glass: true })
+  assert.equal(glass.status, 0, glass.stderr)
+  assert.match(glass.stdout, /^ANGEL_GLASS=1$/m, 'a glass prebuilt opens its window on a desktop')
+  const term = launchPrebuilt(t, { version: '9.9.1', glass: true }, ['--term'])
+  assert.match(term.stdout, /^ANGEL_GLASS=0$/m, '--term still keeps it in the terminal')
+  const lateTerm = launchPrebuilt(t, { version: '9.9.1', glass: true }, ['.', '--term'])
+  assert.equal(lateTerm.status, 0, lateTerm.stderr)
+  assert.match(lateTerm.stdout, /^ANGEL_GLASS=0$/m, '--term after the workspace keeps it in the terminal')
+  const lateGlass = launchPrebuilt(t, { version: '0.2.4' }, ['.', '--glass'])
+  assert.match(lateGlass.stdout, /^ANGEL_GLASS=0$/m, 'a late --glass cannot open a window the binary lacks')
+  assert.match(lateGlass.stderr, /no window of its own/)
+})
+
 test('install.sh upgrades in place and keeps the previous release', { skip: !platform }, (t) => {
   const dir = scratch(t)
   const home = join(dir, 'home')
@@ -231,3 +269,56 @@ test('angelX setup runs the wizard and skipping still marks setup done', (t) => 
   assert.match(run.stdout, /Skipped/)
   assert.ok(existsSync(join(dir, '.angelX/angel.env')))
 })
+
+test('prebuilt angelX only defaults ANGEL_GLASS=1 when PREBUILT.json includes glass', (t) => {
+  const dir = scratch(t)
+  const pkg = join(dir, 'prebuilt')
+  const launcherText = readFileSync(join(root, 'bin/angelX'), 'utf8')
+  write(join(pkg, 'bin/angelX'), launcherText, 0o755)
+  write(
+    join(pkg, 'scripts/check/angel-club-policy.sh'),
+    readFileSync(join(root, 'scripts/check/angel-club-policy.sh'), 'utf8'),
+    0o755,
+  )
+  write(
+    join(pkg, 'cockpit/target/release/angel'),
+    '#!/bin/sh\nprintf "ANGEL_GLASS=%s\\n" "${ANGEL_GLASS:-}"\n',
+    0o755,
+  )
+  write(join(dir, 'home/.angelX/angel.env'), "ANGEL_DRIVER='local'\n", 0o600)
+
+  const baseEnv = {
+    HOME: join(dir, 'home'),
+    PATH: process.env.PATH,
+    DISPLAY: ':99',
+    WAYLAND_DISPLAY: '',
+    TMUX: '',
+    SSH_CONNECTION: '',
+    SSH_TTY: '',
+  }
+
+  // 1. Terminal-only prebuilt (like 0.2.4) stays in the terminal.
+  write(
+    join(pkg, 'PREBUILT.json'),
+    JSON.stringify({ version: '0.2.4', features: 'no default features (no video decoding)' }, null, 2),
+  )
+  const withoutGlass = spawnSync('bash', [join(pkg, 'bin/angelX')], {
+    env: baseEnv,
+    encoding: 'utf8',
+  })
+  assert.equal(withoutGlass.status, 0, withoutGlass.stderr)
+  assert.match(withoutGlass.stdout, /^ANGEL_GLASS=0$/m)
+
+  // 2. Glass-capable prebuilt defaults ANGEL_GLASS=1 on a desktop display.
+  write(
+    join(pkg, 'PREBUILT.json'),
+    JSON.stringify({ version: '0.2.5', features: 'glass (no video decoding)' }, null, 2),
+  )
+  const withGlass = spawnSync('bash', [join(pkg, 'bin/angelX')], {
+    env: baseEnv,
+    encoding: 'utf8',
+  })
+  assert.equal(withGlass.status, 0, withGlass.stderr)
+  assert.match(withGlass.stdout, /^ANGEL_GLASS=1$/m)
+})
+

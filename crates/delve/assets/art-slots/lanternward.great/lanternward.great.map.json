@@ -1,0 +1,140 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    22
+  ],
+  "anchor_xy": [
+    8,
+    22
+  ],
+  "comments": [
+    "Registered as one bank: cage and plinth share one scale and one baseline (the plinth base); the source pivot x is the centre of the plinth base.",
+    "The tall cage sets the shared scale, so the plinth is narrower than the 16 px canvas.",
+    "Contrast note: the dull orb and the dark iron cage are the weakest-contrast state of the five banks; the pale plinth carries the silhouette on a dark floor."
+  ],
+  "delivered_pieces": 5,
+  "expected_existing_pieces": 5,
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the five cells share one cage and plinth; the orb is dull in the first cell (out-0) and bright aqua in the next four (lit-0..3).",
+  "notes_sha256": "d94183bc8b0be866af4f0d91241817ec20ebfbb5b7c5c61f7798706f4964e1e6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "out-0: dull slate-teal orb with one small glint; visually unlit.",
+      "name": "out-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.5,
+        474
+      ],
+      "source_rect_xywh": [
+        134,
+        24,
+        297,
+        474
+      ],
+      "state": "out",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: bright aqua orb, centred pale core.",
+      "name": "lit-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        474
+      ],
+      "source_rect_xywh": [
+        619,
+        24,
+        298,
+        474
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: aqua orb, raised flame-like core.",
+      "name": "lit-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        474
+      ],
+      "source_rect_xywh": [
+        1105,
+        24,
+        298,
+        474
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: aqua orb, centred core.",
+      "name": "lit-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.5,
+        473
+      ],
+      "source_rect_xywh": [
+        134,
+        524,
+        297,
+        473
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3: aqua orb, lowered core to the right.",
+      "name": "lit-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        473
+      ],
+      "source_rect_xywh": [
+        619,
+        524,
+        298,
+        473
+      ],
+      "state": "lit",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 16x22, anchor bottom-centre (8,22); stage 384x224 at 16 px per tile; a knight is 16x16; the great brazier is a lantern-cage on a stone plinth, about 1.4 knights tall.",
+  "sizes": {
+    "v1": [
+      16,
+      22
+    ],
+    "v2": [
+      16,
+      22
+    ]
+  },
+  "slot": "lanternward.great",
+  "source_sha256": "3b1e81af4d38efe27ea33cd8189e1fb135fc96206c777b97288e57b43ed8babc",
+  "timing": "out 12 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

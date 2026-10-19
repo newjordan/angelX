@@ -1,0 +1,139 @@
+set archive-reading-alcove
+# The Reading Alcove: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# shelf at 2,2 3x1 (at 19% of its height, for the camera)
+box    wood    at 40 0 40 size 15 5 15 id shelf-1
+box    wood    at 56 0 40 size 15 5 15
+box    wood    at 72 0 40 size 15 5 15
+
+# shelf at 6,2 3x1 (at 19% of its height, for the camera)
+box    wood    at 104 0 40 size 15 5 15 id shelf-2
+box    wood    at 120 0 40 size 15 4.5 15
+box    wood    at 136 0 40 size 15 4.5 15
+
+# shelf at 15,2 3x1 (at 19% of its height, for the camera)
+box    wood    at 248 0 40 size 15 5 15 id shelf-3
+box    wood    at 264 0 40 size 15 5 15
+box    wood    at 280 0 40 size 15 4.5 15
+
+# shelf at 19,2 3x1 (at 19% of its height, for the camera)
+box    wood    at 312 0 40 size 15 5 15 id shelf-4
+box    wood    at 328 0 40 size 15 4.5 15
+box    wood    at 344 0 40 size 15 4.5 15
+
+# shelf at 7,3 2x2 (at 69% of its height, for the camera)
+box    wood    at 120 0 56 size 15 18 15 id shelf-5
+box    wood    at 136 0 56 size 15 19 15
+box    wood    at 120 0 72 size 15 19 15
+box    wood    at 136 0 72 size 15 16.5 15
+
+# shelf at 15,3 2x2 (at 74% of its height, for the camera)
+box    wood    at 248 0 56 size 15 19 15 id shelf-6
+box    wood    at 264 0 56 size 15 19 15
+box    wood    at 248 0 72 size 15 17.5 15
+box    wood    at 264 0 72 size 15 20.5 15
+
+# shelf at 7,9 2x3 (at 24% of its height, for the camera)
+box    wood    at 120 0 152 size 15 6 15 id shelf-7
+box    wood    at 136 0 152 size 15 6 15
+box    wood    at 120 0 168 size 15 6 15
+box    wood    at 136 0 168 size 15 6 15
+box    wood    at 120 0 184 size 15 6 15
+box    wood    at 136 0 184 size 15 5.5 15
+
+# shelf at 15,9 2x3 (at 23% of its height, for the camera)
+box    wood    at 248 0 152 size 15 6 15 id shelf-8
+box    wood    at 264 0 152 size 15 6 15
+box    wood    at 248 0 168 size 15 6 15
+box    wood    at 264 0 168 size 15 5.5 15
+box    wood    at 248 0 184 size 15 6 15
+box    wood    at 264 0 184 size 15 5.5 15
+
+# shelf at 2,11 3x1 (at 23% of its height, for the camera)
+box    wood    at 40 0 184 size 15 5.5 15 id shelf-9
+box    wood    at 56 0 184 size 15 6 15
+box    wood    at 72 0 184 size 15 6 15
+
+# shelf at 6,11 1x1 (at 23% of its height, for the camera)
+box    wood    at 104 0 184 size 15 6 15 id shelf-10
+
+# shelf at 17,11 1x1 (at 23% of its height, for the camera)
+box    wood    at 280 0 184 size 15 6 15 id shelf-11
+
+# shelf at 19,11 3x1 (at 24% of its height, for the camera)
+box    wood    at 312 0 184 size 15 6 15 id shelf-12
+box    wood    at 328 0 184 size 15 5.5 15
+box    wood    at 344 0 184 size 15 5.5 15
+
+# torches by the doors (at 81% of its height, for the camera)
+box    metal   at 168 18 16 size 3 6 3
+cone   fire    at 168 24 16 size 4 7 4
+box    metal   at 216 18 16 size 3 6 3
+cone   fire    at 216 24 16 size 4 7 4
+box    metal   at 16 18 88 size 3 6 3
+cone   fire    at 16 24 88 size 4 7 4
+box    metal   at 16 4 136 size 3 5 3
+cone   fire    at 16 9 136 size 4 5.5 4
+box    metal   at 368 18 88 size 3 6 3
+cone   fire    at 368 24 88 size 4 7 4
+box    metal   at 368 4 136 size 3 5 3
+cone   fire    at 368 9 136 size 4 5.5 4

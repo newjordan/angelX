@@ -1,0 +1,30 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    8,
+    16
+  ],
+  "pieces": [
+    {
+      "name": "idle-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "worn-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "worn-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    }
+  ]
+}

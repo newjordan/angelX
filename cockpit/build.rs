@@ -21,6 +21,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=ANGEL_CARTRIDGES");
     println!("cargo:rerun-if-env-changed=HOME");
+    println!("cargo:rerun-if-env-changed=WASM_BINDGEN");
     let roots: Vec<PathBuf> = match env::var_os("ANGEL_CARTRIDGES") {
         Some(list) => env::split_paths(&list).collect(),
         None => env::var_os("HOME")
@@ -63,7 +64,41 @@ fn main() {
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR")).join("cartridges.rs");
     fs::write(out, code).expect("write cartridges.rs");
     println!("cargo:rustc-env=ANGEL_COMPILED_CARTRIDGES={}", ids.join(";"));
+    build_paths();
     delve_web();
+}
+
+/// Where this build ran, for a checkout's own runs: the source tree's resources
+/// and the cargo that built it. A portable build (a prebuilt package sets
+/// `ANGEL_PORTABLE_BUILD=1`) names neither, so no shipped binary carries the
+/// builder's folders.
+fn build_paths() {
+    println!("cargo:rerun-if-env-changed=ANGEL_PORTABLE_BUILD");
+    if env::var_os("ANGEL_PORTABLE_BUILD").is_some_and(|v| v == "1") {
+        return;
+    }
+    if let Some(dir) = env::var_os("CARGO_MANIFEST_DIR") {
+        println!("cargo:rustc-env=ANGEL_SOURCE_COCKPIT_DIR={}", PathBuf::from(dir).display());
+    }
+    if let Some(cargo) = env::var_os("CARGO") {
+        println!("cargo:rustc-env=ANGEL_BUILD_CARGO={}", PathBuf::from(cargo).display());
+    }
+}
+
+/// The `--remap-path-prefix` flags among this build's rustc flags.
+fn remap_flags(encoded: &str) -> Vec<String> {
+    let mut flags = Vec::new();
+    let mut parts = encoded.split('\x1f').filter(|part| !part.is_empty());
+    while let Some(part) = parts.next() {
+        if part == "--remap-path-prefix" {
+            if let Some(map) = parts.next() {
+                flags.push(format!("--remap-path-prefix={map}"));
+            }
+        } else if part.starts_with("--remap-path-prefix=") {
+            flags.push(part.to_string());
+        }
+    }
+    flags
 }
 
 /// The game's name in the bundle, as `crates/web/build.sh` names it.
@@ -85,10 +120,19 @@ fn delve_web() {
             .expect("write delve_web.rs");
         return;
     }
-    for dir in [web.join("shell"), web.join("src"), game.clone(), crates.join("delve").join("src"), crates.join("net").join("src")] {
+    for dir in [
+        web.join("shell"),
+        web.join("src"),
+        game.clone(),
+        crates.join("delve").join("src"),
+        crates.join("net").join("src"),
+        crates.join("stage").join("src"),
+        web.join("render"),
+        crates.join("gpu"),
+    ] {
         watch(&dir);
     }
-    for file in ["Cargo.toml", "Cargo.lock", "delve/Cargo.toml", "net/Cargo.toml", "web/Cargo.toml"] {
+    for file in ["Cargo.toml", "Cargo.lock", "delve/Cargo.toml", "net/Cargo.toml", "web/Cargo.toml", "stage/Cargo.toml", "gpu/Cargo.toml"] {
         println!("cargo:rerun-if-changed={}", crates.join(file).display());
     }
     let rustc = env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
@@ -114,17 +158,7 @@ fn delve_web() {
         })
         .expect("crates/web/delve/Cargo.toml names its package");
     let target = out.join("delve-web-target");
-    // A clean environment: none of this build's flags, profile or target
-    // directory reach the wasm build, only where the toolchain and the
-    // crates' cache are.
-    let mut cargo = Command::new(env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
-    cargo.env_clear();
-    for key in ["PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "TMPDIR", "TEMP", "TMP", "SystemRoot", "USERPROFILE"] {
-        if let Some(value) = env::var_os(key) {
-            cargo.env(key, value);
-        }
-    }
-    cargo.env("RUSTC", &rustc);
+    let mut cargo = wasm_cargo(&rustc);
     cargo
         .arg("build")
         .arg("--manifest-path")
@@ -198,12 +232,14 @@ fn delve_web() {
             files.push((file, path));
         }
     }
+    let renderers = renderers(&crates, &rustc, &target, &out.join("delve-web-render"), &mut files);
     let title = format!("{}{}", DELVE[..1].to_ascii_uppercase(), &DELVE[1..]);
     let index = fs::read_to_string(web.join("shell").join("index.html"))
         .expect("the shell's page")
         .replace("@@GAME@@", DELVE)
         .replace("@@TITLE@@", &title)
-        .replace("@@SOUNDS@@", &format!("{{{}}}", sounds.join(",")));
+        .replace("@@SOUNDS@@", &format!("{{{}}}", sounds.join(",")))
+        .replace("@@RENDERERS@@", &renderers);
     let index_path = dist.join("index.html");
     fs::write(&index_path, index).expect("write the bundle's page");
     let entries: String = files
@@ -218,6 +254,103 @@ fn delve_web() {
         ),
     )
     .expect("write delve_web.rs");
+}
+
+/// A cargo for the browser's wasm: a clean environment, none of this build's
+/// flags, profile or target directory reach it, only where the toolchain and
+/// the crates' cache are (and so it never waits on the outer build's lock).
+fn wasm_cargo(rustc: &std::ffi::OsStr) -> Command {
+    let mut cargo = Command::new(env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
+    cargo.env_clear();
+    for key in ["PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "TMPDIR", "TEMP", "TMP", "SystemRoot", "USERPROFILE"] {
+        if let Some(value) = env::var_os(key) {
+            cargo.env(key, value);
+        }
+    }
+    cargo.env("RUSTC", rustc);
+    // A portable build is portable in the page too: the Delve names no build
+    // folder there either (`crates/delve/build.rs`).
+    if let Some(value) = env::var_os("ANGEL_PORTABLE_BUILD") {
+        cargo.env("ANGEL_PORTABLE_BUILD", value);
+    }
+    // Path remaps are the one flag the page shares: a portable build maps the
+    // builder's folders out of the wasm too.
+    let remaps = remap_flags(&env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default());
+    if !remaps.is_empty() {
+        cargo.env("CARGO_ENCODED_RUSTFLAGS", remaps.join("\x1f"));
+    }
+    cargo
+}
+
+/// The GPU renderer (`crates/web/render`), as `crates/web/build.sh` builds it:
+/// twice, WebGPU only and with wgpu's WebGL2 backend too, each through the
+/// wasm-bindgen CLI into `render-<build>.js` and `render-<build>_bg.wasm`,
+/// which join `files` (served as /a/<hash>.<ext>). Returns the page's
+/// `renderers` JSON. The CLI is `$WASM_BINDGEN` or `wasm-bindgen` on PATH and
+/// must be the version the crate pins; without it, or at another, the bundle
+/// has no renderer (`{}`), with a warning, and the page draws with the shell's
+/// own presenter as it did before.
+fn renderers(crates: &Path, rustc: &std::ffi::OsStr, target: &Path, work: &Path, files: &mut Vec<(String, PathBuf)>) -> String {
+    let pinned = fs::read_to_string(crates.join("web").join("render").join("Cargo.toml"))
+        .ok()
+        .and_then(|toml| {
+            toml.lines().find_map(|line| {
+                let rest = line.trim_start().strip_prefix("wasm-bindgen")?.trim_start().strip_prefix('=')?;
+                Some(rest.trim().trim_matches('"').trim_start_matches('=').to_string())
+            })
+        });
+    let Some(pinned) = pinned else {
+        println!("cargo:warning=crates/web/render/Cargo.toml pins no wasm-bindgen: the browser page has no GPU renderer");
+        return "{}".into();
+    };
+    let bindgen = env::var_os("WASM_BINDGEN").filter(|v| !v.is_empty()).unwrap_or_else(|| "wasm-bindgen".into());
+    let version = Command::new(&bindgen)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).split_whitespace().nth(1).map(str::to_string));
+    if version.as_deref() != Some(pinned.as_str()) {
+        println!(
+            "cargo:warning=no wasm-bindgen {pinned} (set WASM_BINDGEN; {}): the browser page has no GPU renderer and draws with its own presenter",
+            version.map_or("none found".to_string(), |v| format!("found {v}"))
+        );
+        return "{}".into();
+    }
+    let _ = fs::remove_dir_all(work);
+    fs::create_dir_all(work).expect("make the renderer's folder");
+    let mut entries = Vec::new();
+    for build in ["webgpu", "webgl"] {
+        let mut cargo = wasm_cargo(rustc);
+        cargo
+            .arg("build")
+            .arg("--manifest-path")
+            .arg(crates.join("Cargo.toml"))
+            .args(["-p", "angel-web-render", "--profile", "web", "--target", "wasm32-unknown-unknown", "--features", build, "--locked", "--target-dir"])
+            .arg(target);
+        let status = cargo.status().expect("could not run cargo for the browser renderer");
+        if !status.success() {
+            panic!("the browser renderer did not build (cargo build -p angel-web-render --profile web --target wasm32-unknown-unknown --features {build} in crates/)");
+        }
+        let wasm = target.join("wasm32-unknown-unknown").join("web").join("angel_web_render.wasm");
+        let status = Command::new(&bindgen)
+            .args(["--target", "web", "--no-typescript", "--out-dir"])
+            .arg(work)
+            .args(["--out-name", &format!("render-{build}")])
+            .arg(&wasm)
+            .status()
+            .expect("could not run wasm-bindgen");
+        if !status.success() {
+            panic!("wasm-bindgen did not make the {build} renderer's glue");
+        }
+        for name in [format!("render-{build}.js"), format!("render-{build}_bg.wasm")] {
+            files.push((name.clone(), work.join(name)));
+        }
+        entries.push(format!(
+            "\"{build}\":{{\"js\":\"{{{{asset:render-{build}.js}}}}\",\"wasm\":\"{{{{asset:render-{build}_bg.wasm}}}}\"}}"
+        ));
+    }
+    format!("{{{}}}", entries.join(","))
 }
 
 /// Every cartridge folder under `roots`, in order (as `config::folders`).

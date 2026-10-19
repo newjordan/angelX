@@ -1,0 +1,518 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    46
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Visual registration: horizontal crop centre, bottom at shared feet. Reject lowest-band mean: a stretched boot forced every pose too small.",
+    "Rule foot is canvas height minus 2: preserve the renderer +2 stamp offset; leave two transparent rows below the feet.",
+    "Standing damaged guard and last-stand poses replace knocked-down damage resting poses; supplemental actions remain staged."
+  ],
+  "delivered_pieces": 24,
+  "expected_existing_pieces": 12,
+  "geometry": "Shot hurtbox 32\u00d738 at (x\u221216,FLOOR\u221238). On action start emits one Shot::aimed from x\u221216 and FLOOR\u221226 (high) or FLOOR\u221216 (low) toward locked aim=(player x,player y\u221229). Sentry Area is not a damaging rectangle; the aimed bolt is the danger.",
+  "mapping_basis": "Visual review of the isolated October 15 rerun, source crops and native registration.",
+  "notes_sha256": "85d9fcad5f134a16be0934940d295423a1b02286b54442fc488db6ed03873afc",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Idle: upright planted sentry, vane vertical, seed weight hanging.",
+      "name": "sentry-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        108.5,
+        367
+      ],
+      "source_rect_xywh": [
+        46,
+        50,
+        217,
+        367
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 2; Walk 1: lifted forward boot and slightly angled body.",
+      "name": "sentry-walk-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.0,
+        329
+      ],
+      "source_rect_xywh": [
+        359,
+        82,
+        224,
+        329
+      ],
+      "state": "walk"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 3; Walk 2: alternate stepping pose, mostly planted.",
+      "name": "sentry-walk-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        104.5,
+        335
+      ],
+      "source_rect_xywh": [
+        679,
+        82,
+        209,
+        335
+      ],
+      "state": "walk"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 4; Drop tell: braces and winds the bow assembly back.",
+      "name": "sentry-drop-tell",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.0,
+        272
+      ],
+      "source_rect_xywh": [
+        963,
+        145,
+        272,
+        272
+      ],
+      "state": "drop-anticipation"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 5; Drop attack: leans into a downward strike; the vane/weight sweep remains readable.",
+      "name": "sentry-drop",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        102.5,
+        297
+      ],
+      "source_rect_xywh": [
+        80,
+        528,
+        205,
+        297
+      ],
+      "state": "high-action"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 6; Recovery: upright again with arms forward.",
+      "name": "sentry-recover",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        107.5,
+        327
+      ],
+      "source_rect_xywh": [
+        368,
+        480,
+        215,
+        327
+      ],
+      "state": "recovery"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 7; Flinch: recoils with hands open and mechanism rattled.",
+      "name": "sentry-flinch",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        310
+      ],
+      "source_rect_xywh": [
+        656,
+        507,
+        242,
+        310
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 8; Knockdown / damage: crouched and folded forward on the ground.",
+      "name": "proposal-old-sentry-damage-1",
+      "piece": 7,
+      "review": "rejected-grounded-slump-for-standing-damage",
+      "runtime": false,
+      "source_pivot_xy": [
+        139.0,
+        167
+      ],
+      "source_rect_xywh": [
+        957,
+        646,
+        278,
+        167
+      ],
+      "state": "damage-variants"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 9; Defeat 1: slumped seated/folded pose.",
+      "name": "proposal-old-sentry-damage-2",
+      "piece": 8,
+      "review": "rejected-grounded-slump-for-standing-damage",
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        211
+      ],
+      "source_rect_xywh": [
+        34,
+        964,
+        247,
+        211
+      ],
+      "state": "damage-variants"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 10; Defeat 2: fully collapsed embarrassed pose.",
+      "name": "sentry-defeat",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        118.5,
+        148
+      ],
+      "source_rect_xywh": [
+        333,
+        1030,
+        237,
+        148
+      ],
+      "state": "defeat"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 11; Hook tell: lowers and aims the forked assembly, weight hanging forward.",
+      "name": "sentry-hook-tell",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        220
+      ],
+      "source_rect_xywh": [
+        645,
+        968,
+        242,
+        220
+      ],
+      "state": "hook-anticipation"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 12; Hook action: extends the hook assembly horizontally.",
+      "name": "sentry-hook",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        151.5,
+        229
+      ],
+      "source_rect_xywh": [
+        938,
+        944,
+        303,
+        229
+      ],
+      "state": "low-action"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 1",
+      "name": "sentry-damage-1",
+      "piece": 12,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.0,
+        333
+      ],
+      "source_rect_xywh": [
+        46,
+        1343,
+        224,
+        333
+      ],
+      "state": "damage-variants"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 2",
+      "name": "proposal-standing-01",
+      "piece": 13,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.0,
+        332
+      ],
+      "source_rect_xywh": [
+        361,
+        1345,
+        228,
+        332
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 3",
+      "name": "proposal-standing-02",
+      "piece": 14,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.5,
+        338
+      ],
+      "source_rect_xywh": [
+        669,
+        1346,
+        233,
+        338
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 4",
+      "name": "proposal-standing-03",
+      "piece": 15,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.5,
+        325
+      ],
+      "source_rect_xywh": [
+        1002,
+        1355,
+        219,
+        325
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 5",
+      "name": "proposal-standing-04",
+      "piece": 16,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        303
+      ],
+      "source_rect_xywh": [
+        51,
+        1758,
+        235,
+        303
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 6",
+      "name": "proposal-standing-05",
+      "piece": 17,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.0,
+        319
+      ],
+      "source_rect_xywh": [
+        379,
+        1745,
+        210,
+        319
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 7",
+      "name": "proposal-standing-06",
+      "piece": 18,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.5,
+        299
+      ],
+      "source_rect_xywh": [
+        668,
+        1765,
+        241,
+        299
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 8",
+      "name": "proposal-standing-07",
+      "piece": 19,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        294
+      ],
+      "source_rect_xywh": [
+        979,
+        1769,
+        262,
+        294
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 9",
+      "name": "proposal-standing-08",
+      "piece": 20,
+      "runtime": false,
+      "source_pivot_xy": [
+        112.5,
+        316
+      ],
+      "source_rect_xywh": [
+        58,
+        2135,
+        225,
+        316
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 10",
+      "name": "proposal-standing-09",
+      "piece": 21,
+      "runtime": false,
+      "source_pivot_xy": [
+        94.5,
+        318
+      ],
+      "source_rect_xywh": [
+        391,
+        2129,
+        189,
+        318
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 11",
+      "name": "proposal-standing-10",
+      "piece": 22,
+      "runtime": false,
+      "source_pivot_xy": [
+        151.5,
+        290
+      ],
+      "source_rect_xywh": [
+        659,
+        2161,
+        303,
+        290
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Standing rerun pose 12",
+      "name": "sentry-damage-2",
+      "piece": 23,
+      "runtime": true,
+      "source_pivot_xy": [
+        117.0,
+        292
+      ],
+      "source_rect_xywh": [
+        986,
+        2159,
+        234,
+        292
+      ],
+      "state": "damage-variants"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d748; top-left (screen sentry x\u221224,py(FLOOR)\u221248+2); rule foot local (24,46).",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "pennon.sentry",
+  "source_preparation": {
+    "originals": {
+      "pennon.captain": {
+        "path": "/work/artifacts/art-prod/slots/pennon.captain/v01/source-sheet.png",
+        "sha256": "02f5b64c2df71643c7a9c57668af282f16367be2923a2630fb262c06361fd067"
+      },
+      "pennon.sentry": {
+        "path": "/work/artifacts/art-prod/slots/pennon.sentry/v01/source-sheet.png",
+        "sha256": "4a0dc90339b6b402d19caa3e6c4ac9be0027aa84b975207f2afcb06f61387067"
+      },
+      "pennon.sentry-damaged": {
+        "path": "/work/artifacts/art-prod/slots/pennon.sentry-damaged/v01/source-sheet.png",
+        "sha256": "5387992d1f31736d95571eb759d1f6cb8af8054f0b8a3a36cbf4ffa0f841c778"
+      }
+    },
+    "previous_sha256": "4a0dc90339b6b402d19caa3e6c4ac9be0027aa84b975207f2afcb06f61387067",
+    "recipe": "../pennon.captain/prepare.py"
+  },
+  "source_sha256": "89404118b054f67f89a07eb3786bbd0580d73081ee44019ce518f8f7099c9512",
+  "timing": "Twelve bodies, walk 2\u00d77; first wait=6, then 45. Tell=33/29/25 at hp 3/2/1, action=10, rest=60/50/40; final <12 rest ticks select recover. Flinch=4. Only captain has four body tell stages; sentry aim line strengthens through four stages (Foe::step, foe_pose())."
+}

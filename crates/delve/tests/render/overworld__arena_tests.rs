@@ -2,6 +2,15 @@ use super::*;
 use crate::rules::{Input, Item, RoomKind};
 use std::collections::BTreeMap;
 
+struct OriginalDungeonArt;
+impl OriginalDungeonArt {
+    fn new() -> Self { slot_art::use_original(true); Self }
+}
+impl Drop for OriginalDungeonArt {
+    fn drop(&mut self) { slot_art::use_original(false); }
+}
+
+
 fn on_palette(img: &Img) -> bool {
     img.pixels()
         .all(|c| c == BLACK || super::super::ink::palette_index(c).is_some())
@@ -69,11 +78,27 @@ fn arena_frames_are_deterministic_and_on_the_realm_palette() {
 
 #[test]
 fn shots_and_figures_show_at_full_ink_over_the_dark_room() {
-    let run = scene(11, RoomKind::Fight, 90);
+    let mut run = scene(11, RoomKind::Fight, 90);
+    let aim = BTreeMap::from([(1, Input { aim_y: -1, ..Default::default() })]);
+    for _ in 0..240 {
+        if run.projectiles.iter().any(|p| p.hostile) {
+            break;
+        }
+        for hero in run.players.values_mut() {
+            hero.hp = hero.max_hp;
+        }
+        run.step(&aim);
+    }
     assert!(run.projectiles.iter().any(|p| p.hostile));
     let img = frame(&run, 135, 78);
     let f = Field::fit(135, 78);
-    for shot in run.projectiles.iter().filter(|p| p.hostile) {
+    // A shot still under the monster that loosed it is behind its body,
+    // which the brand guide holds under the knights (docs/BRAND.md); every
+    // other shot is at full ink.
+    let covered = |p: &crate::rules::Projectile| {
+        run.enemies.iter().any(|e| (p.x - e.x).hypot(p.y - e.y) < e.radius() + 0.4)
+    };
+    for shot in run.projectiles.iter().filter(|p| p.hostile && !covered(p)) {
         let (x, y) = f.px(shot.x, shot.y);
         let c = img.get(x, y).unwrap();
         assert!(
@@ -88,6 +113,7 @@ fn shots_and_figures_show_at_full_ink_over_the_dark_room() {
 
 #[test]
 fn barred_doors_open_when_the_room_is_cleared() {
+    let _original = OriginalDungeonArt::new();
     let mut run = scene(11, RoomKind::Fight, 5);
     let door = (0..4).find(|&d| run.room().doors[d]).unwrap();
     let f = Field::fit(135, 78);
@@ -109,7 +135,7 @@ fn barred_doors_open_when_the_room_is_cleared() {
         for enemy in &mut run.enemies {
             enemy.hp = 0;
         }
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
     let open = lit(&frame(&run, 135, 78));
     assert!(barred > open + 4, "bars {barred} vs open {open}");
@@ -185,7 +211,7 @@ fn write_arena_shots() {
             card,
             x: 4.0 + (i % 9) as f32 * 4.8,
             y: y - 6.0 + (i / 9) as f32 * 5.0,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         })
         .collect();
     save("loot.ppm", &frame(&start, NATIVE_W, NATIVE_H));
@@ -327,6 +353,7 @@ fn the_room_is_drawn_at_overworld_scale_and_enlarged_by_whole_pixels() {
 
 #[test]
 fn scenery_keeps_to_material_banks_on_black_paper() {
+    let _original = OriginalDungeonArt::new();
     for pack in [Pack::Crypt, Pack::Cavern, Pack::Hellforge] {
         let mut run = scene(11, RoomKind::Fight, 0);
         run.dungeon.pack = pack;
@@ -1076,43 +1103,6 @@ fn write_yard_shots() {
     }
 }
 
-#[test]
-#[ignore]
-fn write_audience_shots() {
-    use crate::rules::audience::{BOX_FALL, MILESTONE};
-    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
-        return;
-    };
-    let dir = std::path::PathBuf::from(dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let save = |name: &str, img: &Img| {
-        let k = 2u32;
-        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k))
-            .unwrap()
-            .save(dir.join(name))
-            .unwrap();
-    };
-    let mut run = Run::new(33, 1, Some("Friend"));
-    run.enter_for_test(0);
-    run.calm_for_test();
-    run.enemies.clear();
-    for (id, (x, y)) in [(1, (20.0, 14.0)), (2, (16.0, 17.0))] {
-        let hero = run.players.get_mut(&id).unwrap();
-        (hero.x, hero.y) = (x, y);
-    }
-    run.phase = crate::rules::Phase::Exploring;
-    run.thrill_for_test(MILESTONE);
-    for (name, ticks) in [
-        ("high", 6),
-        ("low", BOX_FALL / 2),
-        ("landed", BOX_FALL / 2 - 4),
-    ] {
-        for _ in 0..ticks {
-            run.step(&BTreeMap::new());
-        }
-        save(&format!("fan-box-{name}.png"), &native(&run));
-    }
-}
 
 #[test]
 #[ignore]
@@ -1499,7 +1489,7 @@ fn write_tallow_shots() {
                 card: if k == 2 { "potion" } else { "gold" }.into(),
                 x,
                 y,
-                held_off: None,
+                held_off: None, took: Vec::new(),
             });
     }
     for _ in 0..12 {
@@ -2072,7 +2062,7 @@ fn write_item_shots() {
             card: (*card).into(),
             x: 18.0 + k as f32 * 6.0,
             y: 10.0,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         });
     }
     let hero = run.players.get_mut(&1).unwrap();
@@ -2571,7 +2561,7 @@ fn write_world_shots() {
         let mut instructions = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::countryside::boards(&mut instructions, &r);
         let before_tray = instructions.clone();
-        tray::corner(&mut instructions, &r, None);
+        tray::corner(&mut instructions, &r, None, false);
         for y in 0..instructions.h {
             for x in 0..instructions.w {
                 if before_tray.get(x, y).is_some() {
@@ -2654,7 +2644,7 @@ fn write_world_shots() {
         let mut instructions = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::countryside::boards(&mut instructions, &r);
         let before = instructions.clone();
-        tray::corner(&mut instructions, &r, None);
+        tray::corner(&mut instructions, &r, None, false);
         for y in 0..instructions.h {
             for x in 0..instructions.w {
                 if before.get(x, y).is_some() {
@@ -4016,7 +4006,7 @@ fn write_naked_start_shots() {
     ] {
         let h = &run.players[&1];
         let (x, y) = (h.x, h.y);
-        run.dungeon.rooms[run.at].items.push(Item { card: card.into(), x, y, held_off: None });
+        run.dungeon.rooms[run.at].items.push(Item { card: card.into(), x, y, held_off: None, took: Vec::new() });
         run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
         run.step(&BTreeMap::new());
         review(&run).save(dir.join(name)).unwrap();
@@ -4093,4 +4083,253 @@ fn an_away_knight_is_marked_and_a_holding_room_says_so() {
     let base = frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
     let tagged = |y0: i32| (y0..y0 + 11).any(|y| (x - 10..x + 10).any(|x| two.get(x, y) != base.get(x, y)));
     assert!(tagged(y - 30) && tagged(y - 42), "stacked, not overprinted");
+}
+
+#[test]
+fn knights_waiting_at_a_doorway_are_told_to_wait_and_friends_where() {
+    let mut run = scene(5, RoomKind::Fight, 0);
+    run.fellowship.waiting = vec![(1, 0)];
+    let marked = |run: &Run, seat: u32| {
+        let mut img = frame_for(run, NATIVE_W, NATIVE_H, Some(seat));
+        let before = img.clone();
+        presence_marks(&mut img, run, Some(seat));
+        (before, img)
+    };
+    let banner = |before: &Img, after: &Img| {
+        (12..33).any(|y| (NATIVE_W / 2 - 40..NATIVE_W / 2 + 40).any(|x| after.get(x, y) != before.get(x, y)))
+    };
+    // The waiting knight's own screen, and a friend's.
+    let (before, mine) = marked(&run, 1);
+    let (friend_before, friends) = marked(&run, 2);
+    assert!(banner(&before, &mine), "the waiting are told to wait");
+    assert!(banner(&friend_before, &friends), "the friends are shown where");
+    assert_ne!(mine.words(), friends.words(), "different words to each");
+    assert!(on_palette(&mine) && on_palette(&friends));
+    // It flashes for the waiting knight: a third of a second later it differs.
+    run.tick += u64::from(crate::rules::HZ / 3);
+    let (_, later) = marked(&run, 1);
+    assert_ne!(mine.words(), later.words(), "the words flash");
+    // Nobody waiting: nothing drawn.
+    run.fellowship.waiting.clear();
+    let (before, quiet) = marked(&run, 1);
+    assert_eq!(quiet.words(), before.words());
+}
+
+/// A window that lifts thrown things toward the camera gets each one's
+/// ground point where `frame_px` would put it and its flight's progress;
+/// the frame leaves the bomb out while that is on.
+#[test]
+fn lifted_reports_bombs_in_flight_on_the_frame() {
+    let mut run = Run::new(33, 1, None);
+    run.enter_for_test(0);
+    run.calm_for_test();
+    run.lobs.push(crate::rules::foes::Lob {
+        from: (36.0, 10.0),
+        x: 24.0,
+        y: 14.0,
+        fall: crate::rules::foes::LOB_FALL / 2,
+    });
+    let (w, h) = (NATIVE_W, NATIVE_H);
+    let lifted = super::lifted(&run, w, h, None, 0.0);
+    assert_eq!(lifted.len(), 1);
+    let bomb = lifted[0];
+    assert_eq!(bomb.kind, LiftedKind::Bomb);
+    assert!((bomb.k - 0.5).abs() < 1e-6, "{}", bomb.k);
+    let (x, y) = frame_px(&run, w, h, None, 30.0, 12.0);
+    assert_eq!((bomb.x, bomb.y), (x as f32, y as f32));
+    // Half a tick on, the flight has moved on by half a tick.
+    let later = super::lifted(&run, w, h, None, 0.5)[0];
+    assert!(later.k > bomb.k);
+    let sprite = lifted_sprite(LiftedKind::Bomb, bomb.variant);
+    assert_eq!((sprite.w, sprite.h), (4, 4));
+    assert!(!lifted_outside());
+}
+
+#[test]
+fn a_scene_in_parts_composes_to_the_frame() {
+    let mut runs = vec![
+        scene(11, RoomKind::Fight, 0),
+        scene(11, RoomKind::Fight, 40),
+        scene(3, RoomKind::Fight, 90),
+        scene(3, RoomKind::Fight, 160),
+        scene(8, RoomKind::Fight, 120),
+        scene(21, RoomKind::Fight, 240),
+        scene(5, RoomKind::Start, 10),
+        scene(7, RoomKind::Treasure, 20),
+    ];
+    // A great hall, its camera away from the corner.
+    let mut hall = Run::new(0, 1, Some("Friend"));
+    let stairs = hall
+        .dungeon
+        .rooms
+        .iter()
+        .position(|r| r.kind == RoomKind::Stairs)
+        .unwrap();
+    hall.enter_for_test(stairs);
+    let (w, h) = (hall.room().width(), hall.room().height());
+    hall.players.get_mut(&1).unwrap().x = w * 0.6;
+    hall.players.get_mut(&1).unwrap().y = h * 0.55;
+    runs.push(hall);
+    for run in &runs {
+        for focus in [Some(1), None] {
+            let parts = scene_for(run, NATIVE_W, NATIVE_H, focus);
+            assert!(!parts.is_flat(), "{:?} comes apart", run.room().kind);
+            assert_eq!(parts.view, (NATIVE_W, NATIVE_H));
+            let whole = frame_for(run, NATIVE_W, NATIVE_H, focus);
+            assert!(
+                parts.compose().words() == whole.words(),
+                "{:?} tick {} focus {:?} pickups {} composes to its frame; first difference {:?}",
+                run.room().kind, run.tick, focus, parts.pickups.len(),
+                parts.compose().words().iter().zip(whole.words()).enumerate().find(|(_, (a,b))| a != b)
+            );
+        }
+    }
+    // The great hall's camera is off its corner, and the parts follow it.
+    let hall = runs.last().unwrap();
+    assert_ne!(scene_for(hall, NATIVE_W, NATIVE_H, Some(1)).camera, (0.0, 0.0));
+}
+
+#[test]
+fn the_still_art_is_the_same_while_nothing_changes() {
+    // The kept drawing is one slot every test shares, so another test's room
+    // drawn between the two looks would evict it: a drawing that is never
+    // kept fails every try, one that is kept holds on the first clear one.
+    let mut run = scene(11, RoomKind::Fight, 0);
+    let kept = (0..16).any(|_| {
+        let a = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
+        run.step(&BTreeMap::new());
+        let b = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
+        std::sync::Arc::ptr_eq(&a, &b)
+    });
+    assert!(kept, "one upload for the room");
+}
+
+
+#[test]
+fn a_room_hands_over_its_lights() {
+    let run = scene(11, RoomKind::Fight, 0);
+    let parts = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
+    assert!(
+        parts.lights.iter().any(|l| l.hue == Hue::Fire && l.flicker),
+        "its braziers"
+    );
+}
+
+#[test]
+fn a_room_knows_the_way_the_party_came_in() {
+    let mut run = Run::new(4, 1, Some("Friend"));
+    let (from, to) = (0..run.dungeon.rooms.len())
+        .find_map(|i| run.dungeon.neighbour(i, 1).map(|j| (i, j)))
+        .expect("a room with a door east");
+    run.enter_for_test(from);
+    let west = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
+    run.enter_for_test(to);
+    let east = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
+    assert_ne!(west.room, east.room);
+    assert_eq!(east.travelled_from(west.room), Some([1.0, 0.0]), "east, through the door");
+    assert_eq!(west.travelled_from(east.room), Some([-1.0, 0.0]));
+    assert_eq!(east.travelled_from(east.room), None);
+}
+
+#[test]
+fn a_figure_names_the_sprites_stood_up_in_it() {
+    let run = scene(11, RoomKind::Fight, 0);
+    let parts = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
+    let with_bodies: Vec<_> = parts.figures.iter().filter(|f| !f.bodies.is_empty()).collect();
+    assert!(with_bodies.len() >= 2, "the knights at least");
+    for figure in with_bodies {
+        for body in &figure.bodies {
+            assert_eq!(body.key, look_key(&body.img), "the same look, the same key");
+        }
+    }
+}
+
+/// `cargo test --release -p angel-delve --lib parts_cost -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn parts_cost() {
+    for (name, seed, ticks) in [("fight", 3u64, 160u32), ("fight", 21, 240), ("fight", 11, 40)] {
+        let run = scene(seed, RoomKind::Fight, ticks);
+        let n = 200;
+        let time = |f: &dyn Fn()| {
+            let t = std::time::Instant::now();
+            for _ in 0..n {
+                f();
+            }
+            t.elapsed().as_secs_f64() * 1000.0 / n as f64
+        };
+        // Warm the scenery cache first, as a live seat has it.
+        let _ = frame_for_live(&run, NATIVE_W, NATIVE_H, Some(1));
+        let whole = time(&|| {
+            std::hint::black_box(frame_for_live(&run, NATIVE_W, NATIVE_H, Some(1)));
+        });
+        let parts = time(&|| {
+            std::hint::black_box(scene_for_live(&run, NATIVE_W, NATIVE_H, Some(1)));
+        });
+        let figures = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).figures.len();
+        let scene = std::sync::Arc::new(scene_for_live(&run, NATIVE_W, NATIVE_H, Some(1)));
+        let maker = std::cell::RefCell::new(stage_frame::StageMaker::default());
+        let make = time(&|| {
+            std::hint::black_box(maker.borrow_mut().make(&scene, |_| None));
+        });
+        let frame = maker.borrow_mut().make(&scene, |_| None);
+        let sizes: std::collections::BTreeMap<u32, (u32, u32)> =
+            frame.pictures.iter().map(|p| (p.id, (p.width, p.height))).collect();
+        let expand = time(&|| {
+            std::hint::black_box(angel_stage::expand(&frame.layers, 1.0, |id| sizes.get(&id).copied()));
+        });
+        let quads = angel_stage::expand(&frame.layers, 1.0, |id| sizes.get(&id).copied());
+        let out = std::cell::RefCell::new(Vec::new());
+        let encode = time(&|| angel_stage::wire::encode(&frame, &quads, &mut out.borrow_mut()));
+        eprintln!(
+            "{name} seed {seed} t{ticks}: {figures} figures, whole {whole:.3} ms, parts {parts:.3} ms, \
+             make {make:.3} ms, expand {expand:.3} ms ({} quads), encode {encode:.3} ms ({} KiB)",
+            quads.len(),
+            out.borrow().len() / 1024
+        );
+    }
+}
+
+/// The Wax Maze's own marks keep to the palette: the wax, the holy water,
+/// the crypt, and the kings in every mood (their robes a half-tone), and
+/// the strip of standings over the view.
+#[test]
+fn the_wax_maze_keeps_to_the_palette() {
+    use super::super::ink::{BLACK, palette_index};
+    let mut run = Run::new(41, 1, None);
+    run.join_seat(2, "Wren");
+    run.enemies.clear();
+    let hall = (0..run.dungeon.rooms.len())
+        .find(|&i| i != run.at && run.dungeon.rooms[i].kind == RoomKind::Hall && !run.dungeon.rooms[i].great())
+        .expect("a hall on floor one");
+    run.folly_room = Some(hall);
+    run.enter_for_test(hall);
+    {
+        let maze = run.folly.as_mut().unwrap();
+        maze.t = crate::rules::folly::TITLE;
+        maze.pale = crate::rules::folly::PALE_WARN;
+        for (k, at) in [(0usize, (3, 1)), (1, (6, 1)), (2, (1, 4)), (3, (9, 1))] {
+            let w = &mut maze.wraiths[k];
+            (w.at, w.to, w.rest) = (at, (at.0 + 1, at.1), 0);
+            w.pale = k == 1 || k == 2;
+            w.eyes = k == 3;
+        }
+    }
+    let on_palette = |img: &Img| img.pixels().all(|c| c == BLACK || palette_index(c).is_some());
+    for tick in 0..12 {
+        run.tick += 1;
+        let (pw, ph) = room_px(run.room());
+        let mut room = Img::new(pw, ph);
+        wax_maze::floor(&mut room, &run);
+        wax_maze::wraiths(&mut room, &run);
+        assert!(on_palette(&room), "the maze's floor and kings at tick {tick}");
+        let mut screen = Img::new(NATIVE_W, NATIVE_H);
+        wax_maze::screen(&mut screen, &run);
+        assert!(on_palette(&screen), "the strip");
+    }
+    // Something was drawn: the kings are there.
+    let (pw, ph) = room_px(run.room());
+    let mut room = Img::new(pw, ph);
+    wax_maze::wraiths(&mut room, &run);
+    assert!(room.pixels().count() > 0 && (0..ph).any(|y| (0..pw).any(|x| room.get(x, y).is_some())));
 }

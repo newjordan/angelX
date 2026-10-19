@@ -57,6 +57,22 @@ pub trait Command: Clone + PartialEq {
 /// seeing this seat (its own player sees none of it: their knight is drawn
 /// from their own commands).
 pub const CUSHION: usize = 2;
+
+/// Maximum age of a game's sampled input. A client can delay its snapshot
+/// acknowledgements, so only 250ms of measured RTT may count toward backdating.
+/// The snapshot cadence and existing command cushion are host-owned additions.
+pub fn sample_allowance(
+    round_trip: std::time::Duration,
+    tick_hz: u32,
+    snapshot_ticks: u32,
+    local: bool,
+) -> u64 {
+    let transit = (round_trip.min(std::time::Duration::from_millis(250)).as_nanos()
+        * u128::from(tick_hz))
+    .div_ceil(1_000_000_000) as u64;
+    transit + u64::from(snapshot_ticks) + if local { 0 } else { CUSHION as u64 }
+}
+
 /// Guesses in a row before the seat counts as stalled: past the cushion, a
 /// late run on that path rarely went past four ticks (133 ms) without the
 /// link stopping outright, and its stops ran near a second.

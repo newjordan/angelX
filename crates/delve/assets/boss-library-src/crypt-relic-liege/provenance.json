@@ -1,0 +1,215 @@
+{
+  "id": "crypt-relic-liege",
+  "source_path": "./cockpit/assets/boss-library/existing/crypt-relic-liege/v01/source-sheet-refined.png",
+  "source_sha256": "cfd2b315179c64a11ad0a1189034d4e57e42a82ed0849d2cdf7ddc603b79a2a0",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Broad floating relic king, skeletal ivory face behind a gold-rimmed black visor, tall cracked gold crown, heavy dark steel and old bronze chest armor, enormous faded purple royal mantle with frayed ivory ermine dots. A round reliquary casket replaces its belly; short floating armored gauntlet hands, no feet. Pear-shaped regal mass, outraged tired posture.",
+  "definition_header": "name RELIC LIEGE\ntext Relic tribute binds the court. The gate houses, not every free captain, seal this throne.\nby angelX\nwhere crypt\nhp 820\nsize 1.7\nmove hover speed=1.0\nattack ring shots=6 speed=5 every=85 damage=12 shot=bone\nattack aimed shots=2 speed=7 every=60 damage=10 shot=bone\nphases gap_ring flower reaim every=78 volleys=2 damage=12\nrage 30%\ndrops gold 180, gem 2",
+  "source_definition_sha256": "11d5cfafec3b4025b456310f8b6ec1b0e0e7dd285849bd050c96842303fe7d24",
+  "definition_sha256": "eefaface016d42b166f345cf03fb29badb0574b57982fd020dd918d754e22a41",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        32,
+        154,
+        286,
+        288
+      ],
+      "opaque_component_pixels": 50232,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "d0044a55b239da631b9b4d20d2265e58ae44ee2f9c061eb5edeec7ce5717b1ec"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        364,
+        167,
+        267,
+        300
+      ],
+      "opaque_component_pixels": 48661,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "7dfad35f04b5eef1820ce5d2f01e87ce7ff1aef7ccc0dbe2a3fe8c7ee290726f"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        655,
+        158,
+        253,
+        308
+      ],
+      "opaque_component_pixels": 43905,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "b86121a7c04381aaf4a48bf51ff14e1e7311f1f4c56725640ae565045cbb02dd"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        941,
+        167,
+        283,
+        299
+      ],
+      "opaque_component_pixels": 48743,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "eb27579dd30ffc6d0055c116f3b34cfac6f8d3949d217cef7fea992047a4cf92"
+    },
+    {
+      "id": "overhead/part/royal-armor-coffer",
+      "source_rect_xywh": [
+        52,
+        571,
+        234,
+        228
+      ],
+      "opaque_component_pixels": 36653,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-royal-armor-coffer.png",
+      "sha256": "c5269f807a66f14d130c2fa221bd599ec108fc429c1b387eb246edff1dec0e92"
+    },
+    {
+      "id": "overhead/part/crowned-skull",
+      "source_rect_xywh": [
+        423,
+        554,
+        147,
+        240
+      ],
+      "opaque_component_pixels": 20809,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-crowned-skull.png",
+      "sha256": "62e29f6f9bc14ee10a8d1020711284d6c1283c5c99313a9ceb3c8ac8394d595d"
+    },
+    {
+      "id": "overhead/part/near-gauntlet",
+      "source_rect_xywh": [
+        681,
+        609,
+        201,
+        174
+      ],
+      "opaque_component_pixels": 20828,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-near-gauntlet.png",
+      "sha256": "4d8a13919fd8f83efb937cbe5739112a28df0cd51b5b45f59f410b97c818ac11"
+    },
+    {
+      "id": "overhead/part/royal-mantle",
+      "source_rect_xywh": [
+        962,
+        553,
+        251,
+        259
+      ],
+      "opaque_component_pixels": 44618,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-royal-mantle.png",
+      "sha256": "1ee258a8de1adeade95692e0d20a49f73d4e560b27c4e0cf1dcd3ffde2da48ed"
+    },
+    {
+      "id": "side/part/royal-armor-coffer",
+      "source_rect_xywh": [
+        80,
+        911,
+        217,
+        214
+      ],
+      "opaque_component_pixels": 31642,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-royal-armor-coffer.png",
+      "sha256": "ff2189c6a90321f0086d0623bff0a9dde805376ba348cc14ed03666edcd81026"
+    },
+    {
+      "id": "side/part/crowned-skull",
+      "source_rect_xywh": [
+        430,
+        892,
+        135,
+        224
+      ],
+      "opaque_component_pixels": 17845,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-crowned-skull.png",
+      "sha256": "fc2e66db14ffa33122103d2a7bc5e10eb0bd6eb5e416b789c316db510e134ae3"
+    },
+    {
+      "id": "side/part/near-gauntlet",
+      "source_rect_xywh": [
+        683,
+        964,
+        227,
+        138
+      ],
+      "opaque_component_pixels": 21235,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-near-gauntlet.png",
+      "sha256": "fa674995e37ff1c271b23147d1d01d29b1670aae15e64886d2eb36c84b1253f0"
+    },
+    {
+      "id": "side/part/royal-mantle",
+      "source_rect_xywh": [
+        963,
+        887,
+        227,
+        263
+      ],
+      "opaque_component_pixels": 36933,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-royal-mantle.png",
+      "sha256": "20345b146c82594869fc1026be14044f8af9e14822ea8c46e64d30da661a4d21"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

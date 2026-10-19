@@ -1,0 +1,105 @@
+{
+  "boss": "hellforge-ash-castellan",
+  "camera": "overhead",
+  "definition_sha256": "164fa886b194da283fa311ab72c085401a2a3427132acc0c660acf81bfaf391d",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 23.04 L*, rest presence 86.19%, edge 86.28%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "castle torso plinth"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "castle torso plinth",
+      "castellan helm",
+      "tower fist arm",
+      "charred pennant"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      53,
+      54
+    ],
+    "v2": [
+      94,
+      96
+    ]
+  },
+  "identity_props": [
+    "castle torso plinth",
+    "castellan helm",
+    "tower fist arm",
+    "charred pennant"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9831831831831832,
+      "opaque_pixels": 1665,
+      "sha256": "912f8dfca561c7333a58b7069bc521065ee043ac0f4ef87e09512409f878aa69",
+      "silhouette_iou": 1.0,
+      "size": [
+        53,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9893948845913911,
+      "opaque_pixels": 1603,
+      "sha256": "e13fe053c523bbfdd2b1d9b1e336fe64df246fb24adb61905be6952e8ba55c8f",
+      "silhouette_iou": 1.0,
+      "size": [
+        53,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9886039886039886,
+      "opaque_pixels": 5265,
+      "sha256": "f5849eee09698383a4cfde3b3f734a511732d189d942af2462d824160c8ba7df",
+      "silhouette_iou": 1.0,
+      "size": [
+        94,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9896886773745787,
+      "opaque_pixels": 5043,
+      "sha256": "a6419537a9ee953318019105c5de0c3bcc4a9c3894f0693a10c3661ebe770e50",
+      "silhouette_iou": 1.0,
+      "size": [
+        94,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

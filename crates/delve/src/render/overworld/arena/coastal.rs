@@ -74,7 +74,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let s = coast::stage(&run.home.countryside, &run.marks);
     if run.room().kind == RoomKind::Lighthouse {
         let (x, y) = at(18.5 * 2.0, 8.5 * 2.0);
-        ring(cv, x, y, if s == 0 || s == 2 { 'O' } else { 'h' });
+        ring(cv, x, y, if s == 0 || s == 2 { 'o' } else { 'h' });
         cv.rect(x - 5, y - 11, 10, 11, 'B');
         cv.ellipse(x as f32, (y - 16) as f32, 4.0, 4.0, 'h');
         cv.rect(x - 6, y - 22, 12, 3, 'G');

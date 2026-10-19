@@ -74,13 +74,15 @@ pub const INTENT_LIMIT: usize = super::college::INTENT_LIMIT + VISIT_MARKS.len()
     + super::windcountry::QUEST_MARKS.len()
     + super::bowcountry::VISIT_MARKS.len()
     + super::bowcountry::QUEST_MARKS.len()
+    + super::swamp::INTENT_MARKS.len()
     + PICNIC_MARKS.len()
     + FORECAST_MARKS.len()
     + RELIC_MARKS.len()
     + LAMP_MARKS.len()
     + 1
     + SURVEY_MARKS.len()
-    + PLOTS.len();
+    + PLOTS.len()
+    + super::roundtable::INTENT_MARKS;
 
 pub fn forecast_stage(country: &Country, marks: &BTreeMap<String, u32>) -> u8 {
     let mut stage = country.forecast.min(6);
@@ -166,6 +168,8 @@ pub fn intent_key(key: &str) -> bool {
         || super::windcountry::QUEST_MARKS.contains(&key)
         || super::bowcountry::VISIT_MARKS.contains(&key)
         || super::bowcountry::QUEST_MARKS.contains(&key)
+        || super::swamp::INTENT_MARKS.contains(&key)
+        || super::roundtable::intent_key(key)
         || (0..RELICS.len()).any(|i| key == format!("country:relic:{i}"))
         || (0..LAMPS.len()).any(|i| key == format!("country:lamp:{i}"))
         || (0..SURVEY.len()).any(|i| key == format!("country:survey:{i}"))
@@ -244,6 +248,7 @@ pub fn name(kind: RoomKind) -> &'static str {
         RoomKind::Eyrie => "THE GRIFFIN EYRIE",
         kind if super::college::is_room(kind) => super::college::label(kind),
         kind if super::ranch::is_room(kind) => super::ranch::label(kind),
+        kind if super::colosseum::is_room(kind) => super::colosseum::label(kind),
         _ => "UNDERCROFT",
     }
 }
@@ -274,8 +279,9 @@ pub struct Country {
     /// woodland's song.
     pub fireflies_paid: bool,
     pub song_paid: bool,
-    /// Each surface game's first win pays the realm once (bit per game).
-    pub games_paid: u16,
+    /// Each surface game's first win pays the realm once (bit per game;
+    /// u32: seventeen games and room for more, old u16 saves load as-is).
+    pub games_paid: u32,
     /// Somebody has won a race (a race hall's or the Eyrie's practice
     /// flight); until then Maud and the gold arrow send knights to the
     /// Griffin Eyrie.
@@ -326,6 +332,13 @@ pub struct Country {
     /// means he is due right now.
     #[serde(default)]
     pub humphrey_dig: u32,
+    /// The Swamp of Horrors: the notice by the plate read, and the white
+    /// horse: 0 penned in the Mire King's hall, 1 freed and waiting at the
+    /// ranch for room in the herd, 2 in the herd (`swamp::settle`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub swamp_heard: bool,
+    #[serde(default, skip_serializing_if = "super::is_zero")]
+    pub white_horse: u8,
 }
 
 impl Country {
@@ -396,6 +409,7 @@ impl Country {
             && self.games.valid()
             && self.humphrey_felled <= 9
             && self.humphrey_dig <= super::risen::RISE_AGAIN
+            && self.white_horse <= 2
     }
 
     /// The original six-place reward and inn requirement survive expansion.
@@ -465,6 +479,7 @@ impl Country {
         stage!(harbour, 3);
         stage!(picnic, 3);
         stage!(forecast, 6);
+        stage!(white_horse, 2);
         for ticket in &mut self.wager_tickets {
             mend!(*ticket > 3, "wager_tickets", *ticket = 0);
         }
@@ -891,6 +906,8 @@ pub fn room(mut room: Room) -> Room {
             fill(&mut room, (1, 1, 22, 3), Tile::Hazard);
             fill(&mut room, (1, 10, 11, 3), Tile::Hazard);
             fill(&mut room, MARSH_FERRY, Tile::Stairs);
+            // The plate down into the Swamp of Horrors.
+            fill(&mut room, super::swamp::PLATE, Tile::Stairs);
         }
         RoomKind::Downs => {
             fill(&mut room, (4, 1, 4, 2), Tile::Block);

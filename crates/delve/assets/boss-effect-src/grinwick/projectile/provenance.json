@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.grinwick.projectile/v01/source-sheet.png",
+  "source_sha256": "c814d7a79df98518b4614508f920e5e53c84e91b4f2020050023e32a3702811e",
+  "original_sheet_sha256": "c814d7a79df98518b4614508f920e5e53c84e91b4f2020050023e32a3702811e",
+  "metadata_sha256": "3620a018f0a58d7286807fdf4329d7d6202b40695ec452343d67e192f0df24df",
+  "size": [
+    1448,
+    1086
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        47,
+        147,
+        306,
+        164
+      ],
+      "alpha_area": 34047,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "6d251d6cbe216efca1415065b0e1258ae201f1a0951d1a8c8d1ead7b632f82fb"
+    },
+    {
+      "source_rect_xywh": [
+        424,
+        146,
+        291,
+        152
+      ],
+      "alpha_area": 28999,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "39965dbe113c68f39bfbeb88014f14af9776cff2b7699207cb7e9cca18619422"
+    },
+    {
+      "source_rect_xywh": [
+        776,
+        148,
+        312,
+        164
+      ],
+      "alpha_area": 34735,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "b3ae8d9e97e3f1f7251a3773a0e20a28eb7046ee90e5af14d0397addb25ec407"
+    },
+    {
+      "source_rect_xywh": [
+        1156,
+        159,
+        270,
+        167
+      ],
+      "alpha_area": 27244,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "b94805423deef7c2f4f2120116c8cd867b66c058ed65d1a733329d2afb8cb418"
+    },
+    {
+      "source_rect_xywh": [
+        29,
+        461,
+        367,
+        205
+      ],
+      "alpha_area": 51088,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "0f06faaaa00ac9e61cd97513d11e1490331f3b93c15782c0eddc6181e291e5c0"
+    },
+    {
+      "source_rect_xywh": [
+        464,
+        512,
+        234,
+        118
+      ],
+      "alpha_area": 18440,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "d8e9ae5bdc05e9348c9528a56afa56bdd279bd4aa719c824174481449cfda986"
+    },
+    {
+      "source_rect_xywh": [
+        778,
+        476,
+        309,
+        169
+      ],
+      "alpha_area": 35747,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "674fd818cec1d87328d39f1ffb8a19c9ea32a9311b0ca3f6a703745a594b7908"
+    },
+    {
+      "source_rect_xywh": [
+        1187,
+        511,
+        226,
+        121
+      ],
+      "alpha_area": 18549,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "e094de963535c95c14cd337a52e4e1fcd0187d51172a0e9b132b26a77367d183"
+    },
+    {
+      "source_rect_xywh": [
+        37,
+        819,
+        334,
+        147
+      ],
+      "alpha_area": 31964,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "2afdf273e74099f63aa47fcc59b333f04ad3f0a222d5096aed43199dbade5772"
+    },
+    {
+      "source_rect_xywh": [
+        420,
+        826,
+        319,
+        140
+      ],
+      "alpha_area": 28211,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "1ec87b43732d6643755bdeea845ec34176ec4383ec2eb676c809c3d650698854"
+    },
+    {
+      "source_rect_xywh": [
+        794,
+        827,
+        294,
+        137
+      ],
+      "alpha_area": 24473,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "52ef464c2c0db1d6a7ed4c6613ba7af9966c2e7816f99325a044eb60e6004338"
+    },
+    {
+      "source_rect_xywh": [
+        1164,
+        831,
+        247,
+        126
+      ],
+      "alpha_area": 13492,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "06c8070e19f72a182aa8dff851a35b6d6fa46f0be69486f2e95534100ea9d39c"
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "anchor_canvas_wh": [
+    36,
+    22
+  ],
+  "anchor_xy": [
+    18,
+    22
+  ],
+  "comments": [
+    "Registered by the bale, not the burst: the pivot is the centre of the bale's base and its foot, and the rest bale alone sets the shared scale (0.084: 35 px wide, 22 tall).",
+    "The sprung frames reach above the 22 px canvas (the straw burst is up to 372 source px tall): their highest loose straw is cut by the canvas top. Reviewed: nothing is stretched, and the stage holds the first sprung frame."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "Five drawings in a 3x2 grid (cell 6 empty): rest, then sprung-0..sprung-3. Reading order is the delivered one.",
+  "notes_sha256": "020c6b239c9403fe4bf8eac1fbdadd277008cde43ab2c2f814ccef8f02287b2e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "rest-0: delivered drawing 1 in reading order.",
+      "name": "rest-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        209.5,
+        262
+      ],
+      "source_rect_xywh": [
+        50,
+        175,
+        422,
+        262
+      ],
+      "state": "rest",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "sprung-0: delivered drawing 2 in reading order.",
+      "name": "sprung-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        219.0,
+        258
+      ],
+      "source_rect_xywh": [
+        548,
+        178,
+        440,
+        258
+      ],
+      "state": "sprung",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "sprung-1: delivered drawing 3 in reading order.",
+      "name": "sprung-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        239.5,
+        372
+      ],
+      "source_rect_xywh": [
+        1036,
+        64,
+        470,
+        372
+      ],
+      "state": "sprung",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "sprung-2: delivered drawing 4 in reading order.",
+      "name": "sprung-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        214.5,
+        345
+      ],
+      "source_rect_xywh": [
+        51,
+        603,
+        427,
+        345
+      ],
+      "state": "sprung",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "sprung-3: delivered drawing 5 in reading order.",
+      "name": "sprung-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        214.5,
+        339
+      ],
+      "source_rect_xywh": [
+        554,
+        607,
+        426,
+        339
+      ],
+      "state": "sprung",
+      "ticks": 3
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "scale_reference_pieces": [
+    0
+  ],
+  "schema_version": 1,
+  "size_basis": "native canvas 36x22, anchor bottom-centre (18,22); stage 384x224; a round hay bale on its side.",
+  "sizes": {
+    "v1": [
+      36,
+      22
+    ],
+    "v2": [
+      36,
+      22
+    ]
+  },
+  "slot": "lightgallop.hay",
+  "source_sha256": "817431efaf00be291563c8d8f3a9a1f095652a5b7ef55c6149fd291828d1b9e6",
+  "timing": "rest 1 ticks; sprung 4x3 ticks (30 Hz). Art never sets a hitbox."
+}

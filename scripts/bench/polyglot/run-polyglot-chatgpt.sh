@@ -14,7 +14,7 @@ set -euo pipefail
 HARNESS=${1:?harness: angelx|codex}
 DRY=${2:-}
 RR=~/angel_tests/angelX-bench/polyglot-20260921
-WS=~/angelX
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 MODEL=${MODEL:-gpt-6.1-sol}
 EFFORT=${EFFORT:-low}
 KEY=${KEY:-sol}
@@ -117,7 +117,7 @@ mkdir -p "$OUT" "$RR/logs"
 printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/$KEY-$HARNESS-current-run.txt"
 echo "cell model=$MODEL effort=$EFFORT harness=$HARNESS seed=$SEED n=$N wall=${WALL_SECS}s bin=$BIN_NOTE out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=~ USER=frosty40 LOGNAME=frosty40 LANG=C.UTF-8 TERM=dumb TMPDIR=/work/tmp \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb TMPDIR=/work/tmp \
   PATH="$AGENT_PATH:$RR/prime_v1/.venv/bin" \
   OPENAI_API_KEY=unused-chatgpt-seat \
   LUNA_MODEL="$MODEL" \

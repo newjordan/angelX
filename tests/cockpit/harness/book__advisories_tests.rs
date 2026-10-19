@@ -123,7 +123,6 @@ fn a_warning_leads_with_the_sign_and_guidance_does_not() {
         assert!(book::is_warning(route), "{}", route.name());
     }
     for route in [
-        book::d3456_advisories::POST_EDIT,
         book::d3456_advisories::GREEN,
         book::d3456_advisories::FINAL_MILE,
         v_verification::RED,
@@ -148,10 +147,6 @@ fn ported_advisories_keep_their_0_1_6_names_for_the_analysis() {
         (l_loops::SAME_BATCH, "spin_advisory"),
         (x_execution::ERRORS, "error_advisory"),
         (v_verification::RED_STREAK, "verification_recovery"),
-        (
-            book::d3456_advisories::POST_EDIT,
-            "post_edit_logic_advisory",
-        ),
         (book::d3456_advisories::GREEN, "green_verify_advisory"),
         (k_competition::WINNER_BANK, "green_verify_advisory"),
         (book::d3456_advisories::FINAL_MILE, "final_mile_advisory"),
@@ -172,11 +167,11 @@ fn ported_advisories_keep_their_0_1_6_names_for_the_analysis() {
 #[test]
 fn a_raise_can_name_one_page_of_its_route() {
     let raise = Raise::page(book::d3456_advisories::FINAL_MILE, 4, None);
-    assert_eq!(raise.cells(), "⠼⠉⠑");
+    assert_eq!(raise.cells(), "⠼⠃⠑");
     let root = std::env::temp_dir();
     assert_eq!(
         book::warpath(&root, &[raise, Raise::new(v_verification::UNTESTED, None)]),
-        "⠼⠉⠑⠧⠋"
+        "⠼⠃⠑⠧⠋"
     );
 }
 

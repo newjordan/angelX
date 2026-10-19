@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.tower-south/v01",
+  "delivery_status": "Accepted with cleanup by the wave-3 producer review on 2026-10-18 (judged on grey and on the simulated native strip): the re-run is kept (the first run came back opaque with a baked checkerboard and slender); transparent background, three separated drawings, 58 of 80 px wide, door about 24 px. The door is painted at the bottom although the rules put the south tower's door on its north face.",
+  "generation_sha256": "38de9514b0126e2d559c150bae48e70b456c6922f6fc3717528d7590c42ef4a8",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "bbe30376308d39244f71aa353a8b64a6028c11e929e97e4450ebea89403cbd63",
+  "native_contract": "Native 80x96, anchor bottom-centre (40,96).",
+  "notes_sha256": "e788f2d1b706cabdf70252e9acb92c0848ad80d0f3ccf05c641cd80d498a7e04",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "34bb05ecaf62022a9f77678c272c86d5a4921ec4a31923c9b35d775978f88120",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 2)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.tower-south/v01/source-sheet.png",
+  "source_sha256": "ac014fe0591a6b85cdf2b61a889b622a75d73d626d803ca283fc182ae724e803"
+}

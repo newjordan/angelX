@@ -793,7 +793,10 @@ fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
     } else {
         at(e.x, e.y)
     };
-    let h = match e.boss.and_then(|i| stature::boss_figure(run, i)) {
+    let library = e.boss.and_then(|i| run.bosses.get(i as usize))
+        .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
+        .and_then(|art| super::boss_art::library_figure(run,e,art,super::art_v2::enabled() && super::art_v2::supported(run)));
+    let h = match library.map(|im| (*im).clone()).or_else(|| e.boss.and_then(|i| stature::boss_figure(run, i))) {
         Some(im) => im.h,
         None => ((e.radius() * 2.0 * UNIT) as i32).max(stature::FOE_MIN),
     };

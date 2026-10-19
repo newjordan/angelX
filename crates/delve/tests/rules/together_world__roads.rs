@@ -73,11 +73,18 @@ fn walk_ordinary_road(run: &mut Run, destination: RoomKind, driver: u32) {
         assert!(reached, "{origin:?} -> {destination:?}: knight {driver} stuck before {tx},{ty}");
     }
     let (dx, dy) = DIRS[dir];
+    // A doorway takes the whole party (`fellowship`): the friends have walked
+    // up beside the driver, and all of them go out through the road's mouth.
+    let (gx, gy) = (run.players[&driver].x, run.players[&driver].y);
+    for hero in run.players.values_mut() {
+        (hero.x, hero.y) = (gx, gy);
+    }
+    let inputs: BTreeMap<u32, Input> = run.players.keys().map(|&id| (id, Input {
+        move_x: dx as i8, move_y: dy as i8, ..Default::default()
+    })).collect();
     for _ in 0..2 * HZ {
         if run.at != old_at { break; }
-        run.step(&BTreeMap::from([(driver, Input {
-            move_x: dx as i8, move_y: dy as i8, ..Default::default()
-        })]));
+        run.step(&inputs);
     }
     assert_eq!(run.room().kind, destination, "{origin:?}: actual input did not cross road {dir}");
     assert_eq!(run.dungeon.depth, 0);

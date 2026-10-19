@@ -166,8 +166,9 @@ pub(crate) fn provider_status_label(code: u16, vetoed: bool) -> String {
     }
 }
 
+/// 529 is Anthropic's `overloaded_error`: transient, like a 503.
 pub(crate) fn is_retryable_status(code: u16) -> bool {
-    matches!(code, 408 | 425 | 429 | 500 | 502 | 503 | 504)
+    matches!(code, 408 | 425 | 429 | 500 | 502 | 503 | 504 | 529)
 }
 
 /// A 429 body that signals a *long-window* quota exhaustion (a weekly/monthly

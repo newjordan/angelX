@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    51,
+    24
+  ],
+  "anchor_xy": [
+    25,
+    12
+  ],
+  "comments": [
+    "Rejected native reduction: diagonal isolated jaws occupy a narrow clump, not four corners of the 51x24 gate. Keep old gate and progression. Needs registered horizontal gate art.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Exact inclusive gate physics x=[60,100],y=[20,43]. Do not extend jaws, tint or implied damage beyond it; retain visible target and Keeper silhouette.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "8be3370470c649f349fd23f0c5542040c2376264a4e3f8df0c263d967c1ac88e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small fixed-corner jade hooks begin to emerge; amber tips.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        135.5
+      ],
+      "source_rect_xywh": [
+        29,
+        146,
+        272,
+        271
+      ],
+      "state": "small-fixed-corner-jade-hooks-begin-to-emerge-amber-tips"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Hooks extend inward with a still-open gap.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        148.0,
+        140.0
+      ],
+      "source_rect_xywh": [
+        328,
+        142,
+        296,
+        280
+      ],
+      "state": "hooks-extend-inward-with-a-still-open-gap"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Larger hooked leaves reach toward center; ribs remain readable.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        146.5,
+        136.0
+      ],
+      "source_rect_xywh": [
+        645,
+        150,
+        293,
+        272
+      ],
+      "state": "larger-hooked-leaves-reach-toward-center-ribs-remain-readable"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Near-contact approach with restrained amber flecks.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        134.0,
+        134.0
+      ],
+      "source_rect_xywh": [
+        975,
+        154,
+        268,
+        268
+      ],
+      "state": "near-contact-approach-with-restrained-amber-flecks"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Closing jaws cross inward and downward; heavier silhouette.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        26,
+        533,
+        276,
+        255
+      ],
+      "state": "closing-jaws-cross-inward-and-downward-heavier-silhouette"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Peak clamp with compact amber impact flare.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.0,
+        125.0
+      ],
+      "source_rect_xywh": [
+        352,
+        539,
+        276,
+        250
+      ],
+      "state": "peak-clamp-with-compact-amber-impact-flare"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Recoil and fracture, still read as hooked leaves.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.0,
+        149.0
+      ],
+      "source_rect_xywh": [
+        654,
+        510,
+        288,
+        298
+      ],
+      "state": "recoil-and-fracture-still-read-as-hooked-leaves"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Breaking apart into connected leaf clusters.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.5,
+        140.0
+      ],
+      "source_rect_xywh": [
+        975,
+        529,
+        267,
+        280
+      ],
+      "state": "breaking-apart-into-connected-leaf-clusters"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Sparse fading corner remnants.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.0,
+        131.5
+      ],
+      "source_rect_xywh": [
+        39,
+        899,
+        254,
+        263
+      ],
+      "state": "sparse-fading-corner-remnants"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Smaller connected fading shard cluster.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.5,
+        116.5
+      ],
+      "source_rect_xywh": [
+        382,
+        910,
+        219,
+        233
+      ],
+      "state": "smaller-connected-fading-shard-cluster"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Very low-weight last fragments.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        103.5,
+        98.0
+      ],
+      "source_rect_xywh": [
+        697,
+        940,
+        207,
+        196
+      ],
+      "state": "very-low-weight-last-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Nearly dissipated compact remnant.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        47.5,
+        40.5
+      ],
+      "source_rect_xywh": [
+        1050,
+        992,
+        95,
+        81
+      ],
+      "state": "nearly-dissipated-compact-remnant"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-staged",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "51\u00d724 at (OX+field_x(60)+shake,OY+20)=(189+shake,66). Floor tint extracted once from RGB (24,43,43), drawn behind Keeper; jaws above it.",
+  "sizes": {
+    "v1": [
+      51,
+      24
+    ],
+    "v2": [
+      51,
+      24
+    ]
+  },
+  "slot": "mossbell.crown",
+  "source_sha256": "6b4d993fd6ad35e3193fbb5654bb822231733369a0fba0c44e99828a111768ee",
+  "timing": "Four stages through 36/30 tell ticks, then stage 3 through 12 action ticks (Ball::step, draw())."
+}

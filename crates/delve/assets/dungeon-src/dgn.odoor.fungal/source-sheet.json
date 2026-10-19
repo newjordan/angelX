@@ -1,0 +1,133 @@
+{
+  "alpha_threshold": 128,
+  "file": "/work/artifacts/art-prod/slots/dgn.odoor.fungal/v01/source-sheet.png",
+  "fully_opaque_fraction": 0.0015,
+  "piece_count": 12,
+  "pieces": [
+    {
+      "alpha_area": 44175,
+      "index": 0,
+      "source_rect_xywh": [
+        97,
+        215,
+        225,
+        233
+      ]
+    },
+    {
+      "alpha_area": 46063,
+      "index": 1,
+      "source_rect_xywh": [
+        384,
+        215,
+        235,
+        233
+      ]
+    },
+    {
+      "alpha_area": 46185,
+      "index": 2,
+      "source_rect_xywh": [
+        685,
+        214,
+        235,
+        235
+      ]
+    },
+    {
+      "alpha_area": 23764,
+      "index": 3,
+      "source_rect_xywh": [
+        1023,
+        215,
+        114,
+        246
+      ]
+    },
+    {
+      "alpha_area": 31499,
+      "index": 4,
+      "source_rect_xywh": [
+        134,
+        532,
+        147,
+        250
+      ]
+    },
+    {
+      "alpha_area": 29299,
+      "index": 5,
+      "source_rect_xywh": [
+        426,
+        532,
+        134,
+        250
+      ]
+    },
+    {
+      "alpha_area": 30120,
+      "index": 6,
+      "source_rect_xywh": [
+        675,
+        531,
+        142,
+        250
+      ]
+    },
+    {
+      "alpha_area": 26448,
+      "index": 7,
+      "source_rect_xywh": [
+        921,
+        653,
+        249,
+        137
+      ]
+    },
+    {
+      "alpha_area": 24693,
+      "index": 8,
+      "source_rect_xywh": [
+        89,
+        972,
+        247,
+        137
+      ]
+    },
+    {
+      "alpha_area": 40414,
+      "index": 9,
+      "source_rect_xywh": [
+        381,
+        883,
+        201,
+        225
+      ]
+    },
+    {
+      "alpha_area": 67086,
+      "index": 10,
+      "source_rect_xywh": [
+        628,
+        843,
+        295,
+        270
+      ]
+    },
+    {
+      "alpha_area": 38417,
+      "index": 11,
+      "source_rect_xywh": [
+        965,
+        897,
+        215,
+        215
+      ]
+    }
+  ],
+  "size_wh": [
+    1254,
+    1254
+  ],
+  "warnings": []
+}

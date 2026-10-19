@@ -1,0 +1,45 @@
+{
+ "kitty_box": [
+  36,
+  34,
+  352,
+  232
+ ],
+ "glass_box": [
+  992,
+  428,
+  1540,
+  770
+ ],
+ "mean_abs_diff": 12.803,
+ "max_abs_diff": 185,
+ "gradient_glass_red_at": [
+  2,
+  129,
+  0,
+  0,
+  0
+ ],
+ "gradient_kitty_red_at": [
+  34,
+  190,
+  0,
+  0,
+  0
+ ],
+ "gradient_expected": [
+  0,
+  64,
+  128,
+  192,
+  255
+ ],
+ "checker_glass_gb": [
+  0,
+  220
+ ],
+ "checker_kitty_gb": [
+  0,
+  220
+ ]
+}

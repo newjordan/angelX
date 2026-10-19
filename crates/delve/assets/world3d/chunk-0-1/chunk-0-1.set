@@ -1,0 +1,282 @@
+set chunk-0-1
+# The kingdom, chunk 0,1 in Greenwood: tiles 0..24 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 192 384
+plate 1536 1024
+
+# ground
+box    grass   at 40 -4 336 size 80 4 160
+box    path    at 88 -4 272 size 16 4 32
+box    grass   at 240 -4 328 size 288 4 144
+box    grass   at 88 -4 352 size 16 4 128
+box    grass   at 152 -4 408 size 112 4 16
+box    path    at 216 -4 456 size 16 4 112
+box    grass   at 304 -4 408 size 160 4 16
+box    grass   at 32 -4 464 size 64 4 96
+box    path    at 88 -4 424 size 48 4 16
+box    grass   at 160 -4 424 size 96 4 16
+box    path    at 232 -4 464 size 16 4 96
+box    grass   at 312 -4 456 size 144 4 80
+box    grass   at 80 -4 472 size 32 4 80
+box    path    at 112 -4 440 size 32 4 16
+box    grass   at 168 -4 440 size 80 4 16
+box    grass   at 104 -4 480 size 16 4 64
+box    path    at 160 -4 456 size 96 4 16
+box    grass   at 160 -4 488 size 96 4 48
+box    path    at 248 -4 504 size 16 4 16
+box    grass   at 320 -4 504 size 128 4 16
+
+# HEDGE GRIEVANCES: a hedge maze at 12,22 4x3 (at 94% of its height, for the camera)
+box    hedge   at 224 0 355.5 size 60 8 3 id hedge-grievances
+box    hedge   at 195.5 0 377.5 size 3 8 41
+box    hedge   at 252.5 0 377.5 size 3 8 41
+box    hedge   at 208.5 0 396.5 size 23 8 3
+box    hedge   at 239.5 0 396.5 size 23 8 3
+box    hedge   at 221 0 364.5 size 38 8 3
+box    hedge   at 227 0 387.5 size 38 8 3
+box    hedge   at 224 0 376 size 3 8 20
+
+# set dressing
+box    trunk   at 136 0 280 size 40 3.5 4 turn -6
+cylinder trunk   at 344 0 280 size 7 3 7
+box    wood    at 345.5 0 280 size 6 0.5 1 turn 30
+box    metal   at 348 3 280 size 2 1 2
+sphere plaster at 45 0 296 size 2.5 2 2.5
+sphere plaster at 43.12 0 299.13 size 2.5 2 2.5
+sphere plaster at 38.89 0 299.9 size 2.5 2 2.5
+sphere plaster at 35.5 0 297.74 size 2.5 2 2.5
+sphere plaster at 35.5 0 294.26 size 2.5 2 2.5
+sphere plaster at 38.89 0 292.1 size 2.5 2 2.5
+sphere plaster at 43.12 0 292.87 size 2.5 2 2.5
+box    wood    at 40 0 392 size 13 2 7
+box    trunk   at 40 2 392 size 11 2 6
+cylinder trunk   at 120 0 424 size 7 3 7
+box    wood    at 121.5 0 424 size 6 0.5 1 turn 30
+box    metal   at 124 3 424 size 2 1 2
+
+# hedges
+box    hedge   at 8 0 264 size 18 7 18
+blob-31 hedge   at 8 4.5 264 size 18 6 18
+box    hedge   at 8 0 280 size 18 6 18
+blob-20 hedge   at 8 3.5 280 size 18 5 18
+box    hedge   at 8 0 296 size 18 7 18
+blob-9 hedge   at 8 4.5 296 size 18 6 18
+box    hedge   at 8 0 312 size 18 6 18
+blob-26 hedge   at 8 3.5 312 size 18 6 18
+box    hedge   at 8 0 328 size 18 6 18
+blob-10 hedge   at 8 3.5 328 size 18 6 18
+box    hedge   at 8 0 344 size 18 7 18
+blob-39 hedge   at 8 4.5 344 size 18 5 18
+box    hedge   at 8 0 360 size 18 7 18
+blob-21 hedge   at 8 4.5 360 size 18 5 18
+box    hedge   at 8 0 376 size 18 6 18
+blob-25 hedge   at 8 3.5 376 size 18 6 18
+box    hedge   at 8 0 392 size 18 7 18
+blob-62 hedge   at 8 4.5 392 size 18 6 18
+box    hedge   at 8 0 408 size 18 6 18
+blob-58 hedge   at 8 3.5 408 size 18 6 18
+box    hedge   at 8 0 424 size 18 7 18
+blob-13 hedge   at 8 4.5 424 size 18 6 18
+box    hedge   at 8 0 440 size 18 7 18
+blob-52 hedge   at 8 4.5 440 size 18 5 18
+box    hedge   at 8 0 456 size 18 6 18
+blob-14 hedge   at 8 3.5 456 size 18 6 18
+box    hedge   at 8 0 472 size 18 6 18
+blob-36 hedge   at 8 3.5 472 size 18 5 18
+box    hedge   at 8 0 488 size 18 6 18
+blob-46 hedge   at 8 3.5 488 size 18 6 18
+
+# woods (at 28% of its height, for the camera)
+cylinder trunk   at 175 0 270 size 5 14 5
+blob-41 foliage at 175 9 270 size 33 27 31.35 turn 180
+frustum trunk   at 206 0 274 size 5 16 5
+blob-44 foliage at 206 11 274 size 33 24 31.35 turn 180
+cylinder trunk   at 240 0 273 size 5 16 5
+blob-32 foliage at 240 11 273 size 33 24 31.35 turn 90
+frustum trunk   at 160 0 306 size 5 5.5 5
+blob-60 foliage at 160 3.5 306 size 33 10 31.35
+cylinder trunk   at 111 0 321 size 5 5 5
+blob-25 foliage at 111 3 321 size 33 9 31.35
+cylinder trunk   at 304 0 321 size 5 5.5 5
+blob-20 foliage at 304 3.5 321 size 33 8.5 31.35
+cylinder trunk   at 142 0 337 size 4.5 8 4.5
+cone   foliage at 142 5 337 size 28 25.42 28
+cone   foliage at 142 20.58 337 size 20.16 25.42 20.16
+cylinder trunk   at 190 0 335 size 5 16 5
+blob-40 foliage at 190 11 335 size 33 29 31.35 turn 180
+frustum trunk   at 337 0 336 size 5 4 5
+blob-8 foliage at 337 2.5 336 size 33 8 31.35 turn 270
+cylinder trunk   at 114 0 352 size 4.5 8 4.5
+cone   foliage at 114 5 352 size 28 26.66 28
+cone   foliage at 114 21.34 352 size 20.16 26.66 20.16
+cylinder trunk   at 303 0 353 size 5 13 5
+blob-46 foliage at 303 8 353 size 33 28 31.35 turn 90
+cylinder trunk   at 366 0 354 size 5 6 5
+blob-52 foliage at 366 4 354 size 33 9.5 31.35
+cylinder trunk   at 146 0 367 size 4.5 7 4.5
+cone   foliage at 146 4 367 size 28 28.52 28
+cone   foliage at 146 21.48 367 size 20.16 28.52 20.16
+frustum trunk   at 177 0 385 size 5 13 5
+blob-15 foliage at 177 8 385 size 33 22 31.35
+cylinder trunk   at 321 0 385 size 5 15 5
+blob-35 foliage at 321 10 385 size 33 29 31.35 turn 270
+frustum trunk   at 353 0 383 size 5 14.5 5
+blob-64 foliage at 353 9.5 383 size 33 28 31.35 turn 270
+cylinder trunk   at 129 0 399 size 4.5 10 4.5
+cone   foliage at 129 7 399 size 28 27.9 28
+cone   foliage at 129 24.1 399 size 20.16 27.9 20.16
+frustum trunk   at 370 0 414 size 5 13 5
+blob-45 foliage at 370 8 414 size 33 23 31.35 turn 90
+frustum trunk   at 335 0 433 size 5 15 5
+blob-12 foliage at 335 10 433 size 33 22 31.35 turn 270
+cylinder trunk   at 366 0 448 size 5 16 5
+blob-45 foliage at 366 11 448 size 33 22 31.35
+cylinder trunk   at 152 0 265 size 3 11 3
+blob-16 foliage at 152 6 265 size 17 14 16.15 turn 90
+cylinder trunk   at 263 0 263 size 3 10 3
+blob-4 foliage at 263 5 263 size 20 14 19
+frustum trunk   at 280.5 0 264.5 size 3 9 3
+blob-27 foliage at 280.5 4 264.5 size 18 15 17.1 turn 270
+cylinder trunk   at 264 0 278 size 3 10 3
+blob-54 foliage at 264 5 278 size 19 20 18.05
+cylinder trunk   at 136 0 296 size 3 3 3
+blob-9 foliage at 136 1.5 296 size 19 7 18.05 turn 270
+cylinder trunk   at 182 0 294 size 3 9 3
+blob-60 foliage at 182 4 294 size 17 21 16.15
+blob-4 foliage at 199 0 297 size 15 12 15
+frustum trunk   at 216 0 296 size 3 10 3
+blob-20 foliage at 216 5 296 size 19 19 18.05
+cylinder trunk   at 230 0 296 size 3 11 3
+blob-43 foliage at 230 6 296 size 18 15 17.1 turn 180
+frustum trunk   at 137 0 312 size 3 9 3
+blob-43 foliage at 137 4 312 size 17 14 16.15 turn 180
+cylinder trunk   at 185 0 314 size 3 12 3
+blob-64 foliage at 185 7 314 size 20 18 19
+cylinder trunk   at 200 0 312 size 3 11 3
+blob-8 foliage at 200 6 312 size 18 17 17.1 turn 180
+cylinder trunk   at 215.5 0 311 size 3 12 3
+blob-48 foliage at 215.5 7 311 size 20 14 19 turn 90
+cylinder trunk   at 328 0 312 size 3 4 3
+blob-38 foliage at 328 2 312 size 19 6 18.05 turn 180
+blob-33 foliage at 169 0 327 size 15 11 15
+frustum trunk   at 215.5 0 330 size 3 10 3
+blob-36 foliage at 215.5 5 330 size 20 14 19 turn 90
+frustum trunk   at 232 0 328 size 3 4.5 3
+blob-22 foliage at 232 2 328 size 19 7 18.05 turn 180
+blob-17 foliage at 170 0 346 size 15 9 15
+frustum trunk   at 216.5 0 343 size 3 9 3
+blob-25 foliage at 216.5 4 343 size 18 17 17.1 turn 180
+frustum trunk   at 231.5 0 343.5 size 3 11 3
+blob-43 foliage at 231.5 6 343.5 size 18 17 17.1 turn 270
+frustum trunk   at 282 0 344.5 size 3 4.5 3
+blob-60 foliage at 282 2 344.5 size 18 9 17.1 turn 270
+frustum trunk   at 73 0 360 size 3 4 3
+blob-14 foliage at 73 2 360 size 17 8 16.15 turn 90
+cylinder trunk   at 87.5 0 360 size 3 3.5 3
+blob-3 foliage at 87.5 1.5 360 size 18 8 17.1 turn 270
+frustum trunk   at 169 0 358 size 3 11 3
+blob-26 foliage at 169 6 358 size 17 14 16.15 turn 90
+cylinder trunk   at 183 0 361 size 3 11 3
+blob-23 foliage at 183 6 361 size 17 15 16.15 turn 180
+frustum trunk   at 280 0 360.5 size 3 9 3
+blob-36 foliage at 280 4 360.5 size 18 18 17.1 turn 90
+blob-6 foliage at 326 0 361 size 15 11 15
+cylinder trunk   at 344 0 358 size 3 11 3
+blob-26 foliage at 344 6 358 size 17 17 16.15 turn 270
+frustum trunk   at 56 0 376 size 3 4.5 3
+blob-20 foliage at 56 2.5 376 size 19 6.5 18.05 turn 270
+frustum trunk   at 71 0 376 size 3 7 3
+blob-53 foliage at 71 3.5 376 size 17 11 16.15 turn 270
+blob-54 foliage at 89 0 375 size 15 10 15
+cylinder trunk   at 105 0 375 size 3 7 3
+cone   foliage at 105 4 375 size 17 16.12 17
+cone   foliage at 105 13.88 375 size 12.24 16.12 12.24
+frustum trunk   at 118 0 376 size 3 9 3
+cone   foliage at 118 6 376 size 17 16.74 17
+cone   foliage at 118 16.26 376 size 12.24 16.74 12.24
+frustum trunk   at 280 0 376 size 3 10 3
+blob-21 foliage at 280 5 376 size 19 21 18.05 turn 180
+cylinder trunk   at 295 0 375 size 3 10 3
+blob-55 foliage at 295 5 375 size 20 17 19
+frustum trunk   at 375 0 378 size 3 10 3
+blob-38 foliage at 375 5 378 size 20 17 19 turn 90
+frustum trunk   at 72 0 390 size 3 9 3
+blob-10 foliage at 72 4 390 size 18 16 17.1 turn 180
+cylinder trunk   at 88 0 392 size 3 10 3
+cone   foliage at 88 7 392 size 19 18.6 19
+cone   foliage at 88 18.4 392 size 13.68 18.6 13.68
+frustum trunk   at 104.5 0 391.5 size 3 8 3
+cone   foliage at 104.5 5 391.5 size 20 16.12 20
+cone   foliage at 104.5 14.88 391.5 size 14.4 16.12 14.4
+cylinder trunk   at 152 0 392 size 3 8 3
+cone   foliage at 152 5 392 size 20 18.6 20
+cone   foliage at 152 16.4 392 size 14.4 18.6 14.4
+frustum trunk   at 279 0 391 size 3 9 3
+blob-30 foliage at 279 4 391 size 17 18 16.15 turn 180
+frustum trunk   at 297 0 391 size 3 10 3
+blob-1 foliage at 297 5 391 size 19 21 18.05
+cylinder trunk   at 374 0 394 size 3 12 3
+blob-50 foliage at 374 7 394 size 19 17 18.05 turn 180
+frustum trunk   at 150 0 406 size 3 7 3
+cone   foliage at 150 4 406 size 18 17.98 18
+cone   foliage at 150 15.02 406 size 12.96 17.98 12.96
+cylinder trunk   at 168.5 0 408 size 3 7 3
+cone   foliage at 168.5 4 408 size 18 20.46 18
+cone   foliage at 168.5 16.54 408 size 12.96 20.46 12.96
+frustum trunk   at 182 0 407.5 size 3 7 3
+cone   foliage at 182 4 407.5 size 18 19.22 18
+cone   foliage at 182 15.78 407.5 size 12.96 19.22 12.96
+frustum trunk   at 312 0 408 size 3 9 3
+blob-57 foliage at 312 4 408 size 18 16 17.1 turn 270
+cylinder trunk   at 328.5 0 407.5 size 3 10 3
+blob-31 foliage at 328.5 5 407.5 size 20 20 19 turn 270
+frustum trunk   at 344 0 410 size 3 9 3
+blob-61 foliage at 344 4 410 size 18 20 17.1
+frustum trunk   at 135.5 0 424.5 size 3 7 3
+cone   foliage at 135.5 4 424.5 size 18 17.36 18
+cone   foliage at 135.5 14.64 424.5 size 12.96 17.36 12.96
+cylinder trunk   at 151 0 423 size 3 9 3
+cone   foliage at 151 6 423 size 17 19.22 17
+cone   foliage at 151 17.78 423 size 12.24 19.22 12.24
+cylinder trunk   at 168 0 424 size 3 10 3
+cone   foliage at 168 7 424 size 19 17.98 19
+cone   foliage at 168 18.02 424 size 13.68 17.98 13.68
+cylinder trunk   at 312 0 440 size 3 4.5 3
+blob-9 foliage at 312 2.5 440 size 19 7 18.05 turn 270
+cylinder trunk   at 314 0 456 size 3 12 3
+blob-7 foliage at 314 7 456 size 19 15 18.05
+cylinder trunk   at 326 0 454 size 3 10 3
+blob-49 foliage at 326 5 454 size 19 21 18.05 turn 270
+cylinder trunk   at 345 0 458 size 3 12 3
+blob-51 foliage at 345 7 458 size 20 14 19 turn 270
+cylinder trunk   at 311.5 0 471.5 size 3 11 3
+blob-13 foliage at 311.5 6 471.5 size 18 15 17.1
+frustum trunk   at 328 0 470 size 3 9 3
+blob-48 foliage at 328 4 470 size 17 16 16.15 turn 90
+cylinder trunk   at 343 0 473 size 3 9 3
+blob-39 foliage at 343 4 473 size 17 17 16.15 turn 270
+frustum trunk   at 358 0 470 size 3 10 3
+blob-9 foliage at 358 5 470 size 19 19 18.05 turn 180
+frustum trunk   at 376 0 470 size 3 12 3
+blob-2 foliage at 376 7 470 size 20 15 19 turn 270
+frustum trunk   at 327.5 0 488.5 size 3 11 3
+blob-1 foliage at 327.5 6 488.5 size 18 20 17.1
+frustum trunk   at 344.5 0 487.5 size 3 12 3
+blob-55 foliage at 344.5 7 487.5 size 20 18 19
+frustum trunk   at 359 0 486 size 3 12 3
+blob-23 foliage at 359 7 486 size 19 16 18.05
+cylinder trunk   at 377 0 489 size 3 12 3
+blob-13 foliage at 377 7 489 size 19 20 18.05 turn 270
+cylinder trunk   at 8 0 504 size 3 10 3
+blob-34 foliage at 8 5 504 size 19 15 18.05
+frustum trunk   at 23 0 504 size 3 5 3
+blob-35 foliage at 23 2 504 size 18 10.5 17.1 turn 270
+frustum trunk   at 39 0 503 size 3 5.5 3
+blob-34 foliage at 39 2.5 503 size 17 9.5 16.15 turn 180
+cylinder trunk   at 344 0 504 size 3 10 3
+blob-60 foliage at 344 5 504 size 19 21 18.05 turn 270
+frustum trunk   at 360 0 504 size 3 12 3
+blob-10 foliage at 360 7 504 size 19 18 18.05
+cylinder trunk   at 376 0 503 size 3 12 3
+blob-4 foliage at 376 7 503 size 19 16 18.05 turn 180

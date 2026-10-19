@@ -1,0 +1,118 @@
+set chunk-4-8
+# The kingdom, chunk 4,8 in Wind Country: tiles 96..120 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 2176
+plate 1536 1024
+
+# ground
+box    grass   at 1624 -4 2104 size 176 4 112
+box    path    at 1728 -4 2104 size 32 4 112
+box    grass   at 1832 -4 2128 size 176 4 160
+box    grass   at 1592 -4 2184 size 112 4 48
+box    rock    at 1664 -4 2184 size 32 4 48
+box    grass   at 1696 -4 2168 size 32 4 16
+box    path    at 1720 -4 2200 size 16 4 80
+box    grass   at 1736 -4 2184 size 16 4 48
+box    rock    at 1688 -4 2192 size 16 4 32
+box    grass   at 1704 -4 2192 size 16 4 32
+box    grass   at 1568 -4 2232 size 64 4 48
+box    path    at 1656 -4 2216 size 112 4 16
+box    path    at 1744 -4 2216 size 32 4 16
+box    grass   at 1840 -4 2216 size 160 4 16
+box    grass   at 1656 -4 2240 size 112 4 32
+box    path    at 1736 -4 2232 size 16 4 16
+box    crop    at 1784 -4 2248 size 80 4 48
+box    grass   at 1872 -4 2248 size 96 4 48
+box    crop    at 1728 -4 2256 size 32 4 32
+box    sand    at 1592 -4 2264 size 112 4 16
+box    grass   at 1680 -4 2264 size 64 4 16
+box    water   at 1592 -4 2288 size 112 1 32
+box    sand    at 1784 -4 2280 size 272 4 16
+box    water   at 1784 -4 2296 size 272 1 16
+
+# crop furrows
+box    crop    at 1784 0 2227.5 size 78 2.5 2
+box    crop    at 1784 0 2232.5 size 78 2.5 2
+box    crop    at 1784 0 2237.5 size 78 2.5 2
+box    crop    at 1784 0 2242.5 size 78 2.5 2
+box    crop    at 1784 0 2247.5 size 78 2.5 2
+box    crop    at 1784 0 2252.5 size 78 2.5 2
+box    crop    at 1784 0 2257.5 size 78 2.5 2
+box    crop    at 1784 0 2262.5 size 78 2.5 2
+box    crop    at 1784 0 2267.5 size 78 2.5 2
+box    crop    at 1728 0 2243.5 size 30 2.5 2
+box    crop    at 1728 0 2248.5 size 30 2.5 2
+box    crop    at 1728 0 2253.5 size 30 2.5 2
+box    crop    at 1728 0 2258.5 size 30 2.5 2
+box    crop    at 1728 0 2263.5 size 30 2.5 2
+box    crop    at 1728 0 2268.5 size 30 2.5 2
+
+# KNOTTY KITEWRIGHT: a kite maker's cottage at 108,135 4x3 (at 48% of its height, for the camera)
+box    plaster at 1748.2 0 2194 size 36.4 13 24 id knotty-kitewright
+gable  roof    at 1748.2 13 2194 size 39.4 10 27
+box    stone   at 1756.94 13 2191.6 size 4 11.5 4
+box    door    at 1748.2 0 2206.25 size 7 10 1
+box    window  at 1739.1 5.46 2206.25 size 5 3.9 1
+box    window  at 1757.3 5.46 2206.25 size 5 3.9 1
+box    wood    at 1774.08 0 2200 size 1.2 20 1.2
+gem    cloth   at 1774.08 18 2200 size 8 10 1
+box    wood    at 1784.32 0 2190 size 1.2 26 1.2
+gem    cloth   at 1784.32 24 2190 size 8 10 1
+cylinder trunk   at 1784 0 2168 size 3 5.5 3
+blob-12 foliage at 1784 3 2168 size 14 9.5 13.3
+blob-46 foliage at 1784 0 2184 size 13 10 12
+blob-6 foliage at 1784 0 2200 size 13 6 12
+
+# set dressing
+box    stone   at 1560 0 2216 size 9 4 3
+box    stone   at 1560 0 2218.5 size 6 2 2
+box    stone   at 1656 0 2227 size 44 4 2
+box    stone   at 1635 0 2233 size 2 4 10
+box    stone   at 1677 0 2233 size 2 4 10
+box    stone   at 1644 0 2237 size 16 3.5 2
+cone   thatch  at 1555 0 2246.5 size 4.5 4 4.5
+cone   thatch  at 1560 0 2249.5 size 4.5 4 4.5
+cone   thatch  at 1565 0 2246.5 size 4.5 4 4.5
+
+# rock
+box    rock    at 1664 0 2184 size 32 3 48
+box    rock    at 1688 0 2192 size 16 3 32
+rock-64 rock    at 1656 1.5 2169 size 15 9 13.5 turn 270
+rock-8 rock    at 1673 1.5 2169 size 16 7 14.4
+rock-13 rock    at 1656 1.5 2183 size 16 8 14.4 turn 90
+rock-62 rock    at 1672 1.5 2184 size 14 9 12.6 turn 270
+rock-47 rock    at 1688 1.5 2183 size 15 8 13.5 turn 90
+rock-37 rock    at 1656 1.5 2201 size 14 10 12.6
+rock-47 rock    at 1673 1.5 2201 size 15 9 13.5 turn 90
+rock-47 rock    at 1687 1.5 2199 size 15 9 13.5 turn 90
+
+# woods (at 36% of its height, for the camera)
+frustum trunk   at 1624 0 2152 size 3 4 3
+blob-48 foliage at 1624 2 2152 size 19 6.5 18.05
+cylinder trunk   at 1640 0 2151 size 3 4 3
+blob-42 foliage at 1640 2 2151 size 17 7 16.15 turn 90
+frustum trunk   at 1624 0 2168 size 3 12 3
+blob-27 foliage at 1624 7 2168 size 19 15 18.05 turn 270
+frustum trunk   at 1639 0 2169 size 3 11 3
+blob-46 foliage at 1639 6 2169 size 18 15 17.1 turn 270
+frustum trunk   at 1623.5 0 2184.5 size 3 9 3
+blob-31 foliage at 1623.5 4 2184.5 size 18 16 17.1 turn 270
+frustum trunk   at 1641 0 2184 size 3 9 3
+blob-28 foliage at 1641 4 2184 size 17 17 16.15 turn 180
+cylinder trunk   at 1880 0 2201 size 3 5.5 3
+blob-18 foliage at 1880 2.5 2201 size 17 9.5 16.15 turn 180
+cylinder trunk   at 1897 0 2199 size 3 5 3
+blob-45 foliage at 1897 2.5 2199 size 17 8 16.15 turn 90
+cylinder trunk   at 1911 0 2199 size 3 4 3
+blob-50 foliage at 1911 1.5 2199 size 17 8.5 16.15 turn 90
+cylinder trunk   at 1880 0 2216 size 3 11.5 3
+blob-33 foliage at 1880 6.5 2216 size 19 18 18.05 turn 270
+frustum trunk   at 1897 0 2216 size 3 12 3
+blob-53 foliage at 1897 7 2216 size 19 16 18.05 turn 180
+frustum trunk   at 1910 0 2218 size 3 9 3
+blob-7 foliage at 1910 4 2218 size 17 19 16.15 turn 270
+cylinder trunk   at 1896 0 2232 size 3 9 3
+blob-32 foliage at 1896 4 2232 size 18 18 17.1
+cylinder trunk   at 1912.5 0 2232 size 3 9 3
+blob-38 foliage at 1912.5 4 2232 size 18 19 17.1 turn 180

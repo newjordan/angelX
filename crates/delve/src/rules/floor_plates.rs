@@ -17,6 +17,7 @@ pub enum Kind {
     Archive,
     Fungal,
     Unknown,
+    Swamp,
 }
 
 #[cfg(test)]
@@ -32,6 +33,7 @@ impl Kind {
             Pack::Archive => Self::Archive,
             Pack::Fungal => Self::Fungal,
             Pack::Unknown => Self::Unknown,
+            Pack::Swamp => Self::Swamp,
         }
     }
 
@@ -44,12 +46,13 @@ impl Kind {
             Self::Archive => "DROWNED ARCHIVE",
             Self::Fungal => "FUNGAL DEEP",
             Self::Unknown => "THE UNKNOWN",
+            Self::Swamp => "SWAMP OF HORRORS",
         }
     }
 }
 
 /// Every reachable destination, including both orders of the upper delve.
-pub const DESTINATIONS: [(Kind, u32); 9] = [
+pub const DESTINATIONS: [(Kind, u32); 12] = [
     (Kind::Gate, 0),
     (Kind::Crypt, 1),
     (Kind::Crypt, 2),
@@ -59,6 +62,9 @@ pub const DESTINATIONS: [(Kind, u32); 9] = [
     (Kind::Archive, 4),
     (Kind::Fungal, 5),
     (Kind::Unknown, 6),
+    (Kind::Swamp, 1),
+    (Kind::Swamp, 2),
+    (Kind::Swamp, 3),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -66,6 +72,26 @@ pub struct Playing {
     pub kind: Kind,
     pub depth: u32,
     pub age: u8,
+    /// Display steps the floor behind gives its results (`floor_stats`)
+    /// before this floor's own title; none for the first floor.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub results: u8,
+}
+
+fn is_zero(v: &u8) -> bool {
+    *v == 0
+}
+
+impl Playing {
+    /// The steps the whole plate lasts: the results, then the title.
+    pub fn length(self) -> u8 {
+        self.results.saturating_add(DURATION)
+    }
+
+    /// The floor's own title as it plays now, once the results are done.
+    pub fn title(self) -> Option<Playing> {
+        (self.age >= self.results).then_some(Playing { age: self.age - self.results, results: 0, ..self })
+    }
 }
 
 impl Run {
@@ -80,6 +106,7 @@ impl Run {
                         kind,
                         depth: self.floor(),
                         age: 0,
+                        results: 0,
                     },
                 )
             })
@@ -90,7 +117,7 @@ impl Run {
         self.floor_plates
             .get(&seat.unwrap_or(1))
             .copied()
-            .filter(|p| p.age < DURATION)
+            .filter(|p| p.age < p.length())
     }
 
     pub fn skip_floor_plate(&mut self, seat: u32) -> bool {
@@ -98,9 +125,15 @@ impl Run {
     }
 
     pub(super) fn tick_floor_plates(&mut self, inputs: &BTreeMap<u32, Input>) {
+        // The results never hold a fight up: one breaking out cuts them
+        // short, and the floor's title plays.
+        let fight = self.fight_on();
         self.floor_plates.retain(|id, plate| {
+            if fight && plate.age < plate.results {
+                plate.age = plate.results;
+            }
             plate.age = plate.age.saturating_add(1);
-            plate.age < DURATION && !inputs.get(id).is_some_and(|i| i.skip_plate)
+            plate.age < plate.length() && !inputs.get(id).is_some_and(|i| i.skip_plate)
         });
     }
 }

@@ -98,7 +98,7 @@ export function advisoryPolicy(manifest) {
   }
   if (
     !Array.isArray(policy.lockfiles) ||
-    policy.lockfiles.length !== 4 ||
+    policy.lockfiles.length !== 3 ||
     !Array.isArray(policy.exceptions) ||
     policy.python?.status !== 'not-applicable'
   ) {
@@ -106,7 +106,6 @@ export function advisoryPolicy(manifest) {
   }
   const expected = new Map([
     ['cockpit/Cargo.lock', 'crates.io'],
-    ['cockpit/portal-renderer/Cargo.lock', 'crates.io'],
     ['crates/Cargo.lock', 'crates.io'],
     ['package-lock.json', 'npm'],
   ])

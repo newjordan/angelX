@@ -1,0 +1,200 @@
+set lighthouse
+# The Bickering Beacon: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: a harbour sign, rope.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    sand    at 96 -4 56 size 160 4 80
+box    sand    at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 96 -4 112 size 160 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    sand    at 96 -4 152 size 160 4 48
+box    sand    at 288 -4 152 size 160 4 48
+box    ground  at 376 -4 176 size 16 4 96
+box    sand    at 24 -4 192 size 16 4 32
+box    sand    at 160 -4 192 size 32 4 32
+box    sand    at 224 -4 192 size 32 4 32
+box    sand    at 360 -4 192 size 16 4 32
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# water, 3 below the floor line
+box    water   at 88 -4 192 size 112 1 32
+box    water   at 296 -4 192 size 112 1 32
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 10 6 8 size 20 18 16
+box    trunk   at 24 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 24 6 8 size 19 19 16
+box    trunk   at 41 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 41 7 8 size 19 18 16
+box    trunk   at 59 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 59 9 8 size 21 17 16
+box    trunk   at 75 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 75 7 8 size 19 18 16
+box    trunk   at 87 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 87 7 8 size 18 17 16
+box    trunk   at 103 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 103 8 8 size 18 16 16
+box    trunk   at 120 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 120 7 8 size 19 19 16
+box    trunk   at 136 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 136 8 8 size 18 18 16
+box    trunk   at 149 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 149 6 8 size 20 16 16
+box    trunk   at 165.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 165.5 8 8 size 21 18 16
+sphere foliage at 10 0 -9 size 25 34 18
+sphere foliage at 26 0 -9 size 27 31 18
+sphere foliage at 41 0 -9 size 25 33 18
+sphere foliage at 55 0 -9 size 22 37 18
+sphere foliage at 70 0 -9 size 26 31 18
+sphere foliage at 84 0 -9 size 22 35 18
+sphere foliage at 102 0 -9 size 26 33 18
+sphere foliage at 123 0 -9 size 24 35 18
+sphere foliage at 138 0 -9 size 28 36 18
+sphere foliage at 152 0 -9 size 27 34 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 217 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 217 7 8 size 18 17 16
+box    trunk   at 232 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 232 9 8 size 19 19 16
+box    trunk   at 248 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 248 9 8 size 18 16 16
+box    trunk   at 266 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 266 7 8 size 18 17 16
+box    trunk   at 277 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 277 6 8 size 18 19 16
+box    trunk   at 296 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 296 7 8 size 18 19 16
+box    trunk   at 309 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 309 7 8 size 19 18 16
+box    trunk   at 325 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 325 8 8 size 18 16 16
+box    trunk   at 344 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 344 7 8 size 20 16 16
+box    trunk   at 363 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 363 9 8 size 20 19 16
+box    trunk   at 374 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 374 9 8 size 20 18 16
+sphere foliage at 228 0 -9 size 28 33 18
+sphere foliage at 252 0 -9 size 27 36 18
+sphere foliage at 265 0 -9 size 26 37 18
+sphere foliage at 283 0 -9 size 23 31 18
+sphere foliage at 297 0 -9 size 26 33 18
+sphere foliage at 312 0 -9 size 26 33 18
+sphere foliage at 332 0 -9 size 27 37 18
+sphere foliage at 344 0 -9 size 29 30 18
+sphere foliage at 358 0 -9 size 23 36 18
+sphere foliage at 376 0 -9 size 24 37 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 12
+box    foliage at 8 -4 112 size 16 9 192  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 26 size 16 18 20
+box    trunk   at 8 0 41 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 41 size 16 19 21
+box    trunk   at 8 0 56 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 56 size 16 16 18
+box    trunk   at 8 0 73 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 73 size 16 16 20
+box    trunk   at 8 0 85 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 85 size 16 17 19
+box    trunk   at 8 0 102 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 102 size 16 17 20
+box    trunk   at 8 0 119 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 119 size 16 19 18
+box    trunk   at 8 0 134 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 134 size 16 19 20
+box    trunk   at 8 0 154 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 154 size 16 17 20
+box    trunk   at 8 0 170 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 170 size 16 17 20
+box    trunk   at 8 0 187 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 187 size 16 16 21
+box    trunk   at 8 0 197.5 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 197.5 size 16 17 21
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 25.5 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 25.5 size 16 17 19
+box    trunk   at 376 0 39 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 39 size 16 18 18
+box    trunk   at 376 0 59 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 59 size 16 17 18
+box    trunk   at 376 0 69 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 69 size 16 18 20
+box    trunk   at 376 0 85.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 85.5 size 16 17 21
+
+# the east wall, rows 8 to 12 (at 44% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 4 137.5 size 16 8 19
+box    trunk   at 376 0 149 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 376 5.5 149 size 16 16.5 20
+box    trunk   at 376 0 166 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 166 size 16 18 19
+box    trunk   at 376 0 182 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 182 size 16 17 19
+box    trunk   at 376 0 197.5 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 197.5 size 16 18 21
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# cottage at 4,2 3x3 (at 69% of its height, for the camera)
+box    stone   at 88 0 66 size 42 12.5 24 id cottage
+box    slate   at 88 12.5 66 size 44 8 26  # TODO prims: gable
+box    door    at 88 0 78.5 size 8 8 1
+box    window  at 76 4.5 78.5 size 6 3.5 1
+
+# beacon at 7,2 2x3 (at 17% of its height, for the camera)
+box    stone   at 128 0 56 size 28 6.5 44 id beacon  # TODO prims: cylinder
+box    fire    at 128 6.5 56 size 16.8 1 26.4
+cone   slate   at 128 7.5 56 size 32 4 48  # TODO prims: pyramid
+box    window  at 128 3.5 78.25 size 4 1 1.5
+
+# landmark (assets/world3d/lighthouse/landmark.set, hand-placed)
+# The Bickering Beacon: the lighthouse itself, a banded tower on a rocky point
+# of the back edge, over the tree line, its lamp lit.
+rock-3     rock    at 300 0 -8 size 64 12 44 id light-point
+rock-5     rock    at 340 0 -6 size 26 9 28 id light-rock-e
+rock-9     rock    at 262 0 -8 size 24 8 26 id light-rock-w
+frustum    plaster at 300 8 -2 size 36 46 36 id light-tower
+cylinder   brick   at 300 18 -2 size 33 8 33 id light-band-low
+cylinder   brick   at 300 36 -2 size 28 6 28 id light-band-high
+cylinder   metal   at 300 54 -2 size 28 2 28 id light-gallery
+cylinder   window  at 300 56 -2 size 14 10 14 id light-lamp
+cone-10    slate   at 300 66 -2 size 20 12 20 id light-roof
+box        metal   at 300 78 -2 size 2 4 2 id light-vane

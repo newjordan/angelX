@@ -1,0 +1,63 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 26778
+    }
+  ],
+  "flags": [],
+  "map_sha256": "a121fcf759e77f926607dace5f5fb154a73e0ec8211e1566e7ea0ba91d99ae95",
+  "metadata_sha256": "3aaf08486080b6ceabbcd6e9f288a9d5cdcf5b72f02a3a0246b0889f22b2d098",
+  "notes_sha256": "f18b4342fae6ce2158162e615ebd890fa4f57aacff611fb2b3deb0643cf5cc3f",
+  "outputs": {
+    "v1/idle-0.png": {
+      "anchor_xy": [
+        96,
+        128
+      ],
+      "approved": true,
+      "canvas_wh": [
+        192,
+        128
+      ],
+      "colour_agreement": 0.9981,
+      "frame": 0,
+      "half_cell_coverage": 811,
+      "opaque_pixels": 12097,
+      "piece": 0,
+      "sha256": "31f75f4df608a294e5313c8b821fd021f6a5691f4ebc539219b97fc574542b59",
+      "source_scale": 0.12864321608040202,
+      "state": "idle"
+    },
+    "v2/idle-0.png": {
+      "anchor_xy": [
+        96,
+        128
+      ],
+      "approved": true,
+      "canvas_wh": [
+        192,
+        128
+      ],
+      "colour_agreement": 0.9981,
+      "frame": 0,
+      "half_cell_coverage": 811,
+      "opaque_pixels": 12097,
+      "piece": 0,
+      "sha256": "31f75f4df608a294e5313c8b821fd021f6a5691f4ebc539219b97fc574542b59",
+      "source_scale": 0.12864321608040202,
+      "state": "idle"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": false,
+  "slot": "griffinwing.arch",
+  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.arch/v01/source-sheet.png",
+  "source_sha256": "974dcd664005a8f476ce753933e113202fcfeae62b88450eef3c13c38aaca498",
+  "tool_version": 2
+}

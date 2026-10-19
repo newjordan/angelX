@@ -1,0 +1,18 @@
+{
+  "fit": "native canvas 192x128, anchor bottom-centre (96,128); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "A rock arch whose clear opening is where the sim puts it: the rules own the opening (half width, half height) and judge every scrape; art never sets a hitbox (none).",
+  "id": "griffinwing.arch",
+  "role": "prop",
+  "timing": "idle 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

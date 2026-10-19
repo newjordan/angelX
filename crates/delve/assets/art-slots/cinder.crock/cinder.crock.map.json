@@ -1,0 +1,280 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    80
+  ],
+  "anchor_xy": [
+    40,
+    80
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only.",
+    "Missing second flinch, registered damage variants for acting poses and terminal seam masks; retain coherent original bank. Final damage level cannot be substituted by a collapse.",
+    "DAMAGE-1 activates the matching design now that the supplemental recoil and collapse bank exists. Long cough poses stay staged; no separate attack rule exists."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 11,
+  "geometry": "Board cells and cracks own hits; no spatial boss hurtbox. Renderer::landing and draw own the exact slag destination; body art must not suggest a second attack area.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "14874419473027be0a808fcc21768103392803f6f8a04f623f2257dda2d919df",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle breathing stance, slight belly puff, chimney smoke.",
+      "name": "crock",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        119,
+        306
+      ],
+      "source_rect_xywh": [
+        55,
+        120,
+        236,
+        306
+      ],
+      "state": "crock"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Windup A, swollen belly and braced mittens.",
+      "name": "windup-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        106,
+        318
+      ],
+      "source_rect_xywh": [
+        369,
+        112,
+        260,
+        318
+      ],
+      "state": "windup-1"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Attack A, cough expelled to the right.",
+      "name": "cough-1",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        108,
+        285
+      ],
+      "source_rect_xywh": [
+        650,
+        145,
+        327,
+        285
+      ],
+      "state": "cough-1"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Recovery A, low seated slump with trailing smoke.",
+      "name": "recovery",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        102,
+        255
+      ],
+      "source_rect_xywh": [
+        995,
+        178,
+        226,
+        255
+      ],
+      "state": "recovery"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Windup B, larger puff with lid lifted.",
+      "name": "windup-2",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        125,
+        334
+      ],
+      "source_rect_xywh": [
+        34,
+        475,
+        279,
+        334
+      ],
+      "state": "windup-2"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Attack B, forceful cough with detached lid and smoke.",
+      "name": "cough-2",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        132,
+        334
+      ],
+      "source_rect_xywh": [
+        325,
+        475,
+        307,
+        334
+      ],
+      "state": "cough-2"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Walk/step 1, right foot raised.",
+      "name": "step-1",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        148,
+        334
+      ],
+      "source_rect_xywh": [
+        645,
+        475,
+        304,
+        334
+      ],
+      "state": "step-1"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Walk/step 2, waddling follow-through.",
+      "name": "step-2",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        130,
+        277
+      ],
+      "source_rect_xywh": [
+        985,
+        532,
+        241,
+        277
+      ],
+      "state": "step-2"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Hit flinch, squeezed eyes and ceramic chips.",
+      "name": "flinch-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        119,
+        287
+      ],
+      "source_rect_xywh": [
+        43,
+        881,
+        249,
+        287
+      ],
+      "state": "flinch-1"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Damage stage 1, visible cracks/chips.",
+      "name": "crock-crack-1",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        114,
+        317
+      ],
+      "source_rect_xywh": [
+        363,
+        849,
+        254,
+        317
+      ],
+      "state": "crock-crack-1"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Damage stage 2, wobble marks and scattered chips.",
+      "name": "crock-crack-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        102,
+        312
+      ],
+      "source_rect_xywh": [
+        659,
+        861,
+        282,
+        312
+      ],
+      "state": "crock-crack-2"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Defeat, collapsed and exhausted with detached lid and spent wisp.",
+      "name": "defeat",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        116,
+        312
+      ],
+      "source_rect_xywh": [
+        950,
+        861,
+        287,
+        312
+      ],
+      "state": "defeat"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-needs-rerun",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "80\u00d780; stamp top-left (270,78+bob), pivot (40,80) by canvas convention. Damage overlays are registered in x=4..76, y=24..76 in art(); retain that registration.",
+  "sizes": {
+    "v1": [
+      80,
+      80
+    ],
+    "v2": [
+      80,
+      80
+    ]
+  },
+  "slot": "cinder.crock",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "0991cba0ef050dded982d6576deb92ea617065d3d882675299d07340d16d6d25",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.crock/v01/source-sheet.png",
+    "original_sha256": "8aca8120b1e591c99c45fa8e78f414177eae7b62eb53b28c0b3f65ee7dd4860c",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "3f9418f9ea96436cff487c6545b0fc1e6c7f11ae59f46f627d1815bae9a31ff7",
+  "timing": "Idle bobs 1 px each half of a 36-tick period. Damage at 12/24/36 cracks; two flinches divide the 8-tick clear at flash>4 / <=4. Two wind-ups divide tuned TELL=27 at windup/2; attacks rest 165/135/105 ticks by cracks phase. Cascades pause tell progression. No separate recovery timer (Board::step, crack_stage; renderer::draw)."
+}

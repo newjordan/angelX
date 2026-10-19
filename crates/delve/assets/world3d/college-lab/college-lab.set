@@ -1,0 +1,53 @@
+set college-lab
+# Alchemy Lab: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: pools of green round the cauldrons, labelled jars on the table (176,173).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# jar-shelf at 3,2 5x2 (at 21% of its height, for the camera)
+box    wood    at 88 0 48 size 78 5.5 30 id jar-shelf-1
+box    water   at 88 0.5 63.25 size 76 4.5 0.5
+
+# jar-shelf at 16,2 5x2 (at 21% of its height, for the camera)
+box    wood    at 296 0 48 size 78 5.5 30 id jar-shelf-2
+box    water   at 296 0.5 63.25 size 76 4.5 0.5
+
+# cauldron at 4,6 3x2 (at 71% of its height, for the camera)
+box    stone   at 88 0 112 size 44 6 28 id cauldron-1
+sphere metal   at 88 6 112 size 42 4.65 26
+cone   fire    at 88 0.5 125 size 7 5 4
+
+# cauldron at 10,6 3x2 (at 72% of its height, for the camera)
+box    stone   at 184 0 112 size 44 6 28 id cauldron-2
+sphere metal   at 184 6 112 size 42 4.82 26
+cone   fire    at 184 0.5 125 size 7 5 4
+
+# cauldron at 17,6 3x2 (at 71% of its height, for the camera)
+box    stone   at 296 0 112 size 44 6 28 id cauldron-3
+sphere metal   at 296 6 112 size 42 4.65 26
+cone   fire    at 296 0.5 125 size 7 5 4
+
+# desk at 9,9 6x1 (at 59% of its height, for the camera)
+box    wood    at 192 0 152 size 94 5.5 14 id desk
+box    plaster at 192 5.5 152 size 95 0.5 15
+
+# plate at 11,12 2x1
+box    stone   at 192 0 200 size 30 1.5 14 id plate  # TODO prims: stairs

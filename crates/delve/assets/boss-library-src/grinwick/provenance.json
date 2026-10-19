@@ -1,0 +1,215 @@
+{
+  "id": "grinwick",
+  "source_path": "./cockpit/assets/boss-library/existing/grinwick/v01/source-sheet-refined.png",
+  "source_sha256": "1acdf5514fccb55b894864d0d82feb84797d3d0e76d34dae532fa0d1b21abe84",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "GRINWICK is a soot-black SPIDER LOCOMOTIVE, not a humanoid. Round squat iron boiler, cracked white porcelain grinning faceplate, TWO red lantern eyes, short smokestack, brass pressure fittings and EIGHT jointed spider legs with big brass knees and iron feet. Red coal fire glints, little train buffers beneath grin. Keep all eight legs, broad low stance and comic fixed grin. Existing tiny boiler reference defines its face.",
+  "definition_header": "name GRINWICK, THE LAST SERVICE\ntext The timetable says never. The whistle says now.\nby Jordan Newman\nwhere mines\nhp 900\nsize 4.8\nmove drift speed=3.8\nphases lead bounce every=36 volleys=2 damage=12 shot=ore\nrage 50%\ndrops ore 6, gem 3, gold 260",
+  "source_definition_sha256": "ab4482e9da78b9575d47e790493e4ec23c600c6daad1255b1e500d1bf0684118",
+  "definition_sha256": "ab4482e9da78b9575d47e790493e4ec23c600c6daad1255b1e500d1bf0684118",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        37,
+        192,
+        273,
+        242
+      ],
+      "opaque_component_pixels": 36018,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "1d996b3cbd5d729ac5fab83886837a0ab459948dd99bfce066c18f5bcc2f53f0"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        369,
+        178,
+        263,
+        260
+      ],
+      "opaque_component_pixels": 32172,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "46afd281dae81c59febfdd1b954923f05d6430cbeb0be90643af1761d558bd81"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        655,
+        201,
+        241,
+        218
+      ],
+      "opaque_component_pixels": 31371,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "ca6187f62586057fa5bf5817007f30b2d9f07b6fe40bb7d7185adcf867d4c766"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        962,
+        168,
+        238,
+        260
+      ],
+      "opaque_component_pixels": 31784,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "df106d237dc1774496d3973567364f61ff52eef797d1ad7e5986b78d0f656813"
+    },
+    {
+      "id": "overhead/part/boiler-body",
+      "source_rect_xywh": [
+        57,
+        587,
+        258,
+        202
+      ],
+      "opaque_component_pixels": 34029,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-boiler-body.png",
+      "sha256": "7511234455d9e9ce392c519ba24a810e7770247d2899551dc927d7820c6e7890"
+    },
+    {
+      "id": "overhead/part/porcelain-faceplate",
+      "source_rect_xywh": [
+        429,
+        595,
+        141,
+        165
+      ],
+      "opaque_component_pixels": 16448,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-porcelain-faceplate.png",
+      "sha256": "752afb371f0acb8db5c484f14104adee31643bee64e131d8183f4024b9b936a0"
+    },
+    {
+      "id": "overhead/part/jointed-spider-leg",
+      "source_rect_xywh": [
+        706,
+        587,
+        192,
+        179
+      ],
+      "opaque_component_pixels": 14595,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-jointed-spider-leg.png",
+      "sha256": "d26e80f2b0d297af0e53766a3f1e094f85cb6efe12ff93ce95776f7e865ca495"
+    },
+    {
+      "id": "overhead/part/funnel-whistle",
+      "source_rect_xywh": [
+        1050,
+        544,
+        139,
+        226
+      ],
+      "opaque_component_pixels": 19069,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-funnel-whistle.png",
+      "sha256": "c06b34a4b9cc274b0cdcb1c40ae04b5f535e3c10442efda154e19c09f8b5aa7b"
+    },
+    {
+      "id": "side/part/boiler-body",
+      "source_rect_xywh": [
+        65,
+        933,
+        244,
+        172
+      ],
+      "opaque_component_pixels": 30203,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-boiler-body.png",
+      "sha256": "b8121997c7bed27c5076b5965123196409f97016e62632778862fdf88f051b97"
+    },
+    {
+      "id": "side/part/porcelain-faceplate",
+      "source_rect_xywh": [
+        431,
+        935,
+        137,
+        161
+      ],
+      "opaque_component_pixels": 15490,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-porcelain-faceplate.png",
+      "sha256": "b7f89d5ca60fe2419ef5fce0c37f48ebbae9cdaf0351cc13b5afa9b7f8ffd8fc"
+    },
+    {
+      "id": "side/part/jointed-spider-leg",
+      "source_rect_xywh": [
+        707,
+        927,
+        197,
+        179
+      ],
+      "opaque_component_pixels": 15429,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-jointed-spider-leg.png",
+      "sha256": "8af29928bf995e6f3b920374da162bdd024a6f8440cdc896f96c63d153634d19"
+    },
+    {
+      "id": "side/part/funnel-whistle",
+      "source_rect_xywh": [
+        1056,
+        880,
+        131,
+        225
+      ],
+      "opaque_component_pixels": 17522,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-funnel-whistle.png",
+      "sha256": "0ed2f1f8a29615e2745d25defb42bf0c450b10bd4be5508d811343f11211b868"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during existing signature INHALE/TELL or ring/arms warning",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

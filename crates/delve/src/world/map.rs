@@ -1,11 +1,15 @@
-//! The default realm: authored Zelda screens spread across a wider grid with
-//! grown wilderness between them, and where every place stands. The southern
-//! March (the last two authored rows) holds the model houses' castles.
+//! The default realm: an open kingdom of eleven biomes (`super::biome`) on
+//! ten by eleven chunks of 24x16 tiles, with the authored Zelda screens set
+//! in it as set pieces, wide roads between them (`super::roads`) and grown
+//! ground everywhere else (`super::wild`): groves, outcrops, meres and the
+//! rivers and ridges along the biome borders. The March, along the south,
+//! holds the model houses' castles (`super::houses`). Every castle, the
+//! Keep and the Dragon Keep among them, is a great walled exterior of
+//! closed ground (`super::castles`). The design is `docs/KINGDOM-OPEN.md`.
 //!
-//! Authored screens sit at even grid coordinates; every other screen is
-//! wilderness (`wild.rs`) that carries the authored roads through. Place
-//! footprints and stand tiles are written in the authored screens' own
-//! coordinates and moved into the realm by [`place_tile`] / [`place_px`].
+//! Each authored screen sits centred in its own chunk. Place footprints and
+//! stand tiles are written in the authored screens' own coordinates and
+//! moved into the realm by [`place_tile`] / [`place_px`].
 //!
 //! Terrain legend (one byte per tile):
 //!
@@ -25,31 +29,97 @@ use std::sync::OnceLock;
 pub const TILE: i32 = 16;
 pub const SCREEN_W: i32 = 16;
 pub const SCREEN_H: i32 = 11;
-/// The authored screens' own grid.
+/// The authored screens' own grid: the realm as it was first drawn.
 pub const AUTHORED_X: i32 = 4;
-pub const AUTHORED_Y: i32 = 6;
-/// The authored rows before the March: the realm as it stood, whose wild
-/// screens hold the party's wishes.
-pub const HEARTLAND_Y: i32 = 4;
-/// The realm's grid: an authored screen at every even coordinate,
-/// wilderness between.
-pub const SCREENS_X: i32 = AUTHORED_X * 2 - 1;
-pub const SCREENS_Y: i32 = AUTHORED_Y * 2 - 1;
-pub const MAP_W: i32 = SCREEN_W * SCREENS_X;
-pub const MAP_H: i32 = SCREEN_H * SCREENS_Y;
+pub const AUTHORED_Y: i32 = 4;
+/// The authored rows (all of them now: the March is grown, not authored).
+pub const HEARTLAND_Y: i32 = AUTHORED_Y;
+/// A chunk: the cut of the map for the 3D blockout and paint pass. Biome
+/// borders and big features follow chunk edges.
+pub const CHUNK_W: i32 = 24;
+pub const CHUNK_H: i32 = 16;
+pub const CHUNKS_X: i32 = 10;
+pub const CHUNKS_Y: i32 = 11;
+pub const MAP_W: i32 = CHUNK_W * CHUNKS_X;
+pub const MAP_H: i32 = CHUNK_H * CHUNKS_Y;
+/// The realm in 16x11 screens, for views a screen at a time.
+pub const SCREENS_X: i32 = MAP_W / SCREEN_W;
+pub const SCREENS_Y: i32 = MAP_H / SCREEN_H;
+/// The kingdom's size before it opened (112 x 121), which old saves carry.
+pub const LEGACY_MAP: (i32, i32) = (112, 121);
 
-/// An authored tile `(tx, ty)` moved to its place in the realm.
-pub fn place_tile(tx: i32, ty: i32) -> (i32, i32) {
+/// The chunk each authored screen stands in, row-major by authored screen;
+/// `None` for the two sea screens, whose sea the Coast grows itself.
+const SET_PIECES: [Option<(i32, i32)>; (AUTHORED_X * AUTHORED_Y) as usize] = [
+    Some((1, 1)), // (0,0) Observatory hill and the Dark Forest
+    Some((4, 1)), // (1,0) The Mines
+    Some((7, 1)), // (2,0) Dragon Keep
+    None,         // (3,0) North coast
+    Some((0, 3)), // (0,1) Gatehouse and harbour
+    Some((3, 3)), // (1,1) Castle town
+    Some((6, 3)), // (2,1) The Lists
+    Some((9, 4)), // (3,1) Repo wards
+    Some((0, 5)), // (0,2) The Swamp
+    Some((3, 5)), // (1,2) The Village
+    Some((5, 7)), // (2,2) Homecoming road and the fields
+    None,         // (3,2) South sea
+    Some((2, 5)), // (0,3) Market gardens and the School
+    Some((4, 5)), // (1,3) Artisan quarter
+    Some((5, 5)), // (2,3) Colosseum
+    Some((7, 5)), // (3,3) Knights' tournament
+];
+
+/// Where the two sea screens' coordinates land, should anything name them.
+const SEA_CHUNKS: [(i32, i32); 2] = [(9, 0), (9, 7)];
+
+/// The realm tile of authored screen `(ax, ay)`'s top-left: centred in its
+/// chunk, four tiles in from each side and two from the top.
+pub fn screen_origin(ax: i32, ay: i32) -> (i32, i32) {
+    let (ax, ay) = (ax.clamp(0, AUTHORED_X - 1), ay.clamp(0, AUTHORED_Y - 1));
+    let (cx, cy) = SET_PIECES[(ay * AUTHORED_X + ax) as usize]
+        .unwrap_or(SEA_CHUNKS[usize::from(ay >= 2)]);
     (
-        tx + tx.div_euclid(SCREEN_W) * SCREEN_W,
-        ty + ty.div_euclid(SCREEN_H) * SCREEN_H,
+        cx * CHUNK_W + (CHUNK_W - SCREEN_W) / 2,
+        cy * CHUNK_H + (CHUNK_H - SCREEN_H) / 2,
     )
+}
+
+/// Every set piece: the authored screen and the realm tile of its top-left.
+pub fn set_pieces() -> impl Iterator<Item = ((i32, i32), (i32, i32))> {
+    (0..AUTHORED_Y).flat_map(|ay| {
+        (0..AUTHORED_X)
+            .filter(move |&ax| SET_PIECES[(ay * AUTHORED_X + ax) as usize].is_some())
+            .map(move |ax| ((ax, ay), screen_origin(ax, ay)))
+    })
+}
+
+/// Whether realm tile `(x, y)` lies inside a set piece.
+pub fn in_set_piece(x: i32, y: i32) -> bool {
+    set_pieces().any(|(_, (ox, oy))| {
+        (ox..ox + SCREEN_W).contains(&x) && (oy..oy + SCREEN_H).contains(&y)
+    })
+}
+
+/// An authored tile `(tx, ty)` moved to its place in the realm. A tile just
+/// past an authored screen's edge goes with that screen.
+pub fn place_tile(tx: i32, ty: i32) -> (i32, i32) {
+    let (ax, ay) = (
+        tx.div_euclid(SCREEN_W).clamp(0, AUTHORED_X - 1),
+        ty.div_euclid(SCREEN_H).clamp(0, AUTHORED_Y - 1),
+    );
+    let (ox, oy) = screen_origin(ax, ay);
+    (ox + tx - ax * SCREEN_W, oy + ty - ay * SCREEN_H)
 }
 
 /// An authored pixel point moved to its place in the realm.
 pub fn place_px(x: i32, y: i32) -> (i32, i32) {
     let (sw, sh) = (SCREEN_W * TILE, SCREEN_H * TILE);
-    (x + x.div_euclid(sw) * sw, y + y.div_euclid(sh) * sh)
+    let (ax, ay) = (
+        x.div_euclid(sw).clamp(0, AUTHORED_X - 1),
+        y.div_euclid(sh).clamp(0, AUTHORED_Y - 1),
+    );
+    let (ox, oy) = screen_origin(ax, ay);
+    (ox * TILE + x - ax * sw, oy * TILE + y - ay * sh)
 }
 
 /// Authored screens, row-major: `(ax, ay)` at index `ay * AUTHORED_X + ax`.
@@ -280,121 +350,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T..=...........T",
         "TTT=TTTTTTTTTTTT", // south gate to the March, clear of the sign
     ],
-    // The March: the model houses' castles, two to a screen, each gate on a
-    // path down to the March road. Castles stand on the meadow above the
-    // road (`super::houses`); each name is carved below it.
-    // (0,4) West March
-    [
-        "T.....T=T.....TT",
-        "TT.....=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "T===============",
-        "T......=.......T",
-        "T.TT...=..cccc.T",
-        "TTTT...=..cccc.T",
-        "TT.....=......TT",
-        "TTTTTTT=TTTTTTTT",
-    ],
-    // (1,4)
-    [
-        "T.....T=T.....TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "================",
-        "T......=.......T",
-        "T..ss..=.......T",
-        "T.s~~s.=...TT..T",
-        "T..ss..=..TTT..T",
-        "TTTTTTT=TTTTTTTT",
-    ],
-    // (2,4)
-    [
-        "T.....T=T.....TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "================",
-        "T......=.......T",
-        "T.cccc.=.^^....T",
-        "T.cccc.=.^^^...T",
-        "T......=.......T",
-        "TTTTTTT=TTTTTTTT",
-    ],
-    // (3,4) East March
-    [
-        "T.....T=T.....TT",
-        "T......=......TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "===============T",
-        "T......=.......T",
-        "T..TT..=.......T",
-        "T.TTTT.=..ccc..T",
-        "T......=..ccc.TT",
-        "TTTTTTT=TTTTTTTT",
-    ],
-    // (0,5) Far March
-    [
-        "T.....T=T.....TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "T===============",
-        "T..............T",
-        "T..TTT....cccc.T",
-        "T.TTTTT...cccc.T",
-        "TTTTTTTT.....TTT",
-        "TTTTTTTTTTTTTTTT",
-    ],
-    // (1,5)
-    [
-        "T.....T=T.....TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "================",
-        "T..............T",
-        "T...sss....TT..T",
-        "T..s~~~s..TTT..T",
-        "TT..sss.......TT",
-        "TTTTTTTTTTTTTTTT",
-    ],
-    // (2,5)
-    [
-        "T.....T=T.....TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "================",
-        "T..............T",
-        "T.^^.....cccc..T",
-        "T^^^^....cccc..T",
-        "TT^^..........TT",
-        "TTTTTTTTTTTTTTTT",
-    ],
-    // (3,5)
-    [
-        "T.....T=T.....TT",
-        "T......=......TT",
-        "T......=.......T",
-        "T......=.......T",
-        "T..=...=...=...T",
-        "===============T",
-        "T..............T",
-        "T..cccc...TTT..T",
-        "T..cccc..TTTTT.T",
-        "TT..........TTTT",
-        "TTTTTTTTTTTTTTTT",
-    ],
 ];
 
 /// The terrain grid of the default realm.
@@ -410,21 +365,33 @@ impl Realm {
     }
 
     fn build() -> Realm {
-        let mut tiles = vec![b'.'; (MAP_W * MAP_H) as usize];
-        for sy in 0..SCREENS_Y {
-            for sx in 0..SCREENS_X {
-                let rows = match authored_at(sx, sy) {
-                    Some(rows) => rows,
-                    None => super::wild::grow(sx, sy, &edges_of(sx, sy), lean_of(sx, sy)),
-                };
-                for (ly, row) in rows.iter().enumerate() {
-                    for (lx, &b) in row.iter().enumerate() {
-                        let (x, y) = (sx * SCREEN_W + lx as i32, sy * SCREEN_H + ly as i32);
-                        tiles[(y * MAP_W + x) as usize] = b;
+        let roads = super::roads::raster();
+        let mut tiles = super::wild::grow(&roads);
+        for ((ax, ay), (ox, oy)) in set_pieces() {
+            for (ly, row) in Realm::authored_rows(ax, ay).iter().enumerate() {
+                for (lx, b) in row.bytes().enumerate() {
+                    // The hedge round a set piece opens onto its biome.
+                    let rim = lx == 0 || ly == 0 || lx == SCREEN_W as usize - 1 || ly == SCREEN_H as usize - 1;
+                    if rim && b == b'T' {
+                        continue;
                     }
+                    let (x, y) = (ox + lx as i32, oy + ly as i32);
+                    tiles[(y * MAP_W + x) as usize] = b;
                 }
             }
         }
+        super::wild::finish(&mut tiles);
+        // The Keep and the Dragon Keep are great castles now: their walls
+        // stand on plain ground, whatever was drawn or grew inside them.
+        for (foot, ground) in [(super::castles::KEEP, b'.'), (super::castles::DRAGON_KEEP, b'a')] {
+            let (tx, ty, tw, th) = foot;
+            for y in ty..ty + th {
+                for x in tx..tx + tw {
+                    tiles[(y * MAP_W + x) as usize] = ground;
+                }
+            }
+        }
+        super::roads::lay(&mut tiles, &roads);
         Realm { tiles }
     }
 
@@ -443,58 +410,6 @@ impl Realm {
     /// An authored screen's rows, in the authored grid.
     pub fn authored_rows(ax: i32, ay: i32) -> &'static [&'static str; SCREEN_H as usize] {
         &AUTHORED[(ay.clamp(0, AUTHORED_Y - 1) * AUTHORED_X + ax.clamp(0, AUTHORED_X - 1)) as usize]
-    }
-}
-
-/// The authored screen at realm screen `(sx, sy)`, if one sits there.
-fn authored_at(sx: i32, sy: i32) -> Option<super::wild::Rows> {
-    if sx % 2 != 0 || sy % 2 != 0 || !(0..SCREENS_X).contains(&sx) || !(0..SCREENS_Y).contains(&sy)
-    {
-        return None;
-    }
-    let mut rows = [[b'.'; SCREEN_W as usize]; SCREEN_H as usize];
-    for (ly, row) in Realm::authored_rows(sx / 2, sy / 2).iter().enumerate() {
-        for (lx, b) in row.bytes().enumerate().take(SCREEN_W as usize) {
-            rows[ly][lx] = b;
-        }
-    }
-    Some(rows)
-}
-
-/// The borders a wild screen shares with authored neighbours.
-fn edges_of(sx: i32, sy: i32) -> super::wild::Edges {
-    let (w, h) = (SCREEN_W as usize, SCREEN_H as usize);
-    let mut edges = super::wild::Edges::default();
-    if let Some(n) = authored_at(sx, sy - 1) {
-        edges.north = Some(n[h - 1]);
-    }
-    if let Some(s) = authored_at(sx, sy + 1) {
-        edges.south = Some(s[0]);
-    }
-    if let Some(west) = authored_at(sx - 1, sy) {
-        edges.west = Some(std::array::from_fn(|y| west[y][w - 1]));
-    }
-    if let Some(east) = authored_at(sx + 1, sy) {
-        edges.east = Some(std::array::from_fn(|y| east[y][0]));
-    }
-    edges
-}
-
-/// What each wild screen leans toward, by where it lies: hills below the
-/// mines, ash around the dragon's keep, marsh by the swamp, woods and
-/// meadow elsewhere.
-fn lean_of(sx: i32, sy: i32) -> super::wild::Lean {
-    use super::wild::Lean;
-    match (sx, sy) {
-        // The high roads east of the Dragon Keep are rock, not ash.
-        (3, 0) | (2, 1) | (3, 1) | (5, 1) => Lean::Hills,
-        (5, 0) | (4, 1) => Lean::Ash,
-        (0, 3) | (1, 3) | (1, 4) => Lean::Marsh,
-        (0, 1) | (1, 0) | (1, 1) | (5, 2) | (5, 3) => Lean::Forest,
-        // Between the precinct and the March, and between the March rows.
-        (1, 7) | (5, 7) | (3, 9) | (0, 9) => Lean::Forest,
-        (3, 7) | (6, 9) => Lean::Hills,
-        _ => Lean::Meadow,
     }
 }
 

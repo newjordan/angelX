@@ -1,0 +1,183 @@
+set rookery
+# Rookery Pass: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: pigeon-holes on the house fronts, the flight plate (4,10), signs.
+
+# the ground: its top is the floor line
+box    ground  at 192 -4 8 size 384 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 40 size 160 4 48
+box    path    at 192 -4 120 size 32 4 208
+box    rock    at 232 -4 32 size 48 4 32
+box    grass   at 312 -4 48 size 112 4 64
+box    ground  at 376 -4 56 size 16 4 80
+box    grass   at 216 -4 56 size 16 4 16
+box    rock    at 240 -4 64 size 32 4 32
+box    grass   at 40 -4 80 size 48 4 32
+box    rock    at 80 -4 80 size 32 4 32
+box    grass   at 136 -4 72 size 80 4 16
+box    rock    at 216 -4 80 size 16 4 32
+box    rock    at 104 -4 88 size 16 4 16
+box    grass   at 144 -4 88 size 64 4 16
+box    grass   at 256 -4 88 size 64 4 16
+box    rock    at 328 -4 88 size 80 4 16
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    rock    at 64 -4 144 size 96 4 32
+box    grass   at 136 -4 144 size 48 4 32
+box    rock    at 168 -4 136 size 16 4 16
+box    rock    at 232 -4 144 size 48 4 32
+box    grass   at 280 -4 136 size 48 4 16
+box    rock    at 320 -4 160 size 32 4 64
+box    grass   at 352 -4 144 size 32 4 32
+box    ground  at 376 -4 176 size 16 4 96
+box    grass   at 168 -4 176 size 16 4 64
+box    rock    at 264 -4 152 size 16 4 16
+box    grass   at 280 -4 152 size 16 4 16
+box    rock    at 296 -4 176 size 16 4 64
+box    grass   at 32 -4 176 size 32 4 32
+box    rock    at 96 -4 168 size 96 4 16
+box    grass   at 152 -4 184 size 16 4 48
+box    grass   at 240 -4 176 size 64 4 32
+box    rock    at 280 -4 184 size 16 4 48
+box    rock    at 352 -4 184 size 32 4 48
+box    grass   at 56 -4 184 size 16 4 16
+box    rock    at 104 -4 184 size 80 4 16
+box    grass   at 24 -4 200 size 16 4 16
+box    rock    at 72 -4 200 size 80 4 16
+box    grass   at 128 -4 200 size 32 4 16
+box    rock    at 240 -4 200 size 64 4 16
+box    grass   at 320 -4 200 size 32 4 16
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 23
+box    rock    at 192 -4 8 size 384 30 16  # TODO prims: rock
+gem    rock    at 9 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 25 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 41 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 54 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 69 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 91 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 106 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 117 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 134 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 151 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 167 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 187 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 200 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 216 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 232 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 250 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 267 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 282 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 293 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 313 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 325 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 343 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 357 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 373 10 8 size 14 17 14 turn 45  # TODO prims: rock
+
+# the south wall, columns 0 to 10
+box    rock    at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 88 -4 220 size 176 16 8  # TODO prims: rock
+
+# the south wall, columns 13 to 23
+box    rock    at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 296 -4 220 size 176 16 8  # TODO prims: rock
+
+# the west wall, rows 1 to 5
+box    rock    at 8 -4 56 size 16 20 80  # TODO prims: rock
+gem    rock    at 8 10 23 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 41 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 55 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 72 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 89 size 14 13 14 turn 45  # TODO prims: rock
+
+# the west wall, rows 8 to 12 (at 37% of its height, for the camera)
+box    rock    at 8 -4 136 size 16 9.5 16  # TODO prims: wedge
+box    rock    at 8 -4 176 size 16 20 64  # TODO prims: rock
+gem    rock    at 8 7 139 size 14 10.5 14 turn 45  # TODO prims: rock
+gem    rock    at 8 9.5 149 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 169 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 187 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 200 size 14 18 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 1 to 5
+box    rock    at 376 -4 56 size 16 20 80  # TODO prims: rock
+gem    rock    at 376 10 23 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 42 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 53 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 71 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 89 size 14 17 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 8 to 12 (at 37% of its height, for the camera)
+box    rock    at 376 -4 136 size 16 9.5 16  # TODO prims: wedge
+box    rock    at 376 -4 176 size 16 20 64  # TODO prims: rock
+gem    rock    at 376 5 135 size 14 9 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 150 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 170 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 187 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 198 size 14 12 14 turn 45  # TODO prims: rock
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 18 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# cottage at 3,2 6x3 (at 69% of its height, for the camera)
+box    stone   at 96 0 66 size 90 12.5 24 id cottage-1
+box    slate   at 96 12.5 66 size 92 8 26  # TODO prims: gable
+box    door    at 96 0 78.5 size 8 8 1
+
+# cottage at 16,2 4x3 (at 69% of its height, for the camera)
+box    stone   at 288 0 66 size 58 12.5 24 id cottage-2
+box    slate   at 288 12.5 66 size 60 8 26  # TODO prims: gable
+box    door    at 288 0 78.5 size 8 8 1
+
+# plate at 4,10 2x1
+box    wood    at 80 0 168 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# landmark (assets/world3d/rookery/landmark.set, hand-placed)
+# Rookery Pass: the Royal Bird Office's pigeon loft with its rows of holes and a second dovecote, between two crags of the pass.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the loft tower: stone, a slate spire, rows of pigeon-holes and a ledge
+box    stone   at 232 0 0 size 44 56 28 id lm-loft
+pyramid slate   at 232 56 0 size 52 18 32
+box    slate   at 218.5 22 14.6 size 5 5 1.2
+box    slate   at 227.5 22 14.6 size 5 5 1.2
+box    slate   at 236.5 22 14.6 size 5 5 1.2
+box    slate   at 245.5 22 14.6 size 5 5 1.2
+box    slate   at 218.5 31 14.6 size 5 5 1.2
+box    slate   at 227.5 31 14.6 size 5 5 1.2
+box    slate   at 236.5 31 14.6 size 5 5 1.2
+box    slate   at 245.5 31 14.6 size 5 5 1.2
+box    slate   at 218.5 40 14.6 size 5 5 1.2
+box    slate   at 227.5 40 14.6 size 5 5 1.2
+box    slate   at 236.5 40 14.6 size 5 5 1.2
+box    slate   at 245.5 40 14.6 size 5 5 1.2
+box    stone   at 232 48 14.2 size 38 2.5 4
+# a second dovecote on the ridge
+box    stone   at 168 0 0 size 26 44 22 id lm-dovecote
+pyramid slate   at 168 44 0 size 32 14 28
+box    slate   at 163 28 11.6 size 4 4 1.2
+box    slate   at 163 20 11.6 size 4 4 1.2
+box    slate   at 173 28 11.6 size 4 4 1.2
+box    slate   at 173 20 11.6 size 4 4 1.2
+# the crags of the pass
+rock-3 rock    at 60 0 -4 size 84 70 34 id lm-crag-west
+rock-9 rock    at 332 0 -2 size 96 62 34 id lm-crag-east
+pyramid rock    at 112 0 -8 size 30 62 24

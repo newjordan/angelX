@@ -1,0 +1,217 @@
+set chunk-8-0
+# The kingdom, chunk 8,0 in The Wastes: tiles 192..216 x 0..16 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 128
+plate 1536 1024
+
+# ground
+box    rock    at 3264 -4 16 size 384 4 32
+box    rock    at 3096 -4 40 size 48 4 16
+box    grass   at 3136 -4 40 size 32 4 16
+box    ground  at 3200 -4 88 size 96 4 112
+box    rock    at 3256 -4 40 size 16 4 16
+box    fire    at 3272 -4 72 size 16 2 80
+box    rock    at 3312 -4 40 size 64 4 16
+box    grass   at 3352 -4 72 size 16 4 80
+box    rock    at 3408 -4 40 size 96 4 16
+box    ground  at 3112 -4 112 size 80 4 128
+box    ground  at 3256 -4 104 size 16 4 112
+box    ground  at 3288 -4 72 size 16 4 48
+box    rock    at 3320 -4 64 size 48 4 32
+box    grass   at 3392 -4 56 size 64 4 16
+box    ground  at 3440 -4 80 size 32 4 64
+box    grass   at 3384 -4 72 size 48 4 16
+box    ground  at 3416 -4 88 size 16 4 48
+box    ground  at 3312 -4 104 size 32 4 48
+box    grass   at 3336 -4 96 size 16 4 32
+box    grass   at 3376 -4 96 size 32 4 32
+box    ground  at 3400 -4 96 size 16 4 32
+box    fire    at 3288 -4 120 size 16 2 48
+box    ground  at 3272 -4 152 size 16 4 80
+box    ground  at 3336 -4 152 size 16 4 80
+box    path    at 3392 -4 120 size 96 4 16
+box    ground  at 3448 -4 120 size 16 4 16
+box    fire    at 3304 -4 176 size 16 2 96
+box    ground  at 3320 -4 152 size 16 4 48
+box    path    at 3352 -4 176 size 16 4 96
+box    ground  at 3368 -4 176 size 16 4 96
+box    path    at 3384 -4 144 size 16 4 32
+box    ground  at 3400 -4 192 size 16 4 128
+box    grass   at 3416 -4 160 size 16 4 64
+box    path    at 3440 -4 136 size 32 4 16
+box    ground  at 3192 -4 176 size 80 4 64
+box    path    at 3240 -4 160 size 16 4 32
+box    ground  at 3288 -4 152 size 16 4 16
+box    rock    at 3440 -4 200 size 32 4 112
+box    path    at 3256 -4 208 size 16 4 96
+box    fire    at 3288 -4 192 size 16 2 64
+box    ground  at 3384 -4 184 size 16 4 48
+box    ground  at 3088 -4 184 size 32 4 16
+box    rock    at 3112 -4 216 size 16 4 80
+box    ground  at 3136 -4 184 size 32 4 16
+box    ground  at 3240 -4 216 size 16 4 80
+box    fire    at 3320 -4 200 size 16 2 48
+box    ground  at 3080 -4 224 size 16 4 64
+box    rock    at 3096 -4 216 size 16 4 48
+box    rock    at 3128 -4 216 size 16 4 48
+box    ground  at 3144 -4 208 size 16 4 32
+box    fire    at 3272 -4 200 size 16 2 16
+box    fire    at 3336 -4 200 size 16 2 16
+box    ground  at 3416 -4 224 size 16 4 64
+box    grass   at 3176 -4 232 size 48 4 48
+box    ground  at 3216 -4 216 size 32 4 16
+box    ground  at 3272 -4 216 size 16 4 16
+box    path    at 3336 -4 224 size 16 4 32
+box    grass   at 3384 -4 232 size 16 4 48
+box    grass   at 3144 -4 240 size 16 4 32
+box    grass   at 3208 -4 240 size 16 4 32
+box    ground  at 3224 -4 240 size 16 4 32
+box    path    at 3296 -4 232 size 64 4 16
+box    grass   at 3360 -4 240 size 32 4 32
+box    ground  at 3096 -4 248 size 16 4 16
+box    ground  at 3128 -4 248 size 16 4 16
+box    ground  at 3304 -4 248 size 80 4 16
+
+# set dressing
+box    trunk   at 3192 0 152 size 1.5 13 1.5
+box    trunk   at 3189.5 9 152 size 4 1 1
+box    stone   at 3416 0 152 size 1.5 13 1.5
+box    stone   at 3416 9 152 size 6 1.5 1.2
+box    wood    at 3272 0 168 size 13 2 7
+box    trunk   at 3272 2 168 size 11 2 6
+rock-30 rock    at 3336 0 168 size 8 2.5 7
+rock-53 rock    at 3336 2 168 size 5 2 4.5
+cylinder rock    at 3240 0 184 size 10 1.5 9
+cylinder ground  at 3240 0 184 size 7 1.75 6
+box    bone    at 3382 0 184 size 7 1 1.5 turn 25
+box    bone    at 3386 0 186 size 5 1 1.2 turn -40
+sphere bone    at 3388 0 182 size 3 2.5 3
+
+# rock
+box    rock    at 3232 0 8 size 320 9 16
+box    rock    at 3408 0 8 size 32 15 16
+box    rock    at 3432 0 16 size 16 9 32
+box    rock    at 3448 0 24 size 16 3 48
+box    rock    at 3088 0 24 size 32 9 16
+box    rock    at 3200 0 24 size 192 3 16
+box    rock    at 3312 0 24 size 32 9 16
+box    rock    at 3352 0 24 size 48 3 16
+box    rock    at 3400 0 24 size 48 9 16
+box    rock    at 3096 0 40 size 48 3 16
+box    rock    at 3256 0 40 size 16 3 16
+box    rock    at 3296 0 40 size 32 3 16
+box    rock    at 3320 0 48 size 16 9 32
+box    rock    at 3336 0 56 size 16 3 48
+box    rock    at 3400 0 40 size 80 3 16
+box    rock    at 3304 0 64 size 16 3 32
+box    rock    at 3320 0 72 size 16 3 16
+box    rock    at 3440 0 200 size 32 3 112
+box    rock    at 3112 0 192 size 16 3 32
+box    rock    at 3096 0 216 size 16 3 48
+box    rock    at 3128 0 216 size 16 3 48
+box    rock    at 3112 0 216 size 16 9 16
+box    rock    at 3112 0 240 size 16 3 32
+rock-33 rock    at 3081 7.5 7 size 14 9 12.6
+rock-55 rock    at 3097 7.5 7 size 13 9 11.7 turn 180
+rock-6 rock    at 3112 7.5 9 size 13 8 11.7
+rock-31 rock    at 3127 7.5 9 size 15 6 13.5 turn 270
+rock-60 rock    at 3143 7.5 8 size 13 9 11.7 turn 270
+rock-34 rock    at 3160 7.5 9 size 15 6 13.5
+rock-61 rock    at 3177 7.5 8 size 13 9 11.7 turn 270
+rock-21 rock    at 3192 7.5 7 size 14 8 12.6 turn 180
+rock-4 rock    at 3209 7.5 9 size 14 7 12.6
+rock-12 rock    at 3225 7.5 8 size 15 7 13.5 turn 90
+rock-16 rock    at 3240 7.5 7 size 12 8 10.8 turn 90
+rock-4 rock    at 3256 7.5 9 size 12 6 10.8
+rock-63 rock    at 3271 7.5 7 size 13 9 11.7 turn 270
+rock-24 rock    at 3288 7.5 7 size 12 7 10.8 turn 180
+rock-33 rock    at 3304 7.5 7 size 15 8 13.5
+rock-38 rock    at 3320 7.5 7 size 15 8 13.5
+rock-63 rock    at 3335 7.5 9 size 12 9 10.8 turn 270
+rock-34 rock    at 3351 7.5 8 size 12 6 10.8
+rock-54 rock    at 3369 7.5 8 size 15 8 13.5 turn 180
+rock-58 rock    at 3383 7.5 9 size 12 7 10.8 turn 270
+rock-19 rock    at 3400 13.5 7 size 15 7 13.5 turn 180
+rock-2 rock    at 3415 13.5 8 size 13 6 11.7
+rock-43 rock    at 3431 7.5 7 size 15 6 13.5 turn 90
+rock-15 rock    at 3449 1.5 8 size 15 10 13.5 turn 90
+rock-33 rock    at 3080 7.5 25 size 12 7 10.8
+rock-45 rock    at 3096 7.5 25 size 14 8 12.6 turn 90
+rock-25 rock    at 3111 1.5 25 size 15 7 13.5 turn 270
+rock-42 rock    at 3127 1.5 23 size 15 7 13.5 turn 90
+rock-34 rock    at 3144 1.5 24 size 15 7 13.5
+rock-23 rock    at 3159 1.5 25 size 17 7 15.3 turn 180
+rock-58 rock    at 3175 1.5 25 size 17 10 15.3 turn 270
+rock-55 rock    at 3193 1.5 24 size 16 9 14.4 turn 180
+rock-31 rock    at 3208 1.5 25 size 15 7 13.5 turn 270
+rock-45 rock    at 3223 1.5 23 size 15 7 13.5 turn 90
+rock-42 rock    at 3240 1.5 24 size 14 8 12.6 turn 90
+rock-34 rock    at 3257 1.5 25 size 17 9 15.3
+rock-1 rock    at 3273 1.5 23 size 16 9 14.4
+rock-52 rock    at 3289 1.5 25 size 16 9 14.4 turn 180
+rock-52 rock    at 3305 7.5 24 size 15 6 13.5 turn 180
+rock-6 rock    at 3320 7.5 23 size 15 8 13.5
+rock-27 rock    at 3335 1.5 24 size 17 9 15.3 turn 270
+rock-61 rock    at 3353 1.5 25 size 16 10 14.4 turn 270
+rock-22 rock    at 3369 1.5 24 size 17 7 15.3 turn 180
+rock-24 rock    at 3384 7.5 25 size 13 7 11.7 turn 180
+rock-49 rock    at 3401 7.5 23 size 13 8 11.7 turn 180
+rock-8 rock    at 3417 7.5 25 size 13 8 11.7
+rock-21 rock    at 3431 7.5 25 size 14 8 12.6 turn 180
+rock-42 rock    at 3447 1.5 25 size 16 9 14.4 turn 90
+rock-40 rock    at 3079 1.5 40 size 14 7 12.6
+rock-60 rock    at 3096 1.5 40 size 14 7 12.6 turn 270
+rock-36 rock    at 3113 1.5 40 size 17 10 15.3
+rock-30 rock    at 3256 1.5 41 size 15 10 13.5 turn 270
+rock-53 rock    at 3288 1.5 39 size 16 10 14.4 turn 180
+rock-36 rock    at 3305 1.5 41 size 15 10 13.5
+rock-26 rock    at 3320 7.5 39 size 15 6 13.5 turn 270
+rock-51 rock    at 3336 1.5 40 size 17 8 15.3 turn 180
+rock-20 rock    at 3368 1.5 40 size 16 8 14.4 turn 180
+rock-11 rock    at 3383 1.5 40 size 15 7 13.5 turn 90
+rock-49 rock    at 3400 1.5 40 size 15 7 13.5 turn 180
+rock-34 rock    at 3417 1.5 39 size 16 8 14.4
+rock-41 rock    at 3433 1.5 40 size 17 8 15.3 turn 90
+rock-54 rock    at 3447 1.5 41 size 15 9 13.5 turn 180
+rock-47 rock    at 3304 1.5 56 size 16 10 14.4 turn 90
+rock-43 rock    at 3321 7.5 56 size 13 8 11.7 turn 90
+rock-29 rock    at 3335 1.5 56 size 16 8 14.4 turn 270
+rock-59 rock    at 3303 1.5 71 size 15 8 13.5 turn 270
+rock-9 rock    at 3319 1.5 71 size 15 8 13.5 turn 90
+rock-54 rock    at 3335 1.5 71 size 17 10 15.3 turn 180
+rock-40 rock    at 3433 1.5 153 size 17 10 15.3
+rock-60 rock    at 3447 1.5 151 size 14 10 12.6 turn 270
+rock-29 rock    at 3431 1.5 167 size 15 8 13.5 turn 270
+rock-6 rock    at 3449 1.5 169 size 14 10 12.6
+rock-7 rock    at 3112 1.5 185 size 15 8 13.5
+rock-28 rock    at 3431 1.5 183 size 17 10 15.3 turn 270
+rock-47 rock    at 3447 1.5 184 size 14 9 12.6 turn 90
+rock-12 rock    at 3096 1.5 199 size 16 8 14.4 turn 90
+rock-33 rock    at 3111 1.5 200 size 15 10 13.5
+rock-48 rock    at 3127 1.5 201 size 14 10 12.6 turn 90
+rock-51 rock    at 3431 1.5 200 size 14 8 12.6 turn 180
+rock-31 rock    at 3449 1.5 199 size 15 10 13.5 turn 270
+rock-12 rock    at 3095 1.5 215 size 14 7 12.6 turn 90
+rock-8 rock    at 3113 7.5 216 size 13 6 11.7
+rock-39 rock    at 3128 1.5 217 size 17 7 15.3
+rock-60 rock    at 3433 1.5 217 size 17 8 15.3 turn 270
+rock-19 rock    at 3448 1.5 216 size 16 10 14.4 turn 180
+rock-24 rock    at 3097 1.5 232 size 16 10 14.4 turn 180
+rock-34 rock    at 3112 1.5 232 size 15 7 13.5
+rock-44 rock    at 3128 1.5 232 size 17 9 15.3 turn 90
+rock-2 rock    at 3433 1.5 233 size 16 7 14.4
+rock-59 rock    at 3448 1.5 231 size 17 10 15.3 turn 270
+rock-15 rock    at 3112 1.5 247 size 15 9 13.5 turn 90
+rock-10 rock    at 3432 1.5 248 size 17 7 15.3 turn 90
+rock-3 rock    at 3448 1.5 248 size 16 10 14.4
+
+# dead trees
+frustum trunk   at 3162 0 42 size 4 20 4
+box    trunk   at 3160.23 11 39.89 size 5.5 1.2 1.2 turn 130
+box    trunk   at 3162.39 14.4 44.22 size 4.5 1.2 1.2 turn 280
+box    trunk   at 3163.64 17.6 41.4 size 3.5 1.2 1.2 turn 380
+frustum trunk   at 3368 0 217 size 4 22 4
+box    trunk   at 3370.25 12.1 215.42 size 5.5 1.2 1.2 turn 35
+box    trunk   at 3365.76 15.84 217.2 size 4.5 1.2 1.2 turn 185
+box    trunk   at 3368.45 19.36 218.69 size 3.5 1.2 1.2 turn 285

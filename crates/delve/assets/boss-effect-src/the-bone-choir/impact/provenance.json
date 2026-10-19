@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.the-bone-choir.impact/v01/source-sheet.png",
+  "source_sha256": "315487fd554713f3aede059a74a9ea3c7ad7f63d0c35f9f9e93220a11acbacd2",
+  "original_sheet_sha256": "315487fd554713f3aede059a74a9ea3c7ad7f63d0c35f9f9e93220a11acbacd2",
+  "metadata_sha256": "40d714104bd35263a67e7fbfc78bdb7299f8b8e3af189d58087d5336f5dfc52c",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        84,
+        231,
+        188,
+        153
+      ],
+      "alpha_area": 11627,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "da63981e93c75b10b5b26379ba516e80d8aa2c151c3357feeece526148f093d0"
+    },
+    {
+      "source_rect_xywh": [
+        357,
+        132,
+        235,
+        264
+      ],
+      "alpha_area": 31170,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "1dc7b3e939a37134f74bbc91653e672d3892ebdf04293fbcb490838d47df64a1"
+    },
+    {
+      "source_rect_xywh": [
+        656,
+        141,
+        261,
+        256
+      ],
+      "alpha_area": 29317,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "fb4c3e043d341ad586293baee6cdd0be0ecc60a18c37b1f0f5f74669f182e6f1"
+    },
+    {
+      "source_rect_xywh": [
+        991,
+        170,
+        209,
+        221
+      ],
+      "alpha_area": 11777,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "3ff2d697bbcf77413c2f27733e17ad6a21525f158d82c150ab875b144ff63f0b"
+    },
+    {
+      "source_rect_xywh": [
+        91,
+        597,
+        169,
+        165
+      ],
+      "alpha_area": 11802,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "f30f34b20366e9a532cb31961c7ff775ce90593a6e8154550f0c808b1a0c1fc1"
+    },
+    {
+      "source_rect_xywh": [
+        364,
+        564,
+        213,
+        192
+      ],
+      "alpha_area": 17356,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "8e5401bc56be07168b2ea9790fccfac21327934bb134aac5d558ba867379d05c"
+    },
+    {
+      "source_rect_xywh": [
+        646,
+        500,
+        272,
+        288
+      ],
+      "alpha_area": 37801,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "7fae60aa879b267f60042aeb155585f5248bd0c176090b088e98c7e0406e3158"
+    },
+    {
+      "source_rect_xywh": [
+        983,
+        531,
+        240,
+        247
+      ],
+      "alpha_area": 20914,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "765d29541e3e70ab90f318119be3543fafe4a252aea4f34d58fc568c193e1c5d"
+    },
+    {
+      "source_rect_xywh": [
+        76,
+        919,
+        202,
+        224
+      ],
+      "alpha_area": 11242,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "704e1ae00c36ef0cbaf198aac88ea6a7aa7df80cdf4d323c3f196dde7d3d788d"
+    },
+    {
+      "source_rect_xywh": [
+        393,
+        987,
+        171,
+        139
+      ],
+      "alpha_area": 10345,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "1fe617705fab672cb4b6d6b4b6c1c9e68eb093f9098df4249f556bd0c9e6ca49"
+    },
+    {
+      "source_rect_xywh": [
+        697,
+        953,
+        180,
+        179
+      ],
+      "alpha_area": 12212,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "136bc72080b68b22ecbaf399b0e37baf1a99366fa1fd29678597d642e7c2ac2c"
+    },
+    {
+      "source_rect_xywh": [
+        1002,
+        936,
+        182,
+        196
+      ],
+      "alpha_area": 12546,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "15fd4ea51f36cb443d523637a2ca4b4cf769476c1d27627d175d3697314b3f80"
+    }
+  ]
+}

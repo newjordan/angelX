@@ -2,8 +2,7 @@
 //! rune wells up out of the floor somewhere in the room, and whoever reaches
 //! it first has it: Haste, Double Damage, Regeneration, Arcane,
 //! Invisibility, Illusion, Bounty or Wisdom. The Herald calls each by name
-//! the moment it is taken, as a ringside announcer would, and Fortune's
-//! audience loves nothing more than a race for one.
+//! the moment it is taken; the party must decide who can use one best.
 //!
 //! (Not the Forge's runes: those are the lines a weapon card is written in.)
 
@@ -298,7 +297,6 @@ impl Run {
         self.cues.push(format!("rune:{}", kind.word()));
         self.found = Some((self.tick, id, format!("{}!", kind.name())));
         self.sounds.push("card_pickup");
-        self.thrill(15);
         self.runes_taken += 1;
         if self.runes_taken >= RUNNER {
             self.notice("rune_runner");

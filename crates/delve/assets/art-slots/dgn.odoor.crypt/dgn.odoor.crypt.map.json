@@ -1,0 +1,391 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    12.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "Side doors rejected after native review; no rotation or misleading closed-looking open cap."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "8c7580eea1470b2e475e9727bd4f2310052fed88ba2f6acfeb68f60589bef5a7",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North barred door: front-elevation stone arch, skull motifs, iron bars, paired candle sconces.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        107.5
+      ],
+      "source_rect_xywh": [
+        65,
+        243,
+        263,
+        215
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North open door: matching arch and dark passage, with the gate open and faint amber candles.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        448,
+        241,
+        262,
+        217
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North half-open door: matching arch with gate partway open.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.5,
+        108.5
+      ],
+      "source_rect_xywh": [
+        829,
+        241,
+        265,
+        217
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "West barred door: overhead wall cap strip with a one-tile barred gap.",
+      "name": "west-barred",
+      "piece": 3,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        138.0,
+        55.5
+      ],
+      "source_rect_xywh": [
+        1205,
+        336,
+        276,
+        111
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "West open door: overhead cap strip with a clear one-tile gap.",
+      "name": "west-open",
+      "piece": 4,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        142.0,
+        57.0
+      ],
+      "source_rect_xywh": [
+        54,
+        735,
+        284,
+        114
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "East barred door: overhead strip with iron posts across the gap.",
+      "name": "east-barred",
+      "piece": 5,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        146.5,
+        58.0
+      ],
+      "source_rect_xywh": [
+        431,
+        735,
+        293,
+        116
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": false,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "East open door: overhead cap strip with a clear passage.",
+      "name": "east-open",
+      "piece": 6,
+      "review_note": "Rejected: horizontal strip or uninterrupted cap cannot depict the vertical 1x2-tile side passage without cropping away its gap. Retain original side bars.",
+      "runtime": false,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        146.5,
+        56.5
+      ],
+      "source_rect_xywh": [
+        813,
+        736,
+        293,
+        113
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "South barred door: overhead threshold strip with iron posts.",
+      "name": "south-barred",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        145.0,
+        58.5
+      ],
+      "source_rect_xywh": [
+        1198,
+        734,
+        290,
+        117
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "South open door: overhead threshold with a clear gap.",
+      "name": "south-open",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        137.5,
+        56.0
+      ],
+      "source_rect_xywh": [
+        58,
+        1232,
+        275,
+        112
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down: rectangular top-down stone steps descending north, skulls and candles at the sides.",
+      "name": "stairs-down",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        125.5,
+        131.0
+      ],
+      "source_rect_xywh": [
+        453,
+        1088,
+        251,
+        262
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Boss seal door: ornate barred front-elevation door with large skull and bone ornament.",
+      "name": "boss",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        144.5,
+        144.0
+      ],
+      "source_rect_xywh": [
+        816,
+        1068,
+        289,
+        288
+      ],
+      "state": "odoor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Floor seal marker: top-down stone marker with central skull and restrained amber accents.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        124.0,
+        117.0
+      ],
+      "source_rect_xywh": [
+        1219,
+        1117,
+        248,
+        234
+      ],
+      "state": "odoor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.odoor.crypt",
+  "source_sha256": "f756fd8e2da302d33b5342f2e112eab621c40ccfccc08e79e82fd0a20abba031",
+  "timing": ""
+}

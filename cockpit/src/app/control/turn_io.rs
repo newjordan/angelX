@@ -489,6 +489,8 @@ impl App {
             root,
         };
         self.media.push(card);
+        // In the glass window it also opens full size above the terminal.
+        crate::ui::showcase::open(&self.media[self.media.len() - 1]);
         let revealed = self.scryglass.receive_media(self.media.len() - 1);
         let _ = self
             .module_host
@@ -641,6 +643,20 @@ impl App {
     }
 
     pub(crate) fn advance(&mut self) {
+        // The showcase's buttons: its arrows step to the showing asked
+        // for; its copy button hands over what to copy, sent between draws.
+        if let Some(payload) = crate::ui::showcase::poll() {
+            self.pending_stage_copy = Some(payload);
+        }
+        // A guest seat at a friend's Round Table: keep its link alive
+        // and its offline outbox draining. A hosted table's arbiter
+        // seat (0) is held the same way.
+        if let Some(guest) = &mut self.table_guest {
+            guest.poll();
+        }
+        if let Some(host) = &mut self.table_host {
+            host.poll();
+        }
         self.advance_launch_input();
         self.advance_setup();
         self.advance_dungeon_guest();
@@ -656,8 +672,8 @@ impl App {
         self.clear_expired_lifecycle_ceremony();
         // A7: no Kitty → skip the process-global activity mutex every UI
         // tick (ordinary terminal runs); the stage is cloned only on a move.
-        if Self::side_column_visuals_allowed() && self.agentviz_portal.is_live() {
-            self.agentviz_portal.tick();
+        if Self::side_column_visuals_allowed() && self.council.is_live() {
+            self.council.tick();
         }
         // Detached work has already released the flight slot. Drain a bounded
         // number of completion notices per frame so success and failure remain
@@ -1199,6 +1215,14 @@ impl App {
                     self.reasoning.push_str(&reasoning);
                 }
                 TurnEvent::GraphCrop { id, event } => {
+                    // A finished chart also opens full size in the glass
+                    // window, conjured by the wizard.
+                    if let crate::knowledge::graph_crop::GraphEvent::Returned(receipt) = &*event
+                        && matches!(receipt.request, crate::knowledge::graph_crop::GraphRequest::Finish { .. })
+                        && let Some(chart) = receipt.chart.as_ref().filter(|chart| chart.finished)
+                    {
+                        crate::ui::showcase::open_chart(chart);
+                    }
                     self.world.note_graph_event(&id, &event);
                     self.request_redraw("graph crop data");
                 }
@@ -1330,7 +1354,7 @@ impl App {
                     }
                 }
                 TurnEvent::SpendMilestone { input_tokens } => {
-                    self.show_spend_coin();
+                    self.show_spend_coin(input_tokens);
                     self.tool_strip.note_event(&format!(
                         "gold coin · you just spent {} input tokens — continuing",
                         crate::ui::viz::spend_viz::format_input_tokens(input_tokens)
@@ -3621,6 +3645,40 @@ impl App {
         use crate::ui::mouse;
         use event::{MouseButton, MouseEventKind};
 
+        // A link is a click-release gesture, never a drag. Reset even when a
+        // modal/other surface consumes the event before transcript dispatch.
+        if matches!(
+            ev.kind,
+            MouseEventKind::Down(_)
+                | MouseEventKind::Drag(_)
+                | MouseEventKind::ScrollUp
+                | MouseEventKind::ScrollDown
+        ) {
+            self.pressed_transcript_link = None;
+        }
+        if matches!(ev.kind, MouseEventKind::Up(MouseButton::Left)) {
+            let pressed = self.pressed_transcript_link.take();
+            if self.pending_approval.is_none()
+                && self.loop_dialog.is_none()
+                && self.agent_menu.is_none()
+                && !self.setup.open()
+                && self
+                    .selection
+                    .as_ref()
+                    .is_none_or(|selection| selection.is_empty())
+                && let Some(pressed) = pressed
+                && pressed.point == (ev.column, ev.row)
+                && self.transcript_links.iter().any(|hit| {
+                    hit.target == pressed.target && mouse::point_in(hit.rect, ev.column, ev.row)
+                })
+            {
+                self.selection = None;
+                self.copy_requested = false;
+                self.activate_transcript_link(&pressed.target);
+                return;
+            }
+        }
+
         let world_drag_valid = self.scryglass_drag.is_some_and(|drag| {
             self.scryglass.visible
                 && self.scryglass.renderable
@@ -3687,6 +3745,17 @@ impl App {
                 }
                 _ => {}
             }
+            return;
+        }
+
+        // Floating dock objects are above pane chrome and its controls. Empty
+        // space falls through; only the last completed frame's visible hits win.
+        if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left))
+            && let Some(button) = self.object_dock.hit(x, y)
+        {
+            self.selection = None;
+            self.copy_requested = false;
+            self.apply_world_button(button);
             return;
         }
 
@@ -3768,6 +3837,16 @@ impl App {
                         .is_some_and(|rect| mouse::point_in(rect, x, y))
                 {
                     self.research.move_selection(-3);
+                    return;
+                }
+                // Scryglass and Formation-deck controls swallow the click before
+                // pane selection sees it.
+                if let Some(&(_, btn)) = self
+                    .world_buttons
+                    .iter()
+                    .find(|(r, _)| mouse::point_in(*r, x, y))
+                {
+                    self.apply_world_button(btn);
                     return;
                 }
                 if self.scryglass_camera_hit(x, y) {
@@ -3853,19 +3932,27 @@ impl App {
                     self.tool_strip.toggle_ledger();
                     return;
                 }
+                // Visible controls own their cells, before map walking, camera
+                // gestures or the Delve's gate can consume the press.
+                if let Some(&(_, button)) = self.world_buttons.iter()
+                    .find(|(rect, _)| mouse::point_in(*rect, x, y))
+                {
+                    self.apply_world_button(button);
+                    return;
+                }
                 // While the visitor walks, a click on the map walks him there.
                 if self.walk_click(x, y) {
                     return;
                 }
-                // Called to the Delve, a click on the mini-viz goes through its gate.
-                if self.world.delve_called
+                // Only the rendered dungeon sprite is an entrance, never the
+                // pane, its border, or a different stage surface.
+                if self.delve_map_hit(x, y)
                     && self.dungeon.intro.is_none()
                     && !self.dungeon_view_active()
-                    && self
-                        .panes
-                        .rect_of(mouse::PaneId::Artifacts)
-                        .is_some_and(|rect| mouse::point_in(rect, x, y))
                 {
+                    if !self.world.delve_called {
+                        self.call_delve();
+                    }
                     if self.dungeon.shooter.is_some() || self.delve_at_gate() {
                         self.open_intro();
                     } else {
@@ -3874,16 +3961,6 @@ impl App {
                             text: "Your knight is still on the road to the Delve.".into(),
                         });
                     }
-                    return;
-                }
-                // Scryglass and Formation-deck controls swallow the click before
-                // pane selection sees it.
-                if let Some(&(_, btn)) = self
-                    .world_buttons
-                    .iter()
-                    .find(|(r, _)| mouse::point_in(*r, x, y))
-                {
-                    self.apply_world_button(btn);
                     return;
                 }
                 if self.scryglass_camera_hit(x, y) {
@@ -3913,9 +3990,19 @@ impl App {
                         .then(|| mouse::Selection::new(pane, rect, x, y))
                 });
                 self.copy_requested = false;
+                if hit.is_some_and(|(pane, _)| pane == mouse::PaneId::Transcript)
+                    && let Some(link) = self
+                        .transcript_links
+                        .iter()
+                        .find(|link| mouse::point_in(link.rect, x, y))
+                {
+                    self.pressed_transcript_link = Some(crate::ui::transcript_links::PressedLink {
+                        point: (x, y),
+                        target: std::sync::Arc::clone(&link.target),
+                    });
+                }
             }
             MouseEventKind::Drag(MouseButton::Left) => {
-                self.walk_drag(x, y);
                 if let Some(mut drag) = self.scryglass_drag {
                     let dx = i32::from(x) - i32::from(drag.last.0);
                     let dy = i32::from(y) - i32::from(drag.last.1);
@@ -3972,7 +4059,6 @@ impl App {
             MouseEventKind::Up(MouseButton::Left) => {
                 self.scryglass_drag = None;
                 // A click on the map, not a drag, steps onto it.
-                self.walk_release(x, y);
                 if let Some(selection) = self.selection.as_mut() {
                     selection.finish();
                 }
@@ -4131,6 +4217,29 @@ impl App {
     /// until completion.
     pub(crate) fn apply_world_button(&mut self, btn: WorldButton) {
         match btn {
+            WorldButton::DockSurface => {}
+            WorldButton::DockToggle => {
+                self.object_dock.tiles.clear();
+                self.object_dock
+                    .toggle(std::time::Instant::now(), self.visual_motion);
+                self.world_buttons.retain(|(_, button)| {
+                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
+                });
+            }
+            WorldButton::DockNext => {
+                self.object_dock.tiles.clear();
+                self.object_dock.page = self.object_dock.page.saturating_add(1);
+                self.world_buttons.retain(|(_, button)| {
+                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
+                });
+            }
+            WorldButton::DockPrevious => {
+                self.object_dock.tiles.clear();
+                self.object_dock.page = self.object_dock.page.saturating_sub(1);
+                self.world_buttons.retain(|(_, button)| {
+                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
+                });
+            }
             WorldButton::Assets => {
                 self.scryglass.open_assets();
                 self.focus_module("artifacts");
@@ -4161,6 +4270,11 @@ impl App {
             }
             WorldButton::AssetOpenExternal => {
                 if let Some(index) = self.scryglass.selected_media(&self.media) {
+                    // In the glass window, Open lets the preview out full
+                    // size above the terminal; elsewhere the OS opens it.
+                    if crate::ui::showcase::open(&self.media[index]) {
+                        return;
+                    }
                     let receipt =
                         crate::app::local_command::open_target_command(&self.media[index].target());
                     self.system_msg(receipt);
@@ -4279,7 +4393,12 @@ impl App {
             if let Some(source) = payload.image {
                 match crate::ui::clipboard::ClipboardImageCopy::start(source) {
                     Ok(copy) => self.clipboard_image_copy = Some(copy),
-                    Err(error) => self.system_msg(error),
+                    // No image clipboard here (macOS, or Linux without
+                    // wl-copy or xclip): the payload's text, its path, instead.
+                    Err(error) => {
+                        let receipt = deliver_to_clipboard(&payload.text, payload.fallback_file);
+                        self.system_msg(format!("{error} · {} · {receipt}", payload.description));
+                    }
                 }
             } else {
                 let receipt = deliver_to_clipboard(&payload.text, payload.fallback_file);

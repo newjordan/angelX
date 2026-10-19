@@ -1,0 +1,18 @@
+{
+  "fit": "native canvas 64x48, a tileable road surface; the lip sits near row 9, grass blades above it in rows 4 to 9; stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.road",
+  "role": "prop",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

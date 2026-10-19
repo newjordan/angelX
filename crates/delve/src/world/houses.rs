@@ -1,6 +1,6 @@
 //! The model houses: one castle per model family, and the knights it raises.
 //!
-//! Every family that serves in angelX holds a small castle in the realm's
+//! Every family that serves in angelX holds a great castle in the realm's
 //! southern March. The family's own model named the castle and six knights
 //! of its house, chose how the castle is built and the two colours of its
 //! banner (`assets/realm/houses/houses.json`, asked once per family through
@@ -18,7 +18,6 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use super::map::{HEARTLAND_Y, SCREEN_H, SCREEN_W, place_tile};
 
 /// A house: an index into [`all`], in the Round Table's own order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -316,36 +315,52 @@ pub fn for_seat(serving: &Serving, seat: u32) -> Option<HouseId> {
         .copied()
 }
 
-/// The castle's footprint, in authored tiles, for house index `i`: the first
-/// eight houses on the near March row, the rest on the far one; two to a
-/// screen, west slot then east slot.
-fn authored_slot(i: usize) -> (i32, i32) {
-    let (row, within) = ((i / 8) as i32, i % 8);
-    let ax = (within / 2) as i32;
-    let lx = if within % 2 == 0 { 2 } else { 10 };
-    (
-        ax * SCREEN_W + lx,
-        (HEARTLAND_Y + row) * SCREEN_H + 2,
-    )
-}
+/// Where each house's castle stands on the March, in realm tiles: the
+/// footprint `(tx, ty, tw, th)` of its curtain wall, by house index. A
+/// castle is a great walled exterior, never seen whole: 14 to 21 tiles
+/// across and 8 to 10 deep, closed ground with its gate in the middle of
+/// its south face. Eight stand with their backs to the Marchwater and
+/// their gates on the frontier road, eight more behind the road with their
+/// gates on the far lane; each wholly inside one chunk, the two rows
+/// staggered, six tiles or more of open ground between any two. Set by
+/// hand (`docs/KINGDOM-OPEN.md`).
+const SITES: [(i32, i32, i32, i32); 16] = [
+    // Along the Marchwater, west to east: gates on the frontier road.
+    (3, 146, 16, 8),
+    (30, 148, 14, 8),
+    (50, 147, 18, 8),
+    (80, 146, 16, 8),
+    (102, 147, 15, 8),
+    (123, 146, 20, 10),
+    (149, 146, 15, 8),
+    (170, 146, 21, 9),
+    // Behind the road, west to east: gates on the far lane.
+    (8, 162, 16, 8),
+    (32, 162, 15, 8),
+    (53, 163, 14, 8),
+    (98, 161, 19, 9),
+    (123, 162, 17, 8),
+    (147, 162, 19, 9),
+    (172, 163, 14, 8),
+    (192, 161, 17, 9),
+];
 
-/// Footprint width and depth in tiles.
-pub const FOOT: (i32, i32) = (3, 2);
-
-/// A castle's footprint in realm tiles `(tx, ty, tw, th)`.
+/// A castle's footprint in realm tiles `(tx, ty, tw, th)`: its curtain
+/// wall and all it holds, closed ground for the walker.
 pub fn footprint(id: HouseId) -> (i32, i32, i32, i32) {
-    let (ax, ay) = authored_slot(usize::from(id.0));
-    let (tx, ty) = place_tile(ax, ay);
-    (tx, ty, FOOT.0, FOOT.1)
+    SITES[usize::from(id.0) % SITES.len()]
 }
 
-/// The road tile before a castle's gate, where its knight stands at home.
+/// The road tile before a castle's gate, where its knight stands at home:
+/// the middle of its south face, a tile out.
 pub fn stand(id: HouseId) -> (i32, i32) {
     let (tx, ty, tw, th) = footprint(id);
     (tx + tw / 2, ty + th)
 }
 
-/// Every castle's footprint, for the walker's closed ground.
+/// Every house castle's footprint, for the walker's closed ground. The
+/// Keep and the Dragon Keep are great castles too: `super::castles` has
+/// them all.
 pub fn footprints() -> impl Iterator<Item = (i32, i32, i32, i32)> {
     ids().map(footprint)
 }

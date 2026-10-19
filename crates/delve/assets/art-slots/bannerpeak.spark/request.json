@@ -1,0 +1,31 @@
+{
+  "fit": "native canvas 12x12, anchor bottom-centre (6,12); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "bob-0",
+        "bob-1",
+        "bob-2",
+        "bob-3"
+      ],
+      "source_pose_count": 4,
+      "state": "bob"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "take-0",
+        "take-1",
+        "take-2"
+      ],
+      "source_pose_count": 3,
+      "state": "take"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "Pickup box 10x10 inside the canvas; art never sets a hitbox.",
+  "id": "bannerpeak.spark",
+  "role": "prop",
+  "timing": "bob 4x6 ticks; take 3x2 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

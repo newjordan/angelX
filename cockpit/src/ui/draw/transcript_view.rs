@@ -61,6 +61,7 @@ fn transcript_block(app: &App) -> Block<'static> {
 }
 
 pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
+    app.transcript_links.clear();
     if area.width == 0 || area.height == 0 {
         return;
     }
@@ -156,6 +157,10 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
         .is_some_and(|selection| selection.pane == mouse::PaneId::Transcript);
     if selected && let Some(painted) = &app.transcript_layouts.painted {
         transcript::oversized::paint(painted, frame.buffer_mut(), body);
+        if app.transcript_link_snapshot.0 == body {
+            app.transcript_links
+                .clone_from(&app.transcript_link_snapshot.1);
+        }
         app.transcript_rolling = false;
         if strip_h > 0 {
             place_tool_strip(
@@ -250,6 +255,42 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             .any(|&spawn| now - spawn < ROLL_IN_SECS);
     app.transcript_rolling = rolling;
 
+    // Same committed block origins, clipping and wrap width as either paint
+    // path. Never map oversized-worker or hidden partial rows to stale hits.
+    let hidden_history = oversized_partial && app.scroll == 0 && at_bottom;
+    if !hidden_history {
+        let mut link_y = i32::from(body.y) - intra as i32;
+        for index in first..end {
+            let height = i32::from(app.transcript_heights[index]);
+            let top = link_y.max(i32::from(body.y));
+            let bottom = (link_y + height).min(i32::from(body.bottom()));
+            if bottom > top && !transcript::oversized::needs_worker(&app.messages[index]) {
+                crate::ui::transcript_links::record(
+                    &mut app.transcript_links,
+                    &app.messages[index],
+                    inner_w,
+                    Rect::new(body.x, top as u16, body.width, (bottom - top) as u16),
+                    (top - link_y) as u16,
+                );
+            }
+            link_y += height;
+        }
+        if at_bottom && !app.partial.is_empty() {
+            let height = partial_h.min(i32::MAX as u32) as i32;
+            let top = link_y.max(i32::from(body.y));
+            let bottom = (link_y + height).min(i32::from(body.bottom()));
+            if bottom > top {
+                crate::ui::transcript_links::record_partial(
+                    &mut app.transcript_links,
+                    &app.partial,
+                    inner_w,
+                    Rect::new(body.x, top as u16, body.width, (bottom - top) as u16),
+                    (top - link_y) as u16,
+                );
+            }
+        }
+    }
+
     if rolling
         || (oversized_partial && app.scroll > 0 && at_bottom)
         || (!(oversized_partial && app.scroll == 0 && at_bottom)
@@ -302,6 +343,7 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     if !selected {
         app.transcript_layouts.painted =
             Some(transcript::oversized::snapshot(frame.buffer_mut(), body));
+        app.transcript_link_snapshot = (body, app.transcript_links.clone());
     }
     if let Some(scroll_rail) = scroll_rail.filter(|_| total > inner_h) {
         let mut sb = ScrollbarState::new(bottom as usize + 1)

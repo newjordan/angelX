@@ -1,0 +1,141 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    160
+  ],
+  "anchor_xy": [
+    32,
+    160
+  ],
+  "comments": [
+    "Shared scale and feet over all five. The flame is about 16 px at native size."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "The last beacon, dark until the Wyrm falls and lit for the way home; a set piece far down the rail, never judged; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered sheet, 2026-10-19: five drawings left to right, unlit (dark glass) then lit-0 (tall upright flame), lit-1 (left curl), lit-2 (short wide flame), lit-3 (right curl). The tower is the same in every cell.",
+  "notes_sha256": "9bbea3ce4e218e44985ccabcaacd5d5228c70e12cc0c9f2a7e435025bcbdb6e7",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "unlit-0",
+      "name": "unlit-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.0,
+        731.0
+      ],
+      "source_rect_xywh": [
+        98,
+        16,
+        292,
+        731
+      ],
+      "state": "unlit",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0",
+      "name": "lit-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.0,
+        731.0
+      ],
+      "source_rect_xywh": [
+        471,
+        16,
+        294,
+        731
+      ],
+      "state": "lit",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1",
+      "name": "lit-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.5,
+        730.0
+      ],
+      "source_rect_xywh": [
+        845,
+        17,
+        293,
+        730
+      ],
+      "state": "lit",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2",
+      "name": "lit-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.5,
+        731.0
+      ],
+      "source_rect_xywh": [
+        1217,
+        16,
+        293,
+        731
+      ],
+      "state": "lit",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3",
+      "name": "lit-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.5,
+        731.0
+      ],
+      "source_rect_xywh": [
+        1591,
+        16,
+        293,
+        731
+      ],
+      "state": "lit",
+      "ticks": 8
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 64x160, anchor bottom-centre (32,160); stage 384x224.",
+  "sizes": {
+    "v1": [
+      64,
+      160
+    ],
+    "v2": [
+      64,
+      160
+    ]
+  },
+  "slot": "griffinwing.beacon",
+  "source_sha256": "13e55d6bcef122ffff434d799bed71acf4eec33ea8fec10ab4470114e2c9ccb7",
+  "timing": "unlit 1 ticks; lit 4x8 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

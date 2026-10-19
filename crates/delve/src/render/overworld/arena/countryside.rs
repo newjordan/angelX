@@ -159,6 +159,8 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             cv.line(sx - 3, sy - 16, sx + 5, sy - 16, 'R');
         }
         RoomKind::Marsh => {
+            // The plate down into the Swamp of Horrors, its notice post.
+            super::swamp::marsh(cv);
             // Rushes standing in the water, lily pads on it.
             for (c, r) in [(3, 2), (8, 3), (19, 2), (2, 11), (10, 12), (14, 2), (6, 12)] {
                 m::reeds(cv, c * TILE, r * TILE + 8, (c * 31 + r) as u32);
@@ -277,7 +279,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 r * TILE + 11,
                 'h',
             );
-            cv.text(c * TILE + 4, (r + h) * TILE - 10, "ROPEWAY", '9');
+            cv.text(c * TILE + 4, (r + h) * TILE - 10, "ROPEWAY", 'i');
         } else if i == 7 {
             // A harbour office and small cargo crane, rather than an inn roof.
             m::house(cv, (c * TILE + 2, r * TILE - 6, w * TILE - 4, h * TILE + 6), &m::House { roof: m::ramp::SLATE, stone: true, windows: 1 }, 84);
@@ -311,10 +313,10 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 r * TILE + 5,
                 'h',
             );
-            cv.text(c * TILE + 4, (r + h) * TILE - 9, "HARBOUR", '9');
+            cv.text(c * TILE + 4, (r + h) * TILE - 9, "HARBOUR", 'i');
         } else if plot.id == "bothy" {
             m::house(cv, (c * TILE + 3, r * TILE - 4, w * TILE - 6, h * TILE + 2), &m::House { roof: m::ramp::THATCH, stone: false, windows: 1 }, 85);
-            cv.text(c * TILE + 8, (r + h) * TILE - 8, "BOTHY", '9');
+            cv.text(c * TILE + 8, (r + h) * TILE - 8, "BOTHY", 'i');
         } else if plot.id == "aerie" {
             m::block(cv, (c * TILE + 2, r * TILE + 2, w * TILE - 4, h * TILE - 2), m::ramp::TIMBER, true, 86);
             for n in 0..5 {
@@ -322,7 +324,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 cv.line((c + n) * TILE + 5, r * TILE + 15, (c + n) * TILE + 13, r * TILE + 15, 'O');
                 cv.line((c + n) * TILE + 5, r * TILE + 25, (c + n) * TILE + 13, r * TILE + 25, 'P');
             }
-            cv.text(c * TILE + 4, (r + h) * TILE - 9, "AIR-MAIL", '9');
+            cv.text(c * TILE + 4, (r + h) * TILE - 9, "AIR-MAIL", 'i');
         } else {
             m::house(cv, (c * TILE + 3, r * TILE - 6, w * TILE - 6, h * TILE + 4), &m::House { roof: m::ramp::TILE, stone: true, windows: 2 }, 87 + i as u32);
         }
@@ -455,6 +457,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
 }
 
 pub(super) fn boards(cv: &mut Img, run: &Run) {
+    // While a knight plays Gander Joust, their screen shows only the game's
+    // board: the quest boards stay hidden until the heat ends.
+    if run.pastimes.round.as_ref().is_some_and(|r| r.game == crate::rules::pastimes::Game::Gander) {
+        return;
+    }
     super::coastal::boards(cv, run);
     super::woodland::boards(cv, run);
     super::wetland::boards(cv, run);
@@ -501,7 +508,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             "HOLD E ON GOLD PLATE TO BUILD".into()
         };
         let price = countryside::cost(p);
-        let board = home::board(&[
+        let board = home::quest_board(&[
             (p.name.to_uppercase(), '9'),
             (
                 if country.has(i) {
@@ -531,7 +538,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         .enumerate()
         .find(|(_, r)| r.room == kind && near(r.at))
     {
-        let board = home::board(&[
+        let board = home::quest_board(&[
             (r.name.to_uppercase(), '9'),
             (
                 if run.home.countryside.relics & (1 << i) == 0 {
@@ -559,7 +566,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         } else {
             "E BESIDE THE POST: RING THE BELL"
         };
-        let board = home::board(&[
+        let board = home::quest_board(&[
             (l.name.to_uppercase(), '9'),
             (status.into(), 'O'),
             (format!("ROAD LANTERNS {}/3", c.lamps.count_ones()), 'h'),
@@ -592,7 +599,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         cv.stamp(&board, 4, cv.h - board.h - 4);
     } else if matches!(kind, RoomKind::Orchard | RoomKind::Marsh) {
         let c = &run.home.countryside;
-        let board = home::board(&[
+        let board = home::quest_board(&[
             ("THE LAMPLIGHTER'S WALK".into(), '9'),
             ("FIND THE BELL".into(), 'O'),
             (
@@ -614,7 +621,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     } else if matches!(
         kind,
         RoomKind::Windmill | RoomKind::Ruins | RoomKind::Meadow
-    ) {
+    ) && run.pastimes.round.is_none() {
         let c = &run.home.countryside;
         let mut rows = vec![
             ("WREN'S GRAND RAMBLE".into(), '9'),
@@ -626,19 +633,18 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                 ),
                 'O',
             ),
-            ("6 PLACES: 150 GOLD ONCE".into(), 'h'),
-            ("3 RELICS: 100 GOLD + 4 ORE ONCE".into(), 'h'),
         ];
         if let Some(r) = RELICS.iter().find(|r| r.room == kind) {
             rows.push((r.clue.into(), 'h'));
         }
+        rows.push(("6 PLACES: 150 GOLD ONCE".into(), 'h'));
         if kind == RoomKind::Ruins {
             rows.push(("BEACON + BELL: LIGHT THREE ROAD LANTERNS".into(), 'h'));
         }
         if kind == RoomKind::Meadow {
             rows.push(("BUILD THE INN".into(), 'h'));
         }
-        let board = home::board(&rows);
+        let board = home::quest_board(&rows);
         cv.stamp(&board, 4, cv.h - board.h - 4);
     }
 }
@@ -715,7 +721,7 @@ pub(super) fn survey_near(run: &Run) -> Option<usize> {
 fn survey_board(run: &Run) -> Option<Img> {
     let kind = run.room().kind;
     if let Some(i) = survey_near(run) {
-        Some(home::board(&[
+        Some(home::quest_board(&[
             (format!("SURVEY {}", countryside::name(kind)), '9'),
             (
                 if survey_signed(run, i) {
@@ -739,7 +745,7 @@ fn survey_board(run: &Run) -> Option<Img> {
             ("THEN BUILD THE GOAT LIFT AT CLIFFS".into(), 'h'),
         ]))
     } else if kind == RoomKind::Cliffs {
-        Some(home::board(&[
+        Some(home::quest_board(&[
             ("GULLIBLE CLIFFS".into(), '9'),
             ("THREE STAKES".into(), 'O'),
             (

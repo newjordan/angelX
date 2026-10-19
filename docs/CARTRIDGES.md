@@ -89,6 +89,16 @@ starts, no tool joins the registry, and its skills stay out of the catalog. A
 cartridge with commands and no board or worker is never the active competition.
 In a skill, `${ANGEL_CARTRIDGE_DIR}` becomes the cartridge's folder.
 
+It can carry tools too. Each `[[tools]]` entry names a program in the
+cartridge's folder, a description and a JSON schema for its arguments. The tool
+joins every session deferred, so its schema costs nothing until `tool_search`
+brings it in. A call runs the program in the session's workspace with the
+call's arguments as JSON on stdin, `ANGEL_CARTRIDGE_DIR` and `ANGEL_WORKSPACE`
+set; its stdout is the result, and a failing exit is an error with the end of
+its stderr. A name another tool already has keeps that tool. `core = true`
+advertises the tool with the core coding tools instead, beside `grep`, at the
+cost of its schema on every request.
+
 [`examples/cartridges/rea`](examples/cartridges/rea/) plugs in
 [REA](https://github.com/morluto/rea) (Reverse Engineer Anything, MIT), which
 reverse engineers native binaries, JavaScript/Electron apps, .NET assemblies,
@@ -111,6 +121,44 @@ The turn carries the cartridge's `rea` skill (where the CLI is, and how REA's
 tool names map to its commands), then REA's own `reverse-engineer-anything`.
 Remove `~/.angelX/cartridges/rea` to unplug it. Native decompilation needs
 Ghidra, IDA or Hopper; the other targets need none.
+
+### DigUp
+
+[`examples/cartridges/dig`](examples/cartridges/dig/) plugs in
+[DigUp](https://github.com/ARahim3/DigUp) (MIT), which finds files by what
+they show or say: pictures, PDFs, documents, recordings and video, and code in
+the folders added for it. It runs Google DeepMind's EmbeddingGemma 2 on
+llama.cpp, on this machine, and keeps one SQLite index of vectors and exact
+words. A hit names the page, the second or the line.
+
+```sh
+DIG_HOME=/work/digup docs/examples/cartridges/dig/install.sh   # into ~/.angelX/cartridges/dig
+~/.angelX/cartridges/dig/bin/digup estimate ~/Pictures         # the first pass's time
+~/.angelX/cartridges/dig/bin/digup index ~/Pictures            # adds the folder; again to catch up
+```
+
+The install pins DigUp's Linux x86_64 release (0.7.0-beta.2, checked by its
+SHA-256), takes its command-line helper from the package and fetches the model
+(865 MB, once). `DIG_HOME`, optional, keeps the helper, model and index
+outside the cartridge. Then:
+
+```text
+/dig the knight sheet with the lance first
+```
+
+The turn carries the cartridge's `dig` skill (where the CLI is, what a hit
+says, how to add a folder) and searches the index built ahead of time.
+
+While coding, the agent has `dig_search` (`bin/dig-search`), a core tool beside
+`grep`. It
+searches the workspace's code by what it does or a name in it and answers
+`path:line`; a worktree of an indexed checkout is served from that checkout's
+index, its hits mapped onto the worktree's files. With `kinds`, it searches
+those kinds of file in every indexed folder instead. Index a repository's code
+with `digup index --code <repo>`. Nothing watches the folders; re-running
+`digup index` on a schedule (a systemd timer, say) keeps the index current, and
+an unchanged repository costs seconds. Remove `~/.angelX/cartridges/dig` to
+unplug it.
 
 ## A config-only cartridge
 
@@ -145,6 +193,14 @@ pages = ["You are a competition loop worker on KernelBench."]
 name = "kb"
 usage = "<kernel> [what to try]"
 skills = ["kb-triage"]
+
+# A deferred tool: bin/kb-best reads the call's JSON on stdin and prints the
+# result. `params` is the arguments' JSON schema.
+[[tools]]
+name = "kb_best"
+description = "The best local score for a kernel so far"
+run = "bin/kb-best"
+params = { type = "object", required = ["kernel"], properties = { kernel = { type = "string" } } }
 ```
 
 `fleet_command` prints:

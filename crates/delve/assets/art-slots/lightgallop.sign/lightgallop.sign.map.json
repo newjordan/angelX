@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    56,
+    28
+  ],
+  "anchor_xy": [
+    28,
+    28
+  ],
+  "comments": [
+    "Imported and left off (runtime false): the stage prints the sign's own words (\"A D RUN\", \"E JUMP\"...) on the plank, and the painted board's face is one big arrow, so its words would sit on the arrow. The knob above the board and the thin outline are also lost at 56x28."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "One drawing: a timber board with an arrow-pointed end, one pale arrow symbol and a short post; no letters.",
+  "notes_sha256": "c28427f2a12632d5574995f154479101d126e30d5ee43a611b2cd9f04479adc7",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: delivered drawing 1 in reading order.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        413.0,
+        726
+      ],
+      "source_rect_xywh": [
+        300,
+        98,
+        1187,
+        726
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 56x28, anchor bottom-centre (28,28); stage 384x224; a roadside plank on its post.",
+  "sizes": {
+    "v1": [
+      56,
+      28
+    ],
+    "v2": [
+      56,
+      28
+    ]
+  },
+  "slot": "lightgallop.sign",
+  "source_sha256": "0363a56d5c751f5dc770b505468dcd38af2c42b8cb9b1cedee65c7974875eb9f",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

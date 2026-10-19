@@ -19,7 +19,9 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-fn skull() -> Img {
+/// The skull: lying with the bones, carried over a friend's head, or
+/// marking a monster weak enough to raise a knight in.
+pub(super) fn skull() -> Img {
     rows(&[
         ".iHHi.", "iHHHHi", "HkHHkH", "iHHHHi", ".iHHi.", "..hh..",
     ])
@@ -121,8 +123,10 @@ fn pieces(id: u32, hero: &Hero) -> Vec<Piece> {
     out
 }
 
-/// A fallen knight's bones with their feet at `(x, y)`.
-pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x: i32, y: i32) {
+/// A fallen knight's bones with their feet at `(x, y)`; the skull among
+/// them unless `skull` is false (a friend carries it, or it was dropped
+/// elsewhere).
+pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x: i32, y: i32, skull: bool) {
     // A wiped party's clock has stopped: its bones are already down.
     let age = if hero.fell == 0 || wiped {
         u32::MAX
@@ -130,6 +134,9 @@ pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x
         tick.saturating_sub(hero.fell).min(u64::from(u32::MAX - 1)) as u32
     };
     for (n, p) in pieces(id, hero).iter().enumerate() {
+        if n == 0 && !skull {
+            continue;
+        }
         let t = age.saturating_sub(p.delay) as f32 / FALL as f32;
         let (fx, fy) = (x + p.from.0, y + p.from.1);
         let (tx, ty) = (x + p.to.0, y + p.to.1);

@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4846
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5358
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5267
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3987
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3813
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3519
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7872
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7763
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5632
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4467
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 2941
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 972
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "1fa3c8117dfa414ff88ad5fd1e3790b47f272bc89b0425def32723fbd546afdd",
+  "metadata_sha256": "b702bce06125e00e9ff0d6e33a0758a689a39af4c295eb99efc5d38662ef4e92",
+  "notes_sha256": "8be3370470c649f349fd23f0c5542040c2376264a4e3f8df0c263d967c1ac88e",
+  "outputs": {
+    "v1/proposal-00.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.9944,
+      "frame": 0,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 180,
+      "piece": 0,
+      "sha256": "a513d9c86dade4139e0c5b07e0e4a7ebc1df92ee65d3ff932739f5d8db194c23",
+      "source_scale": 0.08856088560885608,
+      "state": "small-fixed-corner-jade-hooks-begin-to-emerge-amber-tips"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 228,
+      "piece": 1,
+      "sha256": "e70d7e18f5cb3b2dc1f6b5ddf7ee9bf8bcf4d7b3df7913ba81a33dc546cf1b34",
+      "source_scale": 0.08571428571428572,
+      "state": "hooks-extend-inward-with-a-still-open-gap"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 293,
+      "piece": 2,
+      "sha256": "0db59bc53b505f5886e082349c91816c3470d4b4a519b799e06c926577bc58ba",
+      "source_scale": 0.08823529411764706,
+      "state": "larger-hooked-leaves-reach-toward-center-ribs-remain-readable"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 21,
+      "opaque_pixels": 283,
+      "piece": 3,
+      "sha256": "8cdfdf4a2e56a85ce279f2758c579316824df1d5538a8ea2b6cceda783f69c16",
+      "source_scale": 0.08955223880597014,
+      "state": "near-contact-approach-with-restrained-amber-flecks"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.997,
+      "frame": 4,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 334,
+      "piece": 4,
+      "sha256": "9ad21361b0df67ee62c36e74f3d8b1c50b0184866c9117cfd0d2db06bf6fac5c",
+      "source_scale": 0.09411764705882353,
+      "state": "closing-jaws-cross-inward-and-downward-heavier-silhouette"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 360,
+      "piece": 5,
+      "sha256": "5809d6ef177279d1a17ab54e47fc8df3b5d1cb0b6f91721005ee0a1976a3add6",
+      "source_scale": 0.096,
+      "state": "peak-clamp-with-compact-amber-impact-flare"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 265,
+      "piece": 6,
+      "sha256": "ad8d0d2f023913e8862cf9a7c3bc7734df9e9c7bbfb98f80b944db275f9b4cab",
+      "source_scale": 0.08053691275167785,
+      "state": "recoil-and-fracture-still-read-as-hooked-leaves"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 24,
+      "opaque_pixels": 301,
+      "piece": 7,
+      "sha256": "e0819fd42fd08ffc73f5c58f59e736958dafcb96ea34ecf48dc568c2b1d9643a",
+      "source_scale": 0.08571428571428572,
+      "state": "breaking-apart-into-connected-leaf-clusters"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 210,
+      "piece": 8,
+      "sha256": "eb58b9180b42c210d1bee51edb67c3c0576829e9c58ca43518c6b23d223257be",
+      "source_scale": 0.09125475285171103,
+      "state": "sparse-fading-corner-remnants"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 186,
+      "piece": 9,
+      "sha256": "8fd3765df286aeae7ac308d009d8118a95f0331ae332cf1cca660815f148d72d",
+      "source_scale": 0.10300429184549356,
+      "state": "smaller-connected-fading-shard-cluster"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 161,
+      "piece": 10,
+      "sha256": "f847a4776e4e934ee7dcca95f14e6773cc183f6143908ac1a34063d6d6263b75",
+      "source_scale": 0.12244897959183673,
+      "state": "very-low-weight-last-fragments"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.9798,
+      "frame": 11,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 346,
+      "piece": 11,
+      "sha256": "6a8f181c06a0575819429435fdfa912156441691974b889fe4f441561cb88ed7",
+      "source_scale": 0.2962962962962963,
+      "state": "nearly-dissipated-compact-remnant"
+    },
+    "v2/proposal-00.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.9944,
+      "frame": 0,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 180,
+      "piece": 0,
+      "sha256": "a513d9c86dade4139e0c5b07e0e4a7ebc1df92ee65d3ff932739f5d8db194c23",
+      "source_scale": 0.08856088560885608,
+      "state": "small-fixed-corner-jade-hooks-begin-to-emerge-amber-tips"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 228,
+      "piece": 1,
+      "sha256": "e70d7e18f5cb3b2dc1f6b5ddf7ee9bf8bcf4d7b3df7913ba81a33dc546cf1b34",
+      "source_scale": 0.08571428571428572,
+      "state": "hooks-extend-inward-with-a-still-open-gap"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 293,
+      "piece": 2,
+      "sha256": "0db59bc53b505f5886e082349c91816c3470d4b4a519b799e06c926577bc58ba",
+      "source_scale": 0.08823529411764706,
+      "state": "larger-hooked-leaves-reach-toward-center-ribs-remain-readable"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 21,
+      "opaque_pixels": 283,
+      "piece": 3,
+      "sha256": "8cdfdf4a2e56a85ce279f2758c579316824df1d5538a8ea2b6cceda783f69c16",
+      "source_scale": 0.08955223880597014,
+      "state": "near-contact-approach-with-restrained-amber-flecks"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.997,
+      "frame": 4,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 334,
+      "piece": 4,
+      "sha256": "9ad21361b0df67ee62c36e74f3d8b1c50b0184866c9117cfd0d2db06bf6fac5c",
+      "source_scale": 0.09411764705882353,
+      "state": "closing-jaws-cross-inward-and-downward-heavier-silhouette"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 360,
+      "piece": 5,
+      "sha256": "5809d6ef177279d1a17ab54e47fc8df3b5d1cb0b6f91721005ee0a1976a3add6",
+      "source_scale": 0.096,
+      "state": "peak-clamp-with-compact-amber-impact-flare"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 265,
+      "piece": 6,
+      "sha256": "ad8d0d2f023913e8862cf9a7c3bc7734df9e9c7bbfb98f80b944db275f9b4cab",
+      "source_scale": 0.08053691275167785,
+      "state": "recoil-and-fracture-still-read-as-hooked-leaves"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 24,
+      "opaque_pixels": 301,
+      "piece": 7,
+      "sha256": "e0819fd42fd08ffc73f5c58f59e736958dafcb96ea34ecf48dc568c2b1d9643a",
+      "source_scale": 0.08571428571428572,
+      "state": "breaking-apart-into-connected-leaf-clusters"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 210,
+      "piece": 8,
+      "sha256": "eb58b9180b42c210d1bee51edb67c3c0576829e9c58ca43518c6b23d223257be",
+      "source_scale": 0.09125475285171103,
+      "state": "sparse-fading-corner-remnants"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 186,
+      "piece": 9,
+      "sha256": "8fd3765df286aeae7ac308d009d8118a95f0331ae332cf1cca660815f148d72d",
+      "source_scale": 0.10300429184549356,
+      "state": "smaller-connected-fading-shard-cluster"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 161,
+      "piece": 10,
+      "sha256": "f847a4776e4e934ee7dcca95f14e6773cc183f6143908ac1a34063d6d6263b75",
+      "source_scale": 0.12244897959183673,
+      "state": "very-low-weight-last-fragments"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        25,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        51,
+        24
+      ],
+      "colour_agreement": 0.9798,
+      "frame": 11,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 346,
+      "piece": 11,
+      "sha256": "6a8f181c06a0575819429435fdfa912156441691974b889fe4f441561cb88ed7",
+      "source_scale": 0.2962962962962963,
+      "state": "nearly-dissipated-compact-remnant"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": false,
+  "slot": "mossbell.crown",
+  "source_path": "/work/artifacts/art-prod/slots/mossbell.crown/v01/source-sheet.png",
+  "source_sha256": "6b4d993fd6ad35e3193fbb5654bb822231733369a0fba0c44e99828a111768ee",
+  "tool_version": 2
+}

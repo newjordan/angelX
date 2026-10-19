@@ -217,7 +217,7 @@ impl Seat {
         let open = |c: i32, r: i32| {
             (c, r) == to
                 || match room.tile(c, r) {
-                    Tile::Floor | Tile::Door | Tile::Ledge => true,
+                    Tile::Floor | Tile::Door | Tile::Ledge | Tile::Bog => true,
                     Tile::Stairs => !avoid_stairs,
                     _ => false,
                 }

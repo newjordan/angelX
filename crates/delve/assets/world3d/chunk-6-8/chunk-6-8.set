@@ -1,0 +1,154 @@
+set chunk-6-8
+# The kingdom, chunk 6,8 in Longbow Country: tiles 144..168 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2496 2176
+plate 1536 1024
+
+# ground
+box    grass   at 2416 -4 2056 size 224 4 16
+box    path    at 2568 -4 2056 size 80 4 16
+box    grass   at 2648 -4 2112 size 80 4 128
+box    grass   at 2376 -4 2080 size 144 4 32
+box    path    at 2496 -4 2072 size 96 4 16
+box    grass   at 2568 -4 2080 size 48 4 32
+box    path    at 2600 -4 2128 size 16 4 128
+box    path    at 2456 -4 2152 size 16 4 144
+box    grass   at 2504 -4 2088 size 80 4 16
+box    grass   at 2320 -4 2168 size 32 4 144
+box    crop    at 2376 -4 2120 size 80 4 48
+box    grass   at 2432 -4 2152 size 32 4 112
+box    crop    at 2520 -4 2120 size 112 4 48
+box    grass   at 2584 -4 2176 size 16 4 160
+box    grass   at 2376 -4 2192 size 80 4 96
+box    grass   at 2520 -4 2200 size 112 4 112
+box    path    at 2616 -4 2208 size 16 4 64
+box    grass   at 2656 -4 2184 size 64 4 16
+box    grass   at 2600 -4 2224 size 16 4 64
+box    path    at 2656 -4 2200 size 64 4 16
+box    grass   at 2424 -4 2232 size 16 4 48
+box    path    at 2440 -4 2224 size 16 4 32
+box    grass   at 2656 -4 2216 size 64 4 16
+box    grass   at 2456 -4 2248 size 16 4 48
+box    path    at 2632 -4 2232 size 16 4 16
+box    grass   at 2664 -4 2232 size 48 4 16
+box    sand    at 2336 -4 2248 size 64 4 16
+box    grass   at 2392 -4 2248 size 48 4 16
+box    grass   at 2440 -4 2248 size 16 4 16
+box    grass   at 2640 -4 2248 size 64 4 16
+box    sand    at 2680 -4 2248 size 16 4 16
+box    water   at 2352 -4 2272 size 96 1 32
+box    grass   at 2408 -4 2264 size 16 4 16
+box    sand    at 2432 -4 2264 size 32 4 16
+box    grass   at 2488 -4 2264 size 48 4 16
+box    sand    at 2592 -4 2264 size 160 4 16
+box    water   at 2680 -4 2280 size 16 1 48
+box    water   at 2424 -4 2288 size 48 1 32
+box    sand    at 2480 -4 2280 size 64 4 16
+box    water   at 2592 -4 2288 size 160 1 32
+box    sand    at 2344 -4 2296 size 80 4 16
+box    water   at 2392 -4 2296 size 16 1 16
+box    water   at 2480 -4 2296 size 64 1 16
+
+# crop furrows
+box    crop    at 2376 0 2099.5 size 78 2.5 2
+box    crop    at 2376 0 2104.5 size 78 2.5 2
+box    crop    at 2376 0 2109.5 size 78 2.5 2
+box    crop    at 2376 0 2114.5 size 78 2.5 2
+box    crop    at 2376 0 2119.5 size 78 2.5 2
+box    crop    at 2376 0 2124.5 size 78 2.5 2
+box    crop    at 2376 0 2129.5 size 78 2.5 2
+box    crop    at 2376 0 2134.5 size 78 2.5 2
+box    crop    at 2376 0 2139.5 size 78 2.5 2
+box    crop    at 2520 0 2099.5 size 110 2.5 2
+box    crop    at 2520 0 2104.5 size 110 2.5 2
+box    crop    at 2520 0 2109.5 size 110 2.5 2
+box    crop    at 2520 0 2114.5 size 110 2.5 2
+box    crop    at 2520 0 2119.5 size 110 2.5 2
+box    crop    at 2520 0 2124.5 size 110 2.5 2
+box    crop    at 2520 0 2129.5 size 110 2.5 2
+box    crop    at 2520 0 2134.5 size 110 2.5 2
+box    crop    at 2520 0 2139.5 size 110 2.5 2
+
+# set dressing
+cone   thatch  at 2435 0 2198.5 size 4.5 4 4.5
+cone   thatch  at 2440 0 2201.5 size 4.5 4 4.5
+cone   thatch  at 2445 0 2198.5 size 4.5 4 4.5
+wedge  foliage at 2600 0 2216 size 12 4 9
+box    wood    at 2595 0 2212.5 size 1.5 9 1.5
+cone   thatch  at 2387 0 2232 size 4 4 4
+cone   thatch  at 2392 0 2232 size 4 4 4
+cone   thatch  at 2397 0 2232 size 4 4 4
+box    stone   at 2488 0 2248 size 9 4 3
+box    stone   at 2488 0 2250.5 size 6 2 2
+box    stone   at 2680 0 2248 size 9 4 3
+box    stone   at 2680 0 2250.5 size 6 2 2
+cone   thatch  at 2627 0 2262.5 size 4.5 4 4.5
+cone   thatch  at 2632 0 2265.5 size 4.5 4 4.5
+cone   thatch  at 2637 0 2262.5 size 4.5 4 4.5
+
+# woods (at 31% of its height, for the camera)
+frustum trunk   at 2560 0 2206 size 4.5 3.5 4.5
+cone   foliage at 2560 2 2206 size 28 15 28
+cone   foliage at 2560 11 2206 size 20.16 15 20.16
+cylinder trunk   at 2510 0 2225 size 4.5 7.5 4.5
+cone   foliage at 2510 4.5 2225 size 28 27.5 28
+cone   foliage at 2510 21.5 2225 size 20.16 27 20.16
+cylinder trunk   at 2408 0 2056 size 3 3.5 3
+blob-59 foliage at 2408 2 2056 size 19 6 18.05 turn 180
+cylinder trunk   at 2504 0 2202 size 3 3.5 3
+cone   foliage at 2504 2 2202 size 19 8.5 19
+cone   foliage at 2504 7 2202 size 13.68 8 13.68
+frustum trunk   at 2521 0 2200 size 3 3.5 3
+cone   foliage at 2521 2.5 2200 size 17 8 17
+cone   foliage at 2521 7 2200 size 12.24 8 12.24
+frustum trunk   at 2536 0 2200 size 3 4 3
+cone   foliage at 2536 2.5 2200 size 19 8.5 19
+cone   foliage at 2536 8 2200 size 13.68 8 13.68
+frustum trunk   at 2488 0 2216 size 3 4.5 3
+cone   foliage at 2488 3 2216 size 19 9.5 19
+cone   foliage at 2488 8.5 2216 size 13.68 9.5 13.68
+frustum trunk   at 2538 0 2218 size 3 9 3
+blob-1 foliage at 2538 4 2218 size 18 20 17.1
+cylinder trunk   at 2536.5 0 2231 size 3 11 3
+blob-38 foliage at 2536.5 6 2231 size 18 15 17.1 turn 270
+cylinder trunk   at 2552 0 2233 size 3 9 3
+blob-6 foliage at 2552 4 2233 size 17 15 16.15
+frustum trunk   at 2568 0 2231 size 3 12 3
+blob-39 foliage at 2568 7 2231 size 19 16 18.05
+cylinder trunk   at 2392 0 2248 size 3 5 3
+blob-22 foliage at 2392 3 2248 size 19 6 18.05 turn 270
+frustum trunk   at 2408 0 2248 size 3 5 3
+blob-33 foliage at 2408 2.5 2248 size 19 7 18.05 turn 180
+box    hedge   at 2312 0 2056 size 16 5 15
+blob-13 hedge   at 2312 3.5 2056 size 16 4.5 15
+box    hedge   at 2328 0 2056 size 16 5 15
+blob-43 hedge   at 2328 3 2056 size 16 5.5 15
+box    hedge   at 2344 0 2056 size 16 5 15
+blob-34 hedge   at 2344 3 2056 size 16 4.5 15
+box    hedge   at 2360 0 2056 size 16 5 15
+blob-41 hedge   at 2360 3 2056 size 16 5.5 15
+box    hedge   at 2376 0 2056 size 16 5 15
+blob-18 hedge   at 2376 3 2056 size 16 4.5 15
+box    hedge   at 2392 0 2056 size 16 5 15
+blob-18 hedge   at 2392 3.5 2056 size 16 3.5 15
+box    hedge   at 2424 0 2056 size 16 5 15
+blob-22 hedge   at 2424 3.5 2056 size 16 3.5 15
+box    hedge   at 2440 0 2056 size 16 5 15
+blob-3 hedge   at 2440 3 2056 size 16 4.5 15
+box    hedge   at 2456 0 2056 size 16 5 15
+blob-21 hedge   at 2456 3.5 2056 size 16 3.5 15
+box    hedge   at 2472 0 2056 size 16 5 15
+blob-17 hedge   at 2472 3 2056 size 16 4.5 15
+box    hedge   at 2488 0 2056 size 16 5 15
+blob-59 hedge   at 2488 3 2056 size 16 5.5 15
+box    hedge   at 2504 0 2056 size 16 5 15
+blob-32 hedge   at 2504 3 2056 size 16 5.5 15
+box    hedge   at 2520 0 2056 size 16 5 15
+blob-32 hedge   at 2520 3.5 2056 size 16 4.5 15
+box    hedge   at 2584 0 2216 size 16 6 15
+blob-40 hedge   at 2584 4 2216 size 16 4.5 15
+box    hedge   at 2376 0 2248.25 size 16 6 15.5
+blob-2 hedge   at 2376 4 2248.25 size 16 4.5 15.5
+box    hedge   at 2407.75 0 2264 size 15.5 7 16
+blob-40 hedge   at 2407.75 4.5 2264 size 15.5 5 16

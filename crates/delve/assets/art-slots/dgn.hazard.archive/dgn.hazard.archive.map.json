@@ -1,0 +1,344 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "27918d69efae123f62871a921ef03cecad982d9bda774ccd571cc53360c71297",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Deep teal water fill; submerged oak debris and bright broken reflections.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        154.0,
+        158.5
+      ],
+      "source_rect_xywh": [
+        58,
+        152,
+        308,
+        317
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Fill shimmer frame with a central ripple and bubbles.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        160.5,
+        158.5
+      ],
+      "source_rect_xywh": [
+        418,
+        152,
+        321,
+        317
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Fill shimmer frame with a different ripple arrangement and submerged books/scroll.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        159.5,
+        158.5
+      ],
+      "source_rect_xywh": [
+        797,
+        152,
+        319,
+        317
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Fill shimmer frame with reflected archive beams and scattered debris.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        158.5,
+        158.5
+      ],
+      "source_rect_xywh": [
+        1169,
+        152,
+        317,
+        317
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Top rim: stone/oak library threshold above the water, with brass lamp and soaked page.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        159.0,
+        164.0
+      ],
+      "source_rect_xywh": [
+        49,
+        553,
+        318,
+        328
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Bottom rim: water above a straight oak-and-stone edge, books and a small lamp at the floor side.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        160.5,
+        164.0
+      ],
+      "source_rect_xywh": [
+        418,
+        553,
+        321,
+        328
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Left rim: vertical shelf/stone boundary meeting flooded water.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        161.5,
+        164.0
+      ],
+      "source_rect_xywh": [
+        794,
+        553,
+        323,
+        328
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Right rim: vertical dry archive strip with lamp and shelving beside water.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        158.5,
+        164.0
+      ],
+      "source_rect_xywh": [
+        1169,
+        553,
+        317,
+        328
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner: stone floor and archive props turning around the flooded area.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        158.0,
+        162.0
+      ],
+      "source_rect_xywh": [
+        50,
+        954,
+        316,
+        324
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner: distinct opposite arrangement with shelf, page, and lamp.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        157.5,
+        162.0
+      ],
+      "source_rect_xywh": [
+        423,
+        954,
+        315,
+        324
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner: concave archive edge with shelves framing water.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        155.0,
+        162.0
+      ],
+      "source_rect_xywh": [
+        797,
+        954,
+        310,
+        324
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 0.5,
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner: second concave arrangement with a different shelf and book placement.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        159.0,
+        162.0
+      ],
+      "source_rect_xywh": [
+        1168,
+        954,
+        318,
+        324
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.archive",
+  "source_sha256": "cc9819500663c1afc2888c3cc7f3d730f73edc0f992cb8efb16c917b0256161f",
+  "timing": ""
+}

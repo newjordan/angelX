@@ -1,0 +1,136 @@
+set chunk-5-3
+# The kingdom, chunk 5,3 in The Tilt-Yards: tiles 120..144 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 896
+plate 1536 1024
+
+# ground
+box    grass   at 1928 -4 832 size 16 4 128
+box    water   at 1952 -4 776 size 32 1 16
+box    sand    at 2032 -4 776 size 128 4 16
+box    water   at 2160 -4 776 size 128 1 16
+box    wood    at 2240 -4 776 size 32 4 16
+box    sand    at 2280 -4 776 size 48 4 16
+box    sand    at 1952 -4 792 size 32 4 16
+box    grass   at 2032 -4 824 size 128 4 80
+box    sand    at 2152 -4 792 size 112 4 16
+box    path    at 2240 -4 808 size 64 4 48
+box    grass   at 2288 -4 816 size 32 4 64
+box    grass   at 1952 -4 840 size 32 4 80
+box    grass   at 2152 -4 816 size 112 4 32
+box    grass   at 2128 -4 840 size 64 4 16
+box    path    at 2168 -4 872 size 16 4 80
+box    grass   at 2200 -4 840 size 48 4 16
+box    path    at 2248 -4 864 size 48 4 64
+box    grass   at 2120 -4 856 size 48 4 16
+box    path    at 2152 -4 880 size 16 4 64
+box    path    at 2200 -4 872 size 48 4 48
+box    path    at 2288 -4 872 size 32 4 48
+box    grass   at 2008 -4 872 size 80 4 16
+box    path    at 2096 -4 888 size 96 4 48
+box    grass   at 1944 -4 888 size 16 4 16
+box    path    at 2000 -4 904 size 96 4 48
+box    path    at 1936 -4 920 size 32 4 48
+box    path    at 2184 -4 904 size 16 4 16
+box    grass   at 2248 -4 960 size 112 4 128
+box    path    at 2072 -4 920 size 48 4 16
+box    grass   at 2144 -4 968 size 96 4 112
+box    path    at 1976 -4 936 size 48 4 16
+box    grass   at 2032 -4 976 size 64 4 96
+box    path    at 2080 -4 976 size 32 4 96
+box    grass   at 1960 -4 984 size 80 4 80
+
+# Toll Bridge: a toll hut and barrier at 134,49 4x3
+box    plaster at 2155 0 821 size 18 11 18 id toll-bridge
+gable  thatch  at 2155 11 821 size 21 8 21
+box    stone   at 2159.32 11 819.2 size 4 9.8 4
+box    door    at 2151.4 0 830.25 size 7 8 1
+box    water   at 2186 -2 808 size 40 1.5 44
+box    wood    at 2186 0 808 size 40 3 14
+box    wood    at 2168 0 814 size 2.5 12 2.5
+box    wood    at 2186 9 814 size 36 1.5 1
+cylinder trunk   at 2168 0 792 size 3 12 3
+blob-36 foliage at 2168 7 792 size 14 14 13.3 turn 270
+frustum trunk   at 2184 0 792 size 3 11 3
+blob-6 foliage at 2184 6 792 size 14 21 13.3 turn 90
+cylinder trunk   at 2200 0 792 size 3 9 3
+blob-24 foliage at 2200 4 792 size 14 18 13.3
+blob-33 foliage at 2184 0 824 size 13 6 12
+blob-23 foliage at 2200 0 824 size 13 6 12
+
+# fingerposts
+box    wood    at 1928 0 892 size 1.5 19 1.5
+pyramid wood    at 1928 19 892 size 2.2 1.5 2.2
+box    wood    at 1932 16 892 size 6.5 1.8 0.6
+box    wood    at 1924 13.5 892 size 6.5 1.8 0.6
+box    wood    at 2260 0 772 size 1.5 19 1.5
+pyramid wood    at 2260 19 772 size 2.2 1.5 2.2
+box    wood    at 2260 16 768 size 0.6 1.8 6.5
+box    wood    at 2260 13.5 776 size 0.6 1.8 6.5
+
+# set dressing
+box    wood    at 2248 0 952 size 10 3 3
+box    wood    at 2245 0 952 size 1.5 13 1.5
+box    wood    at 2250 0 952 size 1.5 9 1.5
+box    wood    at 2276 0 968 size 1.5 4 1.5
+box    wood    at 2316 0 968 size 1.5 4 1.5
+box    wood    at 2296 2.75 968 size 42 1.25 1.2
+
+# woods (at 35% of its height, for the camera)
+cylinder trunk   at 2017 0 976 size 5 5 5
+blob-10 foliage at 2017 3.5 976 size 33 10 31.35 turn 270
+frustum trunk   at 2145 0 992 size 5 12 5
+blob-56 foliage at 2145 7.5 992 size 33 22.5 31.35 turn 90
+cylinder trunk   at 2031 0 1007 size 5 13 5
+blob-59 foliage at 2031 8 1007 size 33 28 31.35
+cylinder trunk   at 1928.5 0 824.5 size 3 9 3
+blob-34 foliage at 1928.5 4 824.5 size 18 17 17.1
+cylinder trunk   at 2039.5 0 968.5 size 3 5 3
+blob-31 foliage at 2039.5 2.5 968.5 size 18 8.5 17.1 turn 90
+frustum trunk   at 2137 0 967 size 3 3.5 3
+blob-37 foliage at 2137 1.5 967 size 17 9 16.15 turn 180
+frustum trunk   at 2153 0 969 size 3 4.5 3
+blob-35 foliage at 2153 2 969 size 17 7.5 16.15 turn 270
+frustum trunk   at 1992 0 984 size 3 4.5 3
+blob-23 foliage at 1992 2 984 size 19 8 18.05 turn 270
+cylinder trunk   at 2040 0 984 size 3 10 3
+blob-61 foliage at 2040 5 984 size 19 18 18.05 turn 270
+cylinder trunk   at 2168 0 984 size 3 5.5 3
+blob-14 foliage at 2168 3 984 size 19 7 18.05 turn 180
+frustum trunk   at 1992 0 1000 size 3 10 3
+blob-49 foliage at 1992 5 1000 size 19 16 18.05 turn 270
+cylinder trunk   at 2008.5 0 999 size 3 12 3
+blob-12 foliage at 2008.5 7 999 size 20 19 19 turn 180
+cylinder trunk   at 2167 0 1000 size 3 6.5 3
+cone   foliage at 2167 4 1000 size 19 18 19
+cone   foliage at 2167 15 1000 size 13.68 17.5 13.68
+cylinder trunk   at 2007.5 0 1016.5 size 3 9 3
+blob-62 foliage at 2007.5 4 1016.5 size 18 18 17.1 turn 90
+frustum trunk   at 2138 0 1016 size 3 10 3
+blob-60 foliage at 2138 5 1016 size 19 15 18.05 turn 180
+frustum trunk   at 2151 0 1017 size 3 9 3
+blob-19 foliage at 2151 4 1017 size 17 18 16.15 turn 270
+frustum trunk   at 2169 0 1017 size 3 9 3
+cone   foliage at 2169 6 1017 size 17 18.6 17
+cone   foliage at 2169 17.4 1017 size 12.24 18.6 12.24
+box    hedge   at 1928 0 776 size 15 6 16
+blob-61 hedge   at 1928 3.5 776 size 15 6 16
+box    hedge   at 1928 0 792 size 15 7 16
+blob-36 hedge   at 1928 4.5 792 size 15 5 16
+box    hedge   at 1928 0 808 size 15 6 16
+blob-4 hedge   at 1928 3.5 808 size 15 5 16
+box    hedge   at 1928 0 840 size 15 6 16
+blob-62 hedge   at 1928 3.5 840 size 15 6 16
+box    hedge   at 1928 0 856 size 15 7 16
+blob-25 hedge   at 1928 4.5 856 size 15 6 16
+box    hedge   at 1928 0 872 size 15 6 16
+blob-21 hedge   at 1928 3.5 872 size 15 5 16
+box    hedge   at 1928 0 968 size 15 5.5 16
+blob-8 hedge   at 1928 3 968 size 15 5 16
+box    hedge   at 1928 0 984 size 15 6 16
+blob-18 hedge   at 1928 3.5 984 size 15 5 16
+
+# bridges
+box    wood    at 2216 -3 776 size 16 5.5 16
+box    wood    at 2207.25 0 776 size 1.5 6 16

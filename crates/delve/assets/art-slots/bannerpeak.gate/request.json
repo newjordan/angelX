@@ -1,0 +1,39 @@
+{
+  "fit": "native canvas 30x40, anchor (8,40) at the post foot; stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "down-0"
+      ],
+      "source_pose_count": 1,
+      "state": "down"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "raise-0",
+        "raise-1",
+        "raise-2",
+        "raise-3"
+      ],
+      "source_pose_count": 4,
+      "state": "raise"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "up-0",
+        "up-1",
+        "up-2"
+      ],
+      "source_pose_count": 3,
+      "state": "up"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "The checkpoint gate; the rules box is the post (16x40). The pennon streams right past the box, which a painted frame may do; art never sets a hitbox.",
+  "id": "bannerpeak.gate",
+  "role": "prop",
+  "timing": "down 1 ticks; raise 4x3 ticks; up 3x6 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

@@ -1,0 +1,105 @@
+{
+  "boss": "archive-bellkeeper",
+  "camera": "overhead",
+  "definition_sha256": "1137802cf85f337bdd0b93e0a11b2d7824d7a9d65509916eabb2025cef5c4a1b",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 25.97 L*, rest presence 89.16%, edge 87.98%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "diving suit body"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "diving suit body",
+      "bell head clapper",
+      "diver mitten arm",
+      "kelp hose collar"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      44,
+      54
+    ],
+    "v2": [
+      79,
+      96
+    ]
+  },
+  "identity_props": [
+    "diving suit body",
+    "bell head clapper",
+    "diver mitten arm",
+    "kelp hose collar"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9874074074074074,
+      "opaque_pixels": 1350,
+      "sha256": "d443f2dc9018653a7a0cdc3e706767fc17f85d37c61942d611f2d5f65e729d2d",
+      "silhouette_iou": 1.0,
+      "size": [
+        44,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9803206997084548,
+      "opaque_pixels": 1372,
+      "sha256": "5483d4b174edbb42313ee27426795f3e50d9e7b1030f720cba3a4cb95ef8a979",
+      "silhouette_iou": 1.0,
+      "size": [
+        44,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 46,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9851128169341707,
+      "opaque_pixels": 4299,
+      "sha256": "d34b0fbc6631c52a82c818aa26ed151da40c42aeb1ec059a2b838d5e4447977b",
+      "silhouette_iou": 1.0,
+      "size": [
+        79,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9844429192404484,
+      "opaque_pixels": 4371,
+      "sha256": "fcb47b49360b449a29fcd348df14f86ed161e1c3aed0ebf4ae734f0655460fc4",
+      "silhouette_iou": 1.0,
+      "size": [
+        79,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

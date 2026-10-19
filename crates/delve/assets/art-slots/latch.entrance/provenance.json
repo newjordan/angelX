@@ -1,0 +1,19 @@
+{
+  "delivery": "latch.entrance.room-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "79ecb495017f0c07a036d598bed918b1590b8c00c129a1ed18e101f8b71e6521",
+  "native_contract": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "prepared_sha256": "af87fa9e9562393dbc82ce9dd2d8dc3d2ec18b3bc42620b2634f3badcffc9151",
+  "recipe_sha256": "34a18f3cf0cff8feb39074e11b0ca483070be7834e57a341d067866964054bb5",
+  "source_path": "/work/artifacts/art-prod/slots/latch.entrance.room-1/v01/source-sheet.png",
+  "source_sha256": "d38a5c8ddbc46415ee3c882b5d75f80dcd1cd6aff196ab2b4b23727ed7e5af38"
+}

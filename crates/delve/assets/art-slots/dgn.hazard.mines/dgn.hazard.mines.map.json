@@ -1,0 +1,332 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "e144d5ded818e8665039f0d9bbb21405e22dbb85fdf312615693c271cc9da8f4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Pit fill, broad central amber seam and sparse mineral flecks.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.5,
+        154.0
+      ],
+      "source_rect_xywh": [
+        47,
+        77,
+        249,
+        308
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Pit fill, diagonal seam and warmer upper-left rock inclusions.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        154.0
+      ],
+      "source_rect_xywh": [
+        351,
+        77,
+        250,
+        308
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Pit fill, clustered upper and lower rocks with fine teal fissures.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.5,
+        154.0
+      ],
+      "source_rect_xywh": [
+        654,
+        77,
+        251,
+        308
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Pit fill, bright diagonal amber seam with scattered border rocks.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        154.0
+      ],
+      "source_rect_xywh": [
+        959,
+        77,
+        250,
+        308
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Top rim, broad rocky ledge across the north edge.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        150.0
+      ],
+      "source_rect_xywh": [
+        45,
+        451,
+        250,
+        300
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Bottom rim, broad rocky ledge across the south edge.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.5,
+        149.5
+      ],
+      "source_rect_xywh": [
+        351,
+        452,
+        249,
+        299
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Left rim, vertical ochre rock wall along the west edge.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        150.0
+      ],
+      "source_rect_xywh": [
+        654,
+        451,
+        250,
+        300
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Right rim, vertical rock wall along the east edge.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.0,
+        150.0
+      ],
+      "source_rect_xywh": [
+        961,
+        451,
+        248,
+        300
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Top-left outer corner, rocky north and west boundary.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        151.5
+      ],
+      "source_rect_xywh": [
+        43,
+        821,
+        252,
+        303
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Top-right outer corner, rocky north and east boundary.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.5,
+        151.5
+      ],
+      "source_rect_xywh": [
+        349,
+        821,
+        249,
+        303
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Concave corner with a stepped transparent cutout; intended bottom-left inner corner, but its silhouette is awkward and orientation is weak.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.5,
+        151.0
+      ],
+      "source_rect_xywh": [
+        654,
+        821,
+        249,
+        302
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Concave corner with a stepped transparent cutout; intended bottom-right inner corner, but its silhouette is awkward and orientation is weak.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        151.0
+      ],
+      "source_rect_xywh": [
+        961,
+        821,
+        250,
+        302
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.mines",
+  "source_sha256": "9e04db7c623720597d4c1827c4589a5670917cd4512c507a27d5a53a90280e33",
+  "timing": ""
+}

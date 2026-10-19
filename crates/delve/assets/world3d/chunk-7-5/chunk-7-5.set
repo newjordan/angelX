@@ -1,0 +1,64 @@
+set chunk-7-5
+# The kingdom, chunk 7,5 in The Tilt-Yards: tiles 168..192 x 80..96 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2880 1408
+plate 1536 1024
+
+# ground
+box    grass   at 2880 -4 1328 size 384 4 96
+box    path    at 2720 -4 1400 size 64 4 48
+box    grass   at 2912 -4 1384 size 320 4 16
+box    path    at 2776 -4 1400 size 48 4 16
+box    grass   at 2936 -4 1416 size 272 4 48
+box    grass   at 2768 -4 1472 size 32 4 128
+box    path    at 2792 -4 1432 size 16 4 48
+box    grass   at 2720 -4 1480 size 64 4 112
+box    path    at 2888 -4 1448 size 176 4 16
+box    grass   at 3024 -4 1488 size 96 4 96
+box    grass   at 2792 -4 1472 size 16 4 32
+box    path    at 2808 -4 1496 size 16 4 80
+box    grass   at 2896 -4 1472 size 160 4 32
+box    path    at 2792 -4 1512 size 16 4 48
+box    path    at 2824 -4 1512 size 16 4 48
+box    grass   at 2904 -4 1512 size 144 4 48
+
+# a pavilion of Knights Tournament: a tournament tent at 174,83 2x2 (at 84% of its height, for the camera)
+cylinder cloth   at 2800 0 1344 size 28 8 28 id pavilion-1
+cone   cloth   at 2800 8 1344 size 30 10.5 30
+cylinder wood    at 2800 17.5 1344 size 1 5 1
+box    cloth   at 2802.75 20 1344 size 4.5 2.5 0.8
+box    door    at 2800 0 1357.75 size 6 6.5 1
+
+# a pavilion of Knights Tournament: a tournament tent at 184,83 2x2 (at 79% of its height, for the camera)
+cylinder cloth   at 2960 0 1344 size 28 7.5 28 id pavilion-2
+cone   cloth   at 2960 7.5 1344 size 30 10 30
+cylinder wood    at 2960 16.5 1344 size 1 5 1
+box    cloth   at 2962.75 19 1344 size 4.5 2.5 0.8
+box    door    at 2960 0 1357.75 size 6 6 1
+
+# the tournament stable of Knights Tournament: a low stable at 184,89 2x1 (at 83% of its height, for the camera)
+box    wood    at 2960 0 1433 size 28 7 11 id tournament-stable
+gable  thatch  at 2960 7 1433 size 31 6 14
+box    door    at 2950.67 0 1438.75 size 6 5.5 1
+box    door    at 2960 0 1438.75 size 6 5.5 1
+box    door    at 2969.33 0 1438.75 size 6 5.5 1
+
+# woods (at 45% of its height, for the camera)
+frustum trunk   at 3048 0 1432 size 3 5 3
+blob-27 foliage at 3048 3 1432 size 19 6 18.05 turn 90
+frustum trunk   at 3064 0 1432 size 3 4.5 3
+blob-9 foliage at 3064 2 1432 size 19 8 18.05
+cylinder trunk   at 3048 0 1448 size 3 12 3
+blob-46 foliage at 3048 7 1448 size 19 18 18.05 turn 90
+frustum trunk   at 3062 0 1449 size 3 11.5 3
+blob-53 foliage at 3062 6.5 1449 size 20 19 19 turn 90
+cylinder trunk   at 3048.5 0 1464 size 3 11 3
+blob-44 foliage at 3048.5 6 1464 size 18 19 17.1 turn 90
+cylinder trunk   at 3063 0 1465 size 3 9 3
+cone   foliage at 3063 6 1465 size 17 19.22 17
+cone   foliage at 3063 17.78 1465 size 12.24 19.22 12.24
+box    hedge   at 2872 0 1512 size 15 6 16
+blob-40 hedge   at 2872 4 1512 size 15 4.5 16
+box    hedge   at 2872 0 1528 size 15 6 16
+blob-39 hedge   at 2872 3.5 1528 size 15 5 16

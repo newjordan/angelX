@@ -1,0 +1,23 @@
+# The Griffin Eyrie: tall crag spires either side, the stump crowned with its great nest, the master's brazier.
+# the west crag
+pyramid rock   at 40 0 40 size 40 72 38
+pyramid rock   at 84 0 34 size 44 54 34
+pyramid rock   at 114 0 44 size 24 38 30
+rock-4 rock    at 64 0 56 size 30 16 14
+# the east crag
+pyramid rock   at 344 0 40 size 40 70 38
+pyramid rock   at 300 0 34 size 44 58 34
+pyramid rock   at 270 0 46 size 24 36 28
+rock-7 rock    at 320 0 56 size 30 16 14
+# the perch: a stone stump, its nest of branches with two eggs
+frustum-10 rock at 192 0 32 size 56 40 28
+sphere trunk   at 192 38 32 size 62 14 30
+box    trunk   at 192 44 45 size 56 4 4
+box    trunk   at 192 44 19 size 56 4 4
+box    trunk   at 163 44 32 size 4 4 28
+box    trunk   at 221 44 32 size 4 4 28
+sphere bone    at 184 46 32 size 9 11 9
+sphere bone    at 200 46 33 size 9 11 9
+# the griffin master's brazier on the south-west crag
+cylinder-8 metal at 64 5 176 size 10 4 10
+cone-6 fire    at 64 9 176 size 7 8 7

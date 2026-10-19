@@ -1,0 +1,215 @@
+{
+  "id": "hellforge-free-captain",
+  "source_path": "./cockpit/assets/boss-library/existing/hellforge-free-captain/v01/source-sheet-refined.png",
+  "source_sha256": "00384ce81b9955e46e8ae1bd853116753ad8d1e4f0b406d5851cb2325f46e3c8",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Independent slag forge captain, athletic but squat armored knight. Jagged blackened steel helmet with one bent copper crest, narrow bright amber eye slit, battered rust-red half-cape, chunky bronze shoulder armor. Broad chipped iron cutlass with a glowing orange seam held low, round slag shield strapped to other arm. Short solid boots, enormous gauntlets and swaggering comic posture.",
+  "definition_header": "name SLAG FREE CAPTAIN\ntext An optional forge captain outside the castellan's gate pact.\nby angelX\nwhere hellforge\nhp 580\nsize 1.4\nmove chase speed=1.4\nattack aimed shots=2 speed=7 every=60 damage=12 shot=ember\nphases surge laser every=91 volleys=2 damage=12\nrage 30%\ndrops gold 100, ore 2",
+  "source_definition_sha256": "ae589487b986857439a8eb0f2c65df3e6f8b616e5b693a0831854e32e7174d2c",
+  "definition_sha256": "ae589487b986857439a8eb0f2c65df3e6f8b616e5b693a0831854e32e7174d2c",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        49,
+        171,
+        253,
+        280
+      ],
+      "opaque_component_pixels": 40720,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "17bdd4d84d6dd9b9030a358a1716a8766c99f2d65a7008cbabd8429868fffe23"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        378,
+        211,
+        248,
+        222
+      ],
+      "opaque_component_pixels": 35835,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "e8c7dce65e232f4dbd45cd1eb8b48facd1c27edea83ef03e01df19729edb5227"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        682,
+        171,
+        227,
+        262
+      ],
+      "opaque_component_pixels": 33310,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "7162f002598cf3b9b5b97167fe4598b26f9456c50040bb79a506e81f062fecdc"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        978,
+        213,
+        248,
+        217
+      ],
+      "opaque_component_pixels": 34875,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "304a9adfe05dbb60207058b4c1677c3cc8a55010a8285de096ed8d81a27f0f03"
+    },
+    {
+      "id": "overhead/part/captain-armor-boots",
+      "source_rect_xywh": [
+        76,
+        562,
+        207,
+        206
+      ],
+      "opaque_component_pixels": 26949,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-captain-armor-boots.png",
+      "sha256": "262288f8b448bcd89ac23f3fdc9c0be8044bb2f43e023f7aa1d93761819fc2e7"
+    },
+    {
+      "id": "overhead/part/crested-helm",
+      "source_rect_xywh": [
+        413,
+        567,
+        141,
+        174
+      ],
+      "opaque_component_pixels": 12685,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-crested-helm.png",
+      "sha256": "433ea86f65dbe105630f2e81969b0316aca7fbe3065a4bc9b5108345497b4738"
+    },
+    {
+      "id": "overhead/part/cutlass-arm",
+      "source_rect_xywh": [
+        684,
+        556,
+        261,
+        222
+      ],
+      "opaque_component_pixels": 21954,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-cutlass-arm.png",
+      "sha256": "014900c54f26f3b8ba97d27e3579433b6be700ce968164a9bfa8309e9962a9c8"
+    },
+    {
+      "id": "overhead/part/slag-shield-arm",
+      "source_rect_xywh": [
+        1051,
+        560,
+        161,
+        191
+      ],
+      "opaque_component_pixels": 19683,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-slag-shield-arm.png",
+      "sha256": "a7af340e28993b0cd9047d2128b8c820fe441e2ea1cfa9f6172e5c1edb90e8e4"
+    },
+    {
+      "id": "side/part/captain-armor-boots",
+      "source_rect_xywh": [
+        75,
+        894,
+        208,
+        202
+      ],
+      "opaque_component_pixels": 26476,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-captain-armor-boots.png",
+      "sha256": "25646c89b972c515b87433a7ddf581e93ab5bc9751418d1775f0ce04ae3d70ea"
+    },
+    {
+      "id": "side/part/crested-helm",
+      "source_rect_xywh": [
+        413,
+        907,
+        141,
+        171
+      ],
+      "opaque_component_pixels": 12258,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-crested-helm.png",
+      "sha256": "3930f6b278f6cdea08f4b5d1fe5213b5982d31375316eccde5995313f385cc28"
+    },
+    {
+      "id": "side/part/cutlass-arm",
+      "source_rect_xywh": [
+        685,
+        901,
+        265,
+        205
+      ],
+      "opaque_component_pixels": 21011,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-cutlass-arm.png",
+      "sha256": "98d0963ce677725a227cd361452c0c5ffae43fe5087aeeb3cec126005cd155f9"
+    },
+    {
+      "id": "side/part/slag-shield-arm",
+      "source_rect_xywh": [
+        1053,
+        900,
+        159,
+        185
+      ],
+      "opaque_component_pixels": 19153,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-slag-shield-arm.png",
+      "sha256": "9e5984941c7140956c1344ea601303860641406d748a52bc22fad9e63795e634"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

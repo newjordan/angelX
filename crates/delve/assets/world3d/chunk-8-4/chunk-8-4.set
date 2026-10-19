@@ -1,0 +1,153 @@
+set chunk-8-4
+# The kingdom, chunk 8,4 in The Coast: tiles 192..216 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 1152
+plate 1536 1024
+
+# ground
+box    grass   at 3080 -4 1032 size 16 4 16
+box    path    at 3200 -4 1032 size 224 4 16
+box    grass   at 3384 -4 1032 size 144 4 16
+box    rock    at 3080 -4 1048 size 16 4 16
+box    grass   at 3112 -4 1144 size 48 4 208
+box    path    at 3224 -4 1048 size 176 4 16
+box    grass   at 3328 -4 1048 size 32 4 16
+box    sand    at 3360 -4 1048 size 32 4 16
+box    grass   at 3416 -4 1048 size 80 4 16
+box    grass   at 3080 -4 1072 size 16 4 32
+box    grass   at 3144 -4 1072 size 16 4 32
+box    path    at 3160 -4 1096 size 16 4 80
+box    grass   at 3176 -4 1072 size 16 4 32
+box    path    at 3256 -4 1064 size 144 4 16
+box    grass   at 3352 -4 1064 size 48 4 16
+box    sand    at 3384 -4 1064 size 16 4 16
+box    grass   at 3424 -4 1088 size 64 4 64
+box    grass   at 3208 -4 1088 size 48 4 32
+box    path    at 3288 -4 1080 size 112 4 16
+box    grass   at 3368 -4 1080 size 48 4 16
+box    rock    at 3080 -4 1096 size 16 4 16
+box    sand    at 3144 -4 1104 size 16 4 32
+box    sand    at 3176 -4 1112 size 16 4 48
+box    grass   at 3248 -4 1160 size 32 4 144
+box    path    at 3320 -4 1112 size 112 4 48
+box    grass   at 3384 -4 1096 size 16 4 16
+box    grass   at 3080 -4 1128 size 16 4 48
+box    sand    at 3200 -4 1112 size 32 4 16
+box    grass   at 3224 -4 1184 size 16 4 160
+box    path    at 3384 -4 1144 size 16 4 80
+box    grass   at 3144 -4 1200 size 16 4 160
+box    sand    at 3192 -4 1128 size 16 4 16
+box    grass   at 3208 -4 1192 size 16 4 144
+box    path    at 3400 -4 1160 size 16 4 80
+box    grass   at 3432 -4 1128 size 48 4 16
+box    grass   at 3176 -4 1200 size 48 4 128
+box    grass   at 3272 -4 1200 size 16 4 128
+box    path    at 3328 -4 1152 size 96 4 32
+box    path    at 3424 -4 1168 size 32 4 64
+box    grass   at 3448 -4 1144 size 16 4 16
+box    rock    at 3080 -4 1160 size 16 4 16
+box    path    at 3448 -4 1176 size 16 4 48
+box    grass   at 3080 -4 1184 size 16 4 32
+box    path    at 3312 -4 1184 size 64 4 32
+box    grass   at 3352 -4 1192 size 16 4 48
+box    path    at 3368 -4 1176 size 16 4 16
+box    grass   at 3376 -4 1216 size 32 4 64
+box    rock    at 3080 -4 1208 size 16 4 16
+box    grass   at 3288 -4 1240 size 16 4 80
+box    path    at 3320 -4 1232 size 48 4 64
+box    grass   at 3424 -4 1216 size 64 4 32
+box    grass   at 3080 -4 1224 size 16 4 16
+box    path    at 3352 -4 1248 size 16 4 64
+box    rock    at 3080 -4 1256 size 16 4 48
+box    ground  at 3240 -4 1248 size 16 4 32
+box    grass   at 3256 -4 1240 size 16 4 16
+box    grass   at 3400 -4 1240 size 16 4 16
+box    rock    at 3432 -4 1256 size 48 4 48
+box    rock    at 3104 -4 1264 size 32 4 32
+box    grass   at 3128 -4 1264 size 16 4 32
+box    ground  at 3256 -4 1256 size 16 4 16
+box    grass   at 3368 -4 1256 size 16 4 16
+box    rock    at 3392 -4 1256 size 32 4 16
+box    grass   at 3160 -4 1272 size 16 4 16
+box    rock    at 3192 -4 1272 size 48 4 16
+box    path    at 3232 -4 1272 size 32 4 16
+box    rock    at 3256 -4 1272 size 16 4 16
+box    sand    at 3272 -4 1272 size 16 4 16
+box    grass   at 3304 -4 1272 size 16 4 16
+box    path    at 3328 -4 1272 size 32 4 16
+box    path    at 3368 -4 1272 size 16 4 16
+box    grass   at 3384 -4 1272 size 16 4 16
+box    rock    at 3400 -4 1272 size 16 4 16
+
+# SALTSPITE WORKS: salt pans and a shed at 200,76 4x3 (at 55% of its height, for the camera)
+box    plaster at 3214.44 0 1253 size 24.88 10 18 id saltspite-works
+gable  slate   at 3214.44 10 1253 size 27.88 7 21
+box    door    at 3209.46 0 1262.25 size 7 7 1
+box    stone   at 3245.44 0 1246.5 size 33.12 2 9
+box    water   at 3245.44 0 1246.5 size 31.12 2.25 7
+cone   sand    at 3234.88 2 1246.5 size 7 4 6
+box    stone   at 3245.44 0 1256.5 size 33.12 2 9
+box    water   at 3245.44 0 1256.5 size 31.12 2.25 7
+cone   sand    at 3244.88 2 1256.5 size 7 4 6
+cylinder trunk   at 3208 0 1224 size 3 5 3
+blob-58 foliage at 3208 2 1224 size 14 11.5 13.3 turn 270
+cylinder trunk   at 3224 0 1224 size 3 5.5 3
+blob-46 foliage at 3224 2.5 1224 size 14 11.5 13.3 turn 180
+frustum trunk   at 3240 0 1224 size 3 6.5 3
+blob-20 foliage at 3240 2.5 1224 size 14 10.5 13.3 turn 180
+blob-5 foliage at 3256 0 1224 size 13 8 12
+
+# set dressing
+rock-31 rock    at 3202 0 1128 size 5 2.5 5
+cylinder water   at 3208 0 1128 size 9 0.5 7
+rock-22 rock    at 3214 0 1129 size 4 2 4
+rock-32 rock    at 3106 0 1144 size 5 2.5 5
+cylinder water   at 3112 0 1144 size 9 0.5 7
+rock-27 rock    at 3118 0 1145 size 4 2 4
+box    trunk   at 3160 0 1160 size 10 1.5 2 turn 20
+box    trunk   at 3163 0 1163 size 7 1.5 1.5 turn -35
+
+# rock (at 95% of its height, for the camera)
+box    rock    at 3080 0 1048 size 16 2.5 16
+box    rock    at 3080 0 1096 size 16 3 16
+box    rock    at 3080 0 1160 size 16 3 16
+box    rock    at 3080 0 1208 size 16 3 16
+box    rock    at 3080 0 1256 size 16 3 48
+box    rock    at 3432 0 1240 size 48 3 16
+box    rock    at 3104 0 1256 size 32 3 16
+box    rock    at 3400 0 1256 size 48 3 16
+box    rock    at 3432 0 1256 size 16 9 16
+box    rock    at 3448 0 1264 size 16 3 32
+box    rock    at 3096 0 1272 size 16 9 16
+box    rock    at 3112 0 1272 size 16 3 16
+box    rock    at 3192 0 1272 size 48 3 16
+box    rock    at 3256 0 1272 size 16 3 16
+box    rock    at 3416 0 1272 size 48 3 16
+rock-47 rock    at 3080 1 1047 size 15 9.5 13.5 turn 90
+rock-58 rock    at 3081 1.5 1097 size 16 7 14.4 turn 270
+rock-1 rock    at 3079 1.5 1159 size 15 10 13.5
+rock-16 rock    at 3081 1.5 1209 size 16 9 14.4 turn 90
+rock-46 rock    at 3079 1.5 1241 size 16 8 14.4 turn 90
+rock-18 rock    at 3415 1.5 1239 size 17 7 15.3 turn 180
+rock-10 rock    at 3433 1.5 1241 size 17 9 15.3 turn 90
+rock-6 rock    at 3449 1.5 1241 size 17 8 15.3
+rock-44 rock    at 3080 1.5 1256 size 17 9 15.3 turn 90
+rock-17 rock    at 3095 1.5 1256 size 16 10 14.4 turn 180
+rock-18 rock    at 3111 1.5 1257 size 17 7 15.3 turn 180
+rock-50 rock    at 3385 1.5 1255 size 17 7 15.3 turn 180
+rock-61 rock    at 3401 1.5 1256 size 16 8 14.4 turn 270
+rock-13 rock    at 3415 1.5 1256 size 14 9 12.6 turn 90
+rock-17 rock    at 3431 7.5 1256 size 12 7 10.8 turn 180
+rock-47 rock    at 3449 1.5 1255 size 17 7 15.3 turn 90
+rock-55 rock    at 3080 1.5 1273 size 14 9 12.6 turn 180
+rock-18 rock    at 3097 7.5 1273 size 13 8 11.7 turn 180
+rock-38 rock    at 3111 1.5 1271 size 15 7 13.5
+rock-41 rock    at 3175 1.5 1272 size 15 10 13.5 turn 90
+rock-5 rock    at 3192 1.5 1271 size 16 8 14.4
+rock-24 rock    at 3207 1.5 1272 size 15 7 13.5 turn 180
+rock-24 rock    at 3257 1.5 1272 size 17 10 15.3 turn 180
+rock-63 rock    at 3401 1.5 1271 size 16 7 14.4 turn 270
+rock-54 rock    at 3417 1.5 1273 size 15 10 13.5 turn 180
+rock-50 rock    at 3433 1.5 1271 size 15 10 13.5 turn 180
+rock-64 rock    at 3448 1.5 1273 size 17 10 15.3 turn 270

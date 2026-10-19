@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.moon/v01",
+  "delivery_status": "Accepted by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): six faces on one opaque gold disc (sulk, grimace, snarl, roar, bared fangs, a calm cool-cream face for the turning); six drawings on a 3x2 grid.",
+  "generation_sha256": "c7b1870845c9fbc4620f2c509b5418629497ef474e4e7b190ef606f70282ef11",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "0dd8945e2041b881a5cc27168ecfd5b00edaaf6e9ecf46db047af40744992834",
+  "native_contract": "Native 96x96, anchor bottom-centre (48,96).",
+  "notes_sha256": "a623e751e96ccc8c2ccba955bf8d307d775d7f389f9b326675a21004484e2e41",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "18ece3093fe41d55de92c0982ea946fab8f19ca99cc10a9ca3a4f974f57244c8",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.moon/v01/source-sheet.png",
+  "source_sha256": "a1dd8e8a4bc2f31e4ef8e12adefe5be03e5c6b3d93b8c83fb3021417ff040493"
+}

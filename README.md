@@ -31,6 +31,38 @@ cd angelX
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
+## New in 0.2.5
+
+angelX opens in its own window. Whatever the agent shows (a picture, a video
+with its sound, a page, a chart, a 3D model) opens full size in a clear panel
+above the work, and the Delve goes back to the black dungeon.
+[Release notes](docs/RELEASE_0.2.5.md).
+
+![The showcase over the cockpit: Knight Shift playing in a clear glass panel, a squire seated on its roof](docs/images/release-0.2.5.png)
+
+**Glass.** On a desktop `angelX` opens in a GPU window of its own, drawn by
+angelX with Vulkan on Linux and Metal on macOS, from a launcher or a terminal;
+`--term` keeps it in the terminal, and where no window can open it stays there
+and says why.
+
+**The showcase.** Pictures zoom and pan, video plays with sound and seeks,
+pages scroll, data becomes a chart and models turn on a lit turntable. A squire
+of the serving house kicks the panel open and rides on its roof; the wizard
+brings the charts and points out their values. [How it works](docs/SHOWCASE.md).
+
+![The wizard points his staff at a point of a chart: its tip reads step 4, loss 1.31](docs/images/showcase/wizard-chart.png)
+
+**The black dungeon.** Dark floors lit by fire and doors, 3D from the fourth
+floor down, three wishes a delve held in check, guardians in stages, a map, a
+party of six, the Peasant and the Bard, the Swamp of Horrors and five Round
+Table adventures: Lanternward, Moonfall, Bannerpeak, Griffinwing and
+Lightgallop.
+
+![The first floor of the Mines in the window: the party band above, the skills bar and map below, the floor lit only by its braziers](docs/images/delve/black-dungeon.png)
+
+**`/dig`.** A cartridge (Linux x86_64) that finds files by what they show or
+say, on this machine. See [Cartridges](docs/CARTRIDGES.md).
+
 ## New in 0.2.4
 
 Connecting a model is one menu with a recruit to show the way. The Delve and

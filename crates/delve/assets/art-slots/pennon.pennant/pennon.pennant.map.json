@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    48
+  ],
+  "anchor_xy": [
+    16,
+    24
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Decorative; no new cover or hazard. Keep breach lips and captain banner distinguishable.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "3a649d90d233b2e3679f86c63093316d3f44053566a552f5f25f0189de24d3c5",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Complete calm pennant with split ochre and cream tails.",
+      "name": "pennant",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        97.0,
+        181.5
+      ],
+      "source_rect_xywh": [
+        54,
+        34,
+        194,
+        363
+      ],
+      "state": "pennant"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Complete flag, light rightward wind.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.5,
+        172.0
+      ],
+      "source_rect_xywh": [
+        357,
+        54,
+        241,
+        344
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Complete flag, stronger rightward wind.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        142.5,
+        172.0
+      ],
+      "source_rect_xywh": [
+        669,
+        53,
+        285,
+        344
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Complete flag, slack narrow cloth.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        86.5,
+        164.5
+      ],
+      "source_rect_xywh": [
+        1007,
+        69,
+        173,
+        329
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Detached split cloth, calm.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.5,
+        116.5
+      ],
+      "source_rect_xywh": [
+        61,
+        530,
+        211,
+        233
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Detached mast with finial and ferrules.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        40.5,
+        170.5
+      ],
+      "source_rect_xywh": [
+        429,
+        449,
+        81,
+        341
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Standalone iron socket/bracket.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        67.5,
+        74.5
+      ],
+      "source_rect_xywh": [
+        684,
+        602,
+        135,
+        149
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Detached split cloth in a wind shape.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        91.0
+      ],
+      "source_rect_xywh": [
+        966,
+        547,
+        247,
+        182
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Complete pennant, slight opposite-side angle.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        177.5
+      ],
+      "source_rect_xywh": [
+        58,
+        838,
+        244,
+        355
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Complete pennant from the other side; construction still reads as a fixed asymmetric design.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        171.0
+      ],
+      "source_rect_xywh": [
+        354,
+        842,
+        229,
+        342
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Used pennant with patches and a slight mast bend.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        183.5
+      ],
+      "source_rect_xywh": [
+        674,
+        830,
+        261,
+        367
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Enlarged tie/loop attachment reference with short cloth edge and mast segment.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        99.0,
+        102.0
+      ],
+      "source_rect_xywh": [
+        1013,
+        905,
+        198,
+        204
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d748 at y=FLOOR\u221248; lower edge is the mount plane, anchor convention (0,48), exact mast socket unknown.",
+  "sizes": {
+    "v1": [
+      32,
+      48
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "pennon.pennant",
+  "source_sha256": "0320d90bf795a4fce075ffee8c20d7f8d8575dbc178ca1ad2f96509eb1fb4ff0",
+  "timing": "Static at world x=36/302/576/856/1172 (backdrop())."
+}

@@ -1,0 +1,105 @@
+set hedge-maze
+# The Hedge of Grievances: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the acorn (18,11).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 10
+box    hedge   at 88 -4 8 size 176 28 16
+
+# the north wall, columns 13 to 23
+box    hedge   at 296 -4 8 size 176 28 16
+
+# the south wall, columns 0 to 10
+box    hedge   at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    hedge   at 88 -4 220 size 176 13.6 8
+
+# the south wall, columns 13 to 23
+box    hedge   at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    hedge   at 296 -4 220 size 176 13.6 8
+
+# the west wall, rows 1 to 5
+box    hedge   at 8 -4 56 size 16 28 80
+
+# the west wall, rows 8 to 12 (at 24% of its height, for the camera)
+box    hedge   at 8 -4 144 size 16 9.5 32  # TODO prims: wedge
+box    hedge   at 8 -4 184 size 16 28 48
+
+# the east wall, rows 1 to 5
+box    hedge   at 376 -4 56 size 16 28 80
+
+# the east wall, rows 8 to 12 (at 24% of its height, for the camera)
+box    hedge   at 376 -4 144 size 16 9.5 32  # TODO prims: wedge
+box    hedge   at 376 -4 184 size 16 28 48
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 18 3  # TODO prims: fence
+
+# the east door, rows 6 to 7
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 18 3  # TODO prims: fence
+
+# hedge at 6,2 1x4 (at 57% of its height, for the camera)
+box    hedge   at 104 0 64 size 14 7.5 62 id hedge-1
+
+# hedge at 6,8 1x4 (at 64% of its height, for the camera)
+box    hedge   at 104 0 160 size 14 8.5 62 id hedge-2
+
+# hedge at 12,4 1x3 (at 46% of its height, for the camera)
+box    hedge   at 200 0 88 size 14 6 46 id hedge-3
+
+# hedge at 12,9 1x3 (at 49% of its height, for the camera)
+box    hedge   at 200 0 168 size 14 6.5 46 id hedge-4
+
+# hedge at 15,8 6x1 (at 46% of its height, for the camera)
+box    hedge   at 288 0 136 size 94 6 14 id hedge-5
+
+# landmark (assets/world3d/hedge-maze/landmark.set, hand-placed)
+# The Hedge of Grievances: the clerk's belvedere tower rising out of the hedge, a clipped archway at the north gate and topiary along the top.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the belvedere tower, rising out of the hedge
+cylinder-12 stone   at 60 0 0 size 30 56 30 id lm-belvedere
+cylinder-12 wood    at 60 56 0 size 32 3 32
+cone-10 slate   at 60 59 0 size 34 18 34
+cylinder-6 metal   at 60 77 0 size 2 8 2
+box    plaster at 66 80 0 size 12 5 1
+# the clipped arch over the north gate, with a ball on top
+arch-12 hedge   at 192 0 -8 size 72 54 16 id lm-hedge-arch
+sphere-10 hedge   at 192 54 -8 size 18 18 14
+# topiary on the hedge's top
+cone-8 hedge   at 120 40 8 size 18 28 18
+sphere-10 hedge   at 150 40 8 size 18 22 18
+cone-8 hedge   at 236 40 8 size 18 28 18
+sphere-10 hedge   at 266 40 8 size 18 22 18
+cone-8 hedge   at 296 40 8 size 18 28 18
+sphere-10 hedge   at 326 40 8 size 18 22 18

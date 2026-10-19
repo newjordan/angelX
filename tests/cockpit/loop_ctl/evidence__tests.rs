@@ -564,6 +564,39 @@ fn says_done_is_tolerant_but_anchored() {
     assert!(!says_done("not finished yet"));
 }
 
+/// Only a note that asks the run itself to wrap up or stop may let a done
+/// claim end a loop with no acceptance command. The notes on the mlx, cuda
+/// and sig loops of 2026-10-15 asked for nothing of the kind.
+#[test]
+fn only_a_wrap_up_note_lets_a_done_claim_end_the_run() {
+    for note in [
+        "get a submission in and wrap up",
+        "ok wrap it up",
+        "wrap-up time",
+        "stop",
+        "ok stop now",
+        "submit what you have, then stop.",
+        "stop the loop after this one",
+        "stop looping",
+        "end the run",
+        "Stop here please",
+    ] {
+        assert!(asks_wrap_up(note), "{note}");
+    }
+    for note in [
+        "you can rent a cheap rig on vast for a little while so you dont have conflict",
+        "from operator: stop the S5247 research and stop probe submissions",
+        "don't stop until the frontier moves",
+        "never stop",
+        "Sweep intermediate DFlash depths. whatever he did here to hit a 100% increase, find it for the mlx.",
+        "the stop condition in the kernel is wrong",
+        "wrap the kernel in a guard",
+        "",
+    ] {
+        assert!(!asks_wrap_up(note), "{note}");
+    }
+}
+
 /// A restated plan is not progress. Sol restated the same "submit + delegate
 /// a moonshot" plan five consecutive turns (overwatch 2026-09-25) while
 /// churning the workspace, so `workspace_changed`/novel receipts kept

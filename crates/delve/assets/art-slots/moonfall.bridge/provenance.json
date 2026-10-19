@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.bridge/v01",
+  "delivery_status": "Accepted with cleanup by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): the re-run is kept; five distinct steps (flat, 25, 50, 75 degrees, upright); the first three cells taper toward the far end (a trapezoid) although the stage's tiles are square; five drawings on a 3x2 grid, the sixth cell empty.",
+  "generation_sha256": "f203c1bc2ba151fc3d057c725b530c892a30d14e633d4c743ffeab97f6a50a6c",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "5496fbdd9586318b4cf1759a962b173eadece7bc0e35ee3ae080f9051e3ac03b",
+  "native_contract": "Native 56x36, anchor bottom-centre (28,36).",
+  "notes_sha256": "c1e658fa30644d907d5c924cb2a7765df3187851dc22e76a7d13e4dfe486445b",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "5086f25cb2c003f66aba74865fb5c2c45d45ea9c76cdfba6b6c8fbe16a00cb32",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 2)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bridge/v01/source-sheet.png",
+  "source_sha256": "297603081f0237f4d36b888e43e447cdfa69dbf905fef4701ae48e8278c2a2c8"
+}

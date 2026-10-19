@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "56fda07b37d7d503836366de8bd55e2baff0293b0f1271377d77d0fa6415fc97",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door barred: front-facing eye-framed doorway with iron bars.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.5,
+        257
+      ],
+      "source_rect_xywh": [
+        43,
+        122,
+        247,
+        257
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door open: dark passage with faint teal illumination.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        124.0,
+        258
+      ],
+      "source_rect_xywh": [
+        356,
+        122,
+        248,
+        258
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door half-open: front-facing doorway with partially moved bars.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        125.0,
+        258
+      ],
+      "source_rect_xywh": [
+        652,
+        122,
+        250,
+        258
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-wall side door barred: oblique wall segment with visible bars.",
+      "name": "side-left-barred",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        112.0,
+        279
+      ],
+      "source_rect_xywh": [
+        979,
+        122,
+        224,
+        279
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-wall side door open: oblique open passage.",
+      "name": "side-left-open",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        287
+      ],
+      "source_rect_xywh": [
+        64,
+        495,
+        234,
+        287
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-wall side door barred: oblique wall segment with visible bars.",
+      "name": "side-right-barred",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        289
+      ],
+      "source_rect_xywh": [
+        347,
+        495,
+        234,
+        289
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-wall side door open: oblique open passage.",
+      "name": "side-right-open",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        289
+      ],
+      "source_rect_xywh": [
+        675,
+        495,
+        235,
+        289
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down: stairway receding into dark.",
+      "name": "stairs-down",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        267
+      ],
+      "source_rect_xywh": [
+        968,
+        512,
+        243,
+        267
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs up: ascending stairway; visually similar to the descending stairs, direction is not strongly distinguished.",
+      "name": "stairs-up",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        239
+      ],
+      "source_rect_xywh": [
+        50,
+        901,
+        231,
+        239
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Boss door: larger ornate barred cyclopean doorway.",
+      "name": "boss",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        285
+      ],
+      "source_rect_xywh": [
+        342,
+        857,
+        269,
+        285
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Treasure alcove: empty dark recess.",
+      "name": "alcove",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        247
+      ],
+      "source_rect_xywh": [
+        664,
+        896,
+        244,
+        247
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Locked seal: teal eye-like seal integrated into masonry.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.0,
+        254
+      ],
+      "source_rect_xywh": [
+        977,
+        889,
+        226,
+        254
+      ],
+      "state": "gate"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.gate.unknown",
+  "source_sha256": "469ed5db97ee1bab6310c25c8cd76d4acff63fc7976e08fe07520c3b3e164bd8",
+  "timing": ""
+}

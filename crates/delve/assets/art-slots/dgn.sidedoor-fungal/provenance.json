@@ -1,0 +1,19 @@
+{
+  "delivery": "dgn.sidedoor.fungal.vertical-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "ddb26fd08c18f2bb879de004681ed04f9ee2ae01affdb7e3901ee4649650f9ba",
+  "native_contract": {
+    "v1": [
+      16,
+      32
+    ],
+    "v2": [
+      32,
+      64
+    ]
+  },
+  "prepared_sha256": "26e7376adfff793eba24228825926279afe133f7e63ba0d8d1bd4449ea9bb411",
+  "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
+  "source_path": "/work/artifacts/art-prod/slots/dgn.sidedoor.fungal.vertical-1/v01/source-sheet.png",
+  "source_sha256": "a5e322021c8f4e818db02d704deae2b723b995901efae86215d216d2aaa9e4aa"
+}

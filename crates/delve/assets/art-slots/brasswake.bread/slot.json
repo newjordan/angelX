@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3442
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3486
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3423
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4456
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3291
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7924
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 13337
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4671
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3580
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4038
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3319
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3647
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "f322aec19302d6fb1414632fb46226eaf2a8c86c9560e050d8499c7063f6af5c",
+  "metadata_sha256": "395cf82a2c0899e2e244502b5eff1c295a32cc42f9e9360efe0b94ce4462c7d1",
+  "notes_sha256": "39702646c4dc23640d1c3c4b6d8d5599d7d138d3dd7b34c27bc8cd0fc661c42b",
+  "outputs": {
+    "v1/bread.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 239,
+      "piece": 0,
+      "sha256": "132acd73c830f453c08b438f349398aba9b68725572600d6944321c578ed9045",
+      "source_scale": 0.10714285714285714,
+      "state": "bread"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 236,
+      "piece": 1,
+      "sha256": "fdb32b85728edadbaf1c69f2af04d5931fe7ec1453da9a7680bb2b03c3ceb027",
+      "source_scale": 0.10300429184549356,
+      "state": "slightly-raised-idle-bob"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 20,
+      "opaque_pixels": 245,
+      "piece": 2,
+      "sha256": "d2fe96cce121fd7cce9a1c6ba1c6572ee57cae7438f024f472eb9f94f432734e",
+      "source_scale": 0.10526315789473684,
+      "state": "slightly-lowered-idle-bob"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 238,
+      "piece": 3,
+      "sha256": "84abce397ad36390fe3cac0047ced06733ab1a4a5c7f8ea1667e8140c2910dff",
+      "source_scale": 0.10434782608695652,
+      "state": "return-idle-pose-with-a-tiny-tilt"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 223,
+      "piece": 4,
+      "sha256": "431176a17814b3306963aa67f3789cc922279379c2fc87ec7dbfd6d926283fce",
+      "source_scale": 0.1085972850678733,
+      "state": "collection-begins-with-the-loaf-still-readable-and-intact"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 286,
+      "piece": 5,
+      "sha256": "3c122e27c121f26b1dc657e527473d602784533fdecf90f3d8977c9bb4831bcf",
+      "source_scale": 0.1095890410958904,
+      "state": "loaf-with-warm-crumb-fragments-lifting-from-its-top-edge"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 12,
+      "opaque_pixels": 98,
+      "piece": 6,
+      "sha256": "027666d18f316ccf2ad2b98c256aae18b672aaa03ec880f1fc6c7d27fc3b9179",
+      "source_scale": 0.10434782608695652,
+      "state": "loaf-breaks-into-a-compact-cluster-of-bread-pieces"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 57,
+      "piece": 7,
+      "sha256": "139cc8aa5862ff44bd3e4d741db810fabf7a0dcda9b236c17f579e86a892c856",
+      "source_scale": 0.15789473684210525,
+      "state": "final-compact-crumb-burst-with-the-loaf-gone"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 20,
+      "opaque_pixels": 263,
+      "piece": 8,
+      "sha256": "fad82cf050c5d74b545223a8052b78a8a737b495a69c4b19d501d59e5712010b",
+      "source_scale": 0.100418410041841,
+      "state": "variant-with-a-broad-deeper-split"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 241,
+      "piece": 9,
+      "sha256": "bb6d3e17d3381811cd927e929b2bfa2cd82d0a98ff47497ec08fab5742ea5df9",
+      "source_scale": 0.09917355371900827,
+      "state": "rustic-variant-with-uneven-crust-and-a-more-visible-split"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 295,
+      "piece": 10,
+      "sha256": "29507eef89b9f833e55f705140f4877bc4580a2d69650e3bed314653aba02cf0",
+      "source_scale": 0.10526315789473684,
+      "state": "rounder-brewery-loaf-variant"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 206,
+      "piece": 11,
+      "sha256": "4ba9839d80319208e172783821ef77279383ba12374da716deca0fe252aa3f03",
+      "source_scale": 0.09230769230769231,
+      "state": "longer-loaf-variant"
+    },
+    "v2/bread.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 239,
+      "piece": 0,
+      "sha256": "132acd73c830f453c08b438f349398aba9b68725572600d6944321c578ed9045",
+      "source_scale": 0.10714285714285714,
+      "state": "bread"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 236,
+      "piece": 1,
+      "sha256": "fdb32b85728edadbaf1c69f2af04d5931fe7ec1453da9a7680bb2b03c3ceb027",
+      "source_scale": 0.10300429184549356,
+      "state": "slightly-raised-idle-bob"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 20,
+      "opaque_pixels": 245,
+      "piece": 2,
+      "sha256": "d2fe96cce121fd7cce9a1c6ba1c6572ee57cae7438f024f472eb9f94f432734e",
+      "source_scale": 0.10526315789473684,
+      "state": "slightly-lowered-idle-bob"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 238,
+      "piece": 3,
+      "sha256": "84abce397ad36390fe3cac0047ced06733ab1a4a5c7f8ea1667e8140c2910dff",
+      "source_scale": 0.10434782608695652,
+      "state": "return-idle-pose-with-a-tiny-tilt"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 223,
+      "piece": 4,
+      "sha256": "431176a17814b3306963aa67f3789cc922279379c2fc87ec7dbfd6d926283fce",
+      "source_scale": 0.1085972850678733,
+      "state": "collection-begins-with-the-loaf-still-readable-and-intact"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 286,
+      "piece": 5,
+      "sha256": "3c122e27c121f26b1dc657e527473d602784533fdecf90f3d8977c9bb4831bcf",
+      "source_scale": 0.1095890410958904,
+      "state": "loaf-with-warm-crumb-fragments-lifting-from-its-top-edge"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 12,
+      "opaque_pixels": 98,
+      "piece": 6,
+      "sha256": "027666d18f316ccf2ad2b98c256aae18b672aaa03ec880f1fc6c7d27fc3b9179",
+      "source_scale": 0.10434782608695652,
+      "state": "loaf-breaks-into-a-compact-cluster-of-bread-pieces"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 57,
+      "piece": 7,
+      "sha256": "139cc8aa5862ff44bd3e4d741db810fabf7a0dcda9b236c17f579e86a892c856",
+      "source_scale": 0.15789473684210525,
+      "state": "final-compact-crumb-burst-with-the-loaf-gone"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 20,
+      "opaque_pixels": 263,
+      "piece": 8,
+      "sha256": "fad82cf050c5d74b545223a8052b78a8a737b495a69c4b19d501d59e5712010b",
+      "source_scale": 0.100418410041841,
+      "state": "variant-with-a-broad-deeper-split"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 241,
+      "piece": 9,
+      "sha256": "bb6d3e17d3381811cd927e929b2bfa2cd82d0a98ff47497ec08fab5742ea5df9",
+      "source_scale": 0.09917355371900827,
+      "state": "rustic-variant-with-uneven-crust-and-a-more-visible-split"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 295,
+      "piece": 10,
+      "sha256": "29507eef89b9f833e55f705140f4877bc4580a2d69650e3bed314653aba02cf0",
+      "source_scale": 0.10526315789473684,
+      "state": "rounder-brewery-loaf-variant"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 206,
+      "piece": 11,
+      "sha256": "4ba9839d80319208e172783821ef77279383ba12374da716deca0fe252aa3f03",
+      "source_scale": 0.09230769230769231,
+      "state": "longer-loaf-variant"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "brasswake.bread",
+  "source_path": "/work/artifacts/art-prod/slots/brasswake.bread/v01/source-sheet.png",
+  "source_sha256": "cca9b962b91a5a209c3a7ba6a1d2116e61dcaf0c8bed87f976275a82ab60c5ba",
+  "tool_version": 2
+}

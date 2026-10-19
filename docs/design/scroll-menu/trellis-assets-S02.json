@@ -1,0 +1,60 @@
+{
+  "id": "scroll-menu-S02-trellis-assets",
+  "hypothesis": "A locally TRELLIS-generated roller/endcap mesh, exported as a bounded runtime asset and animated by released-paper length/radius, improves dimensional material presentation without losing native text, input correctness, or workspace preservation.",
+  "control": "S01 procedural 192-strip paper and banded procedural rollers",
+  "candidate": "TRELLIS-generated rigid roller/endcap assets with deformable procedural paper and native atlas text",
+  "ablation": "Procedural fallback and reduced/off-motion mode",
+  "deliverables": [
+    "source reference image",
+    "raw TRELLIS GLB",
+    "bounded runtime mesh/material export",
+    "generation identities and attempt logs",
+    "animated GPU preview",
+    "targeted regression results"
+  ],
+  "metrics": [
+    "export has finite vertices and in-range triangle indices",
+    "runtime asset is bounded",
+    "roller rotation remains travel/radius",
+    "native menu/input regressions pass",
+    "GPU preview opens and closes successfully",
+    "visual quality only approved by real review, not inferred from a successful export"
+  ],
+  "budget": {
+    "local_generation_attempts_max": 3,
+    "resolution": 512,
+    "target_triangles": 8000,
+    "texture_size": 1024,
+    "seed": 27017,
+    "paid_jobs": 0,
+    "new_packages_or_dependencies": 0,
+    "source_triangle_budget": 10000,
+    "source_triangle_note": "Installed worker minimum is 10000; bounded runtime export targeted separately."
+  },
+  "stop_rules": [
+    "Do not stop or displace unrelated running models",
+    "Do not install packages or download models without operator approval",
+    "Stop if installed TRELLIS service/weights cannot run with available resources",
+    "Retain failed attempts and raw assets",
+    "Do not substitute procedural geometry and label it TRELLIS",
+    "Do not resume game work",
+    "Do not claim human visual approval or performance improvement without measurements"
+  ],
+  "scope": "Setup scroll presentation only; preserve unrelated dirty workspace edits. Engineering candidate, not independently audited promotion or leadership evidence.",
+  "registered_utc": "2026-10-17T04:59:58.689978+00:00",
+  "baseline_head": "fbc41b8108a6cb2bbb27dc4df394ba3d8cb6c05f",
+  "reference": {
+    "source": "cockpit/assets/onboarding/setup/scroll.png",
+    "source_sha256": "1009e90450dcf147c03cafcb386f1cd21fcf3ccf2e4c7b33106f837de4e736c1",
+    "operation": "crop authored left 12.5% roller; crop alpha>64 bounds; rotate 90deg; center on transparent 768x512; no image synthesis",
+    "crop": [
+      0,
+      0,
+      59,
+      243
+    ],
+    "output": "cockpit/assets/onboarding/setup/trellis/roller-reference.png",
+    "output_sha256": "0b6969be5710fe92f5376abd57d2229f0e1d0631060784c65f462580a5b0c152"
+  },
+  "model_route": "local trellis.cpp v0.4.3 / pinned microsoft/TRELLIS.2-4B GGUF"
+}

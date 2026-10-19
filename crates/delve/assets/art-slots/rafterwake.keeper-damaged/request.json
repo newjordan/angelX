@@ -1,0 +1,15 @@
+{
+  "fit": "64x80",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damage-action"
+    }
+  ],
+  "game": "rafterwake",
+  "geometry": "Sweep Danger=(16,TOP\u221219,216,19); drop=(clamp(player x\u221224,8,192),TOP\u2212100,48,100). Danger::contains uses x left-inclusive/right-exclusive and y top-exclusive/bottom-inclusive. Bump requires rising knight y in [TOP\u221260,TOP\u221222], |x\u2212keeper x|<40 and not Tell.",
+  "id": "rafterwake.keeper-damaged",
+  "role": "boss",
+  "timing": "Twelve base poses plus four-stage tells per attack; 2 walk frames\u00d77 ticks. Starts Walk=45; tell=33/29/25, action=10, rest=48/40/32 then Walk=30. Recovery pose when rest ticks<12. Flinch=12, player bump cooldown=24; hp stage 6\u20135/4\u20133/2\u20131 (Keeper::step/stage, Lane::step_at, draw())."
+}

@@ -262,7 +262,7 @@ pub(super) fn plates(cv: &mut Img, run: &Run) {
         let w = text_width(text) + 6;
         let mut plate = Img::new(w + 1, 12);
         chrome::panel(&mut plate, (0, 0, w, 11), chrome::Tone::SLATE.rimmed(chrome::COLD_RIM));
-        plate.text(3, 2, text, if s.gift == Gift::Clown { '7' } else { '6' });
+        plate.text(3, 2, text, if s.gift == Gift::Clown { '7' } else { 'O' });
         cv.stamp(&plate, x - w / 2, y - 32);
     }
 }

@@ -22,6 +22,9 @@ fn fight() -> Run {
         .unwrap();
     run.enter_for_test(fight);
     run.calm_for_test();
+    // Gas still harms monsters while their movement is held. This fixture
+    // isolates seat presence from the room's environmental damage.
+    run.works.perils.clear();
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     for (i, kind) in [EnemyKind::Skeleton, EnemyKind::Imp, EnemyKind::Bat, EnemyKind::Flesher]
         .into_iter()

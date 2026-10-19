@@ -1,0 +1,189 @@
+set goose-green
+# Sir Honks-a-Lot Picnic Green: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: flowers along row 3, signs, the goose and the sail.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 104 size 32 4 208
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 96 -4 112 size 160 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 192 -4 216 size 352 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 11 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 11 6 8 size 20 19 16
+box    trunk   at 22 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 22 7 8 size 20 17 16
+box    trunk   at 42 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 42 8 8 size 19 16 16
+box    trunk   at 53 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 53 7 8 size 20 19 16
+box    trunk   at 73 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 73 6 8 size 19 19 16
+box    trunk   at 91 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 91 8 8 size 18 16 16
+box    trunk   at 105 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 105 6 8 size 19 19 16
+box    trunk   at 122 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 122 9 8 size 19 19 16
+box    trunk   at 138 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 138 6 8 size 19 17 16
+box    trunk   at 154 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 154 9 8 size 18 18 16
+box    trunk   at 166 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 166 6 8 size 20 16 16
+sphere foliage at 6 0 -9 size 28 36 18
+sphere foliage at 20 0 -9 size 22 35 18
+sphere foliage at 39 0 -9 size 25 32 18
+sphere foliage at 53 0 -9 size 26 30 18
+sphere foliage at 74 0 -9 size 26 32 18
+sphere foliage at 87 0 -9 size 29 31 18
+sphere foliage at 107 0 -9 size 26 36 18
+sphere foliage at 121 0 -9 size 26 37 18
+sphere foliage at 135 0 -9 size 25 31 18
+sphere foliage at 150 0 -9 size 22 32 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 217 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 217 7 8 size 18 17 16
+box    trunk   at 233 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 233 9 8 size 19 19 16
+box    trunk   at 247 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 247 9 8 size 20 19 16
+box    trunk   at 263 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 263 6 8 size 19 19 16
+box    trunk   at 280 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 280 9 8 size 19 17 16
+box    trunk   at 293 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 293 9 8 size 20 17 16
+box    trunk   at 311 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 311 9 8 size 20 17 16
+box    trunk   at 329 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 329 6 8 size 21 19 16
+box    trunk   at 347 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 347 7 8 size 19 18 16
+box    trunk   at 361 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 361 6 8 size 20 17 16
+box    trunk   at 373.5 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 373.5 7 8 size 21 19 16
+sphere foliage at 231 0 -9 size 28 30 18
+sphere foliage at 246 0 -9 size 29 31 18
+sphere foliage at 268 0 -9 size 25 32 18
+sphere foliage at 277 0 -9 size 27 35 18
+sphere foliage at 293 0 -9 size 22 37 18
+sphere foliage at 311 0 -9 size 25 37 18
+sphere foliage at 327 0 -9 size 25 35 18
+sphere foliage at 348 0 -9 size 24 35 18
+sphere foliage at 358 0 -9 size 23 37 18
+sphere foliage at 377 0 -9 size 29 35 18
+
+# the south wall, columns 0 to 23
+box    foliage at 192 -4 212 size 384 8 8  # TODO prims: wedge
+box    foliage at 192 -4 220 size 384 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 12
+box    foliage at 8 -4 112 size 16 9 192  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 26 size 16 18 20
+box    trunk   at 8 0 37 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 37 size 16 18 19
+box    trunk   at 8 0 53 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 53 size 16 18 18
+box    trunk   at 8 0 74 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 74 size 16 19 21
+box    trunk   at 8 0 85 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 85 size 16 19 18
+box    trunk   at 8 0 105 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 105 size 16 19 19
+box    trunk   at 8 0 123 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 123 size 16 19 20
+box    trunk   at 8 0 135 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 135 size 16 19 20
+box    trunk   at 8 0 154 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 154 size 16 18 20
+box    trunk   at 8 0 169 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 169 size 16 19 18
+box    trunk   at 8 0 187 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 187 size 16 19 18
+box    trunk   at 8 0 198 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 198 size 16 19 20
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 26 size 16 16 20
+box    trunk   at 376 0 42 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 42 size 16 18 18
+box    trunk   at 376 0 57 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 57 size 16 18 20
+box    trunk   at 376 0 75 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 75 size 16 18 19
+box    trunk   at 376 0 85.5 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 85.5 size 16 19 21
+
+# the east wall, rows 8 to 12 (at 48% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137.5 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 376 4 137.5 size 16 8 19
+box    trunk   at 376 0 155 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 155 size 16 18 19
+box    trunk   at 376 0 171 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 171 size 16 17 18
+box    trunk   at 376 0 186 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 186 size 16 18 21
+box    trunk   at 376 0 198 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 198 size 16 19 18
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# tent at 3,2 5x2 (at 61% of its height, for the camera)
+box    cloth   at 88 0 48 size 78 5 30 id tent
+cone   cloth   at 88 5 48 size 80 7.5 32  # TODO prims: pyramid
+box    door    at 88 0 63 size 6 4 1
+
+# hedge at 15,2 6x2 (at 42% of its height, for the camera)
+box    hedge   at 288 0 48 size 94 5.5 30 id hedge
+
+# cottage at 7,10 3x2 (at 53% of its height, for the camera)
+box    wood    at 136 0 181 size 42 9.5 18 id cottage
+box    thatch  at 136 9.5 181 size 44 6 20  # TODO prims: gable
+box    door    at 136 0 190.5 size 8 6 1
+
+# landmark (assets/world3d/goose-green/landmark.set, hand-placed)
+# Sir Honks-a-Lot Picnic Green: the great goose in stone and plaster beside the north gate, topiary behind the long hedge, the marquee raised into a tall striped pavilion.
+# the goose statue on its plinth: body, tail, neck, head and beak
+box    stone   at 236 0 8 size 34 18 16
+sphere plaster at 236 18 8 size 38 24 15
+wedge  plaster at 216 28 8 size 14 10 10
+cylinder-8 plaster at 248 38 8 size 10 28 10
+sphere plaster at 250 64 8 size 16 12 12
+wedge  wood    at 260 68 8 size 10 4 6 turn -90
+# topiary behind the long hedge
+sphere hedge   at 258 0 8 size 26 56 16
+cone-8 hedge   at 290 0 8 size 24 68 16
+sphere hedge   at 322 0 8 size 26 52 16
+# the marquee: a centre mast, a tall striped roof, a pole and pennant
+box    wood    at 88 0 48 size 3 38 3
+pyramid cloth  at 88 38 48 size 88 22 36
+box    wood    at 88 60 48 size 3 14 3
+wedge  cloth   at 88 66 48 size 16 8 2

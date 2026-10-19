@@ -1,0 +1,30 @@
+# Powder Keg Yard: a thick-walled powder magazine with its lightning rod over the north wall, and kegs stacked on the north tiers.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the powder magazine, rising over the north wall in the west
+box    stone   at 52 0 0 size 64 62 28 id lm-magazine
+hip    slate   at 52 62 0 size 72 14 30
+cylinder-8 metal   at 52 76 0 size 2.5 8 2.5 id lm-rod
+box    door    at 52 0 14.2 size 16 26 2
+box    metal   at 34 52 14.2 size 7 8 1.5
+box    metal   at 70 52 14.2 size 7 8 1.5
+# kegs stacked in threes on the north tiers, standing on the top tier
+cylinder-10 wood    at 140 9 20.5 size 9 9 9
+cylinder-10 wood    at 150 9 20.5 size 9 9 9
+cylinder-10 wood    at 160 9 20.5 size 9 9 9
+cylinder-10 wood    at 145 18 20.5 size 9 9 9
+cylinder-10 wood    at 155 18 20.5 size 9 9 9
+cylinder-10 wood    at 150 27 20.5 size 9 9 9
+cylinder-10 wood    at 220 9 20.5 size 9 9 9
+cylinder-10 wood    at 230 9 20.5 size 9 9 9
+cylinder-10 wood    at 240 9 20.5 size 9 9 9
+cylinder-10 wood    at 225 18 20.5 size 9 9 9
+cylinder-10 wood    at 235 18 20.5 size 9 9 9
+cylinder-10 wood    at 230 27 20.5 size 9 9 9
+cylinder-10 wood    at 300 9 20.5 size 9 9 9
+cylinder-10 wood    at 310 9 20.5 size 9 9 9
+cylinder-10 wood    at 320 9 20.5 size 9 9 9
+cylinder-10 wood    at 305 18 20.5 size 9 9 9
+cylinder-10 wood    at 315 18 20.5 size 9 9 9
+cylinder-10 wood    at 310 27 20.5 size 9 9 9

@@ -11,7 +11,7 @@ fn hippodrome_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         assert!(r.valid_snapshot());
         for draw in [super::pastimes::boards as fn(&mut Img,&Run),super::countryside::boards,super::world::boards] {
             let mut board=Img::new(r.room().cols as i32*TILE,r.room().rows as i32*TILE);
-            draw(&mut board,r);let before=board.clone();tray::corner(&mut board,r,None);
+            draw(&mut board,r);let before=board.clone();tray::corner(&mut board, r, None, false);
             for y in 0..board.h {for x in 0..board.w {if before.get(x,y).is_some(){assert_eq!(board.get(x,y),before.get(x,y),"{:?} board overlaps HUD at {x},{y}",r.room().kind);}}}
         }
     };

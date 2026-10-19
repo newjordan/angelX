@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "status": "temporary geometric placeholders; art team owns final design",
+  "style": "a bare-chested, barefoot deserter peasant in brown shorts, Metal Slug-era arcade style, our dark colours",
+  "knight": {
+    "asset_id": "peasant-body",
+    "native_canvas_wh": [
+      20,
+      16
+    ],
+    "anchor_xy": [
+      10,
+      16
+    ],
+    "hit_radius_world": 0.42,
+    "facings": [
+      "front",
+      "right (mirror left)",
+      "back"
+    ],
+    "states": {
+      "idle": {
+        "frames": 1,
+        "ticks_per_frame": 30
+      },
+      "walk": {
+        "frames": 4,
+        "timing": "stride / 0.85 world units"
+      },
+      "throw": {
+        "frames": 3,
+        "ticks_per_frame": 4,
+        "duration_ticks": 12
+      },
+      "sprint": {
+        "frames": 4,
+        "ticks_per_frame": 3,
+        "duration_ticks": 60
+      },
+      "hit": {
+        "frames": 2,
+        "ticks_per_frame": 3
+      },
+      "defeat": {
+        "frames": 4,
+        "ticks_per_frame": 3
+      }
+    },
+    "views": [
+      {
+        "body": [
+          "................",
+          "......oooo......",
+          "......ottt......",
+          "......ottt......",
+          "......oooo......",
+          "....oottttoo....",
+          "....otttttto....",
+          "....otttttto....",
+          "....oottttoo....",
+          ".....OOOOOO.....",
+          ".....OOOOOO.....",
+          ".....OO..OO.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....oo..oo....."
+        ],
+        "item": {
+          "at": [
+            11,
+            8
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            6
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        }
+      },
+      {
+        "body": [
+          "................",
+          ".......oooo.....",
+          ".......ottt.....",
+          ".......ottt.....",
+          ".......oooo.....",
+          "....oottttoo....",
+          "....otttttto....",
+          "....otttttto....",
+          "....oottttoo....",
+          ".....OOOOOO.....",
+          ".....OOOOOO.....",
+          ".....OO..OO.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....oo..oo....."
+        ],
+        "item": {
+          "at": [
+            11,
+            8
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            6
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        }
+      },
+      {
+        "body": [
+          "................",
+          "......oooo......",
+          "......oooo......",
+          "......oooo......",
+          "......oooo......",
+          "....oottttoo....",
+          "....otttttto....",
+          "....otttttto....",
+          "....oottttoo....",
+          ".....OOOOOO.....",
+          ".....OOOOOO.....",
+          ".....OO..OO.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....ot..to.....",
+          ".....oo..oo....."
+        ],
+        "item": {
+          "at": [
+            11,
+            8
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            6
+          ],
+          "rows": [
+            "777",
+            "777"
+          ]
+        }
+      }
+    ]
+  },
+  "stone": {
+    "asset_id": "peasant-stone",
+    "native_canvas_wh": [
+      5,
+      5
+    ],
+    "anchor_xy": [
+      2,
+      2
+    ],
+    "states": {
+      "flight": {
+        "frames": 2,
+        "ticks_per_frame": 3,
+        "duration_ticks": 18
+      },
+      "impact": {
+        "frames": 3,
+        "ticks_per_frame": 2
+      }
+    },
+    "collision": "existing friendly swept shot; logical ground shadow, 10.8 world units of flight plus 0.6 muzzle; 1.5-unit visual apex",
+    "rows": [
+      ".777.",
+      "77777",
+      "77777",
+      ".777.",
+      "....."
+    ]
+  },
+  "decoy": {
+    "asset_id": "peasant-scarecrow",
+    "native_canvas_wh": [
+      20,
+      20
+    ],
+    "anchor_xy": [
+      10,
+      20
+    ],
+    "hit_radius_world": 0.6,
+    "states": {
+      "stand": {
+        "frames": 2,
+        "ticks_per_frame": 15,
+        "duration_ticks": 90
+      },
+      "collapse": {
+        "frames": 3,
+        "ticks_per_frame": 3,
+        "duration_ticks": 9
+      }
+    },
+    "rows": [
+      "....................",
+      "........4444........",
+      "........4..4........",
+      "........4444........",
+      "....OOOOOOOOOOOO....",
+      "....O..........O....",
+      "....OOOOOOOOOOOO....",
+      ".........OO.........",
+      ".........OO.........",
+      ".......OOOOOO.......",
+      ".......OO..OO.......",
+      ".......OO..OO.......",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO.........",
+      ".........OO........."
+    ],
+    "collapsed_rows": [
+      "............",
+      "..OOOOOOOO..",
+      "..O..OO..O..",
+      "..OOOOOOOO.."
+    ]
+  },
+  "dust": {
+    "asset_id": "peasant-sprint-dust",
+    "native_canvas_wh": [
+      9,
+      5
+    ],
+    "anchor_xy": [
+      4,
+      4
+    ],
+    "states": {
+      "sprint": {
+        "frames": 4,
+        "ticks_per_frame": 3,
+        "duration_ticks": 60
+      }
+    },
+    "collision": "none",
+    "rows": [
+      ".........",
+      "..OO.OO..",
+      "..O...O..",
+      "..OOOOO..",
+      "........."
+    ]
+  },
+  "sounds": {
+    "stone": "shot_spark",
+    "ultimate": "boss_rise",
+    "needed": [
+      "short dry stone release and impact",
+      "panicked barefoot sprint and dry scarecrow collapse"
+    ]
+  }
+}

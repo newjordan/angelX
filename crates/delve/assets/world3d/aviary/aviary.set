@@ -1,0 +1,214 @@
+set aviary
+# Pigeon Parliament: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: pigeons, three perches (9,4) (13,9.5) (8,11.5), the flight plate (19,10).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 104 size 32 4 208
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 192 -4 216 size 352 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 10.5 8 8 size 21 17 16
+box    trunk   at 24 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 24 7 8 size 20 16 16
+box    trunk   at 38 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 38 7 8 size 19 18 16
+box    trunk   at 56 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 56 7 8 size 18 17 16
+box    trunk   at 69 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 69 8 8 size 19 16 16
+box    trunk   at 89 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 89 8 8 size 19 17 16
+box    trunk   at 102 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 102 7 8 size 21 19 16
+box    trunk   at 123 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 123 9 8 size 21 16 16
+box    trunk   at 133 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 133 6 8 size 20 18 16
+box    trunk   at 151 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 151 9 8 size 18 18 16
+box    trunk   at 165.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 165.5 8 8 size 21 17 16
+sphere foliage at 7 0 -9 size 24 32 18
+sphere foliage at 24 0 -9 size 23 33 18
+sphere foliage at 37 0 -9 size 22 34 18
+sphere foliage at 59 0 -9 size 25 32 18
+sphere foliage at 75 0 -9 size 25 32 18
+sphere foliage at 91 0 -9 size 29 31 18
+sphere foliage at 100 0 -9 size 28 32 18
+sphere foliage at 119 0 -9 size 29 30 18
+sphere foliage at 136 0 -9 size 29 35 18
+sphere foliage at 156 0 -9 size 25 37 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 218.5 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 218.5 6 8 size 21 16 16
+box    trunk   at 231 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 231 7 8 size 21 17 16
+box    trunk   at 247 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 247 6 8 size 19 19 16
+box    trunk   at 267 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 267 6 8 size 18 16 16
+box    trunk   at 282 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 282 9 8 size 20 18 16
+box    trunk   at 293 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 293 9 8 size 18 18 16
+box    trunk   at 311 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 311 8 8 size 21 16 16
+box    trunk   at 325 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 325 9 8 size 21 18 16
+box    trunk   at 342 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 342 9 8 size 20 17 16
+box    trunk   at 362 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 362 7 8 size 18 19 16
+box    trunk   at 374 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 374 7 8 size 20 16 16
+sphere foliage at 236 0 -9 size 26 36 18
+sphere foliage at 252 0 -9 size 25 32 18
+sphere foliage at 267 0 -9 size 29 34 18
+sphere foliage at 278 0 -9 size 27 36 18
+sphere foliage at 295 0 -9 size 24 34 18
+sphere foliage at 311 0 -9 size 25 35 18
+sphere foliage at 330 0 -9 size 24 32 18
+sphere foliage at 340 0 -9 size 29 31 18
+sphere foliage at 363 0 -9 size 23 31 18
+sphere foliage at 374 0 -9 size 23 33 18
+
+# the south wall, columns 0 to 23
+box    foliage at 192 -4 212 size 384 8 8  # TODO prims: wedge
+box    foliage at 192 -4 220 size 384 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 26 size 16 18 20
+box    trunk   at 8 0 40 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 40 size 16 16 21
+box    trunk   at 8 0 54 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 54 size 16 19 21
+box    trunk   at 8 0 74 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 74 size 16 17 20
+box    trunk   at 8 0 85 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 85 size 16 18 21
+
+# the west wall, rows 8 to 12 (at 46% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 138 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 8 4 138 size 16 8.5 20
+box    trunk   at 8 0 152 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 8 6.5 152 size 16 18 20
+box    trunk   at 8 0 170 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 170 size 16 16 21
+box    trunk   at 8 0 181 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 181 size 16 19 21
+box    trunk   at 8 0 199 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 199 size 16 17 18
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 26 size 16 19 19
+box    trunk   at 376 0 41 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 41 size 16 19 20
+box    trunk   at 376 0 59 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 59 size 16 19 21
+box    trunk   at 376 0 74 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 74 size 16 17 18
+box    trunk   at 376 0 86 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 86 size 16 16 19
+
+# the east wall, rows 8 to 12 (at 56% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 3 137.5 size 16 9.5 19
+box    trunk   at 376 0 150 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 150 size 16 16.5 21
+box    trunk   at 376 0 166 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 166 size 16 19 21
+box    trunk   at 376 0 183 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 183 size 16 16 18
+box    trunk   at 376 0 199 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 199 size 16 17 18
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# cottage at 3,2 5x2 (at 44% of its height, for the camera)
+box    wood    at 88 0 53 size 74 8 18 id cottage
+box    roof    at 88 8 53 size 76 5 20  # TODO prims: gable
+box    door    at 88 0 62.5 size 8 5 1
+
+# site at 16,2 5x3
+box    wood    at 258 0 38 size 2 7 2
+box    wood    at 333 0 38 size 2 7 2
+box    wood    at 258 0 77 size 2 7 2
+box    wood    at 333 0 77 size 2 7 2
+box    cloth   at 295.5 5 38 size 75 1 1 id site  # TODO prims: fence
+box    cloth   at 295.5 5 77 size 75 1 1  # TODO prims: fence
+box    cloth   at 258 5 57.5 size 1 1 39  # TODO prims: fence
+box    cloth   at 333 5 57.5 size 1 1 39  # TODO prims: fence
+box    wood    at 271 0 71 size 16 3 6
+gem    rock    at 325 0 75 size 5 4 5  # TODO prims: rock
+gem    rock    at 328 0 72 size 5 4 5 turn 30  # TODO prims: rock
+gem    rock    at 331 0 75 size 5 4 5 turn 60  # TODO prims: rock
+
+# plate at 19,10 2x1
+box    wood    at 320 0 168 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# landmark (assets/world3d/aviary/landmark.set, hand-placed)
+# Pigeon Parliament: the dovecote clock tower, its holes and ledges lit with
+# pigeons' business, and the long parliament hall under tiles across the back,
+# a second tower at its end.
+box      wood    at 88 0 0 size 36 46 28 id aviary-dovecote
+pyramid  roof    at 88 46 0 size 46 26 38 id aviary-dovecote-roof
+box      metal   at 88 72 0 size 1.5 12 1.5 id aviary-vane
+box      door    at 76 12 14.3 size 4 4 1.6 id aviary-hole-1
+box      door    at 84 12 14.3 size 4 4 1.6 id aviary-hole-2
+box      door    at 92 12 14.3 size 4 4 1.6 id aviary-hole-3
+box      door    at 100 12 14.3 size 4 4 1.6 id aviary-hole-4
+box      door    at 76 24 14.3 size 4 4 1.6 id aviary-hole-5
+box      door    at 84 24 14.3 size 4 4 1.6 id aviary-hole-6
+box      door    at 92 24 14.3 size 4 4 1.6 id aviary-hole-7
+box      door    at 100 24 14.3 size 4 4 1.6 id aviary-hole-8
+box      door    at 76 36 14.3 size 4 4 1.6 id aviary-hole-9
+box      door    at 84 36 14.3 size 4 4 1.6 id aviary-hole-10
+box      door    at 92 36 14.3 size 4 4 1.6 id aviary-hole-11
+box      door    at 100 36 14.3 size 4 4 1.6 id aviary-hole-12
+box      wood    at 88 9 14.6 size 32 1.5 3 id aviary-ledge-1
+box      wood    at 88 21 14.6 size 32 1.5 3 id aviary-ledge-2
+box      wood    at 88 33 14.6 size 32 1.5 3 id aviary-ledge-3
+box      wood    at 292 0 0 size 112 30 28 id aviary-hall
+gable    roof    at 292 30 0 size 120 18 38 id aviary-hall-roof
+box      window  at 256 10 14.3 size 8 12 1.8 id aviary-hall-win-1
+box      window  at 276 10 14.3 size 8 12 1.8 id aviary-hall-win-2
+box      window  at 296 10 14.3 size 8 12 1.8 id aviary-hall-win-3
+box      window  at 316 10 14.3 size 8 12 1.8 id aviary-hall-win-4
+box      wood    at 350 0 0 size 24 46 24 id aviary-hall-tower
+pyramid  roof    at 350 46 0 size 30 20 30 id aviary-hall-tower-roof

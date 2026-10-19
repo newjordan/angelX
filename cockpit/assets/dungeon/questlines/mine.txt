@@ -1,0 +1,22 @@
+power skill:mine 3
+teacher Underforeman Doorne
+place the Mines' deep galleries under the Mountain
+room MineHead
+look a lamp with a green shade, steps counted aloud, and a chalked little door drawn on every tally
+line A mine is a promise you make to the future, at the future's expense.
+hook The tally-board at the mine mouth carries the three-flames mark in chalk.
+step The counted gallery | walk one full gallery of the Mines and count the steps aloud | galleries_walked 1 | The floor is patient. | cue walk
+step The forge's ore | bring three ore to the forge | ore_given_to_forge 8 | A mine is a promise. | cue forge
+step The mined hall | clear one hall with mines alone | mine_pure_halls 1 | Never hurry in my gallery.
+trial The tidy gallery | clear a hall with mines and leave none behind: none unexploded, none wasted | tidy_halls 1 | Tidy. The foreman approves.
+reward Mines level III
+title the Counted Steps
+keepsake the Green-Shaded Lamp, a lamp that shades green when a mine is laid
+ties The forge (Bodkin Heads); Old Sledge's ore tithe (Heavy Heads); the delve floors every questline walks.
+art
+..888..
+.8.8.8.
+..787..
+.8.8.8.
+..888..
+...7...

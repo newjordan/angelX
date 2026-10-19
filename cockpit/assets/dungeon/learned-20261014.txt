@@ -1,0 +1,143 @@
+# The nine wishes the live server learned on 2026-10-14, made literal.
+#
+# Drop these under the "## learned in this workspace" line of the host's
+# .angel/dungeon/phrasebook.txt, in place of the entries of the same ids:
+# a later entry of the same id replaces the earlier. Bigger arrows and
+# bullets are bigger now (`size`), lightning chains and is drawn crackling,
+# and every tier shows in play.
+
+wish bigger-arrows | Bigger Arrows
+say bigger arrows | big arrows | larger arrows | huge arrows | fat arrows | bigger arrow
+tier size 1 :: Your arrows are bigger, and strike wider.
+tier size 2 :: Bigger arrows again, wider still.
+tier size 3 :: The biggest arrows a fletcher can make.
+draw shot
+.2......W...
+22......WW..
+22ooooooWHH9
+22......WW..
+.2......W...
+
+wish colossal-arrows | Colossal Arrows
+say colossal arrows | giant arrows | massive arrows | enormous arrows | gigantic arrows
+tier size 2; knock 1 :: Colossal arrows that shove what they strike.
+tier size 3; knock 1 :: More colossal still.
+tier size 3; knock 2; pierce 1 :: Arrows like ballista bolts: they shove hard and pass through one.
+draw shot
+.2......@...
+22......@@..
+22oooooo@@c9
+22oooooo@@c9
+22......@@..
+.2......@...
+
+wish bigger-bullets | Bigger Bullets
+say bigger bullets | big bullets | huge bullets | larger bullets | fat bullets | bigger balls
+tier size 1 :: Your bullets are bigger, and strike wider.
+tier size 2; knock 1 :: Bigger bullets that knock them back.
+tier size 3; knock 2 :: Cannonballs.
+draw shot
+.SSSS.
+SuuWWS
+SuuuWS
+SuuuuS
+SxuuuS
+.SSSS.
+
+wish healing-light | Healing Light
+say healing light | light that heals | heal with light | healing shots of light | holy light
+tier mend 1 :: Your shots are healing light: each hit mends the most hurt friend by 1.
+tier mend 2 :: Brighter light: hits mend by 2.
+tier mend 2; vamp 1 :: Full light: hits mend by 2, and you mend 1 as monsters fall.
+draw shot
+...6...
+..6c6..
+.6c9c6.
+6c999c6
+.6c9c6.
+..6c6..
+...6...
+
+wish runeforged-edge | Runeforged Edge
+say runeforged edge | rune blade | runed edge | rune forged blade | glowing runes
+tier pierce 1 :: Rune-cut shots slice through one more monster.
+tier pierce 1; burst 15 :: The runes flare where they cut.
+tier pierce 2; burst 20 :: Runeforged: through two more, flaring.
+draw shot
+....3W
+..33WH
+33WWH9
+..33WH
+....3W
+draw worn at=right
+..W.
+.WHW
+.WhW
+.W3W
+.WhW
+.W3W
+.WhW
+.WhW
+4444
+.pp.
+.pp.
+.44.
+
+wish friends-shade | Friend's Shade
+kind spell
+say friends shade | a friend's shade | ghost friend | shade of a friend | spirit guard
+tier summon 1 guard; cooldown 6 :: A friend's shade circles you and catches a shot.
+tier summon 2 guard; cooldown 10 :: Two shades circle you, each catching a shot.
+tier summon 3 guard; cooldown 15 :: Three shades keep you.
+draw summon
+...qqqq...
+..qQQQQq..
+..qQ1Q1q..
+..qQQQQq..
+...qQQq...
+..qQQQQq..
+.qQQQQQQq.
+.qQQQQQQq.
+..qQQQQq..
+..qQ..Qq..
+..q....q..
+
+wish quickfire-crank | Quickfire Crank
+say quickfire crank | quick fire crank | crank it faster | shoot faster crank | rapid crank
+tier rate 10 :: A crank on your arm: you shoot 10% faster.
+tier rate 20; velocity 15 :: Cranked harder: 20% faster, and the shots fly faster.
+tier rate 30; velocity 30 :: Quickfire: 30% faster, the shots flying fast.
+draw worn at=right
+..JJJ..
+.J.h.J.
+J..h..J
+JhhGhhJ
+J..h..J
+.J.h.J.
+..JJJ..
+
+wish regrowth-charm | Regrowth Charm
+say regrowth charm | regrow | regrowth | healing charm | leaf charm | grow back health
+tier vamp 1 :: A charm of new leaves: mend 1 as monsters fall.
+tier vamp 2; max_hp 10 :: It grows: mend 2, and 10 more health.
+tier vamp 3; max_hp 20 :: In full leaf: mend 3, and 20 more health.
+draw worn at=body
+...M...
+..MCM..
+.MCYCM.
+.MCCCM.
+..MCM..
+...e...
+...e...
+
+wish lightning-rounds | Lightning Rounds
+say lightning rounds | lightning bullets | electric rounds | shock rounds | thunder rounds
+tier chain 1; velocity 20 :: Lightning rounds: a hit sparks on to one more, and they fly fast.
+tier chain 1; velocity 35 :: Faster lightning.
+tier chain 1; velocity 50; pierce 1 :: Bolts of lightning: through one, sparking on.
+draw shot
+....2...3...
+...2w..3w...
+22w9w23w9w3.
+.....w2..w9w
+.....3...2..

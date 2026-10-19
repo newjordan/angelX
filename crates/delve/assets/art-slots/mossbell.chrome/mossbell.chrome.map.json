@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Review: empty title and plain panel only, cropped to occupied bounds then nine-sliced once into existing layout rectangles. All labels and four podium rows remain live.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Labels, scores, drains, jackpot timing, seat order and payout stay live, not baked.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "8276e1dfb76ecf5facaae23eef6c8f586aa03c42f2d7f4ead5920b1fd889104c",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Wide title plate with blank navy face and brass corner plates.",
+      "name": "title",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        145.0,
+        73.0
+      ],
+      "source_rect_xywh": [
+        24,
+        298,
+        290,
+        146
+      ],
+      "state": "title"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Long thin chain strip with hanging chain details.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        88.5
+      ],
+      "source_rect_xywh": [
+        343,
+        235,
+        265,
+        177
+      ],
+      "state": "long-thin-chain-strip-with-hanging-chain-details"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Medium live standings strip.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.5,
+        50.0
+      ],
+      "source_rect_xywh": [
+        665,
+        325,
+        263,
+        100
+      ],
+      "state": "medium-live-standings-strip"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Compact live value strip.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        91.5,
+        37.0
+      ],
+      "source_rect_xywh": [
+        1017,
+        345,
+        183,
+        74
+      ],
+      "state": "compact-live-value-strip"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Broad nine-slice panel, plain central field.",
+      "name": "panel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.0,
+        110.0
+      ],
+      "source_rect_xywh": [
+        27,
+        526,
+        294,
+        220
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Tall nine-slice panel, plain central field.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        110.0,
+        138.5
+      ],
+      "source_rect_xywh": [
+        370,
+        483,
+        220,
+        277
+      ],
+      "state": "tall-nine-slice-panel-plain-central-field"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Compact square panel frame, plain central field.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        99.5,
+        99.5
+      ],
+      "source_rect_xywh": [
+        653,
+        548,
+        199,
+        199
+      ],
+      "state": "compact-square-panel-frame-plain-central-field"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Long podium row with three inset zones.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        177.0,
+        58.5
+      ],
+      "source_rect_xywh": [
+        883,
+        594,
+        354,
+        117
+      ],
+      "state": "long-podium-row-with-three-inset-zones"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Gold first-place blank rank medallion.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.5,
+        141.0
+      ],
+      "source_rect_xywh": [
+        35,
+        806,
+        217,
+        282
+      ],
+      "state": "gold-first-place-blank-rank-medallion"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Silver second-place blank rank medallion.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.5,
+        137.5
+      ],
+      "source_rect_xywh": [
+        316,
+        813,
+        215,
+        275
+      ],
+      "state": "silver-second-place-blank-rank-medallion"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Copper third-place blank rank medallion.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        104.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        586,
+        829,
+        208,
+        259
+      ],
+      "state": "copper-third-place-blank-rank-medallion"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Wide result banner with dark blank field.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        197.0,
+        76.5
+      ],
+      "source_rect_xywh": [
+        834,
+        899,
+        394,
+        153
+      ],
+      "state": "wide-result-banner-with-dark-blank-field"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224 layout; chain plate height 20 at y=20; result panel (18,20,348,197). Keep Keeper and live standings gutters clear.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "mossbell.chrome",
+  "source_sha256": "d0787be5ba4313bb44614155e8613e0e11acf491eb1ae5173e9b666958932ef6",
+  "timing": "Three CHAIN values shown while any bumper flash>5; podium at 60\u00d7HZ end, fresh E rematches (labels()/draw())."
+}

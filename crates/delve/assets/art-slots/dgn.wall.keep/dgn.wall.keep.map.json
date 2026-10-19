@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "8bc712cf9970284ab1b0a4f38323d2c4229c5b858e7da807e6a09e72bee9e763",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Plain tall north-wall face with basalt blocks and iron band.",
+      "name": "face-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.0,
+        344
+      ],
+      "source_rect_xywh": [
+        171,
+        215,
+        258,
+        344
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Cracked tall face with glowing orange-gold seams.",
+      "name": "face-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.5,
+        347
+      ],
+      "source_rect_xywh": [
+        480,
+        214,
+        257,
+        347
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Tall face with a recessed dragon-head masonry niche and ember light.",
+      "name": "face-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.5,
+        342
+      ],
+      "source_rect_xywh": [
+        791,
+        220,
+        259,
+        342
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Tall face with lit iron wall brazier/torch and hanging chains.",
+      "name": "face-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.0,
+        347
+      ],
+      "source_rect_xywh": [
+        1104,
+        219,
+        260,
+        347
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Outer north-west corner, tall face turning to side.",
+      "name": "outer-nw",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.0,
+        327
+      ],
+      "source_rect_xywh": [
+        177,
+        605,
+        222,
+        327
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Outer north-east corner, opposite turn.",
+      "name": "outer-ne",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.0,
+        334
+      ],
+      "source_rect_xywh": [
+        490,
+        598,
+        230,
+        334
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Left side-wall cap segment with iron ring.",
+      "name": "side-left",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        126.0,
+        252
+      ],
+      "source_rect_xywh": [
+        784,
+        658,
+        252,
+        252
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Right side-wall cap segment with iron ring.",
+      "name": "side-right",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        251
+      ],
+      "source_rect_xywh": [
+        1122,
+        654,
+        244,
+        251
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Inward left corner.",
+      "name": "inner-nw",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.0,
+        308
+      ],
+      "source_rect_xywh": [
+        190,
+        994,
+        236,
+        308
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Inward right corner.",
+      "name": "inner-ne",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        112.0,
+        309
+      ],
+      "source_rect_xywh": [
+        496,
+        996,
+        224,
+        309
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Exposed wall end cap.",
+      "name": "cap",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        75.0,
+        348
+      ],
+      "source_rect_xywh": [
+        839,
+        976,
+        150,
+        348
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Collapsed jagged wall section with rubble and ironwork.",
+      "name": "collapsed",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        145.0,
+        285
+      ],
+      "source_rect_xywh": [
+        1072,
+        1025,
+        290,
+        285
+      ],
+      "state": "wall"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.wall.keep",
+  "source_sha256": "9a3f7e1581320c25cdbd80a9c8f6d215234d55abdaac3f7a0a3c810d3b4d050a",
+  "timing": ""
+}

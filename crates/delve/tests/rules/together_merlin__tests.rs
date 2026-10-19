@@ -109,7 +109,7 @@ fn merlin_and_maud_send_the_party_somewhere_and_the_arrow_follows() {
     assert!(run.found.as_ref().unwrap().2.contains("NOBODY'S WON"));
     // Once every game's first win is paid she has no gossip.
     run.kingdom.moments.errand = None;
-    run.home.countryside.games_paid = u16::MAX;
+    run.home.countryside.games_paid = u32::MAX;
     run.maud_gossips_for_test();
     assert!(run.kingdom.moments.errand.is_none());
     let _ = countryside::FIRST_WIN_GOLD;

@@ -1,0 +1,465 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    48
+  ],
+  "comments": [
+    "All twelve source cells retained; rejected crops never enter runtime.",
+    "Common padded source canvas fixes bank scale; feet and body centre reviewed. Existing base art remains fallback.",
+    "Cells 2 and 9 end at hard vertical crop edges, severing the punch hand. Rejected rather than repairing or redrawing."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 12,
+  "geometry": "Ball::circle(80\u00d7Q,27\u00d7Q,19\u00d7Q) is Keeper contact radius including ball; do not derive body collision from shell. Root and crown geometry belong to separate slots.",
+  "mapping_basis": "Source figures and feet inspected individually; padded registration canvases retain one scale across the bank.",
+  "notes_sha256": "07dad825d5760a62da702b88d6f826368da4869f2fc6c1dbc80d23906f31b4a2",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup A",
+      "name": "stage-1-tell-a",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1,
+        1,
+        340,
+        340
+      ],
+      "state": "stage-1-tell-a"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "moderate attack A",
+      "name": "stage-1-attack-a",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        341,
+        1,
+        340,
+        340
+      ],
+      "state": "stage-1-attack-a"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "moderate recovery A",
+      "name": "stage-1-recover-a",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        681,
+        1,
+        340,
+        340
+      ],
+      "state": "stage-1-recover-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup B",
+      "name": "stage-1-tell-b",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1021,
+        1,
+        340,
+        340
+      ],
+      "state": "stage-1-tell-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate attack B",
+      "name": "stage-1-attack-b",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1,
+        341,
+        340,
+        340
+      ],
+      "state": "stage-1-attack-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate recovery B",
+      "name": "stage-1-recover-b",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        341,
+        341,
+        340,
+        340
+      ],
+      "state": "stage-1-recover-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe idle",
+      "name": "stage-2-idle",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        681,
+        341,
+        340,
+        340
+      ],
+      "state": "stage-2-idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe windup A",
+      "name": "stage-2-tell-a",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1021,
+        341,
+        340,
+        340
+      ],
+      "state": "stage-2-tell-a"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "severe attack A",
+      "name": "stage-2-attack-a",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1,
+        681,
+        340,
+        340
+      ],
+      "state": "stage-2-attack-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "strong flinch",
+      "name": "strong-flinch",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        341,
+        681,
+        340,
+        340
+      ],
+      "state": "strong-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "collapse first",
+      "name": "defeat-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        681,
+        681,
+        340,
+        340
+      ],
+      "state": "defeat-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "collapse final",
+      "name": "defeat-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        170,
+        340
+      ],
+      "source_rect_xywh": [
+        1021,
+        681,
+        340,
+        340
+      ],
+      "state": "defeat-2"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48x48",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "mossbell.keeper-damaged",
+  "source_preparation": {
+    "original_crops": [
+      {
+        "label": "moderate windup A",
+        "name": "stage-1-tell-a",
+        "pivot": [
+          137.0,
+          276
+        ],
+        "rect": [
+          63,
+          149,
+          274,
+          276
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack A",
+        "name": "stage-1-attack-a",
+        "pivot": [
+          140.0,
+          277
+        ],
+        "rect": [
+          449,
+          148,
+          280,
+          277
+        ],
+        "runtime": false
+      },
+      {
+        "label": "moderate recovery A",
+        "name": "stage-1-recover-a",
+        "pivot": [
+          126.5,
+          270
+        ],
+        "rect": [
+          845,
+          160,
+          253,
+          270
+        ],
+        "runtime": false
+      },
+      {
+        "label": "moderate windup B",
+        "name": "stage-1-tell-b",
+        "pivot": [
+          128.0,
+          298
+        ],
+        "rect": [
+          1220,
+          127,
+          256,
+          298
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack B",
+        "name": "stage-1-attack-b",
+        "pivot": [
+          142.5,
+          297
+        ],
+        "rect": [
+          61,
+          615,
+          285,
+          297
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate recovery B",
+        "name": "stage-1-recover-b",
+        "pivot": [
+          125.5,
+          290
+        ],
+        "rect": [
+          477,
+          622,
+          251,
+          290
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe idle",
+        "name": "stage-2-idle",
+        "pivot": [
+          117.0,
+          275
+        ],
+        "rect": [
+          845,
+          637,
+          234,
+          275
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe windup A",
+        "name": "stage-2-tell-a",
+        "pivot": [
+          123.5,
+          304
+        ],
+        "rect": [
+          1221,
+          610,
+          247,
+          304
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe attack A",
+        "name": "stage-2-attack-a",
+        "pivot": [
+          142.5,
+          289
+        ],
+        "rect": [
+          61,
+          1106,
+          285,
+          289
+        ],
+        "runtime": false
+      },
+      {
+        "label": "strong flinch",
+        "name": "strong-flinch",
+        "pivot": [
+          134.5,
+          269
+        ],
+        "rect": [
+          460,
+          1124,
+          269,
+          269
+        ],
+        "runtime": true
+      },
+      {
+        "label": "collapse first",
+        "name": "defeat-1",
+        "pivot": [
+          129.0,
+          227
+        ],
+        "rect": [
+          827,
+          1168,
+          258,
+          227
+        ],
+        "runtime": true
+      },
+      {
+        "label": "collapse final",
+        "name": "defeat-2",
+        "pivot": [
+          145.5,
+          179
+        ],
+        "rect": [
+          1190,
+          1214,
+          291,
+          179
+        ],
+        "runtime": true
+      }
+    ],
+    "original_metadata_sha256": "47bd300cbc6f20d7cb8bd93b8291b61adf45854b95ab67bdc5537d3c682f4f09",
+    "original_path": "/work/artifacts/art-prod/slots/mossbell.keeper-damaged/v01/source-sheet.png",
+    "original_sha256": "122de375153d0dde6a4114897ec794f691de114721e22a2d5c17a3e1bc80d264",
+    "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
+    "source_anchor": [
+      170,
+      340
+    ],
+    "source_canvas": [
+      340,
+      340
+    ],
+    "verification_status": "OK?(no matching generated file: edited/converted copy)"
+  },
+  "source_sha256": "a1d952ac39ed99dafcde9bc82df46944993294dd3fc4cc5c71b87037d05e77e9",
+  "timing": "Nine poses; starts Idle=120. Tell 36 ticks at hp>2, 30 at hp<=2; action 12; subsequent Idle=90+10\u00d7hp. Flinch=12, hit cooldown=10; damage stages hp 6\u20135/4\u20133/2\u20131. Defeat at hp=0 (Ball::step; draw())."
+}

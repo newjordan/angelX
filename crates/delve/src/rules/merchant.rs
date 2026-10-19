@@ -163,14 +163,41 @@ pub struct Approach {
     pub y: f32,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// A fresh memory for each seat: `MAX_PLAYERS` of them.
+fn fresh_approaches() -> Vec<Approach> {
+    vec![Approach::default(); MAX_PLAYERS as usize]
+}
+
+/// Reads the seats' memories from a save made when the party was smaller
+/// (this was once a fixed array four wide, and a bump of the party's size
+/// must never turn an old save into "invalid length"): the seats the save
+/// never had get fresh memories.
+fn approaches_padded<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Vec<Approach>, D::Error> {
+    let mut seen = Vec::<Approach>::deserialize(de)?;
+    if seen.len() < MAX_PLAYERS as usize {
+        seen.resize(MAX_PLAYERS as usize, Approach::default());
+    }
+    Ok(seen)
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct State {
-    pub approaches: [Approach; MAX_PLAYERS as usize],
+    /// By seat, from the first (a knight's number less one). A `Vec`, not an
+    /// array, so saves of any party size load: see `approaches_padded`.
+    #[serde(default = "fresh_approaches", deserialize_with = "approaches_padded")]
+    pub approaches: Vec<Approach>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self { approaches: fresh_approaches() }
+    }
 }
 
 impl State {
     pub fn valid(&self) -> bool {
-        self.approaches.iter().all(|a| {
+        self.approaches.len() <= MAX_PLAYERS as usize
+            && self.approaches.iter().all(|a| {
             a.offer.is_none_or(|i| i < PLATES.len())
                 && a.ticks <= STAND_TICKS
                 && a.x.is_finite()

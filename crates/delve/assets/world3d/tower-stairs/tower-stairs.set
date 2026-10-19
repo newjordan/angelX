@@ -1,0 +1,45 @@
+set tower-stairs
+# Spiral Landing: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: candles by the shaft, the stair plates (19,3) and (4,12).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# shaft at 10,5 3x3 (at 99% of its height, for the camera)
+box    stone   at 184 0 104 size 45 6.5 45 id shaft  # TODO prims: cylinder
+box    water   at 184 6.5 104 size 38 0.5 38
+
+# bookcase at 3,3 4x2 (at 23% of its height, for the camera)
+box    wood    at 80 0 64 size 62 5.5 30 id bookcase
+box    cloth   at 80 0.5 79.25 size 60 4.5 0.5
+
+# desk at 16,9 4x1 (at 64% of its height, for the camera)
+box    wood    at 288 0 152 size 62 5.5 14 id desk
+box    plaster at 288 5.5 152 size 63 0.5 15
+
+# plate at 19,3 2x1
+box    stone   at 320 0 56 size 30 1.5 14 id plate-1  # TODO prims: stairs
+
+# plate at 4,12 2x1
+box    stone   at 80 0 200 size 30 1.5 14 id plate-2  # TODO prims: stairs
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    window  at 154 22 15.75 size 8 10 2.5
+box    cloth   at 260 14 15.75 size 10 26 2.5

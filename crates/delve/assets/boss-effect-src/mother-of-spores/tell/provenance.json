@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.mother-of-spores.tell/v01/source-sheet.png",
+  "source_sha256": "faf02d34128ea038e1eda002cdb73c76013b99996fd1a32089b438e699e78e74",
+  "original_sheet_sha256": "faf02d34128ea038e1eda002cdb73c76013b99996fd1a32089b438e699e78e74",
+  "metadata_sha256": "3db7f494b7bb7c33452dcbce4415ef4c30bbe7185b03fe04eac385cc5e6234e9",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        121,
+        233,
+        111,
+        119
+      ],
+      "alpha_area": 2895,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "ac0d93d93a6b12f75e8b2c2b51fc4b9a16ca4d6ba2ceb5f7ac3469ecfb978708"
+    },
+    {
+      "source_rect_xywh": [
+        397,
+        207,
+        171,
+        169
+      ],
+      "alpha_area": 11283,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "29996b71bb37591e94fba32f05927dfe5e5c344176b95ed95b52c18ec75dc1ad"
+    },
+    {
+      "source_rect_xywh": [
+        678,
+        182,
+        208,
+        206
+      ],
+      "alpha_area": 23354,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "9bbc2243a3344795bd332591232af277ddcfea66a1cc5b775482a2ee966df54b"
+    },
+    {
+      "source_rect_xywh": [
+        971,
+        152,
+        262,
+        261
+      ],
+      "alpha_area": 34222,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "3e1c23713fa4e4835221e5f82576eec61f3cf3aff5fd69615e12ec5aba613e8c"
+    },
+    {
+      "source_rect_xywh": [
+        79,
+        587,
+        161,
+        132
+      ],
+      "alpha_area": 5219,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "4e627ec54fb105af36358a84ac4f40125e12905109ef2095ae9b142532c1fb27"
+    },
+    {
+      "source_rect_xywh": [
+        362,
+        577,
+        203,
+        163
+      ],
+      "alpha_area": 11571,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "ba2a3c57114cc41b6a880d0df2f20428bccf9cc2d3d973dbaf98912cb568d42e"
+    },
+    {
+      "source_rect_xywh": [
+        664,
+        567,
+        231,
+        183
+      ],
+      "alpha_area": 21309,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "d069c47ba5d964ba22272938977857e74c26761242a16b2263173440d8369e43"
+    },
+    {
+      "source_rect_xywh": [
+        953,
+        542,
+        286,
+        236
+      ],
+      "alpha_area": 33482,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "dbca572a221997bb94f48a3a86aae6e6f3008b8cc8ff1ab130dac8aab759b9b4"
+    },
+    {
+      "source_rect_xywh": [
+        27,
+        869,
+        253,
+        255
+      ],
+      "alpha_area": 25424,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "7644ee4f363c935777f8737fd468e2bbbeaa90e1d4e2edb1e8458329a351c2c4"
+    },
+    {
+      "source_rect_xywh": [
+        381,
+        909,
+        195,
+        194
+      ],
+      "alpha_area": 10448,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "7bc66e1dc03ed0677b62b7c6086a844f6fe9075e0bb728b6736fa6d8780df26f"
+    },
+    {
+      "source_rect_xywh": [
+        707,
+        940,
+        150,
+        135
+      ],
+      "alpha_area": 3493,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "2e32ffe8d6ccf31025043f6e21b1c137366d440533a232c1d8303f86bf6272ed"
+    },
+    {
+      "source_rect_xywh": [
+        1124,
+        996,
+        23,
+        56
+      ],
+      "alpha_area": 450,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "f4c917bc3829389633e9a51814cfb31ebb06245d5b080d1831b7da14b7f61ef0"
+    }
+  ]
+}

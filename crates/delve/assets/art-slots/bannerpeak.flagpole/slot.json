@@ -1,0 +1,278 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 9,
+      "recoloured": 5779
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 4938
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 3,
+      "recoloured": 6304
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 3,
+      "recoloured": 6354
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 5003
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 2,
+      "recoloured": 6758
+    }
+  ],
+  "flags": [],
+  "map_sha256": "42f4b750f4e9b413826e6e3f7f399329af05a5b802dbb7601e25987b11e249f6",
+  "metadata_sha256": "b088ce5871dfbab1aca2c72bdf047e09bb844812e3d5004bafc43ce74326f7e3",
+  "notes_sha256": "870b9dadc89ccabb7fa9998354454e06410f778f1c61d5d66686c27f9e9f8496",
+  "outputs": {
+    "v1/fly-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 97,
+      "opaque_pixels": 1285,
+      "piece": 2,
+      "sha256": "858c310f46cd6b8341b0d205e735c51025592f3218f9d8821f6b2d92b6862bd6",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v1/fly-1.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 117,
+      "opaque_pixels": 1369,
+      "piece": 3,
+      "sha256": "0e21f6c878829f609f00bbeb5e3020858b52c2cb5a2a92f3c162831f40ad93ab",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v1/fly-2.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 2,
+      "half_cell_coverage": 116,
+      "opaque_pixels": 1314,
+      "piece": 4,
+      "sha256": "87e219d3a2720b1b3673d1a50b44ae4417eb72600edbed0dd599d77201875d55",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v1/fly-3.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 118,
+      "opaque_pixels": 1401,
+      "piece": 5,
+      "sha256": "14d53eac44067c47ffc38591ec79285d0c092d471d290ee51048cd0693a4fa9b",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v1/idle-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 107,
+      "opaque_pixels": 1312,
+      "piece": 0,
+      "sha256": "8d3e616ac6916d4805060024cc8e1ec912efb6781395cbaed28b195e05c36fd9",
+      "source_scale": 0.2288329519450801,
+      "state": "idle"
+    },
+    "v1/slide-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 109,
+      "opaque_pixels": 1284,
+      "piece": 1,
+      "sha256": "8487ea784769afeba3c69fcb9eacae4fb837014fbee92d8fff489f432b929c27",
+      "source_scale": 0.2288329519450801,
+      "state": "slide"
+    },
+    "v2/fly-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 97,
+      "opaque_pixels": 1285,
+      "piece": 2,
+      "sha256": "858c310f46cd6b8341b0d205e735c51025592f3218f9d8821f6b2d92b6862bd6",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v2/fly-1.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 117,
+      "opaque_pixels": 1369,
+      "piece": 3,
+      "sha256": "0e21f6c878829f609f00bbeb5e3020858b52c2cb5a2a92f3c162831f40ad93ab",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v2/fly-2.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 2,
+      "half_cell_coverage": 116,
+      "opaque_pixels": 1314,
+      "piece": 4,
+      "sha256": "87e219d3a2720b1b3673d1a50b44ae4417eb72600edbed0dd599d77201875d55",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v2/fly-3.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 118,
+      "opaque_pixels": 1401,
+      "piece": 5,
+      "sha256": "14d53eac44067c47ffc38591ec79285d0c092d471d290ee51048cd0693a4fa9b",
+      "source_scale": 0.2288329519450801,
+      "state": "fly"
+    },
+    "v2/idle-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 107,
+      "opaque_pixels": 1312,
+      "piece": 0,
+      "sha256": "8d3e616ac6916d4805060024cc8e1ec912efb6781395cbaed28b195e05c36fd9",
+      "source_scale": 0.2288329519450801,
+      "state": "idle"
+    },
+    "v2/slide-0.png": {
+      "anchor_xy": [
+        14,
+        100
+      ],
+      "approved": true,
+      "canvas_wh": [
+        60,
+        100
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 109,
+      "opaque_pixels": 1284,
+      "piece": 1,
+      "sha256": "8487ea784769afeba3c69fcb9eacae4fb837014fbee92d8fff489f432b929c27",
+      "source_scale": 0.2288329519450801,
+      "state": "slide"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": false,
+  "slot": "bannerpeak.flagpole",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.flagpole/v01/source-sheet.png",
+  "source_sha256": "50cf3e16f99fb9c1b0667d2d94dda566b8daf5c90edc7e6de0a491974bb2ff04",
+  "tool_version": 2
+}

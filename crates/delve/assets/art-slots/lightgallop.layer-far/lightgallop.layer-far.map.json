@@ -1,0 +1,68 @@
+{
+  "anchor_canvas_wh": [
+    192,
+    96
+  ],
+  "anchor_xy": [
+    96,
+    48
+  ],
+  "comments": [
+    "One piece, the whole sheet: the importer is given the full rectangle so the canvas is not cut to alpha bounds."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "The delivered strip is one continuous 2:1 scenery picture (1774x887, opaque RGB), so the whole sheet is the single piece and it is reduced by 0.10823 to exactly 192x96 with no crop and no padding. The moon and the horizon band repeat every 192 px.",
+  "notes_sha256": "e2d39405381ee900d97e2a1bb68a9dbcffc79c44f6133439ca0a0c1c06166845",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: delivered drawing 1 in reading order.",
+      "name": "idle-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "192934": "22303a",
+          "263b40": "22303a"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        887,
+        443.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1774,
+        887
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 192x96, one frame, repeating horizontally; the whole opaque strip is the frame, scrolled slowest behind the road; stage 384x224.",
+  "sizes": {
+    "v1": [
+      192,
+      96
+    ],
+    "v2": [
+      192,
+      96
+    ]
+  },
+  "slot": "lightgallop.layer-far",
+  "source_sha256": "9c43554c63a8a5c1f43f92099305778049754f37decbe19e9603d3cba5b1817b",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

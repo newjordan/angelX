@@ -1,0 +1,22 @@
+power skill:shield 3
+teacher Sir Castor of the Gatehouse
+place the Gatehouse, in the Delve's gate courtyard
+room Gate
+look a shield polished like a mirror on both faces, and one shoulder set lower than the other from a lifetime of it
+line A shield travels best alone. Like gossip.
+hook The gate's own shield hangs by the door, mirror-bright on both faces.
+step The gate siege | hold the Gatehouse door through one cued siege of three waves | gate_sieges_held 1 | A shield travels best alone. | cue stand
+step The quintain | strike the quintain with a shield throw at the lists | quintain_shield_hits 1 | Throw your wall. | cue quintain
+step The thrown hall | clear one hall with shield throws only, weapon unused | shield_pure_halls 1 | Now you are the missile's problem.
+trial The banked return | every kill is a shield throw recalled mid-flight: the bank is the kill | banked_shield_halls 1 | The doorman's trick. The gate always opens from inside.
+reward Shield Throw level III
+title the Doorman
+keepsake the Mirrored Shield-Face, the shield's rim flashes mirror-bright on every banked return
+ties The lists (Iron Skin, Bodkin Heads, Ricochet); the gate courtyard every delve begins in; Goodwife Barley's stair-holding (Stout Heart).
+art
+WW888WW
+W87778.
+.877W8.
+.W777W.
+.8W8W8.
+..WWW..

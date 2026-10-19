@@ -1,0 +1,14 @@
+[package]
+name = "forest-road-review"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[workspace]
+[[bin]]
+name = "forest-road-review"
+path = "main.rs"
+[dependencies]
+angel-delve = { path = "../../crates/delve", features = ["arcade-review"] }
+ratatui = { version = "0.30.2", default-features = false }
+serde_json = "1"
+image = { version = "0.25.10", default-features = false, features = ["png"] }

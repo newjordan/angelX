@@ -1,0 +1,180 @@
+set cavern-drowned-hall
+# The Drowned Hall: 48 x 28 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 768 448
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    ground  at 384 -4 24 size 768 4 48
+box    ground  at 32 -4 248 size 64 4 400
+box    ground  at 384 -4 248 size 384 4 400
+box    ground  at 736 -4 248 size 64 4 400
+box    ground  at 128 -4 128 size 128 4 64
+box    ground  at 640 -4 128 size 128 4 64
+box    ground  at 128 -4 224 size 128 4 64
+box    ground  at 640 -4 224 size 128 4 64
+box    ground  at 128 -4 320 size 128 4 64
+box    ground  at 640 -4 320 size 128 4 64
+box    ground  at 128 -4 424 size 128 4 48
+box    ground  at 640 -4 424 size 128 4 48
+
+# water, 3 below the floor line
+box    water   at 128 -4 72 size 128 1 48
+box    water   at 640 -4 72 size 128 1 48
+box    water   at 128 -4 176 size 128 1 32
+box    water   at 640 -4 176 size 128 1 32
+box    water   at 128 -4 272 size 128 1 32
+box    water   at 640 -4 272 size 128 1 32
+box    water   at 128 -4 376 size 128 1 48
+box    water   at 640 -4 376 size 128 1 48
+
+# the north wall, columns 0 to 22
+box    rock    at 184 -4 8 size 368 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 25 to 47
+box    rock    at 584 -4 8 size 368 52 16
+box    metal   at 760 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 760 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 22 (at 81% of its height, for the camera)
+box    rock    at 184 -4 436 size 368 10 8  # TODO prims: wedge
+box    rock    at 184 -4 444 size 368 16.5 8
+box    metal   at 8 12.5 444 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 444 size 6 6.5 6
+
+# the south wall, columns 25 to 47 (at 81% of its height, for the camera)
+box    rock    at 584 -4 436 size 368 10 8  # TODO prims: wedge
+box    rock    at 584 -4 444 size 368 16.5 8
+box    metal   at 760 12.5 444 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 760 15 444 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    rock    at 8 -4 112 size 16 52 192
+
+# the west wall, rows 15 to 26 (at 12% of its height, for the camera)
+box    rock    at 8 -4 264 size 16 9.5 48  # TODO prims: wedge
+box    rock    at 8 -4 360 size 16 52 144
+
+# the east wall, rows 1 to 12
+box    rock    at 760 -4 112 size 16 52 192
+
+# the east wall, rows 15 to 26 (at 12% of its height, for the camera)
+box    rock    at 760 -4 264 size 16 9.5 48  # TODO prims: wedge
+box    rock    at 760 -4 360 size 16 52 144
+
+# the north door, columns 23 to 24
+box    door    at 384 -4 -1 size 32 36 2 id door-north
+box    rock    at 384 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 23 to 24
+box    door    at 384 -4 449 size 32 5 2 id door-south
+
+# the west door, rows 13 to 14
+box    door    at -1 -4 224 size 2 36 32 id door-west
+box    rock    at 8 32 224 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 13 to 14
+box    door    at 769 -4 224 size 2 36 32 id door-east
+box    rock    at 760 32 224 size 16 16 32  # TODO prims: arch
+
+# boulder at 4,6 1x1
+sphere rock    at 72.5 0 104 size 14 13 12 id boulder-1  # TODO prims: rock
+
+# boulder at 43,6 1x1
+sphere rock    at 696.5 0 104 size 13 12 11 id boulder-2  # TODO prims: rock
+
+# boulder at 6,7 2x2
+sphere rock    at 105.5 0 120 size 14 12 12 id boulder-3  # TODO prims: rock
+sphere rock    at 119.5 0 120 size 15 13 13  # TODO prims: rock
+sphere rock    at 104.5 0 136 size 14 14 12  # TODO prims: rock
+sphere rock    at 121.5 0 136 size 14 11 12  # TODO prims: rock
+
+# boulder at 12,7 2x2
+sphere rock    at 198.5 0 120 size 13 14 11 id boulder-4  # TODO prims: rock
+sphere rock    at 216.5 0 120 size 13 13 11  # TODO prims: rock
+sphere rock    at 200.5 0 136 size 13 11 11  # TODO prims: rock
+sphere rock    at 216.5 0 136 size 14 11 12  # TODO prims: rock
+
+# boulder at 18,7 2x2 (at 85% of its height, for the camera)
+sphere rock    at 294.5 0 120 size 14 11.5 12 id boulder-5  # TODO prims: rock
+sphere rock    at 312.5 0 120 size 15 11.5 13  # TODO prims: rock
+sphere rock    at 297.5 0 136 size 13 11 11  # TODO prims: rock
+sphere rock    at 310.5 0 136 size 13 11.5 11  # TODO prims: rock
+
+# boulder at 28,7 2x2
+sphere rock    at 457.5 0 120 size 14 11 12 id boulder-6  # TODO prims: rock
+sphere rock    at 471.5 0 120 size 13 11 11  # TODO prims: rock
+sphere rock    at 454.5 0 136 size 13 13 11  # TODO prims: rock
+sphere rock    at 472.5 0 136 size 15 11 13  # TODO prims: rock
+
+# boulder at 34,7 2x2 (at 99% of its height, for the camera)
+sphere rock    at 551.5 0 120 size 15 10.5 13 id boulder-7  # TODO prims: rock
+sphere rock    at 568.5 0 120 size 15 12.5 13  # TODO prims: rock
+sphere rock    at 552.5 0 136 size 14 13.5 12  # TODO prims: rock
+sphere rock    at 567.5 0 136 size 13 12.5 11  # TODO prims: rock
+
+# boulder at 40,7 2x2
+sphere rock    at 646.5 0 120 size 14 12 12 id boulder-8  # TODO prims: rock
+sphere rock    at 664.5 0 120 size 13 12 11  # TODO prims: rock
+sphere rock    at 649.5 0 136 size 13 11 11  # TODO prims: rock
+sphere rock    at 664.5 0 136 size 14 12 12  # TODO prims: rock
+
+# boulder at 6,19 2x2
+sphere rock    at 103.5 0 312 size 15 14 13 id boulder-9  # TODO prims: rock
+sphere rock    at 119.5 0 312 size 13 11 11  # TODO prims: rock
+sphere rock    at 104.5 0 328 size 15 13 13  # TODO prims: rock
+sphere rock    at 121.5 0 328 size 15 14 13  # TODO prims: rock
+
+# boulder at 12,19 2x2
+sphere rock    at 200.5 0 312 size 15 11 13 id boulder-10  # TODO prims: rock
+sphere rock    at 216.5 0 312 size 15 11 13  # TODO prims: rock
+sphere rock    at 198.5 0 328 size 15 11 13  # TODO prims: rock
+sphere rock    at 217.5 0 328 size 15 12 13  # TODO prims: rock
+
+# boulder at 18,19 2x2 (at 96% of its height, for the camera)
+sphere rock    at 296.5 0 312 size 15 13 13 id boulder-11  # TODO prims: rock
+sphere rock    at 312.5 0 312 size 14 13 12  # TODO prims: rock
+sphere rock    at 297.5 0 328 size 13 10.5 11  # TODO prims: rock
+sphere rock    at 311.5 0 328 size 13 12.5 11  # TODO prims: rock
+
+# boulder at 28,19 2x2
+sphere rock    at 454.5 0 312 size 14 13 12 id boulder-12  # TODO prims: rock
+sphere rock    at 471.5 0 312 size 14 14 12  # TODO prims: rock
+sphere rock    at 454.5 0 328 size 14 12 12  # TODO prims: rock
+sphere rock    at 470.5 0 328 size 13 11 11  # TODO prims: rock
+
+# boulder at 34,19 2x2
+sphere rock    at 551.5 0 312 size 13 11 11 id boulder-13  # TODO prims: rock
+sphere rock    at 567.5 0 312 size 13 14 11  # TODO prims: rock
+sphere rock    at 550.5 0 328 size 15 14 13  # TODO prims: rock
+sphere rock    at 568.5 0 328 size 13 11 11  # TODO prims: rock
+
+# boulder at 40,19 2x2
+sphere rock    at 646.5 0 312 size 14 14 12 id boulder-14  # TODO prims: rock
+sphere rock    at 663.5 0 312 size 15 12 13  # TODO prims: rock
+sphere rock    at 649.5 0 328 size 15 14 13  # TODO prims: rock
+sphere rock    at 665.5 0 328 size 13 11 11  # TODO prims: rock
+
+# boulder at 4,21 1x1
+sphere rock    at 70.5 0 344 size 13 11 11 id boulder-15  # TODO prims: rock
+
+# boulder at 43,21 1x1
+sphere rock    at 697.5 0 344 size 14 11 12 id boulder-16  # TODO prims: rock
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 360 18 16 size 3 6 3
+cone   fire    at 360 24 16 size 4 7 4
+box    metal   at 408 18 16 size 3 6 3
+cone   fire    at 408 24 16 size 4 7 4
+box    metal   at 16 18 200 size 3 6 3
+cone   fire    at 16 24 200 size 4 7 4
+box    metal   at 16 4 248 size 3 5 3
+cone   fire    at 16 9 248 size 4 5 4
+box    metal   at 752 18 200 size 3 6 3
+cone   fire    at 752 24 200 size 4 7 4
+box    metal   at 752 4 248 size 3 5 3
+cone   fire    at 752 9 248 size 4 5 4

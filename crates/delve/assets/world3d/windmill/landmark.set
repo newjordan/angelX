@@ -1,0 +1,17 @@
+# Wonky Windmill: a stone tower under a thatch cap with four sails, behind the mill house.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the tower, its gallery and thatch cap
+frustum-12 stone   at 128 0 0 size 32 60 32 id lm-mill-tower
+cylinder-12 wood    at 128 34 0 size 32 3 32
+cone-10 thatch  at 128 60 0 size 30 22 30 id lm-mill-cap
+box    door    at 128 0 15.9 size 10 18 1
+# the hub and four sails (arms and their lattice blades), facing the room
+box    metal   at 128 44 14.9 size 8 8 3
+box    wood    at 128 46.5 14 size 72 3 2 id lm-sail-arm-h
+box    wood    at 128 12 14 size 3 72 2 id lm-sail-arm-v
+box    thatch  at 152 49.5 14 size 24 10 1.2
+box    thatch  at 120.25 60 14 size 12.5 24 1.2
+box    thatch  at 104 36.5 14 size 24 10 1.2
+box    thatch  at 135.75 12 14 size 12.5 24 1.2

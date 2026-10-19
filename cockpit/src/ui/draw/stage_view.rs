@@ -5,7 +5,46 @@
 
 use super::*;
 
+/// The document body as a presented page: lay the paragraph into a
+/// scratch buffer first, so the page's lines are exactly the wrapped,
+/// scrolled lines the cells would show, then hand them to the
+/// presentation surface. `false` — paint cells — outside the window.
+fn present_document_page(
+    text: &str,
+    scroll: u16,
+    body: Rect,
+    buffer: &mut ratatui::buffer::Buffer,
+) -> bool {
+    use ratatui::widgets::Widget as _;
+    use std::hash::{Hash as _, Hasher as _};
+    if body.width == 0 || body.height == 0 || !crate::ui::glass::active() {
+        return false;
+    }
+    let mut scratch = ratatui::buffer::Buffer::empty(Rect::new(0, 0, body.width, body.height));
+    Paragraph::new(text)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0))
+        .render(scratch.area, &mut scratch);
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    let mut lines: Vec<String> = Vec::with_capacity(usize::from(body.height));
+    for row in scratch.content().chunks(usize::from(body.width)) {
+        let visible = row
+            .iter()
+            .rposition(|cell| cell.symbol() != " ")
+            .map_or(0, |i| i + 1);
+        let line: String = row[..visible].iter().map(|cell| cell.symbol()).collect();
+        line.hash(&mut hasher);
+        lines.push(line);
+    }
+    let ratatui::style::Color::Rgb(r, g, b) = crate::ui::hud::HUD_TEXT else {
+        return false;
+    };
+    crate::ui::present::document_page(hasher.finish(), lines, body, buffer, [r, g, b])
+}
+
 pub(super) fn render_artifacts(frame: &mut Frame, app: &mut App, area: Rect) {
+    app.object_dock.visible = false;
+    app.object_dock.tiles.clear();
     if area.width == 0 || area.height == 0 {
         app.viewer.clear_still();
         return;
@@ -81,37 +120,27 @@ fn render_spend_coin_overlay(frame: &mut Frame, app: &mut App, stage: Rect) {
     let Some(coin) = app.spend_coin.as_ref() else {
         return;
     };
-    let elapsed_secs = coin.started.elapsed().as_secs_f32();
+    let elapsed_secs = coin.started.elapsed().as_secs_f64();
+    let coins = coin.coins;
     let motion = app.spend_coin_motion();
-    let Some(pose) = crate::ui::viz::spend_viz::pose(stage, elapsed_secs, motion) else {
+    if !crate::ui::viz::spend_viz::burst_active(elapsed_secs, coins, motion) {
         app.spend_coin = None;
         return;
-    };
-
-    if pose.face_visible
-        && paint_world_overlay_dots(frame, pose.area, crate::ui::viz::spend_viz::asset_path())
-    {
-        return;
     }
-
-    // Immediate terminal-native fallback while Kitty warms (or when image
-    // protocols are unavailable). The narrow edge phase makes the static coin
-    // read as a flip without changing its cached image geometry.
-    let glyph = if pose.face_visible { "✦" } else { "│" };
-    let glyph_area = Rect::new(
-        pose.area.x,
-        pose.area.y.saturating_add(pose.area.height / 2),
-        pose.area.width,
-        1,
-    );
-    frame.render_widget(
-        Paragraph::new(glyph).alignment(Alignment::Center).style(
-            Style::default()
-                .fg(ratatui::style::Color::Rgb(255, 198, 0))
-                .add_modifier(Modifier::BOLD),
-        ),
-        glyph_area,
-    );
+    let poses = crate::ui::viz::spend_viz::poses(stage, elapsed_secs, coins, motion);
+    if !crate::ui::glass::spend_coins(&poses) {
+        for pose in poses {
+            crate::ui::viz::spend_viz::render_coin(frame, pose);
+        }
+    }
+    if motion == crate::ui::viz::lifecycle_viz::MotionMode::Off && coins > 1 && !stage.is_empty() {
+        frame.render_widget(
+            Paragraph::new(format!("×{coins}"))
+                .alignment(Alignment::Right)
+                .style(Style::default().fg(ratatui::style::Color::Rgb(255, 208, 83))),
+            Rect::new(stage.x, stage.bottom() - 1, stage.width, 1),
+        );
+    }
 }
 
 /// Hidden / off-stage panes must not pay world compose or dancer paint.
@@ -570,6 +599,17 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
         let lazy = overworld::LazyFrame::new(scene.clone(), view_w, view_h, scale);
         let (frame_w, frame_h) = lazy.size();
         let key = scene.key() ^ (u64::from(frame_w) << 32 | u64::from(frame_h)).rotate_left(11);
+        // In the window the mini-viz presents these pixels itself;
+        // the viewer's encode/decode round trip below is for
+        // terminal graphics protocols.
+        if crate::ui::present::picture(key, (frame_w, frame_h), area, frame.buffer_mut(), || {
+            lazy.as_ref().to_vec()
+        }) {
+            if walkable {
+                app.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
+            }
+            return;
+        }
         let state = app
             .viewer
             .render_map_pixels(frame, area, key, move || (lazy, frame_w, frame_h));
@@ -755,7 +795,7 @@ fn paint_static_hammer(frame: &mut Frame, _app: &mut App, box_area: Rect, t: f32
     let _ = paint_world_overlay_dots(frame, box_area, &path);
 }
 
-/// World overlay source art (hammer dancers and spend coin) convert
+/// World overlay source art (hammer dancers) converts
 /// through the existing colored-dot path. Agent portraits and explicit
 /// product stills keep `Viewer::render_portrait`.
 fn paint_world_overlay_dots(frame: &mut Frame, area: Rect, path: &std::path::Path) -> bool {
@@ -1868,6 +1908,12 @@ fn render_scryglass(
         return;
     }
     let formation_h = 0;
+    let object_dock = world_pane
+        && active_index.is_none()
+        && matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap
+            | crate::ui::scryglass::StageSurface::WorldFirstPerson)
+        && !app.world.inside_interior()
+        && !app.together.enabled();
     let footer_h = u16::from(inner.height >= 2);
     let scene_h = inner.height.saturating_sub(formation_h + footer_h);
     let mut scene_rect = Rect::new(inner.x, inner.y, inner.width, scene_h);
@@ -2163,12 +2209,26 @@ fn render_scryglass(
                 let scroll = app
                     .scryglass
                     .document_scroll(body.width, body.height, || paragraph.line_count(body.width));
-                frame.render_widget(
-                    paragraph
-                        .scroll((scroll, 0))
-                        .style(Style::new().fg(crate::ui::hud::HUD_TEXT)),
-                    body,
-                );
+                // On glass the body is one rasterized page (the same
+                // wrapped, scrolled lines, as pixels) under the receipt's
+                // cells. A window that refuses it gets the swash page of
+                // receipt and body together; a terminal paints cells here.
+                if !present_document_page(document.text.as_str(), scroll, body, frame.buffer_mut())
+                    && !crate::ui::present::document(
+                        &document.receipt,
+                        &document.text,
+                        scroll,
+                        scene_rect,
+                        frame.buffer_mut(),
+                    )
+                {
+                    frame.render_widget(
+                        paragraph
+                            .scroll((scroll, 0))
+                            .style(Style::new().fg(crate::ui::hud::HUD_TEXT)),
+                        body,
+                    );
+                }
                 app.scryglass.note_media_painted();
             }
             Ok(None) => frame.render_widget(
@@ -2212,18 +2272,25 @@ fn render_scryglass(
             );
         } else if is_video {
             app.scryglass.surface = crate::ui::scryglass::StageSurface::Video(index);
-            let (decode_width, decode_height) = app.viewer.video_decode_viewport(scene_rect);
+            // In the window the Stereopticon plays the video as glass —
+            // the same decoder and controls, a held frame instead of
+            // braille cells. A terminal keeps its own viewport.
+            let in_window = crate::ui::glass::active();
+            let (decode_width, decode_height) = if in_window {
+                crate::ui::stereopticon::decode_viewport(
+                    scene_rect,
+                    crate::ui::glass::cell_pixels().unwrap_or((8, 16)),
+                )
+            } else {
+                app.viewer.video_decode_viewport(scene_rect)
+            };
             let result = {
                 let media = &app.media[index];
                 app.scryglass.video_frame(
                     media,
                     decode_width,
                     decode_height,
-                    match app.visual_motion {
-                        crate::ui::viz::lifecycle_viz::MotionMode::Full => 12,
-                        crate::ui::viz::lifecycle_viz::MotionMode::Reduced => 6,
-                        crate::ui::viz::lifecycle_viz::MotionMode::Off => 1,
-                    },
+                    crate::ui::scryglass::video_fps_cap(app.visual_motion),
                     app.visual_motion != crate::ui::viz::lifecycle_viz::MotionMode::Off,
                 )
             };
@@ -2233,17 +2300,46 @@ fn render_scryglass(
                     video_duration = duration;
                     video_paused = paused;
                     video_ended = ended;
-                    match app.viewer.render_video(frame, scene_rect, image) {
-                        Ok(true) => app.scryglass.note_media_painted(),
-                        Ok(false) => {
-                            visual_loading = true;
-                            crate::ui::scryglass::Scryglass::paint_loading(
-                                frame,
-                                scene_rect,
-                                app.started.elapsed().as_millis() as u64 / 90,
-                            );
+                    if in_window {
+                        // The deck holds an ended replay a beat, then it
+                        // plays again on the Scryglass's own controls.
+                        crate::ui::stereopticon::note_ended(ended);
+                        match crate::ui::stereopticon::present(
+                            &image,
+                            position,
+                            duration,
+                            paused,
+                            scene_rect,
+                            frame.buffer_mut(),
+                        ) {
+                            crate::ui::stereopticon::Played::Shown => {
+                                app.scryglass.note_media_painted();
+                            }
+                            crate::ui::stereopticon::Played::Restarting => {
+                                app.scryglass.restart_video();
+                            }
+                            crate::ui::stereopticon::Played::Hidden => {
+                                visual_loading = true;
+                                crate::ui::scryglass::Scryglass::paint_loading(
+                                    frame,
+                                    scene_rect,
+                                    app.started.elapsed().as_millis() as u64 / 90,
+                                );
+                            }
                         }
-                        Err(error) => app.scryglass.note_media_fault(error),
+                    } else {
+                        match app.viewer.render_video(frame, scene_rect, image) {
+                            Ok(true) => app.scryglass.note_media_painted(),
+                            Ok(false) => {
+                                visual_loading = true;
+                                crate::ui::scryglass::Scryglass::paint_loading(
+                                    frame,
+                                    scene_rect,
+                                    app.started.elapsed().as_millis() as u64 / 90,
+                                );
+                            }
+                            Err(error) => app.scryglass.note_media_fault(error),
+                        }
                     }
                 }
                 Ok((None, position, duration, paused, ended)) => {
@@ -2252,11 +2348,23 @@ fn render_scryglass(
                     video_duration = duration;
                     video_paused = paused;
                     video_ended = ended;
-                    crate::ui::scryglass::Scryglass::paint_loading(
-                        frame,
-                        scene_rect,
-                        app.started.elapsed().as_millis() as u64 / 90,
-                    );
+                    // The first frame still decoding: in the window the
+                    // pane holds the warming frame instead of dots.
+                    let warmed = in_window && {
+                        crate::ui::stereopticon::note_ended(ended);
+                        crate::ui::stereopticon::warming(
+                            scene_rect,
+                            frame.buffer_mut(),
+                            app.started.elapsed().as_secs_f32(),
+                        )
+                    };
+                    if !warmed {
+                        crate::ui::scryglass::Scryglass::paint_loading(
+                            frame,
+                            scene_rect,
+                            app.started.elapsed().as_millis() as u64 / 90,
+                        );
+                    }
                 }
                 Err(error) => app.scryglass.note_media_fault(error),
             }
@@ -2391,6 +2499,10 @@ fn render_scryglass(
             || active_index.is_some()
             || app.world.visiting_scrying_tower())
     {
+        // The row the floating dock stands in for, with its actions before
+        // any are trimmed for width: only the ordinary world's and an
+        // arrival's rows float.
+        let mut dock_offer: Option<Vec<WorldButton>> = None;
         let (caption, mut controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
             if world_pane && app.together.enabled() && active_index.is_none() {
                 (
@@ -2544,6 +2656,7 @@ fn render_scryglass(
                     ("Explore", WorldButton::ScryglassMap),
                     ("Back", WorldButton::Back),
                 ]);
+                dock_offer = Some(controls.iter().map(|(_, button)| *button).collect());
                 (Line::from(""), controls)
             } else {
                 let exploring = app.world.live_adventure_view()
@@ -2566,6 +2679,7 @@ fn render_scryglass(
                     ("Vault", WorldButton::ScryglassVault),
                     ("Back", WorldButton::Back),
                 ]);
+                dock_offer = Some(controls.iter().map(|(_, button)| *button).collect());
                 // Compact Realm captions carry causal and memory-health
                 // evidence. Keep their existing space; `r` and `/research`
                 // remain available when the extra navigation verb cannot fit.
@@ -2618,7 +2732,18 @@ fn render_scryglass(
                 )
             });
         }
-        render_scene_caption(frame, app, footer_rect, caption, &controls);
+        // The dock stands in for the ordinary world's or an arrival's row,
+        // floating that row's own actions, where the pane is wide enough to
+        // float them; any other row (a walk's, a narrow pane's) stays.
+        let dock_offer = dock_offer.filter(|_| object_dock && inner.width >= crate::ui::object_dock::MIN_WIDTH);
+        if let Some(offered) = dock_offer {
+            let dock_height = inner.height.saturating_sub(1).clamp(1, 5);
+            let dock_area = Rect::new(inner.x, inner.bottom() - dock_height, inner.width, dock_height);
+            crate::ui::object_dock::prepare(app, dock_area,
+                resolved == crate::ui::scryglass::StageSurface::WorldFirstPerson, offered);
+        } else {
+            render_scene_caption(frame, app, footer_rect, caption, &controls);
+        }
     }
     if let Some(formation_rect) = formation_rect
         && scryglass_scene_accessories_allowed()

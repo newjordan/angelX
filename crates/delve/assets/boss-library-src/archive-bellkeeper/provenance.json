@@ -1,0 +1,215 @@
+{
+  "id": "archive-bellkeeper",
+  "source_path": "./cockpit/assets/boss-library/existing/archive-bellkeeper/v01/source-sheet-refined.png",
+  "source_sha256": "54b0a9866c2813f745bc5fd2be9c8ad47acb4465d353f0842375650b0cc92d97",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Drowned archive guardian in an antique squat brass diving suit. Its HEAD is an enormous tarnished bronze church bell with a dark opening and little dangling clapper like a tongue; two tiny pale eye glints inside. Sea-green patina, kelp collar, leather hose coils and oversized diver mittens, short heavy lead boots. A handbell hangs from its belt. Offended fussy custodian.",
+  "definition_header": "name THE BELLKEEPER\ntext The drowned bell calls the wardens to account.\nby angelX\nwhere archive\nhp 620\nsize 1.4\nmove anchor\nattack ring shots=8 speed=4 every=100 damage=10 shot=bone\nphases gap_ring weave every=98 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "1137802cf85f337bdd0b93e0a11b2d7824d7a9d65509916eabb2025cef5c4a1b",
+  "definition_sha256": "1137802cf85f337bdd0b93e0a11b2d7824d7a9d65509916eabb2025cef5c4a1b",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        54,
+        164,
+        254,
+        293
+      ],
+      "opaque_component_pixels": 44628,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "17a92864214b0a4083b8af8f7e8b47dcf8571112bdc11f161c2ce874405afab4"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        372,
+        151,
+        249,
+        309
+      ],
+      "opaque_component_pixels": 45323,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "861eec425c0c6bd533705ac091f41d79d6e89ad5351c481bb59f60ef148d8337"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        676,
+        176,
+        205,
+        290
+      ],
+      "opaque_component_pixels": 36289,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "fc5010c9d162329dc4aed9ea4be5550151486859cf3db19a7034c2fb1e3e1263"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        976,
+        151,
+        228,
+        316
+      ],
+      "opaque_component_pixels": 44449,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "726b3d69a500d9ff8b744b517c48bfbed161b1bd7d5fa9ca3874552c317222a0"
+    },
+    {
+      "id": "overhead/part/diving-suit-body",
+      "source_rect_xywh": [
+        71,
+        585,
+        217,
+        223
+      ],
+      "opaque_component_pixels": 33609,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-diving-suit-body.png",
+      "sha256": "928516b50df99c40948305f2104ff76ab21ee7ebb79814848d93205015bcae6b"
+    },
+    {
+      "id": "overhead/part/bell-head-clapper",
+      "source_rect_xywh": [
+        416,
+        560,
+        188,
+        222
+      ],
+      "opaque_component_pixels": 25173,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-bell-head-clapper.png",
+      "sha256": "ad23acda65ea66d425468819d15caecf7a65347e7ba4d1736ae4c9b1e2e566a4"
+    },
+    {
+      "id": "overhead/part/diver-mitten-arm",
+      "source_rect_xywh": [
+        716,
+        582,
+        163,
+        203
+      ],
+      "opaque_component_pixels": 19175,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-diver-mitten-arm.png",
+      "sha256": "951eea6259a8f55eafdf29b0558389c7db3e1ca59c96e9e51f14cacccc1239a6"
+    },
+    {
+      "id": "overhead/part/kelp-hose-collar",
+      "source_rect_xywh": [
+        981,
+        609,
+        233,
+        183
+      ],
+      "opaque_component_pixels": 25681,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-kelp-hose-collar.png",
+      "sha256": "4ce45024fc41b0c17f7fc8f0018b96c512a16ccb25e61ac8d83c73f5373eb1ce"
+    },
+    {
+      "id": "side/part/diving-suit-body",
+      "source_rect_xywh": [
+        69,
+        932,
+        215,
+        212
+      ],
+      "opaque_component_pixels": 32819,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-diving-suit-body.png",
+      "sha256": "f7738ae47a68b2c2f0094e2c41995d8ce7e621e88cc5be47808cc207715c2706"
+    },
+    {
+      "id": "side/part/bell-head-clapper",
+      "source_rect_xywh": [
+        412,
+        907,
+        186,
+        218
+      ],
+      "opaque_component_pixels": 24154,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-bell-head-clapper.png",
+      "sha256": "caacd53f271073840648b195ce3b1aea8122175c6fc0ac5747d009a4c77d9157"
+    },
+    {
+      "id": "side/part/diver-mitten-arm",
+      "source_rect_xywh": [
+        711,
+        936,
+        190,
+        193
+      ],
+      "opaque_component_pixels": 19861,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-diver-mitten-arm.png",
+      "sha256": "263d497be8e9b34e960c9f6631fe9d208dbc39e17d22d3b3c7dc384cb9a0218c"
+    },
+    {
+      "id": "side/part/kelp-hose-collar",
+      "source_rect_xywh": [
+        985,
+        955,
+        228,
+        179
+      ],
+      "opaque_component_pixels": 25245,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-kelp-hose-collar.png",
+      "sha256": "905802913ff2bd9d1029197f589a0b4889a68079755e17b4355ce0d4e64d5897"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    48
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Visual registration: horizontal crop centre, bottom at shared feet. Reject lowest-band mean: a stretched boot forced every pose too small."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 10,
+  "geometry": "supports()/landing() use feet and \u00b14 px support lip; near_ladder/step_at own rung catch. Body image cannot add reach. Down uses hit pose; no separate knockdown image.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "191f9fcdb668a2d505ea1a9206bfe985a0c123ddbe90577890402fba0c2ce7b1",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Idle breathing, slight relaxed bend.",
+      "name": "knight-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        110.0,
+        296
+      ],
+      "source_rect_xywh": [
+        50,
+        106,
+        220,
+        296
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 2; Run A, forward stride with near fist raised.",
+      "name": "knight-run-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        126.5,
+        292
+      ],
+      "source_rect_xywh": [
+        367,
+        112,
+        253,
+        292
+      ],
+      "state": "run"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 3; Run B, alternate stride and bob.",
+      "name": "knight-run-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.0,
+        287
+      ],
+      "source_rect_xywh": [
+        672,
+        118,
+        240,
+        287
+      ],
+      "state": "run"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Run C, trailing cloth and opposite stride.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.0,
+        273
+      ],
+      "source_rect_xywh": [
+        992,
+        128,
+        236,
+        273
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 5; Spring-off/jump, driving upward with both fists.",
+      "name": "knight-jump",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        303
+      ],
+      "source_rect_xywh": [
+        52,
+        463,
+        269,
+        303
+      ],
+      "state": "jump"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 6; Fall, on the back with limbs spread.",
+      "name": "knight-fall",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.0,
+        243
+      ],
+      "source_rect_xywh": [
+        346,
+        518,
+        284,
+        243
+      ],
+      "state": "fall"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 7; Landing squash, compressed low stance.",
+      "name": "knight-land",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        236
+      ],
+      "source_rect_xywh": [
+        687,
+        539,
+        225,
+        236
+      ],
+      "state": "land"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 8; Climb A, rear view, right glove reaching up.",
+      "name": "knight-climb-1",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.5,
+        313
+      ],
+      "source_rect_xywh": [
+        982,
+        466,
+        229,
+        313
+      ],
+      "state": "climb"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 9; Climb B, rear view, other glove reaching up.",
+      "name": "knight-climb-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        109.5,
+        326
+      ],
+      "source_rect_xywh": [
+        60,
+        835,
+        219,
+        326
+      ],
+      "state": "climb"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 10; Hit/flinch, recoiling with arms protecting the visor.",
+      "name": "knight-hit",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.0,
+        271
+      ],
+      "source_rect_xywh": [
+        356,
+        891,
+        280,
+        271
+      ],
+      "state": "hit"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 11; Victory fist, upright with raised glove.",
+      "name": "knight-victory",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.5,
+        304
+      ],
+      "source_rect_xywh": [
+        666,
+        857,
+        245,
+        304
+      ],
+      "state": "victory"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Crouch wind-up, low and loaded to spring.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        242
+      ],
+      "source_rect_xywh": [
+        977,
+        915,
+        243,
+        242
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d748; canvas foot (24,48), top-left screen feet\u2212(24,48). Seat recolour maps I/r/o/t ramp; details remain independent of tint.",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "rafterwake.knight",
+  "source_sha256": "c23d0b72fe5338aa2276ba6c4ac2140f6a148d93f45d2ad0fa85b90e0837ffaf",
+  "timing": "Ten bodies; run 2\u00d75 ticks, climb 2\u00d76. Landing sets pose_ticks=4 (decremented later in same step); respawn land=6, down=18, protection=30, freeze=2. Jump/fall follow velocity; victory held. COYOTE=4, BUFFER=5; movement GRAVITY=112,JUMP=1536,RUN=640,LADDER=384 fixed units (Lane::step_at)."
+}

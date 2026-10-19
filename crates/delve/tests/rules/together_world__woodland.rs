@@ -6,7 +6,7 @@ fn woodland_adventure_regression(mut run: Run) {
         woodland as wood,
     };
     use crate::rules::{Grid, HERO_RADIUS, Mover};
-    // Every authored woodland road works in both directions for four knights.
+    // Every authored woodland road works in both directions for a full party.
     for id in 2..=MAX_PLAYERS {
         run.join_seat(id, "Woodlander");
     }
@@ -30,8 +30,10 @@ fn woodland_adventure_regression(mut run: Run) {
                 2 => (24.0, 26.8, 0, 1),
                 _ => (1.2, 14.0, -1, 0),
             };
+            let party = run.players.len() as f32;
             for (n, h) in run.players.values_mut().enumerate() {
-                let offset = (n as f32 - 1.5) * 1.8;
+                // All of them must fit the doorway: it takes the whole party.
+                let offset = (n as f32 - (party - 1.0) / 2.0) * 0.6;
                 (h.x, h.y) = if d % 2 == 0 {
                     (x + offset, y)
                 } else {

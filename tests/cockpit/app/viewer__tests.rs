@@ -230,11 +230,10 @@ fn static_preview_viewer_starts_empty() {
     let viewer = Viewer::static_preview();
     assert!(!viewer.has_image());
     assert_eq!(viewer.label(), None);
-    assert!(!viewer.supports_agentviz_portal());
 }
 
 #[test]
-fn kitty_portal_frame_is_encoded_off_thread_and_cached() {
+fn kitty_council_table_is_encoded_off_thread_and_cached() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::time::Instant;
@@ -242,31 +241,29 @@ fn kitty_portal_frame_is_encoded_off_thread_and_cached() {
     let mut picker = Picker::halfblocks();
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
-    assert!(viewer.supports_agentviz_portal());
-    let portal_frame = crate::ui::viz::agentviz_portal::PortalFrame {
-        sequence: 77,
-        pixels: Arc::from(vec![32; crate::ui::viz::agentviz_portal::FRAME_BYTES]),
-    };
+    assert!(viewer.kitty());
     let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("test terminal");
     let deadline = Instant::now() + ASYNC_IMAGE_TEST_TIMEOUT;
     let mut ready = false;
     while !ready && Instant::now() < deadline {
         terminal
             .draw(|frame| {
-                ready = viewer.render_agentviz_portal(frame, frame.area(), &portal_frame);
+                ready = viewer.render_council_table(frame, frame.area(), 77, || {
+                    image::RgbaImage::from_pixel(32, 32, image::Rgba([32, 32, 32, 255]))
+                });
             })
-            .expect("render portal");
+            .expect("render council table");
         if !ready {
             std::thread::sleep(Duration::from_millis(10));
         }
     }
-    assert!(ready, "Kitty portal adapter did not finish");
+    assert!(ready, "Kitty council table adapter did not finish");
     assert!(viewer.portal_current.is_some());
-    assert!(!viewer.agentviz_portal_pending());
+    assert!(viewer.portal_pending.is_none());
 }
 
 #[test]
-fn changing_portal_and_map_sequences_coalesce_behind_one_pending_encode() {
+fn changing_council_and_map_sequences_coalesce_behind_one_pending_encode() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -280,25 +277,27 @@ fn changing_portal_and_map_sequences_coalesce_behind_one_pending_encode() {
         height: 10,
     };
 
-    let (_portal_hold, portal_rx) = mpsc::channel();
+    let (_council_hold, council_rx) = mpsc::channel();
     viewer.portal_pending = Some(PendingPortal {
         key: old_key.clone(),
-        rx: portal_rx,
+        rx: council_rx,
     });
-    let portal_frame = crate::ui::viz::agentviz_portal::PortalFrame {
-        sequence: 2,
-        pixels: Arc::from(vec![32; crate::ui::viz::agentviz_portal::FRAME_BYTES]),
-    };
     let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("test terminal");
+    let council_composed = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&council_composed);
     terminal
         .draw(|frame| {
-            assert!(!viewer.render_agentviz_portal(frame, frame.area(), &portal_frame));
+            assert!(!viewer.render_council_table(frame, frame.area(), 2, move || {
+                counter.fetch_add(1, Ordering::Relaxed);
+                image::RgbaImage::new(8, 8)
+            }));
         })
-        .expect("render coalesced portal");
+        .expect("render coalesced council table");
+    assert_eq!(council_composed.load(Ordering::Relaxed), 0);
     assert_eq!(
         viewer.portal_pending.as_ref().map(|pending| &pending.key),
         Some(&old_key),
-        "a newer portal sequence replaced the admitted encode"
+        "a newer council picture replaced the admitted encode"
     );
 
     let (_map_hold, map_rx) = mpsc::channel();
@@ -389,7 +388,7 @@ fn portrait_character_protocol_is_anchored_to_the_bottom_right() {
         )
         .unwrap();
     let available = Rect::new(7, 9, 40, 25);
-    let placed = bottom_right_protocol_area(&protocol, available);
+    let placed = bottom_right_protocol_area(&Pic::Term(protocol), available);
     assert_eq!(placed.right(), available.right());
     assert_eq!(placed.bottom(), available.bottom());
     assert!(
@@ -1161,4 +1160,27 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
     terminal
         .draw(|frame| assert!(!plain.render_game_img(frame, area, 1, (768, 448), img)))
         .unwrap();
+}
+
+#[test]
+fn the_art_tier_seat_picture_fits_the_terminal_with_its_party_band() {
+    // The seat's picture is the art tier's 768 wide with the party band
+    // above its room (504 tall), and it still goes out at the terminal's
+    // own pixels, not a whole multiple of itself.
+    let (cw, ch) = super::cell_shape();
+    for size in [(768, 448), (768, 504)] {
+        let img = crate::stage::world_viz::overworld::Img::new(size.0 as i32, size.1 as i32);
+        let png = super::scaled_png(&img, size, 100, 30);
+        let dim = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
+        assert_eq!(
+            (dim(16), dim(20)),
+            ((100.0 * cw).round() as u32, (30.0 * ch).round() as u32),
+            "{size:?}"
+        );
+    }
+    // The native tier keeps its whole-multiple scaling.
+    let native = crate::stage::world_viz::overworld::Img::new(384, 224);
+    let png = super::scaled_png(&native, (384, 224), 100, 30);
+    let dim = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
+    assert_eq!((dim(16), dim(20)), (384 * 3, 224 * 3));
 }

@@ -1,0 +1,44 @@
+set chunk-9-6
+# The kingdom, chunk 9,6 in The Coast: tiles 216..240 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 1664
+plate 1536 1024
+
+# ground
+box    grass   at 3472 -4 1616 size 32 4 160
+box    sand    at 3528 -4 1544 size 80 4 16
+box    grass   at 3592 -4 1624 size 48 4 176
+box    sand    at 3624 -4 1632 size 16 4 192
+box    water   at 3736 -4 1632 size 208 1 192
+box    grass   at 3496 -4 1624 size 16 4 144
+box    sand    at 3528 -4 1560 size 48 4 16
+box    grass   at 3560 -4 1632 size 16 4 160
+box    grass   at 3528 -4 1632 size 48 4 128
+box    path    at 3504 -4 1704 size 96 4 16
+box    grass   at 3496 -4 1728 size 80 4 32
+box    path    at 3560 -4 1720 size 48 4 16
+box    grass   at 3600 -4 1752 size 32 4 80
+box    grass   at 3560 -4 1744 size 48 4 32
+box    grass   at 3624 -4 1760 size 16 4 64
+box    sand    at 3640 -4 1744 size 16 4 32
+box    water   at 3744 -4 1744 size 192 1 32
+box    grass   at 3472 -4 1768 size 32 4 48
+box    sand    at 3512 -4 1768 size 48 4 48
+box    sand    at 3552 -4 1776 size 32 4 32
+box    grass   at 3576 -4 1776 size 16 4 32
+box    grass   at 3640 -4 1776 size 16 4 32
+box    sand    at 3656 -4 1776 size 16 4 32
+box    water   at 3752 -4 1776 size 176 1 32
+
+# set dressing
+cylinder wood    at 3523 0 1720 size 3.5 3 3.5
+cylinder wood    at 3528 0 1722 size 3.5 3 3.5
+cylinder wood    at 3533 0 1720 size 3.5 3 3.5
+box    wood    at 3612 0 1736 size 1.5 12 1.5
+box    wood    at 3624 0 1736 size 1.5 12 1.5
+box    wood    at 3636 0 1736 size 1.5 12 1.5
+box    cloth   at 3624 0 1738.5 size 26 1 4
+cylinder wood    at 3572 0 1750 size 5 4 5
+cylinder wood    at 3579 0 1750 size 5 4 5
+cylinder wood    at 3572 0 1755 size 5 4 5

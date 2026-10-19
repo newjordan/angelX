@@ -15,9 +15,10 @@
 //! | bytes | what |
 //! |---|---|
 //! | 1 | the four axes, two bits each (`move_x`, `move_y`, `aim_x`, `aim_y` from the low bits), each its value + 1 |
-//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 11: slots follow, bit 12: a vote follows |
+//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 12: slots, bit 13: vote, bit 14: Latch sample, bit 15: leave held |
 //! | varint, if slots | `play`, `cast << 3`, `skill << 6` |
 //! | varint + 1, if a vote | the vote's serial, then its action (`action_code`) |
+//! | varint, if a Latch counter | the tick visible at its client sample |
 //!
 //! A command is `held` then `pressed`: four bytes while walking and
 //! firing, more only when a card, a spell, a skill or a vote is pressed.
@@ -43,13 +44,17 @@ const FLAGS: usize = 12;
 /// After the flags: the slots byte follows, a vote follows.
 const HAS_SLOTS: u64 = 1 << FLAGS;
 const HAS_VOTE: u64 = 1 << (FLAGS + 1);
+/// Optional game-local sample tick, inside the existing command body.
+const HAS_LATCH_TICK: u64 = 1 << (FLAGS + 2);
+// Keep the existing slot, vote and sample bits stable.
+const LEAVE_HELD: u64 = 1 << (FLAGS + 3);
 /// Bits a slot value takes in the slots varint (`play`, `cast`, `skill`
 /// are each at most 5).
 const SLOT_BITS: u32 = 3;
 /// The longest a command's bytes can be: two inputs of an axes byte, a
-/// two-byte flags varint, a two-byte slots varint, a ten-byte serial and an
-/// action byte.
-pub const MAX_BYTES: usize = 2 * (1 + 2 + 2 + 10 + 1);
+/// three-byte flags varint, a two-byte slots varint, a ten-byte serial, an
+/// action byte and a ten-byte optional Latch sample tick.
+pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10);
 
 impl DelveCmd {
     /// What the step sees: `held` with `pressed` laid over it.
@@ -85,6 +90,7 @@ impl Command for DelveCmd {
     fn held_only(&self) -> Self {
         DelveCmd {
             held: Input {
+                latch_tick: None,
                 vote: None,
                 leave_activity: false,
                 activity_menu: false,
@@ -103,11 +109,13 @@ impl Command for DelveCmd {
 
 /// `under` with every field `over` sets laid on top: a flag set in either,
 /// an axis or slot `over` gives, `over`'s vote if it has one.
-fn lay_over(under: Input, over: &Input) -> Input {
+pub(super) fn lay_over(under: Input, over: &Input) -> Input {
     let axis = |u: i8, o: i8| if o != 0 { o } else { u };
     let slot = |u: u8, o: u8| if o != 0 { o } else { u };
     Input {
+        latch_tick: over.latch_tick.or(under.latch_tick),
         leave_activity: under.leave_activity || over.leave_activity,
+        leave_held: under.leave_held,
         activity_menu: under.activity_menu || over.activity_menu,
         vote: over.vote.or(under.vote),
         move_x: axis(under.move_x, over.move_x),
@@ -157,11 +165,17 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     let slots = u64::from(input.play)
         | u64::from(input.cast) << SLOT_BITS
         | u64::from(input.skill) << (2 * SLOT_BITS);
+    if input.leave_held {
+        bits |= LEAVE_HELD;
+    }
     if slots != 0 {
         bits |= HAS_SLOTS;
     }
     if input.vote.is_some() {
         bits |= HAS_VOTE;
+    }
+    if input.latch_tick.is_some() {
+        bits |= HAS_LATCH_TICK;
     }
     put_varint(out, bits);
     if slots != 0 {
@@ -170,6 +184,9 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     if let Some(vote) = input.vote {
         put_varint(out, vote.serial);
         out.push(action_code(vote.action));
+    }
+    if let Some(tick) = input.latch_tick {
+        put_varint(out, tick);
     }
 }
 
@@ -180,7 +197,7 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         (code != NO_AXIS).then_some(code as i8 - 1)
     };
     let bits = b.varint().ok()?;
-    if bits >> (FLAGS + 2) != 0 {
+    if bits >> (FLAGS + 4) != 0 {
         return None;
     }
     let on = |i: usize| bits >> i & 1 == 1;
@@ -200,7 +217,9 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
     } else {
         None
     };
+    let latch_tick = if bits & HAS_LATCH_TICK != 0 { Some(b.varint().ok()?) } else { None };
     Some(Input {
+        latch_tick,
         move_x: axis(0)?,
         move_y: axis(2)?,
         aim_x: axis(4)?,
@@ -214,6 +233,7 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         take: on(6),
         interact: on(7),
         leave_activity: on(8),
+        leave_held: bits & LEAVE_HELD != 0,
         activity_menu: on(9),
         skip_plate: on(10),
         again: on(11),

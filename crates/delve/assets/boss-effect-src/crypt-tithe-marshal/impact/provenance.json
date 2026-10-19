@@ -1,0 +1,180 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.crypt-tithe-marshal.impact/v01/source-sheet.png",
+  "source_sha256": "bc3d64c13cd0859cc2ca0d8e8d858c7380a9313edae5994360e684687d618b1a",
+  "original_sheet_sha256": "bc3d64c13cd0859cc2ca0d8e8d858c7380a9313edae5994360e684687d618b1a",
+  "metadata_sha256": "cf1d0402bff2daa7b48f50b11142271d138768d14a54d684358b2ffba077112a",
+  "size": [
+    1536,
+    1536
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        142,
+        268,
+        147,
+        162
+      ],
+      "alpha_area": 7046,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "42ec0f9aeb9be069a997e3bee4b3278fb102a58a6feb7195a718622b2a0f734f"
+    },
+    {
+      "source_rect_xywh": [
+        436,
+        185,
+        293,
+        320
+      ],
+      "alpha_area": 43604,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "9bbc2a800a642f411509547324c133c92845269e1ec76edb53f1adbccbcb9f96"
+    },
+    {
+      "source_rect_xywh": [
+        815,
+        183,
+        286,
+        316
+      ],
+      "alpha_area": 36013,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "4264745a07d52a25e07951963bbd06a2e2d619946ce2c516323aa6e0d087e343"
+    },
+    {
+      "source_rect_xywh": [
+        1193,
+        211,
+        294,
+        278
+      ],
+      "alpha_area": 34985,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "c46e5ef2c54851997d42be5c0152fffbf41d6b8ede5d705f23cdb05d6e9c08d4"
+    },
+    {
+      "source_rect_xywh": [
+        1301,
+        211,
+        18,
+        33
+      ],
+      "alpha_area": 430,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "ba4cd19cbb2f21b0dacca485be45ce5c73fef5840537b22ab8708cc59e8c86fc"
+    },
+    {
+      "source_rect_xywh": [
+        1434,
+        283,
+        51,
+        70
+      ],
+      "alpha_area": 945,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "cc6486487ad3ca4b4569bd5b39a117828f01eea2a48e3fecb0fddb6ce3645350"
+    },
+    {
+      "source_rect_xywh": [
+        113,
+        703,
+        193,
+        197
+      ],
+      "alpha_area": 14636,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "b7abbd6271ed9eb9c648498d50767d3c3605a91f8cfe744cb6e9f50d9af9d82c"
+    },
+    {
+      "source_rect_xywh": [
+        490,
+        731,
+        159,
+        148
+      ],
+      "alpha_area": 7460,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "8008b273790927b92d45226052f04627c9cd4308dbe52b36b59bd8e32b4028cd"
+    },
+    {
+      "source_rect_xywh": [
+        792,
+        636,
+        325,
+        333
+      ],
+      "alpha_area": 54392,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "733ac568f0550c2ea34a8f722af739533ec805f698c36e1cfecaaac5f4f54e7d"
+    },
+    {
+      "source_rect_xywh": [
+        1191,
+        644,
+        296,
+        309
+      ],
+      "alpha_area": 35446,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "dd7abb6a3a1162ab018c30c1c63805ade88f8412710be0e1e60488c1d32607cc"
+    },
+    {
+      "source_rect_xywh": [
+        108,
+        1107,
+        215,
+        250
+      ],
+      "alpha_area": 28604,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "bb1e50dde97b739fa19890f9bd7d0d67d07877fd6aa8e4fbd898c60706e3f333"
+    },
+    {
+      "source_rect_xywh": [
+        511,
+        1171,
+        137,
+        162
+      ],
+      "alpha_area": 11354,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "6d8af927a12c0ec8b52585e07527c5ffdc2836967d6875d67776c2f67d4d949f"
+    },
+    {
+      "source_rect_xywh": [
+        848,
+        1165,
+        213,
+        187
+      ],
+      "alpha_area": 19679,
+      "index": 12,
+      "file": "12.png",
+      "sha256": "8e6534ea72bc34fc39bd7657106ddeb08c6c747c0da424adfad05528d526bd28"
+    },
+    {
+      "source_rect_xywh": [
+        1235,
+        1170,
+        186,
+        174
+      ],
+      "alpha_area": 15140,
+      "index": 13,
+      "file": "13.png",
+      "sha256": "5a2c1d139f33dfaefe3b3fe2178b86663bce6010d1c1b35a4e7677c7719eedb6"
+    }
+  ]
+}

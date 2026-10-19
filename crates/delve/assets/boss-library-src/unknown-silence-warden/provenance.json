@@ -1,0 +1,215 @@
+{
+  "id": "unknown-silence-warden",
+  "source_path": "./cockpit/assets/boss-library/existing/unknown-silence-warden/v01/source-sheet-refined.png",
+  "source_sha256": "36f90c713026189655a1ba91ae8f3ee49bb3126d2272fc17e9b1bbab1507c1e4",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Anchored silence guardian, broad stooped charcoal-purple stone body under a thick pale grey muffling stole. Smooth CLOSED faceless ivory visor with only a thin sealed horizontal seam, no eyes or mouth drawn. Two massive padded stone mitts held near chest and squat pedestal base. Dark violet inset panels, no bell, no text or glyphs. Extremely self-important hush-keeper with gently comic hunch.",
+  "definition_header": "name THE SILENCE WARDEN\ntext The second seal has never spoken.\nby angelX\nwhere unknown\nhp 620\nsize 1.4\nmove anchor\nattack fan shots=7 arc=110 speed=4 every=100 damage=10 shot=orb\nphases sweep seeker curve every=91 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "5fed24cc15d9e472e5965c75450cfccdbf1af9c8b4a2ef083a113a6bc2b2fd26",
+  "definition_sha256": "5fed24cc15d9e472e5965c75450cfccdbf1af9c8b4a2ef083a113a6bc2b2fd26",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        61,
+        170,
+        239,
+        256
+      ],
+      "opaque_component_pixels": 41833,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "280d0de6d0a86581d4a820a4c13bb2ad75547cdf8ac11afc2849265c016eed89"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        362,
+        170,
+        243,
+        255
+      ],
+      "opaque_component_pixels": 42907,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "26308cf1dd9428092066d58ad9c9d3561de7b33de63d2cfbc69eed3c4e9fa181"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        664,
+        194,
+        235,
+        230
+      ],
+      "opaque_component_pixels": 38923,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "4e97b3c50bffa5c3d098b172c63c78f598bf6b86aaf5d2df4c0517fad67466e0"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        958,
+        195,
+        247,
+        229
+      ],
+      "opaque_component_pixels": 40475,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "2d6aae5905b83da7b75f855323cfce9a9591f1c1ebf44438b4bedc686c930d2c"
+    },
+    {
+      "id": "overhead/part/muffled-stone-body",
+      "source_rect_xywh": [
+        73,
+        554,
+        233,
+        208
+      ],
+      "opaque_component_pixels": 34757,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-muffled-stone-body.png",
+      "sha256": "0c0d83a63fa699bfb0cc33844ee305c17b5b359e37d5ec3834e06193bd7202d3"
+    },
+    {
+      "id": "overhead/part/sealed-visor",
+      "source_rect_xywh": [
+        411,
+        570,
+        145,
+        148
+      ],
+      "opaque_component_pixels": 14849,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-sealed-visor.png",
+      "sha256": "63f16b25b746e3668743b926cdcab9d8f5a40d8b581b281fe8d6f294f3368888"
+    },
+    {
+      "id": "overhead/part/stone-mitten-arm",
+      "source_rect_xywh": [
+        700,
+        557,
+        162,
+        204
+      ],
+      "opaque_component_pixels": 21857,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-stone-mitten-arm.png",
+      "sha256": "24a6ffe9469bd96c8b70b55901c44d7a992be29125378cf767a633aef0887bf2"
+    },
+    {
+      "id": "overhead/part/muffling-stole",
+      "source_rect_xywh": [
+        988,
+        517,
+        223,
+        258
+      ],
+      "opaque_component_pixels": 32250,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-muffling-stole.png",
+      "sha256": "8c4ee409f68622b35dc6ab31f11ed0b12ef1cd578070f67bb20fe9b4d81518c3"
+    },
+    {
+      "id": "side/part/muffled-stone-body",
+      "source_rect_xywh": [
+        72,
+        893,
+        226,
+        206
+      ],
+      "opaque_component_pixels": 35361,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-muffled-stone-body.png",
+      "sha256": "11e9e5e01e5d9da0de597a8ad9cb69e35252ee00e5cc00106d86ce0e7e60b66c"
+    },
+    {
+      "id": "side/part/sealed-visor",
+      "source_rect_xywh": [
+        415,
+        919,
+        157,
+        141
+      ],
+      "opaque_component_pixels": 14855,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-sealed-visor.png",
+      "sha256": "324915d4c06a53c33725b78b3d67e3e1af3fbbc2ae0a32e2a5b99e20a4801ee9"
+    },
+    {
+      "id": "side/part/stone-mitten-arm",
+      "source_rect_xywh": [
+        689,
+        919,
+        208,
+        165
+      ],
+      "opaque_component_pixels": 20116,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-stone-mitten-arm.png",
+      "sha256": "b73edbf986d68a7efa2a99043572c86c8b6b8a4f3e1a17d077cd6078e077ff84"
+    },
+    {
+      "id": "side/part/muffling-stole",
+      "source_rect_xywh": [
+        991,
+        874,
+        207,
+        238
+      ],
+      "opaque_component_pixels": 26976,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-muffling-stole.png",
+      "sha256": "dd5a15b689994d65ee4fb7b5c84668fe69080dee421a50a9c3b70b5ec91ba1b8"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

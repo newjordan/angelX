@@ -1,0 +1,109 @@
+{
+  "boss": "hellforge-slag-sovereign",
+  "camera": "overhead",
+  "definition_sha256": "cd1bc6a98ac3c68f21c33f32fe4cb0355673d60fbdccf8717f8154feb98fc85b",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: original body retained; hellforge-slag-sovereign/v1/windup: key_colour_agreement 0.8921 < 0.9; hellforge-slag-sovereign/v2/windup: key_colour_agreement 0.8814 < 0.9. Measured correction in docs/ART-REQUESTS.md.",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "molten armor body"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "molten armor body",
+      "five prong crown head",
+      "slag gauntlet",
+      "slag mantle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      45,
+      54
+    ],
+    "v2": [
+      80,
+      96
+    ]
+  },
+  "gate_failures": [
+    "hellforge-slag-sovereign/v1/windup: key_colour_agreement 0.8921 < 0.9",
+    "hellforge-slag-sovereign/v2/windup: key_colour_agreement 0.8814 < 0.9"
+  ],
+  "identity_props": [
+    "molten armor body",
+    "five prong crown head",
+    "slag gauntlet",
+    "slag mantle"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 32,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9237588652482269,
+      "opaque_pixels": 1128,
+      "sha256": "e3dca8238beb1863da16a8dc269f9561099797e25675054fa1a00723ef9d5909",
+      "silhouette_iou": 1.0,
+      "size": [
+        45,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 33,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.8921071687183201,
+      "opaque_pixels": 1381,
+      "sha256": "5822bcd85854800fa9a823d57ea7a0d2a59874d4a242ef09f41699d059b74170",
+      "silhouette_iou": 1.0,
+      "size": [
+        45,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.926536312849162,
+      "opaque_pixels": 3580,
+      "sha256": "bf3c5f6454e7e459934477b8e4b79b47f33d96c127f4c4f769cdabf71e3cc60e",
+      "silhouette_iou": 1.0,
+      "size": [
+        80,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.8813559322033898,
+      "opaque_pixels": 4366,
+      "sha256": "cdcacbf295d5c91500e6fbf3f444c2bdc43ff3c855b45bd71da0bcaa6551a181",
+      "silhouette_iou": 1.0,
+      "size": [
+        80,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

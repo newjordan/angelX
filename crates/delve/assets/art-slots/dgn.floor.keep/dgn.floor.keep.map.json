@@ -1,0 +1,352 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: preserve original slab contours; remove 3x3 median and raise contrast 15%. Room lighting is a separate cached post-process.",
+    "INT-2: static prop/decal grade separates it from the moving foe palette."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "3f78c9fcdd2d39ad5ae031ab0d48aba49b76eda0609e3eac3c9c0cbf8a8d9bf2",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "inset_fraction": 0.045,
+      "label": "Plain dark basalt floor, irregular slate blocks with quiet flecks.",
+      "median_filter": 0,
+      "name": "plain",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        44,
+        141,
+        251,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "inset_fraction": 0.045,
+      "label": "Worn basalt floor, more scuffing and chipped stone.",
+      "median_filter": 0,
+      "name": "worn",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        124.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        350,
+        141,
+        249,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.4,
+        "value": 0.6000000000000001
+      },
+      "inset_fraction": 0.045,
+      "label": "Cracked floor, branching seams with orange-gold lava visible in the fissures.",
+      "median_filter": 0,
+      "name": "cracked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        656,
+        141,
+        250,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "inset_fraction": 0.045,
+      "label": "Patched floor, iron-repaired inset slabs and rivets.",
+      "median_filter": 0,
+      "name": "patched",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        962,
+        141,
+        250,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "inset_fraction": 0.045,
+      "label": "Stained floor, scorched orange-gold marks across otherwise cool stone.",
+      "median_filter": 0,
+      "name": "stained",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        44,
+        501,
+        251,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "inset_fraction": 0.045,
+      "label": "Rich floor, denser gold flecks suggesting scattered hoard residue.",
+      "median_filter": 0,
+      "name": "rich",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        349,
+        500,
+        250,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "label": "Top wall edge trim, dark upper wall course above basalt floor.",
+      "name": "trim-0",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.5,
+        124.0
+      ],
+      "source_rect_xywh": [
+        652,
+        500,
+        255,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.7475,
+        "saturation": 0.8,
+        "value": 0.75
+      },
+      "label": "Iron-braced top wall edge trim with rivets.",
+      "name": "trim-1",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.5,
+        123.5
+      ],
+      "source_rect_xywh": [
+        961,
+        501,
+        251,
+        247
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 1.15,
+        "saturation": 0.4,
+        "value": 0.8
+      },
+      "label": "Isolated branching basalt crack decal with lava in the center.",
+      "name": "crack",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        134.5,
+        166.0
+      ],
+      "source_rect_xywh": [
+        47,
+        838,
+        269,
+        332
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated irregular scorch/lava stain decal.",
+      "name": "puddle",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        126.0,
+        126.0
+      ],
+      "source_rect_xywh": [
+        351,
+        890,
+        252,
+        252
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated scattered slate chips and iron grit.",
+      "name": "debris",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        122.5,
+        118.5
+      ],
+      "source_rect_xywh": [
+        657,
+        900,
+        245,
+        237
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated scorched gold coins with a heavy iron chain link.",
+      "name": "detail",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        124.0,
+        120.5
+      ],
+      "source_rect_xywh": [
+        965,
+        900,
+        248,
+        241
+      ],
+      "state": "floor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.floor.keep",
+  "source_sha256": "7acec2dc92d9bb47bcb8339d18e4ea7a455a143576ff21830b02eb189c749fb6",
+  "timing": ""
+}

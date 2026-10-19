@@ -880,7 +880,11 @@ pub(super) fn world(cv: &mut Img, run: &Run) {
             (0, -1, 'y'),
             (1, 1, 'm'),
         ] {
-            cv.put(x as i32 + dx, y as i32 + dy, ink);
+            // A window drawing it lifted (`lifted_outside`) keeps only the
+            // ring below.
+            if !super::lifted_outside() {
+                cv.put(x as i32 + dx, y as i32 + dy, ink);
+            }
         }
         // Its shadow on the floor, the ringed spot.
         cv.put(x as i32, (fy as f32 + (ty - fy) as f32 * k) as i32 + 2, 'k');

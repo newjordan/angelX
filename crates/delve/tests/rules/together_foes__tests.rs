@@ -18,7 +18,7 @@ fn with(kind: EnemyKind, x: f32, y: f32) -> Run {
 
 fn tick(run: &mut Run, ticks: u32) {
     for _ in 0..ticks {
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
 }
 

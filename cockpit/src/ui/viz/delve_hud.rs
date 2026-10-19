@@ -122,6 +122,12 @@ pub(super) fn lines(
         color,
     ));
     out.push(row(width, left, vec![span(numbers, color)]));
+    if let Some(wish) = hud.wishes {
+        out.push(Line::from(span(
+            fit_text(&format!("wishes {}: {}", wish.remaining(), wish.state()), width),
+            if wish.remaining() > 0 { GOLD } else { DIM },
+        )));
+    }
     if !compact {
         // Mail and bombs: how hard a hit lands, and what is left to throw.
         let bombs = format!(
@@ -336,3 +342,22 @@ pub(super) fn paint_tray(
         }
     }
 }
+
+/// Empty delivered plates under the existing cell labels and numbers.
+/// Foreground text is drawn afterward at its original coordinates.
+pub(super) fn paint_chrome(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, name: &'static str) {
+    let Some(im) = angel_delve::render::overworld::arena::hud_art::skin(name, i32::from(area.width), i32::from(area.height)*2) else {return;};
+    let rgb=|c:[u8;3]| Color::Rgb(c[0],c[1],c[2]);
+    for y in 0..area.height {for x in 0..area.width {
+        let top=im.get(i32::from(x),i32::from(y)*2);
+        let bottom=im.get(i32::from(x),i32::from(y)*2+1);
+        if top.is_none() && bottom.is_none() {continue;}
+        if let Some(cell)=frame.buffer_mut().cell_mut((area.x+x,area.y+y)) {
+            cell.set_char('▀').set_fg(rgb(top.unwrap_or([0;3]))).set_bg(rgb(bottom.unwrap_or([0;3])));
+        }
+    }}
+}
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/delve_wish_hud__tests.rs"]
+mod tests;

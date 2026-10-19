@@ -1,0 +1,27 @@
+ART DIRECTION (verbatim):
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES:
+ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+ORIGINALITY: original designs only; never an existing commercial game character, enemy, vehicle or logo, or any famous character.
+
+LAYOUT:
+Create a PROP SHEET exactly 1536x1024 pixels, 3 columns x 2 rows, six equal 512x512 cells. Reading order left to right then top to bottom. Put exactly ONE drawing in each cell, no other art. Each drawing is a 420x420 round disc, same scale, centre and baseline within its cell, with at least 40 px transparent margin. Each disc outline reaches the sides of its 420x420 box; box corners remain transparent. Cell 1 far-0, cell 2 near-0, cell 3 close-0, cell 4 falling-0, cell 5 falling-1, cell 6 turned-0.
+
+IDENTITY AND BRIEF:
+Gloam Moon, a huge pale moon with a frown that hangs over a town, bigger and lower every night until it falls. Draw only the moon itself. It is a full round 420px disc, front-facing medallion, opaque and solid, filling its picture box, with thick dark indigo outline. Pale cream-gold body, brightest upper left, deep indigo shadow crescent along lower right, exactly three big flat darker-gold craters. No swirl, clouds, stars, glow, halo, rays, text, sky or scenery. The disc, outline, craters, shading and colors are the identical drawing across all six cells. ONLY eyes, brows and mouth vary. Face features are large flat shapes, amber and deep indigo only; no red, purple or tongue. Use chunky stepped shading and a strong clean contour like the accepted Moonwell prop sheet; key art is color and identity reference only, with no borrowed swirl or towers.
+Native-size readability is paramount: ultimately reduced to 96x96. Use big flat shapes, thick unbroken outline, no texture, no detail finer than 1/16 of the disc height, no tiny details. Dark-room friendly, no pure white. Cool shadows can be indigo; body stays clearly pale and readable.
+
+POSES IN READING ORDER:
+1 far-0: faint sulky frown, two heavy half-closed flat indigo lids over thin amber slit eyes, brows slant down toward middle, thin straight grumpy mouth, no teeth.
+2 near-0: lower heavier brows, wide open eyes as dark sockets with big amber pupils, wide downturned grimace showing a row of four blunt teeth along upper lip.
+3 close-0: brows slammed down at sharp angle, big eyes with amber pupils and pale-amber cores, wide jagged snarling grin with two rows of big teeth.
+4 falling-0: mouth gaping in a huge roar, big dark indigo oval with a row of teeth at top and bottom, round blazing eyes with big amber pupils.
+5 falling-1: mouth snapped shut into a wide fanged snarl, eyes squeezed into furious slits, brows fully down, face bared.
+6 turned-0: calm, eyes closed as two gentle downward arcs, brows relaxed and raised, no teeth, small soft smile; body slightly cooler, gold shifted to pale aqua-cream.
+
+CAMERA:
+RT straight-on flat front view of a single circular disc, face painted directly on it like a medallion. No pitch, no perspective, no sky, no stars, no clouds, no ground. True transparent alpha background. Parts that do not change must match exactly across every cell. Exact six discs only.
+
+REFERENCE IMAGE ROLES:
+Input image 1 is layout and quality reference only; input image 2 is knight anatomy reference only; input image 3 is props/VFX rendering reference only. All three are STYLE ONLY. Do not copy their characters, costumes, props, heraldry or compositions.

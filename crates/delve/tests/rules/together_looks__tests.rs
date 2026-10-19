@@ -39,11 +39,11 @@ fn a_strip_is_bounded() {
             .unwrap_err()
             .contains("put `|`")
     );
-    let wide = vec!["5".repeat(13)];
+    let wide = vec!["5".repeat(17)];
     assert!(
         Sprite::from_strip(Slot::Shot, &wide)
             .unwrap_err()
-            .contains("at most 12x12")
+            .contains("at most 16x16")
     );
     let blank = vec!["...|.5.".to_string()];
     assert!(

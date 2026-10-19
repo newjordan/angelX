@@ -199,6 +199,10 @@ impl LessonWrapMemo {
 /// A clickable control on the Scryglass world, Vault, or Formation deck.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WorldButton {
+    DockSurface,
+    DockToggle,
+    DockNext,
+    DockPrevious,
     /// Open or operate the one canonical agent-formation deck.
     FormationDeck,
     SelectFormation(crate::agent::formations::FormationId),
@@ -466,9 +470,9 @@ pub(crate) struct App {
     /// Shared request broker for the interactive agent's read-only UI view.
     pub(crate) ui_broker: Arc<crate::ui::ui_inspect::UiSnapshotBroker>,
     pub(crate) viewer: Viewer,
-    /// One-flight surface-free WebGPU producer. It is active only when the
-    /// calibrated Viewer selected Kitty and a renderer binary is available.
-    pub(crate) agentviz_portal: crate::ui::viz::agentviz_portal::PortalRuntime,
+    /// The Round Table's live council. It follows the activity signal only
+    /// when the calibrated Viewer selected Kitty.
+    pub(crate) council: crate::ui::viz::council::Council,
     /// Embedded full-access shell (lazily spawned on first ^G).
     pub(crate) shell: Option<ShellPane>,
     pub(crate) shell_focused: bool,
@@ -765,6 +769,13 @@ pub(crate) struct App {
     /// rects): formation presets + the quorum toggle on the miniworld pane.
     /// Cleared whenever the pane doesn't render them.
     pub(crate) world_buttons: Vec<(Rect, WorldButton)>,
+    pub(crate) object_dock: crate::ui::object_dock::ObjectDock,
+    /// The Round Table this terminal arbitrates (`/table host`), if any.
+    pub(crate) table_host: Option<crate::drive::round_table::TableHost>,
+    /// This terminal's guest seat at a friend's Round Table (`/table join`).
+    pub(crate) table_guest: Option<crate::drive::round_table::TableGuest>,
+    /// Issue id -> the worktree `/table work` made for it on this machine.
+    pub(crate) table_work: std::collections::BTreeMap<u64, std::path::PathBuf>,
     /// Agent-panel button hitboxes recorded by the last draw.
     pub(crate) agent_buttons: Vec<(Rect, AgentButton)>,
     /// The tool strip's herald row on the last draw; a click opens its ledger.
@@ -829,6 +840,9 @@ pub(crate) struct App {
     pub(crate) panel_frames: panels::PanelFrames,
     /// The active freeform mouse selection (confined to a single pane), or none.
     pub(crate) selection: Option<mouse::Selection>,
+    pub(crate) transcript_links: Vec<crate::ui::transcript_links::LinkHit>,
+    pub(crate) pressed_transcript_link: Option<crate::ui::transcript_links::PressedLink>,
+    pub(crate) transcript_link_snapshot: (Rect, Vec<crate::ui::transcript_links::LinkHit>),
     /// Last pointer cell while the operator is dragging the Scryglass camera.
     /// This is display-only and never changes the agent-driven world position.
     pub(crate) scryglass_drag: Option<crate::stage::world_viz::world_camera::WorldDrag>,
@@ -897,6 +911,9 @@ pub(crate) struct LifecycleCeremony {
 #[derive(Clone, Debug)]
 pub(crate) struct SpendCoin {
     pub(crate) started: Instant,
+    /// One toss for each whole million at the acknowledged milestone.
+    /// Further milestones append to an active sequence instead of erasing it.
+    pub(crate) coins: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -1175,9 +1192,7 @@ impl App {
             world_viz::World::for_workspace(tools.current_workspace())
         };
         world.enable_districts(scan_workspace_districts(tools.current_workspace()));
-        let agentviz_portal = crate::ui::viz::agentviz_portal::PortalRuntime::discover(
-            viewer.supports_agentviz_portal(),
-        );
+        let council = crate::ui::viz::council::Council::discover(viewer.kitty());
         let (background_notice_tx, background_notice_rx) = mpsc::channel();
         let campaign = if session.is_disabled() {
             crate::drive::campaign::CampaignController::disabled(tools.current_workspace())
@@ -1201,7 +1216,7 @@ impl App {
             tools,
             ui_broker: crate::ui::ui_inspect::interactive_broker(),
             viewer,
-            agentviz_portal,
+            council,
             shell: None,
             shell_focused: false,
             thinking: None,
@@ -1326,6 +1341,9 @@ impl App {
             panes: mouse::PaneRegistry::default(),
             panel_frames: panels::PanelFrames::default(),
             selection: None,
+            transcript_links: Vec::new(),
+            pressed_transcript_link: None,
+            transcript_link_snapshot: Default::default(),
             scryglass_drag: None,
             copy_requested: false,
             pending_clipboard: None,
@@ -1351,6 +1369,10 @@ impl App {
             quintain_route_presented: false,
             village_rx: None,
             world_buttons: Vec::new(),
+            object_dock: Default::default(),
+            table_host: None,
+            table_guest: None,
+            table_work: std::collections::BTreeMap::new(),
             agent_buttons: Vec::new(),
             tool_herald_area: None,
             image_occluders: Vec::new(),
@@ -1503,9 +1525,20 @@ impl App {
             && (self.world.animating() || self.scryglass.animating())
     }
 
-    pub(crate) fn show_spend_coin(&mut self) {
+    pub(crate) fn show_spend_coin(&mut self, input_tokens: u64) {
+        let coins = crate::ui::viz::spend_viz::milestone_coins(input_tokens);
+        if coins == 0 {
+            return;
+        }
+        if self.spend_coin_active() {
+            if let Some(current) = self.spend_coin.as_mut() {
+                current.coins = current.coins.saturating_add(coins);
+            }
+            return;
+        }
         self.spend_coin = Some(SpendCoin {
             started: Instant::now(),
+            coins,
         });
     }
 
@@ -1519,8 +1552,9 @@ impl App {
 
     pub(crate) fn spend_coin_active(&self) -> bool {
         self.spend_coin.as_ref().is_some_and(|coin| {
-            crate::ui::viz::spend_viz::is_active(
-                coin.started.elapsed().as_secs_f32(),
+            crate::ui::viz::spend_viz::burst_active(
+                coin.started.elapsed().as_secs_f64(),
+                coin.coins,
                 self.spend_coin_motion(),
             )
         })
@@ -1561,18 +1595,11 @@ impl App {
     /// Display-only animation may request the 33 ms cadence only while its
     /// bounded, latency-sensitive state is active. Ambient world motion is
     /// deliberately excluded and handled by `needs_responsive_tick`.
-    /// Side-column visuals (agent-bay portal). Backdrop-off never pays.
+    /// Side-column visuals (the Round Table). Backdrop-off never pays.
     /// Comp / lean mode is additional.
     pub(crate) fn side_column_visuals_allowed() -> bool {
         crate::ui::surfaces::BackdropMode::from_env().shows_side_column()
             && crate::drive::comp_mode::ambient_stage_sim_allowed()
-    }
-
-    /// Agentviz portal 33 ms cadence. Hidden / text-only side column never
-    /// keeps the UI on the fast lane for an invisible portal.
-    pub(crate) fn agentviz_wants_fast_tick(&self) -> bool {
-        Self::side_column_visuals_allowed()
-            && (self.agentviz_portal.is_rendering() || self.viewer.agentviz_portal_pending())
     }
 
     pub(crate) fn transcript_reflow_wants_fast_tick(&self) -> bool {
@@ -1616,8 +1643,10 @@ impl App {
             || self.transcript_reflow_wants_fast_tick()
             || self.shell_focused
             || self.lifecycle_ceremony_animating()
-            || self.agentviz_wants_fast_tick()
             || self.ui_broker.has_pending()
+            || (self.terminal_focused
+                && self.object_dock.visible
+                && self.object_dock.animating(Instant::now(), self.visual_motion))
             || self.stage_display_wants_fast_tick()
             || self.walk_wants_fast_tick()
     }
@@ -1628,6 +1657,8 @@ impl App {
     /// satisfy this predicate, but `needs_fast_tick` wins in the event loop.
     pub(crate) fn needs_responsive_tick(&self) -> bool {
         self.bg_job.is_some() || self.world_animating() || self.setup.wants_tick()
+            || (self.terminal_focused && self.object_dock.visible && self.object_dock.open
+                && self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full)
     }
 
     /// Concrete route under the Brain Route cursor. This is a reversible visual

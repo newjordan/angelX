@@ -1,0 +1,1653 @@
+{
+  "cells": [
+    96,
+    28
+  ],
+  "frames": [
+    {
+      "cells_hash": 8634846126334176842,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-0.png",
+      "hash": 8467086609712329320,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 10211747311473121197,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-0.png",
+      "hash": 8467086609712329320,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 3683667725248824358,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-0.png",
+      "hash": 8467086609712329320,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 5433223827130962626,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-0.png",
+      "hash": 8467086609712329320,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 11527140871252819736,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-1.png",
+      "hash": 7031527903510445665,
+      "lit_cells": 55,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 17775053078440107434,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-1.png",
+      "hash": 7031527903510445665,
+      "lit_cells": 55,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 11097596372107406395,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-1.png",
+      "hash": 7031527903510445665,
+      "lit_cells": 55,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 3671158362518367162,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-1.png",
+      "hash": 7031527903510445665,
+      "lit_cells": 55,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 12979622735393358970,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-2.png",
+      "hash": 5849995788011802020,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 13285301079156772327,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-2.png",
+      "hash": 5849995788011802020,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 11294290335292926073,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-2.png",
+      "hash": 5849995788011802020,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 94532892760485848,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-2.png",
+      "hash": 5849995788011802020,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 15919544228854388442,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-3.png",
+      "hash": 892626511035128121,
+      "lit_cells": 39,
+      "moustache_dark_pixels": 3,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 8351823105727516758,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-3.png",
+      "hash": 892626511035128121,
+      "lit_cells": 39,
+      "moustache_dark_pixels": 3,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 17410970318745519266,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-3.png",
+      "hash": 892626511035128121,
+      "lit_cells": 39,
+      "moustache_dark_pixels": 3,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 5948222166971537618,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-3.png",
+      "hash": 892626511035128121,
+      "lit_cells": 39,
+      "moustache_dark_pixels": 3,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 9458526118609283272,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-4.png",
+      "hash": 14516860146151035290,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 12656402142634478085,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-4.png",
+      "hash": 14516860146151035290,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 18301100712926525757,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-4.png",
+      "hash": 14516860146151035290,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 11623416679809505352,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-4.png",
+      "hash": 14516860146151035290,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 6292636891421745849,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-5.png",
+      "hash": 15688797349401097949,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 14258635964509072302,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-5.png",
+      "hash": 15688797349401097949,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 408949856318745803,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-5.png",
+      "hash": 15688797349401097949,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 4375305909720723777,
+      "eye_dark_pixels": 6,
+      "file": "knight/attack-5.png",
+      "hash": 15688797349401097949,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 10716380362433683205,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-0.png",
+      "hash": 17473927158877692792,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 12607729993059225471,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-0.png",
+      "hash": 17473927158877692792,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 3117857759008936740,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-0.png",
+      "hash": 17473927158877692792,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 17593894844332530967,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-0.png",
+      "hash": 17473927158877692792,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 14537714409742265073,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-1.png",
+      "hash": 18079476463974977802,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 5595568539352665467,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-1.png",
+      "hash": 18079476463974977802,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 5660076585514935979,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-1.png",
+      "hash": 18079476463974977802,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 5562667779020931913,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-1.png",
+      "hash": 18079476463974977802,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 2709454170268607246,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-2.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1806401093881980751,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-2.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 9729116540262299704,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-2.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 18147149702468237378,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-2.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 2709853756885699160,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-3.png",
+      "hash": 3826938994539942656,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 2666457880016316347,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-3.png",
+      "hash": 3826938994539942656,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 4770837803453719512,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-3.png",
+      "hash": 3826938994539942656,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 16177153316286514115,
+      "eye_dark_pixels": 6,
+      "file": "knight/defeat-3.png",
+      "hash": 3826938994539942656,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 2709454170268607246,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-4.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1806401093881980751,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-4.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 9729116540262299704,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-4.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 18147149702468237378,
+      "eye_dark_pixels": 3,
+      "file": "knight/defeat-4.png",
+      "hash": 1132445021759001407,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 17336599992173244375,
+      "eye_dark_pixels": 6,
+      "file": "knight/fall-0.png",
+      "hash": 15506088905283284471,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 6888548567354500506,
+      "eye_dark_pixels": 6,
+      "file": "knight/fall-0.png",
+      "hash": 15506088905283284471,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 6048749568325205666,
+      "eye_dark_pixels": 6,
+      "file": "knight/fall-0.png",
+      "hash": 15506088905283284471,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 7986257482956013895,
+      "eye_dark_pixels": 6,
+      "file": "knight/fall-0.png",
+      "hash": 15506088905283284471,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 2546283085470269879,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-0.png",
+      "hash": 3231966426093974531,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1058574270092865766,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-0.png",
+      "hash": 3231966426093974531,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 7404561187906075970,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-0.png",
+      "hash": 3231966426093974531,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 2323742836722389586,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-0.png",
+      "hash": 3231966426093974531,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 414490032715461834,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-1.png",
+      "hash": 9674127312798856145,
+      "lit_cells": 42,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 16400479087783965114,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-1.png",
+      "hash": 9674127312798856145,
+      "lit_cells": 42,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 1570722260962147435,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-1.png",
+      "hash": 9674127312798856145,
+      "lit_cells": 42,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 10121540427199972189,
+      "eye_dark_pixels": 6,
+      "file": "knight/guard-1.png",
+      "hash": 9674127312798856145,
+      "lit_cells": 42,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 16946154279661446498,
+      "eye_dark_pixels": 3,
+      "file": "knight/hit-0.png",
+      "hash": 15536701183727945621,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 12980520063738565831,
+      "eye_dark_pixels": 3,
+      "file": "knight/hit-0.png",
+      "hash": 15536701183727945621,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 10661919197707264781,
+      "eye_dark_pixels": 3,
+      "file": "knight/hit-0.png",
+      "hash": 15536701183727945621,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 16040478377353437998,
+      "eye_dark_pixels": 3,
+      "file": "knight/hit-0.png",
+      "hash": 15536701183727945621,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 15451526265174224388,
+      "eye_dark_pixels": 6,
+      "file": "knight/hit-1.png",
+      "hash": 15606912730577198660,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 3015818447036088158,
+      "eye_dark_pixels": 6,
+      "file": "knight/hit-1.png",
+      "hash": 15606912730577198660,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 515029535899449393,
+      "eye_dark_pixels": 6,
+      "file": "knight/hit-1.png",
+      "hash": 15606912730577198660,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 2162287120521348307,
+      "eye_dark_pixels": 6,
+      "file": "knight/hit-1.png",
+      "hash": 15606912730577198660,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 8212042197693427544,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-0.png",
+      "hash": 11788205277861367771,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 10780642829629541945,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-0.png",
+      "hash": 11788205277861367771,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 3725787300665187930,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-0.png",
+      "hash": 11788205277861367771,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 3723327492405913443,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-0.png",
+      "hash": 11788205277861367771,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 600310271153713595,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-1.png",
+      "hash": 8780130757264340791,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 6927607057268186378,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-1.png",
+      "hash": 8780130757264340791,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 94,
+      "seat": 1
+    },
+    {
+      "cells_hash": 2299583886999404714,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-1.png",
+      "hash": 8780130757264340791,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 94,
+      "seat": 2
+    },
+    {
+      "cells_hash": 407712272025743781,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-1.png",
+      "hash": 8780130757264340791,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 7605058604050030450,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-2.png",
+      "hash": 7143332990380696578,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 9380969734866874754,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-2.png",
+      "hash": 7143332990380696578,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 8564211055703602162,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-2.png",
+      "hash": 7143332990380696578,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 5587543740236755765,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-2.png",
+      "hash": 7143332990380696578,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 10198298009229978744,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-3.png",
+      "hash": 2442414717769794094,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 4454798126691301314,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-3.png",
+      "hash": 2442414717769794094,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 1
+    },
+    {
+      "cells_hash": 5267907678650329741,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-3.png",
+      "hash": 2442414717769794094,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 2
+    },
+    {
+      "cells_hash": 12679082879054001281,
+      "eye_dark_pixels": 6,
+      "file": "knight/idle-3.png",
+      "hash": 2442414717769794094,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 3
+    },
+    {
+      "cells_hash": 6605047416051362995,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-0.png",
+      "hash": 7450806898957650984,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 18208516678770174001,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-0.png",
+      "hash": 7450806898957650984,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 12365459227731902239,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-0.png",
+      "hash": 7450806898957650984,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 14363860183374624189,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-0.png",
+      "hash": 7450806898957650984,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 3300252404323336796,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-1.png",
+      "hash": 16721995663403910767,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 11689820997734411879,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-1.png",
+      "hash": 16721995663403910767,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 12169409873481676782,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-1.png",
+      "hash": 16721995663403910767,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 11394844509911334565,
+      "eye_dark_pixels": 6,
+      "file": "knight/jump-1.png",
+      "hash": 16721995663403910767,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 4,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 2215561074495963069,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-0.png",
+      "hash": 10394703356848627276,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 17340906865154147295,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-0.png",
+      "hash": 10394703356848627276,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 1706073531617836871,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-0.png",
+      "hash": 10394703356848627276,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 7889167947594511540,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-0.png",
+      "hash": 10394703356848627276,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 7114343128455754114,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-1.png",
+      "hash": 6446806495350617123,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 16899808575244122055,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-1.png",
+      "hash": 6446806495350617123,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 2287979641627743202,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-1.png",
+      "hash": 6446806495350617123,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 6681254959866562762,
+      "eye_dark_pixels": 6,
+      "file": "knight/land-1.png",
+      "hash": 6446806495350617123,
+      "lit_cells": 43,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 1192212249227026501,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-0.png",
+      "hash": 2936255662565109631,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 17656600994682470208,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-0.png",
+      "hash": 2936255662565109631,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 7905444882983247548,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-0.png",
+      "hash": 2936255662565109631,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 2344039937616225390,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-0.png",
+      "hash": 2936255662565109631,
+      "lit_cells": 49,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 8543421391308328388,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-1.png",
+      "hash": 7130913415162550753,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 5849815343526876482,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-1.png",
+      "hash": 7130913415162550753,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 1
+    },
+    {
+      "cells_hash": 9293200927101830124,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-1.png",
+      "hash": 7130913415162550753,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 2
+    },
+    {
+      "cells_hash": 9410036115832608018,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-1.png",
+      "hash": 7130913415162550753,
+      "lit_cells": 41,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 98,
+      "seat": 3
+    },
+    {
+      "cells_hash": 4880761928969565652,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-2.png",
+      "hash": 114315248367218511,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 6397271692506793825,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-2.png",
+      "hash": 114315248367218511,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 7209265266924242626,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-2.png",
+      "hash": 114315248367218511,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 15890689213498554218,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-2.png",
+      "hash": 114315248367218511,
+      "lit_cells": 38,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 15057608176841423523,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-3.png",
+      "hash": 4092283211015674291,
+      "lit_cells": 37,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 8840077895605184173,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-3.png",
+      "hash": 4092283211015674291,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 5872536405340004070,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-3.png",
+      "hash": 4092283211015674291,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 13847090329776123951,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-3.png",
+      "hash": 4092283211015674291,
+      "lit_cells": 36,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 6459909254550947188,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-4.png",
+      "hash": 12012628748417994091,
+      "lit_cells": 40,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 13163645655654912415,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-4.png",
+      "hash": 12012628748417994091,
+      "lit_cells": 40,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 6109984941758433193,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-4.png",
+      "hash": 12012628748417994091,
+      "lit_cells": 40,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 4726474219377997473,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-4.png",
+      "hash": 12012628748417994091,
+      "lit_cells": 40,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 13069443376319747046,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-5.png",
+      "hash": 4573571998755130564,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 10886642265691524518,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-5.png",
+      "hash": 4573571998755130564,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 7656941067157470939,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-5.png",
+      "hash": 4573571998755130564,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 13331845729832767616,
+      "eye_dark_pixels": 6,
+      "file": "knight/run-5.png",
+      "hash": 4573571998755130564,
+      "lit_cells": 45,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 16038058074614205148,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-0.png",
+      "hash": 10704047893448692250,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 11105602207932679189,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-0.png",
+      "hash": 10704047893448692250,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 1
+    },
+    {
+      "cells_hash": 13911801300349484806,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-0.png",
+      "hash": 10704047893448692250,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 2
+    },
+    {
+      "cells_hash": 16482795169069794413,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-0.png",
+      "hash": 10704047893448692250,
+      "lit_cells": 46,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 97,
+      "seat": 3
+    },
+    {
+      "cells_hash": 1466915351849009843,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-1.png",
+      "hash": 14449854345983861913,
+      "lit_cells": 48,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 5920502722371224938,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-1.png",
+      "hash": 14449854345983861913,
+      "lit_cells": 48,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 1
+    },
+    {
+      "cells_hash": 16392255050096387143,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-1.png",
+      "hash": 14449854345983861913,
+      "lit_cells": 48,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 2
+    },
+    {
+      "cells_hash": 6101069063283185652,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-1.png",
+      "hash": 14449854345983861913,
+      "lit_cells": 48,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 95,
+      "seat": 3
+    },
+    {
+      "cells_hash": 14107745978461281558,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-2.png",
+      "hash": 17459575311757367587,
+      "lit_cells": 50,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 15923149852631354009,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-2.png",
+      "hash": 17459575311757367587,
+      "lit_cells": 50,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 1
+    },
+    {
+      "cells_hash": 13362457918452968393,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-2.png",
+      "hash": 17459575311757367587,
+      "lit_cells": 50,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 2
+    },
+    {
+      "cells_hash": 16135489753625670748,
+      "eye_dark_pixels": 6,
+      "file": "knight/victory-2.png",
+      "hash": 17459575311757367587,
+      "lit_cells": 50,
+      "moustache_dark_pixels": 5,
+      "presence_percent": 96,
+      "seat": 3
+    },
+    {
+      "cells_hash": 11180597804236317762,
+      "eye_dark_pixels": 0,
+      "file": "fx/dust-0.png",
+      "hash": 17205425569987564834,
+      "lit_cells": 17,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 94,
+      "seat": 0
+    },
+    {
+      "cells_hash": 7995645481484829951,
+      "eye_dark_pixels": 0,
+      "file": "fx/dust-1.png",
+      "hash": 13305705668194361319,
+      "lit_cells": 44,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1151135780108055924,
+      "eye_dark_pixels": 0,
+      "file": "fx/dust-2.png",
+      "hash": 10454528247158548844,
+      "lit_cells": 48,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 12888567602171129634,
+      "eye_dark_pixels": 0,
+      "file": "fx/dust-3.png",
+      "hash": 13040786622227918318,
+      "lit_cells": 33,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 93,
+      "seat": 0
+    },
+    {
+      "cells_hash": 7432139010709084935,
+      "eye_dark_pixels": 0,
+      "file": "fx/dust-4.png",
+      "hash": 209605545708236908,
+      "lit_cells": 20,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 92,
+      "seat": 0
+    },
+    {
+      "cells_hash": 5672337677891523598,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-0.png",
+      "hash": 10402585543533317148,
+      "lit_cells": 8,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 81,
+      "seat": 0
+    },
+    {
+      "cells_hash": 4395108733116636026,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-1.png",
+      "hash": 14560557464928929117,
+      "lit_cells": 16,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 84,
+      "seat": 0
+    },
+    {
+      "cells_hash": 13121598996557481662,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-2.png",
+      "hash": 13965591710576042476,
+      "lit_cells": 34,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 16384311534458751841,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-3.png",
+      "hash": 6478725038913662029,
+      "lit_cells": 51,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 7152929762768342941,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-4.png",
+      "hash": 12878801966531999857,
+      "lit_cells": 73,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 15772569509231036565,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-5.png",
+      "hash": 11515586752737340460,
+      "lit_cells": 73,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 4920179294460101767,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-6.png",
+      "hash": 14179236005960103394,
+      "lit_cells": 70,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 3856600470469303173,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-7.png",
+      "hash": 9034051127077457499,
+      "lit_cells": 72,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 9913382833205407192,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-8.png",
+      "hash": 16458502274174598578,
+      "lit_cells": 79,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 98,
+      "seat": 0
+    },
+    {
+      "cells_hash": 14094249143616270709,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-9.png",
+      "hash": 15149982379969387549,
+      "lit_cells": 53,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 97,
+      "seat": 0
+    },
+    {
+      "cells_hash": 9284958104652589439,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-10.png",
+      "hash": 7114760998038647953,
+      "lit_cells": 35,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 5554106188735447064,
+      "eye_dark_pixels": 0,
+      "file": "fx/explosion-11.png",
+      "hash": 3596797478064304308,
+      "lit_cells": 11,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 88,
+      "seat": 0
+    },
+    {
+      "cells_hash": 9119398623110123383,
+      "eye_dark_pixels": 0,
+      "file": "fx/impact-0.png",
+      "hash": 3527382644103520132,
+      "lit_cells": 20,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 95,
+      "seat": 0
+    },
+    {
+      "cells_hash": 17753450470731416521,
+      "eye_dark_pixels": 0,
+      "file": "fx/impact-1.png",
+      "hash": 1843602010306838833,
+      "lit_cells": 39,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 93,
+      "seat": 0
+    },
+    {
+      "cells_hash": 7001982032904032856,
+      "eye_dark_pixels": 0,
+      "file": "fx/impact-2.png",
+      "hash": 3581386201326112126,
+      "lit_cells": 18,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 94,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1089495494345538693,
+      "eye_dark_pixels": 0,
+      "file": "fx/impact-3.png",
+      "hash": 15872422349552504721,
+      "lit_cells": 11,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 1151349789608454568,
+      "eye_dark_pixels": 0,
+      "file": "fx/muzzle-0.png",
+      "hash": 11242827932371457056,
+      "lit_cells": 16,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 90,
+      "seat": 0
+    },
+    {
+      "cells_hash": 4300872187814097822,
+      "eye_dark_pixels": 0,
+      "file": "fx/muzzle-1.png",
+      "hash": 5323155056613591108,
+      "lit_cells": 33,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 94,
+      "seat": 0
+    },
+    {
+      "cells_hash": 6059821284651004769,
+      "eye_dark_pixels": 0,
+      "file": "fx/muzzle-2.png",
+      "hash": 13993814084519250673,
+      "lit_cells": 16,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 89,
+      "seat": 0
+    },
+    {
+      "cells_hash": 13089909069449708771,
+      "eye_dark_pixels": 0,
+      "file": "fx/spark-0.png",
+      "hash": 976651045589159173,
+      "lit_cells": 16,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 96,
+      "seat": 0
+    },
+    {
+      "cells_hash": 10982798154264157842,
+      "eye_dark_pixels": 0,
+      "file": "fx/spark-1.png",
+      "hash": 12046458017888839005,
+      "lit_cells": 34,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 93,
+      "seat": 0
+    },
+    {
+      "cells_hash": 7295408128430874004,
+      "eye_dark_pixels": 0,
+      "file": "fx/spark-2.png",
+      "hash": 4894230331588297168,
+      "lit_cells": 22,
+      "moustache_dark_pixels": 0,
+      "presence_percent": 91,
+      "seat": 0
+    }
+  ],
+  "sources": [
+    {
+      "file": "crates/delve/src/render/arcade.rs",
+      "hash": 12379684691396127730
+    },
+    {
+      "file": "crates/delve/src/render/art.rs",
+      "hash": 9896923112795585463
+    },
+    {
+      "file": "crates/delve/src/render/braille.rs",
+      "hash": 7724409811404583141
+    },
+    {
+      "file": "crates/delve/src/render/overworld/ink.rs",
+      "hash": 1507185385394237766
+    },
+    {
+      "file": "crates/delve/src/render/overworld/arena.rs",
+      "hash": 10189563806310598366
+    },
+    {
+      "file": "crates/delve/src/render/overworld/arena/boss_art.rs",
+      "hash": 13815040417250022899
+    },
+    {
+      "file": "cockpit/src/stage/world_viz/art.rs",
+      "hash": 2996463386618241020
+    },
+    {
+      "file": "cockpit/src/stage/world_viz/art/cells.rs",
+      "hash": 7689183770432174198
+    },
+    {
+      "file": "tests/cockpit/world_viz/arcade__tests.rs",
+      "hash": 17391034875397296843
+    },
+    {
+      "file": "crates/delve/assets/arcade/knight/manifest.json",
+      "hash": 16344603835045778578
+    },
+    {
+      "file": "crates/delve/assets/arcade/fx/manifest.json",
+      "hash": 146706546339800506
+    },
+    {
+      "file": "crates/delve/assets/arcade/palette.json",
+      "hash": 16835694763990459545
+    }
+  ],
+  "stage": [
+    384,
+    224
+  ],
+  "version": 1
+}

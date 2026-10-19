@@ -1,0 +1,2428 @@
+{
+  "version": 1,
+  "canvas": [
+    64,
+    56
+  ],
+  "anchor": [
+    30,
+    51
+  ],
+  "facing": "right",
+  "native_height": 46,
+  "states": {
+    "idle": {
+      "durations_ms": [
+        140,
+        140,
+        140,
+        140
+      ],
+      "loop": true,
+      "frames": [
+        {
+          "file": "idle-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                27,
+                12,
+                41,
+                21
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                14,
+                21,
+                47,
+                43
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  33,
+                  36
+                ],
+                [
+                  34,
+                  36
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  27,
+                  16
+                ],
+                [
+                  27,
+                  17
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  22
+                ],
+                [
+                  33,
+                  23
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  38,
+                  22
+                ],
+                [
+                  38,
+                  23
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "idle-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                26,
+                10,
+                38,
+                20
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                15,
+                25,
+                46,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  37
+                ],
+                [
+                  33,
+                  37
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  26,
+                  15
+                ],
+                [
+                  26,
+                  16
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  22
+                ],
+                [
+                  33,
+                  23
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  37,
+                  22
+                ],
+                [
+                  37,
+                  23
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "idle-2.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                23,
+                41,
+                29
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                14,
+                21,
+                46,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  37
+                ],
+                [
+                  32,
+                  37
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  23,
+                  26
+                ],
+                [
+                  23,
+                  27
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  35,
+                  21
+                ],
+                [
+                  35,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  39,
+                  22
+                ],
+                [
+                  39,
+                  23
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "idle-3.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                39,
+                34,
+                46
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                17,
+                19,
+                46,
+                48
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  36
+                ],
+                [
+                  32,
+                  36
+                ]
+              ]
+            },
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  42,
+                  28
+                ],
+                [
+                  42,
+                  29
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  27,
+                  15
+                ],
+                [
+                  27,
+                  16
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  34,
+                  21
+                ],
+                [
+                  34,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  38,
+                  21
+                ],
+                [
+                  38,
+                  22
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "run": {
+      "durations_ms": [
+        90,
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "loop": true,
+      "frames": [
+        {
+          "file": "run-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                27,
+                12,
+                40,
+                22
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                9,
+                20,
+                43,
+                39
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  29,
+                  34
+                ],
+                [
+                  30,
+                  34
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  28,
+                  16
+                ],
+                [
+                  28,
+                  17
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  36,
+                  22
+                ],
+                [
+                  36,
+                  23
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  39,
+                  23
+                ],
+                [
+                  39,
+                  24
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "run-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                28,
+                9,
+                42,
+                21
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                11,
+                21,
+                41,
+                40
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  37,
+                  23
+                ],
+                [
+                  37,
+                  24
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  41,
+                  23
+                ],
+                [
+                  41,
+                  24
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "run-2.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                27,
+                12,
+                40,
+                20
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                10,
+                19,
+                41,
+                39
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  29,
+                  33
+                ],
+                [
+                  30,
+                  33
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  35,
+                  22
+                ],
+                [
+                  35,
+                  23
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  39,
+                  22
+                ],
+                [
+                  39,
+                  23
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "run-3.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                22,
+                22,
+                42,
+                30
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                20,
+                25,
+                44,
+                39
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  35
+                ],
+                [
+                  32,
+                  35
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  38,
+                  22
+                ],
+                [
+                  38,
+                  23
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  41,
+                  23
+                ],
+                [
+                  41,
+                  24
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "run-4.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                30,
+                11,
+                42,
+                21
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                22,
+                20,
+                44,
+                40
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  34
+                ],
+                [
+                  32,
+                  34
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  32,
+                  15
+                ],
+                [
+                  32,
+                  16
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  38,
+                  23
+                ],
+                [
+                  38,
+                  24
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  41,
+                  23
+                ],
+                [
+                  41,
+                  24
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "run-5.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                31,
+                13,
+                42,
+                21
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                15,
+                7,
+                43,
+                40
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  28,
+                  33
+                ],
+                [
+                  29,
+                  33
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  33,
+                  17
+                ],
+                [
+                  33,
+                  18
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  38,
+                  23
+                ],
+                [
+                  38,
+                  24
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  40,
+                  24
+                ],
+                [
+                  40,
+                  25
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "jump": {
+      "durations_ms": [
+        110,
+        110
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "jump-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                20,
+                21,
+                44,
+                36
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                19,
+                29,
+                44,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  29,
+                  40
+                ],
+                [
+                  30,
+                  40
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  38,
+                  32
+                ],
+                [
+                  38,
+                  33
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  42,
+                  32
+                ],
+                [
+                  42,
+                  33
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "jump-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                26,
+                7,
+                41,
+                23
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                14,
+                14,
+                48,
+                37
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  30
+                ],
+                [
+                  33,
+                  30
+                ]
+              ]
+            },
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  39,
+                  23
+                ],
+                [
+                  39,
+                  24
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  27,
+                  14
+                ],
+                [
+                  27,
+                  15
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  36,
+                  13
+                ],
+                [
+                  36,
+                  14
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  39,
+                  13
+                ],
+                [
+                  39,
+                  14
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "fall": {
+      "durations_ms": [
+        160
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "fall-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                16,
+                34,
+                24
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                11,
+                23,
+                51,
+                46
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  37,
+                  32
+                ],
+                [
+                  37,
+                  33
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  23,
+                  20
+                ],
+                [
+                  23,
+                  21
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  30,
+                  24
+                ],
+                [
+                  30,
+                  25
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  34,
+                  23
+                ],
+                [
+                  34,
+                  24
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "land": {
+      "durations_ms": [
+        100
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "land-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                18,
+                18,
+                40,
+                31
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                12,
+                30,
+                48,
+                48
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  29,
+                  41
+                ],
+                [
+                  30,
+                  41
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  33
+                ],
+                [
+                  33,
+                  34
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  37,
+                  33
+                ],
+                [
+                  37,
+                  34
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "attack": {
+      "durations_ms": [
+        220,
+        90,
+        90,
+        160
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "attack-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                31,
+                18,
+                43,
+                34
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                14,
+                27,
+                49,
+                47
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  38
+                ],
+                [
+                  33,
+                  38
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  33,
+                  25
+                ],
+                [
+                  33,
+                  26
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  37,
+                  28
+                ],
+                [
+                  37,
+                  29
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  41,
+                  28
+                ],
+                [
+                  41,
+                  29
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "attack-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                34,
+                13,
+                46,
+                27
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                21,
+                45,
+                47
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  34,
+                  37
+                ],
+                [
+                  35,
+                  37
+                ]
+              ]
+            },
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  41,
+                  30
+                ],
+                [
+                  41,
+                  31
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  35,
+                  19
+                ],
+                [
+                  35,
+                  20
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  43,
+                  21
+                ],
+                [
+                  43,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  45,
+                  22
+                ],
+                [
+                  45,
+                  23
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "attack-2.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                23,
+                17,
+                37,
+                27
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                18,
+                27,
+                44,
+                48
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  24,
+                  39
+                ],
+                [
+                  25,
+                  39
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  25,
+                  21
+                ],
+                [
+                  25,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  26
+                ],
+                [
+                  33,
+                  27
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  36,
+                  26
+                ],
+                [
+                  36,
+                  27
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "attack-3.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                24,
+                13,
+                43,
+                30
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                12,
+                20,
+                48,
+                49
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  36
+                ],
+                [
+                  33,
+                  36
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  25,
+                  21
+                ],
+                [
+                  25,
+                  22
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durations_ms": [
+        110,
+        110
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "hit-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                12,
+                32,
+                22
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                12,
+                20,
+                52,
+                45
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  33,
+                  37
+                ],
+                [
+                  34,
+                  37
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  23,
+                  16
+                ],
+                [
+                  23,
+                  17
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  31,
+                  20
+                ],
+                [
+                  31,
+                  21
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  35,
+                  19
+                ],
+                [
+                  35,
+                  20
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "hit-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                27,
+                20,
+                43,
+                38
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                15,
+                17,
+                39,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  33,
+                  39
+                ],
+                [
+                  34,
+                  39
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  35,
+                  34
+                ],
+                [
+                  35,
+                  35
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  39,
+                  34
+                ],
+                [
+                  39,
+                  35
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "guard": {
+      "durations_ms": [
+        160,
+        160
+      ],
+      "loop": true,
+      "frames": [
+        {
+          "file": "guard-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                24,
+                16,
+                37,
+                26
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                10,
+                24,
+                48,
+                45
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  30,
+                  38
+                ],
+                [
+                  31,
+                  38
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  26,
+                  20
+                ],
+                [
+                  26,
+                  21
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  34,
+                  26
+                ],
+                [
+                  34,
+                  27
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  37,
+                  27
+                ],
+                [
+                  37,
+                  28
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "guard-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                29,
+                19,
+                45,
+                29
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                20,
+                26,
+                46,
+                45
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  39
+                ],
+                [
+                  32,
+                  39
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  31,
+                  23
+                ],
+                [
+                  31,
+                  24
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  37,
+                  30
+                ],
+                [
+                  37,
+                  31
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  41,
+                  31
+                ],
+                [
+                  41,
+                  32
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durations_ms": [
+        160,
+        160,
+        160,
+        160
+      ],
+      "loop": false,
+      "frames": [
+        {
+          "file": "defeat-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                15,
+                20,
+                42,
+                35
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                21,
+                31,
+                46,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  41
+                ],
+                [
+                  33,
+                  41
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  33
+                ],
+                [
+                  33,
+                  34
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  36,
+                  33
+                ],
+                [
+                  36,
+                  34
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "defeat-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                22,
+                25,
+                47,
+                38
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                18,
+                16,
+                48,
+                48
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  23,
+                  31
+                ],
+                [
+                  23,
+                  32
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "defeat-2.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                15,
+                23,
+                33,
+                37
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                10,
+                17,
+                43,
+                48
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  31,
+                  38
+                ],
+                [
+                  32,
+                  38
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  17,
+                  29
+                ],
+                [
+                  17,
+                  30
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  27,
+                  30
+                ],
+                [
+                  27,
+                  31
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "defeat-3.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                29,
+                32,
+                45,
+                48
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                11,
+                28,
+                53,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  47,
+                  45
+                ],
+                [
+                  48,
+                  45
+                ]
+              ]
+            },
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  49,
+                  41
+                ],
+                [
+                  49,
+                  42
+                ]
+              ]
+            },
+            {
+              "name": "helmet rivet",
+              "pixels": [
+                [
+                  31,
+                  39
+                ],
+                [
+                  31,
+                  40
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "victory": {
+      "durations_ms": [
+        170,
+        170,
+        170
+      ],
+      "loop": true,
+      "frames": [
+        {
+          "file": "victory-0.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                22,
+                11,
+                41,
+                30
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                22,
+                21,
+                46,
+                49
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  36
+                ],
+                [
+                  33,
+                  36
+                ]
+              ]
+            },
+            {
+              "name": "patch seam",
+              "pixels": [
+                [
+                  40,
+                  30
+                ],
+                [
+                  40,
+                  31
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  31,
+                  21
+                ],
+                [
+                  31,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  35,
+                  20
+                ],
+                [
+                  35,
+                  21
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "victory-1.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                17,
+                17,
+                38,
+                24
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                19,
+                22,
+                46,
+                42
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  34
+                ],
+                [
+                  33,
+                  34
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  31,
+                  18
+                ],
+                [
+                  31,
+                  19
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  35,
+                  19
+                ],
+                [
+                  35,
+                  20
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "file": "victory-2.png",
+          "required_materials": {
+            "steel": 5,
+            "cloth": 5
+          },
+          "material_regions": [
+            {
+              "name": "helmet",
+              "material": "steel",
+              "minimum_tones": 5,
+              "box": [
+                25,
+                12,
+                41,
+                27
+              ]
+            },
+            {
+              "name": "surcoat",
+              "material": "cloth",
+              "minimum_tones": 5,
+              "box": [
+                18,
+                19,
+                45,
+                50
+              ]
+            }
+          ],
+          "features": [
+            {
+              "name": "buckle slot",
+              "pixels": [
+                [
+                  32,
+                  36
+                ],
+                [
+                  33,
+                  36
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 1",
+              "pixels": [
+                [
+                  33,
+                  21
+                ],
+                [
+                  33,
+                  22
+                ]
+              ]
+            },
+            {
+              "name": "visor eye 2",
+              "pixels": [
+                [
+                  37,
+                  21
+                ],
+                [
+                  37,
+                  22
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "atlas_files": [
+    "idle-0.png",
+    "idle-1.png",
+    "idle-2.png",
+    "idle-3.png",
+    "run-0.png",
+    "run-1.png",
+    "run-2.png",
+    "run-3.png",
+    "run-4.png",
+    "run-5.png",
+    "jump-0.png",
+    "jump-1.png",
+    "fall-0.png",
+    "land-0.png",
+    "attack-0.png",
+    "attack-1.png",
+    "attack-2.png",
+    "attack-3.png",
+    "hit-0.png",
+    "hit-1.png",
+    "guard-0.png",
+    "guard-1.png",
+    "defeat-0.png",
+    "defeat-1.png",
+    "defeat-2.png",
+    "defeat-3.png",
+    "victory-0.png",
+    "victory-1.png",
+    "victory-2.png"
+  ]
+}

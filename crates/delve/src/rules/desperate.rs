@@ -7,7 +7,8 @@
 //! sooner; and it begins a last stand: a ring that closes round the knights
 //! with one lane left open, and past the half of that, three spiralling
 //! arms. Each is shown on the boss for a second before it lands, so a
-//! knight who watches can always step out of it.
+//! knight who watches can always step out of it. A guardian in its own
+//! room only flashes: its rage and its charge-ups are its end (`bosses`).
 
 use super::*;
 
@@ -96,6 +97,56 @@ fn bolt(enemy: &Enemy, angle: f32, speed: f32, damage: u32, kind: Shot) -> Proje
         traits: Default::default(),
         ttl: 8 * HZ,
     }
+}
+
+/// Current outgoing ring directions, including the party's existing fan.
+/// Ordinary attacks that fire before the ring consume the same fan slots.
+/// This is a visual prediction; the rules still choose their target on release.
+pub fn ring_preview(enemy: &Enemy, boss: &Boss, aim: f32) -> Vec<(f32, bool)> {
+    let age = enemy.age + RING_WARN.saturating_sub(enemy.dread % CYCLE);
+    let raging = boss.rage > 0.0 && (enemy.hp as f32) < boss.rage * enemy.max_hp as f32;
+    let prefix: usize = boss
+        .attacks
+        .iter()
+        .enumerate()
+        .filter_map(|(index, attack)| {
+            if matches!(
+                attack.pattern,
+                bosses::Pattern::Named(_) | bosses::Pattern::Ravage
+            ) {
+                return None;
+            }
+            let every = if raging {
+                (attack.every * 2 / 3).max(4)
+            } else {
+                attack.every.max(4)
+            };
+            (age + index as u32 * 11)
+                .is_multiple_of(enemy.beat(every))
+                .then_some(attack.shots.max(1) as usize)
+        })
+        .sum();
+    let slots = stakes::FAN_SHOTS.saturating_sub(prefix);
+    let step = std::f32::consts::TAU / RING_SHOTS as f32;
+    let mut angles = Vec::new();
+    let mut base = 0;
+    for i in 0..RING_SHOTS {
+        let angle = aim + (i as f32 + 0.5) * step;
+        let off = (angle - aim).sin().atan2((angle - aim).cos()).abs();
+        if off < step * RING_LANE as f32 / 2.0 {
+            continue;
+        }
+        angles.push((angle, true));
+        if base < slots {
+            for k in 1..=enemy.fury {
+                let turn = stakes::FAN_ANGLE * f32::from(k);
+                angles.push((angle + turn, false));
+                angles.push((angle - turn, false));
+            }
+        }
+        base += 1;
+    }
+    angles
 }
 
 /// A desperate boss's step in its last stand. Called once a tick by each

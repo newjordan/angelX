@@ -1,0 +1,1876 @@
+[
+  {
+    "id": "moonfall.knight",
+    "label": "KNIGHT",
+    "size": [
+      16,
+      24
+    ],
+    "anchor": [
+      8,
+      24
+    ],
+    "hitbox": [
+      -4,
+      -3,
+      8,
+      6
+    ],
+    "ink": "V",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "roll-down": [
+        2,
+        2,
+        2
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "roll-up": [
+        2,
+        2,
+        2
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "roll-left": [
+        2,
+        2,
+        2
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "roll-right": [
+        2,
+        2,
+        2
+      ],
+      "snuffed": [
+        10,
+        10
+      ],
+      "lift": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true,
+    "note": "seat colour is a palette swap of the slot; bottom-centre anchor is the feet; the rules use the 8x6 box"
+  },
+  {
+    "id": "moonfall.mira",
+    "label": "MIRA",
+    "size": [
+      18,
+      28
+    ],
+    "anchor": [
+      9,
+      28
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "V",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "talk": [
+        8,
+        8
+      ],
+      "work": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "look-up": [
+        12
+      ],
+      "light": [
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "Lamplighter and Ledger keeper: taper, ink-stained cuffs, aqua scarf, a pen behind the ear"
+  },
+  {
+    "id": "moonfall.tovin",
+    "label": "TOVIN",
+    "size": [
+      18,
+      28
+    ],
+    "anchor": [
+      9,
+      28
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "o",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "talk": [
+        8,
+        8
+      ],
+      "work": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "look-up": [
+        12
+      ],
+      "raise": [
+        8,
+        8,
+        8
+      ]
+    },
+    "placeholder": true,
+    "note": "Keeper of the north bridge: reed hat, key ring on the belt, a long pole"
+  },
+  {
+    "id": "moonfall.nessa",
+    "label": "NESSA",
+    "size": [
+      18,
+      28
+    ],
+    "anchor": [
+      9,
+      28
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "R",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "talk": [
+        8,
+        8
+      ],
+      "work": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "look-up": [
+        12
+      ],
+      "hammer": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "Baker and smith: flour apron over a leather smith's apron, tongs in the belt"
+  },
+  {
+    "id": "moonfall.orin",
+    "label": "ORIN",
+    "size": [
+      18,
+      28
+    ],
+    "anchor": [
+      9,
+      28
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "z",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "talk": [
+        8,
+        8
+      ],
+      "work": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "look-up": [
+        12
+      ],
+      "write": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "search": [
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "placeholder": true,
+    "note": "Scribe: ink-black fingers, a quill, ledger under the arm, searching posture"
+  },
+  {
+    "id": "moonfall.pella",
+    "label": "PELLA",
+    "size": [
+      18,
+      28
+    ],
+    "anchor": [
+      9,
+      28
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "Y",
+    "states": {
+      "idle-down": [
+        12
+      ],
+      "walk-down": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-up": [
+        12
+      ],
+      "walk-up": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-left": [
+        12
+      ],
+      "walk-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "idle-right": [
+        12
+      ],
+      "walk-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "talk": [
+        8,
+        8
+      ],
+      "work": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "look-up": [
+        12
+      ],
+      "cry": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "Herald: tabard with a star, a brass horn, a rolled scroll"
+  },
+  {
+    "id": "moonfall.aster",
+    "label": "ASTER",
+    "size": [
+      34,
+      32
+    ],
+    "anchor": [
+      17,
+      32
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "6",
+    "states": {
+      "idle-left": [
+        12
+      ],
+      "idle-right": [
+        12
+      ],
+      "ride-left": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "ride-right": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "lame-left": [
+        10,
+        10
+      ],
+      "pour": [
+        8,
+        8,
+        8
+      ]
+    },
+    "placeholder": true,
+    "note": "Lantern Rider on a tired horse: lantern pole, oil flask; the horse limps until shod"
+  },
+  {
+    "id": "moonfall.wisp",
+    "label": "WISP",
+    "size": [
+      18,
+      22
+    ],
+    "anchor": [
+      9,
+      22
+    ],
+    "hitbox": [
+      -4,
+      -4,
+      8,
+      8
+    ],
+    "ink": "3",
+    "states": {
+      "drift": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "snuff": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "shy": [
+        4,
+        4
+      ]
+    },
+    "placeholder": true,
+    "note": "hooded wisp of the Gloam: wick-stub tail, two pale eyes; the rules touch radius is 9 px"
+  },
+  {
+    "id": "moonfall.lantern",
+    "label": "LAMP",
+    "size": [
+      16,
+      34
+    ],
+    "anchor": [
+      8,
+      34
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "4",
+    "states": {
+      "unlit": [
+        12
+      ],
+      "lit": [
+        7,
+        7,
+        7
+      ],
+      "snuffing": [
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "street lantern post; lit has a warm two-frame flicker"
+  },
+  {
+    "id": "moonfall.crate",
+    "label": "CRATE",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      -8,
+      -8,
+      16,
+      16
+    ],
+    "ink": "O",
+    "states": {
+      "idle": [
+        12
+      ],
+      "push": [
+        5,
+        5
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.moonwell",
+    "label": "MOONWELL",
+    "size": [
+      40,
+      44
+    ],
+    "anchor": [
+      20,
+      44
+    ],
+    "hitbox": [
+      -16,
+      -12,
+      32,
+      24
+    ],
+    "ink": "U",
+    "states": {
+      "idle": [
+        12
+      ],
+      "oiled": [
+        10,
+        10
+      ],
+      "lit": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.bell",
+    "label": "BELL",
+    "size": [
+      24,
+      36
+    ],
+    "anchor": [
+      12,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "O",
+    "states": {
+      "idle": [
+        12
+      ],
+      "ring": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "placeholder": true,
+    "note": "the Moonwell Bell on its post by the well; rung from anywhere"
+  },
+  {
+    "id": "moonfall.bridge",
+    "label": "BRIDGE",
+    "size": [
+      56,
+      36
+    ],
+    "anchor": [
+      28,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "o",
+    "states": {
+      "down": [
+        12
+      ],
+      "rising": [
+        6,
+        6,
+        6
+      ],
+      "up": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "north bridge over the canal, three tiles wide"
+  },
+  {
+    "id": "moonfall.planks",
+    "label": "PLANKS",
+    "size": [
+      16,
+      36
+    ],
+    "anchor": [
+      8,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "idle": [
+        12
+      ],
+      "creak": [
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "creaking planks, one tile wide: only the Swift mask crosses"
+  },
+  {
+    "id": "moonfall.gate",
+    "label": "EAST GATE",
+    "size": [
+      20,
+      52
+    ],
+    "anchor": [
+      10,
+      52
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "closed": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.podium",
+    "label": "PODIUM",
+    "size": [
+      26,
+      26
+    ],
+    "anchor": [
+      13,
+      26
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "t",
+    "states": {
+      "idle": [
+        12
+      ],
+      "cry": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.ink-pot",
+    "label": "INK",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "z",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.reeds",
+    "label": "REEDS",
+    "size": [
+      16,
+      18
+    ],
+    "anchor": [
+      8,
+      18
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "M",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.flame",
+    "label": "FLAME",
+    "size": [
+      28,
+      40
+    ],
+    "anchor": [
+      14,
+      40
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "6",
+    "states": {
+      "dim": [
+        10,
+        10
+      ],
+      "lit": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "snuffing": [
+        5,
+        5,
+        5
+      ]
+    },
+    "placeholder": true,
+    "note": "a tower's flame bowl, with the wick; lit on the Third Midnight"
+  },
+  {
+    "id": "moonfall.tower-north",
+    "label": "NORTH BELL TOWER",
+    "size": [
+      80,
+      96
+    ],
+    "anchor": [
+      40,
+      96
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.tower-south",
+    "label": "SOUTH BELL TOWER",
+    "size": [
+      80,
+      96
+    ],
+    "anchor": [
+      40,
+      96
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.archive",
+    "label": "ARCHIVE",
+    "size": [
+      80,
+      76
+    ],
+    "anchor": [
+      40,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.bakery",
+    "label": "BAKERY",
+    "size": [
+      64,
+      76
+    ],
+    "anchor": [
+      32,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.forge",
+    "label": "FORGE",
+    "size": [
+      48,
+      76
+    ],
+    "anchor": [
+      24,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.herald-house",
+    "label": "HERALD HOUSE",
+    "size": [
+      80,
+      76
+    ],
+    "anchor": [
+      40,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.scriptorium",
+    "label": "SCRIPTORIUM",
+    "size": [
+      80,
+      76
+    ],
+    "anchor": [
+      40,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.bridge-hut",
+    "label": "BRIDGE HUT",
+    "size": [
+      48,
+      60
+    ],
+    "anchor": [
+      24,
+      60
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.cottage",
+    "label": "COTTAGE",
+    "size": [
+      48,
+      72
+    ],
+    "anchor": [
+      24,
+      72
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.inn",
+    "label": "INN",
+    "size": [
+      144,
+      60
+    ],
+    "anchor": [
+      72,
+      60
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "u",
+    "states": {
+      "day": [
+        12
+      ],
+      "night": [
+        12
+      ],
+      "lit": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "building: footprint is the town map's, art may stand taller than it; windows lit at night when the household is up"
+  },
+  {
+    "id": "moonfall.tiles",
+    "label": "TILE",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "m",
+    "states": {
+      "grass": [
+        12
+      ],
+      "cobble": [
+        12
+      ],
+      "water": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "reeds": [
+        12
+      ],
+      "hedge": [
+        12
+      ],
+      "ditch": [
+        12
+      ],
+      "filled": [
+        12
+      ],
+      "bridge": [
+        12
+      ],
+      "plank": [
+        12
+      ],
+      "gate": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "ground tiles, 16x16 each, one frame per state (water animates)"
+  },
+  {
+    "id": "moonfall.moon",
+    "label": "GLOAM MOON",
+    "size": [
+      96,
+      96
+    ],
+    "anchor": [
+      48,
+      96
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "V",
+    "states": {
+      "far": [
+        12
+      ],
+      "near": [
+        12
+      ],
+      "close": [
+        12
+      ],
+      "falling": [
+        6,
+        6
+      ],
+      "turned": [
+        12
+      ]
+    },
+    "placeholder": true,
+    "note": "the Gloam Moon's menacing face: eyes and teeth, bigger and lower each night; falling is the wipe"
+  },
+  {
+    "id": "moonfall.sun-marker",
+    "label": "SUN",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "4",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.moon-marker",
+    "label": "MOON",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "V",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.ledger",
+    "label": "LEDGER",
+    "size": [
+      300,
+      150
+    ],
+    "anchor": [
+      150,
+      150
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "page": [
+        12
+      ],
+      "turn": [
+        3,
+        3
+      ]
+    },
+    "placeholder": true,
+    "note": "the open Ledger: a book, a ribbon, a pen; the page area is the whole canvas"
+  },
+  {
+    "id": "moonfall.portrait-mira",
+    "label": "MIRA",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.portrait-tovin",
+    "label": "TOVIN",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.portrait-nessa",
+    "label": "NESSA",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.portrait-orin",
+    "label": "ORIN",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.portrait-pella",
+    "label": "PELLA",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.portrait-aster",
+    "label": "ASTER",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        12
+      ],
+      "speak": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.mask-swift",
+    "label": "SWIFT",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "z",
+    "states": {
+      "idle": [
+        12
+      ],
+      "worn": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.mask-stout",
+    "label": "STOUT",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "R",
+    "states": {
+      "idle": [
+        12
+      ],
+      "worn": [
+        8,
+        8
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.candle",
+    "label": "CANDLE",
+    "size": [
+      8,
+      14
+    ],
+    "anchor": [
+      4,
+      14
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "6",
+    "states": {
+      "lit": [
+        6,
+        6
+      ],
+      "out": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-ink",
+    "label": "INK",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-reeds",
+    "label": "REEDS",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-pass",
+    "label": "PASS",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-scroll",
+    "label": "SCROLL",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-shoe",
+    "label": "SHOE",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-key",
+    "label": "KEY",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.item-seal",
+    "label": "SEAL",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "idle": [
+        12
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "moonfall.card",
+    "label": "DAWN CARD",
+    "size": [
+      300,
+      48
+    ],
+    "anchor": [
+      150,
+      48
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "T",
+    "states": {
+      "fade": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true,
+    "note": "the Dawn of the First Day title card"
+  }
+]

@@ -1,0 +1,464 @@
+[
+  {
+    "id": "forest.ent",
+    "size": [
+      88,
+      108
+    ],
+    "anchor": [
+      44,
+      108
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "C",
+    "states": {
+      "chained": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "freeing": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "standing": [
+        11,
+        11,
+        11,
+        11,
+        11,
+        11
+      ],
+      "idle": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "talk": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.ent-kingdom",
+    "size": [
+      28,
+      36
+    ],
+    "anchor": [
+      14,
+      36
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "C",
+    "states": {
+      "idle": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "talk": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.scout",
+    "size": [
+      20,
+      32
+    ],
+    "anchor": [
+      10,
+      32
+    ],
+    "hitbox": [
+      0,
+      0,
+      20,
+      32
+    ],
+    "ink": "v",
+    "states": {
+      "idle": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "tell": [
+        15,
+        15,
+        15,
+        15
+      ],
+      "attack": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "recover": [
+        15,
+        15,
+        15
+      ],
+      "hit": [
+        3,
+        3
+      ],
+      "defeat": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.archer",
+    "size": [
+      20,
+      32
+    ],
+    "anchor": [
+      10,
+      32
+    ],
+    "hitbox": [
+      0,
+      0,
+      20,
+      32
+    ],
+    "ink": "O",
+    "states": {
+      "idle": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "tell": [
+        15,
+        15,
+        15,
+        15
+      ],
+      "attack": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "recover": [
+        15,
+        15,
+        15
+      ],
+      "hit": [
+        3,
+        3
+      ],
+      "defeat": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.woodcutter",
+    "size": [
+      20,
+      32
+    ],
+    "anchor": [
+      10,
+      32
+    ],
+    "hitbox": [
+      0,
+      0,
+      20,
+      32
+    ],
+    "ink": "G",
+    "states": {
+      "idle": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "tell": [
+        15,
+        15,
+        15,
+        15
+      ],
+      "attack": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "recover": [
+        15,
+        15,
+        15
+      ],
+      "hit": [
+        3,
+        3
+      ],
+      "defeat": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.war-wagon",
+    "size": [
+      76,
+      52
+    ],
+    "anchor": [
+      38,
+      52
+    ],
+    "hitbox": [
+      0,
+      0,
+      76,
+      52
+    ],
+    "ink": "S",
+    "states": {
+      "idle": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "tell": [
+        15,
+        15,
+        15,
+        15
+      ],
+      "attack": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "recover": [
+        15,
+        15,
+        15
+      ],
+      "hit": [
+        3,
+        3
+      ],
+      "defeat": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.feller",
+    "size": [
+      104,
+      76
+    ],
+    "anchor": [
+      52,
+      76
+    ],
+    "hitbox": [
+      0,
+      0,
+      104,
+      76
+    ],
+    "ink": "O",
+    "states": {
+      "idle": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "tell": [
+        15,
+        15,
+        15,
+        15
+      ],
+      "attack": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "recover": [
+        15,
+        15,
+        15
+      ],
+      "hit": [
+        3,
+        3
+      ],
+      "defeat": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.layer-far",
+    "size": [
+      192,
+      80
+    ],
+    "anchor": [
+      96,
+      80
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "f",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.layer-mid",
+    "size": [
+      192,
+      72
+    ],
+    "anchor": [
+      96,
+      72
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "D",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.layer-near",
+    "size": [
+      192,
+      24
+    ],
+    "anchor": [
+      96,
+      24
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "F",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "placeholder": true
+  },
+  {
+    "id": "forest.hurdle",
+    "size": [
+      36,
+      18
+    ],
+    "anchor": [
+      18,
+      18
+    ],
+    "hitbox": [
+      0,
+      0,
+      36,
+      18
+    ],
+    "ink": "h",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "placeholder": true
+  }
+]

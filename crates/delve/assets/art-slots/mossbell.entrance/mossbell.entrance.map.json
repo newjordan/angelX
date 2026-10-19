@@ -1,0 +1,76 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192.0,
+    112.0
+  ],
+  "comments": [
+    "Exact native BOX conversion; binary alpha 128; existing shared palette.",
+    "Walkable perimeter, actual exits and collision furniture are masked by the room painter."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "mapping_basis": "ART-18 accepted source; measured reading order reviewed against notes",
+  "notes_sha256": "34935c6a04f79ef825c9be86ab5ffa66fd8df0a411e958221c27a485b930d688",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.62
+      },
+      "label": "room",
+      "median_filter": 3,
+      "name": "room",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "0d1a0c": "322b2b",
+          "182414": "322b2b",
+          "263b1c": "322b2b"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        821.0,
+        479.0
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1642,
+        958
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384x224; v2 768x448",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "slot": "mossbell.entrance",
+  "source_sha256": "001d9ff36fc749363dd5b3cd078de179a3b58cc251b5dd869038426c90ace101",
+  "timing": "Static; existing room entry and door state only."
+}

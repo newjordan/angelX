@@ -1,0 +1,30 @@
+# Awakened Fork — Stilt the Heron-Warden, the millpond.
+# The fork is a heron's throw: one beak, then two, then four.
+power wish:fork 3
+teacher Stilt the Heron-Warden
+place   the millpond, where the heron waits
+room    millpond
+at      10 3
+look    tall as a door, a hat brim like a beak, standing on one leg while the other takes its turn off
+line    One becomes two becomes four. So does patience. So do debts.
+teach   The heron throws its beak once and eats for a week.
+hook    The level-2 card carries a heron's patience, standing on one leg; the millpond's sluice post bears the three-flames mark at the waterline.
+reward  Awakened Fork tier 3 (fork 3)
+title   the Heron's Patience
+keepsake the Waterline Band
+tie     the sluice and punt are the marsh's shared errands (Chain Spark, Fart Bombs)
+tie     the orchard beans are Fenwick's tribute (Fart Bombs)
+tie     the millpond sits on Gil's lit road (Chain Spark)
+step    The one-leg stand | | one_leg_stands 1 | One becomes two becomes four. So does patience.
+step    The sluice work | | sluice_work_done 6 | The heron throws its beak once and eats for a week.
+step    The punt roundtrip | | punt_roundtrips 1 | Debts fork too. This one's paid.
+step    The orchard rows | | beans_delivered 3 | The badger pays in a story about a very tall man.
+step    The arithmetic of four | | fork_chains_made 4 | Four from one. The heron eats for a week.
+trial The arithmetic hall | every killing blow a forked shot's child | fork_pure_halls 1 | One becomes two becomes four. So does the hall. 
+art
+...b...
+..8b8..
+..888..
+.8.8.8.
+8..8..8
+...8...

@@ -1,5 +1,40 @@
 use super::*;
 
+#[test]
+fn retired_viewers_are_not_loaded_or_published() {
+    let mut saved = serde_json::to_value(delve()).unwrap();
+    saved["audience"] = serde_json::json!(10000);
+    saved["fans"] = serde_json::json!(6);
+    saved["fan_boxes"] = serde_json::json!([{"x": 20.0, "y": 10.0, "fall": 1}]);
+    let mut run: Run = serde_json::from_value(saved).unwrap();
+    let before = run.room().items.len();
+    run.cues.push("victory".into());
+    run.step(&BTreeMap::new());
+    let published = serde_json::to_value(run.wire_copy()).unwrap();
+    for key in ["audience", "fans", "fan_boxes"] {
+        assert!(published.get(key).is_none(), "retired field {key} was published");
+    }
+    assert_eq!(run.room().items.len(), before, "legacy fan boxes must not drop loot");
+    assert!(!run.cues.iter().any(|cue| cue.starts_with("fan_box") || cue.starts_with("audience_")));
+}
+
+#[test]
+fn retired_sponsor_mode_is_not_offered() {
+    assert!(!fortune::Mode::WHEEL.iter().any(|mode| mode.word() == "sponsors"));
+}
+
+#[test]
+fn retired_sponsor_spin_loads_on_the_normal_wedge() {
+    for wedge in [14, 255] {
+        let spin: fortune::Spin = serde_json::from_value(serde_json::json!({
+            "started": 0, "from": 0.0, "wedge": wedge, "turns": 3, "by": 1
+        })).unwrap();
+        assert_eq!(spin.wedge, 0, "removed or invalid saved wedge must become the normal mode");
+        assert_eq!(fortune::Mode::WHEEL[usize::from(spin.wedge)], fortune::Mode::LongWayDown);
+        assert!(spin.angle(1000).is_finite());
+    }
+}
+
 /// Floor one's entrance, its monsters gone, the party at ease.
 fn delve() -> Run {
     let mut run = Run::new(5, 1, None);
@@ -11,111 +46,18 @@ fn delve() -> Run {
 }
 
 #[test]
-fn viewers_read_like_a_ratings_board() {
-    assert_eq!(viewers(640), "640K");
-    assert_eq!(viewers(1240), "1.24M");
-    assert_eq!(
-        (milestone(1), milestone(2), milestone(3)),
-        (250, 1000, 2250),
-        "each box needs more than the last"
-    );
+fn retired_sponsor_mode_loads_as_an_ordinary_delve() {
+    let mode: fortune::Mode = serde_json::from_str("\"sponsors\"").unwrap();
+    assert_eq!(mode, fortune::Mode::LongWayDown);
 }
 
 #[test]
-fn the_audience_reacts_to_what_the_herald_calls_and_to_every_kill() {
-    let mut run = delve();
-    run.cues.push("knight_down".into());
-    run.tick_audience(run.cues.len() - 1);
-    assert_eq!(run.audience, 40, "a knight going down is drama");
-    // Two skeletons fall: a little each.
-    run.spawn_at_for_test(EnemyKind::Skeleton, 30.0, 10.0);
-    run.spawn_at_for_test(EnemyKind::Skeleton, 34.0, 10.0);
-    run.phase = Phase::Fighting;
-    for enemy in &mut run.enemies {
-        enemy.hp = 0;
-    }
-    run.step(&BTreeMap::new());
-    assert!(run.audience >= 44, "{}", run.audience);
-}
-
-#[test]
-fn the_undercroft_is_off_the_air() {
-    let mut run = Run::at_home(5, 1, None, Default::default(), Default::default());
-    run.thrill(MILESTONE * 4);
-    assert_eq!((run.audience, run.fans), (0, 0));
-    assert!(run.fan_boxes.is_empty());
-}
-
-#[test]
-fn a_milestone_throws_a_fan_box_that_lands_as_a_card_and_gold() {
-    let mut run = delve();
-    run.thrill(MILESTONE);
-    assert_eq!((run.fans, run.fan_boxes.len()), (1, 1));
-    assert!(run.cues.iter().any(|c| c == "fan_box"));
-    // Set it down well away from the knight, so nothing is picked up.
-    let hero = &run.players[&1];
-    let (x, y) = (hero.x + 9.0, hero.y);
-    (run.fan_boxes[0].x, run.fan_boxes[0].y) = (x, y);
-    let items = run.room().items.len();
-    for _ in 0..BOX_FALL {
-        run.step(&BTreeMap::new());
-    }
-    assert!(run.fan_boxes.is_empty(), "landed");
-    let near = |i: &&Item| (i.x - x).hypot(i.y - y) < 3.0;
-    let dropped: Vec<&Item> = run.room().items.iter().filter(near).collect();
-    assert_eq!(run.room().items.len(), items + dropped.len());
-    assert_eq!(dropped.iter().filter(|i| i.card == "gold").count(), 2);
-    assert_eq!(dropped.len(), 3, "and a card");
-    assert!(run.cues.iter().any(|c| c == "fan_box_open"));
-}
-
-#[test]
-fn a_million_viewers_is_must_see_tv() {
-    let mut run = delve();
-    run.thrill(1000);
-    assert_eq!(run.fans, 2, "past 250K and 1M");
-    assert!(run.feats.contains(&"must_see_tv"));
-    assert!(run.cues.iter().any(|c| c == "audience_million"));
-    run.thrill(1000);
-    assert_eq!(run.fans, 2, "the third waits for 2.25M");
-    run.thrill(8000);
-    assert!(run.feats.contains(&"prime_time"), "ten million");
-    assert_eq!(run.fans, 6, "past 9M");
-}
-
-#[test]
-fn boxes_in_the_air_follow_the_party_into_the_next_room() {
-    let mut run = delve();
-    run.thrill(MILESTONE);
-    let fall = run.fan_boxes[0].fall;
-    let next = (1..run.dungeon.rooms.len())
-        .find(|&i| run.dungeon.rooms[i].kind == RoomKind::Fight)
-        .unwrap();
-    run.enter_for_test(next);
-    assert_eq!(run.fan_boxes.len(), 1);
-    assert_eq!(run.fan_boxes[0].fall, fall);
-    let room = run.room();
-    let parcel = run.fan_boxes[0];
-    assert_eq!(
-        room.tile(
-            (parcel.x / TILE_UNITS) as i32,
-            (parcel.y / TILE_UNITS) as i32
-        ),
-        Tile::Floor
-    );
-}
-
-#[test]
-fn friends_watch_the_same_show() {
-    let mut run = delve();
-    run.thrill(300);
-    let live = run.wire_copy();
-    let mut friend: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
-    (friend.audience, friend.fans) = (0, 0);
-    friend.fan_boxes.clear();
-    friend = live;
-    assert_eq!(
-        (friend.audience, friend.fans, friend.fan_boxes.len()),
-        (300, 1, 1)
-    );
+fn retired_viewer_bounty_scores_cannot_complete_replacement_jobs() {
+    let mut home: home::Home = serde_json::from_value(serde_json::json!({
+        "bounties": [{"id": "ratings", "have": 1400}, {"id": "prime", "have": 4900}],
+        "best_show": 10000
+    })).unwrap();
+    assert!(home.work_bounties(&BTreeMap::new(), 1).is_empty());
+    assert!(home.bounties.is_empty());
+    assert!(serde_json::to_value(home).unwrap().get("best_show").is_none());
 }

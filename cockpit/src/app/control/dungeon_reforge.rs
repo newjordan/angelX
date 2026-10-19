@@ -76,6 +76,8 @@ pub(crate) struct Lesson {
     /// What the checker said of the entry the first lesson wrote, when a
     /// second lesson is mending it.
     pub(crate) mending: Option<Vec<String>>,
+    /// The wish spent on it was a super one: two steps when it is granted.
+    pub(crate) great: bool,
 }
 
 /// A reforge angelX is drafting: for whom, which part, its file, and whether
@@ -265,7 +267,7 @@ impl App {
                 .dungeon
                 .shooter
                 .as_mut()
-                .map(|mut run| run.grant(draft.player, &wish));
+                .map(|mut run| run.wish(draft.player, &wish));
             self.dungeon.notice = match granted {
                 Some(Ok(name)) => format!("Granted: {name}."),
                 Some(Err(why)) => why,
@@ -300,11 +302,13 @@ impl App {
             self.dungeon.notice = "The scroll is busy learning; try again shortly.".into();
             return;
         }
-        if let Some(mut run) = self.dungeon.shooter.as_mut()
-            && let Some(window) = run.window.as_mut()
-        {
-            window.wished.push(player);
-        }
+        // The knight's wish is spent now: a super one first.
+        let great = self
+            .dungeon
+            .shooter
+            .as_mut()
+            .and_then(|mut run| run.spend_wish(player))
+            .unwrap_or(false);
         self.dungeon.notice = format!("The scroll is learning “{words}”… keep playing.");
         self.dungeon.forge.learning.push(Lesson {
             player,
@@ -313,6 +317,7 @@ impl App {
             taught: false,
             before: None,
             mending: None,
+            great,
         });
         self.teach_next();
     }
@@ -443,14 +448,28 @@ impl App {
                 crate::drive::together_shooter::phrasebook::find_in(&added, &lesson.words, &deck)
                     .or_else(|| (added.len() == 1).then(|| added[0].clone()))
             });
+            // The entry this lesson wrote is the knight's own wish: its
+            // cards carry their name, and the sheet lists it as theirs.
+            let made = learned.as_ref().map(|w| w.id.clone());
             let found = learned.or_else(|| {
                 crate::drive::together_shooter::phrasebook::find_for(&lesson.words, &deck)
             });
+            let maker = if lesson.player == 1 {
+                self.host_name()
+            } else {
+                String::new()
+            };
             let granted = found.as_ref().and_then(|wish| {
-                self.dungeon
-                    .shooter
-                    .as_mut()
-                    .map(|mut run| run.grant(lesson.player, wish))
+                self.dungeon.shooter.as_mut().map(|mut run| {
+                    if made.as_deref() == Some(wish.id.as_str()) {
+                        run.made(lesson.player, &wish.id, &maker);
+                    }
+                    let granted = run.grant(lesson.player, wish);
+                    if lesson.great && granted.is_ok() {
+                        return run.grant_more(lesson.player, wish).map_or(granted, Ok);
+                    }
+                    granted
+                })
             });
             let over = (lesson.taught && lesson_over) || lesson.asked.elapsed() > LEARN_TIME;
             match granted {
@@ -658,7 +677,7 @@ const INKS: &str = "greys k K Z X g j G J h i H · greens f D F E e l N m L A M 
 /// How a brief tells angelX it may paint a sprite sheet instead of rows.
 fn sheet_note(sheets: &std::path::Path, name: &str) -> String {
     format!(
-        "A picture instead of rows: you may make a sprite sheet with your image tool. One horizontal strip of 1 to 4 frames of the same small game sprite, side by side and evenly spaced, on one flat background colour; crisp pixel art with a bold silhouette in the realm's dark style (moody blacks, muted iron and timber, one glowing accent); no text, frame, ground or shadow. Save it as {dir}/{name}-<slot>.png (at most 2 MiB) and write `sheet <slot> {name}-<slot>.png [frames=N] [size=N] [at=<place>]` in place of that sprite's rows: size= sets the normalized frame size (shots draw at twice size), at= puts a worn piece on the knight ({places}). The game cuts it into frames and realm inks when it reads the file.",
+        "A picture instead of rows: you may make a sprite sheet with your image tool. One horizontal strip of 1 to 4 frames of the same small game sprite, side by side and evenly spaced, on one flat background colour; crisp pixel art with a bold silhouette in the realm's dark style (moody blacks, muted iron and timber, one glowing accent); no text, frame, ground or shadow. Save it as {dir}/{name}-<slot>.png (at most 2 MiB) and write `sheet <slot> {name}-<slot>.png [frames=N] [size=N] [at=<place>]` in place of that sprite's rows: size= sets the normalized frame size, at= puts a worn piece on the knight ({places}). The game cuts it into frames and realm inks when it reads the file.",
         dir = sheets.display(),
         places = crate::drive::together_shooter::looks::PLACES,
     )
@@ -697,12 +716,30 @@ say tiny golden devils that explode | golden imps | exploding devils | a devil s
 tier summon 2 swarm; cooldown 8 :: Two golden devils hunt and burst.\n\
 tier summon 3 swarm; cooldown 12 :: Three golden devils hunt and burst.\n\
 tier summon 4 swarm; cooldown 16 :: Four golden devils hunt and burst.\n\
-sheet summon golden-devils-summon.png frames=2";
+sheet summon golden-devils-summon.png frames=2\n\
+\n\
+wish bigger-arrows | Bigger Arrows\n\
+say bigger arrows | big arrows | huge arrows | giant arrows | larger arrows | fat arrows\n\
+tier size 1 :: Your arrows are bigger, and strike wider.\n\
+tier size 2 :: Bigger again, and wider still.\n\
+tier size 3; knock 1 :: Colossal arrows that shove what they hit.\n\
+draw shot\n\
+.2.......jW.\n\
+22ooooooojWW\n\
+.2.......jW.";
     format!(
         "Teach the angelX Delve's phrasebook one new wish, as data. Append ONE entry to {path} (create it if missing). No code changes; no other files but its sprite sheet, if you paint one.\n\n\
 {name} is playing and wished, in their own words: “{words}”\n\n\
-Make it a new thing that looks like what they asked, not the nearest stock card. An entry, a line each:\n\
-wish <id: lowercase-with-dashes, up to 24 characters> | <Name, up to 18 characters>\n\
+It is {name}'s own wish: make it do what their words say, literally, and look like it. Read their words for the thing they name and pick the effect that IS that thing:\n\
+- bigger, huge, giant, colossal, fat shots or bullets: `size` (they are drawn bigger and strike wider)\n\
+- fire, flame, burning, blazing: `burn` · ice, frost, freezing, cold: `chill` · poison, venom, toxic, acid: `poison`\n\
+- push, shove, knockback, blast them back: `knock` · boomerang, come back, returning: `boomerang`\n\
+- faster bullets, speedy shots: `velocity` (shots fly faster) · shoot faster, quick fire: `rate` (shoot more often)\n\
+- lightning, electric, shock: `chain` · exploding: `burst` · splitting: `fork` · through them: `pierce` · more of them: `shots` · seeking: `homing` · bouncing: `bounce`\n\
+Never answer with a plain damage bump when one of these words is what they said: `damage` is only for a wish to hit harder, and at most a small extra on the last tier. Always draw its look (a `draw shot` for what their shots become, a `draw worn` for what they wear, or both) so everyone sees the wish in play: big arrows drawn as an arrow, a fire wish drawn in flame inks, frost in blues, venom in greens.\n\
+Name it in their own words: the Name is what they asked for, the first `say` is their words exactly.\n\n\
+An entry, a line each:\n\
+wish <id: lowercase-with-dashes, up to 24 characters> | <Name, up to 18 characters: their words>\n\
 kind <hold | spell | guard>   (hold, the default: a gift that lasts the run · spell: cast on 1/2/3/4, every tier with `cooldown <seconds>` · guard: what the guard key does)\n\
 say <their words, exactly> | <three to six other ways a player might put it>\n\
 tier <card lines, ; between> :: <one line the scroll shows>\n\
@@ -711,6 +748,7 @@ draw <slot> [at=<place>] [from tier]\n\
 <its look on the field: rows of inks, `.` is clear; 1 to 4 frames side by side with | between them on every row; end with a blank line>\n\
 art\n\
 <its card icon: 12 to 14 rows of up to 14 characters, `.` is black paper; one silhouette, one accent; end with a blank line>\n\n\
+Draw well: the game grades the pictures (Crude, Fine, Masterwork, Legendary) and the grade sets the wish's strength. One clear silhouette filling its frame, a dark outline, 3 to 6 inks shaded dark to light, one accent; no specks, no solid block of one ink.\n\n\
 Looks: give every wish the look it asks for; it is how the wish shows in play.\n{slots}\n\
 Armour, shields, helms and other gear are `draw worn`: a bigger shield, spiked pauldrons, a new helm drawn on the knight (on their 16x16 figure, or a smaller piece with at=<place>: {places}), with armor or max_hp tiers. Never use orbit or a morningstar to stand in for gear; `orbit` is only for something that spins round them. A tier may grow the look: `draw worn at=left 3` replaces the worn sprite from tier 3 up.\n\
 Creatures that fight for them (\"tiny golden devils that explode\") are a spell whose tiers carry `summon N swarm|guard|turret`, with a `draw summon` look: swarm hunts the nearest monster and bursts (up to 6) · guard circles the knight and each catches one shot (up to 4) · turret stands and looses bolts (up to 2). The game raises a cooldown that is too short for that many.\n\n\
@@ -770,7 +808,7 @@ fn brief(
     };
     let looks = match part {
         Part::Offense => {
-            "draw shot\n<how its shots look in flight: up to 12x12 inks, drawn at twice size, facing right; 1 to 4 frames side by side with | between>\n\
+            "draw shot\n<how its shots look in flight: up to 16x16 inks, drawn pixel for pixel, facing right; 1 to 4 frames side by side with | between>\n\
 draw worn at=right\n<optional: the weapon in the knight's hand, up to 16x16>"
         }
         Part::Defense => {

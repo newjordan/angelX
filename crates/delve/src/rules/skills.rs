@@ -38,6 +38,100 @@ pub const NAMES: [&str; SKILLS] =
 /// two laid). Each use also spends a pip of valour (`feel`): the meter, not
 /// the rest, is what holds a skill back.
 pub const REST: [u32; SKILLS] = [3 * HZ; SKILLS];
+
+/// Skill levels I, II and III. Level I is where every knight starts; II
+/// comes with the school's Adept rank; III is taught by a questline's
+/// teacher (`questline`). Named constants per level, fixed numbers only.
+pub const GAS_LIFE_L: [u32; 3] = [8 * HZ, 9 * HZ, 10 * HZ];
+pub const GAS_RADIUS_L: [f32; 3] = [3.5, 4.0, 4.5];
+pub const POISON_BASE_L: [u32; 3] = [4, 5, 6];
+pub const FIRE_LIFE_L: [u32; 3] = [6 * HZ, 7 * HZ, 8 * HZ];
+pub const FIRE_RADIUS_L: [f32; 3] = [2.6, 3.0, 3.4];
+pub const MINE_MAX_L: [usize; 3] = [4, 4, 5];
+pub const MINE_ARM_L: [u32; 3] = [HZ * 3 / 2, HZ, HZ];
+pub const MINE_BLAST_L: [f32; 3] = [2.8, 3.2, 3.6];
+pub const WALL_MAX_L: [usize; 3] = [3, 3, 4];
+pub const WALL_HP_L: [u32; 3] = [150, 200, 250];
+pub const WALL_LIFE_L: [u32; 3] = [12 * HZ, 15 * HZ, 18 * HZ];
+pub const SHIELD_SPEED_L: [f32; 3] = [25.0, 28.0, 30.0];
+pub const SHIELD_REST_L: [u32; 3] = [3 * HZ, 5 * HZ / 2, 2 * HZ];
+pub const SHIELD_LINKS_L: [u8; 3] = [1, 2, 3];
+
+impl Run {
+    /// Knight `id`'s level with a skill, I–III. I is the default; II comes
+    /// with the school's Adept rank; III only from the skill's questline.
+    pub fn skill_level(&self, id: u32, which: usize) -> usize {
+        let taught = self
+            .players
+            .get(&id)
+            .and_then(|h| self.home.questlines.level(&super::home::Home::school_key(h), which))
+            .unwrap_or(1);
+        if taught >= 2 {
+            return taught;
+        }
+        // II rides on the school's Adept rank (or better).
+        if self
+            .players
+            .get(&id)
+            .is_some_and(|h| {
+                self.home
+                    .school
+                    .standing(&super::home::Home::school_key(h))
+                    .rank
+                    >= super::school::Rank::Adept
+            })
+        {
+            2
+        } else {
+            1
+        }
+    }
+
+    /// The live constants for knight `id`'s skills: the named constant per
+    /// level, in one place.
+    pub fn gas_life(&self, id: u32) -> u32 {
+        GAS_LIFE_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
+    }
+    pub fn gas_radius(&self, id: u32) -> f32 {
+        GAS_RADIUS_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
+    }
+    pub fn poison_base(&self, id: u32) -> u32 {
+        POISON_BASE_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
+    }
+    pub fn fire_life(&self, id: u32) -> u32 {
+        FIRE_LIFE_L[self.skill_level(id, FIRE).clamp(1, 3) - 1]
+    }
+    pub fn fire_radius(&self, id: u32) -> f32 {
+        FIRE_RADIUS_L[self.skill_level(id, FIRE).clamp(1, 3) - 1]
+    }
+    pub fn mine_max(&self, id: u32) -> usize {
+        MINE_MAX_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
+    }
+    pub fn mine_arm(&self, id: u32) -> u32 {
+        MINE_ARM_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
+    }
+    pub fn mine_blast(&self, id: u32) -> f32 {
+        MINE_BLAST_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
+    }
+    pub fn wall_max(&self, id: u32) -> usize {
+        WALL_MAX_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
+    }
+    pub fn wall_hp(&self, id: u32) -> u32 {
+        WALL_HP_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
+    }
+    pub fn wall_life(&self, id: u32) -> u32 {
+        WALL_LIFE_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
+    }
+    pub fn shield_speed(&self, id: u32) -> f32 {
+        SHIELD_SPEED_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
+    }
+    pub fn shield_rest(&self, id: u32) -> u32 {
+        SHIELD_REST_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
+    }
+    pub fn shield_links(&self, id: u32) -> u8 {
+        SHIELD_LINKS_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
+    }
+}
 /// How far a canister or firebomb flies, in arena units.
 const THROW: f32 = 6.0;
 /// A ground effect's reach up and down in a side-on hall (the ground it
@@ -51,7 +145,7 @@ pub const GAS_LIFE: u32 = 7 * HZ;
 pub const GAS_RADIUS: f32 = 3.0;
 const GAS_SWELL: u32 = HZ / 2;
 const GAS_DRIFT: f32 = 1.1;
-const POISON_BASE: u32 = 4;
+pub(super) const POISON_BASE: u32 = 4;
 const POISON_EVERY: u32 = HZ / 2;
 const POISON_LINGER: u32 = 3 * HZ;
 /// Fart Bombs: a cloud's life, a knight's rest between two (at N 1), and

@@ -1,0 +1,16 @@
+# Firefly Grove: the great hollow oak with a lantern in its door, a trilithon
+# and rune stones standing in front of the pines along the back.
+frustum  trunk   at 92 0 1 size 30 48 30 id forest-oak-trunk
+rock-7   rock    at 92 0 3 size 52 8 24 id forest-oak-roots
+arch-6   trunk   at 92 0 12 size 20 26 6 id forest-oak-hollow
+box      door    at 92 0 13.3 size 11 17 1.4 id forest-oak-door
+box      fire    at 92 6 12.4 size 4 5 2 id forest-oak-lantern
+blob-2   foliage at 92 34 -2 size 90 36 44 id forest-oak-crown
+blob-6   foliage at 52 32 0 size 50 30 36 id forest-oak-crown-w
+blob-9   foliage at 132 32 0 size 50 30 36 id forest-oak-crown-e
+rock-3   rock    at 236 0 13 size 14 30 6 id forest-stone-w
+box      rock    at 262 0 13 size 10 38 6 id forest-trilithon-w
+box      rock    at 306 0 13 size 10 38 6 id forest-trilithon-e
+box      rock    at 284 38 13 size 64 9 7 id forest-trilithon-lintel
+rock-8   rock    at 332 0 13 size 14 32 6 id forest-stone-e
+rock-5   rock    at 350 0 12 size 12 24 6 id forest-stone-e2

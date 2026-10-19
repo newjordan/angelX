@@ -1,0 +1,124 @@
+set chunk-9-10
+# The kingdom, chunk 9,10 in The March: tiles 216..240 x 160..176 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 2688
+plate 1536 1024
+
+# ground
+box    grass   at 3496 -4 2632 size 80 4 144
+box    path    at 3544 -4 2592 size 16 4 64
+box    grass   at 3600 -4 2640 size 96 4 160
+box    sand    at 3656 -4 2600 size 16 4 80
+box    water   at 3752 -4 2600 size 176 1 80
+box    grass   at 3544 -4 2664 size 16 4 80
+box    grass   at 3656 -4 2728 size 16 4 176
+box    sand    at 3672 -4 2688 size 16 4 96
+box    water   at 3760 -4 2728 size 160 1 176
+box    path    at 3504 -4 2712 size 96 4 16
+box    rock    at 3472 -4 2744 size 32 4 48
+box    grass   at 3512 -4 2728 size 48 4 16
+box    path    at 3552 -4 2728 size 32 4 16
+box    grass   at 3608 -4 2728 size 80 4 16
+box    rock    at 3496 -4 2744 size 16 4 16
+box    grass   at 3528 -4 2776 size 48 4 80
+box    path    at 3576 -4 2744 size 48 4 16
+box    grass   at 3624 -4 2776 size 48 4 80
+box    grass   at 3672 -4 2760 size 16 4 48
+box    grass   at 3496 -4 2784 size 16 4 64
+box    grass   at 3568 -4 2784 size 32 4 64
+box    path    at 3592 -4 2760 size 16 4 16
+box    grass   at 3472 -4 2792 size 32 4 48
+box    grass   at 3592 -4 2792 size 16 4 48
+box    sand    at 3672 -4 2800 size 16 4 32
+
+# set dressing
+box    trunk   at 3592 0 2616 size 13 3.5 7 turn 10
+sphere trunk   at 3597 0 2620 size 6 1.5 6
+cylinder wood    at 3492 0 2630 size 5 4 5
+cylinder wood    at 3499 0 2630 size 5 4 5
+cylinder wood    at 3492 0 2635 size 5 4 5
+box    wood    at 3544 0 2648 size 13 2 7
+box    trunk   at 3544 2 2648 size 11 2 6
+box    stone   at 3592 0 2728 size 1.5 13 1.5
+box    stone   at 3592 9 2728 size 6 1.5 1.2
+rock-40 rock    at 3544 0 2776 size 8 2.5 7
+rock-40 rock    at 3544 2 2776 size 5 2 4.5
+box    trunk   at 3624 0 2776 size 1.5 13 1.5
+box    trunk   at 3621.5 9 2776 size 4 1 1
+
+# hedges (at 78% of its height, for the camera)
+box    hedge   at 3464 0 2808 size 18 5 18
+blob-29 hedge   at 3464 3 2808 size 18 5.5 18
+box    hedge   at 3480 0 2808 size 18 5 18
+blob-54 hedge   at 3480 3 2808 size 18 4.5 18
+box    hedge   at 3496 0 2808 size 18 5 18
+blob-39 hedge   at 3496 3 2808 size 18 4.5 18
+box    hedge   at 3512 0 2808 size 18 5 18
+blob-33 hedge   at 3512 3.5 2808 size 18 3.5 18
+box    hedge   at 3528 0 2808 size 18 5 18
+blob-14 hedge   at 3528 3 2808 size 18 5.5 18
+box    hedge   at 3544 0 2808 size 18 5 18
+blob-6 hedge   at 3544 3.5 2808 size 18 3.5 18
+box    hedge   at 3560 0 2808 size 18 5 18
+blob-35 hedge   at 3560 3 2808 size 18 4.5 18
+box    hedge   at 3576 0 2808 size 18 5 18
+blob-37 hedge   at 3576 3 2808 size 18 4.5 18
+box    hedge   at 3592 0 2808 size 18 5 18
+blob-45 hedge   at 3592 3 2808 size 18 5.5 18
+box    hedge   at 3608 0 2808 size 18 5 18
+blob-48 hedge   at 3608 3 2808 size 18 5.5 18
+box    hedge   at 3624 0 2808 size 18 5 18
+blob-51 hedge   at 3624 3 2808 size 18 4.5 18
+box    hedge   at 3640 0 2808 size 18 5 18
+blob-13 hedge   at 3640 3.5 2808 size 18 4.5 18
+box    hedge   at 3656 0 2808 size 18 5 18
+blob-1 hedge   at 3656 3.5 2808 size 18 3.5 18
+box    hedge   at 3672 0 2808 size 18 5 18
+blob-56 hedge   at 3672 3 2808 size 18 4.5 18
+
+# rock (at 99% of its height, for the camera)
+box    rock    at 3472 0 2744 size 32 3 48
+box    rock    at 3496 0 2744 size 16 2.5 16
+rock-35 rock    at 3464 1.5 2728 size 17 9 15.3
+rock-21 rock    at 3479 1.5 2729 size 17 10 15.3 turn 180
+rock-44 rock    at 3464 1.5 2743 size 17 7 15.3 turn 90
+rock-51 rock    at 3481 1.5 2744 size 14 7 12.6 turn 180
+rock-52 rock    at 3497 1 2743 size 17 10 15.3 turn 180
+rock-4 rock    at 3465 1.5 2759 size 15 10 13.5
+rock-30 rock    at 3481 1.5 2760 size 14 8 12.6 turn 270
+
+# woods (at 35% of its height, for the camera)
+cylinder trunk   at 3648 0 2753 size 5 5.5 5
+blob-63 foliage at 3648 3.5 2753 size 33 11 31.35 turn 90
+frustum trunk   at 3497 0 2649 size 3 6 3
+blob-45 foliage at 3497 3 2649 size 17 7.5 16.15 turn 90
+cylinder trunk   at 3512 0 2648 size 3 5 3
+blob-52 foliage at 3512 2.5 2648 size 19 6 18.05 turn 270
+frustum trunk   at 3528 0 2648 size 3 4 3
+blob-37 foliage at 3528 2 2648 size 19 6.5 18.05 turn 180
+frustum trunk   at 3496 0 2666 size 3 11 3
+blob-17 foliage at 3496 6 2666 size 17 19 16.15 turn 90
+cylinder trunk   at 3511 0 2662 size 3 9.5 3
+blob-11 foliage at 3511 5.5 2662 size 20 17 19
+frustum trunk   at 3528 0 2663 size 3 11 3
+blob-23 foliage at 3528 6 2663 size 17 16 16.15
+cylinder trunk   at 3496.5 0 2680 size 3 11 3
+blob-40 foliage at 3496.5 6 2680 size 18 15 17.1 turn 270
+frustum trunk   at 3511.5 0 2680 size 3 9 3
+blob-32 foliage at 3511.5 4 2680 size 18 20 17.1 turn 270
+cylinder trunk   at 3671.5 0 2743.5 size 3 4 3
+blob-36 foliage at 3671.5 1.5 2743.5 size 18 8.5 17.1 turn 90
+cylinder trunk   at 3624 0 2761 size 3 5.5 3
+blob-10 foliage at 3624 2 2761 size 17 10.5 16.15 turn 270
+frustum trunk   at 3673 0 2761 size 3 12 3
+blob-26 foliage at 3673 7 2761 size 19 17 18.05
+cylinder trunk   at 3640.5 0 2776.5 size 3 9 3
+blob-6 foliage at 3640.5 4 2776.5 size 18 16 17.1 turn 180
+cylinder trunk   at 3656.5 0 2774 size 3 9 3
+blob-39 foliage at 3656.5 4 2774 size 18 15 17.1 turn 270
+frustum trunk   at 3673 0 2777 size 3 7 3
+cone   foliage at 3673 4 2777 size 17 17.98 17
+cone   foliage at 3673 15.02 2777 size 12.24 17.98 12.24
+box    hedge   at 3480 0 2680 size 16 5.5 15
+blob-52 hedge   at 3480 3 2680 size 16 5 15

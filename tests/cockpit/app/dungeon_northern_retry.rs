@@ -97,6 +97,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         .chain(crate::drive::together_shooter::windcountry::QUEST_MARKS)
         .chain(crate::drive::together_shooter::bowcountry::VISIT_MARKS)
         .chain(crate::drive::together_shooter::bowcountry::QUEST_MARKS)
+        .chain(crate::drive::together_shooter::swamp::INTENT_MARKS)
         .chain([crate::drive::together_shooter::race3d::RACE_MARK])
     {
         assert!(c::intent_key(key));
@@ -106,6 +107,13 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         let key = format!("country:build:{}", p.id);
         assert!(c::intent_key(&key));
         journal.insert(key, 1.into());
+    }
+    // The Round Table adventures' campaign marks, each its own module's.
+    for a in &crate::drive::together_shooter::roundtable::ADVENTURES {
+        for key in a.marks {
+            assert!(c::intent_key(key));
+            journal.insert((*key).into(), 1.into());
+        }
     }
     // College requests share this bounded journal with the countryside.
     // Include every finite College action when exercising its full limit.

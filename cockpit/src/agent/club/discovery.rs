@@ -357,6 +357,31 @@ pub(crate) fn optional_sota_http_club(
     Some((alias.to_string(), club, Arc::new(AtomicBool::new(true))))
 }
 
+/// The first-party Anthropic Messages seat (`anthropic`): Claude over
+/// `POST {ANGEL_ANTHROPIC_URL}/v1/messages` with `x-api-key`, adaptive thinking
+/// at `ANGEL_ANTHROPIC_EFFORT` (default medium), signed thinking replayed and
+/// prompt-cache breakpoints placed (see `http/anthropic_messages.rs`). Its
+/// output cap is `ANGEL_ANTHROPIC_MAX_TOKENS` (default 32000).
+pub(crate) fn optional_anthropic_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    if !api_club_enabled("anthropic") {
+        return None;
+    }
+    let key = env_first(&["ANGEL_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"])?;
+    let model =
+        env_first(&["ANGEL_ANTHROPIC_MODEL"]).unwrap_or_else(|| "claude-sonnet-5-5".to_string());
+    let url = env_first(&["ANGEL_ANTHROPIC_URL"])
+        .unwrap_or_else(|| "https://api.anthropic.com".to_string());
+    let http = HttpClub::new(model.clone(), url, model, Some(key))
+        .with_env_namespace("ANTHROPIC")
+        .with_provider_contract(ProviderContract::Anthropic)
+        .with_anthropic_messages(env_first(&["ANGEL_ANTHROPIC_WORKSPACE_ID"]));
+    Some((
+        "anthropic".to_string(),
+        Arc::new(http.sota_tuned()),
+        Arc::new(AtomicBool::new(true)),
+    ))
+}
+
 /// Build the configurable GLM seat plus every other built-in GLM catalog
 /// choice. The configured model is never duplicated, even when it is one of
 /// the built-ins.

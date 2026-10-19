@@ -1,0 +1,562 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8632
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8985
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8699
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7174
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7108
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4959
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8735
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 10581
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 12255
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7118
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5600
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 12939
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "d080737e7202ab0eb17e948bf264711ab00bd9c5fc92da29ff2a88f21eadb714",
+  "metadata_sha256": "4d51fe628008ad9909c6db633abc7c8f2337426b7123ca504b1f3bfbd7f6ba99",
+  "notes_sha256": "04e62cd918bd7bf7c5f629c59470a1e2c0ac583625ffdb441bb1a205082e7d81",
+  "outputs": {
+    "v1/both-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 197,
+      "piece": 3,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "c9c5fe8781c9084a8479a15334383ff648b64ba9ed6741e25848492799a4aab0",
+      "source_scale": 0.07407407407407407,
+      "state": "both-active"
+    },
+    "v1/left-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 220,
+      "piece": 1,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "e40be7556e07c5cbd80cef8a756e3745d0991e96adad0835bef322fd07629db9",
+      "source_scale": 0.07407407407407407,
+      "state": "left-active"
+    },
+    "v1/neutral.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 227,
+      "piece": 0,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "589ba31d04478d2db3c91e84bfcda92485da6901b90c89c2a242335cac363b66",
+      "source_scale": 0.07407407407407407,
+      "state": "neutral"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 212,
+      "piece": 4,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "a727805a8e1a46e560e727a289034faf9f3122ebdd7b8508c783077ee1437674",
+      "source_scale": 0.07407407407407407,
+      "state": "anticipation-crouch-hands-loaded"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 185,
+      "piece": 5,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "c0af538efdef29a1b77604af1d92dfc9c43e40da92434bab959e80a5f303964e",
+      "source_scale": 0.07407407407407407,
+      "state": "deep-compression-squat"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 209,
+      "piece": 6,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "4dcd73c19995f32b418e290df7d03b692bcd47512070c0889824f7741d41172a",
+      "source_scale": 0.07407407407407407,
+      "state": "asymmetric-swing-with-torso-twist"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 240,
+      "piece": 7,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "328299d702c2ca755c668b286bb33d32e14814103e342cd1066b61eae946d483",
+      "source_scale": 0.07407407407407407,
+      "state": "recoil-release-with-arms-following-through"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 270,
+      "piece": 8,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "40fd79d030e1387c2ec2abfb2adf025b1b3f89b9c39b6729a36501a1e944b073",
+      "source_scale": 0.07407407407407407,
+      "state": "launch-pop-both-mittens-raised"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 9,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "3fdd93ad69d09fb9f8aa6085db96f774db36fdb7c7341a3d58fb9d1602a9fea7",
+      "source_scale": 0.07407407407407407,
+      "state": "forward-nudge-with-one-hand-reaching-and-the-other-stabilizing"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 177,
+      "piece": 10,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "66e18bb99bacca32fc085e27208db8a36096bc14c93411fd1ab31854431b8151",
+      "source_scale": 0.07407407407407407,
+      "state": "drain-slump-shoulders-and-helmet-drooped"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 269,
+      "piece": 11,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "6563cfe9b5c73d3ef610eef5dc55e7d65341f9b53a4bf89e69baec3ea39020ef",
+      "source_scale": 0.07407407407407407,
+      "state": "jackpot-cheer-with-both-hands-raised"
+    },
+    "v1/right-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 221,
+      "piece": 2,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "326e5d2bb5862ef2f49d93a4b2831b0400e62e008b4dc1fc12ad5efd886a560c",
+      "source_scale": 0.07407407407407407,
+      "state": "right-active"
+    },
+    "v2/both-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 197,
+      "piece": 3,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "c9c5fe8781c9084a8479a15334383ff648b64ba9ed6741e25848492799a4aab0",
+      "source_scale": 0.07407407407407407,
+      "state": "both-active"
+    },
+    "v2/left-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 220,
+      "piece": 1,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "e40be7556e07c5cbd80cef8a756e3745d0991e96adad0835bef322fd07629db9",
+      "source_scale": 0.07407407407407407,
+      "state": "left-active"
+    },
+    "v2/neutral.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 18,
+      "opaque_pixels": 227,
+      "piece": 0,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "589ba31d04478d2db3c91e84bfcda92485da6901b90c89c2a242335cac363b66",
+      "source_scale": 0.07407407407407407,
+      "state": "neutral"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 212,
+      "piece": 4,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "a727805a8e1a46e560e727a289034faf9f3122ebdd7b8508c783077ee1437674",
+      "source_scale": 0.07407407407407407,
+      "state": "anticipation-crouch-hands-loaded"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 185,
+      "piece": 5,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "c0af538efdef29a1b77604af1d92dfc9c43e40da92434bab959e80a5f303964e",
+      "source_scale": 0.07407407407407407,
+      "state": "deep-compression-squat"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 209,
+      "piece": 6,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "4dcd73c19995f32b418e290df7d03b692bcd47512070c0889824f7741d41172a",
+      "source_scale": 0.07407407407407407,
+      "state": "asymmetric-swing-with-torso-twist"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 240,
+      "piece": 7,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "328299d702c2ca755c668b286bb33d32e14814103e342cd1066b61eae946d483",
+      "source_scale": 0.07407407407407407,
+      "state": "recoil-release-with-arms-following-through"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 270,
+      "piece": 8,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "40fd79d030e1387c2ec2abfb2adf025b1b3f89b9c39b6729a36501a1e944b073",
+      "source_scale": 0.07407407407407407,
+      "state": "launch-pop-both-mittens-raised"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 9,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "3fdd93ad69d09fb9f8aa6085db96f774db36fdb7c7341a3d58fb9d1602a9fea7",
+      "source_scale": 0.07407407407407407,
+      "state": "forward-nudge-with-one-hand-reaching-and-the-other-stabilizing"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 177,
+      "piece": 10,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "66e18bb99bacca32fc085e27208db8a36096bc14c93411fd1ab31854431b8151",
+      "source_scale": 0.07407407407407407,
+      "state": "drain-slump-shoulders-and-helmet-drooped"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 25,
+      "opaque_pixels": 269,
+      "piece": 11,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "6563cfe9b5c73d3ef610eef5dc55e7d65341f9b53a4bf89e69baec3ea39020ef",
+      "source_scale": 0.07407407407407407,
+      "state": "jackpot-cheer-with-both-hands-raised"
+    },
+    "v2/right-active.png": {
+      "anchor_xy": [
+        10,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        20,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 221,
+      "piece": 2,
+      "seat_mask_sha256": "2620e159dd9e2daddde054f42015c8b7f3c91061accd0a7afb96760f858f95ef",
+      "sha256": "326e5d2bb5862ef2f49d93a4b2831b0400e62e008b4dc1fc12ad5efd886a560c",
+      "source_scale": 0.07407407407407407,
+      "state": "right-active"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "mossbell.knight",
+  "source_path": "/work/artifacts/art-prod/slots/mossbell.knight/v01/source-sheet.png",
+  "source_sha256": "6ff72544bd30f35c7ba5fcf8af9d5ca72f979f1256820e940e4d8cdcd47f6cf8",
+  "tool_version": 2
+}

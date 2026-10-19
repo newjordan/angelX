@@ -10,7 +10,7 @@ fn installed_and_relocated_resources_do_not_depend_on_the_build_checkout() {
     let executable = prefix.join("bin/angel");
     let absent_build = Path::new("/absent/build/cockpit");
     assert_eq!(
-        resolve_root(None, Some(&executable), absent_build, "source-id"),
+        resolve_root(None, Some(&executable), Some(absent_build), "source-id"),
         bundle
     );
     let moved = temp.path().join("moved-source");
@@ -21,7 +21,7 @@ fn installed_and_relocated_resources_do_not_depend_on_the_build_checkout() {
         resolve_root(
             None,
             Some(&moved.join("cockpit/target/release/angel")),
-            absent_build,
+            Some(absent_build),
             "source-id"
         ),
         moved
@@ -30,9 +30,14 @@ fn installed_and_relocated_resources_do_not_depend_on_the_build_checkout() {
         resolve_root(
             Some(bundle.clone()),
             Some(&executable),
-            absent_build,
+            Some(absent_build),
             "other-id"
         ),
         bundle
     );
+}
+
+#[test]
+fn a_portable_build_without_a_source_tree_falls_back_to_the_working_folder() {
+    assert_eq!(resolve_root(None, None, None, "source-id"), PathBuf::from("."));
 }

@@ -1,0 +1,189 @@
+{
+  "freezes_per_minute": 7,
+  "frozen_ticks": 26,
+  "longest_frozen_run": 6,
+  "scene": "the-bone-choir",
+  "snapshots": [
+    {
+      "save": "d7136ac138d4977d",
+      "step": 60,
+      "tick": 155,
+      "wire": "4dcf5361a44bb142"
+    },
+    {
+      "save": "02d1c1524ee8d335",
+      "step": 120,
+      "tick": 209,
+      "wire": "579244606922dd48"
+    },
+    {
+      "save": "c208f970d1406f23",
+      "step": 180,
+      "tick": 267,
+      "wire": "ff4abf755c390da8"
+    },
+    {
+      "save": "94309d0c46eaa6d2",
+      "step": 240,
+      "tick": 323,
+      "wire": "f3bb9f4e3f80105d"
+    },
+    {
+      "save": "7161e078524014f1",
+      "step": 300,
+      "tick": 379,
+      "wire": "d5b04df1d0177ee5"
+    },
+    {
+      "save": "8ba2aff297c9a264",
+      "step": 360,
+      "tick": 429,
+      "wire": "1b224a3fa928012d"
+    },
+    {
+      "save": "842f70e6de6d1a95",
+      "step": 420,
+      "tick": 489,
+      "wire": "334d4ee3b257b919"
+    },
+    {
+      "save": "858290baf2c8a0fa",
+      "step": 480,
+      "tick": 549,
+      "wire": "7876a7e1e8ea62d4"
+    },
+    {
+      "save": "cb98e1c7d36f0316",
+      "step": 540,
+      "tick": 609,
+      "wire": "e7b6c8a2ef0486a8"
+    },
+    {
+      "save": "6ad28e34fb0ea020",
+      "step": 600,
+      "tick": 669,
+      "wire": "b511a2c0d4ea4246"
+    },
+    {
+      "save": "432d74291a2d494e",
+      "step": 660,
+      "tick": 729,
+      "wire": "88022a9138543b9d"
+    },
+    {
+      "save": "14d52e12aaea91a4",
+      "step": 720,
+      "tick": 789,
+      "wire": "bc50c0f2c72158ce"
+    },
+    {
+      "save": "1c270cf94602852a",
+      "step": 780,
+      "tick": 849,
+      "wire": "501def310962b261"
+    },
+    {
+      "save": "70ec0a84596a7f9d",
+      "step": 840,
+      "tick": 909,
+      "wire": "bc78386012467fcf"
+    },
+    {
+      "save": "ec24d5a76cd85901",
+      "step": 900,
+      "tick": 969,
+      "wire": "587482229bdbdc60"
+    },
+    {
+      "save": "f830fb0c5dd8dfd0",
+      "step": 960,
+      "tick": 1029,
+      "wire": "ade3ec31bd76ae8e"
+    },
+    {
+      "save": "49073071ef4729d9",
+      "step": 1020,
+      "tick": 1089,
+      "wire": "f214b28368e75b73"
+    },
+    {
+      "save": "8587ba783940eb71",
+      "step": 1080,
+      "tick": 1149,
+      "wire": "cebf1103c17482a0"
+    },
+    {
+      "save": "1f4bf8489dc7ce36",
+      "step": 1140,
+      "tick": 1209,
+      "wire": "69a6c50d9bcc5e24"
+    },
+    {
+      "save": "5dd8abcc6049bca1",
+      "step": 1200,
+      "tick": 1269,
+      "wire": "887fec58a60b01f3"
+    },
+    {
+      "save": "61f41d70d6edc147",
+      "step": 1260,
+      "tick": 1329,
+      "wire": "1eb1783f3d6a3712"
+    },
+    {
+      "save": "cab0f14b15242b0c",
+      "step": 1320,
+      "tick": 1389,
+      "wire": "61578c2ef3370327"
+    },
+    {
+      "save": "e54ec270d46f5190",
+      "step": 1380,
+      "tick": 1449,
+      "wire": "aa385017972cc6ea"
+    },
+    {
+      "save": "489633a449a87cff",
+      "step": 1440,
+      "tick": 1509,
+      "wire": "0bd6a70e9c8a173f"
+    },
+    {
+      "save": "820f4c2bddbefb71",
+      "step": 1500,
+      "tick": 1569,
+      "wire": "81afab48f48aa93e"
+    },
+    {
+      "save": "63e97d5fd9e7eb92",
+      "step": 1560,
+      "tick": 1629,
+      "wire": "35c9b12a6e7e0133"
+    },
+    {
+      "save": "73bb4a5cb1a71e02",
+      "step": 1620,
+      "tick": 1689,
+      "wire": "4780a8254cd1aee5"
+    },
+    {
+      "save": "71100e31ab2090ad",
+      "step": 1680,
+      "tick": 1749,
+      "wire": "5c65ebf14fc8f873"
+    },
+    {
+      "save": "14910d32f2d7920c",
+      "step": 1740,
+      "tick": 1809,
+      "wire": "842b19ed9b3b71b0"
+    },
+    {
+      "save": "51ea76fd030fba62",
+      "step": 1800,
+      "tick": 1869,
+      "wire": "d3d1ab36babcac6c"
+    }
+  ],
+  "steps": 1800
+}

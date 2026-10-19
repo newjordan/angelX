@@ -26,7 +26,7 @@ pub const HOME_ROOM_LIMIT: usize = 128;
 
 /// World rooms sit north of the Undercroft, beyond a loop settlement's
 /// excavation (within six cells of the cellar, never reaching row -5).
-pub const ROOMS: [(RoomKind, (i32, i32)); 61] = [
+pub const ROOMS: [(RoomKind, (i32, i32)); 64] = [
     super::ranch::CELLS[0],
     super::ranch::CELLS[1],
     (RoomKind::Gate, (2, -8)),
@@ -96,6 +96,11 @@ pub const ROOMS: [(RoomKind, (i32, i32)); 61] = [
     // The Griffin Eyrie, up on the Mountain: its only way in is its door
     // on the kingdom's map, and its gate leads back out there.
     (RoomKind::Eyrie, (1, -10)),
+    // The Colosseum's entrance hall and its two arenas: its door is on
+    // the kingdom's map, its gates are plates (`colosseum`).
+    super::colosseum::CELLS[0],
+    super::colosseum::CELLS[1],
+    super::colosseum::CELLS[2],
 ];
 
 /// Authored two-way roads. Never dig into an occupied settlement cell.
@@ -213,7 +218,7 @@ pub const CELLAR_FRONT: (f32, f32) = (14.0, 3.4);
 pub const ADIT: (i32, i32, i32, i32) = (10, 1, 4, 3);
 pub const SHAFT: (i32, i32, i32, i32) = (11, 3, 2, 1);
 
-pub const ENTRANCES: [Entrance; 53] = [
+pub const ENTRANCES: [Entrance; 59] = [
     super::ranch::DOORS[0],
     super::ranch::DOORS[1],
     super::ranch::DOORS[2],
@@ -236,6 +241,11 @@ pub const ENTRANCES: [Entrance; 53] = [
     super::college::DOORS[15],
     super::college::DOORS[16],
     super::college::DOORS[17],
+    super::colosseum::DOORS[0],
+    super::colosseum::DOORS[1],
+    super::colosseum::DOORS[2],
+    super::colosseum::DOORS[3],
+    super::colosseum::DOORS[4],
 
     Entrance { id: "race-coach", room: RoomKind::Hippodrome, at: super::hippodrome::COACH_GATE,
         to: Dest::Room(RoomKind::Stables, (19.5, 8.2)),
@@ -316,6 +326,14 @@ pub const ENTRANCES: [Entrance; 53] = [
         to: Dest::Room(RoomKind::Riverbank, (7.5, 8.0)),
         label: "SIR DAMP'S FERRY TO THE QUAY",
         needs: Some("country:ferry"),
+    },
+    Entrance {
+        id: "swamp-plate",
+        room: RoomKind::Marsh,
+        at: super::swamp::PLATE,
+        to: Dest::Delve(Pack::Swamp),
+        label: "DOWN INTO THE SWAMP OF HORRORS",
+        needs: None,
     },
     Entrance {
         id: "quay-ferry",
@@ -570,6 +588,9 @@ impl RoomKind {
                 | RoomKind::Bathhouse
                 | RoomKind::Smithy
                 | RoomKind::Eyrie
+                | RoomKind::ColosseumHall
+                | RoomKind::KegYard
+                | RoomKind::GanderHall
         )
     }
 }
@@ -666,6 +687,7 @@ fn world_room(kind: RoomKind, cell: (i32, i32)) -> Room {
     match kind {
         kind if super::college::is_room(kind) => super::college::room(kind, cell),
         kind if super::ranch::is_room(kind) => super::ranch::room(kind, cell),
+        kind if super::colosseum::is_room(kind) => super::colosseum::room(kind, cell),
         RoomKind::Gate => gate_room(cell),
         RoomKind::Stables => stables_room(cell),
         RoomKind::Lists => lists_room(cell),
@@ -894,7 +916,7 @@ impl Run {
         let ids: Vec<u32> = self.players.keys().copied().collect();
         let count = ids.len() as f32;
         for (slot, id) in ids.into_iter().enumerate() {
-            let offset = (slot as f32 - (count - 1.0) / 2.0) * 2.4;
+            let offset = (slot as f32 - (count - 1.0) / 2.0) * super::stand_apart(count);
             if let Some(hero) = self.players.get_mut(&id) {
                 (hero.x, hero.y) = (at.0 * TILE_UNITS + offset, at.1 * TILE_UNITS);
             }

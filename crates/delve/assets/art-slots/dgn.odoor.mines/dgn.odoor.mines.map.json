@@ -1,0 +1,505 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    12.0
+  ],
+  "comments": [
+    "Source design unchanged; BOX reduction, binary alpha and shared inks.",
+    "Side states remain staged where native barred/open silhouettes are ambiguous."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+  "mapping_basis": "Reviewed delivered reading order; per-grid Mines/Keep crops repair merged detector groups.",
+  "notes_sha256": "b3ba7b2b4b267173dd29831e61b738d1391cb34e2e6a976b0212f10aade228f1",
+  "pieces": [
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North barred door: strong readable front elevation; rock, timber, iron, copper and malachite match the biome.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        140.0,
+        158.5
+      ],
+      "source_rect_xywh": [
+        28,
+        84,
+        280,
+        317
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North open door: passage is clear and shares the same connected rock-and-timber frame.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        137.5,
+        159.5
+      ],
+      "source_rect_xywh": [
+        342,
+        82,
+        275,
+        319
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North half-open door: recognizable transition with a barred panel swung aside; panel has visible perspective/diagonal edges against the strict axis-aligned requirement.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        141.0,
+        159.0
+      ],
+      "source_rect_xywh": [
+        635,
+        84,
+        282,
+        318
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "West barred door: posts are visible in the opening, but the surrounding timber/rock reads with slanted geometry and is not a clean axis-aligned cap strip.",
+      "name": "west-barred",
+      "piece": 3,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        133.0,
+        162.5
+      ],
+      "source_rect_xywh": [
+        961,
+        84,
+        266,
+        325
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "West open door: opening is clear; wall cap and framing still include slanted geometry.",
+      "name": "west-open",
+      "piece": 4,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        131.0,
+        162.0
+      ],
+      "source_rect_xywh": [
+        30,
+        473,
+        262,
+        324
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "East barred door: top-down bars are visible, but the wall geometry is not fully axis-aligned.",
+      "name": "east-barred",
+      "piece": 5,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        131.5,
+        163.0
+      ],
+      "source_rect_xywh": [
+        338,
+        471,
+        263,
+        326
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "East open door: gap reads as open; same slanted wall geometry issue.",
+      "name": "east-open",
+      "piece": 6,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        132.5,
+        163.5
+      ],
+      "source_rect_xywh": [
+        649,
+        470,
+        265,
+        327
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "South barred door: not a true south top-down cap strip; reads too much like a front-facing doorway.",
+      "name": "south-barred",
+      "piece": 7,
+      "review_note": "South open is an opaque timber crosspiece and still reads closed at native size; preserve the readable existing fallback for this pair.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        143.5,
+        29.5
+      ],
+      "source_rect_xywh": [
+        944,
+        590,
+        287,
+        59
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "South open door: not a true south cap strip/open gap; reads like a front-facing passage.",
+      "name": "south-open",
+      "piece": 8,
+      "review_note": "South open is an opaque timber crosspiece and still reads closed at native size; preserve the readable existing fallback for this pair.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        137.5,
+        28.5
+      ],
+      "source_rect_xywh": [
+        31,
+        981,
+        275,
+        57
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Stairs down: north-descending stairwell reads clearly, with axis-aligned steps.",
+      "name": "stairs-down",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        134.5,
+        166.5
+      ],
+      "source_rect_xywh": [
+        336,
+        839,
+        269,
+        333
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Boss seal door: ornate barred front elevation, distinct and biome-consistent.",
+      "name": "boss",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        143.5,
+        165.0
+      ],
+      "source_rect_xywh": [
+        635,
+        842,
+        287,
+        330
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Floor seal marker: compact copper/malachite seal on rock; restrained center highlight.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        134.0,
+        130.0
+      ],
+      "source_rect_xywh": [
+        960,
+        896,
+        268,
+        260
+      ],
+      "state": "odoor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-native",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.odoor.mines",
+  "source_sha256": "0c740abcd4c2e5636d0b269228c5e82e69da78e6fbc3516dc307e5ce76ce009f",
+  "timing": ""
+}

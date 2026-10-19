@@ -1,0 +1,332 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "d8d544798d3442eb49a4fa64052e642cfcf962c9e6eefc81c54bf81e55d8046f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Seamless blue-black void fill, clouded mist and fine fractures.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        121.0,
+        119.0
+      ],
+      "source_rect_xywh": [
+        39,
+        191,
+        242,
+        238
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Void fill with a slightly different mist drift and crack pattern.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        119.0
+      ],
+      "source_rect_xywh": [
+        350,
+        191,
+        244,
+        238
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Void fill with a different central cloud and sparse fissures.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        119.0
+      ],
+      "source_rect_xywh": [
+        663,
+        191,
+        244,
+        238
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0.035,
+      "label": "Void fill with a different swirl and crack arrangement.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        119.0
+      ],
+      "source_rect_xywh": [
+        975,
+        191,
+        244,
+        238
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Top flagstone rim adjoining void.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        121.5
+      ],
+      "source_rect_xywh": [
+        38,
+        496,
+        244,
+        243
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Bottom flagstone rim adjoining void.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        121.0
+      ],
+      "source_rect_xywh": [
+        350,
+        497,
+        244,
+        242
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Left flagstone rim adjoining void.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        123.0,
+        121.5
+      ],
+      "source_rect_xywh": [
+        661,
+        496,
+        246,
+        243
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Right flagstone rim adjoining void.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        121.5
+      ],
+      "source_rect_xywh": [
+        975,
+        496,
+        244,
+        243
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner with top and left stone arms.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.5,
+        123.0
+      ],
+      "source_rect_xywh": [
+        38,
+        807,
+        245,
+        246
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner with top and right stone arms.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.0,
+        123.0
+      ],
+      "source_rect_xywh": [
+        350,
+        807,
+        244,
+        246
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner with left and bottom stone arms.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        123.0,
+        123.0
+      ],
+      "source_rect_xywh": [
+        661,
+        807,
+        246,
+        246
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "value": 0.65
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner with right and bottom stone arms.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        122.5,
+        123.0
+      ],
+      "source_rect_xywh": [
+        975,
+        807,
+        245,
+        246
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.crypt",
+  "source_sha256": "78a52cb431518ab1f265f3406ca2099519783bf3390e5392c851a32c3048f20c",
+  "timing": ""
+}

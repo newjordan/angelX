@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.great-pole/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP (re-run).",
+  "generation_sha256": "1f344f7e56bcc5d311b2cf20744726c5d9f35fbc2b713f1ffb9240409ff7718e",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "964641a87ad9b5f6bb1f73ba05a83cd47a52a6c2643aa791873ad5abcd27082c",
+  "native_contract": "Native 72x136 (the slot says 64x136), anchor bottom-centre (36,136).",
+  "notes_sha256": "f01abbb062abd2a5b700b3c8bfa397a4f5904341864363509f1dad9eabcdcee6",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "b822df2144b64c10328bf5e376168a1025ddc0a6be9d407f9e9b7d4f0f99d0e6",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the re-run; v01-first, which had three peg levels, is kept outside the repo and not used). The delivery's generation.json is the first run's record; the producer note accepts this re-run",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
+  "source_sha256": "a9467e8233f4f1568eb877e9273de48368a211224d53f2f884346699dab49662"
+}

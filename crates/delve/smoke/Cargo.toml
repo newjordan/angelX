@@ -1,5 +1,6 @@
 [package]
 name = "angel-delve-smoke"
+default-run = "angel-delve-smoke"
 version = "0.1.0"
 description = "The Delve's wasm smoke: frames drawn by the same renderer in wasm and natively, and how long each takes"
 edition.workspace = true
@@ -16,3 +17,8 @@ crate-type = ["cdylib", "rlib"]
 angel-delve = { path = "..", features = ["testing"] }
 # The wire's trees and patches, as a client takes them.
 angel-net = { path = "../../net" }
+serde_json = "1"
+
+[[bin]]
+name = "arcade-review"
+path = "src/arcade.rs"

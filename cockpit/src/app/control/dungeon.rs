@@ -12,8 +12,9 @@ pub(super) struct Held {
     pub(super) repeat: bool,
 }
 
-/// Friends a host may seat: a party of four knights.
-pub(crate) const MAX_FRIENDS: usize = 3;
+/// Friends a host may seat: a party of six knights is the host's and five
+/// friends' (`MAX_PLAYERS` less the host's own seat).
+pub(crate) const MAX_FRIENDS: usize = 5;
 
 /// A delve open to friends.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -183,7 +184,7 @@ impl App {
     /// Exit keys have priority over every in-game overlay and control capture.
     pub(super) fn activity_key(&mut self, key: event::KeyEvent) -> bool {
         if !self.dungeon_view_active()
-            || key.kind != event::KeyEventKind::Press
+            || key.kind == event::KeyEventKind::Release
             || key
                 .modifiers
                 .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
@@ -200,6 +201,20 @@ impl App {
             1
         };
         let couch = self.dungeon.joined.is_none() && self.dungeon.hosting.is_none();
+        let seat = if couch && code == KeyCode::Delete { 2 } else { me };
+        let hold_leave = self.dungeon.shooter.as_ref().is_some_and(|r| r.can_hold_leave(seat))
+            || self.joined_knight().is_some_and(|k| k["can_hold_leave"].as_bool() == Some(true));
+        if hold_leave && matches!(code, KeyCode::Esc | KeyCode::Delete) {
+            self.dungeon.cards_open = false;
+            self.dungeon.exhibit_text = None;
+            self.dungeon.forge.draft = None;
+            self.dungeon.activity_menu = None;
+            self.dungeon.hold(code, false);
+            self.redraw_requested = true;
+            return true;
+        }
+        if key.kind != event::KeyEventKind::Press { return false; }
+
         if let Some(seat) = self.dungeon.activity_menu {
             match code {
                 KeyCode::Esc => {

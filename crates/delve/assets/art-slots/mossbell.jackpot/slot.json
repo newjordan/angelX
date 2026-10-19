@@ -1,0 +1,539 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8652
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 14258
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 13974
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 18831
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 21570
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 27392
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 32397
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 28873
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 19366
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 16682
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 17709
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 11277
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "piece-count mismatch"
+  ],
+  "map_sha256": "19ed28cae16a775f7f1bc5a434c62d6f0785eafc96d9124da57a0e6105899b83",
+  "metadata_sha256": "4ad930af88fc7360504687b480d4bf6a18a74e55e97fc44c6481bfa7d1f7b2b1",
+  "notes_sha256": "ae91b0aadc665f52aad879e421c4eaeb444f90fcd4c5a499b8927c2ef3f2841a",
+  "outputs": {
+    "v1/jackpot-0.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 228,
+      "piece": 1,
+      "sha256": "b1cd6e58b439565a3526e1cc9c410e011df2f2c442fccf22e7817ba07f99303a",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-0"
+    },
+    "v1/jackpot-1.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9463,
+      "frame": 0,
+      "half_cell_coverage": 48,
+      "opaque_pixels": 596,
+      "piece": 4,
+      "sha256": "3fffd5fa30f35e29093196a46af6088b28d54f5f5a74216c0e830f4e5549aecd",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-1"
+    },
+    "v1/jackpot-2.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 37,
+      "opaque_pixels": 431,
+      "piece": 8,
+      "sha256": "d90ab0e2a91a14b23902e7481c5ee6d6c861dc1c3b257f46f897228a5e2aa2d6",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-2"
+    },
+    "v1/jackpot-3.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 135,
+      "piece": 11,
+      "sha256": "74ed42ff15c32700a820f2555f06f4bdb87cffee445ab6cebb6d913e152f8324",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-3"
+    },
+    "v1/proposal-00.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9894,
+      "frame": 3,
+      "half_cell_coverage": 39,
+      "opaque_pixels": 470,
+      "piece": 0,
+      "sha256": "ebc60fc26904d8740e3bca5f551a8700b105457b9196ac70dd4885839dc41dab",
+      "source_scale": 0.10631229235880399,
+      "state": "full-upright-bloom-at-the-top-of-its-opening-arc"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9938,
+      "frame": 1,
+      "half_cell_coverage": 27,
+      "opaque_pixels": 323,
+      "piece": 2,
+      "sha256": "458b838f45e015c98096b0d012de758e1935bbae1423509d8eb6a40ce2e563e9",
+      "source_scale": 0.10631229235880399,
+      "state": "bronze-core-swelling-first-ivory-seed-petals-open-and-small-spar"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 387,
+      "piece": 3,
+      "sha256": "e1778c7127377ed22da4d06ff37e2b0606e07c65b1e16355cc10116b2d3f701b",
+      "source_scale": 0.10631229235880399,
+      "state": "petals-open-farther-around-the-bright-centre-upward-sparks-and-d"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9512,
+      "frame": 5,
+      "half_cell_coverage": 52,
+      "opaque_pixels": 533,
+      "piece": 5,
+      "sha256": "c097c4272e5fda23aa4b928a3e9db27659f165efcbb3dcd6e6ed05af7aa3d35f",
+      "source_scale": 0.10631229235880399,
+      "state": "peak-breakup-begins-detached-petals-and-bronze-rays-spread-aroun"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9498,
+      "frame": 6,
+      "half_cell_coverage": 41,
+      "opaque_pixels": 418,
+      "piece": 6,
+      "sha256": "f8be5301da3c98598ca7e5a323fc05ffc465688b6b4acc0df58c2f1ae9e77bd3",
+      "source_scale": 0.10631229235880399,
+      "state": "petals-and-chunky-debris-travel-outward-leaving-the-central-flas"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.959,
+      "frame": 7,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 317,
+      "piece": 7,
+      "sha256": "d775385378fc16e610ec72cf5cdcc6fb40b91acbaac070e71c8a34d80290dc75",
+      "source_scale": 0.10631229235880399,
+      "state": "more-separated-petals-and-debris-the-centre-remains-visible"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 29,
+      "opaque_pixels": 326,
+      "piece": 9,
+      "sha256": "fa57292230c6192562ae2d135d288c9eba0ed42b00b44e9092faaa9782b30caa",
+      "source_scale": 0.10631229235880399,
+      "state": "smoke-and-two-detached-petals-trail-the-shrinking-seed-core"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 24,
+      "opaque_pixels": 273,
+      "piece": 10,
+      "sha256": "304cdfd1dca4d0dfe98eedcb7a7767b112a342373cd83de862bce1deb5cec8a9",
+      "source_scale": 0.10631229235880399,
+      "state": "sparse-smoke-remnant-core-and-a-few-small-particles"
+    },
+    "v2/jackpot-0.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 228,
+      "piece": 1,
+      "sha256": "b1cd6e58b439565a3526e1cc9c410e011df2f2c442fccf22e7817ba07f99303a",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-0"
+    },
+    "v2/jackpot-1.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9463,
+      "frame": 0,
+      "half_cell_coverage": 48,
+      "opaque_pixels": 596,
+      "piece": 4,
+      "sha256": "3fffd5fa30f35e29093196a46af6088b28d54f5f5a74216c0e830f4e5549aecd",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-1"
+    },
+    "v2/jackpot-2.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 37,
+      "opaque_pixels": 431,
+      "piece": 8,
+      "sha256": "d90ab0e2a91a14b23902e7481c5ee6d6c861dc1c3b257f46f897228a5e2aa2d6",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-2"
+    },
+    "v2/jackpot-3.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 135,
+      "piece": 11,
+      "sha256": "74ed42ff15c32700a820f2555f06f4bdb87cffee445ab6cebb6d913e152f8324",
+      "source_scale": 0.10631229235880399,
+      "state": "jackpot-3"
+    },
+    "v2/proposal-00.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9894,
+      "frame": 3,
+      "half_cell_coverage": 39,
+      "opaque_pixels": 470,
+      "piece": 0,
+      "sha256": "ebc60fc26904d8740e3bca5f551a8700b105457b9196ac70dd4885839dc41dab",
+      "source_scale": 0.10631229235880399,
+      "state": "full-upright-bloom-at-the-top-of-its-opening-arc"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9938,
+      "frame": 1,
+      "half_cell_coverage": 27,
+      "opaque_pixels": 323,
+      "piece": 2,
+      "sha256": "458b838f45e015c98096b0d012de758e1935bbae1423509d8eb6a40ce2e563e9",
+      "source_scale": 0.10631229235880399,
+      "state": "bronze-core-swelling-first-ivory-seed-petals-open-and-small-spar"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 387,
+      "piece": 3,
+      "sha256": "e1778c7127377ed22da4d06ff37e2b0606e07c65b1e16355cc10116b2d3f701b",
+      "source_scale": 0.10631229235880399,
+      "state": "petals-open-farther-around-the-bright-centre-upward-sparks-and-d"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9512,
+      "frame": 5,
+      "half_cell_coverage": 52,
+      "opaque_pixels": 533,
+      "piece": 5,
+      "sha256": "c097c4272e5fda23aa4b928a3e9db27659f165efcbb3dcd6e6ed05af7aa3d35f",
+      "source_scale": 0.10631229235880399,
+      "state": "peak-breakup-begins-detached-petals-and-bronze-rays-spread-aroun"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.9498,
+      "frame": 6,
+      "half_cell_coverage": 41,
+      "opaque_pixels": 418,
+      "piece": 6,
+      "sha256": "f8be5301da3c98598ca7e5a323fc05ffc465688b6b4acc0df58c2f1ae9e77bd3",
+      "source_scale": 0.10631229235880399,
+      "state": "petals-and-chunky-debris-travel-outward-leaving-the-central-flas"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 0.959,
+      "frame": 7,
+      "half_cell_coverage": 32,
+      "opaque_pixels": 317,
+      "piece": 7,
+      "sha256": "d775385378fc16e610ec72cf5cdcc6fb40b91acbaac070e71c8a34d80290dc75",
+      "source_scale": 0.10631229235880399,
+      "state": "more-separated-petals-and-debris-the-centre-remains-visible"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 29,
+      "opaque_pixels": 326,
+      "piece": 9,
+      "sha256": "fa57292230c6192562ae2d135d288c9eba0ed42b00b44e9092faaa9782b30caa",
+      "source_scale": 0.10631229235880399,
+      "state": "smoke-and-two-detached-petals-trail-the-shrinking-seed-core"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        16,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 24,
+      "opaque_pixels": 273,
+      "piece": 10,
+      "sha256": "304cdfd1dca4d0dfe98eedcb7a7767b112a342373cd83de862bce1deb5cec8a9",
+      "source_scale": 0.10631229235880399,
+      "state": "sparse-smoke-remnant-core-and-a-few-small-particles"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-pivot",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "mossbell.jackpot",
+  "source_path": "/work/artifacts/art-prod/slots/mossbell.jackpot/v01/source-sheet.png",
+  "source_sha256": "8d94aa5802131623e9bbaab24c513a294fbb3a3cd08aaaf0892d18019a2ea29c",
+  "tool_version": 2
+}

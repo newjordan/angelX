@@ -1,0 +1,182 @@
+{
+  "anchor_canvas_wh": [
+    36,
+    36
+  ],
+  "anchor_xy": [
+    18,
+    36
+  ],
+  "comments": [
+    "One bank on the ball's lowest point: one scale for all seven frames; the ball touches the floor at the anchor.",
+    "The toll frames are imported and approved; the rules' toll is a sound 36 ticks before a ball rolls out, with no boulder yet to paint, so the stage plays the roll frames only."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "Rules hitbox 28x28 centred on the anchor, on the snow ledge floor; the painted ball may spill past it. toll is the 36-tick warning before one rolls out; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the ball turned a quarter clockwise each cell (roll-0..3: slit at the bottom, left, top, right), then toll-0..2 (tilt left, tilt right, slit gaping wide).",
+  "notes_sha256": "7136921293dc5b898ac83403ab51fcd8b1bf12316a60137268a27c7564c681c4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "roll-0 \u2014 circular bronze bell, horizontal verdigris belt, slit down.",
+      "name": "roll-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.2,
+        323
+      ],
+      "source_rect_xywh": [
+        37,
+        129,
+        331,
+        323
+      ],
+      "state": "roll",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "roll-1 \u2014 same bell turned, vertical belt, slit left.",
+      "name": "roll-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        162.3,
+        329
+      ],
+      "source_rect_xywh": [
+        421,
+        123,
+        327,
+        329
+      ],
+      "state": "roll",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "roll-2 \u2014 same bell turned, horizontal belt, slit up.",
+      "name": "roll-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        163.6,
+        332
+      ],
+      "source_rect_xywh": [
+        795,
+        118,
+        333,
+        332
+      ],
+      "state": "roll",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "roll-3 \u2014 same bell turned, vertical belt, slit right.",
+      "name": "roll-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        161.6,
+        335
+      ],
+      "source_rect_xywh": [
+        1173,
+        118,
+        328,
+        335
+      ],
+      "state": "roll",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "toll-0 \u2014 slightly tilted resting bell, slit down.",
+      "name": "toll-0",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        165.1,
+        322
+      ],
+      "source_rect_xywh": [
+        40,
+        597,
+        336,
+        322
+      ],
+      "state": "toll",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "toll-1 \u2014 opposing slight tilt, slit down.",
+      "name": "toll-1",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        167.9,
+        322
+      ],
+      "source_rect_xywh": [
+        416,
+        597,
+        332,
+        322
+      ],
+      "state": "toll",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "toll-2 \u2014 upright bell with widened dark slit and pale lip accent.",
+      "name": "toll-2",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.0,
+        326
+      ],
+      "source_rect_xywh": [
+        795,
+        595,
+        330,
+        326
+      ],
+      "state": "toll",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 36x36, anchor bottom-centre (18,36); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      36,
+      36
+    ],
+    "v2": [
+      36,
+      36
+    ]
+  },
+  "slot": "bannerpeak.boulder",
+  "source_sha256": "4b490b94222c8d0d792a953ff5e0d4d749f0ed1e01242818a57a78cac61f713c",
+  "timing": "roll 4x4 ticks; toll 3x6 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

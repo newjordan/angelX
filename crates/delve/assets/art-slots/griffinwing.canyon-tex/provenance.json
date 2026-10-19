@@ -1,0 +1,25 @@
+{
+  "delivery": "griffinwing.canyon-tex/v01",
+  "delivery_status": "Producer note (wave 6): ACCEPTED WITH CLEANUP.",
+  "generation_sha256": "9d3fdecb73877f794d9d7e31dcb949319808b5f4caf767b6c055cb272e7be209",
+  "generations": 3,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "de7068b113a2d8b3f186386680d8ef8d5681b83074e6480d4becacfbdf928af4",
+  "native_contract": "Six opaque 64x64 tiles, reduced once from 466-px swatches.",
+  "notes_sha256": "522f7eb7144cebab6f1a6cdfd795875489cea155e04d32b7b3a0acb9912cc3b8",
+  "picked_sha256": {
+    "bone": "d1008d4a8bc7f072aa42730f0d9980d02724d2ac4729edcef98e37ebc1c03f1d",
+    "causeway": "f0b6d8015b306b234e7d0551401ae9e3f3ef101bca1fd9478ecf9040c11bb60f",
+    "lava": "5e5a9da589b41e6a0e9cf39097e74b6ceb472c195bd938ef39477f81b0259062",
+    "mist": "07aa2dd1023daf8c9105b10e28327bea51cfa488f6b6f06686bdea0111ac8f16",
+    "rock": "61221afc1b3089e067443c61d7c7094ed6c529c506aba6ba0e730d0be414668e",
+    "stone": "8eaf891ece7eba86836b93c048a8ae9d70d9056ec820f1e3024d89cc82c331c1"
+  },
+  "prepared_sheet": "The six picked swatches pasted unscaled on one sheet (a 3 x 2 grid, magenta between), with the measured crops, by crates/delve/assets/griffinwing/prepare-art.py. Every pixel is a delivered pixel. source_path and source_sha256 are the prepared sheet; picked_sha256 binds each swatch.",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "9b95852f7226f1f5aae1b85d525a65bff13ea624f99b82851d2745a45dea82bb",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "v01/picked/{rock,stone,causeway,bone,lava,mist}.png, the producer's six chosen swatches (bone from the re-run in v01/source-sheet.png; rock, lava and mist from the first run's second image in v01-first; rock wrap-blended in y and mist in x by the lane). The importer reads the six pasted unscaled on one sheet",
+  "source_path": "/work/artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
+  "source_sha256": "8e232d4b80ce7b285919e705266f33bfca707d7cf7438655a712669489449fcf"
+}

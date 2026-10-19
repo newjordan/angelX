@@ -69,7 +69,19 @@ The host plays **inside the expanded cockpit mini-viz**. No browser is needed.
 | Cast spells | 1 2 3 4 | 5 6 7 and backslash (`\`) |
 | Quaff the first card in hand | Z | ] |
 | Ultimate | R | Y |
+| Floor map (held) | N | — |
 | Clear held keys | Backtick (`` ` ``) | Backtick (`` ` ``) |
+
+The minimap in the view's top right corner is always there while a floor is
+fought or explored (not at home, in a folly, or behind the ballot): the room
+the knight stands in and the rooms about it, the doorways between them
+(chained red where the Boss Key's door is shut), what is marked in each, and
+a dot for every knight. Hold **N** (on a pad, **LT + Back**) for the whole
+floor as far as the party knows it, with a legend: a room is *visited* once a
+knight has stood in it, *seen* (an outline and a "?") through a doorway of a
+visited room, and hidden otherwise; a vault behind a cracked wall stays off
+the map until the wall is blown. The map is the seat's own screen only: the
+run and the network never hear of it.
 
 Quaff plays the first potion or other hand card; the hand shifts left, so
 repeated taps work through it. Spells occupy four separate slots and recharge.
@@ -94,7 +106,7 @@ and mini-games. Hold progress uses filled and empty block bars.
 Every delve begins outside **the Delve's gate** on one continuous kingdom:
 roads, rivers, fields, forest, model castles, the College and built wishes
 share the geography of the mini-viz overview. Each seat has its own knight
-and smoothly following camera; up to four knights can spread across the
+and smoothly following camera; up to six knights can spread across the
 whole bounded map without screen changes. See [KINGDOM.md](KINGDOM.md) for
 the architecture, bounds and verification.
 
@@ -623,6 +635,41 @@ The people at home stand about the Undercroft and have a word for whoever
 walks up. The first rescue is **Out of the Cage**; all four home is **A
 Full House**.
 
+## The Swamp of Horrors
+
+A delve of its own, three floors deep, behind a plate in Sir Damp's Marsh
+(the realm's Swamp, on the Wetland). A notice post by the plate (E reads
+it) and one of Wren's bounties say it: a white horse was taken into the
+swamp. Stand on the plate a moment and the party goes straight down to its
+first floor, whatever landing Wren has drawn (`rules/swamp.rs`).
+
+- **The mire.** Bog holds the feet of knights and walking monsters to 55%;
+  shots and wings pass over it. Its share of a room's open ground grows by
+  floor (35%, 45%, 50%); the causeway lanes through every room stay dry,
+  and so does the ground round each reed clump. Gas seeps bubble in the
+  rooms, and fog lies in patches (one, then two), dark as Lights Out, with
+  each knight's lantern lit round them.
+- **The horrors** (`rules/horrors.rs`), each with its tell. A *bog hand*
+  travels under the mire where no shot finds it, ripples for a second
+  where it will rise, then grabs: whoever stands in the ripples is hurt and
+  held to a crawl for a second and a half. A *drowned knight* wades the bog
+  as dry ground, lifts its rusted blade for nearly a second, cleaves in
+  front, then stands with the blade stuck in the mud. A *will-o'-wisp*
+  keeps off over the water, flares and draws the knights toward it for a
+  second and a half, then bursts in a ring of pale wisps. With them:
+  leeches, slimes, wraiths and, lower down, spitters, hexers and a
+  whirlgrave. The first floor meets only the gentle ones.
+- **The Mire King** guards the last floor's hall (`the-mire-king.boss`); the
+  halls above are the floors' hardest fights, with no guardian. On the
+  third floor he stands alone. His Ravage ripples before it bursts, his
+  rain is marked, his laser drawn, his seekers slow.
+- **The white horse.** She is penned in his hall. While he stands the pen
+  holds; once he falls, hold E at the pen to let her out (**The White
+  Horse**, and Wren's bounty), and the light in the middle of the hall leads
+  home. Blanchefleur joins the stable's herd, a white mare, and grazes in
+  the Flower Fields; if the herd yard is full (twelve), she waits at the
+  ranch until there is room.
+
 ## Lady Tallow
 
 Blaise's cat: a fluffy grey
@@ -708,7 +755,7 @@ on the plate before it and **hold E** (**The West Wing**, 300 gold, 20 ore and
   |---|---|---|---|
   | West | Maud's Mushroom Ale | A second wind for every knight | 40 |
   | Middle | Dragon's Breath Stout | +15% damage for every knight | 80 |
-  | East | The Herald's Reserve | Fortune's audience starts warm (300K) | 60 |
+  | East | The Herald's Reserve | 300 gold carried by each knight | 60 |
 - **Sir Dinadan's songs:** the Round Table's jester-knight (who, in Malory,
   wrote a mocking song about King Mark) keeps a little stage east of the
   tables. For gold he'll sing for the next delve, one song at a time, an aura:
@@ -750,7 +797,7 @@ on the plate before it and **hold E** (**The West Wing**, 300 gold, 20 ore and
 ## Dame Fortune's Wheel: how the delve goes
 
 East of the Undercroft is Dame Fortune's hall, with her great wheel, red
-drapes and an audience on the benches. Stand at the lever and **hold E**:
+drapes and benches along the walls. Stand at the lever and **hold E**:
 the wheel spins once a delve, and the wedge it stops on is the delve's mode.
 Fortune's own plate sells more wedges: her third rung (800 gold, 6 gems and
 a dragon's scale, once the party has been three floors down) opens three
@@ -772,7 +819,6 @@ three more.
 | All Random *(Fortune III)* | Each knight carries another knight's ultimate for the delve (the sidebar names it), and every floor starts it half charged | 1x |
 | Ironman *(Fortune IV)* | No second winds at all: not the Chapel's, not Brother Anselm's, not Maud's ale. Fall and stay fallen (the Pit's Talisman, the Pit Tyrant's own, still saves) | 3x |
 | Hollow Walls *(Fortune IV)* | Every floor hides a vault behind a cracked wall: bring bombs | 1x |
-| Sponsors' Night *(Fortune IV)* | Every viewer brings a friend, so the audience counts double and the fan boxes rain | 1x |
 
 The spoils a delve banks (whole at the stairs and on victory, half on a
 fall) are multiplied by its wedge. The HUD names the mode, and in the
@@ -784,14 +830,14 @@ The Herald notices things. A whole slime family pruned, a keg that takes
 three monsters with it, a goblin caught (or let go), a guardian down, the
 dragon, the floor below the dragon, the Grail, a lesson learned, a cage
 opened, a full Trophy Hall, a baron sworn, a forge relit, a champion
-unhorsed: forty-two moments in all,
+unhorsed: deeds recorded in the realm,
 each earned once per realm. A new one drops a banner across the view
-(**NEW ACHIEVEMENT!**, its name, the Herald's line about it, and its reward)
+(**Deed recorded**, its name, the Herald's line about it, and its reward)
 and puts a box in the **Herald's coffer**, on its pedestal in Dame Fortune's
 hall.
 
-Stand on the coffer's plate and hold E to open the next box before the
-audience. Its contents go straight into the realm's treasury:
+Stand on the coffer's plate and hold E to open the next box at the
+coffer. Its contents go straight into the realm's treasury:
 
 | Box | Holds |
 |---|---|
@@ -802,40 +848,27 @@ audience. Its contents go straight into the realm's treasury:
 
 The sidebar at home counts the feats earned and the boxes waiting.
 
-## Fortune's audience
+## Pickups and presentation
 
-Every delve is a show, and somebody is watching. The header counts
-**Viewers**, and the count climbs with spectacle: the audience reacts to
-the moments the Herald calls, and a little to every kill.
+Dropped item cards are physical, lit 3D solids using the shared `angel-stage`
+primitive renderer. Supplies, arms, protection, lasting equipment and spells
+have different silhouettes; rarity sets their material. Inventory cards retain
+their authored art. Collection positions, ownership and effects are unchanged.
+Power runes use the same solid path, keeping their identifying glyphs and floor
+rings; an Invisibility rune stays translucent. The live window receives
+procedural `Primitive` layers rather than baked pickup sprites. Terminal frames
+project those solids through the shared CPU sampler in the original paint order.
+Pickup rotation follows simulation time, including pause.
 
-| Moment | Viewers |
-|---|---|
-| A kill (a dangerous kind) | 2K (8K) |
-| First blood, a double slay, a room cleared | 5K |
-| A triple slay, a guardian rising | 15K |
-| An ultimate, a mimic, a new floor | 20K |
-| A flawless room, a relic, a knight getting up | 30K |
-| Unstoppable, a knight going down or rising on a second wind, the floor collapsing | 40K |
-| A goblin caught, the stairs into the deep | 50K |
-| A guardian falling | 90K |
-| The dragon slain | 120K |
-| The Grail | 300K |
-
-At each milestone a fan throws a **fan box** down to the party: a crate on
-a parachute in Fortune's red and cream. A gold ring marks where it will
-land, and it bursts there into a card and two piles of gold. The first comes
-at 250K viewers, then at 1M, 2.25M, 4M: each needs more than the last. A
-million viewers in one delve earns **Must-See TV**; ten million, a delve
-into the deep, **Prime Time**.
-
-The Undercroft is off the air: the count starts at nothing on the stair,
-every delve. The realm keeps its **best show**, and the home's header
-shows it. Invited friends see the same count.
+Delves have no viewer counts, fan-box drops, sponsor mode or broadcast-rating
+rewards. Old viewer fields are ignored when loading saves; an old sponsor-mode
+save resumes as The Long Way Down. Retired viewer bounties are removed from the
+board rather than carrying their scores into the new exploration jobs.
 
 ## Fortune's dares
 
 On every floor below the Undercroft, Dame Fortune dares the party, the way
-the Delve's sponsors do. Her red board drops in as the party arrives, and
+the local roadwardens do. Her red board drops in as the party arrives, and
 the sidebar keeps the dare and how it stands.
 
 | Dare | What it asks |
@@ -843,12 +876,12 @@ the sidebar keeps the dare and how it stands.
 | Not a Scratch | two rooms on this floor without a scratch |
 | Stand Firm | no rolling, the whole floor (judged at the stairs) |
 | Against the Clock | the stairs within four minutes (judged at the stairs) |
-| Show-Off | 300K more viewers on this floor |
+| Pathfinder | Clear three rooms on this floor |
 | Make It Quick | the guardian felled within 45 seconds of it rising |
 | Unstoppable | four in a breath, twice |
 
 A kept dare opens her purse: gold (60, and 20 more a floor down) and a gem
-for every knight standing, carried like any spoils, and 100K viewers. The
+for every knight standing, carried like any spoils. The
 Unknown, with no stairs and no guardian, only dares what it can. The first
 kept dare is **Daredevil**; five in one delve, **Fortune's Favourite**.
 
@@ -869,8 +902,8 @@ too.
 
 A bounty asks for something a delve can do: so many of a monster (25
 skeletons, 4 warboars), a moment (three flawless rooms, a goblin caught,
-two guardians), a floor (Dragon Keep, the deep), or a show (a million and a
-half viewers). Progress carries from delve to delve. The moment one is done
+two guardians), a floor (Dragon Keep, the deep), or a safe passage (three
+flawless rooms). Progress carries from delve to delve. The moment one is done
 it is paid into the realm's treasury, wherever the party is, and Wren pins
 the next in its place.
 
@@ -1199,7 +1232,37 @@ monsters still count it in the party's size.
 
 Each floor has up to three stone passages between its chambers. A passage
 runs from each doorway to a small hub. It may hold a bat or two, and
-sometimes a spike plate laid across the way.
+sometimes a spike plate laid across the way; more often it is a gauntlet
+(below).
+
+## Gauntlets
+
+Most passages are gauntlets now, and some fighting rooms hold one. Each warns
+before it strikes, each throws whoever it hits, and each hurts monsters as
+gladly as knights. A knight's ward after a hit carries them through the next
+blow. Their numbers are the constants at the top of `rules/gauntlets.rs`.
+
+- **The axe bridge.** A straight passage falls away into a gorge, crossed by a
+  plank bridge two tiles wide with a lantern at each end. Pendulum axes swing
+  across it in a cascade. A blade high at the end of its arc passes over; one
+  coming down strikes and throws the knight the way it swings, and a warm
+  strip lights across the planks for a little over half a second before it
+  does. Kept to the middle, a knight is only shoved. At the edge, over they
+  go: a fall costs an eighth of their health and puts them back where they
+  set out from. A monster on the bridge is swept clean off it (**Mind the
+  Gap**).
+- **The hammer row.** Iron stampers hang over a passage, a row of them across
+  its width at each gate, and come down one gate after another. Each shudders
+  and glows underneath for two thirds of a second before it falls, and
+  whatever stands under it is struck and thrown out. Move with the wave and
+  walk through untouched.
+- **The boulder run** (mostly the Mines and the Fungal Deep). A worn lane
+  across a fighting room: the wall's mouth glows and rumbles for a second
+  while the lane lights from it like a fuse, then a boulder rolls the length
+  of it and bursts on the far stone. Lure the company into its lane.
+- **The saw rail** (mostly the Crypt and the Archive). A whirling blade runs a
+  slot in the floor end to end, revving for half a second at each end, the
+  slot glowing where it is about to run.
 
 ## Monster doors and traps
 
@@ -1589,22 +1652,69 @@ pattern; rage and desperation speed its beat without skipping or repeating
 phases. Its volley counter is saved with the monster. `shot=`
 picks a look (bone, orb, ember, wisp, ore, flame, page, spore, eye); a named
 pattern defaults to its delve's own. A name the vocabulary lacks is
-rejected. The whole fight is held under 14 hostile shots a second (a
-phases line counts its average volley); a ravage throws up the floor, not
-shots, so it is not counted.
+rejected.
 
-Named patterns keep their fixed counts, speeds and motion; `shots=`,
-`speed=` and `arc=` on such an attack do not override them. For `phases`,
-`every=` accepts 20–150 ticks, `volleys=` 1–6 per pattern and `damage=`
-8–20. Unknown attack, phase and shot names are rejected, as are duplicate
-chains and chains shorter than two or longer than four patterns. The
-checker may lengthen beats to keep the shared bullet budget.
+Named patterns keep their speeds and motion; `shots=`, `speed=` and `arc=`
+on such an attack do not override them, and in a guardian's hands each
+throws a guardian's smaller volley (a gap ring of ten slots, a flower of
+three petals, one mine). For `phases`, `every=` accepts 20–150 ticks,
+`volleys=` 1–6 per pattern and `damage=` 8–20. Unknown attack, phase and
+shot names are rejected, as are duplicate chains and chains shorter than
+two or longer than four patterns.
+
+**The fight builds.** A guardian fights in three stages by its health: its
+**opening** (above 70%), the **middle**, and its **rage** (below its `rage`
+share, or 35% if it names none). Any `attack` or `phases` line may say
+`from=open|middle|rage`, the stage it joins in; unsaid, the first attack
+opens the fight (the phases line, if there is no attack) and the rest join
+in the middle. Each stage has fixed caps, held every tick:
+
+| stage | shots a second | shots in the room, per knight |
+|---|---|---|
+| opening | 3 | 8 |
+| middle | 5 | 12 |
+| rage | 7 | 16 |
+
+A volley flies whole or waits for its next beat; no volley holds more than
+10 shots (a mine or a split counts the ring it bursts into), a ring at most
+10, a fan 7, a spiral 3 arms. The checker lengthens beats whose stage asks
+for more than its shots a second (rage at half again the pace). A party
+meets more of a guardian in the room at once, never thicker volleys, and
+a guardian has no last stand: its rage is its charge-ups. Its health and
+its blows are untouched by all of this.
+
+**Charge-ups.** Up to two `windup` lines give a guardian its signature
+moments: `windup charge|slam|beam|leap|inhale every=T damage=8–20
+from=middle cry=WORD`. It stops, glows quicker and quicker and crouches,
+a ring closes in on it and its cry stands beside it, for `wind=` ticks
+(24–60, at least 0.8 s, harmless even to touch), then strikes, then stands
+spent for a second — the knights' turn. `every=` (120–600) counts from the
+end of one to the start of the next, two thirds of that in its rage; two
+lines take turns. From the middle of the fight on, unless `from=` says.
+
+- `charge speed=18–36`: a lane is laid on the floor at the nearest knight
+  (turned aside if stone stands close), chevrons marching down it; then it
+  dashes down the lane, striking all it passes.
+- `slam shots=1–3 speed=3–10 arc=40–90`: the floor ripples in rings round
+  it, one lane left still (a `ravage`, above); the rings burst as it lands.
+- `beam arc=30–150`: a charging line grows thicker from it toward the knight,
+  the swept arc dotted; then the beam sweeps the arc.
+- `leap shots=0–8 speed=3–8`: a warm shadow grows where the knight stood,
+  ringed and crossed; it springs, lands there half a second later, strikes
+  all under it and throws a small ring of shots.
+- `inhale shots=4–8 speed=3–8`: it draws the room in, knights and shots;
+  then breathes out a ring, the knight it was for standing in a gap.
+
+The Big Ripper (his breath, then his rip) and Grinwick (its rails behind
+the whistle) keep their own machines; their charge-ups are those.
 
 ### A guardian near its end
 
 A boss (every guardian, the dragon, the Pit Lord) under a third of its
 health turns desperate. It flashes, slowly at first and faster and faster
-toward the end; its attacks come up to a third sooner; and it begins a last
+toward the end. A guardian in its own room does no more: its rage and its
+charge-ups are its end. The dragon and the Pit Lord go on: their attacks
+come up to a third sooner, and each begins a last
 stand on a five-second cycle, each part shown on the boss a second before it
 lands. A **ring** of embers closes round the party with one lane left open
 toward the nearest knight, marked in gold: stand in the lane. Under 18 in the hundred
@@ -1753,6 +1863,22 @@ brief asks for its play-field look as well as its checked rules: offense can dra
 shots and a weapon on the right hand; defense draws a shield, helm or armour
 as a worn overlay. It may use ink frames or a PNG sheet in the same sheets folder.
 
+## The cauldron
+
+When a floor's guardian falls, a cauldron rises beside its stairs (in the
+guardian's chamber on an open floor, clear of the altar in a Sanctuary). Step
+up and press **E**, press two spell keys (**1–4**; press one again to put it
+back), then **E** to throw them in; walk away or press **E** with fewer than
+two picked to leave. The pot boils over and one new spell rises into the first
+slot picked, leaving the other slot free. What it makes follows what went in
+(fire and frost brew a Steam Burst; garden and garden a Kitchen Garden) and
+comes common, Potent or Perfect. About one brew in eight misfires: the brewer
+is a frog for five seconds, the pot throws confetti, or the brewer hiccups,
+and both cards come back. Each knight brews once a floor, free; the brew is
+decided by the run's seed, the floor, the knight and the two cards, so every
+seat sees the same. Brews are ordinary checked spell cards
+(`rules/cauldron.rs`), at most about two Cabbage Storms' worth a second.
+
 ## Wishes
 
 Win a room and an **Overclass window** opens: each knight standing gets one wish
@@ -1780,7 +1906,8 @@ tier volley 8 :: Every 8th shot flies three wide.
 tier volley 6 :: Every 6th shot flies three wide.
 tier volley 5 :: Every 5th shot flies three wide.
 art
-<optional icon: up to 16 rows of inks, `.` is black paper, then a blank line>
+<optional icon: up to 16 rows of inks, `.` is black paper, then a blank line;
+ a learned wish's pictures set its grade>
 ```
 
 Each `tier` line is card lines (`;` between) and the line the scroll shows.
@@ -1816,6 +1943,36 @@ volley no faster than every fifth shot. A knight's held cards add up with limits
 (see "How hard the delve pushes back"): each further copy of a card is worth
 half the one before, and
 every sum has a ceiling.
+
+### Wish power: clamps, grades, combos
+
+A knight's wishes are a gift, not the whole build (play-test 2026-10-18: "we were
+so strong it was basically kill everything, then we die").
+
+- **Clamps** (`cards::Bonus::within`). Wishes of one word count strongest first,
+  then half, then a quarter, then nothing (`WISH_STEPS`); each word stops at its
+  wish cap (`wish_cap`: damage 25%, rate 20%, speed 20%, velocity 40%, burst 15%,
+  shots 1, every other word 2), under the card caps. All of a knight's wishes
+  together may give `WISH_BUDGET` whole words at their wish cap by the floor
+  they stand on: 3, 3, 4, 5, 6, 7, 8 for home and floors 1-6 (and below); past
+  it every wish gives in proportion. Found cards are untouched.
+- **Grades** (`artistry`). A learned wish's pictures (its art, each look's first
+  frame) are scored out of 100 on seven marks: size, tones (4-6 inks best),
+  shading, detail, silhouette (specks halve the score), outline, fill. Under 58
+  is Crude (60% of the drafted numbers, spells 1/0.6 the cooldown), under 78
+  Fine (80%), under 92 Masterwork (100%), else Legendary (115%). The grant says
+  it: "frank's Fine Poop Worms". The delve's own wishes are given whole.
+- **Combos** (`combos`). Every wish is of one or more families (Creature,
+  Projectile, Fire, Frost, Storm, Venom, Body, Swift, Spirit, Shadow, Machine,
+  Nature), read off its words and effects. The super effects need a pair held:
+  homing = Creature + Projectile, chain = Storm + Projectile, burst = Fire +
+  Projectile, pierce = Shadow + Projectile, fork = Nature + Projectile, bounce =
+  Machine + Projectile, volley = Swift + Projectile, orbit = Creature + Body.
+  Till then the wish gives 5% more damage, and the grant names what it waits on
+  and the families held.
+- **Cover** (`cover`). The party's shots may cover 12% of the screen (or a
+  smaller room); past it the oldest go first. A knight's shot lives at most 3 s
+  and comes off the stone at most twice.
 
 A wish the phrasebook doesn't know is **learned while you play**: angelX gets a
 short brief to append one entry to the workspace's phrasebook, the game never

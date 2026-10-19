@@ -1,0 +1,5 @@
+cursor cell at 640,724 size 12x16
+
+thread 'main' (1943191) panicked at src/main.rs:285:17:
+key 'r' never showed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

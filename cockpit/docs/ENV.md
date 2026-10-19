@@ -147,11 +147,10 @@ ordinary cockpit configuration recommendations:
 | `ANGEL_TASK_HANDOFF_WARM`                                        | `1`                                              | In `--task` mode, start a fresh session with the workspace's persisted agent-authored `handoff` note injected as an Assistant-role handoff snapshot (the same carrier compaction uses). `0` opts out for deliberately-cold ablations.                                                                                                                                                                                                                                                            |
 | `ANGEL_HANDOFF_FILE`                                              | `~/.angelX/handoff/<workspace-key>.json`          | Override path for the persisted per-workspace `handoff` note (identity-bound like `ANGEL_NOTES_FILE`).                                                                                                                                                                                                                                                                                                                                                                                          |
 | `ANGEL_TASK_EVENT_LOG`                                            | `1`                                              | In `--task` mode, surface tool calls/results and harness notices (guard nudges, compaction, club fallbacks) as `[task-event]` lines on stderr — the headless twin of the TUI's live activity trace, so an operator tailing the log sees *why* a turn slowed or stopped. High-frequency stream deltas are never logged. `0` restores the silent drain.                                                                                                                                               |
-| `ANGEL_SELF_AUTHORED_VERIFY_GUARD` | `0` (off) | Opt-in: a passing run that targets only tests authored or heavily rewritten this turn does not count as a test of the edits, so they stay `⠧⠋` at the stop checkpoint, and the model hears `⠼⠋` (weak verification) once. |
-| `ANGEL_POST_EDIT_LOGIC_REVIEW` | `1` (on) | The first successful edit of a turn earns `⠼⠁` once: review the edit logically before testing. `0` opts out. |
-| `ANGEL_FIRST_WRITE_CALLS` | `0` (off) | Opt-in inspection budget: after this many free-form inspection calls with no edit the model hears `⠼⠙` once (`⡅⠉` in a rapid competition turn). Advice only; no call is refused. |
-| `ANGEL_NO_EDIT_ANSWER_GUARD` | `0` (off) | Opt-in, and only with `ANGEL_FIRST_WRITE_CALLS`: an answer that claims progress with no edit carries `⠼⠑` to the stop checkpoint. |
-| `ANGEL_FINAL_MILE_HOPS` | task turn: `4` (`6` for a rapid turn with a hop cap); otherwise `0` | Hops a bounded turn (`max_hops`) reserves for its final mile once it has edited: `⠼⠉` once when that many remain, then its last page (`⠼⠉⠑`) on hops of inspection alone while a verifier is owed. An unbounded turn has no horizon. |
+| `ANGEL_SELF_AUTHORED_VERIFY_GUARD` | `0` (off) | Opt-in: a passing run that targets only tests authored or heavily rewritten this turn does not count as a test of the edits, so they stay `⠧⠋` at the stop checkpoint, and the model hears `⠼⠑` (weak verification) once. |
+| `ANGEL_FIRST_WRITE_CALLS` | `0` (off) | Opt-in inspection budget: after this many free-form inspection calls with no edit the model hears `⠼⠉` once (`⡅⠉` in a rapid competition turn). Advice only; no call is refused. |
+| `ANGEL_NO_EDIT_ANSWER_GUARD` | `0` (off) | Opt-in, and only with `ANGEL_FIRST_WRITE_CALLS`: an answer that claims progress with no edit carries `⠼⠙` to the stop checkpoint. |
+| `ANGEL_FINAL_MILE_HOPS` | task turn: `4` (`6` for a rapid turn with a hop cap); otherwise `0` | Hops a bounded turn (`max_hops`) reserves for its final mile once it has edited: `⠼⠃` once when that many remain, then its last page (`⠼⠃⠑`) on hops of inspection alone while a verifier is owed. An unbounded turn has no horizon. |
 | `ANGEL_TASK_COMPACT_PROMPT` | `1` (on) | Use the compact headless task core (the `⠽⠉` / `⠽⠙` personality type) and on-demand skill referral. Omits the redundant execution prepend; progress and verification guards still run. Set `0`, `false`, `off`, or `no` to restore the full task narrative for comparison. Interactive sessions retain their cockpit context. |
 | `ANGEL_TASK_CODING_DISCIPLINE` | TUI: `0` · `--task`: `1` | Add the coding repair discipline (`⠽⠑` on the entry warpath): focused source edits, existing verifier evidence, background completion, and honest blocker reporting. Routine tool calls need no narration. |
 | `ANGEL_TASK_WORKSPACE_MAP`                                        | TUI: `0` · `--task`: `1`                         | Inject a free preturn workspace map (absolute coding root + shallow relative file inventory) into headless `--task` warm-start so paid hops are not spent on `find /` / `$HOME` thrash under YOLO. `0` disables.                                                                                                                                                                                                                                                                                     |
@@ -792,9 +791,7 @@ local fleet bodies change only where a rule is explicitly scoped to them.
 | `ANGEL_CONFIRM_GREEN_RUNS` / `ANGEL_CONFIRM_GREEN_SECS` | unset · `60` | At the model's first stop, re-run its last passing test run this many more times (0-5) on the unchanged code; a re-run that fails is a `⠧⠑` stop fact with the failing output in the ledger. Unset in task mode, two re-runs happen only when the edited source draws on chance. |
 | `ANGEL_TASK_RENDERED_REQUIREMENT` | `0` | Operator-owned rendered-output requirement for `--task` / `--task-json`. `1`/`on`/`true`/`yes` (or `--require-rendered-output`) attaches `angel-rendered-acceptance/v1` as **unverified** even when `accept_cmd` is disabled on the public task path. Model prose, unit/build success, and arbitrary repo JSON cannot promote it to accepted; there is no trusted positive rendered path. Explicit activation is not automatic media verification. |
 | `ANGEL_IMAGE_PROTOCOL`                                     | auto                                  | Image protocol for resident agent portraits and the explicit foreground portrait viewer (`kitty`, `sixel`, `iterm2`, or `halfblocks`). Scryglass still images use native foreground graphics with a halfblock fallback, including source-detail zoom/pan inspection. World views use generated Dotmax dots or ordinary Braille; video retains its existing optional playback path, not the still inspector. The executable gate covers the local native-PTY halfblocks path; it does not separately release-qualify SSH transport or tmux. |
-| `ANGEL_WEBGPU_PORTAL`                                      | off                                   | On Kitty the Agent pane's Round Table card shows the painted station table (`cockpit/assets/realm/v2/interiors/station-round-table.png`) lit by the live council: sitting seats' thrones lit with a candle at their place, answers laid out as parchment (red for a failure), cut seats and empty thrones dark, and the deed (scales, wax seal, gathered answers) on the map; the seats are listed beside it. `1`/`on`/`true`/`yes` builds and uses the isolated WebGPU portal instead (vulkan/gles, not Metal). Without Kitty the terminal-native Miniviz remains. |
 | `ANGEL_BACKED_MAP` (`ANGEL_TILE_MAP` alias)                 | on for Kitty and iTerm2               | Whether the Realm route's pixel overworld map goes out as terminal images. Kitty and iTerm2 send images by default; `1` also admits Sixel; `0`, `off`, `false`, or `no` paints the map in half blocks instead. Terminals without a graphics protocol always use half blocks. The detected protocol is reported on the GRAPHICS line at startup. |
-| `ANGEL_PORTAL_RENDERER`                                    | launcher-built sibling                | Optional exact path to the isolated `angel-portal-renderer` executable. The normal launcher builds and exports this automatically; an absent, invalid, failed, or timed-out renderer falls back without blocking the Cockpit.                                                                                                             |
 | `ANGEL_SCRYGLASS` | `1` | Set `0` (also `off`, `false`, `no`) to remove the Scryglass/Realm side column and return its columns to transcript + composer at every geometry. `/world off` and `/world on` override visibility for the running session, like `/world view`; they do not change the selected renderer or write launch settings. `ANGEL_BACKDROP=off` independently suppresses side panels. `/show` queues media while hidden and reports the minimum 100-column, 30-row layout. `angel --build-info --json` reports `video_decode` from the compiled `scryglass-video` feature; `/show` notices repeat it. |
 | `ANGEL_WORLD_3D` | retired compatibility flag | Ignored for renderer selection. All values, including `0`, empty, false-like values and typos, retain Dotmax 3D for Explore. Use `ANGEL_SCRYGLASS=0` or `/world off` to hide the pane. |
 | `ANGEL_WORLD_MAP` | map | Idle Realm uses the pixel overworld. An active quest follows the knight into a native 3D adventure; Map/Explore switches between its region map and journey. Explicit visits and entered rooms keep the chosen location. `3d` (also `dotmax`, `off`, `0`, `false`, `no`) selects the Dotmax ride for the ordinary Realm route. Explore always shows Dotmax 3D. |
@@ -1227,26 +1224,25 @@ their own second-person words, and the routes elsewhere that answer a 0.1.6
 advisory (`⠇⠁ ⠇⠃ ⠇⠉ ⠇⠓ ⠇⠛ ⠭⠁ ⠭⠃ ⠭⠉ ⠭⠙ ⠭⠑ ⠧⠁ ⠧⠃ ⠧⠙ ⠧⠑ ⠧⠋ ⠧⠛ ⠅⠁ ⠅⠃`)
 speak in full too (`book::VOICED`): the legend introduces such a route with
 every page, not its signal and action, and a page met later is a new sentence.
-Each advisory is a turn of its own — a warning (`⛔⠭⠁`, `⛔⠧⠙`, `⛔⠼⠛`, `⛔⠼⠊`, the
-loop and streak routes) leads with the sign, guidance (`⠼⠁ ⠼⠃ ⠼⠉ ⠼⠙ ⠼⠓ ⠼⠋`,
+Each advisory is a turn of its own — a warning (`⛔⠭⠁`, `⛔⠧⠙`, `⛔⠼⠋`, `⛔⠼⠓`, the
+loop and streak routes) leads with the sign, guidance (`⠼⠁ ⠼⠃ ⠼⠉ ⠼⠛ ⠼⠑`,
 `⡅⠁ ⡅⠃ ⡅⠉`) is bare cells — never the tail of a tool result, where a model reads
 it as more output. None stops a turn or refuses a call; the 0.1.6 stops that
 some once preceded are gone.
 
 | Route | 0.1.6 advisory | Given |
 | --- | --- | --- |
-| `⠼⠁` | post-edit logic | the turn's first successful edit, once |
-| `⠼⠃` | green verifier | a full verifier passed on changed code; again after an edit and another green |
-| `⠼⠉` | final mile | a bounded turn within its reserve of hops, edited; `⠼⠉⠑` on inspection-only hops |
-| `⠼⠙` | first write | `ANGEL_FIRST_WRITE_CALLS` inspection calls with no edit, once |
-| `⠼⠑` | no edit | armed; an answer with no edit, at the stop checkpoint |
-| `⠼⠋` | weak verification | armed; a green that ran only the model's own tests, once |
-| `⠼⠛` | mutation thrash | the same edit issued three times |
-| `⠼⠓` | peripheral fan-out | four edits under docs/testdata/fixtures, none in the code |
-| `⠼⠊` | error cascade | six hops in a row of every call failing (the count starts again) |
+| `⠼⠁` | green verifier | a full verifier passed on changed code; again after an edit and another green |
+| `⠼⠃` | final mile | a bounded turn within its reserve of hops, edited; `⠼⠃⠑` on inspection-only hops |
+| `⠼⠉` | first write | `ANGEL_FIRST_WRITE_CALLS` inspection calls with no edit, once |
+| `⠼⠙` | no edit | armed; an answer with no edit, at the stop checkpoint |
+| `⠼⠑` | weak verification | armed; a green that ran only the model's own tests, once |
+| `⠼⠋` | mutation thrash | the same edit issued three times |
+| `⠼⠛` | peripheral fan-out | four edits under docs/testdata/fixtures, none in the code |
+| `⠼⠓` | error cascade | six hops in a row of every call failing (the count starts again) |
 | `⡅⠁` | competition winner bank | a full verifier passed in a competition turn |
 | `⡅⠃` | verified candidate changed | an edit after that green in a competition turn |
-| `⡅⠉` | rapid first write | `⠼⠙`'s condition in a rapid competition turn |
+| `⡅⠉` | rapid first write | `⠼⠉`'s condition in a rapid competition turn |
 
 The stop checkpoint's turn carries what 0.1.6's completion notes quoted beside
 the stamps: what is left to act on, the failing run's tail, the changed files,

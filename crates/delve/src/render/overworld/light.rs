@@ -84,6 +84,59 @@ pub fn warm(c: Rgb) -> Rgb {
         .unwrap_or(c)
 }
 
+/// What an ink wears at dusk, `(from, to)`: every signal ink goes to a
+/// plain neighbour, so decoration never wears state, and the bright and
+/// saturated plain inks step one or two down their own bank. Inks not
+/// listed keep their colour. In order: a step's target is never a later
+/// step's source, so a picture swapped through the list never runs on.
+const DUSK_INKS: [(char, char); 28] = [
+    // timber: cream and gold down to oak, orange to umber, bottom first
+    ('R', 'P'),
+    ('o', 'r'),
+    ('O', 'R'),
+    ('t', 'o'),
+    ('T', 'o'),
+    // structure and stone: the near-whites stop at a quiet grey
+    ('H', 'h'),
+    ('i', 'h'),
+    ('v', 'U'),
+    ('V', 'U'),
+    ('W', 'v'),
+    ('z', 'Q'),
+    // foliage: sunlit leaf down to the realm's own trees
+    ('Y', 'M'),
+    ('y', 'A'),
+    // signal: lamps, heraldry and cloth to plain dyes
+    ('0', 'S'),
+    ('1', 'q'),
+    ('2', 'U'),
+    ('3', 'v'),
+    ('w', 'h'),
+    ('a', 'r'),
+    ('4', 'o'),
+    ('@', 'R'),
+    ('5', 'o'),
+    ('6', 'O'),
+    ('$', 'J'),
+    ('c', 'h'),
+    ('9', 'h'),
+    ('8', 'B'),
+    ('7', 'p'),
+];
+
+/// `ch` at dusk (`DUSK_INKS`): its plain, quieter partner, or itself.
+pub fn dusk_ink(ch: char) -> char {
+    DUSK_INKS.iter().find(|(from, _)| *from == ch).map_or(ch, |&(_, to)| to)
+}
+
+/// A finished picture at dusk (`DUSK_INKS`): a building on the kingdom map,
+/// a pavilion, the bunting round a yard. What it shows is scenery, so
+/// nothing in it lights up as if something were happening there. Once per
+/// picture: dusked twice, a step runs on.
+pub fn at_dusk(img: &Img) -> Img {
+    img.recolor(&DUSK_INKS)
+}
+
 struct Tables {
     chains: RgbMap<[Rgb; CHAIN]>,
     warm: RgbMap<Rgb>,

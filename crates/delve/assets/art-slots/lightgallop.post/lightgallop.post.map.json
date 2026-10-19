@@ -1,0 +1,141 @@
+{
+  "anchor_canvas_wh": [
+    26,
+    56
+  ],
+  "anchor_xy": [
+    13,
+    56
+  ],
+  "comments": [
+    "Natural aspect: 207x437 source px reduced by 0.1256 to 26x55, no stretch. The canvas widens from 20x56 to 26x56 (slots.json), anchor bottom-centre of the whole post (pole, hook and lantern), so the pole sits about 5 px left of the post's column."
+  ],
+  "delivered_pieces": 5,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 5,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "Five drawings (cells 6-8 empty): dark-0, then lit-0..lit-3 (tall, left, right and narrow flames). Reading order is the delivered one.",
+  "notes_sha256": "769c1a2bf0fca1a3a56a88db7b7fbc4f47b8c4214249db194336c5330710a7a6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "dark-0: delivered drawing 1 in reading order.",
+      "name": "dark-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        104.0,
+        437
+      ],
+      "source_rect_xywh": [
+        101,
+        51,
+        208,
+        437
+      ],
+      "state": "dark",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: delivered drawing 2 in reading order.",
+      "name": "lit-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        437
+      ],
+      "source_rect_xywh": [
+        485,
+        51,
+        207,
+        437
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: delivered drawing 3 in reading order.",
+      "name": "lit-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        437
+      ],
+      "source_rect_xywh": [
+        869,
+        51,
+        207,
+        437
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: delivered drawing 4 in reading order.",
+      "name": "lit-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        437
+      ],
+      "source_rect_xywh": [
+        1253,
+        51,
+        207,
+        437
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3: delivered drawing 5 in reading order.",
+      "name": "lit-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        438
+      ],
+      "source_rect_xywh": [
+        101,
+        562,
+        207,
+        438
+      ],
+      "state": "lit",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 26x56, anchor bottom-centre (13,56); stage 384x224; a wrought-iron lantern post. The painted post is 0.475 wide:tall, so its canvas is 26 wide, not the first 20x56.",
+  "sizes": {
+    "v1": [
+      26,
+      56
+    ],
+    "v2": [
+      26,
+      56
+    ]
+  },
+  "slot": "lightgallop.post",
+  "source_sha256": "7b6eac121d3da0cd806ada1df5d5ee92553deb943f30633d9aa72428369ea7bd",
+  "timing": "dark 1 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox."
+}

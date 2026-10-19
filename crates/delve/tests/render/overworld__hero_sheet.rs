@@ -187,7 +187,7 @@ fn write_hero_sheet() {
     sheet.draw(|cv, x, y| {
         let mut h = aimed(&base, SIDE, 0.0);
         h.hp = 0;
-        bones::draw(cv, &h, 1, 400, false, x, y - 8);
+        bones::draw(cv, &h, 1, 400, false, x, y - 8, true);
     });
     sheet.put(&sprites::frog(0));
 

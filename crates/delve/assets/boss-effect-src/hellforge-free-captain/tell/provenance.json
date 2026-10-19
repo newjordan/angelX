@@ -1,0 +1,24 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-free-captain.tell/v01/source-sheet.png",
+  "source_sha256": "457c13a108921fa9b90fcc1d89ea79200258e2f2e2c371922ba54482fdfc88d8",
+  "original_sheet_sha256": "457c13a108921fa9b90fcc1d89ea79200258e2f2e2c371922ba54482fdfc88d8",
+  "metadata_sha256": "a8300615b4d8eb27741794774cb8ab77798d180ce2658d17a56f9ab223da70d2",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        0,
+        0,
+        1252,
+        1252
+      ],
+      "alpha_area": 1567504,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "fcefe090a4fd1a241a01ffe993dec8652515363f92b0df39801d83032dca2037"
+    }
+  ]
+}

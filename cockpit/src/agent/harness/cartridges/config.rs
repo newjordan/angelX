@@ -42,6 +42,10 @@ pub(crate) struct Config {
     /// skills from the cartridge's `skills/` folder. Nothing loads before then.
     #[serde(default)]
     pub(crate) commands: Vec<Command>,
+    /// Deferred tools: each runs a program in the cartridge's folder, with the
+    /// call's arguments as JSON on stdin and its stdout as the result.
+    #[serde(default)]
+    pub(crate) tools: Vec<ProgramTool>,
 }
 
 /// One slash command a cartridge adds. A built-in command of the same name wins.
@@ -55,6 +59,24 @@ pub(crate) struct Command {
     /// What the composer shows after `/<name>`.
     #[serde(default)]
     pub(crate) usage: String,
+}
+
+/// One tool a cartridge adds, deferred until `tool_search` brings it in.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ProgramTool {
+    /// The tool's name: lowercase letters, digits and `_`.
+    pub(crate) name: String,
+    pub(crate) description: String,
+    /// The program, relative to the cartridge's folder.
+    pub(crate) run: String,
+    /// The arguments' JSON schema; an object with no properties when absent.
+    #[serde(default)]
+    pub(crate) params: serde_json::Value,
+    /// Advertised with the core coding tools (beside `grep`) instead of
+    /// deferred behind `tool_search`.
+    #[serde(default)]
+    pub(crate) core: bool,
 }
 
 /// One book page set a cartridge adds or replaces, by its two-cell route.
@@ -98,6 +120,37 @@ impl Config {
             }
             if command.skills.is_empty() {
                 return Err(format!("command `{}` names no skills", command.name));
+            }
+        }
+        for tool in &config.tools {
+            let word = !tool.name.is_empty()
+                && tool
+                    .name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+            if !word {
+                return Err(format!(
+                    "tool `{}` is not a lowercase name (a-z, 0-9, _)",
+                    tool.name
+                ));
+            }
+            if tool.description.trim().is_empty() {
+                return Err(format!("tool `{}` has no description", tool.name));
+            }
+            let run = Path::new(&tool.run);
+            let inside = !tool.run.is_empty()
+                && run.is_relative()
+                && run
+                    .components()
+                    .all(|part| matches!(part, std::path::Component::Normal(_)));
+            if !inside {
+                return Err(format!(
+                    "tool `{}` runs `{}`, not a path inside the cartridge",
+                    tool.name, tool.run
+                ));
+            }
+            if !(tool.params.is_null() || tool.params.is_object()) {
+                return Err(format!("tool `{}` params are not a JSON schema object", tool.name));
             }
         }
         Ok(config)

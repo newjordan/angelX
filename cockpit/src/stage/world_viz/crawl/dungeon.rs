@@ -119,6 +119,8 @@ fn faces(pack: Pack) -> (u8, Result<u8, Prop>) {
         Pack::Archive => (Wall::Archive as u8, Ok(Wall::Shelf as u8)),
         Pack::Fungal => (Wall::Fungal as u8, Err(Prop::Mushroom)),
         Pack::Unknown => (Wall::Unknown as u8, Err(Prop::EyePillar)),
+        // The swamp borrows the Fungal Deep's faces until it has its own.
+        Pack::Swamp => (Wall::Fungal as u8, Err(Prop::Mushroom)),
     }
 }
 
@@ -162,6 +164,8 @@ impl Dungeon {
                         }),
                         Tile::Floor | Tile::Door | Tile::Ledge => Cell::Open(Ground::Flags),
                         Tile::Stairs => Cell::Open(Ground::Stairs),
+                        // The swamp's mire reads as shallow water underfoot.
+                        Tile::Bog => Cell::Open(Ground::Water),
                         Tile::Hazard => Cell::Open(match floor.pack {
                             Pack::Hellforge | Pack::Unknown => Ground::Lava,
                             _ => Ground::Water,

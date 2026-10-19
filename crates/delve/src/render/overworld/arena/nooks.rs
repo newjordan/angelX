@@ -431,7 +431,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
             }
             // A sign on the wall: hush.
             super::super::chrome::inset_panel(cv, (11 * TILE, TILE + 2, 2 * TILE, 11), super::super::chrome::Tone::TIMBER);
-            cv.text(11 * TILE + 4, TILE + 4, "SHHH", 'T');
+            cv.text(11 * TILE + 4, TILE + 4, "SHHH", 'O');
             for &(c, r) in &[(3, 6), (20, 6)] {
                 let im = kit::candles(3, tick);
                 cv.stamp(&im, c * TILE, r * TILE);

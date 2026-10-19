@@ -1,0 +1,302 @@
+{
+  "boss": "the-bone-choir",
+  "camera": "overhead",
+  "definition_sha256": "d34bb535d1b35c3cf2473303d92cfe2803e33834775f2789a9451ffba5bee2af",
+  "display_policy": {
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 22.52 L*, rest presence 81.46%, edge 91.84%. Source body, effect banks and gameplay unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "three skull cluster",
+      "red conductor robe"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "three skull cluster",
+      "exposed ribcage",
+      "red conductor robe"
+    ],
+    "study": {
+      "v1": [
+        [
+          31,
+          34
+        ],
+        [
+          38,
+          42
+        ],
+        [
+          49,
+          54
+        ],
+        [
+          62,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          65,
+          72
+        ],
+        [
+          87,
+          96
+        ],
+        [
+          116,
+          128
+        ]
+      ]
+    },
+    "v1": [
+      49,
+      54
+    ],
+    "v2": [
+      87,
+      96
+    ]
+  },
+  "identity_props": [
+    "three skull cluster",
+    "exposed ribcage",
+    "red conductor robe"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9835125448028674,
+      "opaque_pixels": 1395,
+      "sha256": "85664b711600618633fbbb1e46a508fa4de33beb3536db0a2315db3f98ed551f",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v1-study-1-rest.png": {
+      "colours": 32,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.980072463768116,
+      "opaque_pixels": 552,
+      "sha256": "35e96f1b9ea7b46a1b4efe3315d83922f54e23378eebdf66bdd7eded05a23094",
+      "silhouette_iou": 1.0,
+      "size": [
+        31,
+        34
+      ]
+    },
+    "library-v1-study-1-windup.png": {
+      "colours": 27,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9805194805194806,
+      "opaque_pixels": 616,
+      "sha256": "8eb89f2044d0b982f5b47eca348aa6a4fe36c936824f07536fd41f6904e5a1a8",
+      "silhouette_iou": 1.0,
+      "size": [
+        31,
+        34
+      ]
+    },
+    "library-v1-study-2-rest.png": {
+      "colours": 34,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9892729439809297,
+      "opaque_pixels": 839,
+      "sha256": "dbd96702ba362fc4b829688e7f002e5ead47e0cb17d32f846218d83ca794388f",
+      "silhouette_iou": 1.0,
+      "size": [
+        38,
+        42
+      ]
+    },
+    "library-v1-study-2-windup.png": {
+      "colours": 35,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9794372294372294,
+      "opaque_pixels": 924,
+      "sha256": "501be3dc62b2722dd907d087cf2f40084575f64acb868873bce46e55e9e9edae",
+      "silhouette_iou": 1.0,
+      "size": [
+        38,
+        42
+      ]
+    },
+    "library-v1-study-3-rest.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9835125448028674,
+      "opaque_pixels": 1395,
+      "sha256": "85664b711600618633fbbb1e46a508fa4de33beb3536db0a2315db3f98ed551f",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v1-study-3-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9882198952879581,
+      "opaque_pixels": 1528,
+      "sha256": "95163a49104cf09ba8bc424e08b479fd7e5abf05ea1eeff53bd15700febd85ea",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v1-study-4-rest.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9820547330641544,
+      "opaque_pixels": 2229,
+      "sha256": "9f001d43d13508712950f5770243963cbf7560a7e4f02087eb22d637a5a148b9",
+      "silhouette_iou": 1.0,
+      "size": [
+        62,
+        68
+      ]
+    },
+    "library-v1-study-4-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9922258592471358,
+      "opaque_pixels": 2444,
+      "sha256": "a17be81feeabc77f4f54d2314d4a373781099e8deef6e3e7faf01c9e6cf1a881",
+      "silhouette_iou": 1.0,
+      "size": [
+        62,
+        68
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9882198952879581,
+      "opaque_pixels": 1528,
+      "sha256": "95163a49104cf09ba8bc424e08b479fd7e5abf05ea1eeff53bd15700febd85ea",
+      "silhouette_iou": 1.0,
+      "size": [
+        49,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9843074823743462,
+      "opaque_pixels": 4397,
+      "sha256": "16f9399e866701189c631484a665d5be1a57beaeb3670dce2ad338859fc7b9bb",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    },
+    "library-v2-study-1-rest.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9820992676973149,
+      "opaque_pixels": 2458,
+      "sha256": "7ec8fe911f51e10de82b5fa269a4f5d68be6e21b786b1d0062d78dfeffe675ef",
+      "silhouette_iou": 1.0,
+      "size": [
+        65,
+        72
+      ]
+    },
+    "library-v2-study-1-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9856141645149391,
+      "opaque_pixels": 2711,
+      "sha256": "a853d178e0de7b1aab5a5c93e5ee6aa4604624a993ff6e83def26eeb404694d2",
+      "silhouette_iou": 1.0,
+      "size": [
+        65,
+        72
+      ]
+    },
+    "library-v2-study-2-rest.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9843074823743462,
+      "opaque_pixels": 4397,
+      "sha256": "16f9399e866701189c631484a665d5be1a57beaeb3670dce2ad338859fc7b9bb",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    },
+    "library-v2-study-2-windup.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9786528497409327,
+      "opaque_pixels": 4825,
+      "sha256": "8deddff7f082519c8a247409097e4f37a6f49c529b0e73f2804967fdfcdfa4df",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    },
+    "library-v2-study-3-rest.png": {
+      "colours": 39,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9824561403508771,
+      "opaque_pixels": 7809,
+      "sha256": "8afc7addc2b4cea2aef93da8c324006b7f183af4b3153fa993947dfb6ad6c5d2",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        128
+      ]
+    },
+    "library-v2-study-3-windup.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9826218801026358,
+      "opaque_pixels": 8574,
+      "sha256": "4dcbcbf2c08a8b28dd6a363f0531dd198abf9e1cca4a8ce9c61c169f588ef8eb",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        128
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9786528497409327,
+      "opaque_pixels": 4825,
+      "sha256": "8deddff7f082519c8a247409097e4f37a6f49c529b0e73f2804967fdfcdfa4df",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

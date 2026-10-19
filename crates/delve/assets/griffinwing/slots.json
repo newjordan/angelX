@@ -1,0 +1,999 @@
+[
+ {
+  "id": "griffinwing.griffin",
+  "size": [
+   64,
+   48
+  ],
+  "anchor": [
+   32,
+   48
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "O",
+  "states": {
+   "level": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "bank-l": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "bank-r": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "climb": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "dive": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "roll": [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+   ],
+   "fall": [
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "boost": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "brake": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "A knight's griffin seen from behind and above: lion body, eagle head, broad wings beating, a rider with a plume. Six seat trims by recolour pairs (the Pennon seat colours). The roll frames spin the whole craft over in 30 ticks (the roll knob); the shield-spin ring is drawn by the stage.",
+  "sim_radius_tenths": 10
+ },
+ {
+  "id": "griffinwing.rider-aster",
+  "size": [
+   20,
+   20
+  ],
+  "anchor": [
+   10,
+   20
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "4",
+  "states": {
+   "idle": [
+    12
+   ],
+   "shout": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "Call-out portrait: Aster Vale, Lantern Rider (lead of the wing). Gold trim."
+ },
+ {
+  "id": "griffinwing.rider-mira",
+  "size": [
+   20,
+   20
+  ],
+  "anchor": [
+   10,
+   20
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "3",
+  "states": {
+   "idle": [
+    12
+   ],
+   "shout": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "Call-out portrait: Mira Quill, Bright Witness. Aqua trim."
+ },
+ {
+  "id": "griffinwing.rider-tovin",
+  "size": [
+   20,
+   20
+  ],
+  "anchor": [
+   10,
+   20
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "A",
+  "states": {
+   "idle": [
+    12
+   ],
+   "shout": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "Call-out portrait: Tovin Reed, Pathfinder. Green trim."
+ },
+ {
+  "id": "griffinwing.rider-nessa",
+  "size": [
+   20,
+   20
+  ],
+  "anchor": [
+   10,
+   20
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "z",
+  "states": {
+   "idle": [
+    12
+   ],
+   "shout": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "Call-out portrait: Nessa Flint, Kindly Shield. Blue trim."
+ },
+ {
+  "id": "griffinwing.wisp",
+  "size": [
+   40,
+   48
+  ],
+  "anchor": [
+   20,
+   48
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "h",
+  "states": {
+   "fly": [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+   ],
+   "tell": [
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "The small snuffer: a hooded wisp with a wick-stub tail and two pale eyes, facing the camera. It pops into cold smoke and a spark of returned light. The tell is a shooting wisp's eyes brightening for the tell knob's ticks.",
+  "sim_radius_tenths": 9
+ },
+ {
+  "id": "griffinwing.kite",
+  "size": [
+   56,
+   36
+  ],
+  "anchor": [
+   28,
+   36
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "v",
+  "states": {
+   "fly": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ],
+   "hunt": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "latched": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "flee": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "A lantern-bat: a pointed iron hood, a purple-lit lantern body, leathery wings. Convoys fly in files; a hunter latches onto a craft's tail (the latched frames sit on the craft, a little above and behind).",
+  "sim_radius_tenths": 8
+ },
+ {
+  "id": "griffinwing.turret",
+  "size": [
+   56,
+   72
+  ],
+  "anchor": [
+   28,
+   72
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "j",
+  "states": {
+   "idle": [
+    15,
+    15
+   ],
+   "tell": [
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "fire": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "A hooded lantern tower on a ledge: moss on stone, a cannon-mouth aperture glowing cold light that brightens through the tell and flashes on the shot.",
+  "sim_radius_tenths": 16
+ },
+ {
+  "id": "griffinwing.bomber",
+  "size": [
+   56,
+   44
+  ],
+  "anchor": [
+   28,
+   44
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "U",
+  "states": {
+   "hide": [
+    1
+   ],
+   "tell": [
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "dive": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "A dive-bomber: an iron arrowhead mask with two pale eyes and bat-wing fins, pointing where it goes. Hidden behind its ridge until the tell.",
+  "sim_radius_tenths": 12
+ },
+ {
+  "id": "griffinwing.lamp",
+  "size": [
+   48,
+   56
+  ],
+  "anchor": [
+   24,
+   56
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "3",
+  "states": {
+   "shut": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "open": [
+    5,
+    5,
+    5,
+    5
+   ],
+   "break": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "out": [
+    1
+   ]
+  },
+  "placeholder": true,
+  "note": "One of the Wyrm's three lamps: an iron lantern with a flame; shut behind a swirling cold-light shield bubble; open (the bubble parted) with the flame bare and bright; breaking in shards; out (dark).",
+  "sim_radius_tenths": 16
+ },
+ {
+  "id": "griffinwing.wyrm-head",
+  "size": [
+   128,
+   112
+  ],
+  "anchor": [
+   64,
+   112
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "i",
+  "states": {
+   "rise": [
+    15,
+    15,
+    15,
+    15,
+    15,
+    15
+   ],
+   "idle": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "tell": [
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "spit": [
+    4,
+    4,
+    4
+   ],
+   "roar": [
+    6,
+    6,
+    6,
+    6
+   ],
+   "hurt": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "die": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "The Gloam Wyrm's head in smoke and scale, a brass horn-cone with a lantern on it, cold teal eyes, lightning in the smoke. Jaws open for the spit and the roar; the lamps hang in front of it."
+ },
+ {
+  "id": "griffinwing.wyrm-coil",
+  "size": [
+   192,
+   96
+  ],
+  "anchor": [
+   96,
+   96
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "j",
+  "states": {
+   "c": [
+    1
+   ],
+   "s": [
+    1
+   ],
+   "sweep": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "The Wyrm's coils: a C and an S of scaled body that sweep across the window with a gap; drawn as two slabs either side of the gap."
+ },
+ {
+  "id": "griffinwing.bolts",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   8
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "6",
+  "states": {
+   "lance": [
+    3,
+    3
+   ],
+   "starburst": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "ally": [
+    3,
+    3
+   ],
+   "spark": [
+    3,
+    3
+   ],
+   "gloam": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "turned": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "Gold lance bolts, the white-gold starburst, a wingman's bolt, the snuffer's small spark, the cold Gloam bolt, and a Gloam bolt turned round (gold-white core). One 16 by 16 frame each, with a trail the stage draws."
+ },
+ {
+  "id": "griffinwing.fx",
+  "size": [
+   48,
+   48
+  ],
+  "anchor": [
+   24,
+   48
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "w",
+  "states": {
+   "pop": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "hit": [
+    2,
+    2,
+    2
+   ],
+   "turn": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "lock": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "gate": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "scrape": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "feathers": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    6
+   ],
+   "lamp-open": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "starfall": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "placeholder": true,
+  "note": "Flashes and rings: cold smoke pop, a hit spark, the reflect ring, the lock bracket's snap, a gate's ring, scraped rock, falling feathers, a lamp's shield parting, and the Starfall star."
+ },
+ {
+  "id": "griffinwing.gate",
+  "size": [
+   64,
+   64
+  ],
+  "anchor": [
+   32,
+   64
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "4",
+  "states": {
+   "idle": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "taken": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "A bonus gate: a hoop of warm lamps. The stage draws it as a 3D ring of blocks until this is painted.",
+  "sim_radius_tenths": 20
+ },
+ {
+  "id": "griffinwing.hearth-ring",
+  "size": [
+   64,
+   64
+  ],
+  "anchor": [
+   32,
+   64
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "5",
+  "states": {
+   "idle": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "taken": [
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "placeholder": true,
+  "note": "A hearth ring: a gold ring of eight lit lanterns that mends the shield.",
+  "sim_radius_tenths": 22
+ },
+ {
+  "id": "griffinwing.arch",
+  "size": [
+   192,
+   128
+  ],
+  "anchor": [
+   96,
+   128
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "G",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "placeholder": true,
+  "note": "A rock arch with its opening centred where the sim puts it; the opening is the clear part, the sim judges the scrape."
+ },
+ {
+  "id": "griffinwing.ridge",
+  "size": [
+   128,
+   96
+  ],
+  "anchor": [
+   64,
+   96
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "x",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "placeholder": true,
+  "note": "A ridge of rock that a bomber hides behind."
+ },
+ {
+  "id": "griffinwing.shutter",
+  "size": [
+   96,
+   192
+  ],
+  "anchor": [
+   48,
+   192
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "X",
+  "states": {
+   "idle": [
+    1
+   ],
+   "warn": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "placeholder": true,
+  "note": "A pair of iron-bound shutter plates closing on a gap, with warning lamps at their inner edges."
+ },
+ {
+  "id": "griffinwing.beacon",
+  "size": [
+   64,
+   160
+  ],
+  "anchor": [
+   32,
+   160
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "5",
+  "states": {
+   "unlit": [
+    1
+   ],
+   "lit": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "placeholder": true,
+  "note": "The last beacon: a tower with a great lantern. Dark until the Wyrm falls; lit for the way home."
+ },
+ {
+  "id": "griffinwing.canyon-tex",
+  "size": [
+   64,
+   64
+  ],
+  "anchor": [
+   32,
+   32
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "u",
+  "states": {
+   "rock": [
+    1
+   ],
+   "stone": [
+    1
+   ],
+   "causeway": [
+    1
+   ],
+   "bone": [
+    1
+   ],
+   "lava": [
+    1
+   ],
+   "mist": [
+    1
+   ]
+  },
+  "placeholder": true,
+  "note": "Canyon textures for the 3D walls (the engine's own material slots until painted): strata rock, ruined stone, causeway brick, dragon bone, lava crack, moon mist. Seamless, 64 by 64."
+ },
+ {
+  "id": "griffinwing.sky",
+  "size": [
+   384,
+   112
+  ],
+  "anchor": [
+   192,
+   112
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "s",
+  "states": {
+   "dusk": [
+    1
+   ],
+   "smoke": [
+    1
+   ],
+   "dawn": [
+    1
+   ],
+   "clouds": [
+    1
+   ]
+  },
+  "placeholder": true,
+  "note": "The skies behind the canyon: the moon's dusk with a warm horizon, the roost's smoke, the way home's dawn, and cloud banks that slide with the camera's heading. Painted into the sky's dots, not the 3D mesh."
+ },
+ {
+  "id": "griffinwing.reticle",
+  "size": [
+   32,
+   32
+  ],
+  "anchor": [
+   16,
+   16
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "6",
+  "states": {
+   "far": [
+    1
+   ],
+   "near": [
+    1
+   ],
+   "lock": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "charge": [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+   ]
+  },
+  "placeholder": true,
+  "note": "The reticles: the far one a ring with a cross, the near one four corner ticks, the lock bracket that snaps on, and the charge ring that fills."
+ }
+]

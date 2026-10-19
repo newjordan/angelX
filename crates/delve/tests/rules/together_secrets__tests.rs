@@ -212,7 +212,7 @@ fn pick_up(run: &mut Run, card: &str) {
         card: card.into(),
         x,
         y,
-        held_off: None,
+        held_off: None, took: Vec::new(),
     });
     run.step(&BTreeMap::new());
 }
@@ -439,7 +439,7 @@ fn a_bomb_at_the_heart_of_the_slain_dragons_lair_wakes_the_banked_coal() {
     let (cx, cy) = (run.room().width() / 2.0, run.room().height() / 2.0);
     // Carrying bombs past it, even standing on it, lifts nothing.
     stand(&mut run, (cx, cy));
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(
         heard(&run, "secret_hint:coal"),
         0,
@@ -448,7 +448,7 @@ fn a_bomb_at_the_heart_of_the_slain_dragons_lair_wakes_the_banked_coal() {
     run.clear_for_test();
     assert!(run.room().cleared);
     stand(&mut run, (cx, cy));
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(run.players[&1].bombs > 0);
     assert_eq!(heard(&run, "secret_hint:coal"), 1);
     assert_eq!(
@@ -476,7 +476,7 @@ fn a_draught_drunk_on_a_won_stairs_landing_lifts_the_lantern_mote() {
     pick_up(&mut run, "potion");
     assert!(run.players[&1].hand.iter().any(|c| c == "potion"));
     stand(&mut run, landing);
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(heard(&run, "secret_hint:lantern"), 1);
     assert_eq!(lying(&run, "lantern-mote"), 0, "a potion held is not drunk");
     let slot = run.players[&1]
@@ -499,11 +499,15 @@ fn a_draught_drunk_on_a_won_stairs_landing_lifts_the_lantern_mote() {
 fn a_draught_drunk_at_the_lip_of_a_won_pit_lifts_the_reed_flute() {
     let mut run = on_a_generated_floor(Pack::Cavern, 2, first_of(RoomKind::Pit));
     run.clear_for_test();
+    // Whatever the guardian dropped lies elsewhere: a knight takes one
+    // find a step, and the potion is the one to take.
+    let at = run.at;
+    run.dungeon.rooms[at].items.clear();
     let lip = sunk_reed_at(run.room());
     stand(&mut run, (lip.0 - 5.0, lip.1));
     pick_up(&mut run, "potion");
     stand(&mut run, lip);
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(heard(&run, "secret_hint:reed"), 1);
     assert_eq!(lying(&run, "reed-flute"), 0);
     let slot = run.players[&1]

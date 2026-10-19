@@ -1,0 +1,11 @@
+[package]
+name = "framecount"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+libc = "0.2"
+
+[workspace]

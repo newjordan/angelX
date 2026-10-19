@@ -6,27 +6,32 @@ use std::collections::BTreeMap;
 
 #[test]
 fn boss_gates_guest_state_carries_progress_and_input_claims_cannot_grant_defeat() {
-    let mut run = stronghold(1, 2);
-    kill_leader(&mut run, 0);
+    // One chief a floor (`pacing`): the key's carrier leads its camp.
+    let mut run = stronghold(1, 1);
     let gate = run.boss_gates.as_ref().unwrap().guardian;
-    run.enter(gate, Some(2));
-    // What a friend's client is sent, read back as it reads it.
-    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
-    assert!(!guest.found_line().unwrap_or_default().contains("1/2"));
-    assert!(guest.boss_gate_plain()[0].contains("1 slain"));
-    let leaders = &guest.boss_gates.as_ref().unwrap().leaders;
-    assert!(leaders[0].defeated);
-    assert!(!leaders[1].defeated);
+    // A claim on the wire grants nothing: no such field reads.
     let forged = serde_json::json!({ "boss_gates": { "defeated": true }, "boss_defeat": true });
     assert!(serde_json::from_value::<Input>(forged).is_err());
+    run.enter(gate, Some(2));
     run.step(&BTreeMap::from([(1, Input::default())]));
     assert!(run.guardian_locked());
-    assert!(!run.boss_gates.as_ref().unwrap().leaders[1].defeated);
+    assert!(!run.boss_gates.as_ref().unwrap().leaders[0].defeated);
+    // What a friend's client is sent, read back as it reads it.
+    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
+    assert!(guest.boss_gate_plain()[0].contains("key's carrier"));
+    assert!(!guest.boss_gates.as_ref().unwrap().leaders[0].defeated);
+    // The carrier falls in its own room: the route opens, and the guest's
+    // copy says so.
+    kill_leader(&mut run, 0);
+    run.enter(gate, Some(2));
+    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
+    assert!(guest.boss_gates.as_ref().unwrap().leaders[0].defeated);
+    assert!(guest.boss_gate_plain()[0].contains("may be fought"));
 }
 
 #[test]
 fn boss_ecology_together_shooter_native_renderer_compact_normal_and_guest_projection() {
-    let mut run = stronghold(1, 2);
+    let mut run = stronghold(1, 1);
     kill_leader(&mut run, 0);
     let guardian = run.boss_gates.as_ref().unwrap().guardian;
     run.enter(guardian, Some(2));
@@ -60,8 +65,7 @@ fn boss_ecology_together_shooter_native_renderer_compact_normal_and_guest_projec
             .collect::<String>();
         // The chiefs live in the sidebar, in plain words; the footer keeps
         // to what was found and said.
-        assert!(text.contains("2 chiefs guard the"), "{text}");
-        assert!(text.contains("1 slain"), "{text}");
+        assert!(text.contains("guardian may"), "{text}");
         assert!(!text.contains("sealed ALL"), "{text}");
         let snapshot = text.clone();
         terminal

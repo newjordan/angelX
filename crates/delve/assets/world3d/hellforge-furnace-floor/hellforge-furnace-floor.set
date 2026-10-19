@@ -1,0 +1,148 @@
+set hellforge-furnace-floor
+# The Furnace Floor: 32 x 20 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 512 320
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 256 -4 32 size 512 4 64
+box    floor   at 40 -4 192 size 80 4 256
+box    floor   at 256 -4 192 size 192 4 256
+box    floor   at 472 -4 192 size 80 4 256
+box    floor   at 104 -4 160 size 16 4 160
+box    floor   at 408 -4 160 size 16 4 160
+box    floor   at 88 -4 160 size 16 4 128
+box    floor   at 136 -4 160 size 48 4 128
+box    floor   at 376 -4 160 size 48 4 128
+box    floor   at 424 -4 160 size 16 4 128
+box    floor   at 120 -4 288 size 80 4 64
+box    floor   at 392 -4 288 size 80 4 64
+
+# lava, 2 below the floor line
+box    fire    at 120 -4 72 size 80 2 16
+box    fire    at 392 -4 72 size 80 2 16
+box    fire    at 88 -4 88 size 16 2 16
+box    fire    at 136 -4 88 size 48 2 16
+box    fire    at 376 -4 88 size 48 2 16
+box    fire    at 424 -4 88 size 16 2 16
+box    fire    at 88 -4 240 size 16 2 32
+box    fire    at 136 -4 240 size 48 2 32
+box    fire    at 376 -4 240 size 48 2 32
+box    fire    at 424 -4 240 size 16 2 32
+box    fire    at 104 -4 248 size 16 2 16
+box    fire    at 408 -4 248 size 16 2 16
+
+# the north wall, columns 0 to 14
+box    stone   at 120 -4 8 size 240 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 17 to 31
+box    stone   at 392 -4 8 size 240 52 16
+box    metal   at 504 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 504 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 14 (at 81% of its height, for the camera)
+box    stone   at 120 -4 308 size 240 10 8  # TODO prims: wedge
+box    stone   at 120 -4 316 size 240 16.5 8
+box    metal   at 8 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 316 size 6 6.5 6
+
+# the south wall, columns 17 to 31 (at 81% of its height, for the camera)
+box    stone   at 392 -4 308 size 240 10 8  # TODO prims: wedge
+box    stone   at 392 -4 316 size 240 16.5 8
+box    metal   at 504 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 504 15 316 size 6 6.5 6
+
+# the west wall, rows 1 to 8
+box    stone   at 8 -4 80 size 16 52 128
+
+# the west wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 8 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 264 size 16 52 80
+
+# the east wall, rows 1 to 8
+box    stone   at 504 -4 80 size 16 52 128
+
+# the east wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 504 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 504 -4 264 size 16 52 80
+
+# the north door, columns 15 to 16
+box    door    at 256 -4 -1 size 32 36 2 id door-north
+box    stone   at 256 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 15 to 16
+box    door    at 256 -4 321 size 32 5 2 id door-south
+
+# the west door, rows 9 to 10
+box    door    at -1 -4 160 size 2 36 32 id door-west
+box    stone   at 8 32 160 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 9 to 10
+box    door    at 513 -4 160 size 2 36 32 id door-east
+box    stone   at 504 32 160 size 16 16 32  # TODO prims: arch
+
+# slag at 2,2 2x1 (at 95% of its height, for the camera)
+sphere rock    at 48 0 40 size 29 11 13 id slag-1  # TODO prims: blob
+gem    fire    at 49 7.5 40 size 6 4.5 6
+
+# slag at 5,2 2x2
+sphere rock    at 96 0 48 size 29 12 29 id slag-2  # TODO prims: blob
+gem    fire    at 97 8 48 size 6 5 6
+
+# slag at 8,2 2x2
+sphere rock    at 144 0 48 size 29 12 29 id slag-3  # TODO prims: blob
+gem    fire    at 144 8 48 size 6 5 6
+
+# slag at 22,2 2x2
+sphere rock    at 368 0 48 size 29 12 29 id slag-4  # TODO prims: blob
+gem    fire    at 366 8 48 size 6 5 6
+
+# slag at 25,2 2x2
+sphere rock    at 416 0 48 size 29 12 29 id slag-5  # TODO prims: blob
+gem    fire    at 416 8 48 size 6 5 6
+
+# slag at 28,2 2x1 (at 95% of its height, for the camera)
+sphere rock    at 464 0 40 size 29 11 13 id slag-6  # TODO prims: blob
+gem    fire    at 464 7.5 40 size 6 4.5 6
+
+# slag at 5,16 2x2
+sphere rock    at 96 0 272 size 29 12 29 id slag-7  # TODO prims: blob
+gem    fire    at 98 8 272 size 6 5 6
+
+# slag at 8,16 2x2
+sphere rock    at 144 0 272 size 29 12 29 id slag-8  # TODO prims: blob
+gem    fire    at 143 8 272 size 6 5 6
+
+# slag at 22,16 2x2
+sphere rock    at 368 0 272 size 29 12 29 id slag-9  # TODO prims: blob
+gem    fire    at 369 8 272 size 6 5 6
+
+# slag at 25,16 2x2
+sphere rock    at 416 0 272 size 29 12 29 id slag-10  # TODO prims: blob
+gem    fire    at 417 8 272 size 6 5 6
+
+# slag at 2,17 2x1
+sphere rock    at 48 0 280 size 29 12 13 id slag-11  # TODO prims: blob
+gem    fire    at 50 8 280 size 6 5 6
+
+# slag at 28,17 2x1
+sphere rock    at 464 0 280 size 29 12 13 id slag-12  # TODO prims: blob
+gem    fire    at 463 8 280 size 6 5 6
+
+# torches by the doors (at 94% of its height, for the camera)
+box    metal   at 232 18 16 size 3 6 3
+cone   fire    at 232 24 16 size 4 7 4
+box    metal   at 280 18 16 size 3 6 3
+cone   fire    at 280 24 16 size 4 7 4
+box    metal   at 16 18 136 size 3 6 3
+cone   fire    at 16 24 136 size 4 7 4
+box    metal   at 16 5 184 size 3 5.5 3
+cone   fire    at 16 10.5 184 size 4 6.5 4
+box    metal   at 496 18 136 size 3 6 3
+cone   fire    at 496 24 136 size 4 7 4
+box    metal   at 496 5 184 size 3 5.5 3
+cone   fire    at 496 10.5 184 size 4 6.5 4

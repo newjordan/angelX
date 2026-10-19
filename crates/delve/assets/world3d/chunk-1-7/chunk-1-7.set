@@ -1,0 +1,126 @@
+set chunk-1-7
+# The kingdom, chunk 1,7 in The Fen: tiles 24..48 x 112..128 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 576 1920
+plate 1536 1024
+
+# ground
+box    grass   at 448 -4 1808 size 128 4 32
+box    path    at 544 -4 1808 size 64 4 32
+box    mud     at 600 -4 1808 size 48 4 32
+box    grass   at 648 -4 1848 size 48 4 112
+box    mud     at 712 -4 1800 size 80 4 16
+box    water   at 760 -4 1920 size 16 1 256
+box    grass   at 680 -4 1856 size 16 4 96
+box    mud     at 720 -4 1816 size 64 4 16
+box    grass   at 440 -4 1840 size 112 4 32
+box    path    at 528 -4 1848 size 64 4 48
+box    grass   at 592 -4 1864 size 64 4 80
+box    grass   at 712 -4 1856 size 48 4 64
+box    sand    at 744 -4 1856 size 16 4 64
+box    grass   at 424 -4 1872 size 80 4 32
+box    mud     at 480 -4 1864 size 32 4 16
+box    grass   at 472 -4 1896 size 16 4 48
+box    path    at 512 -4 1904 size 64 4 64
+box    grass   at 552 -4 1888 size 16 4 32
+box    ground  at 392 -4 1912 size 16 4 48
+box    grass   at 432 -4 1904 size 64 4 32
+box    path    at 720 -4 1904 size 64 4 32
+box    path    at 616 -4 1920 size 144 4 32
+box    ground  at 408 -4 1928 size 16 4 16
+box    grass   at 440 -4 1928 size 48 4 16
+box    path    at 472 -4 1984 size 16 4 128
+box    path    at 704 -4 1928 size 32 4 16
+box    grass   at 728 -4 1984 size 16 4 128
+box    sand    at 744 -4 1984 size 16 4 128
+box    path    at 424 -4 1952 size 80 4 32
+box    path    at 504 -4 1952 size 48 4 32
+box    grass   at 624 -4 1944 size 192 4 16
+box    grass   at 536 -4 1960 size 16 4 16
+box    sand    at 552 -4 1960 size 16 4 16
+box    mud     at 576 -4 1960 size 32 4 16
+box    sand    at 608 -4 1960 size 32 4 16
+box    grass   at 672 -4 1960 size 96 4 16
+box    mud     at 408 -4 1984 size 48 4 32
+box    grass   at 440 -4 1976 size 16 4 16
+box    path    at 456 -4 2008 size 16 4 80
+box    path    at 496 -4 1992 size 32 4 48
+box    grass   at 520 -4 2000 size 16 4 64
+box    sand    at 536 -4 1976 size 16 4 16
+box    water   at 584 -4 1976 size 80 1 16
+box    mud     at 656 -4 1984 size 64 4 32
+box    grass   at 704 -4 2008 size 32 4 80
+box    mud     at 440 -4 2000 size 16 4 32
+box    grass   at 536 -4 2008 size 16 4 48
+box    mud     at 552 -4 2016 size 16 4 64
+box    water   at 592 -4 1992 size 64 1 16
+box    mud     at 392 -4 2016 size 16 4 32
+box    water   at 408 -4 2008 size 16 1 16
+box    mud     at 424 -4 2024 size 16 4 48
+box    mud     at 584 -4 2008 size 48 4 16
+box    water   at 632 -4 2024 size 48 1 48
+box    mud     at 672 -4 2008 size 32 4 16
+box    mud     at 408 -4 2024 size 16 4 16
+box    path    at 440 -4 2032 size 16 4 32
+box    path    at 488 -4 2032 size 16 4 32
+box    grass   at 504 -4 2024 size 16 4 16
+box    mud     at 576 -4 2032 size 32 4 32
+box    water   at 600 -4 2024 size 16 1 16
+box    water   at 664 -4 2024 size 16 1 16
+box    sand    at 680 -4 2024 size 16 4 16
+box    water   at 400 -4 2040 size 32 1 16
+box    sand    at 520 -4 2040 size 48 4 16
+box    mud     at 600 -4 2040 size 16 4 16
+box    sand    at 664 -4 2040 size 16 4 16
+box    grass   at 680 -4 2040 size 16 4 16
+
+# set dressing
+cylinder wood    at 451 0 1800 size 3.5 3 3.5
+cylinder wood    at 456 0 1802 size 3.5 3 3.5
+cylinder wood    at 461 0 1800 size 3.5 3 3.5
+cone   thatch  at 392 0 1816 size 9 4 8
+cylinder wood    at 691 0 1848 size 3.5 3 3.5
+cylinder wood    at 696 0 1850 size 3.5 3 3.5
+cylinder wood    at 701 0 1848 size 3.5 3 3.5
+cone   thatch  at 728 0 1848 size 9 4 8
+cylinder wood    at 707 0 1992 size 3.5 3 3.5
+cylinder wood    at 712 0 1994 size 3.5 3 3.5
+cylinder wood    at 717 0 1992 size 3.5 3 3.5
+cone   thatch  at 664 0 2008 size 9 4 8
+
+# woods (at 42% of its height, for the camera)
+frustum trunk   at 434 0 1808 size 4.5 4 4.5
+cone   foliage at 434 2.5 1808 size 28 14 28
+cone   foliage at 434 11 1808 size 20.16 14 20.16
+cylinder trunk   at 407.5 0 1800 size 3 2.5 3
+cone   foliage at 407.5 1.5 1800 size 18 8.5 18
+cone   foliage at 407.5 6.5 1800 size 12.96 9 12.96
+frustum trunk   at 410 0 1816 size 3 8 3
+cone   foliage at 410 5.5 1816 size 19 16 19
+cone   foliage at 410 15 1816 size 13.68 16 13.68
+frustum trunk   at 409 0 1833 size 3 7 3
+cone   foliage at 409 4 1833 size 17 20.46 17
+cone   foliage at 409 16.54 1833 size 12.24 20.46 12.24
+cylinder trunk   at 424.5 0 1832.5 size 3 7 3
+cone   foliage at 424.5 4 1832.5 size 18 18.6 18
+cone   foliage at 424.5 15.4 1832.5 size 12.96 18.6 12.96
+frustum trunk   at 441 0 1831 size 3 7 3
+cone   foliage at 441 4 1831 size 17 19.22 17
+cone   foliage at 441 15.78 1831 size 12.24 19.22 12.24
+
+# dead trees
+frustum trunk   at 392 0 1894 size 4 19 4
+box    trunk   at 389.62 10.45 1892.63 size 5.5 1.2 1.2 turn 150
+box    trunk   at 393.13 13.68 1895.95 size 4.5 1.2 1.2 turn 300
+box    trunk   at 393.34 16.72 1892.88 size 3.5 1.2 1.2 turn 400
+frustum trunk   at 390 0 1912 size 4 15 4
+box    trunk   at 392.25 8.25 1910.42 size 5.5 1.2 1.2 turn 35
+box    trunk   at 387.76 10.8 1912.2 size 4.5 1.2 1.2 turn 185
+box    trunk   at 390.45 13.2 1913.69 size 3.5 1.2 1.2 turn 285
+
+# bridges (at 99% of its height, for the camera)
+box    wood    at 760 -3 1904 size 16 5.5 32
+box    wood    at 760 0 1887.25 size 16 6 1.5
+arch   stone   at 760 -4 1919 size 16 6.5 2
+box    wood    at 760 0 1920.75 size 16 5.5 1.5

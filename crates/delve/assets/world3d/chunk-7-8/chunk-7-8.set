@@ -1,0 +1,125 @@
+set chunk-7-8
+# The kingdom, chunk 7,8 in Longbow Country: tiles 168..192 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2880 2176
+plate 1536 1024
+
+# ground
+box    grass   at 2816 -4 2120 size 256 4 144
+box    path    at 2984 -4 2056 size 80 4 16
+box    grass   at 3048 -4 2064 size 48 4 32
+box    grass   at 2952 -4 2144 size 16 4 160
+box    path    at 2992 -4 2080 size 64 4 32
+box    path    at 3032 -4 2160 size 16 4 160
+box    grass   at 3056 -4 2096 size 32 4 32
+box    grass   at 2968 -4 2160 size 16 4 128
+box    path    at 3000 -4 2112 size 48 4 32
+box    path    at 3048 -4 2184 size 16 4 144
+box    grass   at 3064 -4 2128 size 16 4 32
+box    grass   at 2984 -4 2168 size 16 4 80
+box    path    at 3008 -4 2144 size 32 4 32
+box    path    at 3064 -4 2200 size 16 4 112
+box    grass   at 3000 -4 2184 size 16 4 48
+box    path    at 3016 -4 2176 size 16 4 32
+box    path    at 2720 -4 2200 size 64 4 16
+box    grass   at 2848 -4 2200 size 192 4 16
+box    grass   at 3016 -4 2200 size 16 4 16
+box    grass   at 2712 -4 2224 size 48 4 32
+box    path    at 2760 -4 2216 size 48 4 16
+box    grass   at 2864 -4 2216 size 160 4 16
+box    path    at 3000 -4 2224 size 48 4 32
+box    grass   at 2752 -4 2232 size 32 4 16
+box    path    at 2776 -4 2232 size 16 4 16
+box    grass   at 2856 -4 2232 size 144 4 16
+box    path    at 2952 -4 2232 size 48 4 16
+box    sand    at 2752 -4 2248 size 128 4 16
+box    grass   at 2880 -4 2248 size 128 4 16
+box    path    at 2968 -4 2248 size 48 4 16
+box    sand    at 3016 -4 2248 size 48 4 16
+box    water   at 2752 -4 2272 size 128 1 32
+box    sand    at 2840 -4 2264 size 48 4 16
+box    grass   at 2896 -4 2264 size 64 4 16
+box    sand    at 2952 -4 2264 size 48 4 16
+box    water   at 3024 -4 2272 size 96 1 32
+box    water   at 2840 -4 2288 size 48 1 32
+box    sand    at 2896 -4 2280 size 64 4 16
+box    water   at 2952 -4 2288 size 48 1 32
+box    sand    at 2744 -4 2296 size 112 4 16
+box    water   at 2808 -4 2296 size 16 1 16
+box    water   at 2896 -4 2296 size 64 1 16
+box    water   at 2984 -4 2296 size 16 1 16
+box    sand    at 3032 -4 2296 size 80 4 16
+
+# Fletchery: a fletcher's shop and racks at 182,136 4x3
+box    stone   at 2932.2 0 2210 size 36.4 13 24 id fletchery
+gable  thatch  at 2932.2 13 2210 size 39.4 10 27
+box    stone   at 2940.94 13 2207.6 size 4 11.5 4
+box    door    at 2932.2 0 2222.25 size 7 10 1
+box    window  at 2923.1 5.46 2222.25 size 5 3.9 1
+box    window  at 2941.3 5.46 2222.25 size 5 3.9 1
+box    wood    at 2955.52 0 2206 size 1.5 10 1.5
+box    wood    at 2972 0 2206 size 1.5 10 1.5
+box    wood    at 2963.76 7 2206 size 16.48 1 1
+box    wood    at 2963.4 2 2206 size 13.2 5 0.6
+box    wood    at 2955.52 0 2216 size 1.5 10 1.5
+box    wood    at 2972 0 2216 size 1.5 10 1.5
+box    wood    at 2963.76 7 2216 size 16.48 1 1
+box    wood    at 2963.4 2 2216 size 13.2 5 0.6
+box    wood    at 2968 0 2184 size 14 4 8
+box    wood    at 2968 4 2184 size 10 3 6
+
+# set dressing
+box    stone   at 2904 0 2072 size 9 4 3
+box    stone   at 2904 0 2074.5 size 6 2 2
+cone   thatch  at 2851 0 2086.5 size 4.5 4 4.5
+cone   thatch  at 2856 0 2089.5 size 4.5 4 4.5
+cone   thatch  at 2861 0 2086.5 size 4.5 4 4.5
+cone   thatch  at 2723 0 2230.5 size 4.5 4 4.5
+cone   thatch  at 2728 0 2233.5 size 4.5 4 4.5
+cone   thatch  at 2733 0 2230.5 size 4.5 4 4.5
+box    wood    at 2824 0 2232 size 1.5 14 1.5
+box    wood    at 2824 10 2232 size 7 1 1
+box    cloth   at 2824 6 2232 size 2.5 4 1.5
+
+# woods (at 37% of its height, for the camera)
+cylinder trunk   at 2897 0 2111 size 5 5.5 5
+blob-32 foliage at 2897 3.5 2111 size 33 8 31.35 turn 90
+cylinder trunk   at 2904 0 2090 size 3 5 3
+blob-2 foliage at 2904 2.5 2090 size 19 8 18.05 turn 270
+frustum trunk   at 2920 0 2090 size 3 5 3
+blob-55 foliage at 2920 2.5 2090 size 17 8.5 16.15 turn 90
+cylinder trunk   at 2921 0 2105 size 3 9 3
+blob-42 foliage at 2921 4 2105 size 17 16 16.15
+frustum trunk   at 2937 0 2105 size 3 5 3
+blob-21 foliage at 2937 2 2105 size 17 8.5 16.15 turn 270
+frustum trunk   at 2919.5 0 2120.5 size 3 9 3
+blob-26 foliage at 2919.5 4 2120.5 size 18 18 17.1 turn 180
+cylinder trunk   at 2936 0 2120 size 3 8.5 3
+blob-55 foliage at 2936 3.5 2120 size 18 20 17.1 turn 90
+cylinder trunk   at 2887.5 0 2151.5 size 3 4.5 3
+blob-23 foliage at 2887.5 2.5 2151.5 size 18 6.5 17.1
+cylinder trunk   at 2904 0 2152 size 3 4.5 3
+blob-31 foliage at 2904 2 2152 size 19 7.5 18.05 turn 180
+frustum trunk   at 2887 0 2167 size 3 10 3
+blob-3 foliage at 2887 5.5 2167 size 17 19 16.15 turn 90
+cylinder trunk   at 2902 0 2168.5 size 3 9 3
+blob-20 foliage at 2902 4 2168.5 size 18 15 17.1 turn 90
+frustum trunk   at 2888 0 2184 size 3 12 3
+blob-37 foliage at 2888 7 2184 size 19 15 18.05 turn 270
+frustum trunk   at 2903 0 2184 size 3 11 3
+blob-50 foliage at 2903 6 2184 size 17 19 16.15 turn 180
+cylinder trunk   at 2889 0 2200 size 3 12 3
+blob-26 foliage at 2889 7 2200 size 19 14 18.05 turn 90
+frustum trunk   at 2904 0 2200 size 3 10 3
+blob-53 foliage at 2904 5 2200 size 19 16 18.05
+cylinder trunk   at 2888 0 2216 size 3 12 3
+blob-15 foliage at 2888 7 2216 size 19 20 18.05 turn 90
+frustum trunk   at 2904 0 2215.5 size 3 11 3
+blob-32 foliage at 2904 6 2215.5 size 18 21 17.1 turn 270
+box    hedge   at 2920 0 2168 size 16 5.5 15
+blob-33 hedge   at 2920 3.5 2168 size 16 4.5 15
+
+# bridges
+box    wood    at 3064 -3 2272 size 16 5.5 32
+box    wood    at 3055.25 0 2272 size 1.5 6 32

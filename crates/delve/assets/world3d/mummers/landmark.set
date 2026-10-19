@@ -1,0 +1,23 @@
+# Mummers' Hollow: the stage's proscenium with its drawn curtains and tall painted sky, the castle flat cut out above its case, banner poles at the back.
+# the proscenium: two columns, a header beam, a pediment and a valance; the drawn curtains behind them
+box    wood    at 54 0 44 size 7 52 7
+box    wood    at 138 0 44 size 7 52 7
+box    wood    at 96 46 44 size 92 9 7
+gable  wood    at 96 55 44 size 100 14 10
+box    cloth   at 96 38 41 size 80 8 3
+box    cloth   at 64 6 36 size 14 40 5
+box    cloth   at 128 6 36 size 14 40 5
+box    plaster at 96 22 18 size 76 24 1.5
+# the castle flat: keep and towers cut out thin, their battlements, a slate cap on each tower
+box    stone   at 296 20 44 size 26 40 4
+box    stone   at 268 20 44 size 18 28 4
+box    stone   at 324 20 44 size 18 28 4
+box    stone   at 288 60 44 size 6 6 4
+box    stone   at 304 60 44 size 6 6 4
+pyramid slate  at 268 48 44 size 22 14 6
+pyramid slate  at 324 48 44 size 22 14 6
+# banner poles at the back
+box    wood    at 24 0 8 size 4 76 4
+box    wood    at 360 0 8 size 4 76 4
+box    cloth   at 24 54 8 size 14 22 1.5
+box    cloth   at 360 54 8 size 14 22 1.5

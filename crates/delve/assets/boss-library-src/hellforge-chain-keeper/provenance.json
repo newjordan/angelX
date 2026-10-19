@@ -1,0 +1,215 @@
+{
+  "id": "hellforge-chain-keeper",
+  "source_path": "./cockpit/assets/boss-library/existing/hellforge-chain-keeper/v01/source-sheet-refined.png",
+  "source_sha256": "46bc822108d6e239ab21f9df4f08e054205416dc91d9d7284ee3a93c06b03494",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Massive low iron jailer guarding the forge seal. Squat broad dark steel armor with heavy bronze bands, closed wedge visor helm, huge cuffed fists and short iron boots. Thick black chain coiled around its barrel belly and one enormous square iron hook on a short chain in its right gauntlet. A single broken shackle hangs off its left shoulder. Not a skull or demon.",
+  "definition_header": "name THE CHAIN KEEPER\ntext Its chain keeps the upper seal of Dragon Keep.\nby angelX\nwhere hellforge\nhp 620\nsize 1.4\nmove chase speed=1.2\nattack aimed shots=3 speed=6 every=80 damage=10 shot=ember\nphases lead crossfire every=91 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "170568d3c1d48a93ad555fb110d1e84ae652ae0f00380824a06496c5f9432bac",
+  "definition_sha256": "170568d3c1d48a93ad555fb110d1e84ae652ae0f00380824a06496c5f9432bac",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        37,
+        170,
+        257,
+        273
+      ],
+      "opaque_component_pixels": 40966,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "83dd587c474f03568f1e5cd78fa56900838a37529f86c88749b9e3f62bda6cfd"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        375,
+        85,
+        241,
+        333
+      ],
+      "opaque_component_pixels": 45832,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "3981452ca0715f3272c90621ce7b151431de065eaf76a07e8a5dfa280f61cea7"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        681,
+        177,
+        229,
+        245
+      ],
+      "opaque_component_pixels": 36190,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "0f6c73589453b395853516e2e778d871cab7d85638a5f680661347fe989a352b"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        1017,
+        116,
+        219,
+        290
+      ],
+      "opaque_component_pixels": 35716,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "83864fb29e17f83ae13a1ebda93822dd53276201e4e2c791d484bc334f156317"
+    },
+    {
+      "id": "overhead/part/chain-armor-body",
+      "source_rect_xywh": [
+        69,
+        568,
+        203,
+        205
+      ],
+      "opaque_component_pixels": 31580,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-chain-armor-body.png",
+      "sha256": "82212bef7a56433847b1c60d967e88190dd2e1fd3be87423e3cc7737bcb1ef31"
+    },
+    {
+      "id": "overhead/part/wedge-visor-head",
+      "source_rect_xywh": [
+        426,
+        610,
+        139,
+        134
+      ],
+      "opaque_component_pixels": 12551,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-wedge-visor-head.png",
+      "sha256": "b3fc1e5c06a83651e93052506f88e6099bc6239f555d4a7cbefc016aece471ea"
+    },
+    {
+      "id": "overhead/part/hook-chain-arm",
+      "source_rect_xywh": [
+        710,
+        536,
+        145,
+        259
+      ],
+      "opaque_component_pixels": 20329,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-hook-chain-arm.png",
+      "sha256": "1f75489bb0c803f293b36dd77cd4d152469ae7be75d980f20ac404aa300bfeab"
+    },
+    {
+      "id": "overhead/part/shackled-fist-arm",
+      "source_rect_xywh": [
+        1021,
+        559,
+        159,
+        208
+      ],
+      "opaque_component_pixels": 20979,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-shackled-fist-arm.png",
+      "sha256": "7f3aef32bdc0fb23d687971b2a1c5c74511f5bbfabb51c87b241598cbd755f32"
+    },
+    {
+      "id": "side/part/chain-armor-body",
+      "source_rect_xywh": [
+        69,
+        930,
+        204,
+        204
+      ],
+      "opaque_component_pixels": 31617,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-chain-armor-body.png",
+      "sha256": "cdf277fbc9af547326a918b6b33fd3b1ad47a4717436497361adac17d3ae3d9e"
+    },
+    {
+      "id": "side/part/wedge-visor-head",
+      "source_rect_xywh": [
+        427,
+        972,
+        139,
+        132
+      ],
+      "opaque_component_pixels": 12352,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-wedge-visor-head.png",
+      "sha256": "7d7b6cafcabbdd5eeacdd1c849f45b8879930264b75fdc7b2b3a2b7d83dc930c"
+    },
+    {
+      "id": "side/part/hook-chain-arm",
+      "source_rect_xywh": [
+        717,
+        900,
+        144,
+        255
+      ],
+      "opaque_component_pixels": 20188,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-hook-chain-arm.png",
+      "sha256": "c20b80d96a3ed539e5bd201b4396a1bfe7daeea8adcbdce1cc6b8c4f5bdcb5cb"
+    },
+    {
+      "id": "side/part/shackled-fist-arm",
+      "source_rect_xywh": [
+        1031,
+        920,
+        158,
+        207
+      ],
+      "opaque_component_pixels": 21064,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-shackled-fist-arm.png",
+      "sha256": "0e11c64dd3aa678e01d5bc8dff376be761d6d151042593fb8af66a5c7bcf7c49"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

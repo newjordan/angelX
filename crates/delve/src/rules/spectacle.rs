@@ -300,7 +300,7 @@ impl Run {
             Pack::Crypt => "step_stone",
             Pack::Cavern => "step_gravel",
             Pack::Hellforge | Pack::Unknown => "step_ash",
-            Pack::Archive => "step_wet",
+            Pack::Archive | Pack::Swamp => "step_wet",
             Pack::Fungal => "step_moss",
         }
     }
@@ -328,7 +328,9 @@ impl Run {
                 // A deeper circle hits harder.
                 if circle > 0 {
                     let more = (before.hp - hero.hp) * CIRCLE_HURT * circle / 100;
-                    hero.hp = hero.hp.saturating_sub(more);
+                    // Still never more of them than one hit may take.
+                    let least = before.hp.saturating_sub(hero.max_hp * super::hero::ONE_HIT_MOST / 100);
+                    hero.hp = hero.hp.saturating_sub(more).max(least.min(hero.hp));
                 }
                 let lost = before.hp - hero.hp;
                 hero.struck = STRUCK;
@@ -495,6 +497,7 @@ impl Run {
             match hero.weapon {
                 Weapon::Fists => "hit",
                 Weapon::Bow => "hit_arrow",
+                Weapon::Notes | Weapon::Stones => "hit_magic",
                 Weapon::Crossbow => "hit_bolt",
                 Weapon::Handgonne => "hit_blast",
             }

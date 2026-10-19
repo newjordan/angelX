@@ -1,0 +1,23 @@
+power wish:homing 3
+teacher Fenna the Fletcher
+place the Eyrie, the high rookery among the mews
+room Aviary
+look a hawk-feather cloak, a whittling knife behind one ear, and the habit of sniffing an arrow before she fletches it
+line An arrow wants to please. Give it one monster to love.
+hook The level-2 card carries ...fletched with a feather that steers, from a bird that watches.
+step The mews' morning | feed and hood the mews' birds, one per roost | mews_feedings_done 3 | They remember hands. Be worth remembering. | cue feed
+step Signal practice | send FISH, BOOT, CROWN to the lookout, three for three | signal_codes_sent 1 | Kites and arrows agree: go where you're sent. | needs signal_codes_sent
+step The lost quiver | recover the Fellowship's quiver from the Rookery | relics_returned 1 | Twenty-two feathers. Count them. No — count them properly. | cue fetch
+step The arguing shot | watch one full homing-only circuit of the College labyrinth | college_runs 1 | It listens. The good ones always listen. | needs college_runs
+trial One monster, one love | every monster in one hall falls to a homing shot | seeker_pure_halls 1 | It isn't magic. It simply listens better than you.
+reward Seeker Fletching tier 3
+title the Loved Arrow
+keepsake the Steering Feather, a hawk feather at the ear that flicks toward the nearest monster
+ties The Rookery step shares the wanted hall with Carom's ball hunt; Signal Hill is Gil's lamp road; the College circuit is Petronel's too.
+art
+...8...
+..888..
+.8.W.8.
+.8.W.8.
+..888..
+...b...

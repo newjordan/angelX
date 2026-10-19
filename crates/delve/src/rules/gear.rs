@@ -128,11 +128,13 @@ impl Run {
             if let Some(n) = reserved.get_mut(key) && *n > 0 { *n -= 1; false } else { true }
         });
         if cards.is_empty() { return; }
+        // An open map keeps the cache in its arrival chamber.
+        let arrival = self.dungeon.open.as_ref().filter(|o| o.map == 0).map(|o| o.arrival);
         let room = &mut self.dungeon.rooms[0];
-        let (cx, cy) = (room.width() / 2.0, room.height() - 9.0);
+        let (cx, cy) = arrival.map_or((room.width() / 2.0, room.height() - 9.0), |(x, y)| (x, y - 6.0));
         room.chest = Some(layout::Chest { x: cx, y: cy, open: false });
         for (n, card) in cards.into_iter().enumerate() {
-            room.items.push(Item { card: card.into(), x: cx - 4.5 + (n % 4) as f32 * 3.0, y: cy + 3.0 + (n / 4) as f32 * 2.5, held_off: None });
+            room.items.push(Item { card: card.into(), x: cx - 4.5 + (n % 4) as f32 * 3.0, y: cy + 3.0 + (n / 4) as f32 * 2.5, held_off: None, took: Vec::new() });
         }
     }
 

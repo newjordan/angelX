@@ -1,0 +1,25 @@
+# The Royal Spin Cycle: a long wash house with chimneys and the copper drum on its ridge, the washing line strung in front.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the wash house, set back
+box    plaster at 192 0 -10 size 220 28 28 id lm-wash-house
+gable  slate   at 192 28 -10 size 230 16 32
+box    brick   at 128 38 -14 size 10 22 10
+box    brick   at 256 38 -14 size 10 22 10
+box    door    at 192 0 4.5 size 22 22 2
+# the drum: a copper tank on the ridge
+cylinder-16 metal   at 192 44 -10 size 38 24 38 id lm-drum
+# the washing line between two posts, the washing hung from it
+cylinder-6 wood    at 36 0 10 size 4 52 4
+cylinder-6 wood    at 348 0 10 size 4 52 4
+box    wood    at 192 46 10 size 316 1.5 1.5 id lm-line
+box    plaster at 60 32 10.5 size 9 14 1.2
+box    plaster at 84 28 10.5 size 14 18 1.2
+box    plaster at 112 33 10.5 size 9 13 1.2
+box    plaster at 140 26 10.5 size 16 20 1.2
+box    plaster at 222 31 10.5 size 10 15 1.2
+box    plaster at 246 28 10.5 size 14 18 1.2
+box    plaster at 274 33 10.5 size 9 13 1.2
+box    plaster at 300 26 10.5 size 16 20 1.2
+box    plaster at 326 32 10.5 size 9 14 1.2

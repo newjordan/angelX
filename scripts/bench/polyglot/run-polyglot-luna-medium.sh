@@ -9,7 +9,7 @@
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921
-WS=~/angelX
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 CODEX_HOME_PIN=$RR/codex-home-luna
 CFG=$RR/configs/luna-medium.toml
 ANGEL_ROUTE=luna-direct
@@ -179,7 +179,7 @@ printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/luna-angelx-current-run.txt"
 
 echo "cell model=$LUNA_MODEL effort=$LUNA_EFFORT harness=angelx seed=$SEED n=$N wall=${WALL_SECS}s bin=$ANGEL_BIN out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=~ USER=frosty40 LOGNAME=frosty40 LANG=C.UTF-8 TERM=dumb \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb \
   PATH="$AGENT_PATH:$RR/prime_v1/.venv/bin" \
   OPENAI_API_KEY="$KEY_VALUE" \
   LUNA_MODEL="$LUNA_MODEL" \

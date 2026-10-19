@@ -1,0 +1,18 @@
+{
+  "fit": "native canvas 72x136, anchor bottom-centre (36,136); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "No hitbox. The hub pole: eight peg slots hold the banners; art fills them, rules decide which are up. The canvas is eight pixels wider than the slot (64x136) so the painted pole is not scaled.",
+  "id": "bannerpeak.great-pole",
+  "role": "prop",
+  "timing": "idle 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

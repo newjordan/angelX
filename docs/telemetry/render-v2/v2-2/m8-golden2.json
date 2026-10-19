@@ -1,0 +1,44 @@
+{
+ "glass": {
+  "span_px": 308,
+  "ymid": 599,
+  "red_at_t": [
+   58,
+   0,
+   33,
+   69,
+   105,
+   141,
+   177,
+   212,
+   248
+  ]
+ },
+ "kitty": {
+  "span_px": 183,
+  "ymid": 133,
+  "red_at_t": [
+   17,
+   0,
+   77,
+   129,
+   163,
+   188,
+   211,
+   231,
+   248
+  ]
+ },
+ "expected_red_at_t": [
+  0,
+  32,
+  64,
+  96,
+  128,
+  159,
+  191,
+  223,
+  255
+ ],
+ "note": "straight-alpha red 255 over black; both surfaces sRGB-encoded"
+}

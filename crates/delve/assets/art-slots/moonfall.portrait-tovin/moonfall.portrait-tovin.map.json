@@ -1,0 +1,30 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    18,
+    36
+  ],
+  "pieces": [
+    {
+      "name": "idle-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "speak-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "speak-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    }
+  ]
+}

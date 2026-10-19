@@ -1,0 +1,15 @@
+# Wayfarer Meadow: the Bent Spoon Inn under its thatch and chimney, and the old wayfarers' oak.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the inn: whitewashed ground floor, jettied timber above, a thatch roof and a chimney
+box    plaster at 84 0 -2 size 84 26 28 id lm-inn
+box    wood    at 84 26 -1 size 90 16 29
+gable  thatch  at 84 42 -1 size 96 22 34
+box    brick   at 112 42 -6 size 9 24 9
+box    door    at 84 0 12.5 size 12 20 2
+box    wood    at 36 18 15 size 2 16 2
+box    wood    at 28 22 15 size 14 10 1.5
+# the old oak at the road's end
+cylinder-10 trunk   at 312 0 -4 size 12 34 12 id lm-oak-trunk
+blob-5 foliage at 312 22 -4 size 78 46 40 id lm-oak-crown

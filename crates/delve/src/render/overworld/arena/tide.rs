@@ -25,6 +25,7 @@ pub(super) fn ravages(cv: &mut Img, run: &Run) {
         !matches!(tile, Tile::Wall | Tile::Block)
     };
     for ravage in &run.ravages {
+        if super::boss_art::ravage(cv, run, ravage) { continue; }
         for k in 0..ravage.rings {
             let (radius, bursts) = ravage.ring(k);
             if ravage.age >= bursts + UP {

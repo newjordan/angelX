@@ -1,0 +1,20 @@
+{
+  "delivery": "lanternward.beacon/v01",
+  "delivery_metadata_sha256": "1f1429af584dac22c8376621ea333a6edb14f773b05620c61d339f9d121f6f28",
+  "delivery_sheet_path": "/work/artifacts/art-prod-rt/slots/lanternward.beacon/v01/source-sheet.png",
+  "delivery_sheet_sha256": "8fcf7a94f0a98977638482d6de3140adb2d4c2289f835213d2327252cb420fda",
+  "delivery_status": "The delivery's own generation.json says not accepted: its reviewer judged a transparent PNG on a dark viewer and saw a dark backdrop or halo. On a neutral grey the sheet is truly transparent (measured fully_opaque_fraction 0.0) and the importer's alpha >= 128 threshold removes the sub-threshold halo. Accepted by the pilot review on 2026-10-18.",
+  "generation_sha256": "f587f4401aff0d41998644b541b6cb8f5b2dfe7f91b3ace87b5f9af39b94742c",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "2fd021625536f4849e4cc3072f9ef6d60e4cca0e001fe06d021ff247ad8b9c9f",
+  "native_contract": "Native 24x36, anchor bottom-centre (12,36).",
+  "notes_sha256": "8ed02a924c1ff1be95c0a0bc58cec29d8ec5c48b7eb098b4bbcd905840b8730f",
+  "prepared_sheet": "The delivered sheet redraws the tower in every cell and its texture drifts between cells. prepare.py (in this folder) locks the tower to the first cell and lays each other cell's own fire over it, then cuts seven identical windows. Every pixel is a delivered pixel; none is painted or filtered. source_path and source_sha256 are the prepared sheet (outside the repo); delivery_sheet_* are the untouched delivery. Reproduce with: python3 -I prepare.py --output /work/artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "3fb6ec419c78b5ec386d297e8aad617d2fab3128db8733c083658595a7c2dfb3",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1; source-sheet-2.png is the near-identical second generation, kept outside the repo and not used). The importer is run on a prepared sheet derived from it, see prepared_sheet.",
+  "source_path": "/work/artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon/source-sheet.png",
+  "source_sha256": "4d0396d52ee242f144859106f606a9e68ee8d61c35b4e60546991ef6d541056f"
+}

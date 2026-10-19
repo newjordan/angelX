@@ -1,0 +1,207 @@
+set chunk-4-5
+# The kingdom, chunk 4,5 in Castle Town: tiles 96..120 x 80..96 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 1408
+plate 1536 1024
+
+# ground
+box    grass   at 1624 -4 1320 size 176 4 80
+box    path    at 1728 -4 1296 size 32 4 32
+box    grass   at 1832 -4 1320 size 176 4 80
+box    path    at 1720 -4 1360 size 16 4 96
+box    grass   at 1736 -4 1344 size 16 4 64
+box    grass   at 1584 -4 1368 size 96 4 16
+box    road    at 1664 -4 1376 size 64 4 32
+box    grass   at 1704 -4 1368 size 16 4 16
+box    road    at 1776 -4 1376 size 64 4 32
+box    grass   at 1864 -4 1368 size 112 4 16
+box    path    at 1568 -4 1400 size 64 4 48
+box    grass   at 1616 -4 1384 size 32 4 16
+box    road    at 1704 -4 1384 size 16 4 16
+box    road    at 1736 -4 1384 size 16 4 16
+box    road    at 1816 -4 1384 size 16 4 16
+box    grass   at 1840 -4 1384 size 32 4 16
+box    path    at 1888 -4 1400 size 64 4 48
+box    path    at 1656 -4 1400 size 112 4 16
+box    path    at 1792 -4 1400 size 128 4 16
+box    grass   at 1616 -4 1472 size 32 4 128
+box    road    at 1728 -4 1416 size 192 4 16
+box    grass   at 1840 -4 1472 size 32 4 128
+box    grass   at 1568 -4 1440 size 64 4 32
+box    grass   at 1672 -4 1440 size 80 4 32
+box    path    at 1720 -4 1480 size 16 4 112
+box    grass   at 1776 -4 1440 size 96 4 32
+box    grass   at 1888 -4 1440 size 64 4 32
+box    crop    at 1560 -4 1472 size 48 4 32
+box    grass   at 1592 -4 1496 size 16 4 80
+box    crop    at 1664 -4 1464 size 64 4 16
+box    grass   at 1704 -4 1472 size 16 4 32
+box    grass   at 1736 -4 1472 size 16 4 32
+box    crop    at 1776 -4 1464 size 64 4 16
+box    grass   at 1816 -4 1496 size 16 4 80
+box    grass   at 1864 -4 1496 size 16 4 80
+box    crop    at 1880 -4 1480 size 16 4 48
+box    grass   at 1904 -4 1496 size 32 4 80
+box    grass   at 1664 -4 1504 size 64 4 64
+box    grass   at 1776 -4 1504 size 64 4 64
+box    grass   at 1560 -4 1512 size 48 4 48
+box    path    at 1704 -4 1512 size 16 4 48
+box    path    at 1736 -4 1512 size 16 4 48
+box    grass   at 1880 -4 1520 size 16 4 32
+
+# crop furrows
+box    crop    at 1560 0 1459.5 size 46 2.5 2
+box    crop    at 1560 0 1464.5 size 46 2.5 2
+box    crop    at 1560 0 1469.5 size 46 2.5 2
+box    crop    at 1560 0 1474.5 size 46 2.5 2
+box    crop    at 1560 0 1479.5 size 46 2.5 2
+box    crop    at 1560 0 1484.5 size 46 2.5 2
+box    crop    at 1664 0 1459.5 size 62 2.5 2
+box    crop    at 1664 0 1464.5 size 62 2.5 2
+box    crop    at 1664 0 1469.5 size 62 2.5 2
+box    crop    at 1776 0 1459.5 size 62 2.5 2
+box    crop    at 1776 0 1464.5 size 62 2.5 2
+box    crop    at 1776 0 1469.5 size 62 2.5 2
+box    crop    at 1880 0 1459.5 size 14 2.5 2
+box    crop    at 1880 0 1464.5 size 14 2.5 2
+box    crop    at 1880 0 1469.5 size 14 2.5 2
+box    crop    at 1880 0 1474.5 size 14 2.5 2
+box    crop    at 1880 0 1479.5 size 14 2.5 2
+box    crop    at 1880 0 1484.5 size 14 2.5 2
+box    crop    at 1880 0 1489.5 size 14 2.5 2
+box    crop    at 1880 0 1494.5 size 14 2.5 2
+box    crop    at 1880 0 1499.5 size 14 2.5 2
+
+# an artisan's cottage of Artisan Quarter: a cottage at 101,83 2x2
+box    wood    at 1632 0 1352 size 28 12.43 12 id artisan-cottage-1
+gable  thatch  at 1632 12.43 1352 size 31 10.67 15
+box    stone   at 1638.72 12.43 1350.8 size 4 12.07 4
+box    door    at 1632 0 1358.25 size 7 9.43 1
+box    window  at 1625 5.22 1358.25 size 5 3.73 1
+box    window  at 1639 5.22 1358.25 size 5 3.73 1
+
+# an artisan's cottage of Artisan Quarter: a cottage at 104,83 2x2 (at 96% of its height, for the camera)
+box    plaster at 1680 0 1352 size 28 14 12 id artisan-cottage-2
+gable  roof    at 1680 14 1352 size 31 9.5 15
+box    door    at 1680 0 1358.25 size 7 10.5 1
+box    window  at 1673 6 1358.25 size 5 4 1
+box    window  at 1687 6 1358.25 size 5 4 1
+
+# an artisan's cottage of Artisan Quarter: a cottage at 109,83 2x2 (at 99% of its height, for the camera)
+box    wood    at 1760 0 1352 size 28 13.5 12 id artisan-cottage-3
+hip    thatch  at 1760 13.5 1352 size 31 10 15
+box    stone   at 1766.72 13.5 1350.8 size 4 11.5 4
+box    door    at 1760 0 1358.25 size 7 10.5 1
+box    window  at 1753 5.5 1358.25 size 5 4 1
+box    window  at 1767 5.5 1358.25 size 5 4 1
+
+# an artisan's cottage of Artisan Quarter: a cottage at 112,83 2x2
+box    wood    at 1808 0 1352 size 28 13.44 12 id artisan-cottage-4
+hip    roof    at 1808 13.44 1352 size 31 9.43 15
+box    door    at 1802.4 0 1358.25 size 7 10.44 1
+
+# the smith's working bay of Artisan Quarter: a forge with its open bay and stack at 101,89 3x2
+box    plaster at 1630.92 0 1448 size 25.84 13 12 id smith-working-bay
+hip    roof    at 1630.92 13 1448 size 28.84 10 15
+box    door    at 1625.75 0 1454.25 size 7 10 1
+box    wood    at 1661 0 1453 size 2 11 2
+box    wood    at 1661 0 1444 size 2 11 2
+wedge  roof    at 1652.92 11 1448.5 size 13 4 19.16 turn 90
+box    brick   at 1640.34 0 1446.5 size 5 26 5
+box    stone   at 1649.34 0 1450 size 7 5 6
+
+# the loom of Artisan Quarter: a workshop and lean-to at 105,89 2x2
+box    wood    at 1690.92 0 1448 size 17.84 13 12 id loom
+gable  thatch  at 1690.92 13 1448 size 20.84 10 15
+box    door    at 1687.35 0 1454.25 size 7 10 1
+box    wood    at 1709 0 1453 size 2 11 2
+box    wood    at 1709 0 1444 size 2 11 2
+wedge  thatch  at 1704.92 11 1448.5 size 13 4 11.16 turn 90
+box    wood    at 1704.42 0 1449 size 5.16 4 4
+
+# the cooper's of Artisan Quarter: a workshop and lean-to at 108,89 2x2
+box    stone   at 1738.92 0 1448 size 17.84 13 12 id cooper
+gable  roof    at 1738.92 13 1448 size 20.84 10 15
+box    door    at 1735.35 0 1454.25 size 7 10 1
+box    wood    at 1757 0 1453 size 2 11 2
+box    wood    at 1757 0 1444 size 2 11 2
+wedge  roof    at 1752.92 11 1448.5 size 13 4 11.16 turn 90
+box    wood    at 1752.42 0 1449 size 5.16 4 4
+
+# the granary of Artisan Quarter: a barn at 111,89 3x2 (at 96% of its height, for the camera)
+box    wood    at 1800 0 1448 size 44 13 13 id granary
+gable  thatch  at 1800 13 1448 size 47 12.5 16
+box    door    at 1800 0 1454.75 size 11 11.5 1
+
+# the well of Artisan Quarter: a well at 114,85 1x1 (at 69% of its height, for the camera)
+cylinder stone   at 1832 0 1368 size 12 3 12 id well
+cylinder water   at 1832 0 1368 size 9 3 9
+box    wood    at 1826.5 0 1368 size 1.5 8.5 1.5
+box    wood    at 1837.5 0 1368 size 1.5 8.5 1.5
+gable  roof    at 1832 8.5 1368 size 15 3.5 12
+
+# set dressing
+cylinder wood    at 1556 0 1494 size 5 4 5
+cylinder wood    at 1563 0 1494 size 5 4 5
+cylinder wood    at 1556 0 1499 size 5 4 5
+
+# woods (at 45% of its height, for the camera)
+cylinder trunk   at 1912 0 1288 size 3 8 3
+cone   foliage at 1912 5 1288 size 19 16.12 19
+cone   foliage at 1912 14.88 1288 size 13.68 16.12 13.68
+cylinder trunk   at 1912 0 1304 size 3 8 3
+cone   foliage at 1912 5 1304 size 19 19.84 19
+cone   foliage at 1912 17.16 1304 size 13.68 19.84 13.68
+frustum trunk   at 1656 0 1528 size 3 12 3
+blob-37 foliage at 1656 7 1528 size 19 17 18.05 turn 180
+cylinder trunk   at 1785 0 1527 size 3 4 3
+blob-35 foliage at 1785 1.5 1527 size 17 9.5 16.15 turn 180
+frustum trunk   at 1801 0 1527 size 3 4.5 3
+blob-14 foliage at 1801 2 1527 size 17 9 16.15
+cylinder trunk   at 1848 0 1528 size 3 5 3
+blob-52 foliage at 1848 3 1528 size 19 6.5 18.05 turn 180
+box    hedge   at 1816 0 1288 size 16 5 15
+blob-58 hedge   at 1816 3.5 1288 size 16 4.5 15
+box    hedge   at 1832 0 1288 size 16 5 15
+blob-28 hedge   at 1832 3 1288 size 16 5.5 15
+box    hedge   at 1912 0 1320 size 15 7 16
+blob-3 hedge   at 1912 4.5 1320 size 15 5 16
+box    hedge   at 1560 0 1336 size 16 5 15
+blob-39 hedge   at 1560 3 1336 size 16 4.5 15
+box    hedge   at 1576 0 1336 size 16 5 15
+blob-38 hedge   at 1576 3 1336 size 16 4.5 15
+box    hedge   at 1912 0 1336 size 15 6 16
+blob-55 hedge   at 1912 3.5 1336 size 15 5 16
+box    hedge   at 1912 0 1352 size 15 6 16
+blob-64 hedge   at 1912 3.5 1352 size 15 6 16
+box    hedge   at 1912 0 1448 size 15 5.5 16
+blob-26 hedge   at 1912 3 1448 size 15 6 16
+box    hedge   at 1912 0 1464 size 15 7 16
+blob-56 hedge   at 1912 4.5 1464 size 15 5 16
+box    hedge   at 1656 0 1512 size 15 6 16
+blob-14 hedge   at 1656 3.5 1512 size 15 6 16
+box    hedge   at 1544 0 1528 size 16 6 15
+blob-58 hedge   at 1544 3.5 1528 size 16 6 15
+box    hedge   at 1560 0 1528 size 16 6 15
+blob-32 hedge   at 1560 3.5 1528 size 16 6 15
+box    hedge   at 1576 0 1528 size 16 6.5 15
+blob-3 hedge   at 1576 4 1528 size 16 5 15
+box    hedge   at 1592 0 1528 size 16 6 15
+blob-16 hedge   at 1592 3.5 1528 size 16 6 15
+box    hedge   at 1608 0 1528 size 16 6.5 15
+blob-42 hedge   at 1608 4 1528 size 16 6 15
+box    hedge   at 1624 0 1528 size 16 6 15
+blob-15 hedge   at 1624 3.5 1528 size 16 6 15
+box    hedge   at 1672 0 1528 size 16 6 15
+blob-16 hedge   at 1672 3.5 1528 size 16 6 15
+box    hedge   at 1768 0 1528 size 16 6.5 15
+blob-32 hedge   at 1768 4 1528 size 16 6 15
+box    hedge   at 1816 0 1528 size 16 6 15
+blob-54 hedge   at 1816 3.5 1528 size 16 5 15
+box    hedge   at 1832 0 1528 size 16 6.5 15
+blob-34 hedge   at 1832 4 1528 size 16 5 15
+box    hedge   at 1864 0 1528 size 16 6.5 15
+blob-10 hedge   at 1864 4 1528 size 16 6 15
+box    hedge   at 1880 0 1528 size 16 6 15
+blob-38 hedge   at 1880 3.5 1528 size 16 5 15

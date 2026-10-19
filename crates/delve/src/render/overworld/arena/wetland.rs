@@ -64,9 +64,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         }
         let (x, y) = at(x * 2.0, y * 2.0);
         let ink = if usize::from(s) == i || (i == 0 && s == 5) {
-            'O'
+            'o'
         } else if usize::from(s) > i {
-            '9'
+            'g'
         } else {
             'h'
         };

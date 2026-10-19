@@ -1,0 +1,31 @@
+{
+  "fit": "native canvas 24x36, anchor bottom-centre (12,36); stage 384x224 at 16 px per tile; a knight is 16x24 in this town; the bell frame is about 1.5 knights tall.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "ring-0",
+        "ring-1",
+        "ring-2",
+        "ring-3",
+        "ring-4",
+        "ring-5"
+      ],
+      "source_pose_count": 6,
+      "state": "ring"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "The Bell post stands on a free tile west of the well, foot at the post point; art never sets a hitbox.",
+  "id": "moonfall.bell",
+  "role": "prop",
+  "timing": "idle 12; ring 6x4 ticks (30 Hz). Art never sets a hitbox."
+}

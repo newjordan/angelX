@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Review: first row is one complete four-frame cycle; repeated rows stay unwired. Clamp hot highlights in cache and keep exact danger borders above decoration.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Native iteration: select same-family alternate ignition/peak components where first-cycle highlights fall below 0.90 colour agreement. Every active frame now clears the existing diagnostic; repeated unselected components keep their flags."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Reported sampled contact point; no extra hit area. Draw above relevant bodies.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "7a1b1d237611d93aaf169ba4e8e72f08a3856cfd6f1c35099929e5ea4e0ecda1",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Fist contact ignition: compact warm star, small smoke and debris.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        73.0,
+        75.5
+      ],
+      "source_rect_xywh": [
+        81,
+        228,
+        146,
+        151
+      ],
+      "state": "proposal-00"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Fist contact expansion: broader connected orange petals and smoke.",
+      "name": "effects-contact-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.5,
+        120.0
+      ],
+      "source_rect_xywh": [
+        351,
+        174,
+        229,
+        240
+      ],
+      "state": "effects-contact-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Fist contact peak: broad impact petals with the largest core and smoke mass.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        154.0,
+        154.5
+      ],
+      "source_rect_xywh": [
+        635,
+        126,
+        308,
+        309
+      ],
+      "state": "proposal-02"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Fist contact breakup: separated smoke clumps and orange fragments.",
+      "name": "effects-contact-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        107.5,
+        117.5
+      ],
+      "source_rect_xywh": [
+        1008,
+        183,
+        215,
+        235
+      ],
+      "state": "effects-contact-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Guard contact ignition: compact warm core with a cool blue curved guard edge.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        72.5,
+        67.5
+      ],
+      "source_rect_xywh": [
+        88,
+        597,
+        145,
+        135
+      ],
+      "state": "guard-contact-ignition"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Guard contact expansion: expanding warm petals against the blue rim.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.5,
+        119.0
+      ],
+      "source_rect_xywh": [
+        357,
+        533,
+        223,
+        238
+      ],
+      "state": "guard-contact-expansion"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Guard contact peak: broad contact with the strongest cool edge.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        146.5,
+        151.0
+      ],
+      "source_rect_xywh": [
+        653,
+        505,
+        293,
+        302
+      ],
+      "state": "guard-contact-peak"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Guard contact breakup: fragments and separated rim pieces.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.0,
+        114.0
+      ],
+      "source_rect_xywh": [
+        1009,
+        544,
+        214,
+        228
+      ],
+      "state": "guard-contact-breakup"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Alternate ignition: compact, asymmetric warm impact.",
+      "name": "effects-contact-0",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        72.5,
+        78.0
+      ],
+      "source_rect_xywh": [
+        87,
+        943,
+        145,
+        156
+      ],
+      "state": "effects-contact-0"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Alternate expansion: larger petals with clustered smoke.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        112.5,
+        111.5
+      ],
+      "source_rect_xywh": [
+        358,
+        907,
+        225,
+        223
+      ],
+      "state": "alternate-expansion"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Alternate peak: broad starburst and smoke mass.",
+      "name": "effects-contact-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.0,
+        147.5
+      ],
+      "source_rect_xywh": [
+        635,
+        868,
+        308,
+        295
+      ],
+      "state": "effects-contact-2"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Alternate breakup: separated smoke and warm fragments.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        103.5,
+        118.0
+      ],
+      "source_rect_xywh": [
+        1008,
+        907,
+        207,
+        236
+      ],
+      "state": "alternate-breakup"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732 at (screen effect_x\u221216,py(effect_y\u221216)); contact stores effect_y=contact y\u221220.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "brasswake.contact",
+  "source_sha256": "72198c08d18b43318a0b848b5cb6b3ff4491076d628b3c6ef95bf64d0183b7b2",
+  "timing": "Four frames over effect=12, 3 ticks each; local freeze=brass_stop=2 can hold the clock (Lane::contact/step_at, draw())."
+}

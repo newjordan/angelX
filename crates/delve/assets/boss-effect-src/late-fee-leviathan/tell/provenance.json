@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.late-fee-leviathan.tell/v01/source-sheet.png",
+  "source_sha256": "12476f398a0ceeceed0e22684c488c3794c347ecf82481127d5ca4bdaee3dab6",
+  "original_sheet_sha256": "12476f398a0ceeceed0e22684c488c3794c347ecf82481127d5ca4bdaee3dab6",
+  "metadata_sha256": "23b3b94583208d840d6c407dbba88b5cb1555cf8e44d02d42dec714c6528bdfe",
+  "size": [
+    1536,
+    1536
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        126,
+        357,
+        169,
+        155
+      ],
+      "alpha_area": 13988,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "7e5106dd17024e29683375d6fede8afdbcbece085e7a8eede323c1f1d25d3178"
+    },
+    {
+      "source_rect_xywh": [
+        473,
+        326,
+        226,
+        198
+      ],
+      "alpha_area": 24977,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "247405ef254d07b1c446c91f73d2a6d77a68ce5d3b5527cd8e1febd8030abda9"
+    },
+    {
+      "source_rect_xywh": [
+        825,
+        291,
+        253,
+        267
+      ],
+      "alpha_area": 37526,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "85560835e0976704ce447d1b713c0632643dcee53b289c9fbc643bbb13a8b823"
+    },
+    {
+      "source_rect_xywh": [
+        1182,
+        219,
+        314,
+        347
+      ],
+      "alpha_area": 54918,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "856196928734f404e4d52e045e047ce8c485bc5c9b637e92b8362c1afa4b7c15"
+    },
+    {
+      "source_rect_xywh": [
+        118,
+        767,
+        176,
+        180
+      ],
+      "alpha_area": 16690,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "1bd52979666fd723265502472d4e571c28fa7ce3e2ef55e386ea25f1651f8a3d"
+    },
+    {
+      "source_rect_xywh": [
+        472,
+        757,
+        217,
+        190
+      ],
+      "alpha_area": 23626,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "7e9ffecf118fffed68c8fdd3d2230809492a568f7631883ff62e9f8f6e1d6cc8"
+    },
+    {
+      "source_rect_xywh": [
+        821,
+        721,
+        253,
+        247
+      ],
+      "alpha_area": 35830,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "1d7c183dd7b9d71a6a795fe428ef79f24f1ce654afdf29eb72d76d4000be3b04"
+    },
+    {
+      "source_rect_xywh": [
+        1199,
+        636,
+        307,
+        355
+      ],
+      "alpha_area": 52533,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "967e421e42dc7b3535657ff7894b1990faa944877e2e2ff7661f7c3d213cc6c2"
+    },
+    {
+      "source_rect_xywh": [
+        99,
+        1184,
+        214,
+        193
+      ],
+      "alpha_area": 21343,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "fb15f441d0f2d4db0fe1a027e58fdb90bfe32f9838a74a5cec07c316436c5665"
+    },
+    {
+      "source_rect_xywh": [
+        507,
+        1195,
+        174,
+        168
+      ],
+      "alpha_area": 16053,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "6f5f1d002d6ead75c19edae397cd8ac8b0ced9402f11f012450d06e9dcf30b0f"
+    },
+    {
+      "source_rect_xywh": [
+        893,
+        1211,
+        138,
+        139
+      ],
+      "alpha_area": 10203,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "2ce520223ea316a3b121176f02681be7cd331932fba8c5bf1dd80bd50041ce91"
+    },
+    {
+      "source_rect_xywh": [
+        1289,
+        1233,
+        123,
+        116
+      ],
+      "alpha_area": 4654,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "ae7c6cdc3f3379d9be189e770ff97f39db8ef02940519117e50a3bc3e3190cc8"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# The Rusty Hippodrome: the grandstands' upper tiers climbing behind the lower ones, a roof over each, a triumphal arch over the north gate.
+# the west grandstand: tiers rising to the back, a roof on four posts
+stairs-6 wood  at 96 0 8 size 96 50 16
+box    wood    at 52 30 6 size 4 30 4
+box    wood    at 140 30 6 size 4 30 4
+box    wood    at 52 30 14 size 4 30 4
+box    wood    at 140 30 14 size 4 30 4
+gable  roof    at 96 58 8 size 108 14 28
+# the east grandstand
+stairs-6 wood  at 288 0 8 size 96 50 16
+box    wood    at 244 30 6 size 4 30 4
+box    wood    at 332 30 6 size 4 30 4
+box    wood    at 244 30 14 size 4 30 4
+box    wood    at 332 30 14 size 4 30 4
+gable  roof    at 288 58 8 size 108 14 28
+# the gate: two stone piers either side of the north door, an arch over it
+box    stone   at 168 0 8 size 11 44 11
+box    stone   at 216 0 8 size 11 44 11
+arch-8 stone   at 192 44 8 size 64 22 12
+box    stone   at 168 44 8 size 14 4 14
+box    stone   at 216 44 8 size 14 4 14

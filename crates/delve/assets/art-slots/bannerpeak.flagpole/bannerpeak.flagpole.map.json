@@ -1,0 +1,162 @@
+{
+  "anchor_canvas_wh": [
+    60,
+    100
+  ],
+  "anchor_xy": [
+    14,
+    100
+  ],
+  "comments": [
+    "One bank on the pole's foot: one scale for all six frames, by height. The pennon streams right of the pole, past the slot's 24 px canvas, so the canvas is wider with the pole at x=12.",
+    "Left off (runtime false): the rules' grab zone is nine tiles (144 px, a score table of ten heights) and the stage's block pole is as tall; the painted pole is 100 px, so a knight on the stair beside it grabs in the air above its tip. The slot's documented box (96 px) disagrees with the rules."
+  ],
+  "delivered_pieces": 6,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 6,
+  "geometry": "The marsh goal pole; the rules box is the pole; the pennon spills right past it; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: idle-0 (pennon low and limp), slide-0 (mid-height), fly-0..3 (top, four flutter shapes).",
+  "notes_sha256": "870b9dadc89ccabb7fa9998354454e06410f778f1c61d5d66686c27f9e9f8496",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        60.0,
+        437
+      ],
+      "source_rect_xywh": [
+        207,
+        53,
+        131,
+        437
+      ],
+      "state": "idle",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "slide-0",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        59.2,
+        437
+      ],
+      "source_rect_xywh": [
+        707,
+        53,
+        212,
+        437
+      ],
+      "state": "slide",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "fly-0",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        60.0,
+        437
+      ],
+      "source_rect_xywh": [
+        1200,
+        53,
+        206,
+        437
+      ],
+      "state": "fly",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "No delivered reading-order label",
+      "name": "fly-1",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        60.0,
+        433
+      ],
+      "source_rect_xywh": [
+        207,
+        537,
+        226,
+        433
+      ],
+      "state": "fly",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "No delivered reading-order label",
+      "name": "fly-2",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        59.6,
+        433
+      ],
+      "source_rect_xywh": [
+        707,
+        537,
+        206,
+        433
+      ],
+      "state": "fly",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "No delivered reading-order label",
+      "name": "fly-3",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        60.1,
+        433
+      ],
+      "source_rect_xywh": [
+        1200,
+        537,
+        257,
+        433
+      ],
+      "state": "fly",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 60x100, anchor (12,100) at the pole foot; stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      60,
+      100
+    ],
+    "v2": [
+      60,
+      100
+    ]
+  },
+  "slot": "bannerpeak.flagpole",
+  "source_sha256": "50cf3e16f99fb9c1b0667d2d94dda566b8daf5c90edc7e6de0a491974bb2ff04",
+  "timing": "idle 1 ticks; slide 1 ticks; fly 4x6 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

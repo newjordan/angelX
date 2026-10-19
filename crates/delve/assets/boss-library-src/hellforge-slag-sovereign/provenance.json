@@ -1,0 +1,215 @@
+{
+  "id": "hellforge-slag-sovereign",
+  "source_path": "./cockpit/assets/boss-library/existing/hellforge-slag-sovereign/v01/source-sheet-refined.png",
+  "source_sha256": "aa1348e59c58db5153771965d5741ab349fc189f63a77a152558447d36b3c508",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Hovering sovereign made of black iron slag over a broad molten-orange belly core. Huge squat pear-shaped armored mantle, FIVE blunt crown prongs of fused bronze, narrow haughty gold eyes, thick short floating gauntlets. Lower hem drips into a pointed slag skirt, no legs; bright cracks restrained to core and joints. Regal yet comically overheated, crown slightly off-center.",
+  "definition_header": "name SLAG SOVEREIGN\ntext Fuel and tribute seal the forge throne until its supply officers are actually slain.\nby angelX\nwhere hellforge\nhp 820\nsize 1.7\nmove hover speed=1.0\nattack ring shots=6 speed=5 every=85 damage=12 shot=ember\nattack aimed shots=2 speed=7 every=60 damage=10 shot=ember\nphases twin_spiral sweep rain laser every=72 volleys=2 damage=12\nrage 30%\ndrops gold 180, gem 2",
+  "source_definition_sha256": "cd1bc6a98ac3c68f21c33f32fe4cb0355673d60fbdccf8717f8154feb98fc85b",
+  "definition_sha256": "cd1bc6a98ac3c68f21c33f32fe4cb0355673d60fbdccf8717f8154feb98fc85b",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        64,
+        196,
+        233,
+        258
+      ],
+      "opaque_component_pixels": 35760,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "eb9f18014b88fff518d844757a56751592ab0e941343980dff68df21d2be02c6"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        355,
+        155,
+        253,
+        303
+      ],
+      "opaque_component_pixels": 43582,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "dc087033e20c0c26dd4229349134cc925426f4164f16f1ff035e75addb6f6e68"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        691,
+        197,
+        197,
+        262
+      ],
+      "opaque_component_pixels": 29330,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "ee7793f27428adf755ff0b53d93529645a0f5ffff20296aa014fa4061c18b4b7"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        984,
+        181,
+        213,
+        279
+      ],
+      "opaque_component_pixels": 36600,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "4b3662ed7496cafdba7b8a6f4a72c3b26b82dafeb078a04c5128f1af29af0a1d"
+    },
+    {
+      "id": "overhead/part/molten-armor-body",
+      "source_rect_xywh": [
+        63,
+        600,
+        215,
+        230
+      ],
+      "opaque_component_pixels": 33304,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-molten-armor-body.png",
+      "sha256": "5da811499aff8bb927a672e10bf895c1314323e41b334cf6b49e3b41ab72f6fb"
+    },
+    {
+      "id": "overhead/part/five-prong-crown-head",
+      "source_rect_xywh": [
+        414,
+        632,
+        153,
+        160
+      ],
+      "opaque_component_pixels": 17000,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-five-prong-crown-head.png",
+      "sha256": "5a494c23d66ab18502c01d9a5eba30d87eea04453ebe44c1f8546a4d593922ee"
+    },
+    {
+      "id": "overhead/part/slag-gauntlet",
+      "source_rect_xywh": [
+        698,
+        636,
+        173,
+        171
+      ],
+      "opaque_component_pixels": 18420,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-slag-gauntlet.png",
+      "sha256": "191f7036c01e49b4047f7cfe47b55782ab334c563d90dc2fbd41722c6b0004a0"
+    },
+    {
+      "id": "overhead/part/slag-mantle",
+      "source_rect_xywh": [
+        977,
+        599,
+        232,
+        216
+      ],
+      "opaque_component_pixels": 32168,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-slag-mantle.png",
+      "sha256": "f9d6de132fca5744ecbf2ed6e37c31cff1996ba1b02f6b3b63d9349e7475c8e6"
+    },
+    {
+      "id": "side/part/molten-armor-body",
+      "source_rect_xywh": [
+        67,
+        932,
+        216,
+        239
+      ],
+      "opaque_component_pixels": 33143,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-molten-armor-body.png",
+      "sha256": "4c2c57df934b29715dcba34fa4c1910349fe56152c6b9ed7212652211bb2d0e2"
+    },
+    {
+      "id": "side/part/five-prong-crown-head",
+      "source_rect_xywh": [
+        417,
+        963,
+        138,
+        148
+      ],
+      "opaque_component_pixels": 13788,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-five-prong-crown-head.png",
+      "sha256": "21bf45840e221ee8b33d9e056e5d8a3b4431de31a050a39e6090b9dddaca2c4b"
+    },
+    {
+      "id": "side/part/slag-gauntlet",
+      "source_rect_xywh": [
+        709,
+        979,
+        173,
+        141
+      ],
+      "opaque_component_pixels": 16804,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-slag-gauntlet.png",
+      "sha256": "4f942fed08ff07f223f54a165f3cc61502029d57f57227b4d16e1406aaa5dd8a"
+    },
+    {
+      "id": "side/part/slag-mantle",
+      "source_rect_xywh": [
+        977,
+        940,
+        232,
+        192
+      ],
+      "opaque_component_pixels": 28273,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-slag-mantle.png",
+      "sha256": "21af176925962a0cc35356606153420860db8681e73dd5392bf184ba121b0d00"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

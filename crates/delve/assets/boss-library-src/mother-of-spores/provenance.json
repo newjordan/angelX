@@ -1,0 +1,78 @@
+{
+  "id": "mother-of-spores",
+  "source_path": "./cockpit/assets/boss-library/existing/mother-of-spores/v01/source-sheet-refined.png",
+  "source_sha256": "de24fee413da1e2cd338fda64c936fe62889e0d29b6d118537b7978ea8890616",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Ancient ROOTED mushroom matron, enormous broad cream-and-russet umbrella cap with moss patches, orange shaded gills beneath, drooping wise face in stout pale stalk torso. Two heavy branching root arms and a spread rooted moss base, no walking boots. Patient half-lidded eyes, little frowning mouth, bulky grandmother mass and hanging fern shawl. Very old kindly guardian, no witch costume.",
+  "definition_header": "name MOTHER OF SPORES\ntext She was here before the first knight lit the first torch, and she is in no hurry.\nby angelX\nwhere fungal\nhp 860\nsize 1.8\nmove anchor\nphases split mines crossfire every=78 volleys=2 damage=10\nattack fan shots=7 arc=70 speed=7 every=70 damage=12 shot=bone\nattack aimed shots=2 speed=9 every=42 damage=14 shot=ember\nrage 40%\ndrops ore 5, gem 4, gold 260",
+  "definition_sha256": "ac5d67e72c08aa7f039d5306a8e85ac7974bfc4fbce54b28a98ca79137108179",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        74,
+        179,
+        239,
+        255
+      ],
+      "opaque_component_pixels": 44516,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "87827370fc48c2cb3f1def265eb23d40c631a57049f5ed6f6672c2efd220cea6"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        363,
+        167,
+        269,
+        272
+      ],
+      "opaque_component_pixels": 48499,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "969259302113943b86eab529588051e3a3cb98e21ee83129c02dab5d2b6d9000"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        667,
+        182,
+        233,
+        251
+      ],
+      "opaque_component_pixels": 41685,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "37ecd834c40625d37660ee8df04d5d6fe25a1ea0185a0549d93dd3207664bceb"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        966,
+        170,
+        239,
+        264
+      ],
+      "opaque_component_pixels": 43371,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "bff794534932d3cb0b4d99a500b4d66c90329d91b51c903eef9f1fa64cd523da"
+    }
+  ]
+}

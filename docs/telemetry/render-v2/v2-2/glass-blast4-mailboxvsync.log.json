@@ -1,0 +1,24 @@
+{
+ "host": "glass",
+ "mode": "blast4",
+ "present": "mailbox",
+ "fps": 73.9,
+ "render_p50_ms": 2.074,
+ "render_p95_ms": 3.054,
+ "build_mean_ms": 0.1,
+ "submit_mean_ms": 0.091,
+ "present_mean_ms": 1.552,
+ "upload_ms_per_frame": 0.205,
+ "bench": {
+  "mode": "blast4",
+  "frames": "810",
+  "cols": "219",
+  "rows": "56",
+  "payload_bytes": "750080",
+  "produce_p50_ms": "0.174",
+  "produce_p95_ms": "0.432"
+ },
+ "cells": 12264,
+ "cells_per_s": 906310,
+ "series": "glass-blast4-mailboxvsync.log.series.json"
+}

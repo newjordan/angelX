@@ -1,0 +1,23 @@
+power wish:quick 3
+teacher Pib
+place Mummers' Hollow, the Fair's stage
+room Mummers
+look motley gone grey at the elbows, six tin plates in a stack, and a wink that uses both eyes at once
+line Slow is just fast with a limp.
+hook The level-2 card reads ...and six small chalk circles, drawn fast.
+step The plates | keep Pib's six tin plates spinning one full minute | plates_spun 1 | Round and round and nobody sues you. | cue spin
+step The chase | win one Cheese Chuck round at the Fair's arcade | pastime_rounds_won 1 | Fast is a habit. Cheeses know this. | needs pastime_rounds_won
+step The pickpocket's tithe | buy one bread at the Goose-Proof Bakery with Pib's planted coin | bread_bought 1 | Spending stolen goods briskly — that's the advanced class. | cue buy
+step The four slots | play four cards in four seconds in the Delve | fast_plays 1 | Four slots, four beats, no apologies.
+trial The one-second hall | clear one hall never pausing longer than a second between acts | brisk_halls 1 | Slow is just fast with a limp. You've been cured.
+reward Quick Hands tier 3
+title the Tin Plate
+keepsake the Crooked Chalk, a chalk ring round the wrist that redraws itself, slightly crooked
+ties The bakery is Goodwife Barley's shop; the arcade rounds share Sela's goose argument; the four-slot hand is the twins' own step.
+art
+..888..
+.8.8.8.
+.8.8.8.
+..888..
+..8.8..
+...8...

@@ -993,6 +993,9 @@ impl Bag {
                 None,
                 &["ANGEL_CEREBRAS_KEY", "CEREBRAS_API_KEY"],
             ),
+            // Metered per token and outside the MoA preference order: seated
+            // by name (`ANGEL_DRIVER=anthropic`), never preferred for a role.
+            optional_anthropic_http_club(),
         ]
         .into_iter()
         .flatten()

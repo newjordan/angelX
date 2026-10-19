@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.crypt-tithe-marshal.tell/v01/source-sheet.png",
+  "source_sha256": "5711e6a29cafcb20e8b7dc89207214f44e23640ec6a3fabd14998c74548e2a4e",
+  "original_sheet_sha256": "5711e6a29cafcb20e8b7dc89207214f44e23640ec6a3fabd14998c74548e2a4e",
+  "metadata_sha256": "da61589f2e2592cec7587fdc3f0d7c889a9e802fe668b6b3e6ec5ba280ff0657",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        100,
+        301,
+        131,
+        137
+      ],
+      "alpha_area": 7403,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "5ea66aa675cb57797818d46c6208ed3f10f2c8e8287757331f4d6f44569467ec"
+    },
+    {
+      "source_rect_xywh": [
+        399,
+        276,
+        171,
+        187
+      ],
+      "alpha_area": 10644,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "6bec605998da460690262a13f6e64e76000e48631457d914983c601151724889"
+    },
+    {
+      "source_rect_xywh": [
+        678,
+        274,
+        212,
+        184
+      ],
+      "alpha_area": 13625,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "b846a8c1ba728a5e5e8ff95a4e51ccd4e10cb1712cdd96db819f0a95d52b60c6"
+    },
+    {
+      "source_rect_xywh": [
+        995,
+        240,
+        210,
+        245
+      ],
+      "alpha_area": 17367,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "1744c9a0ebbf9ee91e978491e7f14099cb49c9202d234a01fe0b096e22ab35b0"
+    },
+    {
+      "source_rect_xywh": [
+        104,
+        637,
+        136,
+        146
+      ],
+      "alpha_area": 8122,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "9b7df36c8fc757def62ff58a103b537cf46fc0db2e720908a8356b16d70d95a3"
+    },
+    {
+      "source_rect_xywh": [
+        379,
+        614,
+        175,
+        176
+      ],
+      "alpha_area": 10985,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "ee760d99772449298ea6a069d976dbc11b18e4e92aff26e7d3b6ce7a6ac4dbf6"
+    },
+    {
+      "source_rect_xywh": [
+        671,
+        606,
+        198,
+        189
+      ],
+      "alpha_area": 12757,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "144b84d48907ff8b9c2a2d0779c537f85c2ed2d9993634492f03321aeccf15fa"
+    },
+    {
+      "source_rect_xywh": [
+        974,
+        575,
+        202,
+        245
+      ],
+      "alpha_area": 16256,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "c80cbc583f7979dd59b08001663be456d4b51f57cf78202e0882ad61f0ad7f20"
+    },
+    {
+      "source_rect_xywh": [
+        101,
+        957,
+        146,
+        162
+      ],
+      "alpha_area": 8725,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "bdce8fb2b06fc165b2eb2f710a9f25c32ce1c9becfd1eb239c59d4081f4cc0fd"
+    },
+    {
+      "source_rect_xywh": [
+        408,
+        951,
+        153,
+        170
+      ],
+      "alpha_area": 8330,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "006029741f08598dbb35ad6f691f92294055d1cb4fe20a3ba5ecdeb4a5d3000b"
+    },
+    {
+      "source_rect_xywh": [
+        716,
+        972,
+        137,
+        146
+      ],
+      "alpha_area": 6834,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "956aad1e17c6c300ad9ce5328b69ddc8651d5cb3b86961e4498041f205d0d0cb"
+    },
+    {
+      "source_rect_xywh": [
+        1040,
+        981,
+        112,
+        126
+      ],
+      "alpha_area": 6091,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "d8b56c4cbae0a54f83d39e86f13913f485be903b2193507390d80370d5a82802"
+    }
+  ]
+}

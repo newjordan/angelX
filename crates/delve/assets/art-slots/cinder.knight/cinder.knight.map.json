@@ -1,0 +1,274 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16,
+    24
+  ],
+  "comments": [
+    "Only explicitly mapped existing states are active; source count warnings and supplemental poses remain visible.",
+    "Seat masks include plume, cloth and painted shield field; steel/brass/leather are excluded before quantization."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Board::pair_at/fits define puzzle contacts; the figure is a seat portrait with no puzzle hurtbox.",
+  "mapping_basis": "Inspected 12 posed figures; explicit native feet pivots and selected existing states.",
+  "notes_sha256": "e958cda01ae7ca26ddb7a365cd7d8f86341a55b0e15429347460bc695dfc83f0",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle: upright, alert guard stance.",
+      "name": "watch",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        119.5,
+        321
+      ],
+      "source_rect_xywh": [
+        50,
+        111,
+        239,
+        321
+      ],
+      "state": "watch"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Idle bob: slightly raised, knees flexed and hands lifted.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.5,
+        333
+      ],
+      "source_rect_xywh": [
+        370,
+        103,
+        233,
+        333
+      ],
+      "state": "idle-bob"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Lean left/turn: torso lowered and rotated, one fist forward.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        305
+      ],
+      "source_rect_xywh": [
+        675,
+        128,
+        229,
+        305
+      ],
+      "state": "lean-left-turn"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Lean right/turn: shoulders twisted, one fist extended; turn difference is readable but moderate.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.5,
+        294
+      ],
+      "source_rect_xywh": [
+        987,
+        141,
+        245,
+        294
+      ],
+      "state": "lean-right-turn"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Drop: compressed crouch with both fists low.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        119.5,
+        221
+      ],
+      "source_rect_xywh": [
+        48,
+        580,
+        239,
+        221
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Stunned: recoils backward with open gloves spread wide.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        163.5,
+        286
+      ],
+      "source_rect_xywh": [
+        320,
+        516,
+        327,
+        286
+      ],
+      "state": "stunned"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Cheer: both fists raised high.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        347
+      ],
+      "source_rect_xywh": [
+        662,
+        460,
+        252,
+        347
+      ],
+      "state": "cheer"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Groan/defeat: head and shoulders drooped, arms hanging low.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.0,
+        256
+      ],
+      "source_rect_xywh": [
+        989,
+        553,
+        218,
+        256
+      ],
+      "state": "groan-defeat"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Hit flinch: twists away and shields the helmet with one arm.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.0,
+        284
+      ],
+      "source_rect_xywh": [
+        45,
+        891,
+        260,
+        284
+      ],
+      "state": "hit-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Victory fist: upright with one fist raised overhead.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        334
+      ],
+      "source_rect_xywh": [
+        379,
+        841,
+        235,
+        334
+      ],
+      "state": "victory-fist"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Worried look: tense lean, one glove close to the helmet.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        279
+      ],
+      "source_rect_xywh": [
+        672,
+        897,
+        235,
+        279
+      ],
+      "state": "worried-look"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Crouch: compact low stance with both fists near the ground.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        219
+      ],
+      "source_rect_xywh": [
+        969,
+        955,
+        251,
+        219
+      ],
+      "state": "crouch"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "Dynamic figure dimensions depend on class, gear, helmet and avatar; unknown, test. Canvas bottom-centre anchored at (45,40).",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      32,
+      24
+    ]
+  },
+  "slot": "cinder.knight",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "metadata_sha256": "64dc5d92de62e7648fddd260e5086b4c49ebf79fb4d4f487ee9f85e43a3d4126",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.knight/v01/source-sheet.png",
+    "original_sha256": "d95cb92f22a8f9f7432ee3a20ed5561dc3449adbc35368ea8490407cb8a8fe60",
+    "script": "crates/delve/assets/art-slots/cinder.chrome/actors.py"
+  },
+  "source_sha256": "0aa718c2d32542d44b8e6faa210a0173921237d01406889daad4ba753f1cf77f",
+  "timing": "Reuses hero pose/gear rendering; no puzzle-specific animation clock (renderer::draw, knights::figure_with)."
+}

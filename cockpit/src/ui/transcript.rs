@@ -517,6 +517,7 @@ fn is_plain_agent_text(text: &str) -> bool {
                 | b'('
                 | b')'
                 | b'>'
+                | b'<'
                 | b'|'
                 | b'-'
                 | b'!'

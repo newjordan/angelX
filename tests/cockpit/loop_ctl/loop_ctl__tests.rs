@@ -2006,6 +2006,17 @@ fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
         app.terminal_focused = false;
         app.loop_harvest("All done.\nLOOP_DONE".into());
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
+        // A note that asks for something else does not let it either: the
+        // cuda loop's only note was a hint, and its LOOP_DONE ended the run
+        // overnight (2026-10-16).
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = running();
+        app.loop_ctl.steer_notes = vec![
+            "you can rent a cheap rig on vast for a little while so you dont have conflict".into(),
+        ];
+        app.terminal_focused = false;
+        app.loop_harvest("Stopped after the one verifier as requested.\nLOOP_DONE".into());
+        assert_eq!(app.loop_ctl.status, LoopStatus::Running);
         // Asked to wrap up, the model may close the run.
         let mut app = crate::seed_preview_app();
         app.loop_ctl = running();

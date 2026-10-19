@@ -1,0 +1,23 @@
+power wish:pierce 3
+teacher Master Wymond
+place the forges of Caer Dwfn, the Smithy at the mine-head
+room MineHead
+look burn-scarred forearms, a squint that works in the dark, and a wax tablet of his own thumbprints
+line Armour is a door. I make the polite knock that opens it.
+hook The level-2 card carries ...forged narrow, politely, at a forge that keeps its own counsel.
+step The thumbprint test | let Wymond take your thumbprint in wax and bring him two ore | ore_given_to_forge 2 | Good thumb. Honest knuckles. | cue forge
+step The forge's commission | complete one mine-head workshop commission | commissions_done 1 | Narrow enough. The argument stands. | needs commissions_done
+step The wall that argues | put killing blows through two armour-edged foes | armoured_kills 2 | Armour is a door. You knocked.
+step The quintain, politely | strike the quintain's shield-edge, not its face | quintain_edge_hits 3 | Polite, narrow, and through. That's the whole sermon. | cue quintain
+trial The bodkin hall | clear one hall where every killing blow is a piercing shot | pierce_pure_halls 1 | Through two more, and harder. Now you mean it.
+reward Bodkin Heads tier 3
+title the Narrow Argument
+keepsake the Wax Thumb, a wax tablet with your own thumbprint, warmed
+ties The lists cross Ferris and Carom; the ore comes from Doorne's mines; the commission is the wheelwright's errand on Reynard's road.
+art
+...8...
+..888..
+.87878.
+..888..
+...7...
+..787..

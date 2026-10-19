@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7945
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7254
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8374
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8125
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5735
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8015
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 9088
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 9929
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 19070
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 10197
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7268
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8386
+    }
+  ],
+  "flags": [
+    "foreign/duplicate suspicion"
+  ],
+  "map_sha256": "c8279b719cbd0420ec1c4af8c00a2713aa00eab418cea2ed5439cb023f5195b5",
+  "metadata_sha256": "19197a25c3966a3222b6542601965229887df80118958bece1dd16014a3aefad",
+  "notes_sha256": "9263c1e48f063914f69b1b9a8d725bb0e366e31ffa6cc99de01294c648616b06",
+  "outputs": {
+    "v1/boulder-0.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 203,
+      "piece": 6,
+      "sha256": "092146fedff006dc75d1215674fa5f3252e30e0bb5248a937ceb43bd9dba2b61",
+      "source_scale": 0.05245901639344262,
+      "state": "block"
+    },
+    "v1/boulder-1.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 162,
+      "piece": 7,
+      "sha256": "b221af07339a93530e8190e11d91d6bfad1162dfa772289f500874fecbe9e28a",
+      "source_scale": 0.04221635883905013,
+      "state": "block"
+    },
+    "v1/boulder-2.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 184,
+      "piece": 8,
+      "sha256": "e6956ea7a44f99cdd299ea9245e87d22b201d5d3b566f391cfcb0731c4385dd0",
+      "source_scale": 0.044444444444444446,
+      "state": "block"
+    },
+    "v1/broken-0.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 19,
+      "opaque_pixels": 231,
+      "piece": 9,
+      "sha256": "56d28338e47228c4f486c0c649b5d4ae28d2ecbc39b8ec1a13b4f6bb3c627bab",
+      "source_scale": 0.053156146179401995,
+      "state": "block"
+    },
+    "v1/broken-1.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 12,
+      "opaque_pixels": 156,
+      "piece": 10,
+      "sha256": "093800771733548cc2540d838a2ee0c157201695ea2c1d3749b42b948b8249ae",
+      "source_scale": 0.050473186119873815,
+      "state": "block"
+    },
+    "v1/broken-2.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 169,
+      "piece": 11,
+      "sha256": "0356ed098c91a5850c534171fa4f2d4816779fc9524d449898778bd93f7c04fa",
+      "source_scale": 0.046242774566473986,
+      "state": "block"
+    },
+    "v1/pillar-0.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 20,
+      "opaque_pixels": 235,
+      "piece": 0,
+      "sha256": "2074836963c799afbbaa4bfd1c58f4cd077ed1f1896b1cd0a16639557e45ea83",
+      "source_scale": 0.056338028169014086,
+      "state": "block"
+    },
+    "v1/pillar-1.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 23,
+      "opaque_pixels": 257,
+      "piece": 1,
+      "sha256": "146848269446e7cd6ad0813f4ba0a59087ff0aae89f717b7265b87b0bf7ab979",
+      "source_scale": 0.05896805896805897,
+      "state": "block"
+    },
+    "v1/pillar-2.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 253,
+      "piece": 2,
+      "sha256": "f53f98c76f707c743b54616784910fa4f8ba92f356ed247393a2285a270ff0ed",
+      "source_scale": 0.05853658536585366,
+      "state": "block"
+    },
+    "v1/tomb-0.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 13,
+      "opaque_pixels": 154,
+      "piece": 3,
+      "sha256": "b2e68a0c77be2019c4227c9d71b2e6c65ee764a0a3932100b8ddd032e62df6e5",
+      "source_scale": 0.04060913705583756,
+      "state": "block"
+    },
+    "v1/tomb-1.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 17,
+      "opaque_pixels": 232,
+      "piece": 4,
+      "sha256": "798928dce726465c5079af4fe0d1e23f0ede20a5955e060c62f7cdf83f767294",
+      "source_scale": 0.050314465408805034,
+      "state": "block"
+    },
+    "v1/tomb-2.png": {
+      "anchor_xy": [
+        8,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 210,
+      "piece": 5,
+      "sha256": "31dd51ac1b5e16fb767296cd5507629c4df0c9302eb481a29c6e9d37f5ebbb3f",
+      "source_scale": 0.05128205128205128,
+      "state": "block"
+    },
+    "v2/boulder-0.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 60,
+      "opaque_pixels": 819,
+      "piece": 6,
+      "sha256": "c4d3e334ca3f70365e9f6526ed8efe9467480ea56b732e3c18d9234d30e0c98d",
+      "source_scale": 0.10491803278688525,
+      "state": "block"
+    },
+    "v2/boulder-1.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 47,
+      "opaque_pixels": 656,
+      "piece": 7,
+      "sha256": "12c207cd79e76b4f5a8ad03bb1ce0e750875a2832d69b2db3a52809b04c6fc04",
+      "source_scale": 0.08443271767810026,
+      "state": "block"
+    },
+    "v2/boulder-2.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 54,
+      "opaque_pixels": 729,
+      "piece": 8,
+      "sha256": "d3d76bcdf8b32a3e9a8abc76f902ba11818178c956e1a671fc7842ed56bd9a1d",
+      "source_scale": 0.08888888888888889,
+      "state": "block"
+    },
+    "v2/broken-0.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 67,
+      "opaque_pixels": 913,
+      "piece": 9,
+      "sha256": "b51d65145812f3022326ce55f70129840a3ac79dc53e2885b0e5ba4cf3ea5d2c",
+      "source_scale": 0.10631229235880399,
+      "state": "block"
+    },
+    "v2/broken-1.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 48,
+      "opaque_pixels": 666,
+      "piece": 10,
+      "sha256": "d77bfe9cc4046b550b11fcf549e7c79c40a1868b0c284371089ae7ce732f476c",
+      "source_scale": 0.10094637223974763,
+      "state": "block"
+    },
+    "v2/broken-2.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 48,
+      "opaque_pixels": 677,
+      "piece": 11,
+      "sha256": "3307bcd13a75c93f9e4bd9b24d3608b2adee40cbc15c217bcd7139e54685cf76",
+      "source_scale": 0.09248554913294797,
+      "state": "block"
+    },
+    "v2/pillar-0.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 928,
+      "piece": 0,
+      "sha256": "031ac8336be767483689e63ac1b5a8865bfd508c570abc49f364b978c1630443",
+      "source_scale": 0.11267605633802817,
+      "state": "block"
+    },
+    "v2/pillar-1.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 945,
+      "piece": 1,
+      "sha256": "2fe0baa49d06075a2c935c2280e299a94c7fa60ee016682c7c756499ad79cb2b",
+      "source_scale": 0.11793611793611794,
+      "state": "block"
+    },
+    "v2/pillar-2.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 73,
+      "opaque_pixels": 1059,
+      "piece": 2,
+      "sha256": "9bbe8a266ffc7591b982063c53d2a84f04e4c24cfcb356f7fdb1df40aaca520f",
+      "source_scale": 0.11707317073170732,
+      "state": "block"
+    },
+    "v2/tomb-0.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 44,
+      "opaque_pixels": 607,
+      "piece": 3,
+      "sha256": "17d6eda0669e352b1a1614c5cac3f78022f650f3db53ef6258b732a5e86c05ae",
+      "source_scale": 0.08121827411167512,
+      "state": "block"
+    },
+    "v2/tomb-1.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 62,
+      "opaque_pixels": 892,
+      "piece": 4,
+      "sha256": "d2ed0da9bb00d87d71a2c686a989dd3cb9fd5e182f429d40c4a33f55f066575a",
+      "source_scale": 0.10062893081761007,
+      "state": "block"
+    },
+    "v2/tomb-2.png": {
+      "anchor_xy": [
+        16,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 58,
+      "opaque_pixels": 818,
+      "piece": 5,
+      "sha256": "a033a2ea41cefac7624445879e72691a50cb753878f843e1ca6a219d8ec35e50",
+      "source_scale": 0.10256410256410256,
+      "state": "block"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "dgn.block.crypt",
+  "source_path": "/work/artifacts/art-prod/slots/dgn.block.crypt/v01/source-sheet.png",
+  "source_sha256": "1af3e03642139c1d127e480c2b5b91abf140ceb398aef592c1699a17595664af",
+  "tool_version": 2
+}

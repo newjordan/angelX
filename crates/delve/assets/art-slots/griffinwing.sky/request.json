@@ -1,0 +1,42 @@
+{
+  "fit": "native canvas 384x112 (opaque), one band of the sky; anchor bottom-centre (192,112); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "dusk-0"
+      ],
+      "source_pose_count": 1,
+      "state": "dusk"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "smoke-0"
+      ],
+      "source_pose_count": 1,
+      "state": "smoke"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "dawn-0"
+      ],
+      "source_pose_count": 1,
+      "state": "dawn"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "clouds-0"
+      ],
+      "source_pose_count": 1,
+      "state": "clouds"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "Painted into the sky's dots behind the 3D canyon, never a mesh; the horizon, the camera heading and the stage's own sky states choose which band and where; art never sets a hitbox (none).",
+  "id": "griffinwing.sky",
+  "role": "backdrop",
+  "timing": "dusk 1 ticks; smoke 1 ticks; dawn 1 ticks; clouds 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

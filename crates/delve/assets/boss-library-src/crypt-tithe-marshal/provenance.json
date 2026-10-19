@@ -1,0 +1,215 @@
+{
+  "id": "crypt-tithe-marshal",
+  "source_path": "./cockpit/assets/boss-library/existing/crypt-tithe-marshal/v01/source-sheet-refined.png",
+  "source_sha256": "aa0edc7f8c7a09227bdd546dcd0a3a037af8246f84cdc1e1c11b240a24361247",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Squat tomb-court armored officer, broad square flat iron greathelm with narrow slit, ivory bone trim, faded oxblood tabard and a fat relic collection pouch at belt. Huge gauntlets, short heavy boots. A long bone-tipped marshal staff and a bunch of oversized brass keys. Stern official struggling under the weight of his equipment; no exposed human face.",
+  "definition_header": "name TITHE MARSHAL\ntext The tomb court's officer: relic tribute arms the unopened garrisons.\nby angelX\nwhere crypt\nhp 580\nsize 1.4\nmove chase speed=1.0\nattack aimed shots=3 speed=6 every=75 damage=10 shot=bone\nphases gap_ring burst every=98 volleys=2 damage=10\nrage 30%\ndrops gold 100, gem 1",
+  "source_definition_sha256": "d18f6d7d52d6c730414f6794b0c1faa123ab4861d2a84a2276a5a3e735155631",
+  "definition_sha256": "fea1a3c7ff6232fa3f815b4225df55bb97671b41e1f0c4ee2ec7bf4c6137154f",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        67,
+        100,
+        219,
+        313
+      ],
+      "opaque_component_pixels": 38114,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "e34c3ef33b50bd7059804cd020e2b5d0a194c6baa40274226472e18bafcd5278"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        368,
+        200,
+        246,
+        217
+      ],
+      "opaque_component_pixels": 31863,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "8fe541b6610bbb442136ba9ba9321799b26632690caed0bd39d44d13b5e81c61"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        682,
+        118,
+        196,
+        299
+      ],
+      "opaque_component_pixels": 33591,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "76e1d320f5327280c8247e3c7d00fb128430e472474f0daba1a6b6bfcf95edd1"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        948,
+        170,
+        261,
+        241
+      ],
+      "opaque_component_pixels": 33434,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "04dbc2ad95ed098a4ef4c9a6cf6db178d9c0c4a91b7e7cd4e18748dde575796a"
+    },
+    {
+      "id": "overhead/part/armored-torso-boots",
+      "source_rect_xywh": [
+        70,
+        528,
+        214,
+        227
+      ],
+      "opaque_component_pixels": 35591,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-armored-torso-boots.png",
+      "sha256": "d5929478da6af78c2771c2f261c96731a04dd0b4ad6a8af8b713e7eca290fe27"
+    },
+    {
+      "id": "overhead/part/square-helm",
+      "source_rect_xywh": [
+        421,
+        558,
+        133,
+        154
+      ],
+      "opaque_component_pixels": 15257,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-square-helm.png",
+      "sha256": "fc563223603ae828158c75395245e2f34a02e2ca04a9b2748ca1e2b29541f0f4"
+    },
+    {
+      "id": "overhead/part/staff-arm",
+      "source_rect_xywh": [
+        695,
+        469,
+        159,
+        278
+      ],
+      "opaque_component_pixels": 18361,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-staff-arm.png",
+      "sha256": "ed2f8b570c8d8f3059f7d983ee48cff1b8c261c19ca17f05e218b924eba39808"
+    },
+    {
+      "id": "overhead/part/key-pouch-arm",
+      "source_rect_xywh": [
+        1002,
+        523,
+        167,
+        215
+      ],
+      "opaque_component_pixels": 20273,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-key-pouch-arm.png",
+      "sha256": "8e85ad4a35023748434e3dc2156263b5427d2218996d3bb4f33ff142c121c923"
+    },
+    {
+      "id": "side/part/armored-torso-boots",
+      "source_rect_xywh": [
+        92,
+        907,
+        199,
+        227
+      ],
+      "opaque_component_pixels": 31499,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-armored-torso-boots.png",
+      "sha256": "978a67aa3216f33cf8433cf72fc1af4805e02590789304642cbc70c23bc1991a"
+    },
+    {
+      "id": "side/part/square-helm",
+      "source_rect_xywh": [
+        423,
+        939,
+        135,
+        130
+      ],
+      "opaque_component_pixels": 13316,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-square-helm.png",
+      "sha256": "c8d28f1cdb91e71eca57587334e0f85a83b91c2771ca888cd56402903e231565"
+    },
+    {
+      "id": "side/part/staff-arm",
+      "source_rect_xywh": [
+        710,
+        830,
+        178,
+        306
+      ],
+      "opaque_component_pixels": 20233,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-staff-arm.png",
+      "sha256": "9413fd49243295772899ca792eb1047e37a42ab161cfdf6af883db070994455c"
+    },
+    {
+      "id": "side/part/key-pouch-arm",
+      "source_rect_xywh": [
+        1011,
+        924,
+        172,
+        196
+      ],
+      "opaque_component_pixels": 18763,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-key-pouch-arm.png",
+      "sha256": "62da40d63731d1e6b8c55a8f98613067b9d30485592b4132690eec0a639fbc57"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

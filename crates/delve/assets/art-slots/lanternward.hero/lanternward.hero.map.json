@@ -1,0 +1,450 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  16,
+  32
+ ],
+ "pieces": [
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "idle-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "run-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "run-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "run-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "run-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "strafe-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "strafe-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "strafe-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "strafe-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "hop-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hop-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hop-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hop-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hop-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hop-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "flip-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-1-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "slash-1-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "slash-1-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-1-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-1-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-2-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "slash-2-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "slash-2-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-2-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-2-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "slash-3-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "slash-3-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "slash-3-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "slash-3-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slash-3-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "lunge-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "lunge-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "lunge-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "lunge-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "lunge-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "lunge-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "charge-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "charge-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "spin-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "spin-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "jump-attack-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "jump-attack-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "jump-attack-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "jump-attack-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "jump-attack-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "block-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "block-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "parry-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "parry-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "parry-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "parry-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hurt-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 5
+  },
+  {
+   "name": "hurt-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 5
+  },
+  {
+   "name": "item-get-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 20
+  },
+  {
+   "name": "item-get-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 20
+  },
+  {
+   "name": "item-get-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 20
+  },
+  {
+   "name": "down-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "down-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "fall-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "fall-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "fall-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

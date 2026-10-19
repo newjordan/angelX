@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Approved source plates are nine-sliced in the cache into existing header, combo and podium rectangles; labels stay live."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Ranking uses progress/falls/finish; keep longest names, result columns, E AGAIN and footer clear. No baked score glyphs.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "23fd74b28494734a82c71dba5de8be2ae854678ff9c5eee12cbfd8126535061c",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Compact title/header plate with circular top rivet detail.",
+      "name": "header",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        170.0,
+        63.0
+      ],
+      "source_rect_xywh": [
+        23,
+        225,
+        340,
+        126
+      ],
+      "state": "header"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Wide blank nine-slice frame.",
+      "name": "panel",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        160.0,
+        105.0
+      ],
+      "source_rect_xywh": [
+        399,
+        169,
+        320,
+        210
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Tall blank nine-slice frame.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        75.5,
+        157.0
+      ],
+      "source_rect_xywh": [
+        760,
+        98,
+        151,
+        314
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Slim chain/height HUD plate.",
+      "name": "chain",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        41.5
+      ],
+      "source_rect_xywh": [
+        952,
+        248,
+        285,
+        83
+      ],
+      "state": "chain"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Broad result panel frame.",
+      "name": "podium",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        189.0,
+        133.0
+      ],
+      "source_rect_xywh": [
+        17,
+        523,
+        378,
+        266
+      ],
+      "state": "podium"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Three podium row surfaces grouped together.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        135.5,
+        135.5
+      ],
+      "source_rect_xywh": [
+        431,
+        522,
+        271,
+        271
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Blank shield rank badge.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.5,
+        140.5
+      ],
+      "source_rect_xywh": [
+        737,
+        518,
+        223,
+        281
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Blank round rank badge.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.0,
+        137.5
+      ],
+      "source_rect_xywh": [
+        997,
+        524,
+        240,
+        275
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Blank diamond rank badge.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        112.0,
+        125.5
+      ],
+      "source_rect_xywh": [
+        28,
+        888,
+        224,
+        251
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Small blank key-cap label.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        100.5,
+        44.5
+      ],
+      "source_rect_xywh": [
+        320,
+        988,
+        201,
+        89
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Wider blank key-cap label.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.5,
+        47.5
+      ],
+      "source_rect_xywh": [
+        567,
+        987,
+        277,
+        95
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Blank result banner.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        180.5,
+        91.5
+      ],
+      "source_rect_xywh": [
+        877,
+        949,
+        361,
+        183
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224; title/header y<38, gameplay y<182, sidebar begins beyond x=276. Result panel uses (16,16,352,202).",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "rafterwake.chrome",
+  "source_sha256": "8cb9dc26cf290a6ae348ec9807a55fe4f9e1a22e6025fc259b07e39da6b88980",
+  "timing": "Chain and height follow Lane; podium at finish/75\u00d7HZ; fresh E rematches (text_labels()/draw())."
+}

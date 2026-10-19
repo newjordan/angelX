@@ -6,11 +6,27 @@ import { readFileSync } from "node:fs";
 
 const bytes = readFileSync(process.argv[2]);
 const { instance } = await WebAssembly.instantiate(bytes, {});
-const { scene, step, frame, frame_live, wire_scene, wire_host, wire_client } = instance.exports;
-const scenes = ["first-room", "kingdom", "busy-fight"];
+const { scene: setScene, force_rage, force_ravage, step, frame, frame_live, wire_scene, wire_host, wire_client } = instance.exports;
+const rage = process.argv.includes("--rage");
+const ravage = process.argv.includes("--ravage");
+const party = process.argv.includes("--party");
+const scene = (kind, art) => {
+  setScene(kind, art);
+  if (party) instance.exports.party();
+  if (rage) force_rage();
+  if (ravage) force_ravage();
+  // Match client boot plus its first snapshot; raw admission remains measurable.
+  if (!process.argv.includes("--unprepared")) instance.exports.warm_entry(kind);
+};
+const scenes = ["first-room", "kingdom", "busy-fight", "cinder-stack", "latch-duel", "mossbell", "brasswake", "rafterwake", "pennon-rush", "cinderjaw", "the-index", "mother-of-spores", "waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief", "red-pick-chief", "the-foreman", "late-fee-leviathan", "side-hall", "book-hop"];
+// The Round Table adventures' stubs, scene kinds 39 to 43 (the holes between
+// are the boss and forest scenes this script does not time).
+["lanternward", "moonfall", "bannerpeak", "griffinwing", "lightgallop"].forEach((name, i) => { scenes[39 + i] = name; });
 const hex = (n) => n.toString(16).padStart(8, "0");
 for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
   scenes.forEach((name, kind) => {
+    if (rage && (kind < 9 || kind > 20)) return;
+    if (ravage && name !== "late-fee-leviathan") return;
     scene(kind, artV2);
     let t = performance.now();
     const sum = frame(w, h) >>> 0;
@@ -35,6 +51,8 @@ for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
 // frames' (where every sixth tick redraws the room's lit scenery at once).
 for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
   scenes.forEach((name, kind) => {
+    if (rage && (kind < 9 || kind > 20)) return;
+    if (ravage && name !== "late-fee-leviathan") return;
     const spread = draw => {
       scene(kind, artV2);
       for (let i = 0; i < 120; i++) { step(1); draw(w, h); }
@@ -57,6 +75,7 @@ for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
 // the engine has compiled the reading code fully (as a page that has
 // played a few seconds has), then timed.
 scenes.forEach((name, kind) => {
+  if (rage || ravage || party) return;
   const whole = wire_scene(kind);
   for (let i = 0; i < 240; i++) {
     wire_host();

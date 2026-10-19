@@ -1,0 +1,67 @@
+set tavern
+# The Siege Perilous: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: stools, barrels in the corner, the taps' plates (4,4) (8,4) (12,4), the chair itself, a faint light about the Siege, the west wall's rubble doorway.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# counter at 3,3 12x1 (at 54% of its height, for the camera)
+box    wood    at 144 0 56 size 190 5 14 id counter
+box    metal   at 144 5 56 size 191 0.5 15
+
+# table at 5,7 3x2 (at 59% of its height, for the camera)
+box    wood    at 104 0 128 size 46 5 30 id table-1
+box    cloth   at 104 5 128 size 47 0.5 31
+
+# table at 12,7 3x2 (at 59% of its height, for the camera)
+box    wood    at 216 0 128 size 46 5 30 id table-2
+box    cloth   at 216 5 128 size 47 0.5 31
+
+# board at 17,2 3x1 (at 29% of its height, for the camera)
+box    wood    at 296 0 40 size 46 5.5 14 id board
+box    plaster at 296 0.5 47.25 size 44 4.5 0.5
+
+# stage at 17,8 5x1 (at 29% of its height, for the camera)
+box    wood    at 312 0 137 size 78 6 12 id stage
+box    cloth   at 312 0 130 size 78 6.49 2
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    metal   at 72 18 16 size 3 5 3
+cone   fire    at 72 23 16 size 5 7 5
+box    metal   at 200 18 16 size 3 5 3
+cone   fire    at 200 23 16 size 5 7 5
+box    metal   at 304 18 16 size 3 5 3
+cone   fire    at 304 23 16 size 5 7 5

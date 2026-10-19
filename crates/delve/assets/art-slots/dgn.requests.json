@@ -1,0 +1,1774 @@
+{
+  "games": [
+    {
+      "assets": [
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Undercroft gate: the company home courtyard above the Delve: weathered grey-brown castle stone, an iron-banded arched gate with a stair going down into the dark, a stone well, a signpost, wall torches; dusk-blue sky, warm torchlight; welcoming but ominous. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.gate",
+          "name": "The Undercroft gate floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.crypt",
+          "name": "The Crypt floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.mines",
+          "name": "The Mines floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.keep",
+          "name": "Dragon Keep floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.archive",
+          "name": "The Drowned Archive floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.fungal",
+          "name": "The Fungal Deep floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "ESTABLISHING ILLUSTRATION shown full-screen for a moment when the party enters The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. One strong focal subject, depth layers, atmospheric light, 16:9. The bottom 20% of the image must stay quiet and dark (a title bar is drawn over it); no text, no characters, no UI.",
+          "fit": "384x224 canvas; 768x448 v2",
+          "frame_groups": [
+            {
+              "names": [
+                "plate"
+              ],
+              "source_pose_count": 1,
+              "state": "plate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+          "id": "dgn.plate.unknown",
+          "name": "The Unknown floor plate",
+          "need": "Replace the current dithered pixel plate with a Metal Slug-era painterly establishing illustration.",
+          "role": "plate",
+          "states": "plate=@1",
+          "timing": "",
+          "view": "front establishing view"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.crypt",
+          "name": "The Crypt floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.crypt",
+          "name": "The Crypt wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.crypt",
+          "name": "The Crypt obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: a bottomless open grave pit.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.crypt",
+          "name": "The Crypt hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.crypt",
+          "name": "The Crypt doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, cracked flagstones, iron braziers and candle light (warm against cool), cobwebs, cracked sarcophagi; undead resting place. Materials: blue-grey cut stone, bone-white accents (never pure white), warm candle amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.crypt",
+          "name": "The Crypt decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.mines",
+          "name": "The Mines floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.mines",
+          "name": "The Mines wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.mines",
+          "name": "The Mines obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: a deep cave pit with a rim of rocks.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.mines",
+          "name": "The Mines hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.mines",
+          "name": "The Mines doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: the dwarf-hold of Caer Dwfn: raw brown-ochre rock, timber pit-props and beams, iron mine-cart rails, copper ore veins and a little green malachite glinting, hanging lanterns, rubble and carts. Materials: ochre-brown rock, weathered timber, copper glints, lantern amber. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.mines",
+          "name": "The Mines decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.keep",
+          "name": "Dragon Keep floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.keep",
+          "name": "Dragon Keep wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.keep",
+          "name": "Dragon Keep obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: a lava river.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.keep",
+          "name": "Dragon Keep hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.keep",
+          "name": "Dragon Keep doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: a dragon keep of black basalt and slate-blue fortress masonry, molten lava rivers with orange-gold crust, forge chains and iron grates, ember glow, scorched gold coins of a dragon hoard; NOT a red-and-black deco look: cool slate blue-grey stone with orange lava as the only hot colour. Materials: slate and basalt blue-grey, lava orange-gold, iron. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.keep",
+          "name": "Dragon Keep decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.archive",
+          "name": "The Drowned Archive floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.archive",
+          "name": "The Drowned Archive wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.archive",
+          "name": "The Drowned Archive obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: deep flooded water.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.archive",
+          "name": "The Drowned Archive hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.archive",
+          "name": "The Drowned Archive doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: a flooded library: dark oak shelves and stone arches, shallow teal water over the floor, ruined soaked books and scrolls, brass reading lamps with green-gold light. Materials: dark oak, teal water, brass, parchment-brown books (never bright). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.archive",
+          "name": "The Drowned Archive decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.fungal",
+          "name": "The Fungal Deep floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.fungal",
+          "name": "The Fungal Deep wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.fungal",
+          "name": "The Fungal Deep obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: a spore-pool of glowing teal liquid.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.fungal",
+          "name": "The Fungal Deep hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.fungal",
+          "name": "The Fungal Deep doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a forest of mushrooms grown in the dark: giant caps and stalks as pillars, damp earth and root floors, bioluminescent teal and violet glow, drifting spore motes. Materials: damp earth brown, teal and violet bioluminescence, pale cap undersides (never pure white). Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.fungal",
+          "name": "The Fungal Deep decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. FLOOR TILES: SQUARE tile-shaped pieces with hard straight cut edges, flat even lighting (NO vignette, NO baked shadows, NO bright centre) so they tile seamlessly side by side; a quiet readable floor that never fights the characters on top.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "plain",
+                "worn",
+                "cracked",
+                "patched",
+                "stained",
+                "rich",
+                "trim-0",
+                "trim-1",
+                "crack",
+                "puddle",
+                "debris",
+                "detail"
+              ],
+              "source_pose_count": 12,
+              "state": "floor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+          "id": "dgn.floor.unknown",
+          "name": "The Unknown floor tiles",
+          "need": "Seamless variants for a 16 px-tile grid (art sampled down from rich source).",
+          "role": "tileset",
+          "states": "cell1-6=six seamless floor tile variants (plain, worn, cracked, patched, stained, rich); cell7-8=two edge/border-trim tiles (floor meeting wall, with a dark shadow edge on top); cell9-12=four decals (a crack, a puddle or stain, scattered debris, a biome-specific detail) on transparent alpha",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. WALL PIECES: the walls of a flip-screen room seen from the camera: the NORTH wall shows its tall FACE (about 1.5 tiles tall with a lit top cap) and the other walls show their top cap and a short face. Wide pieces, hard straight cut sides so they tile left-right.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "face-3",
+                "outer-nw",
+                "outer-ne",
+                "side-left",
+                "side-right",
+                "inner-nw",
+                "inner-ne",
+                "cap",
+                "collapsed"
+              ],
+              "source_pose_count": 12,
+              "state": "wall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+          "id": "dgn.wall.unknown",
+          "name": "The Unknown wall pieces",
+          "need": "Thick, tactile, hand-clustered walls that give every room a lit frame.",
+          "role": "tileset",
+          "states": "cell1-4=four north-wall face segments (plain, cracked, with a niche/decor, with a wall torch or biome light lit); cell5-6=outer corner north-west and north-east; cell7-8=side wall segments (left, right) with cap; cell9-10=inner corners; cell11=wall end cap; cell12=a collapsed/damaged wall section",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. OBSTACLES: freestanding solid blocks that stop feet and shots, each ONE grid cell (about square footprint), tall enough to read in 3/4 view, each with its own contact-free silhouette (no shadow blobs on the ground).",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "pillar-0",
+                "pillar-1",
+                "pillar-2",
+                "tomb-0",
+                "tomb-1",
+                "tomb-2",
+                "boulder-0",
+                "boulder-1",
+                "boulder-2",
+                "broken-0",
+                "broken-1",
+                "broken-2"
+              ],
+              "source_pose_count": 12,
+              "state": "block"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+          "id": "dgn.block.unknown",
+          "name": "The Unknown obstacles",
+          "need": "Rich obstacle set replacing the flat black-void blocks.",
+          "role": "tileset",
+          "states": "cell1-3=three pillar/column variants; cell4-6=three tomb-or-crate-or-stack variants suited to the biome; cell7-9=three boulder/rubble/growth variants; cell10-12=three destroyed/cracked variants of the first three",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. HAZARDS: the biome's pit/water/lava floor cells (movement blocked, shots and wings pass): readable as DANGER but dark and painterly, edges that meet the floor cleanly. Biome hazard: a void rift of black-violet liquid.",
+          "fit": "16x16",
+          "frame_groups": [
+            {
+              "names": [
+                "fill-0",
+                "fill-1",
+                "fill-2",
+                "fill-3",
+                "edge-n",
+                "edge-s",
+                "edge-w",
+                "edge-e",
+                "outer-nw",
+                "outer-se",
+                "inner-nw",
+                "inner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "hazard"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Tile 16 px (v1) / 32 px (v2).",
+          "id": "dgn.hazard.unknown",
+          "name": "The Unknown hazards",
+          "need": "Hazard tiles that read as a lit pit/water/lava, not a black hole.",
+          "role": "tileset",
+          "states": "cell1-4=four seamless hazard fill variants (animation-friendly frames 1-4 of a slow shimmer); cell5-8=four edge pieces (top, bottom, left, right rim that meets the floor); cell9-10=two outer corner pieces; cell11-12=two inner corner pieces",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DOORS AND STAIRS: doorways set into the NORTH wall face and the side walls, a stair, and a lit marker. The door is BARRED while the room is being fought (iron bars / thorn barrier / biome equivalent) and open after. Wide pieces about 2 tiles wide, 1.5 tiles tall.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "side-left-barred",
+                "side-left-open",
+                "side-right-barred",
+                "side-right-open",
+                "stairs-down",
+                "stairs-up",
+                "boss",
+                "alcove",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "gate"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+          "id": "dgn.gate.unknown",
+          "name": "The Unknown doors and stairs",
+          "need": "Doors that read as part of the wall and clearly barred vs open.",
+          "role": "tileset",
+          "states": "cell1=north door barred; cell2=north door open (dark passage with a faint light); cell3=north door half-open (opening transition); cell4=side door barred (left wall); cell5=side door open (left wall); cell6=side door barred (right wall); cell7=side door open (right wall); cell8=stairs down (a stair descending into dark); cell9=stairs up; cell10=boss-door (larger, ornate, barred); cell11=treasure alcove (empty); cell12=locked-seal glow marker",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: where the Shoggoth waits: wrong, cyclopean black-violet masonry with slick organic veins, round eye-like windows, cold dim pale light, unsettling but ORIGINAL (no named franchise designs); dark and quiet. Materials: black-violet stone, cold pale-teal light, wet organic sheen. Same biome look in every cell; overhead three-quarter top-down camera like the shared dungeon boss sheets; chunky Metal Slug-era painterly rendering; dark overall; no characters; no text. DECOR: small props that dress the room: braziers and torches with flames (3 frames each where listed), bones, webs, barrels, crates, signposts, broken tools and biome-specific details. Each isolated, readable at 16-24 px, no ground shadow.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "flame-0",
+                "flame-1",
+                "flame-2",
+                "lamp",
+                "barrel",
+                "bones",
+                "web",
+                "prop-0",
+                "prop-1",
+                "decal-0",
+                "decal-1",
+                "glow"
+              ],
+              "source_pose_count": 12,
+              "state": "decor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+          "id": "dgn.decor.unknown",
+          "name": "The Unknown decor",
+          "need": "Dressing props so rooms are not empty.",
+          "role": "tileset",
+          "states": "cell1-3=a standing torch or brazier flame animation frames 1-3; cell4=a floor candle or lamp; cell5=a barrel or crate; cell6=a pile of bones/rubble/books/roots; cell7=a web or hanging garland/chain; cell8-9=two biome-specific props; cell10-11=two floor decals larger than a tile (stain, crack, moss, scorch); cell12=a lit light-pool glow shape (soft warm radial, hottest 85% value)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, iron braziers and candle light. Materials: blue-grey cut stone, bone accents (never pure white), warm candle amber. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.crypt",
+          "name": "The Crypt orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Crypt: cool blue-grey cut stone, ossuary niches with skulls, iron braziers and candle light. Materials: blue-grey cut stone, bone accents (never pure white), warm candle amber. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.crypt",
+          "name": "The Crypt orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: dwarf-hold raw ochre-brown rock, timber pit-props and beams, iron rails, copper ore veins and a little green malachite. Materials: ochre-brown rock (DARKER and less saturated than sand), weathered timber, copper glints. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.mines",
+          "name": "The Mines orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Mines: dwarf-hold raw ochre-brown rock, timber pit-props and beams, iron rails, copper ore veins and a little green malachite. Materials: ochre-brown rock (DARKER and less saturated than sand), weathered timber, copper glints. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.mines",
+          "name": "The Mines orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: slate-blue basalt fortress masonry with thin orange lava cracks, iron chains and grates. Materials: slate and basalt blue-grey, a little orange lava glow (only in cracks), iron. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.keep",
+          "name": "Dragon Keep orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "Dragon Keep: slate-blue basalt fortress masonry with thin orange lava cracks, iron chains and grates. Materials: slate and basalt blue-grey, a little orange lava glow (only in cracks), iron. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.keep",
+          "name": "Dragon Keep orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: dark oak library shelves and stone arches, shallow teal water at the base, brass lamps. Materials: dark oak, teal water, brass, parchment-brown (never bright). STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.archive",
+          "name": "The Drowned Archive orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Drowned Archive: dark oak library shelves and stone arches, shallow teal water at the base, brass lamps. Materials: dark oak, teal water, brass, parchment-brown (never bright). STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.archive",
+          "name": "The Drowned Archive orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a mushroom-grown cavern wall of twisted roots and earth with BROWN-OCHRE (not saturated orange) mushroom caps and a few teal/violet bioluminescent fungi. Materials: damp earth brown, muted brown-ochre caps, teal and violet accents in small amounts. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.fungal",
+          "name": "The Fungal Deep orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Fungal Deep: a mushroom-grown cavern wall of twisted roots and earth with BROWN-OCHRE (not saturated orange) mushroom caps and a few teal/violet bioluminescent fungi. Materials: damp earth brown, muted brown-ochre caps, teal and violet accents in small amounts. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.fungal",
+          "name": "The Fungal Deep orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: cyclopean black-violet masonry with slick tendril veins and a FEW round pale-teal eye-like windows (about one per six pieces at most). Materials: black-violet stone, cold pale-teal accents, wet sheen. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. WALL SET: pieces must butt seamlessly left-to-right (or top-to-bottom for side caps) with NO irregular pilaster at the tile edges.",
+          "fit": "16x24",
+          "frame_groups": [
+            {
+              "names": [
+                "face-0",
+                "face-1",
+                "face-2",
+                "corner-nw",
+                "corner-ne",
+                "west-0",
+                "west-1",
+                "east-0",
+                "east-1",
+                "south",
+                "corner-sw",
+                "corner-se"
+              ],
+              "source_pose_count": 12,
+              "state": "owall"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+          "id": "dgn.owall.unknown",
+          "name": "The Unknown orthogonal wall set",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north wall face segment plain (1 tile wide x 1.5 tall, straight-on, with lit top cap, seamless left-right); cell2=north face segment cracked; cell3=north face segment with a wall sconce or biome light lit; cell4=north inner corner NW (face ends and turns into the west side cap); cell5=north inner corner NE; cell6=west side cap A (1 tile wide, flat top-down, seamless top-bottom); cell7=west side cap B variant; cell8=east side cap A; cell9=east side cap B variant; cell10=south cap (flat top-down, seamless left-right); cell11=south-west outer corner cap; cell12=south-east outer corner cap",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "brief": "The Unknown: cyclopean black-violet masonry with slick tendril veins and a FEW round pale-teal eye-like windows (about one per six pieces at most). Materials: black-violet stone, cold pale-teal accents, wet sheen. STRICT ORTHOGRAPHIC, AXIS-ALIGNED, overhead three-quarter as in a classic 16-bit top-down action game: the NORTH wall is drawn in straight-on FRONT ELEVATION; side (west/east) and south walls are shown ONLY as flat TOP-DOWN CAP STRIPS. Every edge is exactly horizontal or vertical: NO vanishing point, NO 45-degree rotation, NO isometric cube, NO visible diagonal side face, NO angled or diagonal pieces anywhere. Same biome look in every cell; chunky Metal Slug-era painterly rendering; dark overall (walls mean value about 25-35%, no highlights above 70%); no characters; no text. Every cell the same size; alpha strictly 0 or 255, no soft haze. DOORS AND STAIRS: the room is fought behind BARRED doors (iron bars / thorn barrier / biome equivalent), open after. The north door is straight-on front elevation; west/east/south doors are flat top-down: a gap in the cap strip with the bars seen from above as a row of posts.",
+          "fit": "32x24",
+          "frame_groups": [
+            {
+              "names": [
+                "barred",
+                "open",
+                "opening",
+                "west-barred",
+                "west-open",
+                "east-barred",
+                "east-open",
+                "south-barred",
+                "south-open",
+                "stairs-down",
+                "boss",
+                "seal"
+              ],
+              "source_pose_count": 12,
+              "state": "odoor"
+            }
+          ],
+          "game": "dungeon",
+          "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+          "id": "dgn.odoor.unknown",
+          "name": "The Unknown orthogonal doors and stairs",
+          "need": "Grid-ready orthogonal wall/door pieces for an axis-aligned 24x14 room.",
+          "role": "tileset",
+          "states": "cell1=north door barred (2 tiles wide x 1.5 tall, front elevation); cell2=north door open (dark passage, faint light); cell3=north door half-open (opening transition); cell4=west door barred (top-down gap in the side cap); cell5=west door open; cell6=east door barred; cell7=east door open; cell8=south door barred (top-down threshold); cell9=south door open; cell10=stairs down (top-down, descending north, axis-aligned); cell11=boss seal door (larger, ornate, barred, front elevation); cell12=floor seal glow marker (top-down)",
+          "timing": "",
+          "view": "overhead three-quarter top-down"
+        },
+        {
+          "fit": "18x18 action plate; other envelopes per piece",
+          "frame_groups": [
+            {
+              "names": [
+                "ready",
+                "cooldown",
+                "disabled",
+                "pressed",
+                "health",
+                "stamina",
+                "boss",
+                "seat",
+                "floor",
+                "minimap",
+                "status",
+                "toast"
+              ],
+              "source_pose_count": 12,
+              "state": "hud"
+            }
+          ],
+          "geometry": "Existing labels, counts, meters and keybindings draw after the chrome.",
+          "id": "dgn.hud.chrome",
+          "role": "hud",
+          "timing": "Read-only live readiness, health, charge and map data; no presentation clock."
+        }
+      ],
+      "id": "dungeon"
+    }
+  ]
+}

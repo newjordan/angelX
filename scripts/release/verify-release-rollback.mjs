@@ -34,7 +34,6 @@ export function runRollbackVerification({
       operation: 'N -> N+1 -> N using retained N artifact',
       not_covered: [
         'bin/angelX launcher and aliases/shims',
-        'angel-portal-renderer helper',
         'interactive terminal operation',
         'operator state migration',
         'package manager integration',

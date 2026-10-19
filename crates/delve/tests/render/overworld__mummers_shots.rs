@@ -14,7 +14,7 @@ fn mummers_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
             let mut panel = board.clone();
             draw(&mut panel,r);
             let before=panel.clone();
-            tray::corner(&mut panel,r,None);
+            tray::corner(&mut panel, r, None, false);
             for y in 0..panel.h {for x in 0..panel.w {
                 if before.get(x,y).is_some() {
                     assert_eq!(panel.get(x,y),before.get(x,y),

@@ -1,0 +1,58 @@
+{
+  "anchor_canvas_wh": [
+    254,
+    146
+  ],
+  "anchor_xy": [
+    127,
+    73
+  ],
+  "comments": [
+    "Reviewed continuous backdrop. Its edge is the intended full scene, not a clipped actor. Original field, rails, gutters and labels stay above it. Cached dimming uses existing shared inks.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 1,
+  "expected_existing_pieces": 0,
+  "geometry": "Floor/actors y=126..174 in rule coordinates, wave gates at 240 px intervals; scenery cannot fake a blocked exit or conceal Danger rectangles.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "18d712c69c3ae22bdc5c78dbb50a1c878c17005d97919daf6f8aa62664ebb75e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**Far wall / recesses:** dark worn masonry with three shadowed arch recesses and restrained fittings.",
+      "name": "room",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "Visible crop 254\u00d7146 at (12,34); top 36 px vat band, lower 110 px floor (world()).",
+  "sizes": {
+    "v1": [
+      254,
+      146
+    ],
+    "v2": [
+      254,
+      146
+    ]
+  },
+  "slot": "brasswake.room",
+  "source_sha256": "7f8ee6ab1963921ee110160b0702876a184a01fc1e24b06fa8e5367cea8ef0d5",
+  "timing": "Static 1200\u00d7146 cached backdrop, cropped by lane camera; collision extent END=960 (world()/room())."
+}

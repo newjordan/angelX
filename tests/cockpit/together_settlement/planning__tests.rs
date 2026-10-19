@@ -177,7 +177,7 @@ fn settlement_planning_replays_many_loops_and_leaves_complete_legacy_sites_intac
         site.apply_with_plan(&loop_id, n, n % 2 == 0, Some(&input))
             .unwrap();
         if n == 8 {
-            assert!(layout::dig_tavern(&mut site.floor));
+            assert!(layout::dig_tavern_reserved(&mut site.floor));
             site.tavern = true;
         }
         let snapshot = super::tests::value(&site);

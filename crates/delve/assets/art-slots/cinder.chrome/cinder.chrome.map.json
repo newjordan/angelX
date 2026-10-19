@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    96,
+    64
+  ],
+  "anchor_xy": [
+    48,
+    32
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "draw()/room() and chrome::panel; no collision. Rival stacks reflect actual six-column heights; do not bake scores/numbers into plates.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "dfc7d86d5490045366372e7da8d691ef4cdad65142c3c04396e37a85ae660395",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Compact title plate with navy well and clipped brass corners.",
+      "name": "piece-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        134.5,
+        52.5
+      ],
+      "source_rect_xywh": [
+        37,
+        235,
+        269,
+        105
+      ],
+      "state": "compact-title-plate-with-navy-well-and-clipped-brass-corners"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small square nine-slice panel frame.",
+      "name": "panel",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        89.5,
+        88.0
+      ],
+      "source_rect_xywh": [
+        355,
+        193,
+        179,
+        176
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Medium landscape nine-slice panel frame.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.0,
+        86.0
+      ],
+      "source_rect_xywh": [
+        579,
+        198,
+        264,
+        172
+      ],
+      "state": "medium-landscape-nine-slice-panel-frame"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Wide landscape nine-slice panel frame.",
+      "name": "piece-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        164.0,
+        93.5
+      ],
+      "source_rect_xywh": [
+        891,
+        187,
+        328,
+        187
+      ],
+      "state": "wide-landscape-nine-slice-panel-frame"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Tall portrait panel frame.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        94.5,
+        146.5
+      ],
+      "source_rect_xywh": [
+        54,
+        499,
+        189,
+        293
+      ],
+      "state": "tall-portrait-panel-frame"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Slim podium row with muted red and blue seat tabs.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        37.0
+      ],
+      "source_rect_xywh": [
+        289,
+        621,
+        262,
+        74
+      ],
+      "state": "slim-podium-row-with-muted-red-and-blue-seat-tabs"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Broad podium standings row with the same seat tabs and an empty center.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        177.0,
+        41.5
+      ],
+      "source_rect_xywh": [
+        595,
+        619,
+        354,
+        83
+      ],
+      "state": "broad-podium-standings-row-with-the-same-seat-tabs-and-an-empty-"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Round blank rank badge with side tabs.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.0,
+        95.0
+      ],
+      "source_rect_xywh": [
+        989,
+        564,
+        228,
+        190
+      ],
+      "state": "round-blank-rank-badge-with-side-tabs"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Shield-shaped blank rank badge with side tabs.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        103.0
+      ],
+      "source_rect_xywh": [
+        31,
+        916,
+        244,
+        206
+      ],
+      "state": "shield-shaped-blank-rank-badge-with-side-tabs"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Short blank key-cap plate.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        90.5,
+        40.0
+      ],
+      "source_rect_xywh": [
+        330,
+        984,
+        181,
+        80
+      ],
+      "state": "short-blank-key-cap-plate"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Long blank key-cap plate.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.5,
+        41.5
+      ],
+      "source_rect_xywh": [
+        554,
+        982,
+        289,
+        83
+      ],
+      "state": "long-blank-key-cap-plate"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Empty result banner with heavier brass trim.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        172.0,
+        68.0
+      ],
+      "source_rect_xywh": [
+        884,
+        950,
+        344,
+        136
+      ],
+      "state": "empty-result-banner-with-heavier-brass-trim"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224 layout; cached chain plates height 20, width from text_width\u00d72+8. Panel geometry and exact labels remain renderer-owned.",
+  "sizes": {
+    "v1": [
+      96,
+      64
+    ],
+    "v2": [
+      96,
+      64
+    ]
+  },
+  "slot": "cinder.chrome",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "e49557c1fa7a532a65f9b40aef91cf2e53a2f0d25871b55e2f30eb64ab8185bb",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.chrome/v01/source-sheet.png",
+    "original_sha256": "bae75087a6e05acdc5073adfd30f246c9c2a9f21070a706cbd865afd97849a0b",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "01b1a2829be956305433714cdacd68004395af0a1b06956975b6b6d67eedebce",
+  "timing": "CHAIN while flash>0 and chain>1; cough RETRY=15; podium on round end, rematch next fresh E (renderer::draw; cinder::Session)."
+}

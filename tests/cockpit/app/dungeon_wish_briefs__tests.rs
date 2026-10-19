@@ -10,6 +10,13 @@ fn lesson_examples_are_checked_data_with_worn_gear_and_active_summons() {
     );
     assert!(text.contains("max_hp 5-40"));
     assert!(text.contains("Never use orbit"));
+    // The player's words, literally: bigger is `size`, fire is `burn`, and
+    // never a plain damage bump; every new word is offered.
+    assert!(text.contains("Never answer with a plain damage bump"));
+    assert!(text.contains("Jordan's own wish"));
+    for word in ["size 1-3", "knock 1-3", "burn 1-3", "chill 1-3", "poison 1-3", "boomerang 1-1", "velocity 10-60"] {
+        assert!(text.contains(word), "brief offers {word}");
+    }
     for word in [
         "worn",
         "shot",
@@ -39,9 +46,12 @@ fn lesson_examples_are_checked_data_with_worn_gear_and_active_summons() {
     assert!(errors.is_empty(), "{errors:?}");
     let (wishes, errors) = crate::drive::together_shooter::phrasebook::read_checked(&rows);
     assert!(errors.is_empty(), "{errors:?}");
-    assert_eq!(wishes.len(), 2);
+    assert_eq!(wishes.len(), 3);
     assert!(wishes[0].card(0).unwrap().looks.worn.is_some());
     assert!(wishes[1].card(0).unwrap().looks.summon.is_some());
+    let arrows = wishes[2].card(0).unwrap();
+    assert!(arrows.looks.shot.is_some(), "bigger arrows are drawn");
+    assert_eq!(arrows.effects, vec![crate::drive::together_shooter::cards::Effect::Size(1)]);
     std::fs::remove_dir_all(dir).unwrap();
 }
 

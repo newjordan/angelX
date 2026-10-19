@@ -1,0 +1,183 @@
+set chunk-0-6
+# The kingdom, chunk 0,6 in The Fen: tiles 0..24 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 192 1664
+plate 1536 1024
+
+# ground
+box    water   at 40 -4 1608 size 80 1 144
+box    mud     at 88 -4 1544 size 16 4 16
+box    water   at 120 -4 1552 size 48 1 32
+box    mud     at 224 -4 1544 size 160 4 16
+box    grass   at 312 -4 1648 size 16 4 224
+box    ground  at 328 -4 1544 size 16 4 16
+box    grass   at 360 -4 1544 size 48 4 16
+box    sand    at 88 -4 1584 size 16 4 64
+box    mud     at 184 -4 1560 size 80 4 16
+box    ground  at 232 -4 1568 size 16 4 32
+box    mud     at 264 -4 1560 size 48 4 16
+box    grass   at 296 -4 1616 size 16 4 128
+box    grass   at 328 -4 1672 size 16 4 240
+box    ground  at 352 -4 1560 size 32 4 16
+box    grass   at 376 -4 1608 size 16 4 112
+box    sand    at 120 -4 1576 size 48 4 16
+box    grass   at 152 -4 1632 size 16 4 128
+box    mud     at 176 -4 1576 size 32 4 16
+box    grass   at 208 -4 1640 size 32 4 144
+box    grass   at 264 -4 1640 size 48 4 144
+box    grass   at 352 -4 1624 size 32 4 112
+box    grass   at 120 -4 1592 size 48 4 16
+box    grass   at 176 -4 1640 size 32 4 112
+box    grass   at 232 -4 1648 size 16 4 128
+box    sand    at 104 -4 1608 size 16 4 16
+box    grass   at 128 -4 1608 size 32 4 16
+box    water   at 96 -4 1640 size 32 1 48
+box    sand    at 120 -4 1624 size 16 4 16
+box    grass   at 136 -4 1656 size 16 4 80
+box    water   at 120 -4 1640 size 16 1 16
+box    mud     at 120 -4 1688 size 16 4 80
+box    mud     at 96 -4 1688 size 32 4 48
+box    ground  at 376 -4 1672 size 16 4 16
+box    water   at 32 -4 1736 size 64 1 112
+box    mud     at 72 -4 1696 size 16 4 32
+box    path    at 296 -4 1728 size 16 4 96
+box    grass   at 344 -4 1736 size 16 4 112
+box    ground  at 360 -4 1688 size 16 4 16
+box    grass   at 376 -4 1736 size 16 4 112
+box    mud     at 160 -4 1728 size 64 4 64
+box    grass   at 360 -4 1744 size 16 4 96
+box    sand    at 72 -4 1728 size 16 4 32
+box    grass   at 96 -4 1752 size 32 4 80
+box    mud     at 208 -4 1720 size 32 4 16
+box    sand    at 240 -4 1720 size 32 4 16
+box    grass   at 272 -4 1720 size 32 4 16
+box    grass   at 120 -4 1760 size 16 4 64
+box    mud     at 200 -4 1736 size 16 4 16
+box    water   at 232 -4 1752 size 48 1 48
+box    sand    at 264 -4 1736 size 16 4 16
+box    grass   at 280 -4 1736 size 16 4 16
+box    grass   at 72 -4 1760 size 16 4 32
+box    water   at 200 -4 1752 size 16 1 16
+box    water   at 264 -4 1752 size 16 1 16
+box    sand    at 280 -4 1752 size 16 4 16
+box    grass   at 144 -4 1768 size 32 4 16
+box    mud     at 168 -4 1768 size 16 4 16
+box    grass   at 184 -4 1776 size 16 4 32
+box    sand    at 200 -4 1768 size 16 4 16
+box    sand    at 264 -4 1768 size 16 4 16
+box    grass   at 280 -4 1768 size 16 4 16
+box    path    at 312 -4 1776 size 16 4 32
+box    water   at 72 -4 1784 size 16 1 16
+box    path    at 136 -4 1784 size 16 4 16
+box    grass   at 160 -4 1784 size 32 4 16
+box    grass   at 200 -4 1784 size 16 4 16
+box    sand    at 232 -4 1784 size 48 4 16
+box    ground  at 272 -4 1784 size 32 4 16
+box    grass   at 296 -4 1784 size 16 4 16
+
+# set dressing
+cone   thatch  at 376 0 1544 size 9 4 8
+cone   thatch  at 248 0 1688 size 9 4 8
+cone   thatch  at 344 0 1704 size 9 4 8
+box    wood    at 179 0 1764 size 1.5 10 1.5
+box    wood    at 189 0 1764 size 1.5 10 1.5
+box    wood    at 184 0 1769 size 14 2.5 10
+gable  thatch  at 184 2.5 1769 size 15 1.5 11
+
+# woods (at 39% of its height, for the camera)
+frustum trunk   at 153 0 1623 size 3 3 3
+cone   foliage at 153 1.5 1623 size 17 10 17
+cone   foliage at 153 8 1623 size 12.24 9.5 12.24
+cylinder trunk   at 169 0 1626 size 3 5 3
+cone   foliage at 169 3.5 1626 size 17 10.5 17
+cone   foliage at 169 10 1626 size 12.24 10 12.24
+cylinder trunk   at 184 0 1623.5 size 3 3.5 3
+cone   foliage at 184 2 1623.5 size 18 10.5 18
+cone   foliage at 184 8 1623.5 size 12.96 11 12.96
+cylinder trunk   at 136 0 1640 size 3 4 3
+blob-17 foliage at 136 2 1640 size 18 7.5 17.1
+cylinder trunk   at 152 0 1640.5 size 3 11 3
+blob-39 foliage at 152 6 1640.5 size 18 15 17.1 turn 270
+frustum trunk   at 170 0 1642 size 3 11 3
+blob-56 foliage at 170 6 1642 size 18 15 17.1 turn 90
+cylinder trunk   at 183 0 1640 size 3 7.5 3
+cone   foliage at 183 4.5 1640 size 19 18 19
+cone   foliage at 183 15.5 1640 size 13.68 18 13.68
+frustum trunk   at 198 0 1640 size 3 3.5 3
+cone   foliage at 198 2 1640 size 19 9.5 19
+cone   foliage at 198 7.5 1640 size 13.68 9.5 13.68
+frustum trunk   at 152 0 1655 size 3 12 3
+blob-63 foliage at 152 7 1655 size 19 17 18.05 turn 270
+frustum trunk   at 168 0 1656 size 3 12 3
+blob-50 foliage at 168 7 1656 size 19 20 18.05
+cylinder trunk   at 183.5 0 1656.5 size 3 7 3
+cone   foliage at 183.5 4 1656.5 size 18 17.36 18
+cone   foliage at 183.5 14.64 1656.5 size 12.96 17.36 12.96
+cylinder trunk   at 200 0 1656 size 3 7.5 3
+cone   foliage at 200 4.5 1656 size 19 18 19
+cone   foliage at 200 15.5 1656 size 13.68 17.5 13.68
+cylinder trunk   at 72 0 1752 size 3 5.5 3
+cone   foliage at 72 3.5 1752 size 17 10 17
+cone   foliage at 72 9.5 1752 size 12.24 10 12.24
+frustum trunk   at 87.5 0 1751.5 size 3 4.5 3
+cone   foliage at 87.5 3 1751.5 size 18 10 18
+cone   foliage at 87.5 9 1751.5 size 12.96 10 12.96
+frustum trunk   at 74 0 1766 size 3 7.5 3
+cone   foliage at 74 4.5 1766 size 20 20.5 20
+cone   foliage at 74 17 1766 size 14.4 20 14.4
+frustum trunk   at 88 0 1768 size 3 9 3
+cone   foliage at 88 6 1768 size 19 19 19
+cone   foliage at 88 18 1768 size 13.68 18.5 13.68
+box    hedge   at 87.75 0 1784 size 15.5 6 16
+blob-34 hedge   at 87.75 3.5 1784 size 15.5 5 16
+
+# dead trees
+frustum trunk   at 232 0 1543 size 4 21 4
+box    trunk   at 232.85 11.55 1540.38 size 5.5 1.2 1.2 turn 72
+box    trunk   at 230.33 15.12 1544.51 size 4.5 1.2 1.2 turn 222
+box    trunk   at 233.38 18.48 1544.08 size 3.5 1.2 1.2 turn 322
+frustum trunk   at 327 0 1543 size 4 22 4
+box    trunk   at 324.26 12.1 1542.81 size 5.5 1.2 1.2 turn 176
+box    trunk   at 328.87 15.84 1544.26 size 4.5 1.2 1.2 turn 326
+box    trunk   at 327.71 19.36 1541.4 size 3.5 1.2 1.2 turn 426
+frustum trunk   at 216 0 1560 size 4 21 4
+box    trunk   at 214.31 11.55 1557.83 size 5.5 1.2 1.2 turn 128
+box    trunk   at 216.31 15.12 1562.23 size 4.5 1.2 1.2 turn 278
+box    trunk   at 217.66 18.48 1559.46 size 3.5 1.2 1.2 turn 378
+frustum trunk   at 231 0 1561 size 4 20 4
+box    trunk   at 229.93 11 1558.47 size 5.5 1.2 1.2 turn 113
+box    trunk   at 230.73 14.4 1563.23 size 4.5 1.2 1.2 turn 263
+box    trunk   at 232.75 17.6 1560.91 size 3.5 1.2 1.2 turn 363
+frustum trunk   at 250 0 1561 size 4 16 4
+box    trunk   at 250.48 8.8 1558.29 size 5.5 1.2 1.2 turn 80
+box    trunk   at 248.55 11.52 1562.72 size 4.5 1.2 1.2 turn 230
+box    trunk   at 251.52 14.08 1561.88 size 3.5 1.2 1.2 turn 330
+frustum trunk   at 343 0 1562 size 4 17 4
+box    trunk   at 342.76 9.35 1559.26 size 5.5 1.2 1.2 turn 95
+box    trunk   at 342.05 12.24 1564.04 size 4.5 1.2 1.2 turn 245
+box    trunk   at 344.69 14.96 1562.45 size 3.5 1.2 1.2 turn 345
+frustum trunk   at 362 0 1560 size 4 15 4
+box    trunk   at 360.06 8.25 1558.06 size 5.5 1.2 1.2 turn 135
+box    trunk   at 362.58 10.8 1562.17 size 4.5 1.2 1.2 turn 285
+box    trunk   at 363.59 13.2 1559.26 size 3.5 1.2 1.2 turn 385
+frustum trunk   at 234 0 1578 size 4 18 4
+box    trunk   at 235.84 9.9 1575.96 size 5.5 1.2 1.2 turn 48
+box    trunk   at 231.86 12.96 1578.7 size 4.5 1.2 1.2 turn 198
+box    trunk   at 234.82 15.84 1579.55 size 3.5 1.2 1.2 turn 298
+frustum trunk   at 375 0 1673 size 4 16 4
+box    trunk   at 372.51 8.8 1671.84 size 5.5 1.2 1.2 turn 155
+box    trunk   at 376.29 11.52 1674.84 size 4.5 1.2 1.2 turn 305
+box    trunk   at 376.24 14.08 1671.76 size 3.5 1.2 1.2 turn 405
+frustum trunk   at 361 0 1689 size 4 19 4
+box    trunk   at 362.16 10.45 1686.51 size 5.5 1.2 1.2 turn 65
+box    trunk   at 359.16 13.68 1690.29 size 4.5 1.2 1.2 turn 215
+box    trunk   at 362.24 16.72 1690.24 size 3.5 1.2 1.2 turn 315
+frustum trunk   at 264 0 1784 size 4 18 4
+box    trunk   at 261.55 9.9 1782.75 size 5.5 1.2 1.2 turn 153
+box    trunk   at 265.23 12.96 1785.89 size 4.5 1.2 1.2 turn 303
+box    trunk   at 265.28 15.84 1782.81 size 3.5 1.2 1.2 turn 403
+frustum trunk   at 282 0 1786 size 4 22 4
+box    trunk   at 282.38 12.1 1783.28 size 5.5 1.2 1.2 turn 82
+box    trunk   at 280.61 15.84 1787.77 size 4.5 1.2 1.2 turn 232
+box    trunk   at 283.55 19.36 1786.82 size 3.5 1.2 1.2 turn 332

@@ -221,12 +221,72 @@ pub fn norm3(x: f32, y: f32, z: f32) -> [f32; 3] {
 /// A small image of packed RGBA words (`0xAARRGGBB`): alpha 0 is
 /// transparent (black paper when saved), 255 is opaque. Rows are contiguous,
 /// so a copy, a compose or a conversion is a pass over plain words.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Img {
     pub w: i32,
     pub h: i32,
     px: Vec<u32>,
+    /// The pixels `px` keeps, `(x, y, w, h)`: the whole picture, or for a
+    /// window onto a great one (`Img::window`) only that rectangle. The
+    /// rest reads as transparent and takes no paint.
+    span: (i32, i32, i32, i32),
+    /// Where paint has landed since `untouch`, `(x0, y0, x1, y1)` in the
+    /// kept pixels (`span`), the ends past the last: empty when `x0 >= x1`.
+    /// `take_changes` looks only there. Not part of the picture: two
+    /// pictures with the same pixels are equal however they were painted.
+    touched: (i32, i32, i32, i32),
 }
+
+/// Nothing touched.
+const UNTOUCHED: (i32, i32, i32, i32) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+
+impl PartialEq for Img {
+    fn eq(&self, other: &Self) -> bool {
+        (self.w, self.h, self.span) == (other.w, other.h, other.span) && same_words(&self.px, &other.px)
+    }
+}
+
+/// Whether two runs of words are the same, sixteen words a step. A slice's
+/// own `==` is a `memcmp`, which in the browser's wasm goes a byte at a
+/// time: a stage frame's pictures, compared every frame to say whether they
+/// go again, spent a fifth of the page's time in it.
+pub fn same_words(a: &[u32], b: &[u32]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let (mut ca, mut cb) = (a.chunks_exact(16), b.chunks_exact(16));
+    for (x, y) in (&mut ca).zip(&mut cb) {
+        let mut differ = 0u32;
+        for k in 0..16 {
+            differ |= x[k] ^ y[k];
+        }
+        if differ != 0 {
+            return false;
+        }
+    }
+    ca.remainder().iter().zip(cb.remainder()).all(|(x, y)| x == y)
+}
+
+/// `same_words` for bytes, eight a word.
+pub fn same_bytes(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let (mut ca, mut cb) = (a.chunks_exact(64), b.chunks_exact(64));
+    for (x, y) in (&mut ca).zip(&mut cb) {
+        let mut differ = 0u64;
+        for k in 0..8 {
+            let word = |c: &[u8]| u64::from_le_bytes([c[8 * k], c[8 * k + 1], c[8 * k + 2], c[8 * k + 3], c[8 * k + 4], c[8 * k + 5], c[8 * k + 6], c[8 * k + 7]]);
+            differ |= word(x) ^ word(y);
+        }
+        if differ != 0 {
+            return false;
+        }
+    }
+    ca.remainder().iter().zip(cb.remainder()).all(|(x, y)| x == y)
+}
+
+impl Eq for Img {}
 
 /// Transparent: no alpha.
 const CLEAR: u32 = 0;
@@ -251,13 +311,15 @@ impl Img {
     /// RGB compositors may leave the material palette after lighting.
     pub fn from_rgb(w: i32, h: i32, pixels: &[Rgb]) -> Img {
         assert_eq!(pixels.len(), (w.max(0) * h.max(0)) as usize);
-        Img { w, h, px: pixels.iter().copied().map(pack).collect() }
+        Img { w, h, px: pixels.iter().copied().map(pack).collect(), span: (0, 0, w.max(0), h.max(0)), touched: UNTOUCHED }
     }
     pub fn new(w: i32, h: i32) -> Img {
         Img {
             w,
             h,
             px: vec![CLEAR; (w.max(0) * h.max(0)) as usize],
+            span: (0, 0, w.max(0), h.max(0)),
+            touched: UNTOUCHED,
         }
     }
 
@@ -266,7 +328,47 @@ impl Img {
             w,
             h,
             px: vec![pack(BLACK); (w.max(0) * h.max(0)) as usize],
+            span: (0, 0, w.max(0), h.max(0)),
+            touched: UNTOUCHED,
         }
+    }
+
+    /// A transparent `w` by `h` picture keeping only the rectangle `(x, y,
+    /// sw, sh)` of it (clipped to the picture): a window onto a great room,
+    /// drawn on at the room's own pixels, costing only what lands in the
+    /// window.
+    pub fn window(w: i32, h: i32, (x, y, sw, sh): (i32, i32, i32, i32)) -> Img {
+        let (x0, y0) = (x.clamp(0, w.max(0)), y.clamp(0, h.max(0)));
+        let (x1, y1) = ((x + sw).clamp(x0, w.max(0)), (y + sh).clamp(y0, h.max(0)));
+        Img { w, h, px: vec![CLEAR; ((x1 - x0) * (y1 - y0)) as usize], span: (x0, y0, x1 - x0, y1 - y0), touched: UNTOUCHED }
+    }
+
+    /// The rectangle this picture keeps (`window`): all of it, unless it is
+    /// a window.
+    pub fn span(&self) -> (i32, i32, i32, i32) {
+        self.span
+    }
+
+    /// Whether this picture keeps all its pixels.
+    pub fn whole(&self) -> bool {
+        self.span == (0, 0, self.w.max(0), self.h.max(0))
+    }
+
+    /// The kept pixels as a picture of their own (all of it, for a whole
+    /// picture).
+    pub fn kept(&self) -> std::borrow::Cow<'_, Img> {
+        if self.whole() {
+            return std::borrow::Cow::Borrowed(self);
+        }
+        let (_, _, w, h) = self.span;
+        std::borrow::Cow::Owned(Img { w, h, px: self.px.clone(), span: (0, 0, w, h), touched: UNTOUCHED })
+    }
+
+    /// Where pixel `(x, y)` is kept, if it is.
+    #[inline]
+    fn index(&self, x: i32, y: i32) -> Option<usize> {
+        let (sx, sy, sw, sh) = self.span;
+        (x >= sx && y >= sy && x < sx + sw && y < sy + sh).then(|| ((y - sy) * sw + (x - sx)) as usize)
     }
 
     /// Build a sprite from rows of inks; unknown characters are transparent.
@@ -294,39 +396,42 @@ impl Img {
         im
     }
 
-    fn inside(&self, x: i32, y: i32) -> bool {
-        x >= 0 && y >= 0 && x < self.w && y < self.h
-    }
-
     pub fn get(&self, x: i32, y: i32) -> Option<Rgb> {
-        if self.inside(x, y) {
-            unpack(self.px[(y * self.w + x) as usize])
-        } else {
-            None
-        }
+        self.index(x, y).and_then(|i| unpack(self.px[i]))
     }
 
     pub fn set(&mut self, x: i32, y: i32, c: Rgb) {
-        if self.inside(x, y) {
-            let w = self.w;
-            self.px[(y * w + x) as usize] = pack(c);
+        if let Some(i) = self.index(x, y) {
+            self.px[i] = pack(c);
+            self.touch(x - self.span.0, y - self.span.1, 1, 1);
         }
     }
 
     /// Every pixel back to transparent.
     pub fn clear_all(&mut self) {
-        for y in 0..self.h {
-            for x in 0..self.w {
-                self.clear(x, y);
-            }
-        }
+        self.px.fill(CLEAR);
+        self.touch(0, 0, self.span.2, self.span.3);
     }
 
     pub fn clear(&mut self, x: i32, y: i32) {
-        if self.inside(x, y) {
-            let w = self.w;
-            self.px[(y * w + x) as usize] = CLEAR;
+        if let Some(i) = self.index(x, y) {
+            self.px[i] = CLEAR;
+            self.touch(x - self.span.0, y - self.span.1, 1, 1);
         }
+    }
+
+    /// Paint landed on `w` x `h` kept pixels from `(x, y)` (in `span`).
+    #[inline]
+    fn touch(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        let t = &mut self.touched;
+        *t = (t.0.min(x), t.1.min(y), t.2.max(x + w), t.3.max(y + h));
+    }
+
+    /// Forget where paint has landed: from here `take_changes` looks only
+    /// at what is painted next. Only for a picture that is, outside what
+    /// it paints next, the same as the one it will be compared with.
+    pub fn untouch(&mut self) {
+        self.touched = UNTOUCHED;
     }
 
     pub fn put(&mut self, x: i32, y: i32, ch: char) {
@@ -391,10 +496,11 @@ impl Img {
     /// packed pixels directly: hundreds of transparent cells need no bounds
     /// checks or colour conversion, only the occupied sprite samples do.
     pub fn stamp_twice(&mut self, src: &Img, x: i32, y: i32) {
+        let (ox, oy, ow, _) = src.span;
         for (i, &p) in src.px.iter().enumerate() {
             if let Some(c) = unpack(p) {
-                let px = x + (i as i32 % src.w) * 2;
-                let py = y + (i as i32 / src.w) * 2;
+                let px = x + (ox + i as i32 % ow.max(1)) * 2;
+                let py = y + (oy + i as i32 / ow.max(1)) * 2;
                 self.set(px, py, c);
                 self.set(px + 1, py, c);
                 self.set(px, py + 1, c);
@@ -403,23 +509,43 @@ impl Img {
         }
     }
 
+    /// `src` drawn `k` times its size, its top left at `(x, y)`.
+    pub fn stamp_times(&mut self, src: &Img, x: i32, y: i32, k: i32) {
+        let k = k.max(1);
+        for (i, &p) in src.px.iter().enumerate() {
+            if let Some(c) = unpack(p) {
+                let px = x + (i as i32 % src.w) * k;
+                let py = y + (i as i32 / src.w) * k;
+                for dy in 0..k {
+                    for dx in 0..k {
+                        self.set(px + dx, py + dy, c);
+                    }
+                }
+            }
+        }
+    }
+
     pub fn stamp(&mut self, o: &Img, x: i32, y: i32) {
-        // Clipped to both images, a row at a time: opaque words win.
-        let (x0, x1) = (x.max(0), (x + o.w).min(self.w));
-        let (y0, y1) = (y.max(0), (y + o.h).min(self.h));
+        // Clipped to what both images keep, a row at a time: opaque words
+        // win.
+        let (sx, sy, sw, sh) = self.span;
+        let (ox, oy, ow, oh) = o.span;
+        let (x0, x1) = ((x + ox).max(sx), (x + ox + ow).min(sx + sw));
+        let (y0, y1) = ((y + oy).max(sy), (y + oy + oh).min(sy + sh));
         if x0 >= x1 || y0 >= y1 {
             return;
         }
         let n = (x1 - x0) as usize;
         for row in y0..y1 {
-            let src = ((row - y) * o.w + (x0 - x)) as usize;
-            let dst = (row * self.w + x0) as usize;
+            let src = ((row - y - oy) * ow + (x0 - x - ox)) as usize;
+            let dst = ((row - sy) * sw + (x0 - sx)) as usize;
             for (d, &s) in self.px[dst..dst + n].iter_mut().zip(&o.px[src..src + n]) {
                 if s & OPAQUE != 0 {
                     *d = s;
                 }
             }
         }
+        self.touch(x0 - sx, y0 - sy, x1 - x0, y1 - y0);
     }
 
     /// Stamp `o` at a fractional pixel. Every opaque pixel lands on its
@@ -556,17 +682,18 @@ impl Img {
         if w == 0 || h == 0 {
             return Img::new(w, h);
         }
-        if ox >= 0 && oy >= 0 && ox + w <= src.w && oy + h <= src.h {
+        let (kx, ky, kw, kh) = src.span;
+        if ox >= kx && oy >= ky && ox + w <= kx + kw && oy + h <= ky + kh {
             let mut px = Vec::with_capacity((w * h) as usize);
-            let sw = src.w as usize;
+            let sw = kw as usize;
             let ww = w as usize;
-            let ox = ox as usize;
-            let oy = oy as usize;
+            let ox = (ox - kx) as usize;
+            let oy = (oy - ky) as usize;
             for y in 0..h as usize {
                 let s = (oy + y) * sw + ox;
                 px.extend_from_slice(&src.px[s..s + ww]);
             }
-            return Img { w, h, px };
+            return Img { w, h, px, span: (0, 0, w, h), touched: UNTOUCHED };
         }
         let mut view = Img::new(w, h);
         for y in 0..h {
@@ -577,6 +704,71 @@ impl Img {
             }
         }
         view
+    }
+
+    /// What `self` painted over `base` (the same size) since it was last
+    /// asked (or `untouch`ed): the smallest rectangle holding every pixel
+    /// that differs, as `(x, y, picture)` with those pixels and nothing
+    /// else. `base` takes the rectangle, so the two match again. `None` when
+    /// nothing differs.
+    ///
+    /// Only what `self` touched is compared: outside it the two must already
+    /// match (`untouch` both alike, then paint `self`), as they do between
+    /// one figure and the next. A room's crowd is taken apart one figure at
+    /// a time, and comparing the whole room for each cost more than all the
+    /// rest of a browser's frame together (a crypt fight: 3.5 ms of 4).
+    pub fn take_changes(&mut self, base: &mut Img) -> Option<(i32, i32, Img)> {
+        debug_assert_eq!((self.w, self.h, self.span), (base.w, base.h, base.span));
+        let (sx, sy, sw, sh) = self.span;
+        let w = sw.max(0) as usize;
+        let (tx0, ty0, tx1, ty1) = std::mem::replace(&mut self.touched, UNTOUCHED);
+        let (tx0, ty0) = (tx0.max(0) as usize, ty0.max(0) as usize);
+        let (tx1, ty1) = (tx1.min(sw).max(0) as usize, ty1.min(sh).max(0) as usize);
+        if w == 0 || tx0 >= tx1 || ty0 >= ty1 {
+            return None;
+        }
+        let (mut x0, mut x1, mut y0, mut y1) = (usize::MAX, 0, usize::MAX, 0);
+        for y in ty0..ty1 {
+            let (row, under) = (&self.px[y * w + tx0..y * w + tx1], &base.px[y * w + tx0..y * w + tx1]);
+            if row == under {
+                continue;
+            }
+            let first = row.iter().zip(under).position(|(a, b)| a != b).unwrap_or(0);
+            let last = row.iter().zip(under).rposition(|(a, b)| a != b).unwrap_or(0);
+            y0 = y0.min(y);
+            y1 = y;
+            x0 = x0.min(tx0 + first);
+            x1 = x1.max(tx0 + last);
+        }
+        if y0 == usize::MAX {
+            return None;
+        }
+        let (cw, ch) = (x1 - x0 + 1, y1 - y0 + 1);
+        let mut px = vec![CLEAR; cw * ch];
+        for y in 0..ch {
+            let start = (y0 + y) * w + x0;
+            let (row, under) = (&self.px[start..start + cw], &mut base.px[start..start + cw]);
+            for (x, (a, b)) in row.iter().zip(under.iter_mut()).enumerate() {
+                if a != b {
+                    px[y * cw + x] = *a;
+                    *b = *a;
+                }
+            }
+        }
+        Some((sx + x0 as i32, sy + y0 as i32, Img { w: cw as i32, h: ch as i32, px, span: (0, 0, cw as i32, ch as i32), touched: UNTOUCHED }))
+    }
+
+    /// What `self` painted over `base` (the same size), at full size:
+    /// transparent wherever the two agree.
+    pub fn changes_over(&self, base: &Img) -> Img {
+        debug_assert_eq!((self.w, self.h, self.span), (base.w, base.h, base.span));
+        let px = self
+            .px
+            .iter()
+            .zip(&base.px)
+            .map(|(&a, &b)| if a == b { CLEAR } else { a })
+            .collect();
+        Img { w: self.w, h: self.h, px, span: self.span, touched: UNTOUCHED }
     }
 
     /// Same bytes `rgb_bytes` would hash, without the intermediate buffer.
@@ -607,6 +799,7 @@ impl Img {
                 black
             };
         }
+        out.touch(0, 0, out.span.2, out.span.3);
     }
 
     /// The packed words, row-major, `0xAARRGGBB`: alpha 0 is transparent
@@ -618,7 +811,7 @@ impl Img {
     /// An image of packed words, as `words` gives them (a client's frame).
     pub fn from_words(w: i32, h: i32, px: Vec<u32>) -> Img {
         assert_eq!(px.len(), (w.max(0) * h.max(0)) as usize, "a frame of {w}x{h} words");
-        Img { w, h, px }
+        Img { w, h, px, span: (0, 0, w.max(0), h.max(0)), touched: UNTOUCHED }
     }
 
     /// Row-major RGB bytes; transparent pixels are black paper.
@@ -632,6 +825,11 @@ impl Img {
 
     /// Row-major opaque RGBA bytes, each pixel blown up to a `k`x`k` block.
     pub fn rgba_scaled(&self, k: u32) -> Vec<u8> {
+        if !self.whole() {
+            let mut whole = Img::new(self.w, self.h);
+            whole.stamp(self, 0, 0);
+            return whole.rgba_scaled(k);
+        }
         let k = k.max(1) as usize;
         let (w, h) = (self.w.max(0) as usize, self.h.max(0) as usize);
         let mut out = Vec::with_capacity(w * h * k * k * 4);
@@ -705,6 +903,7 @@ impl Atlas {
             let rows = y + img.h;
             self.sheet.px.resize((ATLAS_W * rows) as usize, CLEAR);
             self.sheet.h = rows;
+            self.sheet.span = (0, 0, ATLAS_W, rows);
         }
         let n = img.w as usize;
         for row in 0..img.h {

@@ -1,0 +1,269 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    24
+  ],
+  "anchor_xy": [
+    24.0,
+    24
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Visual review: top row sits below the first third of the sheet. First four measured pieces are the four ordinary dust frames; remaining rows are alternate cycles.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "No danger or support; preserve breach edge, feet and shots in foreground.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "1b9118b39597fe2f14dd76f60cec90ce22ebbbbe0a408189db08ed2ed3158506",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 5; Compact initial low dust kick with a few crumb lobes.",
+      "name": "fx-dust-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        88.5,
+        71
+      ],
+      "source_rect_xywh": [
+        60,
+        425,
+        177,
+        71
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 6; Expanding low cloud, with rear and upper lobes raised.",
+      "name": "fx-dust-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.5,
+        122
+      ],
+      "source_rect_xywh": [
+        340,
+        376,
+        247,
+        122
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 7; Broadest connected peak cloud.",
+      "name": "fx-dust-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        149.0,
+        136
+      ],
+      "source_rect_xywh": [
+        624,
+        366,
+        298,
+        136
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 8; Dispersing low wisps and crumbs.",
+      "name": "fx-dust-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        107
+      ],
+      "source_rect_xywh": [
+        961,
+        388,
+        244,
+        107
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Alternate compact initial kick.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        96.0,
+        89
+      ],
+      "source_rect_xywh": [
+        53,
+        750,
+        192,
+        89
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Alternate expanding dust mass.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        118
+      ],
+      "source_rect_xywh": [
+        340,
+        720,
+        243,
+        118
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Alternate full peak.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        149.0,
+        128
+      ],
+      "source_rect_xywh": [
+        624,
+        711,
+        298,
+        128
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Alternate dispersal.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        119.0,
+        96
+      ],
+      "source_rect_xywh": [
+        971,
+        738,
+        238,
+        96
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Second variation initial kick.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        99.0,
+        73
+      ],
+      "source_rect_xywh": [
+        60,
+        1097,
+        198,
+        73
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Second variation expansion.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.0,
+        119
+      ],
+      "source_rect_xywh": [
+        340,
+        1052,
+        248,
+        119
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Second variation peak.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.5,
+        131
+      ],
+      "source_rect_xywh": [
+        628,
+        1044,
+        301,
+        131
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Second variation dispersal.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        119.5,
+        95
+      ],
+      "source_rect_xywh": [
+        975,
+        1074,
+        239,
+        95
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d724, bottom-centre (24,24) at effect point. Keep low lobes and unused upper canvas rather than increasing cloud height.",
+  "sizes": {
+    "v1": [
+      48,
+      24
+    ],
+    "v2": [
+      48,
+      24
+    ]
+  },
+  "slot": "pennon.dust",
+  "source_sha256": "325efaa89a46d09a609529864ab8b677bf5cd46b3d84642f0d7f517b44f6e212",
+  "timing": "Four frames, 3 ticks each over effect=12; chosen for effect_y>=FLOOR (draw())."
+}

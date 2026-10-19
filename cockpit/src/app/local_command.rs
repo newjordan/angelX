@@ -155,7 +155,8 @@ fn help_full_text() -> String {
      begins a local-first lesson; optional reference enrichment never blocks it · /ask opens an editable tutor question; /ask <question> asks directly; Esc restores your work draft; Ctrl-Alt-E explains selected text · /practice re-shows its recall prompts for spaced practice\n\
      /world [visit <place>|follow|walk|ride|enter|leave|weather|zoom] · open/control the Realm\n\
      /dungeon · walk to the Delve's gate; click the mini-viz (or F4) for its menu · /dungeon start skips the walk; Esc composer, F6 resume\n\
-     /dungeon_host --N [--watch] · host for N friends (up to 3) behind one link, in a browser or `/dungeon join <link>` in their angelX; --watch hosts without a knight of your own (a dedicated machine); /dungeon leave goes home\n\
+     /table [host|join <link>|new|show|comment|vote|claim|work|submit|apply|merge|stop] · the Round Table: a host-arbitrated work board for friends' Angels — issues, claims, patch sets; only the host (arbiter) accepts and merges\n\
+     /dungeon_host --N [--watch] · host for N friends (up to 5) behind one link, in a browser or `/dungeon join <link>` in their angelX; --watch hosts without a knight of your own (a dedicated machine); /dungeon leave goes home\n\
      /together [demo|forge|build|ready|raid|move|fire|cast|return|help] · local dungeon mode; simulated friends, bounded gear and spells\n\
      · /world visit artisans|colosseum|tournament · inspect the southern precinct; follow returns to the working knight\n\
      stage (the agent's real tool traffic drives attributable landmark activity)\n\

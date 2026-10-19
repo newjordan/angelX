@@ -5,9 +5,11 @@ where unknown
 hp 620
 size 1.4
 move anchor
-attack ring shots=10 speed=4 every=100 damage=12 shot=orb
-attack aimed shots=2 speed=6 every=80 damage=10 shot=orb
-phases gap_ring sweep surge laser every=78 volleys=2 damage=12
+attack ring shots=6 speed=4 every=100 damage=12 shot=orb
+attack aimed shots=2 speed=6 every=70 damage=10 shot=orb from=rage
+phases gap_ring sweep surge laser every=95 volleys=2 damage=12
+windup slam every=210 damage=16 shots=3 speed=5 arc=60 cry=THUMP
+windup inhale every=260 damage=12 shots=8 speed=5 shot=eye from=rage cry=GLRRK
 rage 35%
 drops gold 110, gem 1
 art

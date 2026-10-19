@@ -1,0 +1,503 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    12.0
+  ],
+  "comments": [
+    "Source design unchanged; BOX reduction, binary alpha and shared inks.",
+    "Side states remain staged where native barred/open silhouettes are ambiguous."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+  "mapping_basis": "Reviewed delivered reading order; per-grid Mines/Keep crops repair merged detector groups.",
+  "notes_sha256": "56b42aca9d1106e254722ea75f4ebace6aabc3449701b6413cd017b2e18cece3",
+  "pieces": [
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        138.5,
+        144.0
+      ],
+      "source_rect_xywh": [
+        24,
+        130,
+        277,
+        288
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        140.0,
+        144.0
+      ],
+      "source_rect_xywh": [
+        332,
+        130,
+        280,
+        288
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        140.0,
+        144.0
+      ],
+      "source_rect_xywh": [
+        645,
+        130,
+        280,
+        288
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "west-barred",
+      "piece": 3,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        125.5,
+        128.0
+      ],
+      "source_rect_xywh": [
+        969,
+        162,
+        251,
+        256
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "west-open",
+      "piece": 4,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        127.5,
+        174.0
+      ],
+      "source_rect_xywh": [
+        35,
+        418,
+        255,
+        348
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "east-barred",
+      "piece": 5,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        129.0,
+        174.0
+      ],
+      "source_rect_xywh": [
+        343,
+        418,
+        258,
+        348
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "east-open",
+      "piece": 6,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        135.5,
+        209.0
+      ],
+      "source_rect_xywh": [
+        650,
+        418,
+        271,
+        418
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "south-barred",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        138.5,
+        148.5
+      ],
+      "source_rect_xywh": [
+        956,
+        418,
+        277,
+        297
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "south-open",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        137.0,
+        61.5
+      ],
+      "source_rect_xywh": [
+        25,
+        949,
+        274,
+        123
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "stairs-down",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        128.0,
+        120.5
+      ],
+      "source_rect_xywh": [
+        343,
+        860,
+        256,
+        241
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "boss",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        155.0,
+        140.0
+      ],
+      "source_rect_xywh": [
+        630,
+        836,
+        310,
+        280
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "No delivered reading-order label",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        142.5,
+        125.5
+      ],
+      "source_rect_xywh": [
+        940,
+        850,
+        285,
+        251
+      ],
+      "state": "odoor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-native",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.odoor.keep",
+  "source_sha256": "409a196b3e4f11bfad1c32c1cada2abe59b1e0fab12537ff6730c0665b823a03",
+  "timing": ""
+}

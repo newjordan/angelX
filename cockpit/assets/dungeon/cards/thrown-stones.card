@@ -1,0 +1,13 @@
+# Temporary stone slot in peasant/slots.json.
+name   Thrown Stones
+kind   arm
+rarity common
+text   Hold F: lob short-range stones with a light shove.
+drop   0
+chest  0
+arm    stones
+art
+.777.
+77777
+77777
+.777.

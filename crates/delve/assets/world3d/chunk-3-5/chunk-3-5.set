@@ -1,0 +1,152 @@
+set chunk-3-5
+# The kingdom, chunk 3,5 in Castle Town: tiles 72..96 x 80..96 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 1408
+plate 1536 1024
+
+# ground
+box    grass   at 1232 -4 1328 size 160 4 96
+box    path    at 1336 -4 1296 size 48 4 32
+box    grass   at 1448 -4 1328 size 176 4 96
+box    grass   at 1320 -4 1352 size 16 4 80
+box    path    at 1336 -4 1360 size 16 4 96
+box    grass   at 1352 -4 1352 size 16 4 80
+box    path    at 1184 -4 1400 size 64 4 48
+box    grass   at 1264 -4 1384 size 96 4 16
+box    grass   at 1416 -4 1384 size 112 4 16
+box    path    at 1504 -4 1400 size 64 4 48
+box    path    at 1272 -4 1400 size 112 4 16
+box    path    at 1408 -4 1400 size 128 4 16
+box    grass   at 1344 -4 1440 size 256 4 64
+box    grass   at 1184 -4 1480 size 64 4 112
+box    grass   at 1504 -4 1440 size 64 4 32
+box    grass   at 1496 -4 1496 size 48 4 80
+box    crop    at 1528 -4 1472 size 16 4 32
+box    grass   at 1272 -4 1480 size 112 4 16
+box    path    at 1336 -4 1504 size 16 4 64
+box    grass   at 1408 -4 1480 size 128 4 16
+box    grass   at 1264 -4 1512 size 96 4 48
+box    path    at 1320 -4 1512 size 16 4 48
+box    path    at 1352 -4 1512 size 16 4 48
+box    grass   at 1416 -4 1512 size 112 4 48
+box    grass   at 1528 -4 1512 size 16 4 48
+
+# crop furrows
+box    crop    at 1528 0 1459.5 size 14 2.5 2
+box    crop    at 1528 0 1464.5 size 14 2.5 2
+box    crop    at 1528 0 1469.5 size 14 2.5 2
+box    crop    at 1528 0 1474.5 size 14 2.5 2
+box    crop    at 1528 0 1479.5 size 14 2.5 2
+box    crop    at 1528 0 1484.5 size 14 2.5 2
+
+# a cottage of The Village: a cottage at 78,84 2x2 (at 97% of its height, for the camera)
+box    brick   at 1264 0 1368 size 28 14.5 12 id cottage-1
+gable  thatch  at 1264 14.5 1368 size 31 9 15
+box    stone   at 1270.72 14.5 1366.8 size 4 10.5 4
+box    door    at 1258.4 0 1374.25 size 7 10.5 1
+
+# a cottage of The Village: a cottage at 81,84 2x2 (at 99% of its height, for the camera)
+box    plaster at 1312 0 1368 size 28 14.5 12 id cottage-2
+gable  thatch  at 1312 14.5 1368 size 31 9 15
+box    door    at 1312 0 1374.25 size 7 10.5 1
+box    window  at 1305 6 1374.25 size 5 4.5 1
+box    window  at 1319 6 1374.25 size 5 4.5 1
+
+# a cottage of The Village: a cottage at 85,84 2x2 (at 99% of its height, for the camera)
+box    brick   at 1376 0 1368 size 28 14.5 12 id cottage-3
+hip    slate   at 1376 14.5 1368 size 31 9 15
+box    stone   at 1382.72 14.5 1366.8 size 4 10.5 4
+box    door    at 1376 0 1374.25 size 7 10.5 1
+box    window  at 1369 6 1374.25 size 5 4 1
+box    window  at 1383 6 1374.25 size 5 4 1
+
+# a cottage of The Village: a cottage at 88,84 2x2 (at 97% of its height, for the camera)
+box    brick   at 1424 0 1368 size 28 13 12 id cottage-4
+hip    slate   at 1424 13 1368 size 31 11 15
+box    stone   at 1430.72 13 1366.8 size 4 12 4
+box    door    at 1424 0 1374.25 size 7 10 1
+box    window  at 1417 5.5 1374.25 size 5 3.5 1
+box    window  at 1431 5.5 1374.25 size 5 3.5 1
+
+# the forge of The Village: a forge with its open bay and stack at 78,89 2x2
+box    wood    at 1258.92 0 1448 size 17.84 13 12 id forge
+gable  thatch  at 1258.92 13 1448 size 20.84 10 15
+box    door    at 1255.35 0 1454.25 size 7 10 1
+box    wood    at 1277 0 1453 size 2 11 2
+box    wood    at 1277 0 1444 size 2 11 2
+wedge  thatch  at 1272.92 11 1448.5 size 13 4 11.16 turn 90
+box    brick   at 1264.34 0 1446.5 size 5 26 5
+box    stone   at 1273.34 0 1450 size 7 5 6
+
+# the weaver's of The Village: a workshop and lean-to at 81,89 2x2
+box    brick   at 1306.92 0 1448 size 17.84 13 12 id weaver
+gable  slate   at 1306.92 13 1448 size 20.84 10 15
+box    door    at 1303.35 0 1454.25 size 7 10 1
+box    wood    at 1325 0 1453 size 2 11 2
+box    wood    at 1325 0 1444 size 2 11 2
+wedge  slate   at 1320.92 11 1448.5 size 13 4 11.16 turn 90
+box    wood    at 1320.42 0 1449 size 5.16 4 4
+
+# the cooper's of The Village: a workshop and lean-to at 84,89 2x2
+box    plaster at 1354.92 0 1448 size 17.84 13 12 id cooper
+gable  slate   at 1354.92 13 1448 size 20.84 10 15
+box    door    at 1351.35 0 1454.25 size 7 10 1
+box    wood    at 1373 0 1453 size 2 11 2
+box    wood    at 1373 0 1444 size 2 11 2
+wedge  slate   at 1368.92 11 1448.5 size 13 4 11.16 turn 90
+box    wood    at 1368.42 0 1449 size 5.16 4 4
+
+# the granary of The Village: a barn at 87,89 2x2 (at 96% of its height, for the camera)
+box    wood    at 1408 0 1448 size 28 13 13 id granary
+gable  slate   at 1408 13 1448 size 31 12.5 16
+box    door    at 1408 0 1454.75 size 11 11.5 1
+
+# the well of The Village: a well at 90,89 1x1 (at 76% of its height, for the camera)
+cylinder stone   at 1448 0 1432 size 12 3.5 12 id well
+cylinder water   at 1448 0 1432 size 9 3 9
+box    wood    at 1442.5 0 1432 size 1.5 9.5 1.5
+box    wood    at 1453.5 0 1432 size 1.5 9.5 1.5
+gable  wood    at 1448 9.5 1432 size 15 4 12
+
+# set dressing
+box    wood    at 1508 0 1288 size 1.5 4 1.5
+box    wood    at 1548 0 1288 size 1.5 4 1.5
+box    wood    at 1528 2.75 1288 size 42 1.25 1.2
+
+# woods (at 42% of its height, for the camera)
+frustum trunk   at 1192 0 1335 size 3 4 3
+cone   foliage at 1192 2.5 1335 size 17 8.5 17
+cone   foliage at 1192 7.5 1335 size 12.24 8.5 12.24
+frustum trunk   at 1496 0 1496 size 3 5 3
+blob-29 foliage at 1496 2.5 1496 size 19 8 18.05
+frustum trunk   at 1448.5 0 1512 size 3 4.5 3
+blob-22 foliage at 1448.5 2.5 1512 size 18 8 17.1 turn 90
+frustum trunk   at 1465 0 1511 size 3 5 3
+blob-26 foliage at 1465 2 1511 size 17 9.5 16.15
+frustum trunk   at 1480 0 1512 size 3 5.5 3
+blob-5 foliage at 1480 3 1512 size 19 7 18.05 turn 90
+frustum trunk   at 1400 0 1528 size 3 4 3
+blob-53 foliage at 1400 2 1528 size 19 8.5 18.05 turn 90
+frustum trunk   at 1448 0 1528 size 3 10 3
+blob-42 foliage at 1448 5 1528 size 19 14 18.05 turn 180
+cylinder trunk   at 1464 0 1526 size 3 10 3
+blob-36 foliage at 1464 5 1526 size 19 17 18.05 turn 90
+frustum trunk   at 1480 0 1528 size 3 12 3
+blob-38 foliage at 1480 7 1528 size 19 19 18.05
+cylinder trunk   at 1528 0 1528 size 3 5 3
+blob-47 foliage at 1528 2.5 1528 size 19 8 18.05 turn 270
+box    hedge   at 1432 0 1512 size 16 6.5 15
+blob-33 hedge   at 1432 4 1512 size 16 5 15
+box    hedge   at 1160 0 1528 size 16 6 15
+blob-18 hedge   at 1160 3.5 1528 size 16 5 15
+box    hedge   at 1176 0 1528 size 16 6 15
+blob-35 hedge   at 1176 3.5 1528 size 16 5 15
+box    hedge   at 1192 0 1528 size 16 6.5 15
+blob-46 hedge   at 1192 4 1528 size 16 6 15
+box    hedge   at 1208 0 1528 size 16 6.5 15
+blob-58 hedge   at 1208 4 1528 size 16 6 15
+box    hedge   at 1496 0 1528 size 16 4 15
+blob-52 hedge   at 1496 2.5 1528 size 16 3.5 15
+box    hedge   at 1512 0 1528 size 16 6 15
+blob-6 hedge   at 1512 3.5 1528 size 16 5 15

@@ -15,6 +15,9 @@ use super::{DEEPEST, EnemyKind, FLOORS, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
+pub mod open;
+pub use open::{Chamber, OPEN_MAX_COLS, OPEN_MAX_ROWS, Open, SideDoor, open_floor};
+
 /// Tiles across and down one room, walls included.
 /// A screen's worth of room: the size of every ordinary room, and the
 /// camera's view into a great hall.
@@ -40,6 +43,16 @@ pub enum Tile {
     /// A plank in a side-on room: stood on from above, jumped through from
     /// below, dropped through with down.
     Ledge,
+    /// Mire: walkable, but it holds the feet. A knight or a walking monster
+    /// wades it at `swamp::BOG_PACE`; shots and wings pass over it.
+    Bog,
+}
+
+impl Tile {
+    /// Ground a body can be set down on: dry floor, or the swamp's bog.
+    pub fn ground(self) -> bool {
+        matches!(self, Tile::Floor | Tile::Bog)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -180,6 +193,18 @@ pub enum RoomKind {
     /// The Griffin Eyrie on the Mountain: free practice flights of the
     /// Griffin Run (`race3d`).
     Eyrie,
+    /// An open floor's one map (`open`): its chambers and the passages
+    /// between them, explored on foot, no door between one fight and the
+    /// next.
+    Depths,
+    /// Siege muster house: personal rampart practice inside the north court.
+    Muster,
+    /// The Colosseum (`colosseum`): its entrance hall with two arched
+    /// gates, the Powder Keg yard through one and the Gander Joust hall
+    /// through the other. Appended, so saved names and masks keep.
+    ColosseumHall,
+    KegYard,
+    GanderHall,
 }
 
 impl RoomKind {
@@ -189,6 +214,7 @@ impl RoomKind {
             Self::Home => "PLAYER HALL",
             Self::Stockpile => "STOCKPILE",
             Self::Workshop => "WORKSHOP",
+            Self::Muster => "SIEGE MUSTER",
             Self::Quarters => "QUARTERS",
             _ => "EXCAVATION",
         }
@@ -211,6 +237,10 @@ pub enum Pack {
     Fungal,
     /// Floor six: the Unknown, where the Shoggoth waits.
     Unknown,
+    /// The Swamp of Horrors: a delve of its own, three floors of mire under
+    /// Sir Damp's Marsh (`swamp`), the Mire King and the white horse at the
+    /// bottom.
+    Swamp,
 }
 
 impl Pack {
@@ -222,12 +252,17 @@ impl Pack {
             Pack::Archive => "The Drowned Archive",
             Pack::Fungal => "The Fungal Deep",
             Pack::Unknown => "The Unknown",
+            Pack::Swamp => "The Swamp of Horrors",
         }
     }
 
     /// The pack of floor `depth` of a delve whose first floor is `first`:
     /// the Crypt and the Mines, Dragon Keep, then the deep.
     pub fn at(depth: u32, first: Pack) -> Pack {
+        // The swamp is a delve of its own: mire all the way down.
+        if first == Pack::Swamp {
+            return Pack::Swamp;
+        }
         let other = if first == Pack::Crypt {
             Pack::Cavern
         } else {
@@ -341,6 +376,37 @@ impl Pack {
                 (Biter, 1),
             ],
             // The Unknown: echoes of everything met on the way down.
+            // The swamp: the first floor meets the gentle things of the mire
+            // (leeches, the hands under the bog, a wraith over the water); the
+            // drowned knights, the wisps' lure and the casters come lower.
+            (Pack::Swamp, 0 | 1) => &[
+                (Leech, 4),
+                (BogHand, 3),
+                (Wraith, 2),
+                (Wisp, 1),
+                (Slime, 1),
+            ],
+            (Pack::Swamp, 2) => &[
+                (Leech, 3),
+                (BogHand, 3),
+                (Wraith, 2),
+                (Wisp, 2),
+                (Slime, 1),
+                (Spitter, 1),
+                (Drowned, 1),
+                (Hexer, 1),
+            ],
+            (Pack::Swamp, _) => &[
+                (Leech, 2),
+                (BogHand, 3),
+                (Wraith, 2),
+                (Wisp, 2),
+                (Drowned, 2),
+                (Slime, 1),
+                (Spitter, 1),
+                (Hexer, 1),
+                (Whirlgrave, 1),
+            ],
             (Pack::Unknown, _) => &[
                 (Wraith, 2),
                 (Imp, 2),
@@ -389,13 +455,18 @@ impl Pack {
             Pack::Archive => &[STACKS, COLONNADE, POOLS, STACKS, CROSS],
             Pack::Fungal => &[EMPTY, POOLS, PILLARS, LAVA_RIVER, COLONNADE],
             Pack::Unknown => &[EMPTY, PILLARS, CROSS, POOLS, LAVA_RIVER],
+            // Reed beds and black channels; the mire itself is laid over
+            // whichever is drawn (`swamp::mire`).
+            Pack::Swamp => &[REEDBEDS, POOLS, LAVA_RIVER, REEDBEDS, PILLARS],
         }
     }
 
     /// Caverns grow loose boulders on top of their template.
-    fn scatter(self) -> usize {
+    pub(crate) fn scatter(self) -> usize {
         match self {
             Pack::Cavern | Pack::Fungal => 4,
+            // Tussocks and stumps.
+            Pack::Swamp => 2,
             _ => 0,
         }
     }
@@ -405,7 +476,7 @@ impl Pack {
 /// `~` hazard. The column next to the vertical mirror and the row next to
 /// the horizontal one are the door lanes; templates keep their door ends
 /// open and the flood check below guarantees every door reaches the centre.
-type Template = [&'static str; 6];
+pub(crate) type Template = [&'static str; 6];
 
 const EMPTY: Template = [
     "...........",
@@ -472,6 +543,16 @@ const STACKS: Template = [
     "...........",
     "...........",
 ];
+/// The swamp's reed beds: clumps of reeds standing on dry tussocks, and a
+/// black pool.
+const REEDBEDS: Template = [
+    "...........",
+    "..#........",
+    "......#....",
+    "..~~.......",
+    "..~~....#..",
+    "...........",
+];
 const SHRINE: Template = [
     "...........",
     "...........",
@@ -515,6 +596,10 @@ pub struct Room {
     pub roster: Vec<EnemyKind>,
     pub items: Vec<super::Item>,
     pub chest: Option<Chest>,
+    /// The size its kind laid it at, when it was grown for the party
+    /// (`party_room`): what lives in it is reckoned for that room.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub laid: Option<(usize, usize)>,
 }
 
 impl Room {
@@ -533,6 +618,7 @@ impl Room {
             roster: Vec::new(),
             items: Vec::new(),
             chest: None,
+            laid: None,
         }
     }
 
@@ -577,12 +663,21 @@ pub const MAX_ROWS: usize = 2 * ROWS;
 impl Room {
     pub(super) fn valid_snapshot(&self) -> bool {
         (if self.kind == RoomKind::Kingdom {
-            self.cols == super::map::MAP_W as usize
-                && self.rows == super::map::MAP_H as usize
+            // The map as it is, or as an old save carries it (the kingdom
+            // before it opened), which the migration then replaces.
+            let (w, h) = crate::world::map::LEGACY_MAP;
+            (self.cols == super::map::MAP_W as usize && self.rows == super::map::MAP_H as usize)
+                || (self.cols == w as usize && self.rows == h as usize)
+        } else if self.kind == RoomKind::Depths {
+            // An open floor's map: as big as `open` lays one.
+            (COLS..=OPEN_MAX_COLS).contains(&self.cols) && (ROWS..=OPEN_MAX_ROWS).contains(&self.rows)
         } else {
             (COLS..=MAX_COLS).contains(&self.cols) && (ROWS..=MAX_ROWS).contains(&self.rows)
         }) && self.tiles.len() == self.cols * self.rows
-            && self.items.len() <= 32
+            && self.laid.is_none_or(|(cols, rows)| {
+                (COLS..=MAX_COLS).contains(&cols) && (ROWS..=MAX_ROWS).contains(&rows)
+            })
+            && self.items.len() <= if self.kind == RoomKind::Depths { super::depths::OPEN_ITEMS } else { 32 }
             && self.roster.len() <= 64
     }
 
@@ -602,6 +697,11 @@ impl Room {
         self.set(col, row, tile);
     }
 
+    #[cfg(any(test, feature = "testing"))]
+    pub fn tiles_for_test(&self) -> &[Tile] {
+        &self.tiles
+    }
+
     /// Open a doorway in side `dir`, where the floor's grid had none.
     pub fn open_door(&mut self, dir: usize) {
         self.doors[dir] = true;
@@ -614,6 +714,30 @@ impl Room {
         };
         for (col, row) in lane {
             self.set(col, row, Tile::Door);
+        }
+    }
+
+    /// The room laid afresh at `cols` by `rows`: open floor inside stone
+    /// walls, its doorways where they were (`open_door`). What it measured
+    /// before is kept as `laid`, as a room grown for the party keeps it.
+    pub(super) fn regrow(&mut self, cols: usize, rows: usize) {
+        if (cols, rows) == (self.cols, self.rows) {
+            return;
+        }
+        self.laid.get_or_insert((self.cols, self.rows));
+        (self.cols, self.rows) = (cols, rows);
+        self.tiles = vec![Tile::Floor; cols * rows];
+        for row in 0..rows {
+            for col in 0..cols {
+                if row == 0 || col == 0 || row == rows - 1 || col == cols - 1 {
+                    self.set(col, row, Tile::Wall);
+                }
+            }
+        }
+        for dir in 0..4 {
+            if self.doors[dir] {
+                self.open_door(dir);
+            }
         }
     }
 
@@ -702,6 +826,10 @@ pub struct Floor {
     /// The floor's secret room, if it has one.
     #[serde(default)]
     pub secret: Option<Secret>,
+    /// An open floor's map, its chambers and the doors off it (`open`):
+    /// none for a floor of rooms.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<open::Open>,
 }
 
 /// A vault hung off a fight room behind a cracked wall: the room that hides
@@ -728,6 +856,9 @@ impl Floor {
         let Some(secret) = self.secret else {
             return !self.rooms.iter().any(|r| r.kind == RoomKind::Secret);
         };
+        if let Some(open) = &self.open {
+            return self.valid_open_secret(open, secret);
+        }
         let Some(host) = self.rooms.get(secret.host) else {
             return false;
         };
@@ -786,6 +917,11 @@ impl Floor {
             return None;
         }
         let secret = self.secret.filter(|s| !s.found)?;
+        if let Some(open) = &self.open {
+            let door = open.doors.iter().find(|d| d.room == secret.vault)?;
+            let (x, y) = door.middle();
+            return Some((open.map, x, y));
+        }
         let room = &self.rooms[secret.host];
         let (w, h) = (room.width(), room.height());
         let (x, y) = match secret.side {
@@ -807,9 +943,127 @@ impl Floor {
             return false;
         };
         secret.found = true;
-        let (host, side) = (secret.host, secret.side);
+        let (host, side, vault) = (secret.host, secret.side, secret.vault);
+        if let Some(open) = &self.open {
+            // On an open map the crack is a door in a chamber's wall.
+            if let Some(door) = open.doors.iter().find(|d| d.room == vault) {
+                for (c, r) in door.tiles() {
+                    self.rooms[host].set(c as usize, r as usize, Tile::Door);
+                }
+            }
+            return true;
+        }
         self.rooms[host].open_door(side);
         true
+    }
+
+    /// An open floor's vault: behind a door of the map's (a wall until it
+    /// is found), its one doorway facing back, the only vault.
+    fn valid_open_secret(&self, open: &Open, secret: Secret) -> bool {
+        let (Some(host), Some(vault)) = (self.rooms.get(secret.host), self.rooms.get(secret.vault)) else {
+            return false;
+        };
+        let Some(door) = open.doors.iter().find(|d| d.room == secret.vault) else {
+            return false;
+        };
+        let shut = door.tiles().iter().all(|&(c, r)| host.tile(c, r) == Tile::Wall);
+        let opened = door.tiles().iter().all(|&(c, r)| host.tile(c, r) == Tile::Door);
+        secret.host == open.map
+            && secret.side < 4
+            && secret.side == usize::from(door.dir)
+            && host.kind == RoomKind::Depths
+            && vault.kind == RoomKind::Secret
+            && self.rooms.iter().filter(|r| r.kind == RoomKind::Secret).count() == 1
+            && !(secret.paid && (!secret.found || !secret.snibbet))
+            && if secret.found { opened } else { shut }
+            && vault
+                .doors
+                .iter()
+                .enumerate()
+                .all(|(side, &open)| open == (side == (secret.side + 2) % 4))
+    }
+
+    /// The room the floor's guardian holds: its stairs, lair or threshold.
+    pub fn guardian(&self) -> Option<usize> {
+        self.rooms.iter().position(|r| {
+            matches!(
+                r.kind,
+                RoomKind::Stairs | RoomKind::Lair | RoomKind::Threshold
+            )
+        })
+    }
+
+    /// Doors from the entrance to the guardian's room.
+    pub fn stairs_doors(&self) -> usize {
+        self.guardian()
+            .and_then(|g| self.steps().get(g).copied())
+            .filter(|&d| d != usize::MAX)
+            .unwrap_or(0)
+    }
+
+    /// Whether fight room `room` may hold the floor's chief, and how well:
+    /// lower is better. Beside the guardian's door or a showdown's (the Pit,
+    /// the Wanted hall) is worst, then the entrance's ring (`pacing`); after
+    /// that, the nearer the middle of the floor's depth the better.
+    pub(super) fn chief_rank(&self, room: usize, steps: &[usize]) -> (bool, bool, bool, usize) {
+        let guardian = self.guardian();
+        let beside = |showdown: bool| {
+            (0..4).any(|dir| {
+                self.neighbour(room, dir).is_some_and(|n| {
+                    if showdown {
+                        matches!(self.rooms[n].kind, RoomKind::Wanted | RoomKind::Pit)
+                    } else {
+                        Some(n) == guardian
+                    }
+                })
+            })
+        };
+        let at = steps[room];
+        let deep = guardian.map_or(0, |g| steps[g]);
+        (
+            beside(false),
+            beside(true),
+            at < super::pacing::CHIEF_FROM,
+            at.saturating_mul(2).abs_diff(deep),
+        )
+    }
+
+    /// Whether the floor can ramp (`pacing`): its stairs lie far enough in,
+    /// and a fight room lies mid-floor for its chief.
+    pub fn ramps(&self) -> bool {
+        let steps = self.steps();
+        let showdowns_late = (0..self.rooms.len())
+            .filter(|&i| matches!(self.rooms[i].kind, RoomKind::Wanted | RoomKind::Pit))
+            .all(|i| steps[i] != usize::MAX && steps[i] > super::pacing::CHIEF_FROM);
+        self.stairs_doors() >= super::pacing::STAIRS_FROM
+            && showdowns_late
+            && (0..self.rooms.len()).any(|i| {
+                self.rooms[i].kind == RoomKind::Fight
+                    && steps[i] != usize::MAX
+                    && matches!(self.chief_rank(i, &steps), (false, false, false, _))
+            })
+    }
+
+    /// Doors from the entrance to every room (`usize::MAX` where no door
+    /// leads): how deep into the floor each room lies.
+    pub fn steps(&self) -> Vec<usize> {
+        let mut dist = vec![usize::MAX; self.rooms.len()];
+        if dist.is_empty() {
+            return dist;
+        }
+        dist[0] = 0;
+        let mut queue = VecDeque::from([0]);
+        while let Some(at) = queue.pop_front() {
+            for dir in 0..4 {
+                if let Some(next) = self.neighbour(at, dir)
+                    && dist[next] == usize::MAX
+                {
+                    dist[next] = dist[at] + 1;
+                    queue.push_back(next);
+                }
+            }
+        }
+        dist
     }
 
     /// The room through door `dir` of room `from`: none where that side
@@ -819,6 +1073,16 @@ impl Floor {
         if !self.rooms[from].doors[dir] {
             return None;
         }
+        // An open floor: a side room's door leads back onto the map, and
+        // the map's own doors are in its chambers' walls (`open::SideDoor`).
+        if let Some(open) = &self.open {
+            if from == open.map {
+                return None;
+            }
+            if open.doors.iter().any(|d| d.room == from && (usize::from(d.dir) + 2) % 4 == dir) {
+                return Some(open.map);
+            }
+        }
         let (x, y) = self.rooms[from].cell;
         let (dx, dy) = DIRS[dir];
         self.rooms.iter().position(|r| r.cell == (x + dx, y + dy))
@@ -827,47 +1091,67 @@ impl Floor {
 
 /// Lay out floor `depth` of the given pack.
 pub fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
+    floor_party(depth, pack, 1, rng)
+}
+
+/// The least a fight room measures for a party of this many knights: the
+/// room's floor grows by one screen's worth for each knight, so a party of
+/// four fights in a hall four times a lone knight's.
+pub fn party_room(party: usize) -> (usize, usize) {
+    match party {
+        0 | 1 => (COLS, ROWS),
+        2 => (34, 20),
+        3 => (42, 24),
+        _ => (MAX_COLS, MAX_ROWS),
+    }
+}
+
+/// Lay out floor `depth` of the given pack for a party of `party` knights:
+/// its fight rooms and stairs rooms at least [`party_room`] in size.
+pub fn floor_party(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor {
     // Chambers, and the passages that join them.
     let want = 8usize.saturating_add(depth as usize);
-    let cells = if depth >= 3 {
-        crate::world::routing::tunnel_cells(
-            crate::world::routing::TunnelVariant::for_depth(depth),
-            rng.next(),
-            GRID,
-            want,
-        )
-    } else {
-        approach_cells(want, rng)
+    let grow = |rng: &mut Rng| {
+        if depth >= 3 {
+            crate::world::routing::tunnel_cells(
+                crate::world::routing::TunnelVariant::for_depth(depth),
+                rng.next(),
+                GRID,
+                want,
+            )
+        } else {
+            approach_cells(want, rng)
+        }
     };
-    let links = |&(x, y): &(i32, i32)| DIRS.map(|(dx, dy)| cells.contains(&(x + dx, y + dy)));
-    // Breadth-first distance from the entrance picks the far rooms.
-    let mut dist = vec![usize::MAX; cells.len()];
-    dist[0] = 0;
-    let mut queue = VecDeque::from([0]);
-    while let Some(i) = queue.pop_front() {
-        let (x, y) = cells[i];
-        for (dx, dy) in DIRS {
-            if let Some(j) = cells.iter().position(|&c| c == (x + dx, y + dy))
-                && dist[j] == usize::MAX
-            {
-                dist[j] = dist[i] + 1;
-                queue.push_back(j);
-            }
+    // A floor that cannot ramp is grown again (`pacing`): its stairs come
+    // too soon, or no fight room lies mid-floor for its chief. The first
+    // that ramps stands, else the deepest of the tries.
+    let cells = grow(rng);
+    let mut best = build(depth, pack, party, rng, cells);
+    for _ in 0..super::pacing::GROW_TRIES {
+        if best.ramps() {
+            break;
+        }
+        let cells = grow(rng);
+        let again = build(depth, pack, party, rng, cells);
+        if again.ramps() || again.stairs_doors() > best.stairs_doors() {
+            best = again;
         }
     }
-    let far = (1..cells.len()).max_by_key(|&i| (dist[i], i)).unwrap_or(0);
-    let dead_end = |i: usize| links(&cells[i]).iter().filter(|&&l| l).count() == 1;
-    let treasure = (1..cells.len())
-        .filter(|&i| i != far)
-        .max_by_key(|&i| (dead_end(i), dist[i], i));
-    // Plain cells that only pass through become halls: up to three a floor,
-    // never the entrance's neighbour, so a run opens on a chamber.
-    let through = |i: usize| links(&cells[i]).iter().filter(|&&l| l).count() == 2;
-    let mut halls: Vec<usize> = (1..cells.len())
-        .filter(|&i| i != far && Some(i) != treasure && through(i) && dist[i] > 1)
-        .collect();
-    halls.sort_by_key(|&i| (std::cmp::Reverse(dist[i]), i));
-    halls.truncate(3);
+    best
+}
+
+/// Floor `depth` of `pack` for a party of `party` on the given cells, the
+/// entrance first.
+fn build(depth: u32, pack: Pack, party: usize, rng: &mut Rng, cells: Vec<(i32, i32)>) -> Floor {
+    let plan = Plan::of(&cells);
+    let links = |&(x, y): &(i32, i32)| DIRS.map(|(dx, dy)| cells.contains(&(x + dx, y + dy)));
+    let Plan {
+        dist,
+        far,
+        treasure,
+        halls,
+    } = plan;
     let rooms = cells
         .iter()
         .enumerate()
@@ -879,7 +1163,7 @@ pub fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             } else if i == far {
                 if depth >= DEEPEST {
                     RoomKind::Threshold
-                } else if depth == FLOORS {
+                } else if depth == FLOORS && pack != Pack::Swamp {
                     RoomKind::Lair
                 } else {
                     RoomKind::Stairs
@@ -891,11 +1175,12 @@ pub fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             } else {
                 RoomKind::Fight
             };
-            room(*cell, kind, links(cell), depth, pack, rng)
+            room(*cell, kind, links(cell), depth, pack, party, rng)
         })
         .collect();
     let mut floor = Floor {
         world_revision: 0,
+        open: None,
         depth,
         pack,
         rooms,
@@ -912,6 +1197,55 @@ pub fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         add_secret(&mut floor, &dist, far, treasure, &halls);
     }
     floor
+}
+
+/// What a floor's cells become: doors from the entrance to each, the far
+/// room (the stairs), the treasure's dead end, and the halls.
+struct Plan {
+    dist: Vec<usize>,
+    far: usize,
+    treasure: Option<usize>,
+    halls: Vec<usize>,
+}
+
+impl Plan {
+    fn of(cells: &[(i32, i32)]) -> Self {
+        let links = |&(x, y): &(i32, i32)| DIRS.map(|(dx, dy)| cells.contains(&(x + dx, y + dy)));
+        // Breadth-first distance from the entrance picks the far rooms.
+        let mut dist = vec![usize::MAX; cells.len()];
+        dist[0] = 0;
+        let mut queue = VecDeque::from([0]);
+        while let Some(i) = queue.pop_front() {
+            let (x, y) = cells[i];
+            for (dx, dy) in DIRS {
+                if let Some(j) = cells.iter().position(|&c| c == (x + dx, y + dy))
+                    && dist[j] == usize::MAX
+                {
+                    dist[j] = dist[i] + 1;
+                    queue.push_back(j);
+                }
+            }
+        }
+        let far = (1..cells.len()).max_by_key(|&i| (dist[i], i)).unwrap_or(0);
+        let dead_end = |i: usize| links(&cells[i]).iter().filter(|&&l| l).count() == 1;
+        let treasure = (1..cells.len())
+            .filter(|&i| i != far)
+            .max_by_key(|&i| (dead_end(i), dist[i], i));
+        // Plain cells that only pass through become halls: up to three a floor,
+        // never the entrance's neighbour, so a run opens on a chamber.
+        let through = |i: usize| links(&cells[i]).iter().filter(|&&l| l).count() == 2;
+        let mut halls: Vec<usize> = (1..cells.len())
+            .filter(|&i| i != far && Some(i) != treasure && through(i) && dist[i] > 1)
+            .collect();
+        halls.sort_by_key(|&i| (std::cmp::Reverse(dist[i]), i));
+        halls.truncate(3);
+        Self {
+            dist,
+            far,
+            treasure,
+            halls,
+        }
+    }
 }
 
 /// Keep the approach floors' established seed stream for room furnishings and
@@ -1044,6 +1378,7 @@ fn vault(cell: (i32, i32), door: usize, snibbet: bool) -> Room {
         roster: Vec::new(),
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     for row in 0..ROWS {
         for col in 0..COLS {
@@ -1071,7 +1406,7 @@ fn vault(cell: (i32, i32), door: usize, snibbet: bool) -> Room {
             card: "gold".into(),
             x: cx + a.cos() * 6.0,
             y: cy + a.sin() * 4.0,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         });
     }
     room
@@ -1128,10 +1463,12 @@ fn hang(
         .filter(|&i| floor.rooms[i].kind == RoomKind::Fight)
         .collect();
     parents.sort_by_key(|&i| (std::cmp::Reverse(dist[i]), i));
-    // A cell touching only its parent first; else any free cell, its
-    // other sides blank walls. It may hang just past the floor's grid.
+    // Off the deepest fight room that has a free cell (`pacing`: the
+    // floor's showdowns wait at its end, not by its entrance); a cell
+    // touching only its parent first, else any free cell, its other sides
+    // blank walls. It may hang just past the floor's grid.
     let near = |v: i32| (-1..=GRID).contains(&v);
-    let mut spots: Vec<(bool, usize, usize)> = Vec::new();
+    let mut spots: Vec<(usize, bool, usize)> = Vec::new();
     for (rank, &i) in parents.iter().enumerate() {
         let (x, y) = floor.rooms[i].cell;
         for (d, (dx, dy)) in DIRS.into_iter().enumerate() {
@@ -1143,11 +1480,11 @@ fn hang(
                 .iter()
                 .filter(|(ex, ey)| taken((cell.0 + ex, cell.1 + ey)))
                 .count();
-            spots.push((touching > 1, rank, d));
+            spots.push((rank, touching > 1, d));
         }
     }
     spots.sort_unstable();
-    for (_, rank, d) in spots {
+    for (rank, _, d) in spots {
         let i = parents[rank];
         let (x, y) = floor.rooms[i].cell;
         let cell = (x + DIRS[d].0, y + DIRS[d].1);
@@ -1205,6 +1542,7 @@ fn ledge(cell: (i32, i32), door: usize) -> Room {
         ],
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     for (row, line) in LEDGE.iter().enumerate() {
         for (col, b) in line.bytes().enumerate() {
@@ -1240,6 +1578,7 @@ fn wanted(cell: (i32, i32), door: usize) -> Room {
         roster: Vec::new(),
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     for (row, line) in super::outlaw::STAGE.iter().enumerate() {
         for (col, b) in line.bytes().enumerate() {
@@ -1270,6 +1609,7 @@ fn pit(cell: (i32, i32), door: usize) -> Room {
         roster: vec![EnemyKind::PitTyrant],
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     for row in 0..ROWS {
         for col in 0..COLS {
@@ -1291,9 +1631,37 @@ fn room(
     doors: [bool; 4],
     depth: u32,
     pack: Pack,
+    party: usize,
     rng: &mut Rng,
 ) -> Room {
-    let template = match kind {
+    let template = template_for(kind, pack, rng);
+    // Guardians and the dragon keep great halls; some fights do too.
+    let (cols, rows) = match kind {
+        RoomKind::Stairs => (36, 20),
+        RoomKind::Lair => (40, 24),
+        RoomKind::Threshold => (MAX_COLS, MAX_ROWS),
+        RoomKind::Fight if depth >= 2 && rng.chance(12) => (MAX_COLS, MAX_ROWS),
+        RoomKind::Fight if rng.chance(30) => (32, 20),
+        _ => (COLS, ROWS),
+    };
+    // A great hall holds a bigger company; a room grown for the party does
+    // not (the party brings its own, `stakes::EXTRA_PER_KNIGHT`).
+    let company = (cols * rows) / (COLS * ROWS * 2);
+    let laid = (cols, rows);
+    // A bigger party needs more floor to fight on.
+    let (cols, rows) = if matches!(kind, RoomKind::Fight | RoomKind::Stairs) {
+        let (least_cols, least_rows) = party_room(party);
+        (cols.max(least_cols), rows.max(least_rows))
+    } else {
+        (cols, rows)
+    };
+    furnish(cell, kind, doors, depth, pack, template, (cols, rows), laid, company, rng)
+}
+
+/// The quadrant a room of `kind` is drawn from: the pack's own and the
+/// dungeon masters' for a fight, a fixed one for every other kind.
+fn template_for(kind: RoomKind, pack: Pack, rng: &mut Rng) -> Template {
+    match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => EMPTY,
         RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft => EMPTY,
         RoomKind::Start
@@ -1308,7 +1676,7 @@ fn room(
         | RoomKind::Secret
         | RoomKind::Tavern
         | RoomKind::Stockpile
-        | RoomKind::Workshop
+        | RoomKind::Muster | RoomKind::Workshop
         | RoomKind::Quarters
         | RoomKind::Gate
         | RoomKind::Stables
@@ -1371,34 +1739,65 @@ fn room(
         | RoomKind::Market
         | RoomKind::Bathhouse
         | RoomKind::Smithy
-        | RoomKind::Eyrie => EMPTY,
-        RoomKind::Threshold => EMPTY,
+        | RoomKind::Eyrie
+        | RoomKind::ColosseumHall
+        | RoomKind::KegYard
+        | RoomKind::GanderHall => EMPTY,
+        RoomKind::Threshold | RoomKind::Depths => EMPTY,
         RoomKind::Treasure => SHRINE,
         RoomKind::Lair => LAIR,
         RoomKind::Fight | RoomKind::Stairs => {
+            // The pack's own, then the dungeon masters' (`rooms`).
             let templates = pack.templates();
-            templates[rng.below(templates.len())]
+            let authored = super::rooms::small(pack);
+            let i = rng.below(templates.len() + authored.len());
+            if i < templates.len() { templates[i] } else { authored[i - templates.len()] }
         }
-    };
-    // Guardians and the dragon keep great halls; some fights do too.
-    let (cols, rows) = match kind {
-        RoomKind::Stairs => (36, 20),
-        RoomKind::Lair => (40, 24),
-        RoomKind::Threshold => (MAX_COLS, MAX_ROWS),
-        RoomKind::Fight if depth >= 2 && rng.chance(12) => (MAX_COLS, MAX_ROWS),
-        RoomKind::Fight if rng.chance(30) => (32, 20),
-        _ => (COLS, ROWS),
-    };
+    }
+}
+
+/// A room of `kind` at its size `(cols, rows)` (laid at `laid`, holding
+/// `company` more for a great hall): its stone from `template` (or a
+/// great quadrant), its fixtures and its company.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn furnish(
+    cell: (i32, i32),
+    kind: RoomKind,
+    doors: [bool; 4],
+    depth: u32,
+    pack: Pack,
+    template: Template,
+    (cols, rows): (usize, usize),
+    laid: (usize, usize),
+    company: usize,
+    rng: &mut Rng,
+) -> Room {
     let mut quadrant: Vec<Vec<u8>> = if cols == COLS && rows == ROWS {
         template.iter().map(|r| r.bytes().collect()).collect()
     } else {
-        great_quadrant(cols / 2 - 1, rows / 2 - 1, kind, rng)
+        // A bigger room is a dungeon master's hall when one is drawn for
+        // its size (`rooms`), most of the time; else the pillared grid.
+        let authored = if matches!(kind, RoomKind::Fight | RoomKind::Stairs) {
+            super::rooms::great(pack, cols / 2 - 1, rows / 2 - 1)
+        } else {
+            Vec::new()
+        };
+        if !authored.is_empty() && rng.chance(super::rooms::AUTHORED_SHARE) {
+            authored[rng.below(authored.len())].iter().map(|r| r.bytes().collect()).collect()
+        } else {
+            great_quadrant(cols / 2 - 1, rows / 2 - 1, kind, rng)
+        }
     };
     if matches!(kind, RoomKind::Fight | RoomKind::Stairs) && cols == COLS {
         for _ in 0..pack.scatter() {
             let (qx, qy) = (1 + rng.below(8), 1 + rng.below(4));
             quadrant[qy][qx] = b'#';
         }
+    }
+    // The swamp's mire over its rooms: drawn from the room's place, not the
+    // dice, so no other floor's stream moves.
+    if pack == Pack::Swamp && matches!(kind, RoomKind::Fight | RoomKind::Stairs) {
+        super::swamp::mire(&mut quadrant, depth, super::swamp::salt(cell, depth));
     }
     let mut room = Room {
         cell,
@@ -1412,34 +1811,9 @@ fn room(
         roster: Vec::new(),
         items: Vec::new(),
         chest: None,
+        laid: ((cols, rows) != laid).then_some(laid),
     };
-    let build = |room: &mut Room, quadrant: &[Vec<u8>]| {
-        // One quadrant, mirrored both ways: doorway lanes meet in the middle.
-        let (qw, qh) = (cols / 2 - 1, rows / 2 - 1);
-        for row in 0..rows {
-            for col in 0..cols {
-                let edge = row == 0 || col == 0 || row == rows - 1 || col == cols - 1;
-                let tile = if edge {
-                    let lane_x = col == cols / 2 - 1 || col == cols / 2;
-                    let lane_y = row == rows / 2 - 1 || row == rows / 2;
-                    let door = (row == 0 && lane_x && doors[0])
-                        || (col == cols - 1 && lane_y && doors[1])
-                        || (row == rows - 1 && lane_x && doors[2])
-                        || (col == 0 && lane_y && doors[3]);
-                    if door { Tile::Door } else { Tile::Wall }
-                } else {
-                    let qx = if col <= qw { col - 1 } else { cols - 2 - col };
-                    let qy = if row <= qh { row - 1 } else { rows - 2 - row };
-                    match quadrant[qy][qx] {
-                        b'#' => Tile::Block,
-                        b'~' => Tile::Hazard,
-                        _ => Tile::Floor,
-                    }
-                };
-                room.set(col, row, tile);
-            }
-        }
-    };
+    let build = |room: &mut Room, quadrant: &[Vec<u8>]| mirror(room, doors, quadrant);
     build(&mut room, &quadrant);
     if !connected(&room) {
         let open = vec![vec![b'.'; cols / 2 - 1]; rows / 2 - 1];
@@ -1447,6 +1821,9 @@ fn room(
     }
     let centre = (cols / 2 - 1, rows / 2 - 1);
     match kind {
+        // The swamp's last hall has no way down: the Mire King's fall lights
+        // the way home instead.
+        RoomKind::Stairs if pack == Pack::Swamp && depth >= super::swamp::FLOORS => {}
         RoomKind::Stairs => {
             for (dc, dr) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
                 room.set(centre.0 + dc, centre.1 + dr, Tile::Stairs);
@@ -1500,6 +1877,7 @@ fn room(
     room.roster = match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => Vec::new(),
         RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft => Vec::new(),
+        RoomKind::Start if pack == Pack::Swamp => vec![EnemyKind::Leech, EnemyKind::Leech],
         RoomKind::Start => vec![EnemyKind::Skeleton, EnemyKind::Skeleton],
         RoomKind::Treasure
         | RoomKind::Sanctuary
@@ -1511,7 +1889,7 @@ fn room(
         | RoomKind::Secret
         | RoomKind::Tavern
         | RoomKind::Stockpile
-        | RoomKind::Workshop
+        | RoomKind::Muster | RoomKind::Workshop
         | RoomKind::Quarters
         | RoomKind::Gate
         | RoomKind::Stables
@@ -1574,14 +1952,18 @@ fn room(
         | RoomKind::Market
         | RoomKind::Bathhouse
         | RoomKind::Smithy
-        | RoomKind::Eyrie => Vec::new(),
+        | RoomKind::Eyrie
+        | RoomKind::Depths
+        | RoomKind::ColosseumHall
+        | RoomKind::KegYard
+        | RoomKind::GanderHall => Vec::new(),
         RoomKind::Pit => vec![EnemyKind::PitTyrant],
         // A passage may hold a straggler or two that fly.
         RoomKind::Hall => (0..rng.below(3)).map(|_| EnemyKind::Bat).collect(),
         RoomKind::Lair => vec![EnemyKind::Dragon, EnemyKind::Imp, EnemyKind::Imp],
         RoomKind::Threshold => vec![EnemyKind::Wraith, EnemyKind::Wraith, EnemyKind::Slime],
         // A great hall holds a bigger company.
-        RoomKind::Fight => (0..foes + (cols * rows) / (COLS * ROWS * 2))
+        RoomKind::Fight => (0..foes + company)
             .map(|_| rng.pick(pack.roster_at(depth)))
             .collect(),
         RoomKind::Stairs => (0..foes + 1)
@@ -1636,6 +2018,7 @@ pub fn undercroft(pack: Pack) -> Floor {
         roster: Vec::new(),
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     let fill = |room: &mut Room, (col, row, w, h): (i32, i32, i32, i32), tile: Tile| {
         for r in row..row + h {
@@ -1724,6 +2107,7 @@ pub fn undercroft(pack: Pack) -> Floor {
     trophies.open_door(0);
     Floor {
         world_revision: 0,
+        open: None,
         depth: 0,
         pack,
         rooms: vec![room, hall, yard, trophies],
@@ -1735,6 +2119,37 @@ pub fn undercroft(pack: Pack) -> Floor {
 /// opens on Maud's tavern, the Siege Perilous. False if there is no Trophy
 /// Hall here, or the tavern is already dug.
 pub fn dig_tavern(floor: &mut Floor) -> bool {
+    if !dig_tavern_reserved(floor) {
+        return false;
+    }
+    floor.rooms.last_mut().unwrap().open_door(3);
+    // The bellwright's loft is a separate furnished room beyond the west wing.
+    let mut loft = floor.rooms.last().unwrap().clone();
+    loft.kind = RoomKind::Workshop;
+    loft.cell.0 -= 1;
+    loft.doors = [false; 4];
+    loft.tiles.fill(Tile::Floor);
+    for row in 0..ROWS { for col in 0..COLS {
+        if row == 0 || col == 0 || row == ROWS-1 || col == COLS-1 { loft.set(col,row,Tile::Wall); }
+    }}
+    loft.open_door(1);
+    loft.open_door(0);
+    floor.rooms.push(loft.clone());
+    let mut muster = loft;
+    muster.kind = RoomKind::Muster;
+    muster.cell.1 -= 1;
+    muster.doors = [false;4];
+    muster.tiles.fill(Tile::Floor);
+    for row in 0..ROWS {for col in 0..COLS {if row==0 || col==0 || row==ROWS-1 || col==COLS-1 {muster.set(col,row,Tile::Wall);}}}
+    muster.open_door(2);
+    floor.rooms.push(muster);
+    true
+}
+
+/// Dig only the paid tavern footprint. Durable research settlements reserve this
+/// cell separately; the ordinary home's loft and muster cells belong to their
+/// recorded excavation wing and must not alter existing plans or saved maps.
+pub fn dig_tavern_reserved(floor: &mut Floor) -> bool {
     use super::tavern::{BAR, BOARD, STAGE, TABLES};
     if floor.depth != 0 || floor.rooms.iter().any(|r| r.kind == RoomKind::Tavern) {
         return false;
@@ -1760,6 +2175,7 @@ pub fn dig_tavern(floor: &mut Floor) -> bool {
         roster: Vec::new(),
         items: Vec::new(),
         chest: None,
+        laid: None,
     };
     for row in 0..ROWS {
         for col in 0..COLS {
@@ -1794,16 +2210,41 @@ pub fn floor_for(
     pack: Pack,
     rng: &mut Rng,
 ) -> Floor {
+    floor_for_party(mode, depth, pack, 1, rng)
+}
+
+/// [`floor_for`] for a party of `party` knights (see [`floor_party`]).
+pub fn floor_for_party(
+    mode: super::fortune::Mode,
+    depth: u32,
+    pack: Pack,
+    party: usize,
+    rng: &mut Rng,
+) -> Floor {
     use super::fortune::Mode;
     match mode {
+        // The swamp keeps its own shape whatever the wheel says: its last
+        // hall is the Mire King's, never a horde's or a gauntlet's lair.
+        Mode::HoldTheStair | Mode::Gauntlet if pack == Pack::Swamp => {
+            floor_party(depth, pack, party, rng)
+        }
         Mode::HoldTheStair => horde(depth, pack, rng),
         Mode::Gauntlet => gauntlet(depth, pack, rng),
         Mode::HollowWalls => {
-            let mut hollow = floor(depth, pack, rng);
+            // The wheel's promise is a vault: a floor with no fight room
+            // free to hide one is grown again.
+            let mut hollow = floor_party(depth, pack, party, rng);
             force_secret(&mut hollow);
+            for _ in 0..super::pacing::GROW_TRIES {
+                if hollow.secret.is_some() || depth >= DEEPEST {
+                    break;
+                }
+                hollow = floor_party(depth, pack, party, rng);
+                force_secret(&mut hollow);
+            }
             hollow
         }
-        _ => floor(depth, pack, rng),
+        _ => floor_party(depth, pack, party, rng),
     }
 }
 
@@ -1823,6 +2264,7 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         [true, false, false, false],
         depth,
         pack,
+        1,
         rng,
     );
     start.roster.clear();
@@ -1834,6 +2276,7 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             [false, false, true, false],
             depth,
             pack,
+            1,
             rng,
         )
     } else {
@@ -1845,6 +2288,7 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             [false, false, true, false],
             depth,
             pack,
+            1,
             rng,
         );
         hall.kind = RoomKind::Fight;
@@ -1853,6 +2297,7 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
     };
     Floor {
         world_revision: 0,
+        open: None,
         depth,
         pack,
         rooms: vec![start, hall],
@@ -1880,6 +2325,7 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         [true, false, false, false],
         depth,
         pack,
+        1,
         rng,
     );
     start.roster.clear();
@@ -1890,6 +2336,7 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         [true, false, true, false],
         depth,
         pack,
+        1,
         rng,
     );
     let guardian = room(
@@ -1898,10 +2345,12 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         [false, false, true, false],
         depth,
         pack,
+        1,
         rng,
     );
     Floor {
         world_revision: 0,
+        open: None,
         depth,
         pack,
         rooms: vec![start, hall, guardian],
@@ -1909,9 +2358,41 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
     }
 }
 
+/// Lay `quadrant` (the top-left of the interior: `.` floor, `#` block, `~`
+/// hazard, `,` bog) into `room`, mirrored both ways, walls round it and doorways
+/// where `doors` says: the doorway lanes meet in the middle.
+pub(crate) fn mirror(room: &mut Room, doors: [bool; 4], quadrant: &[Vec<u8>]) {
+    let (cols, rows) = (room.cols, room.rows);
+    let (qw, qh) = (cols / 2 - 1, rows / 2 - 1);
+    for row in 0..rows {
+        for col in 0..cols {
+            let edge = row == 0 || col == 0 || row == rows - 1 || col == cols - 1;
+            let tile = if edge {
+                let lane_x = col == cols / 2 - 1 || col == cols / 2;
+                let lane_y = row == rows / 2 - 1 || row == rows / 2;
+                let door = (row == 0 && lane_x && doors[0])
+                    || (col == cols - 1 && lane_y && doors[1])
+                    || (row == rows - 1 && lane_x && doors[2])
+                    || (col == 0 && lane_y && doors[3]);
+                if door { Tile::Door } else { Tile::Wall }
+            } else {
+                let qx = if col <= qw { col - 1 } else { cols - 2 - col };
+                let qy = if row <= qh { row - 1 } else { rows - 2 - row };
+                match quadrant[qy][qx] {
+                    b'#' => Tile::Block,
+                    b'~' => Tile::Hazard,
+                    b',' => Tile::Bog,
+                    _ => Tile::Floor,
+                }
+            };
+            room.set(col, row, tile);
+        }
+    }
+}
+
 /// Every doorway and the centre reachable on foot.
 pub fn connected(room: &Room) -> bool {
-    let walk = |t: Tile| matches!(t, Tile::Floor | Tile::Door | Tile::Stairs);
+    let walk = |t: Tile| matches!(t, Tile::Floor | Tile::Door | Tile::Stairs | Tile::Bog);
     let (cols, rows) = (room.cols, room.rows);
     let start = (cols as i32 / 2, rows as i32 / 2);
     let mut seen = vec![false; cols * rows];

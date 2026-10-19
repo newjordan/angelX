@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 16x22, anchor bottom-centre (8,22); stage 384x224 at 16 px per tile; a knight is 16x16; the great brazier is a lantern-cage on a stone plinth, about 1.4 knights tall.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "out-0"
+      ],
+      "source_pose_count": 1,
+      "state": "out"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    }
+  ],
+  "game": "lanternward",
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "id": "lanternward.great",
+  "role": "prop",
+  "timing": "out 12 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

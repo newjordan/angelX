@@ -1,0 +1,69 @@
+set chunk-9-4
+# The kingdom, chunk 9,4 in The Coast: tiles 216..240 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 1152
+plate 1536 1024
+
+# ground
+box    grass   at 3608 -4 1048 size 304 4 48
+box    sand    at 3768 -4 1040 size 16 4 32
+box    water   at 3808 -4 1152 size 64 1 256
+box    grass   at 3768 -4 1064 size 16 4 16
+box    grass   at 3600 -4 1104 size 288 4 64
+box    sand    at 3752 -4 1168 size 16 4 192
+box    water   at 3768 -4 1160 size 16 1 176
+box    grass   at 3520 -4 1144 size 128 4 16
+box    path    at 3592 -4 1160 size 16 4 48
+box    grass   at 3632 -4 1152 size 64 4 32
+box    path    at 3672 -4 1160 size 16 4 48
+box    grass   at 3712 -4 1152 size 64 4 32
+box    path    at 3488 -4 1176 size 64 4 48
+box    grass   at 3552 -4 1160 size 64 4 16
+box    path    at 3552 -4 1176 size 64 4 16
+box    path    at 3632 -4 1176 size 64 4 16
+box    path    at 3712 -4 1176 size 64 4 16
+box    grass   at 3584 -4 1232 size 128 4 96
+box    path    at 3656 -4 1200 size 16 4 32
+box    grass   at 3704 -4 1192 size 80 4 16
+box    grass   at 3472 -4 1240 size 32 4 80
+box    path    at 3496 -4 1240 size 16 4 80
+box    grass   at 3512 -4 1240 size 16 4 80
+box    grass   at 3696 -4 1240 size 64 4 80
+box    sand    at 3736 -4 1232 size 16 4 64
+box    grass   at 3656 -4 1248 size 16 4 64
+box    sand    at 3768 -4 1264 size 16 4 32
+box    grass   at 3744 -4 1272 size 32 4 16
+
+# a ward of Repo Wards: a ward hall with its banner at 223,68 2x2 (at 69% of its height, for the camera)
+box    plaster at 3584 0 1112 size 28 14.5 12 id ward-1
+hip    roof    at 3584 14.5 1112 size 31 10.5 15
+box    stone   at 3590.72 14.5 1110.8 size 4 12 4
+box    door    at 3578.4 0 1118.25 size 7 9.5 1
+box    window  at 3593.33 6 1118.25 size 5 4.5 1
+cylinder wood    at 3596 0 1108 size 1.5 25 1.5
+box    cloth   at 3591.88 17 1108 size 6.75 7 1
+
+# a ward of Repo Wards: a ward hall with its banner at 228,68 2x2 (at 69% of its height, for the camera)
+box    stone   at 3664 0 1112 size 28 14 12 id ward-2
+gable  slate   at 3664 14 1112 size 31 9.5 15
+box    stone   at 3670.72 14 1110.8 size 4 10.5 4
+box    door    at 3658.4 0 1118.25 size 7 9 1
+box    window  at 3673.33 5.5 1118.25 size 5 4.5 1
+cylinder wood    at 3676 0 1108 size 1.5 25 1.5
+box    cloth   at 3671.88 17 1108 size 6.75 7 1
+
+# a ward of Repo Wards: a ward hall with its banner at 230,74 2x2 (at 74% of its height, for the camera)
+box    stone   at 3696 0 1208 size 28 15.5 12 id ward-3
+hip    slate   at 3696 15.5 1208 size 31 10.5 15
+box    stone   at 3702.72 15.5 1206.8 size 4 12 4
+box    door    at 3690.4 0 1214.25 size 7 10 1
+box    window  at 3705.33 6.5 1214.25 size 5 4.5 1
+cylinder wood    at 3708 0 1204 size 1.5 26.5 1.5
+box    cloth   at 3703.88 18.5 1204 size 6.75 7.5 1
+
+# set dressing
+box    wood    at 3452 0 1048 size 1.5 12 1.5
+box    wood    at 3464 0 1048 size 1.5 12 1.5
+box    wood    at 3476 0 1048 size 1.5 12 1.5
+box    cloth   at 3464 0 1050.5 size 26 1 4

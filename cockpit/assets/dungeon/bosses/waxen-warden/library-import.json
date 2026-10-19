@@ -1,0 +1,302 @@
+{
+  "boss": "waxen-warden",
+  "camera": "overhead",
+  "definition_sha256": "aef995a09702965878e8b1fe0a14217e8be27745c77594ff59965283af314db7",
+  "display_policy": {
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 39.24 L*, rest presence 96.51%, edge 89.05%. Source body, effect banks and gameplay unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "twin candle crown",
+      "slate blue mantle"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "twin candle crown",
+      "drooping wax face",
+      "slate blue mantle"
+    ],
+    "study": {
+      "v1": [
+        [
+          27,
+          34
+        ],
+        [
+          34,
+          42
+        ],
+        [
+          43,
+          54
+        ],
+        [
+          55,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          58,
+          72
+        ],
+        [
+          77,
+          96
+        ],
+        [
+          103,
+          128
+        ]
+      ]
+    },
+    "v1": [
+      43,
+      54
+    ],
+    "v2": [
+      77,
+      96
+    ]
+  },
+  "identity_props": [
+    "twin candle crown",
+    "drooping wax face",
+    "slate blue mantle"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 48,
+      "edge_agreement": 0.9166666666666666,
+      "key_colour_agreement": 0.9787234042553191,
+      "opaque_pixels": 987,
+      "sha256": "9d0dc7e00854579fe5bf6d921da82dc489e800edd5da86ec6b8fa37c9cc43fc1",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v1-study-1-rest.png": {
+      "colours": 33,
+      "edge_agreement": 0.9436619718309859,
+      "key_colour_agreement": 0.9795918367346939,
+      "opaque_pixels": 392,
+      "sha256": "beaa784cd352937905437dbc6a7c70b670292590af6418d47c18b556b225fbbd",
+      "silhouette_iou": 1.0,
+      "size": [
+        27,
+        34
+      ]
+    },
+    "library-v1-study-1-windup.png": {
+      "colours": 38,
+      "edge_agreement": 0.9215686274509803,
+      "key_colour_agreement": 0.9716981132075472,
+      "opaque_pixels": 530,
+      "sha256": "1f4981047f057911c3aa7d89ec0649d4156c11af31ee75e2d7eb197f4e91c331",
+      "silhouette_iou": 1.0,
+      "size": [
+        27,
+        34
+      ]
+    },
+    "library-v1-study-2-rest.png": {
+      "colours": 37,
+      "edge_agreement": 0.9340659340659341,
+      "key_colour_agreement": 0.9702479338842975,
+      "opaque_pixels": 605,
+      "sha256": "c99f65e72206696dec30e731429578712705e3faaa10d7dfd7108a8c7ba05238",
+      "silhouette_iou": 1.0,
+      "size": [
+        34,
+        42
+      ]
+    },
+    "library-v1-study-2-windup.png": {
+      "colours": 42,
+      "edge_agreement": 0.9253731343283582,
+      "key_colour_agreement": 0.9632802937576499,
+      "opaque_pixels": 817,
+      "sha256": "1a02f944cfcb52cd8563d04c8a9c2a5b5a346f4e9d051d28a3da6482dbb3aecb",
+      "silhouette_iou": 1.0,
+      "size": [
+        34,
+        42
+      ]
+    },
+    "library-v1-study-3-rest.png": {
+      "colours": 48,
+      "edge_agreement": 0.9166666666666666,
+      "key_colour_agreement": 0.9787234042553191,
+      "opaque_pixels": 987,
+      "sha256": "9d0dc7e00854579fe5bf6d921da82dc489e800edd5da86ec6b8fa37c9cc43fc1",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v1-study-3-windup.png": {
+      "colours": 48,
+      "edge_agreement": 0.9060773480662984,
+      "key_colour_agreement": 0.9684921230307577,
+      "opaque_pixels": 1333,
+      "sha256": "dd8643f2d82b0d2e38adc7bfebc52940a99a845b130a3d6ea66c840983c27fd3",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v1-study-4-rest.png": {
+      "colours": 46,
+      "edge_agreement": 0.896774193548387,
+      "key_colour_agreement": 0.9685929648241206,
+      "opaque_pixels": 1592,
+      "sha256": "3df70e98f8438edc230b054aba7a3a659f86fbeb7e6e1f39e77652f18741392a",
+      "silhouette_iou": 1.0,
+      "size": [
+        55,
+        68
+      ]
+    },
+    "library-v1-study-4-windup.png": {
+      "colours": 52,
+      "edge_agreement": 0.9055793991416309,
+      "key_colour_agreement": 0.9682094436652642,
+      "opaque_pixels": 2139,
+      "sha256": "2f746d5a5c6035caab6e6471600b99dd1a2840fdbddb883cd64847179c60183b",
+      "silhouette_iou": 1.0,
+      "size": [
+        55,
+        68
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 48,
+      "edge_agreement": 0.9060773480662984,
+      "key_colour_agreement": 0.9684921230307577,
+      "opaque_pixels": 1333,
+      "sha256": "dd8643f2d82b0d2e38adc7bfebc52940a99a845b130a3d6ea66c840983c27fd3",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 55,
+      "edge_agreement": 0.8956521739130435,
+      "key_colour_agreement": 0.9682337992376112,
+      "opaque_pixels": 3148,
+      "sha256": "f02da45bb086d6625a30ab7df2930b5befb230fd3c991180163bd9d9818821ed",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    },
+    "library-v2-study-1-rest.png": {
+      "colours": 51,
+      "edge_agreement": 0.9041916167664671,
+      "key_colour_agreement": 0.9742152466367713,
+      "opaque_pixels": 1784,
+      "sha256": "a3573f31c404593f7d66ff3299c0ebcaba6bab5f3ad83018193a9f3454fb9fca",
+      "silhouette_iou": 1.0,
+      "size": [
+        58,
+        72
+      ]
+    },
+    "library-v2-study-1-windup.png": {
+      "colours": 52,
+      "edge_agreement": 0.8991935483870968,
+      "key_colour_agreement": 0.9685929648241206,
+      "opaque_pixels": 2388,
+      "sha256": "b155ef56b580a194a4ca124fdd9469eeebf57731c01e5d2098efe401170a5e01",
+      "silhouette_iou": 1.0,
+      "size": [
+        58,
+        72
+      ]
+    },
+    "library-v2-study-2-rest.png": {
+      "colours": 55,
+      "edge_agreement": 0.8956521739130435,
+      "key_colour_agreement": 0.9682337992376112,
+      "opaque_pixels": 3148,
+      "sha256": "f02da45bb086d6625a30ab7df2930b5befb230fd3c991180163bd9d9818821ed",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    },
+    "library-v2-study-2-windup.png": {
+      "colours": 56,
+      "edge_agreement": 0.9035087719298246,
+      "key_colour_agreement": 0.9699692598723102,
+      "opaque_pixels": 4229,
+      "sha256": "d973ae4ba56b24c80938a990796e221975fb2b6b66ea6bd521c2455298e92d65",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    },
+    "library-v2-study-3-rest.png": {
+      "colours": 57,
+      "edge_agreement": 0.9158576051779935,
+      "key_colour_agreement": 0.9690446539761608,
+      "opaque_pixels": 5621,
+      "sha256": "cf5f32de9c40dfdfeef851cb57986d77d42a4417881ef284f29dcc988d6c108f",
+      "silhouette_iou": 1.0,
+      "size": [
+        103,
+        128
+      ]
+    },
+    "library-v2-study-3-windup.png": {
+      "colours": 56,
+      "edge_agreement": 0.9094827586206896,
+      "key_colour_agreement": 0.9676048858204992,
+      "opaque_pixels": 7532,
+      "sha256": "3d732b3c9f1b226594483f41b7e1cb03ab773d57106e8a0fb8f355e727b40150",
+      "silhouette_iou": 1.0,
+      "size": [
+        103,
+        128
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 56,
+      "edge_agreement": 0.9035087719298246,
+      "key_colour_agreement": 0.9699692598723102,
+      "opaque_pixels": 4229,
+      "sha256": "d973ae4ba56b24c80938a990796e221975fb2b6b66ea6bd521c2455298e92d65",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

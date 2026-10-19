@@ -4,7 +4,7 @@
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921
-WS=~/angelX
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 SRC=$RR/tasks-polyglot-v1.json
 RUNNER=$WS/scripts/bench/polyglot/run-polyglot-luna-medium.sh
 TABLE=$WS/scripts/bench/polyglot/polyglot_luna_table.py
@@ -76,9 +76,9 @@ done
 
 echo "===== escalation done ====="
 python3 - "$RR" <<'PY'
-import json
+import json, sys
 from pathlib import Path
-root = Path("~/angel_tests/angelX-bench/polyglot-20260921")
+root = Path(sys.argv[1])
 print("final remaining files:")
 for p in sorted(root.glob("tasks-luna-misses-*-left.json")):
     rows = json.loads(p.read_text())

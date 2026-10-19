@@ -407,7 +407,7 @@ pub(crate) fn agent_token_lines(app: &App, width: u16, max_lines: usize) -> Vec<
     }
 }
 
-/// Kitty portraits and the WebGPU portal are side-column compose.
+/// Kitty portraits and the Round Table are side-column compose.
 /// Comp / lean and backdrop-off skip the encode; default bay still paints.
 pub(crate) fn side_column_kitty_compose_allowed() -> bool {
     crate::App::side_column_visuals_allowed()
@@ -996,22 +996,26 @@ fn render_agent_feedback_controls(frame: &mut Frame, app: &mut App, area: Rect) 
     );
 }
 
-fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> Rect {
+fn render_round_table_card(frame: &mut Frame, app: &mut App, area: Rect) -> Rect {
     if !side_column_kitty_compose_allowed() {
         return area;
     }
     if area.width < 30 || area.height < 9 {
         return area;
     }
-    let Some(presentation) = app.agentviz_portal.presentation() else {
+    let Some(presentation) = app
+        .council
+        .presentation()
+        .or_else(|| app.table_council_presentation())
+    else {
         return area;
     };
-    let portal_height = area.height.saturating_sub(3).min(8);
-    if portal_height < 5 {
+    let table_height = area.height.saturating_sub(3).min(8);
+    if table_height < 5 {
         return area;
     }
-    let [portal_area, remainder] =
-        Layout::vertical([Constraint::Length(portal_height), Constraint::Min(3)]).areas(area);
+    let [table_card, remainder] =
+        Layout::vertical([Constraint::Length(table_height), Constraint::Min(3)]).areas(area);
     // The table itself shows who sits and who has answered; the title names
     // the place and what it is doing, and only the seats the table cannot fit.
     let beyond = if presentation.omitted_seats > 0 {
@@ -1021,24 +1025,17 @@ fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> 
     };
     let title = truncate_control_value(
         &format!(" Round Table · {}{beyond} ", presentation.stage),
-        portal_area.width.saturating_sub(2) as usize,
+        table_card.width.saturating_sub(2) as usize,
     );
     let block = Block::default()
         .borders(Borders::ALL)
         .style(panel_style())
         .border_style(Style::new().fg(HUD_DIM))
         .title(title);
-    let inner = block.inner(portal_area);
-    frame.render_widget(block, portal_area);
+    let inner = block.inner(table_card);
+    frame.render_widget(block, table_card);
 
-    let painted = match presentation.frame.as_ref() {
-        Some(portal_frame) => app
-            .viewer
-            .render_agentviz_portal(frame, inner, portal_frame),
-        None if presentation.painted => render_painted_council(frame, app, inner, &presentation),
-        None => false,
-    };
-    if !painted {
+    if !render_painted_council(frame, app, inner, &presentation) {
         frame.render_widget(
             Paragraph::new("the council gathers…")
                 .alignment(Alignment::Center)
@@ -1056,7 +1053,7 @@ fn render_painted_council(
     frame: &mut Frame,
     app: &mut App,
     inner: Rect,
-    presentation: &crate::ui::viz::agentviz_portal::PortalPresentation,
+    presentation: &crate::ui::viz::council::CouncilPresentation,
 ) -> bool {
     use crate::ui::viz::agentviz::SeatState;
     use crate::ui::viz::council_table;
@@ -1106,7 +1103,7 @@ fn render_painted_council(
 /// One line per seat: a lit candle for a sitting seat, a mark for an
 /// answer, a cross for a failure, a dim dot for a cut seat.
 fn council_roll(
-    presentation: &crate::ui::viz::agentviz_portal::PortalPresentation,
+    presentation: &crate::ui::viz::council::CouncilPresentation,
     area: Rect,
 ) -> Vec<Line<'static>> {
     use crate::ui::viz::agentviz::SeatState;
@@ -1335,7 +1332,7 @@ pub(crate) fn render_agent_bay_in(
     if feedback_h > 0 {
         render_agent_feedback_controls(frame, app, sections[1]);
     }
-    let body_area = render_agentviz_portal_card(frame, app, sections[2]);
+    let body_area = render_round_table_card(frame, app, sections[2]);
 
     // Provider-exposed text persists after a turn and does not depend on focus.
     // Identity stays below it so long lines can use the entire bay width.

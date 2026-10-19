@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    184,
+    11
+  ],
+  "anchor_xy": [
+    92,
+    5
+  ],
+  "comments": [
+    "Rejected native reduction: standalone bush compresses to a tiny clump, not a readable advancing 179x11 band. Keep exact old danger fronts and safe plunger margin; needs a rerun at the requested aspect.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Actual attack affects any ball y in inclusive [72,82] while Beat::Root, with direction from attack parity. Decorative crop is bounded between physics x=7 and 150; ball walls, not vines, bound traversal.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "b0d9336ce17e37b2be0f44df55e1dd309c45cea7e24b9a523bfa7a3fe2d56306",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Right-facing first sprout; compact coiled base, one lead bud, small top bumper.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        89.0,
+        75.0
+      ],
+      "source_rect_xywh": [
+        56,
+        356,
+        178,
+        150
+      ],
+      "state": "right-facing-first-sprout-compact-coiled-base-one-lead-bud-small"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Right-facing early extension; two airy tendrils and forward bud.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.5,
+        69.0
+      ],
+      "source_rect_xywh": [
+        309,
+        370,
+        259,
+        138
+      ],
+      "state": "right-facing-early-extension-two-airy-tendrils-and-forward-bud"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Right-facing broad sweep; longer branches, clearly forward lead bud.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        139.5,
+        86.5
+      ],
+      "source_rect_xywh": [
+        615,
+        336,
+        279,
+        173
+      ],
+      "state": "right-facing-broad-sweep-longer-branches-clearly-forward-lead-bu"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Right-facing peak; broadest advance with lifted branches and the bumper on top.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        152.5,
+        103.0
+      ],
+      "source_rect_xywh": [
+        929,
+        305,
+        305,
+        206
+      ],
+      "state": "right-facing-peak-broadest-advance-with-lifted-branches-and-the-"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Left-facing first advance; small mirrored silhouette with bud leading left.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        83.0,
+        63.0
+      ],
+      "source_rect_xywh": [
+        65,
+        690,
+        166,
+        126
+      ],
+      "state": "left-facing-first-advance-small-mirrored-silhouette-with-bud-lea"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Left-facing second stage; short spread with lifted bumper.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        66.5
+      ],
+      "source_rect_xywh": [
+        352,
+        681,
+        231,
+        133
+      ],
+      "state": "left-facing-second-stage-short-spread-with-lifted-bumper"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Left-facing third stage; broader branching sweep.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        75.0
+      ],
+      "source_rect_xywh": [
+        659,
+        666,
+        237,
+        150
+      ],
+      "state": "left-facing-third-stage-broader-branching-sweep"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Left-facing peak; longest silhouette in the reverse direction.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.5,
+        88.5
+      ],
+      "source_rect_xywh": [
+        947,
+        641,
+        291,
+        177
+      ],
+      "state": "left-facing-peak-longest-silhouette-in-the-reverse-direction"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Open curled settle/retract form with raised loop and attached amber bud.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        51,
+        964,
+        267,
+        212
+      ],
+      "state": "open-curled-settle-retract-form-with-raised-loop-and-attached-am"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Mid curl/retract; loop tightens and body draws inward.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.5,
+        95.5
+      ],
+      "source_rect_xywh": [
+        385,
+        984,
+        233,
+        191
+      ],
+      "state": "mid-curl-retract-loop-tightens-and-body-draws-inward"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Compacting root cluster; shorter reaching tendrils.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        102.5,
+        70.0
+      ],
+      "source_rect_xywh": [
+        701,
+        1035,
+        205,
+        140
+      ],
+      "state": "compacting-root-cluster-shorter-reaching-tendrils"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Final compact root knot; amber bud remains attached.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.5,
+        68.0
+      ],
+      "source_rect_xywh": [
+        1036,
+        1041,
+        157,
+        136
+      ],
+      "state": "final-compact-root-knot-amber-bud-remains-attached"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-staged",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "Sources 184\u00d711; runtime clips to 179\u00d711 (field_x(150)-field_x(7)). Top-left (OX+field_x(7)+shake,OY+72)=(122+shake,118). Keep the authored plunger-wall margin.",
+  "sizes": {
+    "v1": [
+      184,
+      11
+    ],
+    "v2": [
+      184,
+      11
+    ]
+  },
+  "slot": "mossbell.root",
+  "source_sha256": "f9168b1e313409edb483aa11b9ecd43926f01412623476b2150171bf70043a14",
+  "timing": "Four stages: floor(elapsed\u00d74/tell_length), clamped to 3. Tell=36/30; action=12 holds stage 3 (Ball::step, draw())."
+}

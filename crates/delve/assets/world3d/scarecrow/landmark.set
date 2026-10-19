@@ -1,0 +1,17 @@
+# The Scarecrow's Field: the scarecrow himself, big as a tower over the back
+# hedge on his post with a crow on his arm, hay bales stacked in the corners.
+cylinder wood    at 192 0 13.5 size 5 70 5 id scarecrow-post
+box      wood    at 192 46 13.5 size 72 4 5 id scarecrow-arms
+box      cloth   at 192 22 13.5 size 28 30 5 id scarecrow-coat
+box      thatch  at 160 28 13.5 size 9 20 5 id scarecrow-sleeve-w
+box      thatch  at 224 28 13.5 size 9 20 5 id scarecrow-sleeve-e
+sphere   thatch  at 192 56 13.5 size 16 16 16 id scarecrow-head
+cylinder cloth   at 192 69 13.5 size 26 3 26 id scarecrow-hat-brim
+cone-8   cloth   at 192 72 13.5 size 15 15 15 id scarecrow-hat-crown
+sphere   rock    at 222 50 13.5 size 8 7 8 id scarecrow-crow
+box      crop    at 30 0 10 size 18 12 12 id scarecrow-bale-w1
+box      crop    at 50 0 10 size 18 12 12 id scarecrow-bale-w2
+box      crop    at 40 12 10 size 18 12 12 id scarecrow-bale-w3
+box      crop    at 334 0 10 size 18 12 12 id scarecrow-bale-e1
+box      crop    at 354 0 10 size 18 12 12 id scarecrow-bale-e2
+box      crop    at 344 12 10 size 18 12 12 id scarecrow-bale-e3

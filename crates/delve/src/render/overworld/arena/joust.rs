@@ -23,9 +23,9 @@ use crate::rules::world::{STANDS, TILT};
 /// A horse's hide, its shade, and its mane and tail.
 #[derive(Clone, Copy)]
 pub(super) struct Coat {
-    hide: char,
-    dark: char,
-    mane: char,
+    pub(super) hide: char,
+    pub(super) dark: char,
+    pub(super) mane: char,
 }
 
 pub(super) fn coat(m: Mount) -> Coat {
@@ -225,12 +225,7 @@ pub(super) fn colours_of(run: &Run, id: u32) -> Colours {
                 .find(|(from, _)| *from == '7')
                 .map(|p| p.1)
         })
-        .unwrap_or(match id {
-            1 => '7',
-            2 => '1',
-            3 => 'A',
-            _ => '4',
-        });
+        .unwrap_or(super::knights::seat_cloth(id));
     Colours {
         tabard,
         field: if tabard == '4' { 'a' } else { '4' },
@@ -627,7 +622,7 @@ fn market(cv: &mut Img, run: &Run) {
         };
         let tw = super::super::ink::text_width(&tag);
         let tone = if state.is_ok() { chrome::Tone::KEY } else { chrome::Tone::SLATE };
-        chrome::label(cv, (mx - tw / 2, foot - 50), &tag, if state.is_ok() { '6' } else { 'h' }, tone);
+        chrome::label(cv, (mx - tw / 2, foot - 50), &tag, if state.is_ok() { 'O' } else { 'h' }, tone);
     }
 }
 
@@ -757,7 +752,7 @@ pub(super) fn crowd(cv: &mut Img, run: &Run) {
 /// `y + 6`: a round head under its own hair, hood or cap, rounded shoulders
 /// in its cloth lit on the left, and both arms up while it cheers. `h`
 /// picks the look, so the stands hold folk and not a row of stamps.
-fn spectator(cv: &mut Img, x: i32, y: i32, h: u32, skin: char, body: char, cheering: bool) {
+pub(super) fn spectator(cv: &mut Img, x: i32, y: i32, h: u32, skin: char, body: char, cheering: bool) {
     let hair = ['n', 'b', 'I', 'g', 'J', 'R'][((h >> 6) % 6) as usize];
     let hat = (h >> 9) % 5;
     let lit = match body {
@@ -907,7 +902,7 @@ fn big(cv: &mut Img, cx: i32, y: i32, text: &str, ink: char) -> i32 {
     for (dx, dy) in [(0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (2, 2), (0, 2), (2, 0)] {
         small.text(dx, dy, text, 'k');
     }
-    small.text(1, 1, text, ink);
+    small.text(1, 1, text, chrome::dusk_mark(ink));
     let im = super::enlarge(&small, 2.0);
     let x = (cx - im.w / 2).clamp(1, (cv.w - im.w - 1).max(1));
     cv.stamp(&im, x, y);
@@ -921,7 +916,7 @@ fn small(cv: &mut Img, cx: i32, y: i32, text: &str, ink: char) {
     for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
         cv.text(x + dx, y + dy, text, 'k');
     }
-    cv.text(x, y, text, ink);
+    cv.text(x, y, text, chrome::dusk_mark(ink));
 }
 
 /// A bout: the riders, the ring closing where they meet, what the lances
@@ -1063,7 +1058,7 @@ fn bout(cv: &mut Img, run: &Run, j: &Joust, legible: bool) {
         let side = if far_fallen { 1 } else { 0 };
         let col = if far_fallen { him } else { me };
         small(cv, cx, words_y, &rider_name(run, j, side), col.tabard);
-        big(cv, cx, words_y + 9, "UNHORSED!", '5');
+        big(cv, cx, words_y + 9, "UNHORSED!", 'O');
     } else if met && age < 45 {
         let theirs_aim = j.foe.as_ref().map_or(j.lance, |f| f.aim);
         for (row, (side, hit, aim, col)) in [(0u8, mine, j.aim, me), (1, theirs, theirs_aim, him)]
@@ -1077,7 +1072,7 @@ fn bout(cv: &mut Img, run: &Run, j: &Joust, legible: bool) {
             let ww = super::super::ink::text_width(word) * 2 + 4;
             let x0 = cx - (nw + 6 + ww) / 2;
             small(cv, x0 + nw / 2, y + 6, &name, col.tabard);
-            big(cv, x0 + nw + 6 + ww / 2, y, word, if hit == Hit::Miss { 'h' } else { '6' });
+            big(cv, x0 + nw + 6 + ww / 2, y, word, if hit == Hit::Miss { 'h' } else { 'O' });
         }
     }
     // The horses' names at the ends, while they are still being picked.
@@ -1161,7 +1156,7 @@ fn pass_counter(cv: &mut Img, run: &Run, j: &Joust) {
     let pw = (half * 2).max(super::super::ink::text_width(&title) * 2 + 10);
     let (px, py, ph) = (cx - pw / 2, 1, 41);
     chrome::board(cv, (px, py, pw, ph), 'B');
-    big(cv, cx, py + 2, &title, '9');
+    big(cv, cx, py + 2, &title, 'i');
     let y = py + 21;
     let me = colours_of(run, j.knight);
     let him = far_colours(run, j).0;
@@ -1221,7 +1216,7 @@ fn draw_rider(
 fn keycap(cv: &mut Img, x: i32, y: i32, key: &str) -> i32 {
     let w = super::super::ink::text_width(key) + 4;
     chrome::keycap(cv, (x, y, w, 11));
-    cv.text(x + 2, y + 2, key, '9');
+    cv.text(x + 2, y + 2, key, 'i');
     w
 }
 
@@ -1308,7 +1303,7 @@ pub(super) fn lists_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             }
             if j.striking() {
                 let (cx, cy) = at(j.meeting_x(), 14.6);
-                big(cv, cx, cy - 58, "STRIKE!", '5');
+                big(cv, cx, cy - 58, "STRIKE!", 'O');
             }
         }
         (None, _) if j.gallery.contains_key(&me) => {
@@ -1422,7 +1417,7 @@ fn result_board(cv: &mut Img, run: &Run, j: &Joust) {
     let x0 = ((cv.w - w) / 2 - 40).max(2);
     let y0 = cv.h - h - 4;
     chrome::board(cv, (x0, y0, w, h), 'B');
-    big(cv, x0 + w / 2, y0 + 3, &title, if j.winner().is_some() { '6' } else { '9' });
+    big(cv, x0 + w / 2, y0 + 3, &title, if j.winner().is_some() { 'O' } else { 'i' });
     cv.stamp(&board, x0 + (w - board.w) / 2, y0 + 20);
     // The laurel over the winner's name.
     if let Some(side) = j.winner()

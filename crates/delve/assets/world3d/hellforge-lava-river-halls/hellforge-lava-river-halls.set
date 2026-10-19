@@ -1,0 +1,168 @@
+set hellforge-lava-river-halls
+# The Lava River Halls: 42 x 24 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 672 384
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 336 -4 40 size 672 4 80
+box    floor   at 16 -4 232 size 32 4 304
+box    floor   at 112 -4 232 size 32 4 304
+box    floor   at 216 -4 232 size 16 4 304
+box    floor   at 336 -4 232 size 96 4 304
+box    floor   at 456 -4 232 size 16 4 304
+box    floor   at 560 -4 232 size 32 4 304
+box    floor   at 656 -4 232 size 32 4 304
+box    floor   at 136 -4 104 size 16 4 16
+box    floor   at 536 -4 104 size 16 4 16
+box    floor   at 64 -4 192 size 64 4 128
+box    floor   at 168 -4 192 size 80 4 128
+box    floor   at 256 -4 192 size 64 4 128
+box    floor   at 416 -4 192 size 64 4 128
+box    floor   at 504 -4 192 size 80 4 128
+box    floor   at 608 -4 192 size 64 4 128
+box    floor   at 136 -4 280 size 16 4 16
+box    floor   at 536 -4 280 size 16 4 16
+box    floor   at 64 -4 344 size 64 4 80
+box    floor   at 168 -4 344 size 80 4 80
+box    floor   at 256 -4 344 size 64 4 80
+box    floor   at 416 -4 344 size 64 4 80
+box    floor   at 504 -4 344 size 80 4 80
+box    floor   at 608 -4 344 size 64 4 80
+
+# lava, 2 below the floor line
+box    fire    at 64 -4 104 size 64 2 48
+box    fire    at 168 -4 88 size 80 2 16
+box    fire    at 256 -4 104 size 64 2 48
+box    fire    at 416 -4 104 size 64 2 48
+box    fire    at 504 -4 88 size 80 2 16
+box    fire    at 608 -4 104 size 64 2 48
+box    fire    at 176 -4 112 size 64 2 32
+box    fire    at 496 -4 112 size 64 2 32
+box    fire    at 136 -4 120 size 16 2 16
+box    fire    at 536 -4 120 size 16 2 16
+box    fire    at 64 -4 280 size 64 2 48
+box    fire    at 168 -4 264 size 80 2 16
+box    fire    at 256 -4 280 size 64 2 48
+box    fire    at 416 -4 280 size 64 2 48
+box    fire    at 504 -4 264 size 80 2 16
+box    fire    at 608 -4 280 size 64 2 48
+box    fire    at 176 -4 288 size 64 2 32
+box    fire    at 496 -4 288 size 64 2 32
+box    fire    at 136 -4 296 size 16 2 16
+box    fire    at 536 -4 296 size 16 2 16
+
+# the north wall, columns 0 to 19
+box    stone   at 160 -4 8 size 320 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 22 to 41
+box    stone   at 512 -4 8 size 320 52 16
+box    metal   at 664 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 664 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 19 (at 81% of its height, for the camera)
+box    stone   at 160 -4 372 size 320 10 8  # TODO prims: wedge
+box    stone   at 160 -4 380 size 320 16.5 8
+box    metal   at 8 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 380 size 6 6.5 6
+
+# the south wall, columns 22 to 41 (at 81% of its height, for the camera)
+box    stone   at 512 -4 372 size 320 10 8  # TODO prims: wedge
+box    stone   at 512 -4 380 size 320 16.5 8
+box    metal   at 664 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 664 15 380 size 6 6.5 6
+
+# the west wall, rows 1 to 10
+box    stone   at 8 -4 96 size 16 52 160
+
+# the west wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    stone   at 8 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 312 size 16 52 112
+
+# the east wall, rows 1 to 10
+box    stone   at 664 -4 96 size 16 52 160
+
+# the east wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    stone   at 664 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 664 -4 312 size 16 52 112
+
+# the north door, columns 20 to 21
+box    door    at 336 -4 -1 size 32 36 2 id door-north
+box    stone   at 336 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 20 to 21
+box    door    at 336 -4 385 size 32 5 2 id door-south
+
+# the west door, rows 11 to 12
+box    door    at -1 -4 192 size 2 36 32 id door-west
+box    stone   at 8 32 192 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 11 to 12
+box    door    at 673 -4 192 size 2 36 32 id door-east
+box    stone   at 664 32 192 size 16 16 32  # TODO prims: arch
+
+# slag at 3,3 2x1 (at 95% of its height, for the camera)
+sphere rock    at 64 0 56 size 29 11 13 id slag-1  # TODO prims: blob
+gem    fire    at 66 7.5 56 size 6 4.5 6
+
+# slag at 9,3 2x1 (at 95% of its height, for the camera)
+sphere rock    at 160 0 56 size 29 11 13 id slag-2  # TODO prims: blob
+gem    fire    at 160 7.5 56 size 6 4.5 6
+
+# slag at 15,3 2x1
+sphere rock    at 256 0 56 size 29 12 13 id slag-3  # TODO prims: blob
+gem    fire    at 255 8 56 size 6 5 6
+
+# slag at 25,3 2x1
+sphere rock    at 416 0 56 size 29 12 13 id slag-4  # TODO prims: blob
+gem    fire    at 418 8 56 size 6 5 6
+
+# slag at 31,3 2x1 (at 95% of its height, for the camera)
+sphere rock    at 512 0 56 size 29 11 13 id slag-5  # TODO prims: blob
+gem    fire    at 510 7.5 56 size 6 4.5 6
+
+# slag at 37,3 2x1 (at 95% of its height, for the camera)
+sphere rock    at 608 0 56 size 29 11 13 id slag-6  # TODO prims: blob
+gem    fire    at 608 7.5 56 size 6 4.5 6
+
+# slag at 3,20 2x1
+sphere rock    at 64 0 328 size 29 12 13 id slag-7  # TODO prims: blob
+gem    fire    at 62 8 328 size 6 5 6
+
+# slag at 9,20 2x1
+sphere rock    at 160 0 328 size 29 12 13 id slag-8  # TODO prims: blob
+gem    fire    at 160 8 328 size 6 5 6
+
+# slag at 15,20 2x1
+sphere rock    at 256 0 328 size 29 12 13 id slag-9  # TODO prims: blob
+gem    fire    at 256 8 328 size 6 5 6
+
+# slag at 25,20 2x1
+sphere rock    at 416 0 328 size 29 12 13 id slag-10  # TODO prims: blob
+gem    fire    at 414 8 328 size 6 5 6
+
+# slag at 31,20 2x1
+sphere rock    at 512 0 328 size 29 12 13 id slag-11  # TODO prims: blob
+gem    fire    at 510 8 328 size 6 5 6
+
+# slag at 37,20 2x1
+sphere rock    at 608 0 328 size 29 12 13 id slag-12  # TODO prims: blob
+gem    fire    at 606 8 328 size 6 5 6
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 312 18 16 size 3 6 3
+cone   fire    at 312 24 16 size 4 7 4
+box    metal   at 360 18 16 size 3 6 3
+cone   fire    at 360 24 16 size 4 7 4
+box    metal   at 16 18 168 size 3 6 3
+cone   fire    at 16 24 168 size 4 7 4
+box    metal   at 16 4 216 size 3 4.5 3
+cone   fire    at 16 8.5 216 size 4 5.5 4
+box    metal   at 656 18 168 size 3 6 3
+cone   fire    at 656 24 168 size 4 7 4
+box    metal   at 656 4 216 size 3 4.5 3
+cone   fire    at 656 8.5 216 size 4 5.5 4

@@ -1,0 +1,90 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    8,
+    16
+  ],
+  "pieces": [
+    {
+      "name": "grass-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "cobble-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "water-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "water-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "water-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "water-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "reeds-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "hedge-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "ditch-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "filled-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "bridge-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "plank-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "gate-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    }
+  ]
+}

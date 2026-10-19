@@ -1,0 +1,302 @@
+{
+  "boss": "iron-tusk-chief",
+  "camera": "overhead",
+  "definition_sha256": "4de719df498622f24d076bf9c40e1085d0279c097f82fa55aa1f1369c3a7fbd8",
+  "display_policy": {
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 34.59 L*, rest presence 93.24%, edge 91.73%. Source body, effect banks and gameplay unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "heavy spear",
+      "ore slab buckler"
+    ],
+    "class": "chief",
+    "grade": {
+      "v1": [
+        352,
+        288
+      ],
+      "v2": [
+        400,
+        256
+      ]
+    },
+    "props": [
+      "iron-capped lower tusks",
+      "heavy spear",
+      "ore slab buckler"
+    ],
+    "study": {
+      "v1": [
+        [
+          29,
+          34
+        ],
+        [
+          40,
+          47
+        ],
+        [
+          52,
+          61
+        ],
+        [
+          58,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          61,
+          72
+        ],
+        [
+          82,
+          96
+        ],
+        [
+          109,
+          128
+        ]
+      ]
+    },
+    "v1": [
+      46,
+      54
+    ],
+    "v2": [
+      82,
+      96
+    ]
+  },
+  "identity_props": [
+    "iron-capped lower tusks",
+    "heavy spear",
+    "ore slab buckler"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 43,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9848484848484849,
+      "opaque_pixels": 1254,
+      "sha256": "95b5f9764f1d9cadb999797b60ca894ed2fa28e41019767ab0fcde68886156a4",
+      "silhouette_iou": 1.0,
+      "size": [
+        46,
+        54
+      ]
+    },
+    "library-v1-study-1-rest.png": {
+      "colours": 29,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9857723577235772,
+      "opaque_pixels": 492,
+      "sha256": "2abc853e41556fc445805241bcdad24f249700bca8e742e445561080a679e58d",
+      "silhouette_iou": 1.0,
+      "size": [
+        29,
+        34
+      ]
+    },
+    "library-v1-study-1-windup.png": {
+      "colours": 30,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9605263157894737,
+      "opaque_pixels": 380,
+      "sha256": "5ca5eeb23cf45cb2987fc1ae96521bdf5cbabba8612b7d48c90917367a87fb09",
+      "silhouette_iou": 1.0,
+      "size": [
+        29,
+        34
+      ]
+    },
+    "library-v1-study-2-rest.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9766454352441614,
+      "opaque_pixels": 942,
+      "sha256": "edfbfe95934c7d3cbf8186aeca8239e5b94de51a7bd06e2df1003714d2b7f425",
+      "silhouette_iou": 1.0,
+      "size": [
+        40,
+        47
+      ]
+    },
+    "library-v1-study-2-windup.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9808743169398907,
+      "opaque_pixels": 732,
+      "sha256": "59cd06cad632cbd82f82104b81e950c3ef5c920752b9058f5f37eb815b931707",
+      "silhouette_iou": 1.0,
+      "size": [
+        40,
+        47
+      ]
+    },
+    "library-v1-study-3-rest.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9876160990712074,
+      "opaque_pixels": 1615,
+      "sha256": "48b20fad413b77a38c68a29a6b90d93ab5ada08938c1ea4c9ef6315a12867814",
+      "silhouette_iou": 1.0,
+      "size": [
+        52,
+        61
+      ]
+    },
+    "library-v1-study-3-windup.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9799357945425361,
+      "opaque_pixels": 1246,
+      "sha256": "88a771725f411eec653c89313355fb6abd1133e9a08f4f0a458f976458425114",
+      "silhouette_iou": 1.0,
+      "size": [
+        52,
+        61
+      ]
+    },
+    "library-v1-study-4-rest.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9843355229914098,
+      "opaque_pixels": 1979,
+      "sha256": "d03b353ea368acf4bb609b5aea1523a6236e70d590ca535c003e400e7a2ae36a",
+      "silhouette_iou": 1.0,
+      "size": [
+        58,
+        68
+      ]
+    },
+    "library-v1-study-4-windup.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9804305283757339,
+      "opaque_pixels": 1533,
+      "sha256": "0404f7b4f240d303cf3b9e04fc89c662090dd45edc951ff36b89e671647b18b7",
+      "silhouette_iou": 1.0,
+      "size": [
+        58,
+        68
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9783505154639175,
+      "opaque_pixels": 970,
+      "sha256": "d6ebdec56110bfafa933defa074754aff454755274d08f71508e7f4cbf9654a7",
+      "silhouette_iou": 1.0,
+      "size": [
+        46,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 51,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9809762202753441,
+      "opaque_pixels": 3995,
+      "sha256": "9a6f6bb8327d8515e2b409f9e233fbfe33ea088a9ff9c344d5bd555535d7f7d7",
+      "silhouette_iou": 1.0,
+      "size": [
+        82,
+        96
+      ]
+    },
+    "library-v2-study-1-rest.png": {
+      "colours": 47,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9788573999100315,
+      "opaque_pixels": 2223,
+      "sha256": "9622e59130f7ff776e306b3a851312eacbac4267fc390810ab135649f65fde2a",
+      "silhouette_iou": 1.0,
+      "size": [
+        61,
+        72
+      ]
+    },
+    "library-v2-study-1-windup.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9836734693877551,
+      "opaque_pixels": 1715,
+      "sha256": "23daacfd81375e363d184ac2728b0d810caa9e340ac5d8afbbe1cb10c31373c6",
+      "silhouette_iou": 1.0,
+      "size": [
+        61,
+        72
+      ]
+    },
+    "library-v2-study-2-rest.png": {
+      "colours": 51,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9809762202753441,
+      "opaque_pixels": 3995,
+      "sha256": "9a6f6bb8327d8515e2b409f9e233fbfe33ea088a9ff9c344d5bd555535d7f7d7",
+      "silhouette_iou": 1.0,
+      "size": [
+        82,
+        96
+      ]
+    },
+    "library-v2-study-2-windup.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9834415584415584,
+      "opaque_pixels": 3080,
+      "sha256": "58043522af4e82a769c3e8892edbec37293ce91f0f84ed42e77bac82da3c5903",
+      "silhouette_iou": 1.0,
+      "size": [
+        82,
+        96
+      ]
+    },
+    "library-v2-study-3-rest.png": {
+      "colours": 52,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.987970563260685,
+      "opaque_pixels": 7066,
+      "sha256": "805ae32ac7310cfdaa531faeb8ebe735d34d675711a5874a3564906cfbe62946",
+      "silhouette_iou": 1.0,
+      "size": [
+        109,
+        128
+      ]
+    },
+    "library-v2-study-3-windup.png": {
+      "colours": 52,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9866079618418638,
+      "opaque_pixels": 5451,
+      "sha256": "6628200d42363ed3e42aea4034f11c868481d749670763ab56c7744016221f72",
+      "silhouette_iou": 1.0,
+      "size": [
+        109,
+        128
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9834415584415584,
+      "opaque_pixels": 3080,
+      "sha256": "58043522af4e82a769c3e8892edbec37293ce91f0f84ed42e77bac82da3c5903",
+      "silhouette_iou": 1.0,
+      "size": [
+        82,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

@@ -1,5 +1,5 @@
-//! Walk mode: the operator's own figure on the mini-viz map. A click on the
-//! map (or `p` on the focused pane, or `/world walk`) puts him beside the
+//! Walk mode: the operator's own figure on the mini-viz map. An explicit
+//! `p` on the focused pane or `/world walk` puts him beside the
 //! knight; the arrows or WASD walk him, a click walks him there by road, and
 //! Enter or E at a door opens what stands behind it. Esc leaves. The harness's
 //! knight goes on with his work throughout.
@@ -27,8 +27,6 @@ pub(crate) struct Walk {
     held: HashMap<KeyCode, (Instant, bool)>,
     /// Keys the terminal has been seen to release.
     releasing: HashSet<KeyCode>,
-    /// Where the button went down on the map: let go there, it was a click.
-    pressed: Option<(u16, u16)>,
 }
 
 /// Which way a key walks him, east and south.
@@ -220,12 +218,9 @@ impl App {
         self.world.steer_visitor(steer);
     }
 
-    /// The button went down on the map. While he walks it walks him there
-    /// by road; otherwise the press goes on as before (the camera's drag, or
-    /// the Delve's gate when he is called there), and letting go without a
-    /// drag steps onto the map.
+    /// While already walking, a click chooses a road destination. Otherwise
+    /// leave it to visible controls, the dungeon sprite, or camera gestures.
     pub(super) fn walk_click(&mut self, x: u16, y: u16) -> bool {
-        self.walk.pressed = None;
         let Some((area, view)) = self.overworld_map else {
             return false;
         };
@@ -233,9 +228,6 @@ impl App {
             return false;
         }
         if !self.walk.on {
-            if !self.world.delve_called {
-                self.walk.pressed = Some((x, y));
-            }
             return false;
         }
         self.focus_module("artifacts");
@@ -250,19 +242,6 @@ impl App {
         true
     }
 
-    /// The pointer moved with the button down: a drag, not a click.
-    pub(super) fn walk_drag(&mut self, x: u16, y: u16) {
-        if self.walk.pressed.is_some_and(|at| at != (x, y)) {
-            self.walk.pressed = None;
-        }
-    }
-
-    /// The button came up: where it went down on the map, a click.
-    pub(super) fn walk_release(&mut self, x: u16, y: u16) {
-        if self.walk.pressed.take() == Some((x, y)) && !self.walk.on && self.walk_map_shown() {
-            self.start_walk();
-        }
-    }
 
     /// Go in at the door at hand.
     pub(crate) fn go_in(&mut self) {

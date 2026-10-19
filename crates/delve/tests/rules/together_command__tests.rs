@@ -13,6 +13,8 @@ fn bytes(cmd: &DelveCmd) -> Vec<u8> {
 /// Every field of an input set to something, for the round trips.
 fn busy() -> Input {
     Input {
+        latch_tick: Some(1_760_000_000),
+        leave_held: true,
         leave_activity: true,
         activity_menu: true,
         vote: Some(Vote { serial: 1_760_000_000_123, action: Action::Rate(4) }),
@@ -89,8 +91,8 @@ fn malformed_bytes_are_refused() {
     // An axis code 3 is no axis.
     assert_eq!(DelveCmd::decode(&[0b0000_0011, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0, 0b1100_0000, 0]), None);
-    // A flag past the vote's.
-    assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x01, 0x55, 0]), None);
+    // A flag past the held leave flag.
+    assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x04, 0x55, 0]), None);
     // A slots varint claimed and zero, or too wide.
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0x80, 0x04, 0x55, 0]), None);
@@ -148,7 +150,7 @@ fn a_repeated_tick_keeps_what_is_held_and_drops_presses_and_one_shots() {
     assert_eq!(repeat.pressed, Input::default());
     let held = repeat.input();
     assert!(held.vote.is_none() && !held.leave_activity && !held.activity_menu && !held.skip_plate);
-    assert!(held.fire && held.dash && held.ult && held.interact);
+    assert!(held.fire && held.dash && held.ult && held.interact && held.leave_held);
     assert_eq!((held.move_x, held.aim_x, held.play, held.cast, held.skill), (-1, 1, 4, 3, 5));
     assert_eq!(DelveCmd::neutral().input(), Input::default());
 }
@@ -205,4 +207,23 @@ fn a_tap_shorter_than_a_tick_fires() {
         quiet.step(&BTreeMap::from([(1, decoded.held_only().input())]));
     }
     assert!(shots(&quiet) <= before, "a starved tick repeats no press");
+}
+
+#[test]
+fn a_late_latch_press_keeps_its_tick_through_the_existing_queue() {
+    let mut seat = SeatInputs::<DelveCmd>::default();
+    seat.set_cushion(0);
+    seat.push(1, DelveCmd::neutral());
+    seat.take();
+    seat.take(); // sequence 2 was guessed before its packet arrived
+    let tap = DelveCmd { held: Input::default(), pressed: Input {
+        fire: true, move_y: -1, latch_tick: Some(123), ..Input::default()
+    }};
+    assert_eq!(DelveCmd::decode(&bytes(&tap)),Some(tap));
+    seat.push(2,tap);
+    let (carried,_) = seat.take();
+    assert_eq!(carried.input().latch_tick,Some(123));
+    assert!(carried.input().fire);
+    assert_eq!(carried.input().move_y,-1);
+    assert_eq!(carried.held_only().input().latch_tick,None);
 }

@@ -1,0 +1,349 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: preserve original slab contours; remove 3x3 median and raise contrast 15%. Room lighting is a separate cached post-process."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "53b934b5250ed4bde152eb6f4bbfe748c289415c8a13591a27c9e6be10aa2788",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Plain ochre-brown compacted rock with scattered embedded stones.",
+      "median_filter": 0,
+      "name": "plain",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        29,
+        154,
+        267,
+        263
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Worn, slightly smoother and more scuffed rock surface.",
+      "median_filter": 0,
+      "name": "worn",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        339,
+        154,
+        267,
+        263
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Rock tile with broad branching cracks.",
+      "median_filter": 0,
+      "name": "cracked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        648,
+        154,
+        267,
+        263
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Rock tile with a centered timber-and-iron repair plate.",
+      "median_filter": 0,
+      "name": "patched",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        958,
+        154,
+        267,
+        263
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Dark mineral-stained rock with copper fragments.",
+      "median_filter": 0,
+      "name": "stained",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        134.0,
+        132.0
+      ],
+      "source_rect_xywh": [
+        28,
+        487,
+        268,
+        264
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "inset_fraction": 0.07,
+      "label": "Rich copper seam with small malachite clusters.",
+      "median_filter": 0,
+      "name": "rich",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        132.5
+      ],
+      "source_rect_xywh": [
+        339,
+        484,
+        267,
+        265
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "label": "Ochre floor meeting a rough stone wall along the top.",
+      "name": "trim-0",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        133.0
+      ],
+      "source_rect_xywh": [
+        648,
+        483,
+        267,
+        266
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.8625,
+        "saturation": 0.55,
+        "value": 0.5
+      },
+      "label": "Ochre floor meeting a timber-braced stone wall along the top.",
+      "name": "trim-1",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        134.0,
+        133.0
+      ],
+      "source_rect_xywh": [
+        958,
+        483,
+        268,
+        266
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated branching crack decal.",
+      "name": "crack",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        126.5,
+        134.0
+      ],
+      "source_rect_xywh": [
+        47,
+        844,
+        253,
+        268
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated dark mineral/copper stain decal.",
+      "name": "puddle",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        117.5,
+        79.0
+      ],
+      "source_rect_xywh": [
+        355,
+        923,
+        235,
+        158
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated rubble-chip scatter.",
+      "name": "debris",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        115.5,
+        118.0
+      ],
+      "source_rect_xywh": [
+        659,
+        871,
+        231,
+        236
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Isolated short iron mine-rail section with copper and malachite fragments.",
+      "name": "detail",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        124.0,
+        120.5
+      ],
+      "source_rect_xywh": [
+        966,
+        876,
+        248,
+        241
+      ],
+      "state": "floor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.floor.mines",
+  "source_sha256": "2eb8d86121e3e43582600079c1b145de3077e7ee125603fab4d7053beb714967",
+  "timing": ""
+}

@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24.0,
+    32
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Dust is not danger; source position also serves keeper bump/fail feedback. Keep it behind bodies and out of UI.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "11aa4d822f56a24e0437c4a25ca519f21d695e94eddae3ca30fd8653f03427bb",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Ordinary landing onset: low small ochre-grey puff with a few detached flecks.",
+      "name": "fx-dust-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        104.5,
+        128
+      ],
+      "source_rect_xywh": [
+        103,
+        361,
+        209,
+        128
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Ordinary landing peak: broad connected multi-lobed cloud with a modest fleck arc.",
+      "name": "fx-dust-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        150.0,
+        152
+      ],
+      "source_rect_xywh": [
+        426,
+        338,
+        300,
+        152
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Ordinary landing break: cloud thins into separated low lobes and drifting flecks.",
+      "name": "fx-dust-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.5,
+        120
+      ],
+      "source_rect_xywh": [
+        813,
+        370,
+        277,
+        120
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Ordinary landing fade: smallest residual lobes and sparse flecks.",
+      "name": "fx-dust-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        127.0,
+        92
+      ],
+      "source_rect_xywh": [
+        1202,
+        398,
+        254,
+        92
+      ],
+      "state": "dust"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Heavy impact onset: low puff with an energetic diagonal burst accent and detached flecks.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        161.5,
+        185
+      ],
+      "source_rect_xywh": [
+        38,
+        753,
+        323,
+        185
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Heavy impact peak: largest, denser cloud with a pronounced upward burst accent.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        182.0,
+        248
+      ],
+      "source_rect_xywh": [
+        394,
+        690,
+        364,
+        248
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Heavy impact break: separated clumps and debris falling/drifting away.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        177.0,
+        214
+      ],
+      "source_rect_xywh": [
+        786,
+        725,
+        354,
+        214
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Heavy impact fade: small residual cloud and a few isolated fragments.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.0,
+        119
+      ],
+      "source_rect_xywh": [
+        1198,
+        818,
+        288,
+        119
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Contact breakup onset: low small puff with a light upward accent.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.5,
+        167
+      ],
+      "source_rect_xywh": [
+        62,
+        1195,
+        275,
+        167
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Contact breakup peak: broad compact mass with a few airborne flecks.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        163.0,
+        174
+      ],
+      "source_rect_xywh": [
+        425,
+        1188,
+        326,
+        174
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Contact breakup break: cloud separates into several decreasing lobes.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        151.5,
+        158
+      ],
+      "source_rect_xywh": [
+        812,
+        1203,
+        303,
+        158
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Contact breakup fade: very small trailing lobes and sparse fragments.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.5,
+        120
+      ],
+      "source_rect_xywh": [
+        1202,
+        1242,
+        267,
+        120
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732 canvas at (screen effect x\u221224,py(effect y)\u221232); report requires occupied lobes <=16 px high. Do not fill the empty upper canvas.",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "rafterwake.dust",
+  "source_sha256": "05785308d976240860e59676908bf1fb09b959d1092f2988ecfc2e58369c4f21",
+  "timing": "Four frames, 3 ticks each over effect=12; freeze=2 can hold it (Lane::burst, draw())."
+}

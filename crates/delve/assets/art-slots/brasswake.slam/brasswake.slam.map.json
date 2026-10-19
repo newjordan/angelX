@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24,
+    16
+  ],
+  "comments": [
+    "Review: first row is one complete four-frame cycle; repeated rows stay unwired. Clamp hot highlights in cache and keep exact danger borders above decoration.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Decorative splash stays related to the rule Danger rectangle; border remains exact and visible even if splash is taller.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "53169bc5586de2b1868cd0dc829e3f85ffe58f3f7956a55733f4c59fcad4a3b0",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Row 1 frame 1: low initial copper ground burst with small sparks and rising debris.",
+      "name": "effects-slam-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.0,
+        85.0
+      ],
+      "source_rect_xywh": [
+        39,
+        386,
+        268,
+        170
+      ],
+      "state": "effects-slam-0"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Row 1 frame 2: tallest, hottest crown peak with stronger central lobe and outward chunks.",
+      "name": "effects-slam-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        135.5
+      ],
+      "source_rect_xywh": [
+        335,
+        285,
+        285,
+        271
+      ],
+      "state": "effects-slam-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Row 1 frame 3: crown breaks into a dense ochre dust lobe with separated rubble.",
+      "name": "effects-slam-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.0,
+        122.0
+      ],
+      "source_rect_xywh": [
+        643,
+        312,
+        284,
+        244
+      ],
+      "state": "effects-slam-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Row 1 frame 4: low fading dust and scattered debris; warm core mostly gone.",
+      "name": "effects-slam-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        86.5
+      ],
+      "source_rect_xywh": [
+        961,
+        381,
+        262,
+        173
+      ],
+      "state": "effects-slam-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Row 2 frame 1: compact registration of initial burst.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        104.0,
+        56.0
+      ],
+      "source_rect_xywh": [
+        69,
+        765,
+        208,
+        112
+      ],
+      "state": "row-2-frame-1"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Row 2 frame 2: compact peak with central flare and raised debris.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        92.5
+      ],
+      "source_rect_xywh": [
+        350,
+        693,
+        237,
+        185
+      ],
+      "state": "row-2-frame-2"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Row 2 frame 3: compact break-apart dust and rubble.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.0,
+        82.5
+      ],
+      "source_rect_xywh": [
+        659,
+        710,
+        246,
+        165
+      ],
+      "state": "row-2-frame-3"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Row 2 frame 4: compact low recovery dust.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        100.5,
+        69.5
+      ],
+      "source_rect_xywh": [
+        991,
+        736,
+        201,
+        139
+      ],
+      "state": "row-2-frame-4"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Row 3 frame 1: smallest initial impact crown.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        83.5,
+        44.5
+      ],
+      "source_rect_xywh": [
+        96,
+        1081,
+        167,
+        89
+      ],
+      "state": "row-3-frame-1"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Row 3 frame 2: small peak crown.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        106.5,
+        71.5
+      ],
+      "source_rect_xywh": [
+        362,
+        1030,
+        213,
+        143
+      ],
+      "state": "row-3-frame-2"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Row 3 frame 3: small breaking dust/debris.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.0,
+        62.5
+      ],
+      "source_rect_xywh": [
+        682,
+        1048,
+        210,
+        125
+      ],
+      "state": "row-3-frame-3"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Row 3 frame 4: smallest fade state.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        85.5,
+        46.0
+      ],
+      "source_rect_xywh": [
+        1005,
+        1081,
+        171,
+        92
+      ],
+      "state": "row-3-frame-4"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732; foe top-left (danger screen centre\u221224,py(danger bottom\u221232)); cask uses (centre\u221224,py(danger y\u22128)).",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "brasswake.slam",
+  "source_sha256": "85c67bd0fec0e169f3e7399889dc0d981507fe0734444ecc21e2b7071e99c358",
+  "timing": "Four frames across foe action=9 via floor(age\u00d74/9); incoming cask burst=12 uses 3 ticks/frame (draw())."
+}

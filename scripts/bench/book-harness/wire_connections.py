@@ -66,10 +66,6 @@ def checks(fix, loop):
         out["read_file carries ledger direction"] = any(n == "read_file" and "ledger://" in d for n, d in first_tools)
         second = normalize(fix[1]["body"])[0] if len(fix) > 1 else []
         out["hygiene ⠺⠁ on first result"] = any("⠺⠁" in t for r, t in second if r in ("tool",))
-        edit_at = next((i for i, r in enumerate(fix) if (r.get("action") or [None])[0] == "str_replace"), None)
-        after_edit = fix[edit_at + 1:] if edit_at is not None else []
-        out["post-edit ⠼⠁ voiced"] = any("⠼⠁" in t and "Review the edit" in t
-                                         for r in after_edit for _, t in normalize(r["body"])[0])
         last = "\n".join(t for _, t in normalize(fix[-1]["body"])[0])
         out["green cue ⠺⠓"] = "⠺⠓" in last
         out["first request bytes"] = fix[0].get("bytes")

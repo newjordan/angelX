@@ -1,0 +1,725 @@
+{
+  "anchor_canvas_wh": [
+    20,
+    24
+  ],
+  "anchor_xy": [
+    10,
+    24
+  ],
+  "comments": [
+    "Review: first four poses match lever combinations. Remove post/base pixels in cached native cleanup; garment/plume masks are explicit native rows.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Registration correction: centre each complete crop horizontally and keep one shared actor scale/feet baseline; alpha-foot averages were biased by extended boots, splashes and detached specks.",
+    "POLISH-B: cloth mask reviewed against plume, scarf and hanging tabard; saturated local seat ramps preserve steel, leather, brass and visor."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Decorative seat body; actual lever contacts are Ball::rail/swept paddle wedge. Do not move lever pivots with larger hands.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "04e62cd918bd7bf7c5f629c59470a1e2c0ac583625ffdb441bb1a205082e7d81",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Neutral rear three-quarter idle, both mittens on levers.",
+      "name": "neutral",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.0,
+        278
+      ],
+      "source_rect_xywh": [
+        42,
+        162,
+        260,
+        278
+      ],
+      "state": "neutral"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Left-active, body tilted to left lever.",
+      "name": "left-active",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.0,
+        253
+      ],
+      "source_rect_xywh": [
+        355,
+        193,
+        256,
+        253
+      ],
+      "state": "left-active"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Right-active, body tilted to right lever.",
+      "name": "right-active",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.0,
+        248
+      ],
+      "source_rect_xywh": [
+        641,
+        197,
+        270,
+        248
+      ],
+      "state": "right-active"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Both-active, braced and pressing both levers.",
+      "name": "both-active",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.5,
+        243
+      ],
+      "source_rect_xywh": [
+        958,
+        201,
+        259,
+        243
+      ],
+      "state": "both-active"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Anticipation crouch, hands loaded.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        233
+      ],
+      "source_rect_xywh": [
+        43,
+        560,
+        251,
+        233
+      ],
+      "state": "anticipation-crouch-hands-loaded"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Deep compression squat.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        175
+      ],
+      "source_rect_xywh": [
+        352,
+        614,
+        252,
+        175
+      ],
+      "state": "deep-compression-squat"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Asymmetric swing with torso twist.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        263
+      ],
+      "source_rect_xywh": [
+        659,
+        543,
+        256,
+        263
+      ],
+      "state": "asymmetric-swing-with-torso-twist"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Recoil/release with arms following through.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.0,
+        267
+      ],
+      "source_rect_xywh": [
+        966,
+        521,
+        260,
+        267
+      ],
+      "state": "recoil-release-with-arms-following-through"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Launch pop, both mittens raised.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        281
+      ],
+      "source_rect_xywh": [
+        34,
+        874,
+        261,
+        281
+      ],
+      "state": "launch-pop-both-mittens-raised"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Forward nudge with one hand reaching and the other stabilizing.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.5,
+        231
+      ],
+      "source_rect_xywh": [
+        349,
+        934,
+        255,
+        231
+      ],
+      "state": "forward-nudge-with-one-hand-reaching-and-the-other-stabilizing"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Drain slump, shoulders and helmet drooped.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.5,
+        200
+      ],
+      "source_rect_xywh": [
+        652,
+        965,
+        263,
+        200
+      ],
+      "state": "drain-slump-shoulders-and-helmet-drooped"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Jackpot cheer with both hands raised.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.0,
+        286
+      ],
+      "source_rect_xywh": [
+        962,
+        878,
+        266,
+        286
+      ],
+      "state": "jackpot-cheer-with-both-hands-raised"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "runtime_cleanup": {
+    "both-active": {
+      "cloth_runs": [
+        [
+          6,
+          10,
+          2
+        ],
+        [
+          7,
+          9,
+          4
+        ],
+        [
+          14,
+          7,
+          2
+        ],
+        [
+          15,
+          8,
+          4
+        ],
+        [
+          16,
+          8,
+          4
+        ],
+        [
+          17,
+          14,
+          1
+        ],
+        [
+          19,
+          8,
+          4
+        ],
+        [
+          20,
+          9,
+          3
+        ],
+        [
+          21,
+          9,
+          3
+        ],
+        [
+          22,
+          9,
+          1
+        ]
+      ],
+      "erase_runs": [
+        [
+          18,
+          2,
+          2
+        ],
+        [
+          18,
+          16,
+          2
+        ],
+        [
+          19,
+          1,
+          3
+        ],
+        [
+          19,
+          16,
+          2
+        ],
+        [
+          20,
+          0,
+          4
+        ],
+        [
+          20,
+          16,
+          3
+        ],
+        [
+          21,
+          0,
+          4
+        ],
+        [
+          21,
+          16,
+          3
+        ],
+        [
+          22,
+          3,
+          1
+        ],
+        [
+          23,
+          3,
+          1
+        ]
+      ]
+    },
+    "left-active": {
+      "cloth_runs": [
+        [
+          5,
+          10,
+          2
+        ],
+        [
+          6,
+          8,
+          5
+        ],
+        [
+          7,
+          10,
+          1
+        ],
+        [
+          7,
+          12,
+          1
+        ],
+        [
+          13,
+          11,
+          2
+        ],
+        [
+          14,
+          9,
+          5
+        ],
+        [
+          15,
+          10,
+          4
+        ],
+        [
+          16,
+          10,
+          4
+        ],
+        [
+          19,
+          12,
+          1
+        ],
+        [
+          20,
+          9,
+          1
+        ],
+        [
+          20,
+          12,
+          2
+        ],
+        [
+          21,
+          8,
+          1
+        ],
+        [
+          21,
+          11,
+          3
+        ]
+      ],
+      "erase_runs": [
+        [
+          18,
+          3,
+          1
+        ],
+        [
+          18,
+          16,
+          3
+        ],
+        [
+          19,
+          2,
+          2
+        ],
+        [
+          19,
+          16,
+          3
+        ],
+        [
+          20,
+          1,
+          3
+        ],
+        [
+          20,
+          16,
+          4
+        ],
+        [
+          21,
+          1,
+          3
+        ],
+        [
+          21,
+          16,
+          4
+        ],
+        [
+          22,
+          16,
+          2
+        ]
+      ]
+    },
+    "neutral": {
+      "cloth_runs": [
+        [
+          3,
+          9,
+          2
+        ],
+        [
+          4,
+          9,
+          3
+        ],
+        [
+          5,
+          10,
+          2
+        ],
+        [
+          6,
+          10,
+          2
+        ],
+        [
+          13,
+          11,
+          1
+        ],
+        [
+          14,
+          8,
+          4
+        ],
+        [
+          15,
+          7,
+          5
+        ],
+        [
+          16,
+          8,
+          4
+        ],
+        [
+          19,
+          9,
+          3
+        ],
+        [
+          20,
+          8,
+          4
+        ],
+        [
+          21,
+          7,
+          1
+        ],
+        [
+          21,
+          9,
+          3
+        ],
+        [
+          22,
+          9,
+          1
+        ]
+      ],
+      "erase_runs": [
+        [
+          18,
+          1,
+          2
+        ],
+        [
+          18,
+          16,
+          2
+        ],
+        [
+          19,
+          1,
+          3
+        ],
+        [
+          19,
+          16,
+          2
+        ],
+        [
+          20,
+          0,
+          4
+        ],
+        [
+          20,
+          16,
+          3
+        ],
+        [
+          21,
+          0,
+          4
+        ],
+        [
+          21,
+          16,
+          3
+        ],
+        [
+          22,
+          3,
+          1
+        ],
+        [
+          23,
+          3,
+          1
+        ]
+      ]
+    },
+    "right-active": {
+      "cloth_runs": [
+        [
+          6,
+          12,
+          1
+        ],
+        [
+          7,
+          12,
+          3
+        ],
+        [
+          14,
+          7,
+          4
+        ],
+        [
+          15,
+          7,
+          4
+        ],
+        [
+          15,
+          12,
+          1
+        ],
+        [
+          16,
+          6,
+          5
+        ],
+        [
+          19,
+          7,
+          3
+        ],
+        [
+          20,
+          7,
+          2
+        ],
+        [
+          21,
+          7,
+          2
+        ],
+        [
+          22,
+          8,
+          1
+        ]
+      ],
+      "erase_runs": [
+        [
+          18,
+          1,
+          2
+        ],
+        [
+          18,
+          16,
+          3
+        ],
+        [
+          19,
+          1,
+          3
+        ],
+        [
+          19,
+          16,
+          3
+        ],
+        [
+          20,
+          0,
+          4
+        ],
+        [
+          20,
+          16,
+          4
+        ],
+        [
+          21,
+          0,
+          4
+        ],
+        [
+          21,
+          16,
+          4
+        ],
+        [
+          22,
+          2,
+          2
+        ],
+        [
+          22,
+          16,
+          1
+        ],
+        [
+          23,
+          3,
+          1
+        ]
+      ]
+    }
+  },
+  "schema_version": 1,
+  "size_basis": "20\u00d724 at (204,195), bottom-centre convention (10,24). Source must read at this small grain.",
+  "sizes": {
+    "v1": [
+      20,
+      24
+    ],
+    "v2": [
+      20,
+      24
+    ]
+  },
+  "slot": "mossbell.knight",
+  "source_sha256": "6ff72544bd30f35c7ba5fcf8af9d5ca72f979f1256820e940e4d8cdcd47f6cf8",
+  "timing": "Four combinations, active while left/right>0; each stroke sets a 5-tick lever hold (Ball::step; knight())."
+}

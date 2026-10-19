@@ -1,0 +1,278 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 10271
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 10871
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 10209
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 12016
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 11514
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 11710
+    }
+  ],
+  "flags": [],
+  "map_sha256": "3a24056cdd43599947afe725001edb32224489dc360efbfe76e51f3de81f2a5e",
+  "metadata_sha256": "0dd8945e2041b881a5cc27168ecfd5b00edaaf6e9ecf46db047af40744992834",
+  "notes_sha256": "a623e751e96ccc8c2ccba955bf8d307d775d7f389f9b326675a21004484e2e41",
+  "outputs": {
+    "v1/close-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9978,
+      "frame": 0,
+      "half_cell_coverage": 463,
+      "opaque_pixels": 7153,
+      "piece": 2,
+      "sha256": "51d29ff246651f0f54a4d19b1abac6dcf02c25c3e6d1a09bc7fb833ba7c1e6e6",
+      "source_scale": 0.2119205298013245,
+      "state": "close"
+    },
+    "v1/falling-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 0,
+      "half_cell_coverage": 462,
+      "opaque_pixels": 7133,
+      "piece": 3,
+      "sha256": "b3886e9412b316298e814d0378e2c7ffbeed141568a4d978e50361ad54a31e68",
+      "source_scale": 0.2119205298013245,
+      "state": "falling"
+    },
+    "v1/falling-1.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 1,
+      "half_cell_coverage": 462,
+      "opaque_pixels": 7140,
+      "piece": 4,
+      "sha256": "e387938b8ccffeedccb2513cbcc5607fd6bd4efa0016b9caeefa16278606a465",
+      "source_scale": 0.2119205298013245,
+      "state": "falling"
+    },
+    "v1/far-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 461,
+      "opaque_pixels": 7149,
+      "piece": 0,
+      "sha256": "5aa0cf56fb855fa4dedc758a592dacb8b9012a369d65f410f6d637617f497d2f",
+      "source_scale": 0.2119205298013245,
+      "state": "far"
+    },
+    "v1/near-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.999,
+      "frame": 0,
+      "half_cell_coverage": 460,
+      "opaque_pixels": 7138,
+      "piece": 1,
+      "sha256": "4202384ffdb4c8615f6c64c1835c6cdbfff2f4092979ff0d50f5bb80d9707c10",
+      "source_scale": 0.2119205298013245,
+      "state": "near"
+    },
+    "v1/turned-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 461,
+      "opaque_pixels": 7144,
+      "piece": 5,
+      "sha256": "297d0c74f75094ca538232ceebf5b9a37720d4738c30738a011a73feeec652f7",
+      "source_scale": 0.2119205298013245,
+      "state": "turned"
+    },
+    "v2/close-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9978,
+      "frame": 0,
+      "half_cell_coverage": 463,
+      "opaque_pixels": 7153,
+      "piece": 2,
+      "sha256": "51d29ff246651f0f54a4d19b1abac6dcf02c25c3e6d1a09bc7fb833ba7c1e6e6",
+      "source_scale": 0.2119205298013245,
+      "state": "close"
+    },
+    "v2/falling-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 0,
+      "half_cell_coverage": 462,
+      "opaque_pixels": 7133,
+      "piece": 3,
+      "sha256": "b3886e9412b316298e814d0378e2c7ffbeed141568a4d978e50361ad54a31e68",
+      "source_scale": 0.2119205298013245,
+      "state": "falling"
+    },
+    "v2/falling-1.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 1,
+      "half_cell_coverage": 462,
+      "opaque_pixels": 7140,
+      "piece": 4,
+      "sha256": "e387938b8ccffeedccb2513cbcc5607fd6bd4efa0016b9caeefa16278606a465",
+      "source_scale": 0.2119205298013245,
+      "state": "falling"
+    },
+    "v2/far-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 461,
+      "opaque_pixels": 7149,
+      "piece": 0,
+      "sha256": "5aa0cf56fb855fa4dedc758a592dacb8b9012a369d65f410f6d637617f497d2f",
+      "source_scale": 0.2119205298013245,
+      "state": "far"
+    },
+    "v2/near-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 0.999,
+      "frame": 0,
+      "half_cell_coverage": 460,
+      "opaque_pixels": 7138,
+      "piece": 1,
+      "sha256": "4202384ffdb4c8615f6c64c1835c6cdbfff2f4092979ff0d50f5bb80d9707c10",
+      "source_scale": 0.2119205298013245,
+      "state": "near"
+    },
+    "v2/turned-0.png": {
+      "anchor_xy": [
+        48,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        96,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 461,
+      "opaque_pixels": 7144,
+      "piece": 5,
+      "sha256": "297d0c74f75094ca538232ceebf5b9a37720d4738c30738a011a73feeec652f7",
+      "source_scale": 0.2119205298013245,
+      "state": "turned"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "moonfall.moon",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.moon/v01/source-sheet.png",
+  "source_sha256": "a1dd8e8a4bc2f31e4ef8e12adefe5be03e5c6b3d93b8c83fb3021417ff040493",
+  "tool_version": 2
+}

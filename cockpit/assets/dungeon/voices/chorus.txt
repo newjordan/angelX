@@ -44,7 +44,7 @@ tobbin | cant_afford | tobbin-cant-afford | That's not enough ore to shoe a mous
 fortune | npc:fortune | fortune-npc-1 | Round and round, little knight! Everybody's a winner. Mostly.
 fortune | npc:fortune | fortune-npc-2 | I am blindfolded, darling, not blind. I see you have not spun yet.
 fortune | npc:fortune | fortune-npc-3 | Arthur dreamt of my wheel once. He did not enjoy the part at the bottom. Nobody does.
-fortune | npc:fortune | fortune-npc-4 | The audience is restless. Give them a spin. Give them a show.
+fortune | npc:fortune | fortune-npc-4 | The old roads are not all lost. Turn the wheel when you are ready to follow one.
 fortune | wheel_spin | fortune-spin | Round she goes! And where she stops, nobody knows! Well. I know. I always know.
 fortune | wheel_spin | fortune-spin-2 | Spin, spin, spin! Feel that? That's destiny, and a slightly loose axle.
 fortune | wheel_again | fortune-again | One spin a delve, my sweet. Fortune is generous, not stupid.
@@ -57,11 +57,10 @@ tobbin | wheel:mimic_fair | tobbin-mimic-fair | Open them with your boot. Never 
 wren | wheel:glass_jaw | wren-glass-jaw | Twice as hard both ways? Let's just... not get hit. Good plan. Great plan.
 fortune | wheel:gauntlet | fortune-gauntlet | The guardians asked to see you personally. I said you were very busy. They insisted.
 fortune | wheel:turbo | fortune-turbo | Turbo, darlings! Double the spoils, half the blinking! Go go go!
-fortune | wheel:rune_rush | fortune-rune-rush | Runes everywhere! The audience loves a scramble. Elbows are permitted. Encouraged, really.
+fortune | wheel:rune_rush | fortune-rune-rush | Runes have surfaced along this road. Mind who takes them; their power does not last.
 fortune | wheel:all_random | fortune-all-random | Everybody swap! Oh, I do love a mix-up. Read the sidebar, darlings, it's all different now.
-fortune | wheel:ironman | fortune-ironman | Oh, the audience LOVES an Ironman. Mostly for the ending. Good luck, darlings!
+fortune | wheel:ironman | fortune-ironman | There are no second winds on this road. Look after one another.
 fortune | wheel:hollow_walls | fortune-hollow-walls | Secrets on every floor! Knock on everything, darlings. Knock hard. With explosives.
-fortune | wheel:sponsors | fortune-sponsors | Sponsors' Night! Every viewer brought a friend, and every friend brought a box! Look up, darlings!
 
 # ── The Training Yard, and Grubbins ─────────────────────────────────────────
 grubbins | npc:grubbins | grubbins-npc-1 | Oi! Remember me? You let me go. Very generous. I've brought your gold back. Well. Things you can buy with your gold.
@@ -91,11 +90,11 @@ ector | lesson_learned | ector-learned-2 | That's the lesson. The rest is practi
 
 # ── Fortune's dares ─────────────────────────────────────────────────────────
 fortune | dare:untouched | fortune-dare-untouched | A dare! Two rooms without a scratch, darlings. Pretty knights stay pretty!
-fortune | dare:stand_firm | fortune-dare-stand-firm | A dare! No rolling, the whole floor. Stand there and take it like a statue. The audience adores statues.
+fortune | dare:stand_firm | fortune-dare-stand-firm | Keep your footing through the whole floor. Let your shield and your companions do their work.
 fortune | dare:clock | fortune-dare-clock | A dare! Four minutes to the stairs. Tick tock, tick tock!
-fortune | dare:show_off | fortune-dare-show-off | A dare! Three hundred thousand more viewers on this floor. Give them a show!
+fortune | dare:pathfinder | fortune-dare-pathfinder | Clear three rooms. Leave a safe passage for the travellers behind you.
 fortune | dare:quick | fortune-dare-quick | A dare! The guardian, felled in forty-five seconds. Quick, before it gets comfortable!
-fortune | dare:unstoppable | fortune-dare-unstoppable | A dare! Four in a breath, twice. The audience wants carnage. Tasteful carnage.
+fortune | dare:unstoppable | fortune-dare-unstoppable | Break their charge before it gathers: four in a breath, twice.
 
 # ── Rescues: who's in the cages, and who lives at home now ─────────────────
 mabel | caged:mabel | mabel-caged | Oh thank goodness. The goblins wanted soup. I'm a cook, not an ingredient!
@@ -135,7 +134,7 @@ maud | bar:maud | maud-bar-2 | Mushroom ale's on tap. It's good for you. Mostly.
 merlin | merlin:wing | merlin-wing | There's a draught behind the Trophy Hall's west wall. Tobbin could dig it out. Maud would like a bar. So would I.
 maud | round_poured:ale | maud-poured-ale | Mushroom ale for the company! It's good for you. It's good for your second wind, mostly.
 maud | round_poured:stout | maud-poured-stout | Dragon's Breath. My strongest. Don't light a candle near it, love.
-maud | round_poured:reserve | maud-poured-reserve | The Herald's Reserve. He doesn't know I have it. Fortune's audience will love you for it.
+maud | round_poured:reserve | maud-poured-reserve | The Herald's Reserve. A travelling purse for each of you. Spend it where it will do some good.
 
 # ── Sir Dinadan's songs ─────────────────────────────────────────────────────
 dinadan | npc:dinadan | dinadan-npc | Sir Dinadan, at your service. I mostly sing about King Mark. He hates it. That's the point.

@@ -173,10 +173,15 @@ fn rank(route: Route) -> usize {
         .unwrap_or(PRIORITY.len())
 }
 
-/// The once-per-turn stop checkpoint.
+/// The once-per-turn stop checkpoint, and the one stop a failed confirming
+/// re-run (`⠧⠑`) keeps after it: the model's own green test failing on the
+/// code it answers on is a result, not advice. polyglot-v1 cpp-robot-name on
+/// Sonnet 5.5: `⠧⠋` spent the checkpoint, the model's next green was never
+/// re-run, and the grader's run failed.
 #[derive(Default)]
 pub(crate) struct Checkpoint {
     spent: bool,
+    flaky_shown: bool,
 }
 
 impl Checkpoint {
@@ -184,18 +189,44 @@ impl Checkpoint {
         self.spent
     }
 
+    /// Whether a failed confirming re-run would still reach the model.
+    pub(crate) fn shows_flaky(&self) -> bool {
+        !self.spent || !self.flaky_shown
+    }
+
     /// The checkpoint warpath for these facts, or `None` when there are none,
-    /// it was already shown this turn, or too little budget is left to act.
+    /// it was already shown this turn (unless `⠧⠑` is among them and has not
+    /// had its stop), or too little budget is left to act.
     pub(crate) fn engage(
         &mut self,
         workspace: &Path,
         facts: &[Raise],
         budget_left: bool,
     ) -> Option<(String, Vec<Raise>)> {
-        if facts.is_empty() || self.spent || !budget_left {
+        if facts.is_empty() || !budget_left {
             return None;
         }
+        let flaky_only;
+        let facts = if self.spent {
+            if self.flaky_shown {
+                return None;
+            }
+            flaky_only = facts
+                .iter()
+                .filter(|raise| raise.route == v_verification::FLAKY)
+                .cloned()
+                .collect::<Vec<_>>();
+            if flaky_only.is_empty() {
+                return None;
+            }
+            flaky_only.as_slice()
+        } else {
+            facts
+        };
         self.spent = true;
+        self.flaky_shown |= facts
+            .iter()
+            .any(|raise| raise.route == v_verification::FLAKY);
         // Evidence for every fact reaches the ledger, even past the cap.
         for raise in facts {
             if let Some(evidence) = raise.evidence.as_deref() {

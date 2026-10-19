@@ -87,6 +87,35 @@ pub(super) fn sights(
     out.extend_from_slice(decoys);
 }
 
+/// A current target for a directional preview, using the simulation's sight
+/// filter, assigned aggro, invisibility and decoys without advancing the run.
+pub fn warning_target(run: &Run, enemy: &Enemy) -> Option<(f32, f32)> {
+    let knights: Knights = run
+        .players
+        .iter()
+        .filter(|(_, h)| h.targetable() && !h.has_rune(runes::RuneKind::Invisibility))
+        .map(|(&id, h)| (id, h.x, h.y))
+        .collect();
+    let decoys: Vec<_> = run
+        .phantoms
+        .iter()
+        .map(|p| (p.x, p.y))
+        .chain(
+            run.hireling
+                .iter()
+                .filter(|h| !h.down())
+                .map(|h| (h.x, h.y)),
+        )
+        .collect();
+    let mut seen = Vec::new();
+    peasant::sights(run.tick, &run.scarecrows, enemy, &knights, &decoys, &mut seen);
+    seen.into_iter().min_by(|a, b| {
+        (a.0 - enemy.x)
+            .hypot(a.1 - enemy.y)
+            .total_cmp(&(b.0 - enemy.x).hypot(b.1 - enemy.y))
+    })
+}
+
 /// One tick of a held monster's wits, before it acts: a long hold slides
 /// off a steady monster, and a long hold ending makes it steady. True
 /// while it is still held this tick.

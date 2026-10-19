@@ -1,0 +1,105 @@
+{
+  "boss": "salvage-claimant",
+  "camera": "overhead",
+  "definition_sha256": "8e94e536717691c0831bb33f8130d23ecfbd3da1c1265f0b981b68939d50d580",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 23.04 L*, rest presence 87.68%, edge 91.04%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "dredger armor body"
+    ],
+    "class": "chief",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "dredger armor body",
+      "brass diving head",
+      "dredger claw arm",
+      "boat pole arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      89,
+      96
+    ]
+  },
+  "identity_props": [
+    "dredger armor body",
+    "brass diving head",
+    "dredger claw arm",
+    "boat pole arm"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9858883899935856,
+      "opaque_pixels": 1559,
+      "sha256": "ce0c787a65fedd1920d3cd57f8c41b19ebdc3826949d46a10db94f823096816e",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 43,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9879759519038076,
+      "opaque_pixels": 1497,
+      "sha256": "9f8a42340a10548952f6623000e468f4fd9cd380db5a36e09e426a77c04ede34",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 53,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9846029173419774,
+      "opaque_pixels": 4936,
+      "sha256": "7fad7158d6e820a4b91d78af011b145342719e59289e7041af685f1612c75a3a",
+      "silhouette_iou": 1.0,
+      "size": [
+        89,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 50,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.989201778530595,
+      "opaque_pixels": 4723,
+      "sha256": "37544e21022d94fff78eff4b2cf54597ec3ec2202074cabe80ad385eb0fe582a",
+      "silhouette_iou": 1.0,
+      "size": [
+        89,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

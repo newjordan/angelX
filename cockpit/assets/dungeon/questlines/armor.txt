@@ -1,0 +1,23 @@
+power wish:armor 3
+teacher Sir Ferris the Kettle
+place the lists, east of the gate, in the stands' shadow
+room Lists
+look full plate gone teakettle-brown, dents like a map of the moon, and the habit of hanging his helm on empty air
+line I haven't seen my elbows in thirty years and I have never once been sorry.
+hook The level-2 card reads ...and dents like a map of the moon.
+step The fitting | let Sir Ferris inspect your armour: three cued knocks | armour_fitted 1 | Good note. True note. Keep it. | cue knock
+step The joust | ride one full joust and finish it seated | jousts_finished_seated 1 | You stayed in the saddle. The saddle is a wall you wear. | needs jousts_finished_seated
+step The toll of hits | take twenty hits in one delve and finish it standing | hits_taken_standing 1 | Twenty. I have them all written down. You may read the list.
+step The kettle's tea | brew tea over your own heated pauldrons after a fire-hall clear | kettle_brews 1 | Armour that feeds you. That's the whole point of the kettle. | cue brew
+trial The standing hall | clear one hall without raising the shield once | unshielded_halls 1 | Let it hit you. Politely. Toll collected.
+reward Iron Skin tier 3
+title the Kettle
+keepsake the Teakettle Pauldron, a brown-plate pauldron that steams gently once when a hit is turned fully aside
+ties The joust and quintain grounds are Wymond's and Carom's; the fire-hall brew crosses Bess's flame work; the dent list keeps Maren's ledger's habit.
+art
+WW888WW
+W87878W
+.87778.
+.W777W.
+.8W7W8.
+..8.8..

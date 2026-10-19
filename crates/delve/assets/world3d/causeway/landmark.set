@@ -1,0 +1,16 @@
+# Toll Troll Causeway: the troll's toll hut, a stone bridge arch over the road north, and his boulders.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the toll hut beside the road
+box    wood    at 118 0 0 size 54 30 28 id lm-toll-hut
+gable  thatch  at 118 30 0 size 62 20 32
+box    stone   at 136 36 -6 size 9 28 9
+box    wood    at 86 0 12 size 3 40 3
+box    wood    at 86 28 12 size 26 12 2
+# the bridge arch the road runs under, behind the north door
+arch-12 stone   at 192 0 -8 size 80 50 16 id lm-bridge-arch
+box    stone   at 192 50 -8 size 88 5 18
+# the troll's boulders
+rock-4 rock    at 268 0 -2 size 52 44 30 id lm-boulder-1
+rock-11 rock    at 318 0 0 size 38 30 26 id lm-boulder-2

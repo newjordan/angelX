@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    9,
+    9
+  ],
+  "anchor_xy": [
+    4,
+    4
+  ],
+  "comments": [
+    "Review: one small upper-left glint marble, 9x9. Other glints/sizes remain proposals.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Ball::rail uses 3\u00d7Q ball radius; wall/substep contacts and Ball::circle remain authoritative. Visible radius is not a new collider.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "ec347a8790870d3997dad7f4a37af831fcc418a18c05fef4497ae8c9bec0f8c1",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small marble, glint upper-left",
+      "name": "marble",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        56.5,
+        57.0
+      ],
+      "source_rect_xywh": [
+        119,
+        241,
+        113,
+        114
+      ],
+      "state": "marble"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Small marble, glint upper-right",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        57.5,
+        59.5
+      ],
+      "source_rect_xywh": [
+        416,
+        236,
+        115,
+        119
+      ],
+      "state": "small-marble-glint-upper-right"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Small marble, glint lower-right",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        58.5,
+        59.0
+      ],
+      "source_rect_xywh": [
+        718,
+        241,
+        117,
+        118
+      ],
+      "state": "small-marble-glint-lower-right"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Small marble, glint lower-left",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        57.0,
+        58.0
+      ],
+      "source_rect_xywh": [
+        1020,
+        245,
+        114,
+        116
+      ],
+      "state": "small-marble-glint-lower-left"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Medium marble, glint upper-left",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        79.0,
+        79.5
+      ],
+      "source_rect_xywh": [
+        91,
+        555,
+        158,
+        159
+      ],
+      "state": "medium-marble-glint-upper-left"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Medium marble, glint upper-right",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.0,
+        79.0
+      ],
+      "source_rect_xywh": [
+        398,
+        556,
+        156,
+        158
+      ],
+      "state": "medium-marble-glint-upper-right"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Medium marble, glint lower-right",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.0,
+        79.5
+      ],
+      "source_rect_xywh": [
+        700,
+        555,
+        156,
+        159
+      ],
+      "state": "medium-marble-glint-lower-right"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Medium marble, glint lower-left",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.5,
+        79.5
+      ],
+      "source_rect_xywh": [
+        1005,
+        555,
+        157,
+        159
+      ],
+      "state": "medium-marble-glint-lower-left"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Large marble, glint upper-left",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        59,
+        875,
+        217,
+        212
+      ],
+      "state": "large-marble-glint-upper-left"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Large marble, glint upper-right",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.0,
+        107.5
+      ],
+      "source_rect_xywh": [
+        366,
+        874,
+        218,
+        215
+      ],
+      "state": "large-marble-glint-upper-right"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Large marble, glint lower-right",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.0,
+        107.5
+      ],
+      "source_rect_xywh": [
+        669,
+        874,
+        218,
+        215
+      ],
+      "state": "large-marble-glint-lower-right"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Large marble, glint lower-left",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.0,
+        107.5
+      ],
+      "source_rect_xywh": [
+        978,
+        878,
+        218,
+        215
+      ],
+      "state": "large-marble-glint-lower-left"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "9\u00d79 at display ball centre\u2212(4,4); pivot (4,4). Visible when save=0.",
+  "sizes": {
+    "v1": [
+      9,
+      9
+    ],
+    "v2": [
+      9,
+      9
+    ]
+  },
+  "slot": "mossbell.ball",
+  "source_sha256": "c42187a7ba9e80137fd0840a944f5d538b7aabaa193c02f09212b2c7b938ed55",
+  "timing": "One cached image; launch speed moss_launch=1450, gravity=28, bounce=85%, nudge=180, flipper=1250 fixed units; local freeze=2 on paddle contact (Ball::step)."
+}

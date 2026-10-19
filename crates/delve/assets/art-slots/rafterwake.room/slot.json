@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "49ed989aa40034d2a159d8b83337f937f1d576ddeebcbbba0f0d72e68419975c",
+  "metadata_sha256": null,
+  "notes_sha256": "80ae7a48d5e10382e3c5fc60e3a56c70969513cd95fe90236f5063389681a911",
+  "outputs": {
+    "v1/backdrop.png": {
+      "anchor_xy": [
+        207,
+        310
+      ],
+      "approved": true,
+      "canvas_wh": [
+        414,
+        620
+      ],
+      "colour_agreement": 0.9983,
+      "frame": 0,
+      "half_cell_coverage": 15965,
+      "opaque_pixels": 256060,
+      "piece": 0,
+      "sha256": "215e7517a820d39d37c3614ecb19e6ab57f9445174025ab29ea21081c0ae17df",
+      "source_scale": 0.4036458333333333,
+      "state": "backdrop"
+    },
+    "v2/backdrop.png": {
+      "anchor_xy": [
+        207,
+        310
+      ],
+      "approved": true,
+      "canvas_wh": [
+        414,
+        620
+      ],
+      "colour_agreement": 0.9983,
+      "frame": 0,
+      "half_cell_coverage": 15965,
+      "opaque_pixels": 256060,
+      "piece": 0,
+      "sha256": "215e7517a820d39d37c3614ecb19e6ab57f9445174025ab29ea21081c0ae17df",
+      "source_scale": 0.4036458333333333,
+      "state": "backdrop"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "rafterwake.room",
+  "source_path": "/work/artifacts/art-prod/slots/rafterwake.room/v01/source-sheet.png",
+  "source_sha256": "a68ccd1b1af03ecadf6bc1f192cd2a96bbb024d4f0bc2b77f22095981f304046",
+  "tool_version": 2
+}

@@ -323,17 +323,35 @@ const CHANCE_MARKERS: &[&str] = &[
     "currentTimeMillis",
 ];
 
-/// Whether any non-test source file the model edited draws on chance.
+/// The source files [`CHANCE_MARKERS`] are written for, as Git pathspecs.
+const CHANCE_SOURCE_GLOBS: &[&str] = &[
+    "*.c", "*.cc", "*.cpp", "*.cxx", "*.h", "*.hh", "*.hpp", "*.hxx", "*.rs", "*.py", "*.js",
+    "*.mjs", "*.cjs", "*.jsx", "*.ts", "*.tsx", "*.go", "*.java",
+];
+
+/// A source file larger than this is generated or vendored, not the model's.
+const CHANCE_SCAN_MAX_BYTES: u64 = 1024 * 1024;
+
+/// Whether any non-test source file the model changed draws on chance: the
+/// files its file tools edited, and every source file Git sees changed or new
+/// since `HEAD`, however it was written.
 /// polyglot-v1 cpp-robot-name: Grok 4.7 wrote a name generator that reused a
 /// released name about half the time; one green run was accepted in 5 of 14
 /// angelX runs. Other harnesses caught it only when their first run happened to
-/// fail.
+/// fail. Sonnet 5.5 wrote the same bug through a shell here-doc, which no file
+/// tool saw.
 pub(crate) fn edits_depend_on_chance(
     workspace: &Path,
     edited: &std::collections::BTreeSet<String>,
 ) -> bool {
+    let changed = crate::agent::harness::workspace_state::changed_paths_matching(
+        workspace,
+        CHANCE_SOURCE_GLOBS,
+    )
+    .unwrap_or_default();
     edited
         .iter()
+        .chain(changed.iter())
         .filter(|path| !is_test_path(path))
         .any(|path| {
             let path = Path::new(path);
@@ -342,8 +360,9 @@ pub(crate) fn edits_depend_on_chance(
             } else {
                 workspace.join(path)
             };
-            std::fs::read_to_string(file)
-                .is_ok_and(|source| CHANCE_MARKERS.iter().any(|marker| source.contains(marker)))
+            std::fs::metadata(&file).is_ok_and(|meta| meta.len() <= CHANCE_SCAN_MAX_BYTES)
+                && std::fs::read_to_string(file)
+                    .is_ok_and(|source| CHANCE_MARKERS.iter().any(|marker| source.contains(marker)))
         })
 }
 

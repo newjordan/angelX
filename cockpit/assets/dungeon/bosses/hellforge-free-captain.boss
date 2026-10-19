@@ -6,7 +6,8 @@ hp 580
 size 1.4
 move chase speed=1.4
 attack aimed shots=2 speed=7 every=60 damage=12 shot=ember
-phases surge laser every=91 volleys=2 damage=12
+phases surge laser every=100 volleys=2 damage=12
+windup charge every=190 damage=16 speed=32 cry=ATTACK!
 rage 30%
 drops gold 100, ore 2
 art

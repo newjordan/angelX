@@ -1,0 +1,36 @@
+{
+  "fit": "native canvas 56x36, anchor bottom-centre (28,36); the bottom edge is the south edge of the bridge's two rows of tiles, its hinge; stage 384x224; a knight is 16x24 in this town.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "down-0"
+      ],
+      "source_pose_count": 1,
+      "state": "down"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "rising-0",
+        "rising-1",
+        "rising-2"
+      ],
+      "source_pose_count": 3,
+      "state": "rising"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "up-0"
+      ],
+      "source_pose_count": 1,
+      "state": "up"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "id": "moonfall.bridge",
+  "role": "prop",
+  "timing": "down 12, rising 3 frames of 6, up 12 ticks (30 Hz). Art never sets a hitbox."
+}

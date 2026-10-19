@@ -121,7 +121,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let label = ["BOOT", "GOOSE", "CROWN"][i - 2];
             let width = super::super::ink::text_width(label) + 6;
             super::super::chrome::chip(cv, (x - width / 2, y + 10, width, 9));
-            cv.text(x - width / 2 + 3, y + 11, label, if current { 'O' } else { '9' });
+            cv.text(x - width / 2 + 3, y + 11, label, if current { 'O' } else { 'i' });
         }
     }
     if run.room().kind == RoomKind::Rookery {
@@ -158,7 +158,7 @@ pub(super) fn board(run: &Run) -> Option<Img> {
         "E BY ROOKERY CLERK: RETURN FORECAST",
         "ROPEWAY READY",
     ][usize::from(stage)];
-    Some(home::board(&[
+    Some(home::quest_board(&[
         ("THE KING'S MISSING FORECAST".into(), '9'),
         (clue.into(), 'O'),
         (format!("ROAD JOB {stage}/6"), 'h'),

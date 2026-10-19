@@ -6,7 +6,8 @@ hp 580
 size 1.4
 move drift speed=1.1
 attack fan shots=4 arc=60 speed=6 every=80 damage=12 shot=ember
-phases rain reaim every=91 volleys=2 damage=12
+phases rain reaim every=100 volleys=2 damage=12
+windup inhale every=210 damage=14 shots=8 speed=5 shot=ember cry=FWOOMP
 rage 30%
 drops gold 110, ore 3
 art

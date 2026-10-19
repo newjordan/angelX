@@ -1,0 +1,31 @@
+{
+  "fit": "native canvas 36x36, anchor bottom-centre (18,36); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "roll-0",
+        "roll-1",
+        "roll-2",
+        "roll-3"
+      ],
+      "source_pose_count": 4,
+      "state": "roll"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "toll-0",
+        "toll-1",
+        "toll-2"
+      ],
+      "source_pose_count": 3,
+      "state": "toll"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "Rules hitbox 28x28 centred on the anchor, on the snow ledge floor; the painted ball may spill past it. toll is the 36-tick warning before one rolls out; art never sets a hitbox.",
+  "id": "bannerpeak.boulder",
+  "role": "prop",
+  "timing": "roll 4x4 ticks; toll 3x6 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

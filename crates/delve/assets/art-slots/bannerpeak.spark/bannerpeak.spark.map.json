@@ -1,0 +1,225 @@
+{
+  "anchor_canvas_wh": [
+    12,
+    12
+  ],
+  "anchor_xy": [
+    6,
+    6
+  ],
+  "comments": [
+    "One bank on the star's centre: one scale for all seven frames (the take flare sets it, so the resting star is about 10 pixels across).",
+    "The take frames are imported and approved; the stage has no take effect for a spark (a taken one is simply gone), so it plays the bob frames.",
+    "A reviewed ink grade keeps the star's amber: the palette snap sent a few dark orange-brown outline pixels to the signal red (a8341f), single red flecks on the points; the grade maps that one shared ink to the nearest admitted amber-brown (924f1d). No pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "Pickup box 10x10 inside the canvas; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: bob-0..3 (upright, turned right, small, turned left), take-0..2 (flare, ring of shards, fading shards).",
+  "notes_sha256": "351bc5f12bfaa39b4cd021af1d15282ab34a0c4743db6b506c29d7b22c07968b",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "bob-0 \u2014 upright eight-point gold star.",
+      "name": "bob-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        150.5,
+        156.5
+      ],
+      "source_rect_xywh": [
+        41,
+        108,
+        301,
+        313
+      ],
+      "state": "bob",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "bob-1 \u2014 clockwise turned, expanded star with larger core.",
+      "name": "bob-1",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        163.5,
+        167.0
+      ],
+      "source_rect_xywh": [
+        416,
+        97,
+        327,
+        334
+      ],
+      "state": "bob",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "bob-2 \u2014 upright smaller star with smaller core.",
+      "name": "bob-2",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        139.5,
+        142.0
+      ],
+      "source_rect_xywh": [
+        821,
+        124,
+        279,
+        284
+      ],
+      "state": "bob",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "bob-3 \u2014 anticlockwise turned, expanded star with larger core.",
+      "name": "bob-3",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        161.5,
+        167.0
+      ],
+      "source_rect_xywh": [
+        1177,
+        97,
+        323,
+        334
+      ],
+      "state": "bob",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "take-0 \u2014 enlarged flash star with broad cream core.",
+      "name": "take-0",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        174.0,
+        181.0
+      ],
+      "source_rect_xywh": [
+        18,
+        561,
+        348,
+        362
+      ],
+      "state": "take",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "take-1 \u2014 eight outlined amber diamond shards around an empty center.",
+      "name": "take-1",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        165.0,
+        163.0
+      ],
+      "source_rect_xywh": [
+        411,
+        574,
+        330,
+        326
+      ],
+      "state": "take",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "take-2 \u2014 smaller, dimmer shard ring pushed outward.",
+      "name": "take-2",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        137.5
+      ],
+      "source_rect_xywh": [
+        827,
+        602,
+        266,
+        275
+      ],
+      "state": "take",
+      "ticks": 2
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 12x12, anchor bottom-centre (6,12); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      12,
+      12
+    ],
+    "v2": [
+      12,
+      12
+    ]
+  },
+  "slot": "bannerpeak.spark",
+  "source_sha256": "5ce42b855b6d64688fc31933968e57024772a132d4a772ffa13f1036b7df4a30",
+  "timing": "bob 4x6 ticks; take 3x2 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

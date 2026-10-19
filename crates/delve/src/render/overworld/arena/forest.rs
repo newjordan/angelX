@@ -33,7 +33,10 @@ fn ring(cv: &mut Img, x: i32, y: i32, radius: f32, ink: char) {
 
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let game = &run.forest;
-    for (pad, ink) in [(forest::LANTERN, 'O'), (forest::MEMORY, 'u')] {
+    // The lantern's gold ring (the board names it) burns amber only while
+    // the hunt is on; the memory's blue ring is already a quiet ink.
+    let lantern = if game.hunt_left > 0 { '4' } else { 'o' };
+    for (pad, ink) in [(forest::LANTERN, lantern), (forest::MEMORY, 'u')] {
         let (x, y) = at(pad.0 * 2.0, pad.1 * 2.0);
         ring(cv, x, y, 11.0, ink);
         cv.line(x - 4, y, x + 4, y, ink);
@@ -45,7 +48,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     for (i, (x, y)) in forest::RUNES.into_iter().enumerate() {
         let (x, y) = at(x * 2.0, y * 2.0);
         let lit = game.lit_rune() == Some(i);
-        let ink = if lit { '9' } else { ['g', 'u', 'O'][i] };
+        let ink = if lit { '4' } else { ['g', 'u', 'o'][i] };
         ring(cv, x, y, if lit { 14.0 } else { 10.0 }, ink);
         cv.line(x - 5, y, x, y - 7, ink);
         cv.line(x, y - 7, x + 5, y, ink);
@@ -61,9 +64,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let (x, y) = forest::firefly(i, run.tick);
         let (x, y) = at(x, y);
         let ink = if (run.tick / 8 + i as u64).is_multiple_of(2) {
-            '9'
+            '4'
         } else {
-            'O'
+            'o'
         };
         cv.line(x - 2, y, x + 2, y, ink);
         cv.line(x, y - 2, x, y + 2, ink);
@@ -76,7 +79,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     let game = &run.forest;
     let title = home::board(&[
         ("FIREFLY GROVE".into(), '9'),
-        ("OLD WATCH SOUTH".into(), 'h'),
+        ("NW: FOREST ROAD".into(), 'g'),
     ]);
     cv.stamp(&title, (cv.w - title.w) / 2, 4);
     let hunt = if game.hunt_left > 0 {

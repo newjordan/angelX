@@ -1,0 +1,138 @@
+set chunk-4-7
+# The kingdom, chunk 4,7 in Wind Country: tiles 96..120 x 112..128 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 1920
+plate 1536 1024
+
+# ground
+box    grass   at 1600 -4 1800 size 128 4 16
+box    crop    at 1688 -4 1800 size 48 4 16
+box    grass   at 1728 -4 1800 size 32 4 16
+box    path    at 1776 -4 1808 size 64 4 32
+box    grass   at 1832 -4 1800 size 48 4 16
+box    crop    at 1880 -4 1808 size 48 4 32
+box    grass   at 1912 -4 1840 size 16 4 96
+box    grass   at 1584 -4 1816 size 96 4 16
+box    path    at 1688 -4 1816 size 112 4 16
+box    path    at 1816 -4 1864 size 16 4 112
+box    grass   at 1840 -4 1824 size 32 4 32
+box    grass   at 1576 -4 1936 size 80 4 224
+box    path    at 1632 -4 1832 size 32 4 16
+box    grass   at 1704 -4 1832 size 112 4 16
+box    path    at 1784 -4 1840 size 48 4 32
+box    grass   at 1880 -4 1848 size 48 4 48
+box    path    at 1624 -4 1848 size 16 4 16
+box    grass   at 1648 -4 1944 size 32 4 208
+box    crop    at 1696 -4 1864 size 64 4 48
+box    grass   at 1744 -4 1848 size 32 4 16
+box    path    at 1832 -4 1880 size 16 4 80
+box    grass   at 1848 -4 1848 size 16 4 16
+box    grass   at 1624 -4 1952 size 16 4 192
+box    crop    at 1736 -4 1864 size 16 4 16
+box    grass   at 1760 -4 1864 size 32 4 16
+box    path    at 1792 -4 1880 size 32 4 48
+box    path    at 1848 -4 1896 size 16 4 80
+box    path    at 1752 -4 1888 size 48 4 32
+box    path    at 1872 -4 1904 size 32 4 64
+box    grass   at 1896 -4 1880 size 16 4 16
+box    grass   at 1696 -4 1944 size 64 4 112
+box    path    at 1904 -4 1912 size 32 4 48
+box    path    at 1744 -4 1952 size 32 4 96
+box    grass   at 1784 -4 1976 size 48 4 144
+box    grass   at 1824 -4 1984 size 32 4 128
+box    grass   at 1872 -4 1992 size 64 4 112
+box    path    at 1912 -4 1944 size 16 4 16
+box    grass   at 1912 -4 2000 size 16 4 96
+box    grass   at 1672 -4 2024 size 16 4 48
+box    path    at 1712 -4 2008 size 64 4 16
+box    grass   at 1752 -4 2024 size 16 4 48
+box    grass   at 1688 -4 2032 size 16 4 32
+box    path    at 1720 -4 2024 size 48 4 16
+box    grass   at 1704 -4 2040 size 16 4 16
+box    path    at 1728 -4 2040 size 32 4 16
+
+# crop furrows
+box    crop    at 1688 0 1795.5 size 46 2.5 2
+box    crop    at 1688 0 1800.5 size 46 2.5 2
+box    crop    at 1688 0 1805.5 size 46 2.5 2
+box    crop    at 1880 0 1795.5 size 46 2.5 2
+box    crop    at 1880 0 1800.5 size 46 2.5 2
+box    crop    at 1880 0 1805.5 size 46 2.5 2
+box    crop    at 1880 0 1810.5 size 46 2.5 2
+box    crop    at 1880 0 1815.5 size 46 2.5 2
+box    crop    at 1880 0 1820.5 size 46 2.5 2
+box    crop    at 1696 0 1843.5 size 62 2.5 2
+box    crop    at 1696 0 1848.5 size 62 2.5 2
+box    crop    at 1696 0 1853.5 size 62 2.5 2
+box    crop    at 1696 0 1858.5 size 62 2.5 2
+box    crop    at 1696 0 1863.5 size 62 2.5 2
+box    crop    at 1696 0 1868.5 size 62 2.5 2
+box    crop    at 1696 0 1873.5 size 62 2.5 2
+box    crop    at 1696 0 1878.5 size 62 2.5 2
+box    crop    at 1696 0 1883.5 size 62 2.5 2
+box    crop    at 1736 0 1859.5 size 14 2.5 2
+box    crop    at 1736 0 1864.5 size 14 2.5 2
+box    crop    at 1736 0 1869.5 size 14 2.5 2
+
+# Flower Fields: flower beds and a shed at 104,122 4x3
+box    crop    at 1687.9 0 1958.5 size 41.8 2.5 5 id flower-fields
+box    crop    at 1687.9 0 1965.5 size 41.8 2.5 5
+box    crop    at 1687.9 0 1972.5 size 41.8 2.5 5
+box    crop    at 1687.9 0 1979.5 size 41.8 2.5 5
+box    crop    at 1687.9 0 1986.5 size 41.8 2.5 5
+box    crop    at 1687.9 0 1993.5 size 41.8 2.5 5
+box    wood    at 1718.4 0 1990 size 15.2 9 16
+gable  slate   at 1718.4 9 1990 size 19 6 18.2 turn 90
+box    door    at 1718.4 0 1998.25 size 6.08 6 1
+blob-59 foliage at 1720 0 1960 size 13 8 12
+
+# set dressing
+box    stone   at 1688 0 1827 size 44 4 2
+box    stone   at 1667 0 1833 size 2 4 10
+box    stone   at 1709 0 1833 size 2 4 10
+box    stone   at 1676 0 1837 size 16 3.5 2
+cone   thatch  at 1891 0 1830.5 size 4.5 4 4.5
+cone   thatch  at 1896 0 1833.5 size 4.5 4 4.5
+cone   thatch  at 1901 0 1830.5 size 4.5 4 4.5
+box    stone   at 1576 0 1848 size 9 4 3
+box    stone   at 1576 0 1850.5 size 6 2 2
+cone   thatch  at 1571 0 1878.5 size 4.5 4 4.5
+cone   thatch  at 1576 0 1881.5 size 4.5 4 4.5
+cone   thatch  at 1581 0 1878.5 size 4.5 4 4.5
+cone   thatch  at 1795 0 1990.5 size 4.5 4 4.5
+cone   thatch  at 1800 0 1993.5 size 4.5 4 4.5
+cone   thatch  at 1805 0 1990.5 size 4.5 4 4.5
+box    stone   at 1864 0 2008 size 9 4 3
+box    stone   at 1864 0 2010.5 size 6 2 2
+
+# woods (at 37% of its height, for the camera)
+frustum trunk   at 1823 0 2015 size 4.5 5.5 4.5
+cone   foliage at 1823 4 2015 size 28 15 28
+cone   foliage at 1823 13 2015 size 20.16 15.5 20.16
+cylinder trunk   at 1911.5 0 1800 size 3 4 3
+blob-29 foliage at 1911.5 2 1800 size 18 6.5 17.1 turn 180
+cylinder trunk   at 1911 0 1815 size 3 11 3
+blob-43 foliage at 1911 6 1815 size 17 15 16.15 turn 90
+cylinder trunk   at 1912 0 1832 size 3 12 3
+blob-30 foliage at 1912 7 1832 size 19 19 18.05 turn 90
+cylinder trunk   at 1800 0 2007.5 size 3 3.5 3
+cone   foliage at 1800 2 2007.5 size 18 10.5 18
+cone   foliage at 1800 8.5 2007.5 size 12.96 10 12.96
+cylinder trunk   at 1847.5 0 2007.5 size 3 4 3
+blob-49 foliage at 1847.5 1.5 2007.5 size 18 8.5 17.1 turn 180
+frustum trunk   at 1800 0 2024 size 3 9 3
+cone   foliage at 1800 6.5 2024 size 19 18.5 19
+cone   foliage at 1800 18 2024 size 13.68 18.5 13.68
+frustum trunk   at 1846 0 2024 size 3 9 3
+blob-5 foliage at 1846 4 2024 size 17 16 16.15 turn 180
+frustum trunk   at 1815.5 0 2040.5 size 3 7 3
+cone   foliage at 1815.5 4 2040.5 size 18 17.98 18
+cone   foliage at 1815.5 15.02 2040.5 size 12.96 17.98 12.96
+frustum trunk   at 1831 0 2038 size 3 9 3
+cone   foliage at 1831 6 2038 size 17 17.98 17
+cone   foliage at 1831 17.02 2038 size 12.24 17.98 12.24
+cylinder trunk   at 1847 0 2040 size 3 11 3
+blob-47 foliage at 1847 6 2040 size 17 18 16.15 turn 180
+box    hedge   at 1864 0 2024 size 16 6 15
+blob-43 hedge   at 1864 3.5 2024 size 16 6 15

@@ -39,11 +39,14 @@ pub struct ServeConfig {
     /// Where the knobs moved from their defaults are kept: read at the
     /// start, written whenever one moves.
     pub tune_file: Option<PathBuf>,
+    /// Seats kept for their players by name (`Sessions::keep`): a restored
+    /// run's knights.
+    pub names: Vec<(u32, String)>,
 }
 
 impl ServeConfig {
     pub fn new(bind: SocketAddr) -> ServeConfig {
-        ServeConfig { bind, bundle: None, key: None, log_every: None, dev: false, tune_file: None }
+        ServeConfig { bind, bundle: None, key: None, log_every: None, dev: false, tune_file: None, names: Vec::new() }
     }
 }
 
@@ -367,7 +370,11 @@ impl Server {
             params: game.params(),
             rep: game.replicator(),
             assets,
-            sessions: Mutex::new(Sessions::new(&key, seats)),
+            sessions: Mutex::new({
+                let mut sessions = Sessions::new(&key, seats);
+                sessions.keep(&config.names);
+                sessions
+            }),
             conns: Mutex::new(HashMap::new()),
             ticks: Mutex::new(VecDeque::with_capacity(EVENT_RING + 1)),
             newest: AtomicU32::new(0),

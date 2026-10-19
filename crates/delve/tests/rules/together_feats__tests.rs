@@ -95,17 +95,28 @@ fn the_coffer_plate_asks_to_open_a_box() {
 }
 
 #[test]
-fn an_announced_feat_shows_its_banner_for_a_while() {
-    let mut run = Run::new(5, 1, None);
+fn an_announced_feat_up_in_the_realm_shows_its_banner_for_a_while() {
+    let mut run = Run::at_home(5, 1, Some("Friend"), crate::rules::home::Home::default(), Default::default());
+    assert!(run.at_home_now());
     run.announce("roadkill");
     assert_eq!(run.banner_now().map(|f| f.id), Some("roadkill"));
     assert!(run.cues.iter().any(|c| c == "achievement"));
-    run.calm_for_test();
-    run.enemies.clear();
     for _ in 0..BANNER_TICKS {
         run.tick += 1;
     }
     assert!(run.banner_now().is_none());
+}
+
+#[test]
+fn an_announced_feat_down_in_a_delve_waits_quietly_for_the_matchs_end() {
+    let mut run = Run::new(5, 1, None);
+    assert!(!run.at_home_now());
+    run.announce("roadkill");
+    run.announce("flawless");
+    run.announce("roadkill");
+    assert!(run.banner_now().is_none(), "no banner over the fighting");
+    assert!(!run.cues.iter().any(|c| c == "achievement"));
+    assert_eq!(run.deeds, ["roadkill", "flawless"], "each kept once, in the order earned");
 }
 
 #[test]

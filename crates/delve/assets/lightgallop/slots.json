@@ -1,0 +1,688 @@
+[
+ {
+  "id": "lightgallop.rider",
+  "size": [
+   48,
+   40
+  ],
+  "anchor": [
+   24,
+   40
+  ],
+  "hitbox": [
+   -7,
+   -28,
+   14,
+   28
+  ],
+  "ink": "O",
+  "label": "KNIGHT",
+  "states": {
+   "gallop": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "idle": [
+    8,
+    8
+   ],
+   "jump-rise": [
+    6
+   ],
+   "jump-fall": [
+    6
+   ],
+   "roll": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "crouch": [
+    6
+   ],
+   "charge": [
+    2,
+    2
+   ],
+   "spur": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "lunge": [
+    4
+   ],
+   "skid": [
+    4
+   ],
+   "hurt": [
+    6,
+    6
+   ],
+   "victory": [
+    8,
+    8,
+    8
+   ]
+  },
+  "note": "The mounted knight, facing right; the horse's head is on the right of the canvas. Rotated about its centre along the road, so the art needs no loop frames. The roll and the charge are smaller tucks (14 px tall hitbox).",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.snuffer",
+  "size": [
+   28,
+   30
+  ],
+  "anchor": [
+   14,
+   30
+  ],
+  "hitbox": [
+   -9,
+   -20,
+   18,
+   20
+  ],
+  "ink": "V",
+  "label": "SNUF",
+  "states": {
+   "idle": [
+    8,
+    8
+   ],
+   "alert": [
+    8,
+    8
+   ],
+   "hurt": [
+    6
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "A hooded wisp with a wick-stub tail and two pale eyes, walking a beat on the road.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.floater",
+  "size": [
+   28,
+   28
+  ],
+  "anchor": [
+   14,
+   28
+  ],
+  "hitbox": [
+   -9,
+   -18,
+   18,
+   18
+  ],
+  "ink": "U",
+  "label": "WISP",
+  "states": {
+   "idle": [
+    8,
+    8
+   ],
+   "alert": [
+    6,
+    6
+   ],
+   "pop": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "The same wisp drifting in the air, there to be locked and chained.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.bramble",
+  "size": [
+   32,
+   22
+  ],
+  "anchor": [
+   16,
+   22
+  ],
+  "hitbox": [
+   -12,
+   -14,
+   24,
+   14
+  ],
+  "ink": "R",
+  "label": "BRAM",
+  "states": {
+   "a": [
+    1
+   ],
+   "b": [
+    1
+   ]
+  },
+  "note": "A low tangle of thorns on the road; it hurts and cannot be popped.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.warden",
+  "size": [
+   64,
+   112
+  ],
+  "anchor": [
+   32,
+   112
+  ],
+  "hitbox": [
+   -22,
+   -100,
+   44,
+   100
+  ],
+  "ink": "7",
+  "label": "WARDEN",
+  "states": {
+   "idle": [
+    10,
+    10
+   ],
+   "hit": [
+    8
+   ],
+   "roar": [
+    12
+   ],
+   "defeat": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "note": "The gate's warden: a tall hooded snuffer with a wick-staff. Takes 3 hits plus 1 per extra knight.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.hay",
+  "size": [
+   36,
+   22
+  ],
+  "anchor": [
+   18,
+   22
+  ],
+  "hitbox": [
+   -14,
+   -18,
+   28,
+   22
+  ],
+  "ink": "t",
+  "label": "HAY",
+  "states": {
+   "rest": [
+    1
+   ],
+   "sprung": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "A round hay bale lying on its side, bound with red cord and a small gold sun. The diagonal spring is the same bale turned.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.post",
+  "size": [
+   26,
+   56
+  ],
+  "anchor": [
+   13,
+   56
+  ],
+  "hitbox": [
+   -22,
+   -70,
+   44,
+   80
+  ],
+  "ink": "4",
+  "label": "POST",
+  "states": {
+   "dark": [
+    1
+   ],
+   "lit": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "note": "A slender iron post with a hook and a glass lantern: cold when dark, warm and flickering when lit. The painted post is 26 wide (its natural 0.475 wide:tall), the pole left of centre and the lantern right.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.spark",
+  "size": [
+   10,
+   10
+  ],
+  "anchor": [
+   5,
+   5
+  ],
+  "hitbox": [
+   -6,
+   -10,
+   12,
+   20
+  ],
+  "ink": "6",
+  "label": "*",
+  "states": {
+   "idle": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "loose": [
+    2,
+    2
+   ]
+  },
+  "note": "A spark of light, the knight's health. The loose state is the flicker of a scattered spark about to fade.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.bell",
+  "size": [
+   48,
+   72
+  ],
+  "anchor": [
+   24,
+   72
+  ],
+  "hitbox": [
+   -28,
+   -120,
+   56,
+   140
+  ],
+  "ink": "4",
+  "label": "BELL",
+  "states": {
+   "rest": [
+    1
+   ],
+   "ring": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  "note": "The Bell Gate's bronze bell on a timber yoke with a faint gold sun; it swings when rung.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.pad",
+  "size": [
+   40,
+   8
+  ],
+  "anchor": [
+   20,
+   8
+  ],
+  "hitbox": [
+   -18,
+   -12,
+   36,
+   18
+  ],
+  "ink": "2",
+  "label": "PAD",
+  "states": {
+   "idle": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "A boost pad lying on the road, chevrons pointing right.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.crate",
+  "size": [
+   24,
+   24
+  ],
+  "anchor": [
+   12,
+   24
+  ],
+  "hitbox": [
+   -12,
+   -24,
+   24,
+   24
+  ],
+  "ink": "o",
+  "label": "BOX",
+  "states": {
+   "shield": [
+    1
+   ],
+   "sparks": [
+    1
+   ],
+   "spur": [
+    1
+   ],
+   "break": [
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "A lantern crate: shield, ten sparks, or a full spur gauge.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.dimming",
+  "size": [
+   64,
+   128
+  ],
+  "anchor": [
+   64,
+   128
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "k",
+  "label": "GLOAM",
+  "states": {
+   "edge": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "note": "The Dimming's leading edge: a wall of violet-black smoke with pale eyes; tile it down the screen. Hitbox is the wall's front, set by the session.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.sign",
+  "size": [
+   56,
+   28
+  ],
+  "anchor": [
+   28,
+   28
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "T",
+  "label": "SIGN",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "A roadside plank with two or three plain words.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.arch",
+  "size": [
+   24,
+   16
+  ],
+  "anchor": [
+   12,
+   8
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "j",
+  "label": "ARCH",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "One tile of the stone track the loop and the coil are drawn with, repeated along the curve (art never sets the curve).",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.road",
+  "size": [
+   64,
+   48
+  ],
+  "anchor": [
+   0,
+   0
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "l",
+  "label": "ROAD",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "A tileable road surface: grass fringe, packed earth, dark soil beneath. Repeats along the road's curve.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.rail",
+  "size": [
+   32,
+   10
+  ],
+  "anchor": [
+   0,
+   0
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "P",
+  "label": "RAIL",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "A timber plank for the high rails, tileable.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.layer-far",
+  "size": [
+   192,
+   96
+  ],
+  "anchor": [
+   96,
+   96
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "x",
+  "label": "FAR",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "Far hills and the great pale moon; scrolls slowest.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.layer-mid",
+  "size": [
+   192,
+   96
+  ],
+  "anchor": [
+   96,
+   96
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "S",
+  "label": "MID",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "Dark pines with a few lit windows.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.layer-near",
+  "size": [
+   192,
+   96
+  ],
+  "anchor": [
+   96,
+   96
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "F",
+  "label": "NEAR",
+  "states": {
+   "idle": [
+    1
+   ]
+  },
+  "note": "Reeds, fence posts and fireflies.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.fx-dust",
+  "size": [
+   16,
+   16
+  ],
+  "anchor": [
+   8,
+   16
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "i",
+  "label": "DUST",
+  "states": {
+   "puff": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "note": "A hoof-dust puff at speed.",
+  "placeholder": true
+ },
+ {
+  "id": "lightgallop.fx-burst",
+  "size": [
+   24,
+   24
+  ],
+  "anchor": [
+   12,
+   12
+  ],
+  "hitbox": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "ink": "W",
+  "label": "POP",
+  "states": {
+   "burst": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  "note": "The cold-smoke pop of a defeated snuffer with a warm spark at its heart.",
+  "placeholder": true
+ }
+]

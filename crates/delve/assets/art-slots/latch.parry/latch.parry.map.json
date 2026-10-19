@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Clean only, no danger radius. Must meet both bodies in the published contact gap.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "9fe5c6190575612a151436e77c84118961b43ba3fcae437ed2088add9bcb1818",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small forming crescent with a few attached beads.",
+      "name": "parry-1",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        71.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        151,
+        190,
+        143,
+        263
+      ],
+      "state": "parry-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Larger crescent with a thicker connected arc.",
+      "name": "parry-2",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        103.5,
+        171.5
+      ],
+      "source_rect_xywh": [
+        469,
+        142,
+        207,
+        343
+      ],
+      "state": "parry-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Broad, bright peak arc.",
+      "name": "parry-3",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        190.0
+      ],
+      "source_rect_xywh": [
+        838,
+        115,
+        267,
+        380
+      ],
+      "state": "parry-3"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Arc breaks into several grouped teal chunks.",
+      "name": "parry-4",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.0,
+        165.0
+      ],
+      "source_rect_xywh": [
+        1263,
+        165,
+        228,
+        330
+      ],
+      "state": "parry-4"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Small forming crescent, similar to frame 1.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        65.5,
+        151.5
+      ],
+      "source_rect_xywh": [
+        163,
+        659,
+        131,
+        303
+      ],
+      "state": "small-forming-crescent-similar-to-frame-1"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Growing connected arc.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.0,
+        174.0
+      ],
+      "source_rect_xywh": [
+        468,
+        628,
+        222,
+        348
+      ],
+      "state": "growing-connected-arc"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Broad peak arc.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        139.5,
+        200.5
+      ],
+      "source_rect_xywh": [
+        839,
+        595,
+        279,
+        401
+      ],
+      "state": "broad-peak-arc"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Breaking crescent fragments.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        160.5
+      ],
+      "source_rect_xywh": [
+        1262,
+        641,
+        231,
+        321
+      ],
+      "state": "breaking-crescent-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Small forming crescent.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        73.0,
+        149.5
+      ],
+      "source_rect_xywh": [
+        143,
+        1123,
+        146,
+        299
+      ],
+      "state": "small-forming-crescent"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Growing connected arc.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.0,
+        178.0
+      ],
+      "source_rect_xywh": [
+        474,
+        1093,
+        216,
+        356
+      ],
+      "state": "growing-connected-arc"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Broad peak arc.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.5,
+        196.0
+      ],
+      "source_rect_xywh": [
+        826,
+        1075,
+        289,
+        392
+      ],
+      "state": "broad-peak-arc"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Sparse final fading fragment.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        84.5,
+        130.5
+      ],
+      "source_rect_xywh": [
+        1300,
+        1155,
+        169,
+        261
+      ],
+      "state": "sparse-final-fading-fragment"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732; top-left (contact x-16,130-16), contact x=232+recoil+shake.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "latch.parry",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": 224,
+    "metadata_sha256": "8b89f74bcfa30a1c11616e5e99b3486d4a478dafcf1a41848cd6e432a4b88089",
+    "original_path": "/work/artifacts/art-prod/slots/latch.parry/v01/source-sheet.png",
+    "original_sha256": "f2b1a62fb2d43a834069299593a0e2011a566bfa720edef1555d9927a75c56d0",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "2a57e17c439e1121dd598b9609a96ecd5e6cf7519dd18117f7902c2d0025313e",
+  "timing": "Four frames across RECOVER=18 via floor(age\u00d74/18), clamped; STOP=4 holds age zero first (draw())."
+}

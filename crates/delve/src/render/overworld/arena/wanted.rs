@@ -590,8 +590,8 @@ fn thousands(n: u32) -> String {
 /// Lettering with a dark edge, so gold reads on parchment.
 fn gilded(cv: &mut Img, x: i32, y: i32, s: &str, k: i32) {
     let edge = big_text(s, k, 'b');
-    let face = big_text(s, k, '@');
-    let hi = big_text(s, k, '5');
+    let face = big_text(s, k, 'o');
+    let hi = big_text(s, k, 'O');
     for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (-1, -1)] {
         cv.stamp(&edge, x + dx, y + dy);
     }
@@ -786,12 +786,10 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     coin(cv, x0 + (w - sum_w) / 2 - 4, y0 + 25);
 }
 
-/// A boss or a route chief's name over its health bar, and the key it
-/// holds.
-pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
-    use crate::rules::keyring::Hold;
-    let chiefs: Vec<u8> = run.route_chiefs();
-    let keyless = run.works.key.hold == Hold::Kept;
+/// A boss's name over its health bar. (The Boss Key's carrier is an elite,
+/// marked over its own bar: `marks::key_mark`.)
+pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32), modern: bool) {
+    if super::boss_art::library_hidden() { return; }
     for e in run.enemies.iter().filter(|e| e.hp > 0 && e.boss.is_some()) {
         let Some(index) = e.boss else { continue };
         let Some(boss) = run.bosses.get(usize::from(index)) else {
@@ -805,22 +803,17 @@ pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
         } else {
             at(e.x, e.y + super::signatures::foot_lift(run, e))
         };
-        let top = feet - super::foe_figure(run, e, run.tick as u32).h;
+        let height = super::foe_figure_with(run, e, run.tick as u32, modern).h;
+        let top = super::marks::enemy_top(run,e,feet,height,view);
         let name = boss.name.to_uppercase();
-        let holds_key = keyless && chiefs.contains(&index);
-        let w = text_width(&name) + if holds_key { 12 } else { 0 };
+        let w = text_width(&name);
         // Whole on this seat's screen while the boss is in its view.
         let x0 = super::in_view_x(x, w + 6, view, cv.w) + 3;
         let y0 = super::in_view_y(top - 20, feet, view);
         // The name on a slate plate, in the steel rim of the realm's names.
         super::super::chrome::panel(cv, (x0 - 3, y0 - 2, w + 6, 11), super::super::chrome::Tone::SLATE);
-        let mut tx = x0;
-        if holds_key {
-            let key = Img::from_rows(&[".44....", "4..4444", ".44.4.4"]);
-            cv.stamp(&key, tx, y0 + 1);
-            tx += 12;
-        }
-        cv.text(tx, y0, &name, '$');
+        if super::hud_art::enabled(run) {super::hud_art::plate(cv,"toast",(x0-3,y0-2,w+6,11));}
+        cv.text(x0, y0, &name, '$');
     }
     let _ = (UNIT, FOOT);
 }

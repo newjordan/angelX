@@ -1,0 +1,65 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 186,
+      "recoloured": 186
+    }
+  ],
+  "flags": [
+    "sheet-edge contact"
+  ],
+  "map_sha256": "870ce69ccef2679c41cd1c5f4235fd0b8cb6dcdccddc9c1a8219862a7adbeeb8",
+  "metadata_sha256": "11a6f4b503a417729f7a445c8fc6e1fa9e21fc5c7d77d6d6c104b62aecba4c1c",
+  "notes_sha256": "e47744e494cc8bf187037f2948b5863dac9e79919fcb270bad825e4e09ba3c00",
+  "outputs": {
+    "v1/idle-0.png": {
+      "anchor_xy": [
+        32,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 169,
+      "opaque_pixels": 2601,
+      "piece": 0,
+      "sha256": "0286d92b40cae3a095d49fdaaa1109bfb862274b04d6eb8d2f70e4408b0a2e97",
+      "source_scale": 0.04419889502762431,
+      "state": "idle"
+    },
+    "v2/idle-0.png": {
+      "anchor_xy": [
+        32,
+        24
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 169,
+      "opaque_pixels": 2601,
+      "piece": 0,
+      "sha256": "0286d92b40cae3a095d49fdaaa1109bfb862274b04d6eb8d2f70e4408b0a2e97",
+      "source_scale": 0.04419889502762431,
+      "state": "idle"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "shared-pivot",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "lightgallop.road",
+  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.road/source-sheet.png",
+  "source_sha256": "5f7af1719d9c720567ed62ef1a46b1b5e8742cf2d5895d90d5c46243dcbf53da",
+  "tool_version": 2
+}

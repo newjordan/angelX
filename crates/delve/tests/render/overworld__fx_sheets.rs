@@ -27,6 +27,12 @@ fn page(rows: &[(&str, Box<dyn Fn(&mut Img, u32)>)]) -> Img {
     out
 }
 fn sheets() -> Vec<(&'static str, Img)> {
+    // This library sheet pins the original effect drawings. Dungeon-only
+    // shot composition has its own directional-stroke contract and room QA.
+    struct Original;
+    impl Drop for Original {fn drop(&mut self){slot_art::use_original(false);}}
+    slot_art::use_original(true);
+    let _original=Original;
     let mut pages = Vec::new();
     let mut shots: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
     for (name, kind) in [
@@ -113,8 +119,12 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     x: 7.0,
                     y: 7.0,
                     kind,
-                    ttl: [6, 4, 2, 1][f as usize],
+                    ttl: [5, 4, 2, 1][f as usize],
+                    dx: 1.0,
+                    dy: 0.0,
+                    boss_art: None,
                 });
+                vfx::under_shots(cv, &r);
                 feel::over(cv, &r);
             }),
         ));
@@ -146,16 +156,18 @@ fn sheets() -> Vec<(&'static str, Img)> {
                         dy: 0.0,
                         smoke: what == 2,
                         ttl: if what == 1 {
-                            [3, 2, 1, 0][f as usize]
+                            [2, 1, 1, 0][f as usize]
                         } else {
-                            [14, 10, 6, 1][f as usize]
+                            [13, 10, 6, 1][f as usize]
                         },
+                        dust: 0,
                     }),
                     3 => r.feel.deaths.push(state::Death {
                         x: 7.0,
                         y: 7.0,
                         r: 1.0,
-                        ttl: [14, 11, 7, 1][f as usize],
+                        ttl: [14, 9, 6, 2][f as usize],
+                        kind: Some(crate::rules::EnemyKind::Skeleton),
                     }),
                     4 => r.feel.coins.push(state::Coin {
                         x: 7.0,
@@ -168,6 +180,11 @@ fn sheets() -> Vec<(&'static str, Img)> {
                         strike::sparks(cv, h, 1, 56, 63);
                     }
                 }
+                let mut under = Img::new(cv.w, cv.h);
+                vfx::under_figures(&mut under, &r);
+                under.stamp(cv, 0, 0);
+                *cv = under;
+                vfx::under_shots(cv, &r);
                 feel::over(cv, &r);
             }),
         ));
@@ -330,9 +347,9 @@ fn sheets() -> Vec<(&'static str, Img)> {
                 r.blasts.push((
                     7.0,
                     7.0,
-                    crate::rules::BLAST_TICKS.saturating_sub(f as u8 * 2),
+                    crate::rules::BLAST_TICKS.saturating_sub(1 + f as u8 * 2),
                 ));
-                flourishes(cv, &r);
+                vfx::under_shots(cv, &r);
             }),
         ),
         (
@@ -496,6 +513,16 @@ fn write_fx_sheets() {
         let path = std::path::Path::new(&dir).join(format!("{name}.png"));
         im.save(path).unwrap();
     }
+}
+
+#[test]
+#[ignore = "reviews the arm/guard sheet after adding Bard's placeholder card"]
+fn write_bard_arm_icon_review() {
+    let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_FX_SHEETS").unwrap());
+    std::fs::create_dir_all(&dir).unwrap();
+    let (_, im) = sheets().into_iter().find(|(name, _)| *name == "icons").unwrap();
+    std::fs::write(dir.join("icons-hash.txt"), im.content_hash().to_string()).unwrap();
+    image::save_buffer(dir.join("icons.png"), &im.rgba_bytes(), im.w as u32, im.h as u32, image::ColorType::Rgba8).unwrap();
 }
 
 fn footprints() -> std::collections::BTreeMap<String, u64> {

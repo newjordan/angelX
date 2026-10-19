@@ -1,0 +1,18 @@
+{
+  "fit": "native canvas 384x224 (opaque), the whole stage; anchor bottom-centre (192,224); stage 384x224 at 16 px per tile.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "night-0"
+      ],
+      "source_pose_count": 1,
+      "state": "night"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "A static backdrop behind tiles, props and knights; art never sets a hitbox (none).",
+  "id": "bannerpeak.sky",
+  "role": "backdrop",
+  "timing": "night 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

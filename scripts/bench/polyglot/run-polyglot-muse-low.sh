@@ -9,7 +9,7 @@
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921
-WS=~/angelX
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 CFG=$RR/configs/muse-low.toml
 KEY_VAR=META_API_KEY
 MUSE_MODEL=${MUSE_MODEL:-muse-spark-1.3}
@@ -156,7 +156,7 @@ EXTRA=()
 
 echo "cell model=$MUSE_MODEL effort=$MUSE_EFFORT harness=angelx seed=$SEED n=$N wall=${WALL_SECS}s bin=$ANGEL_BIN out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=~ USER=frosty40 LOGNAME=frosty40 LANG=C.UTF-8 TERM=dumb \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb \
   PATH="$AGENT_PATH" \
   "$KEY_VAR=$KEY_VALUE" \
   MUSE_EFFORT="$MUSE_EFFORT" \

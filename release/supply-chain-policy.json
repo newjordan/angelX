@@ -58,25 +58,19 @@
       {
         "path": "cockpit/Cargo.lock",
         "ecosystem": "crates.io",
-        "sha256": "5a453fe33dc0ad59e4f12ec9d5eeff3b552337d9dbea0a24c2431c98322c88ae",
-        "package_count": 376
-      },
-      {
-        "path": "cockpit/portal-renderer/Cargo.lock",
-        "ecosystem": "crates.io",
-        "sha256": "1c9ca5c6a29d832ef6612d30b0f1609c92592320f96a8e5922f2a72c50a62b20",
-        "package_count": 121
+        "sha256": "58fc2e6f81cd9afae7a64d67c49c94bdad5728e9c0893b248073963306f8d027",
+        "package_count": 519
       },
       {
         "path": "crates/Cargo.lock",
         "ecosystem": "crates.io",
-        "sha256": "d0c57922a26466b1a87a2fe745ae7f7997fbd1635f865cbdac3db6533e0054b5",
-        "package_count": 99
+        "sha256": "fe896cb3f099eb3555956c1d5e8bc92ecdaed9d4fd021c400429ef09a685e772",
+        "package_count": 339
       },
       {
         "path": "package-lock.json",
         "ecosystem": "npm",
-        "sha256": "a5e52029ab4863c800792641fe951aa79e2289b7fd82554a9c6a99ea8211983f",
+        "sha256": "a3d960933d29b84c496a9514c080447e1ec6a111b627e0807fbf4a69774910b3",
         "package_count": 79
       }
     ],

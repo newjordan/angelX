@@ -1,0 +1,20 @@
+# Washbucket Quay: the landing stage on its piles, a quay warehouse behind the west water, a hoist crane east.
+# piles standing in the water either side of the landing stage, taller as mooring posts at its corners
+cylinder-6 trunk at 138 -3 22 size 6 20 6
+cylinder-6 trunk at 138 -3 40 size 6 14 6
+cylinder-6 trunk at 138 -3 58 size 6 20 6
+cylinder-6 trunk at 246 -3 22 size 6 20 6
+cylinder-6 trunk at 246 -3 40 size 6 14 6
+cylinder-6 trunk at 246 -3 58 size 6 20 6
+# the quay warehouse on the north bank: plank walls, a loading door, a steep tiled roof, a hoist beam
+box    wood    at 72 0 8 size 100 42 16
+box    door    at 72 0 16.2 size 16 24 1
+gable  roof    at 72 42 8 size 108 18 22
+box    wood    at 128 36 18 size 4 4 22
+# the hoist crane on the east bank: mast, jib, rope and a crate on the hook
+box    wood    at 290 0 8 size 12 74 12
+box    wood    at 318 66 8 size 66 5 7
+box    wood    at 262 66 8 size 20 5 7
+box    metal   at 340 44 8 size 1.5 22 1.5
+box    wood    at 340 30 8 size 12 14 12
+box    stone   at 262 56 8 size 10 10 8

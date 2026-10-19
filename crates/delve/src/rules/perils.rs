@@ -184,6 +184,8 @@ fn menu(pack: Pack, depth: u32) -> Vec<(u8, u32)> {
         Pack::Archive => vec![(1, 4), (3, 3), (0, if depth >= 5 { 1 } else { 0 })],
         Pack::Fungal => vec![(1, 5), (3, 3), (2, if depth >= 5 { 1 } else { 0 })],
         Pack::Unknown => vec![(2, 3), (1, 2), (3, 2), (0, 2)],
+        // The swamp breathes: gas seeps, and lower down the ground gives.
+        Pack::Swamp => vec![(1, 5), (3, if depth >= 2 { 2 } else { 0 })],
     }
 }
 
@@ -273,7 +275,7 @@ impl Run {
                         row as f32 * TILE_UNITS,
                     ),
                 };
-                let clear = cells.iter().all(|&(c, r)| room.tile(c, r) == Tile::Floor);
+                let clear = cells.iter().all(|&(c, r)| room.tile(c, r).ground());
                 let far = doors
                     .iter()
                     .all(|&(dx, dy)| (dx - x).hypot(dy - y) > DOOR_CLEAR)

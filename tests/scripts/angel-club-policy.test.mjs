@@ -181,7 +181,6 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
         LANG: 'C.UTF-8',
         ANGEL_NO_BUILD: '1',
         ANGEL_VIDEO: '0',
-        ANGEL_WEBGPU_PORTAL: '0',
         ...extra,
       },
     })
@@ -225,7 +224,7 @@ print(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'marker': os.environ
   const launch = (args) => spawnSync('bash', [join(source, 'bin/angelX'), ...args], {
     cwd: root, encoding: 'utf8', timeout: 15000,
     env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1',
-      ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0', ANGEL_WORKSPACE: root },
+      ANGEL_VIDEO: '0', ANGEL_WORKSPACE: root },
   })
   for (const args of [
     ['--unknown', 'private-fixture'], ['--draft'], ['--draft', '   '],
@@ -322,7 +321,6 @@ os.execv('/usr/bin/ln', ['ln', *sys.argv[1:]])
         ANGEL_NO_BUILD: '1',
         ANGEL_LAUNCH_BINARY: selected,
         ANGEL_LAUNCH_BINARY_SHA256: createHash('sha256').update(image).digest('hex'),
-        ANGEL_WEBGPU_PORTAL: '0',
         FIXTURE_SOURCE: selected,
         FIXTURE_REPLACEMENT: replacement,
         FIXTURE_EXECUTED: marker,

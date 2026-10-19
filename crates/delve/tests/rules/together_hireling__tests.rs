@@ -189,7 +189,9 @@ fn a_ravage_throws_him_too() {
         width: 0.5,
         step: 6,
         damage: 16,
+        boss_art: None,
         age: 0,
+        blow: 0,
     });
     for _ in 0..tide::WARN + 1 {
         run.step(&BTreeMap::new());
@@ -333,7 +335,7 @@ fn while_beaumains_walks_with_the_party_summoning_cards_stay_on_the_floor() {
                 card: card.into(),
                 x: 12.0,
                 y: 12.0,
-                held_off: None,
+                held_off: None, took: Vec::new(),
             });
         }
         run.step(&BTreeMap::new());
@@ -737,7 +739,7 @@ fn write_minion_shots() {
             card: card.to_string(),
             x: 16.0 + (i % 5) as f32 * 3.5,
             y: 9.0 + (i / 5) as f32 * 4.0,
-            held_off: Some(1),
+            held_off: Some(1), took: Vec::new(),
         });
     }
     let img = crate::render::overworld::arena::frame(&run, 384, 224);

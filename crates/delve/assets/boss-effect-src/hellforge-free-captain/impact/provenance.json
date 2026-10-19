@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-free-captain.impact/v01/source-sheet.png",
+  "source_sha256": "38e7a0f67e0e575b46568102bad5749e2eef10d4a9c147a61b1551c0da873438",
+  "original_sheet_sha256": "38e7a0f67e0e575b46568102bad5749e2eef10d4a9c147a61b1551c0da873438",
+  "metadata_sha256": "0d436d570bbffb767f74475187b577b0d79f64f469ac00fce69261f77a61b785",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        87,
+        219,
+        159,
+        169
+      ],
+      "alpha_area": 11168,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "c8a7e4fbe9853f657dac43827a78231fb2b4f71481f3bdfeda3d97d677461f4e"
+    },
+    {
+      "source_rect_xywh": [
+        334,
+        127,
+        286,
+        306
+      ],
+      "alpha_area": 57939,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "b017872c73dde1a221f5c0e5890373e69d6bb5a30a99b4c86c4ff3522bda5b0c"
+    },
+    {
+      "source_rect_xywh": [
+        680,
+        155,
+        249,
+        276
+      ],
+      "alpha_area": 28913,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "1710f609f42d2c5dcc3f8647e1a2ab1bdd22a32710353564f400196624077750"
+    },
+    {
+      "source_rect_xywh": [
+        990,
+        162,
+        230,
+        250
+      ],
+      "alpha_area": 22409,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "259998591907c65c410671acb692fc5503a3c8e74e0996e950379f1f41bc899a"
+    },
+    {
+      "source_rect_xywh": [
+        37,
+        603,
+        248,
+        182
+      ],
+      "alpha_area": 29035,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "6064cee36c42bee0ff3ec12c82fb113f97c3c1c7cd227b8c2a5e1777b7c0b953"
+    },
+    {
+      "source_rect_xywh": [
+        358,
+        563,
+        228,
+        229
+      ],
+      "alpha_area": 18935,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "2be010072b69904d3b25126efd0319d2e9a53c83fd3328172f907b33ba467edc"
+    },
+    {
+      "source_rect_xywh": [
+        665,
+        544,
+        252,
+        262
+      ],
+      "alpha_area": 42416,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "a7e941437b49df4ebb73c917777d4e600b749bad88bf38fde13e4829ff327820"
+    },
+    {
+      "source_rect_xywh": [
+        971,
+        548,
+        251,
+        261
+      ],
+      "alpha_area": 27668,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "607d3637e835cef229b1383653720daa39fe0c31a4f3a6c5106c0ecf19f58bcb"
+    },
+    {
+      "source_rect_xywh": [
+        70,
+        948,
+        205,
+        196
+      ],
+      "alpha_area": 14989,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "7863168f63893b586778ab5572e326b1e7b7552707e2cd8521aa74148ba35d14"
+    },
+    {
+      "source_rect_xywh": [
+        370,
+        991,
+        209,
+        140
+      ],
+      "alpha_area": 16034,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "4bdd0a77cd17aa5b4518a1e041f7141fa7f54a319db2fd1e512392abef1b6096"
+    },
+    {
+      "source_rect_xywh": [
+        722,
+        989,
+        167,
+        143
+      ],
+      "alpha_area": 12922,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "db84cde79eba0947d40e9ddeaf327b5ce1106e1cd3dcc9bc6151ae232dd16e05"
+    },
+    {
+      "source_rect_xywh": [
+        1037,
+        982,
+        115,
+        132
+      ],
+      "alpha_area": 6481,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "1771e1f4f9346df211f843ea5e64d14b66dc797aca6e1f7bc65286b80dd2c306"
+    }
+  ]
+}

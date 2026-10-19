@@ -93,6 +93,11 @@ impl Pace {
         };
     }
 
+    /// The existing snapshot acknowledgement measurement, without queued delay.
+    pub fn round_trip(&self) -> Option<Duration> {
+        self.delays.iter().map(|(_, delay)| *delay).min()
+    }
+
     /// Whether to hold back what would be written now. The first snapshot
     /// is never held, however big (a whole document).
     pub fn behind(&self) -> bool {
@@ -147,6 +152,35 @@ mod tests {
             run.most_unapplied = run.most_unapplied.max(pace.unapplied());
         }
         run
+    }
+
+    #[test]
+    fn input_age_reuses_only_acknowledged_snapshot_delays() {
+        let mut pace = Pace::default();
+        let start = Instant::now();
+        assert_eq!(pace.round_trip(), None);
+        pace.written(1, start, 100);
+        pace.applied(2, start + Duration::from_millis(500));
+        assert_eq!(pace.round_trip(), None, "an unwritten tick is not a measurement");
+        pace.applied(1, start + Duration::from_millis(70));
+        assert_eq!(pace.round_trip(), Some(Duration::from_millis(70)));
+        pace.written(2, start + SNAPSHOT, 100);
+        pace.applied(2, start + SNAPSHOT + Duration::from_millis(200));
+        assert_eq!(pace.round_trip(), Some(Duration::from_millis(70)), "queued delay cannot enlarge the allowance");
+    }
+
+    #[test]
+    fn held_back_acknowledgements_cannot_enlarge_sample_allowance() {
+        let start = Instant::now();
+        for held in [Duration::from_millis(250), Duration::from_secs(2), Duration::from_secs(60)] {
+            let mut pace = Pace::default();
+            pace.written(1, start, 100);
+            pace.applied(1, start + held);
+            assert_eq!(pace.round_trip(), Some(held));
+            assert_eq!(angel_net::cmd::sample_allowance(pace.round_trip().unwrap(), 30, 1, false), 11);
+        }
+        assert_eq!(angel_net::cmd::sample_allowance(Duration::from_millis(70), 30, 1, false), 6);
+        assert_eq!(angel_net::cmd::sample_allowance(Duration::ZERO, 30, 1, true), 1);
     }
 
     #[test]

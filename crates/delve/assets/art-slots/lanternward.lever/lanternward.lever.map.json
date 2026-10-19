@@ -1,0 +1,24 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  6,
+  14
+ ],
+ "pieces": [
+  {
+   "name": "up-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "pulled-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

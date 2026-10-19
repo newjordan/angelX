@@ -1,0 +1,285 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    80
+  ],
+  "anchor_xy": [
+    32,
+    78
+  ],
+  "comments": [
+    "All twelve rule poses are present; no mixed-style fallback for hook, damage-2 or defeat.",
+    "One source scale and feet at (32,78); draw offset +2 preserves the rule foot. Supplemental hit star remains source art."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 56,
+  "geometry": "Drop Area=(clamp(player x\u221226,8,WIDTH\u221260),FLOOR\u2212100,52,100); hook=(max(captain x\u2212156,0),FLOOR\u221223,156,23). Area::hits intersects player halfwidth 8,height 37 or duck 19. Shot hurtbox is 52\u00d765 at (captain x\u221226,FLOOR\u221265), not the 64\u00d780 canvas.",
+  "mapping_basis": "Visual review of the isolated October 15 rerun, source crops and native registration.",
+  "notes_sha256": "31053cb074be5f63bf5a3adaf6be5fbc5a91a36b3eb406a0905c1f5cdeb8205d",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle; visually isolated full actor",
+      "name": "captain-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.0,
+        321
+      ],
+      "source_rect_xywh": [
+        46,
+        93,
+        268,
+        321
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "hook-tell; visually isolated full actor",
+      "name": "captain-hook-tell",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.0,
+        328
+      ],
+      "source_rect_xywh": [
+        335,
+        87,
+        292,
+        328
+      ],
+      "state": "hook-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "hook; visually isolated full actor",
+      "name": "captain-hook",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        162.5,
+        309
+      ],
+      "source_rect_xywh": [
+        642,
+        112,
+        325,
+        309
+      ],
+      "state": "hook"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "recover; visually isolated full actor",
+      "name": "captain-recover",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        108.0,
+        323
+      ],
+      "source_rect_xywh": [
+        1008,
+        98,
+        216,
+        323
+      ],
+      "state": "recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "drop-tell; visually isolated full actor",
+      "name": "captain-drop-tell",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        143.5,
+        348
+      ],
+      "source_rect_xywh": [
+        38,
+        447,
+        287,
+        348
+      ],
+      "state": "drop-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "drop; visually isolated full actor",
+      "name": "captain-drop",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        314
+      ],
+      "source_rect_xywh": [
+        343,
+        492,
+        285,
+        314
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "walk-1; visually isolated full actor",
+      "name": "captain-walk-1",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        321
+      ],
+      "source_rect_xywh": [
+        691,
+        472,
+        266,
+        321
+      ],
+      "state": "walk-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "walk-2; visually isolated full actor",
+      "name": "captain-walk-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        116.0,
+        323
+      ],
+      "source_rect_xywh": [
+        1007,
+        476,
+        232,
+        323
+      ],
+      "state": "walk-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "flinch; visually isolated full actor",
+      "name": "captain-flinch",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        299
+      ],
+      "source_rect_xywh": [
+        67,
+        879,
+        273,
+        299
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "damage-1; visually isolated full actor",
+      "name": "captain-damage-1",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.5,
+        312
+      ],
+      "source_rect_xywh": [
+        371,
+        862,
+        261,
+        312
+      ],
+      "state": "damage-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "damage-2; visually isolated full actor",
+      "name": "captain-damage-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        310
+      ],
+      "source_rect_xywh": [
+        651,
+        866,
+        266,
+        310
+      ],
+      "state": "damage-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "defeat; visually isolated full actor",
+      "name": "captain-defeat",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.0,
+        205
+      ],
+      "source_rect_xywh": [
+        931,
+        989,
+        308,
+        205
+      ],
+      "state": "defeat"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "64\u00d780; occupied height 77 in report. Top-left (screen captain x\u221232,py(FLOOR)\u221280+2); rule foot maps to local (32,78), not the bottom canvas edge. Signature/linear detail registration in native.json.",
+  "sizes": {
+    "v1": [
+      64,
+      80
+    ],
+    "v2": [
+      64,
+      80
+    ]
+  },
+  "slot": "pennon.captain",
+  "source_preparation": {
+    "originals": {
+      "pennon.captain": {
+        "path": "/work/artifacts/art-prod/slots/pennon.captain/v01/source-sheet.png",
+        "sha256": "02f5b64c2df71643c7a9c57668af282f16367be2923a2630fb262c06361fd067"
+      },
+      "pennon.sentry": {
+        "path": "/work/artifacts/art-prod/slots/pennon.sentry/v01/source-sheet.png",
+        "sha256": "4a0dc90339b6b402d19caa3e6c4ac9be0027aa84b975207f2afcb06f61387067"
+      },
+      "pennon.sentry-damaged": {
+        "path": "/work/artifacts/art-prod/slots/pennon.sentry-damaged/v01/source-sheet.png",
+        "sha256": "5387992d1f31736d95571eb759d1f6cb8af8054f0b8a3a36cbf4ffa0f841c778"
+      }
+    },
+    "previous_sha256": "a7a2004b6903a6d433bd830670a08027b13ddac5a2938510cb138306e4306539",
+    "recipe": "../pennon.captain/prepare.py"
+  },
+  "source_sha256": "e4ae3e7d00a693f39df623f60f9097a6109cf16004d70a46ca34a8b0f34de548",
+  "timing": "Twelve base poses, four-stage tells per attack and stage suffix variants (not temporal frames). Walk 2\u00d77 ticks; wait=45; tell=33/29/25, action=10, rest=60/50/40; recover when ticks<12; flinch=4. Hp stages 18\u201313/12\u20137/6\u20131. Base tell families and four stage-of-damage files are retained but skipped by active key selection (Foe::step, foe_pose(), draw())."
+}

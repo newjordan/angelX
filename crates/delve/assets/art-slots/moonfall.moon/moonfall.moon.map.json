@@ -1,0 +1,161 @@
+{
+  "anchor_canvas_wh": [
+    96,
+    96
+  ],
+  "anchor_xy": [
+    48,
+    96
+  ],
+  "comments": [
+    "Registered as one bank on the bottom of the disc: the pivot x is the centre of the disc; every drawing fills its 96x96 box (95 px) and no drawing is scaled differently from another."
+  ],
+  "delivered_pieces": 6,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 6,
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Six discs on a 3x2 grid in reading order = request order: far-0, near-0, close-0, falling-0, falling-1, turned-0. The crops are tight and separated.",
+  "notes_sha256": "a623e751e96ccc8c2ccba955bf8d307d775d7f389f9b326675a21004484e2e41",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "far-0: half-lidded sulk, a small frown.",
+      "name": "far-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        224.5,
+        451
+      ],
+      "source_rect_xywh": [
+        33,
+        18,
+        449,
+        451
+      ],
+      "state": "far",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "near-0: wide eyes, a four-tooth downturned grimace.",
+      "name": "near-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        225,
+        451
+      ],
+      "source_rect_xywh": [
+        543,
+        18,
+        450,
+        451
+      ],
+      "state": "near",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "close-0: furrowed brows, a two-row jagged grin.",
+      "name": "close-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        224.5,
+        452
+      ],
+      "source_rect_xywh": [
+        1056,
+        17,
+        449,
+        452
+      ],
+      "state": "close",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "falling-0: a wide roar, upper and lower teeth.",
+      "name": "falling-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        224.5,
+        453
+      ],
+      "source_rect_xywh": [
+        31,
+        533,
+        449,
+        453
+      ],
+      "state": "falling",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "falling-1: furious slit eyes, a fanged snarl.",
+      "name": "falling-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        225,
+        452
+      ],
+      "source_rect_xywh": [
+        541,
+        533,
+        450,
+        452
+      ],
+      "state": "falling",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "turned-0: closed eyes, raised brows, a small smile; the disc is a cooler aqua-cream.",
+      "name": "turned-0",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        224,
+        452
+      ],
+      "source_rect_xywh": [
+        1056,
+        534,
+        448,
+        452
+      ],
+      "state": "turned",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 96x96, anchor bottom-centre (48,96); a disc touching all four sides of its box; stage 384x224.",
+  "sizes": {
+    "v1": [
+      96,
+      96
+    ],
+    "v2": [
+      96,
+      96
+    ]
+  },
+  "slot": "moonfall.moon",
+  "source_sha256": "a1dd8e8a4bc2f31e4ef8e12adefe5be03e5c6b3d93b8c83fb3021417ff040493",
+  "timing": "far 12, near 12, close 12, falling 2 frames of 6, turned 12 ticks (30 Hz). Art never sets a hitbox."
+}

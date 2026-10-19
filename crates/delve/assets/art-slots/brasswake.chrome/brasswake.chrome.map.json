@@ -1,0 +1,324 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Review: empty title and plain panel only, cropped to occupied bounds then nine-sliced once into existing layout rectangles. All labels and four podium rows remain live.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 15,
+  "expected_existing_pieces": 0,
+  "geometry": "Live standings and podium share work/falls/finish order; local seat gutter, health pips and control footer must remain clear.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "820ee85d6ae1c3bff87165df06865e89b12b2c3c82bc4284577ebef3f5d955ed",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Shallow title/header plate with blank center.",
+      "name": "title",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        184.5,
+        58.5
+      ],
+      "source_rect_xywh": [
+        21,
+        178,
+        369,
+        117
+      ],
+      "state": "title"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Compact empty panel frame; four reinforced corners and plain sides.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.0,
+        80.0
+      ],
+      "source_rect_xywh": [
+        450,
+        146,
+        210,
+        160
+      ],
+      "state": "compact-empty-panel-frame-four-reinforced-corners-and-plain-side"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Medium empty panel frame in the same material language.",
+      "name": "panel",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.5,
+        105.5
+      ],
+      "source_rect_xywh": [
+        719,
+        121,
+        277,
+        211
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Wide result panel with flat dark fill and corner fasteners.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        194.0,
+        87.0
+      ],
+      "source_rect_xywh": [
+        1035,
+        141,
+        388,
+        174
+      ],
+      "state": "wide-result-panel-with-flat-dark-fill-and-corner-fasteners"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Podium table header and three blank row bands.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        159.5,
+        117.5
+      ],
+      "source_rect_xywh": [
+        36,
+        407,
+        319,
+        235
+      ],
+      "state": "podium-table-header-and-three-blank-row-bands"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Three rank medallions with blank centers and colored tails.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        164.5,
+        77.5
+      ],
+      "source_rect_xywh": [
+        390,
+        467,
+        329,
+        155
+      ],
+      "state": "three-rank-medallions-with-blank-centers-and-colored-tails"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Three blank key-cap plates.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        40.0
+      ],
+      "source_rect_xywh": [
+        757,
+        494,
+        247,
+        80
+      ],
+      "state": "three-blank-key-cap-plates"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Wide blank result ribbon.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        198.5,
+        53.0
+      ],
+      "source_rect_xywh": [
+        1032,
+        477,
+        397,
+        106
+      ],
+      "state": "wide-blank-result-ribbon"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Four detached corner brackets.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        42.0,
+        41.5
+      ],
+      "source_rect_xywh": [
+        73,
+        731,
+        84,
+        83
+      ],
+      "state": "four-detached-corner-brackets"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Separate horizontal and vertical stretchable frame edge strips.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        42.0,
+        41.5
+      ],
+      "source_rect_xywh": [
+        204,
+        731,
+        84,
+        83
+      ],
+      "state": "separate-horizontal-and-vertical-stretchable-frame-edge-strips"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Two blank separators and three circular indicator wells.",
+      "name": "proposal-12",
+      "piece": 12,
+      "runtime": false,
+      "source_pivot_xy": [
+        141.5,
+        118.0
+      ],
+      "source_rect_xywh": [
+        391,
+        724,
+        283,
+        236
+      ],
+      "state": "two-blank-separators-and-three-circular-indicator-wells"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Long blank panel/banner insert for extension and long names.",
+      "name": "proposal-13",
+      "piece": 13,
+      "runtime": false,
+      "source_pivot_xy": [
+        135.0,
+        101.5
+      ],
+      "source_rect_xywh": [
+        734,
+        741,
+        270,
+        203
+      ],
+      "state": "long-blank-panel-banner-insert-for-extension-and-long-names"
+    },
+    {
+      "approved": true,
+      "frame": 12,
+      "label": "No delivered reading-order label",
+      "name": "proposal-14",
+      "piece": 14,
+      "runtime": false,
+      "source_pivot_xy": [
+        193.0,
+        51.5
+      ],
+      "source_rect_xywh": [
+        1042,
+        807,
+        386,
+        103
+      ],
+      "state": "unmapped"
+    },
+    {
+      "approved": true,
+      "frame": 13,
+      "label": "No delivered reading-order label",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        41.5,
+        41.0
+      ],
+      "source_rect_xywh": [
+        74,
+        868,
+        83,
+        82
+      ],
+      "state": "unmapped"
+    },
+    {
+      "approved": true,
+      "frame": 14,
+      "label": "No delivered reading-order label",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        42.0,
+        41.0
+      ],
+      "source_rect_xywh": [
+        204,
+        868,
+        84,
+        82
+      ],
+      "state": "unmapped"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224; header above y=34; stage ends y=180; result panel (16,16,352,202). Combo glyphs are dynamic, not a fixed source strip.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "brasswake.chrome",
+  "source_sha256": "add21e3e22b3543156507495a586be3c46e4bafa61e62073dfb4dee86d9c9797",
+  "timing": "Combo while chain>0 and not down; final podium at completion/75\u00d7HZ; fresh E rematches (draw(), text_labels())."
+}

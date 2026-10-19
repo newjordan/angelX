@@ -140,7 +140,7 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
         EnemyKind::Risen | EnemyKind::Broodmarrow => 28,
         EnemyKind::Oathbound => 24,
         EnemyKind::Whirlgrave => 18,
-        kind if kind.critter() => 48,
+        kind if kind.critter() || kind.horror() => 48,
         EnemyKind::Dummy => return super::foe_material::dress(&enemy_raw(kind, tick), kind),
         _ => 8,
     };
@@ -149,7 +149,7 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
     })
 }
 
-fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
+pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
     let flap = (tick / 4).is_multiple_of(2);
     match kind {
         EnemyKind::Mimic => mimic(tick),
@@ -558,6 +558,9 @@ fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
         EnemyKind::Oathbound => oathbound_raw(false, tick),
         // The Whirlgrave, mid-lean.
         EnemyKind::Whirlgrave => whirlgrave_raw(tick),
+        // The swamp's horrors, at their most themselves: a hand risen.
+        EnemyKind::BogHand => super::swamp::raw(kind, 2, 0, tick),
+        EnemyKind::Drowned | EnemyKind::Wisp => super::swamp::raw(kind, 0, 0, tick),
         _ => super::critters::figure_raw(kind, 0, 0, tick),
     }
 }
@@ -1412,43 +1415,6 @@ pub(super) fn keg(fuse: u32, armed: bool, tick: u32) -> Img {
     im
 }
 
-/// A fan's box floating down on a little parachute in Fortune's red and
-/// cream, its stripes fluttering.
-pub(super) fn fan_box(tick: u32) -> Img {
-    let flutter = (tick / 6).is_multiple_of(2);
-    let (a, b) = if flutter { ('7', '9') } else { ('9', '7') };
-    let canopy = |row: &str| -> String {
-        row.chars()
-            .enumerate()
-            .map(|(i, c)| match c {
-                '*' if i % 2 == 0 => a,
-                '*' => b,
-                c => c,
-            })
-            .collect()
-    };
-    let inked: Vec<String> = [
-        "....*****....",
-        "..*********..",
-        ".***********.",
-        "*************",
-        "8.8.......8.8",
-        ".h.........h.",
-        "..h.......h..",
-        "...h.....h...",
-        "....h...h....",
-        "....OO5OO....",
-        "....Oo5oO....",
-        "....55555....",
-        "....Oo5oO....",
-        "....II5II....",
-    ]
-    .iter()
-    .map(|row| canopy(row))
-    .collect();
-    rows(&inked.iter().map(String::as_str).collect::<Vec<_>>())
-}
-
 /// Lady Tallow: sitting, trotting (two steps), or hissing; a coin in her
 /// mouth when she's fetching one home. Drawn facing right.
 pub(super) fn tallow(moving: bool, hissing: bool, carrying: bool, tick: u32) -> Img {
@@ -1692,6 +1658,11 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
 /// A checked rune weapon changes colour and silhouette, never game rules.
 /// Its colours are signal inks: a forged shot is a player's live state.
 pub(super) fn forged_shot(cv: &mut Img, x: i32, y: i32, colour: &str, shape: &str) {
+    if shape == "note" {
+        let im = super::class_looks::bard::note();
+        cv.stamp(im, x - im.w / 2, y - im.h / 2);
+        return;
+    }
     if shape == "coal" {
         cv.ellipse(x as f32, y as f32, 3.5, 3.0, 'O');
         cv.rect(x - 2, y - 2, 5, 4, 'g');
@@ -2189,20 +2160,26 @@ pub(super) fn prize_shelf() -> Img {
 }
 
 /// A fairground lamp on an iron post under a green enamel shade; lit, the
-/// bulb burns signal-gold over the evening's trade, dark otherwise.
+/// bulb burns a low amber over the evening's trade, dark otherwise.
 pub(super) fn booth_lamp(lit: bool) -> Img {
-    let mut im = rows(&[
-        "....kk....",
-        "...kXk....",
-        "..kllllk..",
-        ".klllllEk.",
-        "kllllllEEk",
-        ".kEEEEEEk.",
-        "..kkkkkk..",
-    ]);
+    // The whole lamp's canvas, so the bulb and post below the shade show.
+    let mut im = Img::new(10, 16);
+    im.stamp(
+        &rows(&[
+            "....kk....",
+            "...kXk....",
+            "..kllllk..",
+            ".klllllEk.",
+            "kllllllEEk",
+            ".kEEEEEEk.",
+            "..kkkkkk..",
+        ]),
+        0,
+        0,
+    );
     if lit {
         im.stamp(
-            &rows(&["....@@....", "...5@@5...", "..5.66.5..", "...4jX4..."]),
+            &rows(&["....44....", "...a44a...", "..a.aa.a..", "....jX...."]),
             0,
             7,
         );
@@ -2493,6 +2470,11 @@ fn broodmarrow_raw(ripping: bool, tick: u32) -> Img {
 
 /// An impling in flight: wings out, teeth first, entirely its father's
 /// son. Its eyes are signal because being thrown at a knight IS state.
+/// A critter's glob in the air, as `critters` dots it on the frame.
+pub(super) fn glob() -> Img {
+    rows(&[".y.", "mYy", ".ym"])
+}
+
 pub(super) fn flung_impling(tick: u32) -> Img {
     super::foe_material::pose(64 + EnemyKind::Imp as u8, [(tick / 3) % 2, 0, 0, 0], || {
         super::foe_material::dress(&flung_impling_raw(tick), EnemyKind::Imp)
@@ -2522,7 +2504,7 @@ pub(super) fn oathbound(grieving: bool, tick: u32) -> Img {
     )
 }
 
-fn oathbound_raw(grieving: bool, tick: u32) -> Img {
+pub(super) fn oathbound_raw(grieving: bool, tick: u32) -> Img {
     let step = (tick / 12).is_multiple_of(2);
     let mut im = rows(&[
         ".....WWWWW.....",

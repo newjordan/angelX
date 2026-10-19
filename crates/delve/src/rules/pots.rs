@@ -29,8 +29,10 @@ impl Run {
         // The merchant's camp keeps its crockery on the cart.
         if self.dungeon.depth == 0
             || !potted(room.kind)
-            || room.great()
+            || room.laid.map_or(room.great(), |(c, r)| c > COLS || r > ROWS)
             || self.merchant_camp().is_some_and(|c| c.room == index)
+            // The Wax Maze's lanes are the wax's.
+            || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)
         {
             return Vec::new();
         }

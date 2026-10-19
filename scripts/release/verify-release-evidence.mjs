@@ -470,7 +470,10 @@ export function buildExtractedRelease(sourceRoot, manifest, { v8Archive }) {
         'cockpit/Cargo.toml',
         '--bin',
         'angel',
+        // What build-prebuilt.sh ships: the window, without video decoding.
         '--no-default-features',
+        '--features',
+        'glass',
         '--release',
         '--locked',
         '--offline',

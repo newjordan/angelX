@@ -1,0 +1,5 @@
+glass-immediate-or-default120 n= 360 p50 3.6 p95 13.5 p99 16.1
+glass-mailbox120 n= 360 p50 3.1 p95 13.3 p99 15.3
+glass-mailbox60 n= 360 p50 7.2 p95 9.4 p99 13.8
+glass-fifo120 n= 359 p50 39.9 p95 41.6 p99 43.7
+kitty120 n= 360 p50 3.4 p95 4.7 p99 12.1

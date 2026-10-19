@@ -1,0 +1,172 @@
+set chunk-7-4
+# The kingdom, chunk 7,4 in The Tilt-Yards: tiles 168..192 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2880 1152
+plate 1536 1024
+
+# ground
+box    grass   at 2792 -4 1056 size 208 4 64
+box    path    at 2912 -4 1056 size 32 4 64
+box    grass   at 3000 -4 1032 size 144 4 16
+box    grass   at 2984 -4 1048 size 112 4 16
+box    rock    at 3056 -4 1144 size 32 4 208
+box    grass   at 2976 -4 1096 size 96 4 80
+box    rock    at 3032 -4 1064 size 16 4 16
+box    grass   at 3032 -4 1104 size 16 4 64
+box    grass   at 2736 -4 1184 size 96 4 192
+box    path    at 2848 -4 1096 size 128 4 16
+box    grass   at 2920 -4 1112 size 16 4 48
+box    path    at 2792 -4 1112 size 16 4 16
+box    grass   at 2848 -4 1192 size 96 4 176
+box    path    at 2904 -4 1136 size 16 4 64
+box    grass   at 2792 -4 1200 size 16 4 160
+box    path    at 2928 -4 1144 size 32 4 16
+box    grass   at 2984 -4 1208 size 80 4 144
+box    rock    at 3032 -4 1144 size 16 4 16
+box    path    at 2920 -4 1160 size 16 4 16
+box    grass   at 2936 -4 1216 size 16 4 128
+box    grass   at 3032 -4 1160 size 16 4 16
+box    grass   at 2912 -4 1224 size 32 4 112
+box    rock    at 3032 -4 1184 size 16 4 32
+box    grass   at 3032 -4 1208 size 16 4 16
+box    rock    at 3032 -4 1224 size 16 4 16
+box    grass   at 3032 -4 1256 size 16 4 48
+box    grass   at 3048 -4 1256 size 16 4 16
+box    rock    at 3064 -4 1264 size 16 4 32
+box    rock    at 3048 -4 1272 size 16 4 16
+
+# Horse Ranch: a barn and paddock at 182,68 4x3
+box    wood    at 2930.6 0 1121 size 33.2 14 26 id horse-ranch
+gable  thatch  at 2930.6 14 1121 size 36.2 12 29
+box    door    at 2930.6 0 1134.25 size 7 11 1
+fence-3 wood    at 2961.6 0 1133.5 size 24.8 6 2
+fence-3 wood    at 2961.6 0 1114 size 24.8 6 2
+fence-2 wood    at 2973.5 0 1123.75 size 19.5 6 2 turn 90
+box    wood    at 2955.2 0 1125.5 size 8 3 3
+cylinder trunk   at 2968 0 1096 size 3 12 3
+blob-57 foliage at 2968 7 1096 size 14 16 13.3 turn 90
+
+# set dressing
+box    wood    at 2840 0 1112 size 13 2 7
+box    trunk   at 2840 2 1112 size 11 2 6
+box    wood    at 2744 0 1128 size 12 3.5 5
+box    water   at 2744 0 1128 size 10 3.75 3
+cylinder wood    at 2788 0 1142 size 5 4 5
+cylinder wood    at 2795 0 1142 size 5 4 5
+cylinder wood    at 2788 0 1147 size 5 4 5
+box    wood    at 2984 0 1272 size 10 3 3
+box    wood    at 2981 0 1272 size 1.5 13 1.5
+box    wood    at 2986 0 1272 size 1.5 9 1.5
+
+# rock
+box    rock    at 3056 0 1144 size 32 3 208
+box    rock    at 3032 0 1064 size 16 3 16
+box    rock    at 3032 0 1144 size 16 3 16
+box    rock    at 3032 0 1184 size 16 3 32
+box    rock    at 3032 0 1224 size 16 3 16
+box    rock    at 3064 0 1264 size 16 3 32
+box    rock    at 3048 0 1272 size 16 3 16
+rock-45 rock    at 3047 1.5 1049 size 15 10 13.5 turn 90
+rock-44 rock    at 3064 1.5 1049 size 14 9 12.6 turn 90
+rock-19 rock    at 3033 1.5 1064 size 16 10 14.4 turn 180
+rock-21 rock    at 3047 1.5 1063 size 16 8 14.4 turn 180
+rock-55 rock    at 3064 1.5 1063 size 15 9 13.5 turn 180
+rock-24 rock    at 3047 1.5 1080 size 17 7 15.3 turn 180
+rock-10 rock    at 3064 1.5 1079 size 17 8 15.3 turn 90
+rock-8 rock    at 3048 1.5 1097 size 16 9 14.4
+rock-4 rock    at 3065 1.5 1096 size 16 10 14.4
+rock-45 rock    at 3049 1.5 1112 size 15 9 13.5 turn 90
+rock-49 rock    at 3063 1.5 1112 size 17 9 15.3 turn 180
+rock-34 rock    at 3047 1.5 1129 size 16 8 14.4
+rock-2 rock    at 3063 1.5 1128 size 17 8 15.3
+rock-60 rock    at 3031 1.5 1144 size 16 9 14.4 turn 270
+rock-5 rock    at 3048 1.5 1144 size 14 9 12.6
+rock-39 rock    at 3063 1.5 1145 size 15 10 13.5
+rock-35 rock    at 3049 1.5 1161 size 17 10 15.3
+rock-45 rock    at 3064 1.5 1160 size 14 8 12.6 turn 90
+rock-15 rock    at 3032 1.5 1177 size 14 10 12.6 turn 90
+rock-1 rock    at 3047 1.5 1177 size 14 10 12.6
+rock-45 rock    at 3064 1.5 1176 size 16 9 14.4 turn 90
+rock-14 rock    at 3032 1.5 1191 size 17 10 15.3 turn 90
+rock-4 rock    at 3049 1.5 1192 size 15 10 13.5
+rock-25 rock    at 3064 1.5 1193 size 14 7 12.6 turn 270
+rock-12 rock    at 3049 1.5 1209 size 17 7 15.3 turn 90
+rock-29 rock    at 3064 1.5 1209 size 15 7 13.5 turn 270
+rock-32 rock    at 3031 1.5 1223 size 17 8 15.3 turn 270
+rock-44 rock    at 3049 1.5 1224 size 17 9 15.3 turn 90
+rock-12 rock    at 3064 1.5 1224 size 14 8 12.6 turn 90
+rock-61 rock    at 3048 1.5 1239 size 17 7 15.3 turn 270
+rock-35 rock    at 3063 1.5 1239 size 15 7 13.5
+rock-21 rock    at 3064 1.5 1255 size 16 7 14.4 turn 180
+rock-38 rock    at 3047 1.5 1273 size 14 9 12.6
+rock-64 rock    at 3065 1.5 1271 size 16 8 14.4 turn 270
+
+# woods (at 27% of its height, for the camera)
+frustum trunk   at 2976 0 1056 size 5 4 5
+blob-43 foliage at 2976 2.5 1056 size 33 8 31.35 turn 90
+cylinder trunk   at 3007 0 1055 size 5 4 5
+blob-5 foliage at 3007 3 1055 size 33 7.5 31.35 turn 180
+frustum trunk   at 2930 0 1218 size 4.5 8 4.5
+cone   foliage at 2930 5 1218 size 28 24.5 28
+cone   foliage at 2930 20 1218 size 20.16 24 20.16
+frustum trunk   at 3007 0 1232 size 5 7 5
+blob-18 foliage at 3007 4.5 1232 size 33 10 31.35 turn 180
+frustum trunk   at 3025 0 1265 size 5 15 5
+blob-48 foliage at 3025 10 1265 size 33 23 31.35 turn 90
+frustum trunk   at 2952 0 1032 size 3 4 3
+cone   foliage at 2952 2.5 1032 size 19 7.5 19
+cone   foliage at 2952 7 1032 size 13.68 7.5 13.68
+frustum trunk   at 2968 0 1032 size 3 3.5 3
+blob-11 foliage at 2968 1.5 1032 size 19 6.5 18.05
+cylinder trunk   at 2951 0 1047 size 3 7.5 3
+cone   foliage at 2951 5 1047 size 17 16 17
+cone   foliage at 2951 14.5 1047 size 12.24 16 12.24
+frustum trunk   at 2953 0 1064 size 3 10 3
+cone   foliage at 2953 7 1064 size 19 18.6 19
+cone   foliage at 2953 18.4 1064 size 13.68 18.6 13.68
+frustum trunk   at 2969 0 1081 size 3 9 3
+cone   foliage at 2969 6 1081 size 17 19.84 17
+cone   foliage at 2969 18.16 1081 size 12.24 19.84 12.24
+cylinder trunk   at 2984 0 1080 size 3 10 3
+blob-47 foliage at 2984 5 1080 size 19 15 18.05
+cylinder trunk   at 3001 0 1081 size 3 11 3
+blob-49 foliage at 3001 6 1081 size 17 19 16.15
+frustum trunk   at 2984 0 1144 size 3 10 3
+cone   foliage at 2984 7 1144 size 19 19.84 19
+cone   foliage at 2984 19.16 1144 size 13.68 19.84 13.68
+frustum trunk   at 2920 0 1192 size 3 4.5 3
+cone   foliage at 2920 3 1192 size 19 8.5 19
+cone   foliage at 2920 8 1192 size 13.68 8.5 13.68
+cylinder trunk   at 2936 0 1192 size 3 2.5 3
+cone   foliage at 2936 2 1192 size 19 5.5 19
+cone   foliage at 2936 5 1192 size 13.68 6 13.68
+frustum trunk   at 2952 0 1192 size 3 5 3
+cone   foliage at 2952 3.5 1192 size 19 8.5 19
+cone   foliage at 2952 8.5 1192 size 13.68 8.5 13.68
+frustum trunk   at 2950 0 1208 size 3 9.5 3
+cone   foliage at 2950 6.5 1208 size 19 17 19
+cone   foliage at 2950 17 1208 size 13.68 16.5 13.68
+cylinder trunk   at 3017 0 1210 size 3 6 3
+blob-46 foliage at 3017 3 1210 size 17 11.5 16.15
+cylinder trunk   at 2952 0 1224 size 3 10 3
+cone   foliage at 2952 7 1224 size 19 16.74 19
+cone   foliage at 2952 17.26 1224 size 13.68 16.74 13.68
+frustum trunk   at 3033 0 1240 size 3 9 3
+blob-41 foliage at 3033 4 1240 size 17 16 16.15
+cylinder trunk   at 2999.5 0 1255.5 size 3 11 3
+blob-55 foliage at 2999.5 6 1255.5 size 18 21 17.1 turn 90
+box    hedge   at 2984 0 1112 size 15 5 16
+blob-24 hedge   at 2984 3 1112 size 15 4.5 16
+box    hedge   at 2984 0 1128 size 15 7 16
+blob-4 hedge   at 2984 4.5 1128 size 15 5 16
+box    hedge   at 2968 0 1144 size 16 6 15
+blob-20 hedge   at 2968 3.5 1144 size 16 5 15
+box    hedge   at 2904 0 1208 size 16 6 15
+blob-29 hedge   at 2904 3.5 1208 size 16 6 15
+box    hedge   at 2968 0 1208 size 16 6 15
+blob-35 hedge   at 2968 3.5 1208 size 16 5 15
+box    hedge   at 3032 0 1208.25 size 16 7 15.5
+blob-20 hedge   at 3032 4.5 1208.25 size 16 5 15.5
+box    hedge   at 3048 0 1256 size 16 7 16
+blob-31 hedge   at 3048 4.5 1256 size 16 6 16

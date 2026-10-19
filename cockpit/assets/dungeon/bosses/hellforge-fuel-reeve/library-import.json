@@ -1,0 +1,105 @@
+{
+  "boss": "hellforge-fuel-reeve",
+  "camera": "overhead",
+  "definition_sha256": "a5f8e4855c3faccba4b27b21df5d5644f324b4c47d58be062a5503a364d7a017",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.56 L*, rest presence 92.12%, edge 90.46%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "apron armor body"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "apron armor body",
+      "coal bucket helm",
+      "shovel arm",
+      "fuel hopper"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      41,
+      54
+    ],
+    "v2": [
+      73,
+      96
+    ]
+  },
+  "identity_props": [
+    "apron armor body",
+    "coal bucket helm",
+    "shovel arm",
+    "fuel hopper"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 39,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9876543209876543,
+      "opaque_pixels": 1053,
+      "sha256": "5d9b8822081ad1c6ff92bff6c545e7cca13b9620f46d4af6c990c22068344cd4",
+      "silhouette_iou": 1.0,
+      "size": [
+        41,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9898477157360406,
+      "opaque_pixels": 1182,
+      "sha256": "95bf54787d0f5d41559434ad58f82523cfd4fcae24058a5a3b91e6072a4639f6",
+      "silhouette_iou": 1.0,
+      "size": [
+        41,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 43,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9829136690647482,
+      "opaque_pixels": 3336,
+      "sha256": "ac8633d111bcda630730b317ad102be8d426fa060b798523f188a14a4fa4a837",
+      "silhouette_iou": 1.0,
+      "size": [
+        73,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9856611789697292,
+      "opaque_pixels": 3766,
+      "sha256": "c6ffeb69603a784c4aa6a0cede569d4e7ca45b0645c24c995b1a79f416977d37",
+      "silhouette_iou": 1.0,
+      "size": [
+        73,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

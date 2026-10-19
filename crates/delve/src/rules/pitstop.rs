@@ -1,7 +1,8 @@
 //! The Sanctuary's privy, run like a pit stop.
 //!
-//! Every floor a knight needs the privy. Leaving a floor without going costs
-//! a quarter of their health (never the last point). Beating the whole
+//! Every floor the party needs the privy: one knight's visit counts for
+//! all. Leaving a floor with nobody having gone costs each knight a quarter
+//! of their health (never the last point). Beating the whole
 //! Delve without once going is the Great Unwashed.
 //!
 //! The visit has six stages, each against the clock, and the clock is the
@@ -832,7 +833,7 @@ impl Run {
                     hero.relieved = Some((depth, here));
                     hero.pit.visits += 1;
                     // Publish the finished time before opening its grade window.
-                    let name = hero.knight_name().unwrap_or_else(|| hero.name.clone());
+                    let name = hero.shown_name();
                     let record = self.pits.set(id, &name, total);
                     hero.pit.result = Some(Result {
                         quality,
@@ -885,9 +886,13 @@ impl Run {
     }
 
     /// Leaving a floor: a knight who never went loses a quarter of their
-    /// health, but never the last point.
+    /// health, but never the last point. One knight's visit counts for the
+    /// whole party: one trip to the privy a floor is enough.
     pub(super) fn unwashed_toll(&mut self) {
         let depth = self.dungeon.depth;
+        if self.players.values().any(|h| h.relieved.map(|(d, _)| d) == Some(depth)) {
+            return;
+        }
         let mut docked = false;
         for hero in self.players.values_mut() {
             if hero.hp == 0 || hero.stone {

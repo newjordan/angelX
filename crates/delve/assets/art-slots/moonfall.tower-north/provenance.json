@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.tower-north/v01",
+  "delivery_status": "Accepted with cleanup by the wave-3 producer review on 2026-10-18 (judged on grey and on the simulated native strip): the delivered sheet is a producer cut-out of the generated sheet (kept outside, source-sheet-raw-checkerboard.png), which came back opaque with a fake transparency checkerboard baked in; the squares are exactly neutral white and light grey and the tower outline is dark, so they were removed by connected-region masking. Still slender: 54 of 80 px wide, door about 21 px; the fire bowl is meant to stay dark (the game draws the flame).",
+  "generation_sha256": "01018f75d937195de57711bc96498220f298d75d5c71c76afe2e6be5430e8f1a",
+  "generations": 3,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "7797cc116a55cfeb327bc7527c6e057d498b2bd284860e5f69fa0f82fa047582",
+  "native_contract": "Native 80x96, anchor bottom-centre (40,96).",
+  "notes_sha256": "717ded4862bfe20b0a3344851f47539312976d17a1f3907c789e862ec863e3ef",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "fe010b025217096f74186fb00f4f3db759464998d10d15f87255b4b73480d356",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 3)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.tower-north/v01/source-sheet.png",
+  "source_sha256": "2c120d67f47eeed33ca3778666e7a41b33570d8abfe586b120671c02a5ca684b"
+}

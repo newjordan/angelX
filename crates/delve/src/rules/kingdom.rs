@@ -26,6 +26,22 @@ pub struct State {
     pub field_held: std::collections::BTreeSet<u32>,
     /// The kingdom's little things: who rang, kicked or bowed, and when.
     pub moments: super::trinkets::Moments,
+    /// The biome each knight last came into on the surface, and the tick
+    /// it did (`Biome::index`): the corner of that knight's view names it
+    /// for a moment.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub entered: BTreeMap<u32, (u8, u64)>,
+    /// The run's discoverables found so far, one bit each
+    /// (`crate::world::finds`).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub found: u32,
+    /// The standing stones last woken, and when: they glow a moment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub woke: Option<(u8, u64)>,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// A knight on a kingdom road goes at a trot, twice the walking pace, so
@@ -70,6 +86,12 @@ impl State {
             && self.class_held.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.field_held.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.moments.valid()
+            && self.found < 1 << crate::world::finds::COUNT
+            && self.woke.is_none_or(|(i, _)| usize::from(i) < crate::world::finds::COUNT)
+            && self.entered.len() <= MAX_PLAYERS as usize
+            && self.entered.iter().all(|(id, &(biome, _))| {
+                (1..=MAX_PLAYERS).contains(id) && usize::from(biome) < crate::world::biome::Biome::ALL.len()
+            })
             && self.wishes.iter().all(|w| {
                 w.art.len() <= 32
                     && w.art.iter().all(|r| r.chars().count() <= 32)
@@ -102,6 +124,7 @@ impl Run {
             matches!(
                 (r.root, entrance),
                 (RoomKind::CollegeGrounds, "college-out")
+                    | (RoomKind::ColosseumHall, "colosseum-out")
                     | (RoomKind::Ranch, "ranch-out")
                     | (RoomKind::Pasture, "fields-out")
             )
@@ -114,8 +137,16 @@ impl Run {
         let geo = map::geography(&self.kingdom.wishes);
         if let Some(i) = world::room_of(&self.dungeon, RoomKind::Kingdom) {
             if self.dungeon.rooms[i].fingerprint() != geo.room.fingerprint() {
+                // A save from before the kingdom opened carries the old,
+                // smaller map: its spots on it mean nothing on this one.
+                let resized = (self.dungeon.rooms[i].cols, self.dungeon.rooms[i].rows) != (geo.room.cols, geo.room.rows);
                 self.dungeon.rooms[i] = geo.room.clone();
                 self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
+                if resized {
+                    self.rehome_on_new_map(&geo);
+                } else {
+                    self.rehome_on_changed_ground(&geo);
+                }
             }
         } else if self.dungeon.rooms.len() < world::HOME_ROOM_LIMIT {
             self.dungeon.rooms.push(geo.room.clone());
@@ -134,6 +165,61 @@ impl Run {
             hall.open_door(2);
             self.dungeon.rooms.push(hall);
             self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
+        }
+    }
+    /// After the kingdom's map changed size under a saved run: the return
+    /// door goes to its place's stand on the new map (the Keep's, if the
+    /// place is gone), the party with it, and a party out on the surface
+    /// stands at the Keep.
+    fn rehome_on_new_map(&mut self, geo: &map::Geography) {
+        let keep = crate::world::kingdom::keep_stand();
+        let unit = |(x, y): (i32, i32)| ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.7) * TILE_UNITS);
+        if let Some(back) = &mut self.kingdom.return_to {
+            let stand = geo.sites.iter().find(|s| s.room == back.root).map_or(keep, |s| s.stand);
+            (back.x, back.y) = unit(stand);
+            for spot in back.party.values_mut() {
+                *spot = unit(stand);
+            }
+        }
+        self.kingdom.moments.goose_at = None;
+        self.kingdom.entered.clear();
+        if self.room().kind == RoomKind::Kingdom {
+            let at = unit(keep);
+            for hero in self.players.values_mut() {
+                (hero.x, hero.y) = at;
+                hero.camera = Some((at.0, at.1 - 1.0));
+            }
+            self.safe_kingdom_arrival();
+        }
+    }
+    /// After the kingdom's ground changed under a saved run at the same
+    /// size (the castles grown into great walled exteriors,
+    /// `docs/KINGDOM-OPEN.md`): a return door whose place's door has moved
+    /// goes with it, the party with it, and a knight out on the surface
+    /// who now stands on closed ground steps onto the nearest open ground.
+    fn rehome_on_changed_ground(&mut self, geo: &map::Geography) {
+        let unit = |(x, y): (i32, i32)| ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.7) * TILE_UNITS);
+        if let Some(back) = &mut self.kingdom.return_to {
+            let tile = ((back.x / TILE_UNITS) as i32, (back.y / TILE_UNITS) as i32);
+            let moved = match geo.sites.iter().find(|s| s.room == back.root && s.name == back.name) {
+                Some(site) => (site.stand != tile).then_some(site.stand),
+                None if geo.room.tile(tile.0, tile.1) != Tile::Floor => Some(
+                    geo.sites
+                        .iter()
+                        .find(|s| s.room == back.root)
+                        .map_or_else(crate::world::kingdom::keep_stand, |s| s.stand),
+                ),
+                None => None,
+            };
+            if let Some(stand) = moved {
+                (back.x, back.y) = unit(stand);
+                for spot in back.party.values_mut() {
+                    *spot = unit(stand);
+                }
+            }
+        }
+        if self.room().kind == RoomKind::Kingdom {
+            self.safe_kingdom_arrival();
         }
     }
     pub fn walk_kingdom(&mut self, tile: Option<(i32, i32)>) {
@@ -181,6 +267,8 @@ impl Run {
         let kind = self.room().kind;
         let root = if college::is_room(kind) {
             RoomKind::CollegeGrounds
+        } else if colosseum::is_room(kind) {
+            RoomKind::ColosseumHall
         } else if kind == RoomKind::KingsHall {
             RoomKind::MineHead
         } else {
@@ -232,6 +320,7 @@ impl Run {
             RoomKind::CollegeGrounds => (12.0, 10.5),
             RoomKind::Ranch => (3.0, 10.5),
             RoomKind::Pasture => (12.0, 10.5),
+            RoomKind::ColosseumHall => colosseum::ARRIVAL,
             _ => (12.0, 11.0),
         };
         self.arrive(i, arrival);
@@ -318,6 +407,10 @@ impl Run {
     /// The kingdom site whose road leads to `room`: walk the home floor's
     /// doors out from it to the nearest place the map shows.
     fn gateway<'g>(&self, room: RoomKind, geo: &'g map::Geography) -> Option<&'g map::Site> {
+        // The Colosseum's arenas are reached through its door.
+        if colosseum::is_room(room) {
+            return geo.sites.iter().find(|s| s.room == RoomKind::ColosseumHall);
+        }
         let start = super::world::room_of(&self.dungeon, room)?;
         let mut seen = vec![false; self.dungeon.rooms.len()];
         let mut queue = std::collections::VecDeque::from([start]);
@@ -342,11 +435,23 @@ impl Run {
     }
 
     pub(super) fn tick_kingdom(&mut self, inputs: &BTreeMap<u32, Input>) {
+        if self.tick_forest_north(inputs) || self.forest_road_showing() { return; }
+        if self.tick_roundtable_entry(inputs) || self.roundtable_showing() { return; }
         self.tick_class_stones(inputs);
+        self.tick_school(inputs);
         if self.room().kind != RoomKind::Kingdom {
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
+        // Each knight crossing into another biome: its name, for a moment.
+        let tick = self.tick;
+        for (&id, hero) in &self.players {
+            let here = crate::world::biome::at((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32).index();
+            if self.kingdom.entered.get(&id).map(|&(b, _)| b) != Some(here) {
+                self.kingdom.entered.insert(id, (here, tick));
+            }
+        }
+        self.kingdom.entered.retain(|id, _| self.players.contains_key(id));
         // A door takes a fresh press: an E still down from before (the one
         // that came through a door) opens nothing until it is let go. Each
         // knight's own, so one knight holding E holds no one else's door.

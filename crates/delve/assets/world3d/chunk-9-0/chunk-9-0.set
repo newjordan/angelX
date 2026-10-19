@@ -1,0 +1,88 @@
+set chunk-9-0
+# The kingdom, chunk 9,0 in The Coast: tiles 216..240 x 0..16 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 128
+plate 1536 1024
+
+# ground
+box    grass   at 3528 -4 16 size 144 4 32
+box    sand    at 3608 -4 8 size 16 4 16
+box    water   at 3728 -4 8 size 224 1 16
+box    grass   at 3608 -4 24 size 16 4 16
+box    sand    at 3624 -4 64 size 16 4 96
+box    water   at 3736 -4 40 size 208 1 48
+box    rock    at 3464 -4 40 size 16 4 16
+box    grass   at 3528 -4 40 size 112 4 16
+box    sand    at 3600 -4 72 size 32 4 80
+box    grass   at 3512 -4 88 size 112 4 80
+box    sand    at 3576 -4 72 size 16 4 48
+box    sand    at 3640 -4 80 size 16 4 32
+box    water   at 3744 -4 80 size 192 1 32
+box    grass   at 3576 -4 176 size 16 4 160
+box    grass   at 3640 -4 136 size 16 4 80
+box    sand    at 3656 -4 136 size 16 4 80
+box    water   at 3752 -4 176 size 176 1 160
+box    grass   at 3608 -4 160 size 48 4 96
+box    path    at 3472 -4 136 size 32 4 16
+box    grass   at 3528 -4 152 size 80 4 48
+box    rock    at 3464 -4 152 size 16 4 16
+box    path    at 3480 -4 200 size 16 4 112
+box    grass   at 3464 -4 208 size 16 4 96
+box    path    at 3520 -4 184 size 64 4 16
+box    grass   at 3560 -4 216 size 16 4 80
+box    sand    at 3640 -4 192 size 16 4 32
+box    water   at 3656 -4 216 size 16 1 80
+box    path    at 3512 -4 200 size 48 4 16
+box    grass   at 3544 -4 224 size 16 4 64
+box    path    at 3504 -4 232 size 32 4 48
+box    grass   at 3528 -4 232 size 16 4 48
+box    grass   at 3600 -4 232 size 32 4 48
+box    sand    at 3624 -4 232 size 16 4 48
+box    water   at 3640 -4 232 size 16 1 48
+
+# BICKERING BEACON: a lighthouse with a lit lantern at 220,8 4x3 (at 56% of its height, for the camera)
+frustum plaster at 3534 0 163 size 20 28 20 id bickering-beacon
+cylinder stone   at 3534 28 163 size 14 1 14
+cylinder window  at 3534 29 163 size 9 3 9
+cone   metal   at 3534 32 163 size 12 3.5 12
+box    door    at 3534 0 172.75 size 5 5 1
+box    window  at 3534 14.5 171 size 2.5 2 1
+box    stone   at 3565 0 164 size 34 11 20
+hip    slate   at 3565 11 164 size 37 8 23
+box    stone   at 3573.16 11 162 size 4 9.8 4
+box    door    at 3558.2 0 174.25 size 7 8 1
+frustum trunk   at 3544 0 136 size 3 6.5 3
+blob-33 foliage at 3544 3.5 136 size 14 8.5 13.3 turn 270
+
+# set dressing
+box    trunk   at 3656 0 120 size 10 1.5 2 turn -20
+box    trunk   at 3653 0 123 size 7 1.5 1.5 turn 35
+
+# hedges
+box    hedge   at 3464 0 8 size 18 6 18
+blob-29 hedge   at 3464 3.5 8 size 18 6 18
+box    hedge   at 3480 0 8 size 18 6 18
+blob-9 hedge   at 3480 3.5 8 size 18 6 18
+box    hedge   at 3496 0 8 size 18 7 18
+blob-3 hedge   at 3496 4.5 8 size 18 5 18
+box    hedge   at 3512 0 8 size 18 6 18
+blob-54 hedge   at 3512 3.5 8 size 18 5 18
+box    hedge   at 3528 0 8 size 18 6 18
+blob-4 hedge   at 3528 3.5 8 size 18 5 18
+box    hedge   at 3544 0 8 size 18 6 18
+blob-34 hedge   at 3544 3.5 8 size 18 5 18
+box    hedge   at 3560 0 8 size 18 6 18
+blob-4 hedge   at 3560 3.5 8 size 18 5 18
+box    hedge   at 3576 0 8 size 18 7 18
+blob-44 hedge   at 3576 4.5 8 size 18 6 18
+box    hedge   at 3592 0 8 size 18 6 18
+blob-40 hedge   at 3592 3.5 8 size 18 5 18
+box    hedge   at 3608 0 8 size 18 6 18
+blob-9 hedge   at 3608 3.5 8 size 18 6 18
+
+# rock
+box    rock    at 3464 0 40 size 16 3 16
+box    rock    at 3464 0 152 size 16 3 16
+rock-24 rock    at 3465 1.5 41 size 14 8 12.6 turn 180
+rock-32 rock    at 3464 1.5 151 size 14 7 12.6 turn 270

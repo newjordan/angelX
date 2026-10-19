@@ -1,0 +1,44 @@
+{
+  "fit": "native canvas 24x24, anchor bottom-centre (12,24); stage 384x224; a lantern crate, drawn as a 3/4 box.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "shield-0"
+      ],
+      "source_pose_count": 1,
+      "state": "shield"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "sparks-0"
+      ],
+      "source_pose_count": 1,
+      "state": "sparks"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "spur-0"
+      ],
+      "source_pose_count": 1,
+      "state": "spur"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "break-0",
+        "break-1",
+        "break-2"
+      ],
+      "source_pose_count": 3,
+      "state": "break"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.crate",
+  "role": "prop",
+  "timing": "shield 1 ticks; sparks 1 ticks; spur 1 ticks; break 3x3 ticks (30 Hz). Art never sets a hitbox."
+}

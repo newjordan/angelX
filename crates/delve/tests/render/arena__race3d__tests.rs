@@ -112,6 +112,7 @@ fn write_race3d_shots() {
         classed(&mut run);
         let mid = match course {
             Course::Shaft => t.posts[3] + 2.0,
+            Course::Touge => t.posts[1] + 10.0,
             Course::Cart => t.posts[1] + 10.0,
             Course::Griffin => t.posts[1] + 10.0,
         };
@@ -119,6 +120,7 @@ fn write_race3d_shots() {
         for (k, id) in [1u32, 2, 3, 4].into_iter().enumerate() {
             let (x, z) = match course {
                 Course::Shaft => ([0.0, -0.6, 0.6, 0.2][k], 0.0),
+                Course::Touge => (lanes[k], 0.0),
                 Course::Cart => (lanes[k], 0.0),
                 Course::Griffin => ([0.0, -2.0, 2.2, 0.8][k], [0.0, 0.8, -0.6, 1.6][k]),
             };
@@ -141,6 +143,7 @@ fn write_race3d_shots() {
         let mut run = racing(course, 3);
         classed(&mut run);
         match course {
+            Course::Touge => {},
             Course::Shaft => {
                 let bridge = t.posts[3] + 8.0;
                 place(&mut run, 1, bridge, 1.0, 0.0, 6.0);
@@ -231,3 +234,173 @@ fn race3d_frame_bench() {
     }
 }
 
+
+#[test]
+fn touge_charge_colours_survive_the_dungeon_palette_route() {
+    let mut run = racing(Course::Touge, 4);
+    run.floor_plates.clear();
+    run.race3d.as_mut().unwrap().t += 60;
+    for (stage, colour) in [[32,121,166], [220,118,46], [146,84,180]].into_iter().enumerate() {
+        let r = race_mut(&mut run).riders.get_mut(&1).unwrap();
+        r.s = 150.0;
+        r.drift.sliding = true;
+        r.drift.charge = r3::CHARGE_TICKS[stage];
+        let image = super::super::frame_for(&run,384,224,Some(1));
+        assert!(image.pixels().filter(|&c| c == colour).count() >= 136,
+            "boost stage {} survives rendering",stage+1);
+    }
+}
+
+#[test]
+fn touge_rigs_abreast_stay_out_of_the_lens_and_rivals_ahead_are_visible() {
+    let mut run=racing(Course::Touge,4);
+    place(&mut run,1,150.0,-0.8,0.0,18.0);
+    place(&mut run,2,150.0,0.8,0.0,18.0);
+    place(&mut run,3,157.0,0.0,0.0,18.0);
+    let race=run.race3d.as_ref().unwrap();
+    assert!(!build::hidden(race,Some(1),1));
+    assert!(build::hidden(race,Some(1),2));
+    assert!(!build::hidden(race,Some(1),3));
+}
+
+// ─── the Shaft floor: what is drawn and what holds a ball agree ─────────────
+
+/// The floor materials of the Shaft: what a resting ball stands on.
+const FLOOR_MATS: [u8; 3] = [
+    crate::render::world3d::mesh::mat::STABLE_FLOOR,
+    crate::render::world3d::mesh::mat::WATER,
+    crate::render::world3d::mesh::mat::STABLE_WALL,
+];
+
+/// Where the fixed mesh draws floor at `(s, x)`: any floor-material
+/// triangle crossing the point's world position within a ball's depth of
+/// the track's own height there.
+fn drawn_floor(mesh: &crate::render::world3d::mesh::Mesh, t: &r3::Track, s: f32, x: f32) -> bool {
+    let want = t.at(s).p[2];
+    let w = t.world(s, x, 0.0);
+    let (px, py) = (w[0], w[1]);
+    for tri in &mesh.tris {
+        if !FLOOR_MATS.contains(&tri.mat) {
+            continue;
+        }
+        let cross = |ax: f32, ay: f32, bx: f32, by: f32| ax * by - ay * bx;
+        let (a, b, c) = (tri.v[0], tri.v[1], tri.v[2]);
+        let area = cross(b.x - a.x, b.y - a.y, c.x - a.x, c.y - a.y);
+        if area.abs() < 1e-9 {
+            continue;
+        }
+        let sg = area.signum();
+        let wa = cross(b.x - px, b.y - py, c.x - px, c.y - py) * sg;
+        let wb = cross(c.x - px, c.y - py, a.x - px, a.y - py) * sg;
+        let wc = cross(a.x - px, a.y - py, b.x - px, b.y - py) * sg;
+        if wa < -1e-4 || wb < -1e-4 || wc < -1e-4 {
+            continue;
+        }
+        let z = (wa * a.z + wb * b.z + wc * c.z) / area.abs();
+        if (z - want).abs() <= 0.35 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Where a ball resting at `(s, x)` is held up: within the width the
+/// samples give there, and not over a rotten plank that has gone.
+fn physics_floor(t: &r3::Track, s: f32, x: f32) -> bool {
+    let at = t.at(s);
+    if x.abs() > at.width * 0.5 {
+        return false;
+    }
+    !(at.ground == Ground::Collapse && r3::rotten((s / 2.0) as u16))
+}
+
+#[test]
+fn the_shafts_drawn_floor_holds_a_ball_everywhere_along_and_across() {
+    let t = r3::track(Course::Shaft);
+    let mesh = super::probe::course_mesh(Course::Shaft);
+    let mut s = 0.04f32;
+    while s < t.len() {
+        let half = t.at(s).width * 0.5;
+        let mut x = -(half + 1.0);
+        while x <= half + 1.0 {
+            // Skip the boundary sliver: the quad edge and the fall line are
+            // the same line, drawn to exactly half.
+            if (x.abs() - half).abs() > 0.02 {
+                let drawn = drawn_floor(mesh, &t, s, x);
+                let held = physics_floor(&t, s, x);
+                assert_eq!(
+                    drawn, held,
+                    "s={s:.2} x={x:.2} {:?}: the picture {} but the ball {}",
+                    t.at(s).ground,
+                    if drawn { "draws floor" } else { "draws a drop" },
+                    if held { "is held up" } else { "falls" },
+                );
+            }
+            x += 0.1;
+        }
+        s += 0.25;
+    }
+}
+
+/// The planks of the collapsing drift: what stands is drawn, what is rotten
+/// is not (it is drawn as it goes, in the movers).
+#[test]
+fn the_collapsing_drift_draws_only_its_sound_planks() {
+    let t = r3::track(Course::Shaft);
+    let mesh = super::probe::course_mesh(Course::Shaft);
+    for (k, &post) in t.posts.iter().enumerate() {
+        let at = t.at(post + 0.5);
+        if at.ground != Ground::Collapse {
+            continue;
+        }
+        let end = t.posts.get(k + 1).copied().unwrap_or(t.len());
+        let mut s = post + 0.04;
+        while s < end {
+            let rotten = r3::rotten((s / 2.0) as u16);
+            let drawn = drawn_floor(mesh, &t, s, 0.0);
+            assert_eq!(
+                drawn, !rotten,
+                "s={s:.2}: the plank is {} but the fixed mesh {} it",
+                if rotten { "rotten" } else { "sound" },
+                if drawn { "draws" } else { "omits" },
+            );
+            s += 0.25;
+        }
+    }
+}
+
+/// The seam shots for review: `ANGEL_ARENA_SHOTS=<dir> cargo test
+/// write_shaft_seam_shots -- --ignored`. Each walled-to-open seam of the
+/// Shaft, from a knight's camera rolling into it: the funnel reads as a
+/// funnel and the edge beyond it reads as a drop.
+#[test]
+#[ignore]
+fn write_shaft_seam_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |run: &Run, seat: u32, name: &str| {
+        let img = super::super::frame_for(run, 768, 448, Some(seat));
+        let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+        out.extend(img.rgb_bytes());
+        std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
+    };
+    let t = r3::track(Course::Shaft);
+    for w in t.posts.windows(2) {
+        let (before, after) = (t.at(w[0] - 0.01), t.at(w[0] + 0.01));
+        if !(before.walls && !after.walls) {
+            continue;
+        }
+        let name = format!("seam-s{:03.0}-{}", w[0], format!("{:?}", after.ground).to_lowercase());
+        let mut run = racing(Course::Shaft, 1);
+        // Rolling into the seam, held by the funnel's chute.
+        place(&mut run, 1, w[0] - 4.0, 0.0, 0.0, 7.0);
+        race_mut(&mut run).t = TITLE + 200;
+        for k in 0..3 {
+            for _ in 0..(HZ / 8) {
+                run.step(&BTreeMap::new());
+            }
+            save(&run, 1, &format!("{name}-{k}"));
+        }
+    }
+}

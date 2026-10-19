@@ -1,0 +1,15 @@
+{
+  "fit": "80\u00d780, feet at (40,80), display 3/2",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damaged-actions"
+    }
+  ],
+  "game": "brasswake",
+  "geometry": "Foe::danger: rush 96\u00d720 spanning x to x+dir\u00d796,y\u221210; slam 48\u00d728 at (x+dir\u00d728\u221224,y\u221214). Lane::step_at clips to wave boundaries. Hits test knight feet; art must not enlarge these marks.",
+  "id": "brasswake.keeper-damaged",
+  "role": "boss",
+  "timing": "Twelve source poses; walk 2 frames at 7 ticks each. Tell=max(brass_tell\u22123\u00d7stage,23)=27/24/23; action=9; rest=42/35/28. Flinch=10 after punch. Stage thresholds hp<=21 and <=10 from full 32. Recover file loaded but Rest selects idle/damage, not recover (Foe::stage/step, draw())."
+}

@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.herald-house/v01",
+  "delivery_status": "Accepted with cleanup by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): the model keeps this house tall and narrow however the brief is worded, 66 of 80 px wide, door about 18 px; the three drawings nearly touch on the sheet and are cut at the column gaps; transparent background, three separated drawings.",
+  "generation_sha256": "bf9b37e8d0bd431f2f926e53fd9e41ff150ca4559add124c292ea2b239910e24",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "dcaae4c30b11ad18e2904794e2edeb0ddfe10526fdce09930a05c44f971bf697",
+  "native_contract": "Native 80x76, anchor bottom-centre (40,76).",
+  "notes_sha256": "38cbe536c6c4e6a13247f12cd56f2b6dd2f5225673af8d6b779d930db9548ae0",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "64f5279795dda2f6f1910fcf494c30dc57a7695aaaf56265908d626a18ac242e",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 2)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.herald-house/v01/source-sheet.png",
+  "source_sha256": "b005eff2a0f603d33babaf3f2574640c646f2a521fc8c2ce32c01e24efe35c93"
+}

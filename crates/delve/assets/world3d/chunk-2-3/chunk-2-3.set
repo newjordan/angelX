@@ -1,0 +1,89 @@
+set chunk-2-3
+# The kingdom, chunk 2,3 in Castle Town: tiles 48..72 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 960 896
+plate 1536 1024
+
+# ground
+box    sand    at 792 -4 776 size 48 4 16
+box    water   at 952 -4 776 size 272 1 16
+box    sand    at 1112 -4 776 size 48 4 16
+box    grass   at 1144 -4 808 size 16 4 80
+box    grass   at 792 -4 832 size 48 4 96
+box    sand    at 848 -4 792 size 64 4 16
+box    crop    at 928 -4 800 size 96 4 32
+box    path    at 992 -4 856 size 32 4 144
+box    sand    at 1048 -4 792 size 80 4 16
+box    grass   at 1112 -4 824 size 48 4 80
+box    grass   at 848 -4 848 size 64 4 96
+box    grass   at 1048 -4 832 size 80 4 64
+box    grass   at 928 -4 848 size 96 4 64
+box    path    at 1144 -4 880 size 16 4 64
+box    grass   at 1032 -4 872 size 48 4 16
+box    path    at 1096 -4 888 size 80 4 48
+box    path    at 792 -4 912 size 48 4 64
+box    grass   at 912 -4 888 size 64 4 16
+box    path    at 960 -4 912 size 32 4 64
+box    path    at 1032 -4 904 size 48 4 48
+box    path    at 880 -4 920 size 128 4 48
+box    path    at 1080 -4 920 size 48 4 16
+box    grass   at 1128 -4 968 size 48 4 112
+box    path    at 984 -4 936 size 16 4 16
+box    grass   at 1048 -4 976 size 112 4 96
+box    grass   at 880 -4 984 size 224 4 80
+
+# crop furrows
+box    crop    at 928 0 787.5 size 94 2.5 2
+box    crop    at 928 0 792.5 size 94 2.5 2
+box    crop    at 928 0 797.5 size 94 2.5 2
+box    crop    at 928 0 802.5 size 94 2.5 2
+box    crop    at 928 0 807.5 size 94 2.5 2
+box    crop    at 928 0 812.5 size 94 2.5 2
+
+# set dressing
+sphere cloth   at 820 0 840 size 4 4 3.5
+sphere cloth   at 824 0 842 size 4 4 3.5
+sphere cloth   at 828 0 840 size 4 4 3.5
+box    wood    at 872 0 859 size 12 4 4
+box    wood    at 866 0 852 size 1.5 12 1.5
+box    wood    at 878 0 852 size 1.5 12 1.5
+box    wood    at 904 0 856 size 10 3.5 6
+sphere wood    at 898 0 856 size 1.2 4 4
+box    hedge   at 1064 0 963 size 42 3.5 2
+box    hedge   at 1064 0 973 size 42 3 2
+box    crop    at 1064 0 968 size 40 2 6
+box    wood    at 776 0 984 size 10 3.5 6
+sphere wood    at 782 0 984 size 1.2 4 4
+cylinder wood    at 1012 0 982 size 5 4 5
+cylinder wood    at 1019 0 982 size 5 4 5
+cylinder wood    at 1012 0 987 size 5 4 5
+
+# woods (at 32% of its height, for the camera)
+cylinder trunk   at 961 0 991 size 5 4.5 5
+blob-24 foliage at 961 3 991 size 33 9 31.35
+frustum trunk   at 936.5 0 984.5 size 3 5 3
+blob-58 foliage at 936.5 2 984.5 size 18 10 17.1
+cylinder trunk   at 935.5 0 1000.5 size 3 11 3
+blob-61 foliage at 935.5 6 1000.5 size 18 18 17.1 turn 270
+cylinder trunk   at 791.5 0 1016.5 size 3 5 3
+blob-2 foliage at 791.5 2.5 1016.5 size 18 10.5 17.1 turn 90
+frustum trunk   at 808 0 1016 size 3 5 3
+blob-41 foliage at 808 2.5 1016 size 19 8.5 18.05 turn 180
+frustum trunk   at 824 0 1016 size 3 4.5 3
+blob-58 foliage at 824 2 1016 size 19 8.5 18.05 turn 270
+frustum trunk   at 840.5 0 1018 size 3 6 3
+blob-58 foliage at 840.5 3 1018 size 18 10.5 17.1 turn 180
+cylinder trunk   at 856.5 0 1015.5 size 3 6 3
+blob-53 foliage at 856.5 3 1015.5 size 18 7.5 17.1
+frustum trunk   at 936 0 1016 size 3 10 3
+blob-29 foliage at 936 5 1016 size 19 18 18.05 turn 90
+frustum trunk   at 952 0 1014 size 3 12 3
+blob-21 foliage at 952 7 1014 size 19 15 18.05 turn 270
+frustum trunk   at 968 0 1016 size 3 10 3
+blob-57 foliage at 968 5 1016 size 19 16 18.05 turn 270
+
+# bridges
+box    wood    at 992 -3 776 size 32 5.5 16
+box    wood    at 975.25 0 776 size 1.5 6 16
+box    wood    at 1008.75 0 776 size 1.5 6 16

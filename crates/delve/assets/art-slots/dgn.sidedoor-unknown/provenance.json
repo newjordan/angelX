@@ -1,0 +1,19 @@
+{
+  "delivery": "dgn.sidedoor.unknown.vertical-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "ce4d37f1cc83023025fd824b209ea5a5516f5f2b0f81e1b9c8777ea34289b568",
+  "native_contract": {
+    "v1": [
+      16,
+      32
+    ],
+    "v2": [
+      32,
+      64
+    ]
+  },
+  "prepared_sha256": "227efd881812146cb9b1c27a90f9ffe8586256f834e1a3a3f4007baff6cd4fa4",
+  "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
+  "source_path": "/work/artifacts/art-prod/slots/dgn.sidedoor.unknown.vertical-1/v01/source-sheet.png",
+  "source_sha256": "70e41dcabe16431b670b6d951f75788d0042ff39db47ad345c3478f7cf0a77f4"
+}

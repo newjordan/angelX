@@ -54,6 +54,8 @@ pub enum Weapon {
     Bow,
     Crossbow,
     Handgonne,
+    Notes,
+    Stones,
 }
 
 pub struct Arms {
@@ -83,6 +85,14 @@ impl Weapon {
     /// | Handgonne | seven balls | they bounce once | they burst |
     pub fn arms(self) -> Arms {
         match self {
+            Weapon::Stones => Arms {
+                speed: 18.0, damage: 27, cooldown: 12, pierce: 0,
+                shots: 1, arc: 0.0, jitter: 0.0, ttl: 18,
+            },
+            Weapon::Notes => Arms {
+                speed: 18.0, damage: 3, cooldown: 4, pierce: 0,
+                shots: 3, arc: 30.0, jitter: 0.0, ttl: 10,
+            },
             Weapon::Fists => Arms { speed: 0.0, damage: 6, cooldown: 9, pierce: 0, shots: 0, arc: 80.0, jitter: 0.0, ttl: 0 },
             Weapon::Bow => Arms {
                 speed: 40.0,
@@ -123,6 +133,8 @@ impl Weapon {
             Weapon::Bow => "Bow",
             Weapon::Crossbow => "Crossbow",
             Weapon::Handgonne => "Handgonne",
+            Weapon::Notes => "Note Stream",
+            Weapon::Stones => "Thrown Stones",
         }
     }
 }
@@ -138,6 +150,16 @@ pub struct Item {
     /// A weapon just set down stays put until the knight who dropped it
     /// steps away, so standing still never swaps arms back and forth.
     pub held_off: Option<u32>,
+    /// Shared loot (the operator, 2026-10-18): the knights who have taken
+    /// their own of it. It lies until every knight has ([`shared`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub took: Vec<u32>,
+}
+
+/// Whether every knight takes their own of a card: all but what goes to the
+/// party's one treasury (gold and the spoils), taken once for all.
+pub fn shared(card: &super::cards::Card) -> bool {
+    !card.effects.iter().any(|e| e.spoil().is_some())
 }
 
 /// Percent chance a fallen monster leaves something behind.
@@ -170,6 +192,8 @@ pub fn drop_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
         EnemyKind::Whirlgrave => 65,
+        EnemyKind::BogHand | EnemyKind::Wisp => 30,
+        EnemyKind::Drowned => 60,
     }
 }
 
@@ -203,6 +227,8 @@ pub fn spoil_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
         EnemyKind::Whirlgrave => 65,
+        EnemyKind::BogHand | EnemyKind::Wisp => 35,
+        EnemyKind::Drowned => 70,
     }
 }
 

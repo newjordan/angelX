@@ -1,0 +1,225 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8,
+    16
+  ],
+  "comments": [
+    "One bank on the block's base: seven cells share one scale and one 16x16 footprint (the same block in every cell).",
+    "One painted block stands for the coin, power and many variants; the rules and the stage decide which gift a hit gives.",
+    "A reviewed ink grade keeps the stone's contour brown: the palette snap sent the dark brown outline pixels on the right and bottom edges to a dark green (182414); the grade maps that one shared ink to the admitted dark brown (331a0c). No pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "Collision is the tile and belongs to the rules; art never sets a hitbox. bump is the 8-tick lift when struck from below.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: idle pulse (idle-0, idle-1), the strike flare and fade (bump-0..3), the dead rune (spent-0).",
+  "notes_sha256": "592091e6e778062de916bcd594126332a15a1b3e85bbf168819c17fc7906be88",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0 \u2014 warm amber rune with a pale core.",
+      "name": "idle-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.7,
+        284
+      ],
+      "source_rect_xywh": [
+        48,
+        154,
+        288,
+        284
+      ],
+      "state": "idle",
+      "ticks": 30
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "idle-1 \u2014 slightly brighter cream-amber rune.",
+      "name": "idle-1",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.8,
+        284
+      ],
+      "source_rect_xywh": [
+        432,
+        154,
+        288,
+        284
+      ],
+      "state": "idle",
+      "ticks": 30
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "bump-0 \u2014 brightest rune with a bright panel.",
+      "name": "bump-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.8,
+        284
+      ],
+      "source_rect_xywh": [
+        816,
+        154,
+        288,
+        284
+      ],
+      "state": "bump",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "bump-1 \u2014 bright amber rune with pale core.",
+      "name": "bump-1",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.8,
+        284
+      ],
+      "source_rect_xywh": [
+        1200,
+        154,
+        288,
+        284
+      ],
+      "state": "bump",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "bump-2 \u2014 dimmer orange-amber rune.",
+      "name": "bump-2",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.7,
+        285
+      ],
+      "source_rect_xywh": [
+        48,
+        633,
+        288,
+        285
+      ],
+      "state": "bump",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "bump-3 \u2014 near-out ember rune.",
+      "name": "bump-3",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        145.0,
+        285
+      ],
+      "source_rect_xywh": [
+        432,
+        633,
+        288,
+        285
+      ],
+      "state": "bump",
+      "ticks": 2
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "spent-0 \u2014 dark dead rune.",
+      "name": "spent-0",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "331a0c"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.7,
+        285
+      ],
+      "source_rect_xywh": [
+        816,
+        633,
+        288,
+        285
+      ],
+      "state": "spent",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native tile 16x16, anchor bottom-centre (8,16); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      16,
+      16
+    ]
+  },
+  "slot": "bannerpeak.rune-block",
+  "source_sha256": "4528d6ce39906def1a28c0cd81afae45ca9ae90f9703cb0f04f0afac3122b623",
+  "timing": "idle 2x30 ticks; bump 4x2 ticks; spent 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

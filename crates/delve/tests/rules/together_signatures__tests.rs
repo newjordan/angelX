@@ -202,7 +202,7 @@ fn signatures_walking_and_rolling_escape_the_pull() {
     h.dash_ticks = ROLL_TICKS;
     h.x = 18.0;
     h.y = 14.0;
-    run.signature_deeds(vec![], vec![(24.0, 14.0)], vec![]);
+    run.signature_deeds(vec![], vec![(24.0, 14.0, 0.1)], vec![]);
     assert_eq!(run.players[&1].x, 18.0, "the pull does not cancel rolls");
 }
 #[test]
@@ -315,7 +315,9 @@ fn signatures_engine_fits_native_chambers_and_moves_without_clipping_stone() {
         };
         let start = engine(&run);
         let mut moved = false;
-        for _ in 0..180 {
+        // Its walk can stall on a pillar until it lays its rails (105
+        // ticks, then the tell); the dash always moves it.
+        for _ in 0..300 {
             let (x, y, radius) = engine(&run);
             let grid = Grid {
                 room: run.room(),

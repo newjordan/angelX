@@ -1,0 +1,63 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Reviewed continuous backdrop. Its full-frame edge is the intended scene, not a clipped actor. The 16:9 painting is centre-cropped to the 12:7 stage (about 3.5 percent, 29 source columns a side) and BOX reduced once; no exposure or contrast boost is applied.",
+    "Static behind the level: the stage draws it below tiles, props and knights, dimmed at draw time by the stage (a translucent dark layer), never repainted here."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "A static backdrop behind tiles, props and knights; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered painting, 2026-10-18. One opaque 1672x941 landscape (second generation): the moon upper left, the bell tower, cliffs and waterfalls right, a calm misty valley between, an amber horizon band.",
+  "notes_sha256": "1240fab4b6d7eab6e7c2ce48b70d3b8cc75e185aa71da18dfcaf287632c440d8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: dusk valley, moon upper left, bell tower and waterfalls right.",
+      "name": "night-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "night",
+      "ticks": 1
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 384x224 (opaque), the whole stage; anchor bottom-centre (192,224); stage 384x224 at 16 px per tile.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "bannerpeak.sky",
+  "source_sha256": "cc0a3e7222a5510c34f8ad8479976e497779d83927fba129f6069c74ba040125",
+  "timing": "night 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

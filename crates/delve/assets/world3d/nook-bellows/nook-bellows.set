@@ -1,0 +1,57 @@
+set nook-bellows
+# The Great Bellows: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# A nook hangs off a fight room by one doorway, in the west wall here; torches flank it. Its furniture is the room's whole business.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# furnace at 9,1 6x3
+box    stone   at 192 0 40 size 94 22 46 id furnace
+box    stone   at 192 22 20.5 size 57.6 10 7  # TODO prims: frustum
+box    stone   at 192 32 19.5 size 6 12 5
+box    metal   at 192 3 63 size 20 10 1
+
+# table at 4,2 3x2 (at 48% of its height, for the camera)
+box    wood    at 88 0 48 size 46 5.81 30 id table-1
+
+# table at 17,2 3x2 (at 48% of its height, for the camera)
+box    wood    at 296 0 48 size 46 5.81 30 id table-2
+
+# torches by the doors (at 81% of its height, for the camera)
+box    metal   at 16 18 88 size 3 6 3
+cone   fire    at 16 24 88 size 4 7 4
+box    metal   at 16 4 136 size 3 5 3
+cone   fire    at 16 9 136 size 4 5.5 4

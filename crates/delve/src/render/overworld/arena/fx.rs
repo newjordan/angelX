@@ -80,7 +80,6 @@ pub(super) fn glow(cv: &mut Img, x: i32, y: i32, hue: Hue) {
 }
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Stamp {
-    Smoke,
     Death,
     Gas,
     Sulphur,
@@ -113,37 +112,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
             }
             let top = (y as f32 / ry.max(1) as f32 + x as f32 / rx.max(1) as f32 * 0.3) * 0.5;
             let ink = match kind {
-                // Three quiet rounded curls fit inside the original puff radius.
-                Stamp::Smoke => {
-                    let nx = x as f32 / rx.max(1) as f32;
-                    let ny = y as f32 / ry.max(1) as f32;
-                    let curl = [(-0.3, -0.1, 0.7), (0.3, -0.3, 0.63), (0.1, 0.35, 0.6)]
-                        .iter()
-                        .map(|&(cx, cy, r)| {
-                            ((nx - cx) * (nx - cx) + (ny - cy) * (ny - cy)) / (r * r)
-                        })
-                        .fold(f32::MAX, f32::min);
-                    if curl > 1.0 {
-                        continue;
-                    }
-                    if phase >= 3 {
-                        if curl > 0.7 { 's' } else { 'x' }
-                    } else if phase >= 2 {
-                        if curl > 0.8 {
-                            's'
-                        } else if top < -0.12 {
-                            'S'
-                        } else {
-                            'x'
-                        }
-                    } else if curl > 0.8 {
-                        'x'
-                    } else if top < -0.12 {
-                        'u'
-                    } else {
-                        'S'
-                    }
-                }
                 // A held death flash retains the disc and its four held ticks.
                 Stamp::Death => {
                     if x == 0 && y == 0 {

@@ -222,7 +222,7 @@ pub(super) fn compose(run: &Run) -> Option<Canvas> {
         );
         // A seated knight drives in their class's headgear, over the
         // study's helm.
-        if let Some((seat, look)) = (1..=4)
+        if let Some((seat, look)) = (1..=crate::rules::MAX_PLAYERS)
             .find(|&s| race.racer_of(s) == Some(i))
             .and_then(|s| run.players.get(&s).and_then(super::super::class_looks::Look::of).map(|l| (s, l)))
         {

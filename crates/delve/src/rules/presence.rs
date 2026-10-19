@@ -43,9 +43,33 @@ impl Run {
             }
             hero.stone = true;
         } else if hero.away {
+            // Back: still stone, unseen and unhurt, until its player moves.
             hero.away = false;
-            hero.stone = hero.vigil;
+            hero.idle = hero.hp > 0;
+            hero.stone = hero.idle || hero.vigil;
             hero.invulnerable = hero.invulnerable.max(WAKE_WARD);
+        }
+    }
+
+    /// A round begins: every standing knight is stone, unseen and unhurt,
+    /// until its player first moves, fires, dashes or swings.
+    pub fn rest_until_moved(&mut self) {
+        // Only knights a player is here for: the host's empty place and a
+        // seat whose player is away are not waiting to move.
+        for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.absent && !h.away) {
+            hero.idle = true;
+            hero.stone = true;
+        }
+    }
+
+    /// An idle knight wakes on its player's first move this round.
+    pub(super) fn wake_on_first_move(hero: &mut Hero, input: &Input) {
+        if hero.idle
+            && !hero.away
+            && (input.move_x != 0 || input.move_y != 0 || input.fire || input.dash || input.swing)
+        {
+            hero.idle = false;
+            hero.stone = hero.vigil;
         }
     }
 

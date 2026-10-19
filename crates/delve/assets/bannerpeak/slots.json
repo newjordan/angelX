@@ -1,0 +1,1353 @@
+[
+  {
+    "id": "bannerpeak.knight",
+    "size": [
+      32,
+      40
+    ],
+    "anchor": [
+      16,
+      40
+    ],
+    "hitbox": [
+      10,
+      20,
+      12,
+      20
+    ],
+    "ink": "seat",
+    "states": {
+      "idle": [
+        30,
+        30
+      ],
+      "run": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "skid": [
+        6
+      ],
+      "crouch": [
+        1
+      ],
+      "slide": [
+        8
+      ],
+      "rise": [
+        1
+      ],
+      "fall": [
+        1
+      ],
+      "second": [
+        1
+      ],
+      "triple": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "long": [
+        1
+      ],
+      "backflip": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "wall": [
+        1
+      ],
+      "slam-wind": [
+        6
+      ],
+      "slam": [
+        1
+      ],
+      "slam-land": [
+        3,
+        3,
+        3
+      ],
+      "dive": [
+        1
+      ],
+      "belly": [
+        16
+      ],
+      "hurt": [
+        14
+      ],
+      "brace": [
+        5,
+        1
+      ],
+      "item-get": [
+        54
+      ],
+      "pole": [
+        1
+      ],
+      "bubble": [
+        1
+      ]
+    },
+    "note": "Small knight. Seat trim and plume in the seat's colour. run advances by speed: three ticks a frame at top speed. triple and backflip are one turn over the air time. brace is raised in five ticks and held. item-get is the 54-tick pose with the banner overhead.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.knight-big",
+    "size": [
+      36,
+      48
+    ],
+    "anchor": [
+      18,
+      48
+    ],
+    "hitbox": [
+      11,
+      18,
+      14,
+      30
+    ],
+    "ink": "seat",
+    "states": {
+      "idle": [
+        30,
+        30
+      ],
+      "run": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "skid": [
+        6
+      ],
+      "crouch": [
+        1
+      ],
+      "slide": [
+        8
+      ],
+      "rise": [
+        1
+      ],
+      "fall": [
+        1
+      ],
+      "second": [
+        1
+      ],
+      "triple": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "long": [
+        1
+      ],
+      "backflip": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "wall": [
+        1
+      ],
+      "slam-wind": [
+        6
+      ],
+      "slam": [
+        1
+      ],
+      "slam-land": [
+        3,
+        3,
+        3
+      ],
+      "dive": [
+        1
+      ],
+      "belly": [
+        16
+      ],
+      "hurt": [
+        14
+      ],
+      "brace": [
+        5,
+        1
+      ],
+      "item-get": [
+        54
+      ],
+      "pole": [
+        1
+      ],
+      "bubble": [
+        1
+      ]
+    },
+    "note": "Big knight (after a hearth loaf): the same states, taller; the crouch box is 14 by 18.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.knight-flame",
+    "size": [
+      36,
+      48
+    ],
+    "anchor": [
+      18,
+      48
+    ],
+    "hitbox": [
+      11,
+      18,
+      14,
+      30
+    ],
+    "ink": "seat",
+    "states": {
+      "idle": [
+        30,
+        30
+      ],
+      "throw": [
+        4,
+        4
+      ],
+      "hold": [
+        1
+      ]
+    },
+    "note": "Big knight with a lantern held in the near hand; layered over knight-big's pose. throw is the two frames of the bolt leaving.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.bubble",
+    "size": [
+      32,
+      32
+    ],
+    "anchor": [
+      16,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "C",
+    "states": {
+      "float": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "pop": [
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "The rescue bubble around a fallen knight. Rules size it; art never sets the reach.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.snuffer",
+    "size": [
+      24,
+      24
+    ],
+    "anchor": [
+      12,
+      24
+    ],
+    "hitbox": [
+      5,
+      10,
+      14,
+      14
+    ],
+    "ink": "v",
+    "states": {
+      "walk": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "pop": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "A hooded wisp with a wick-stub tail and two pale eyes. pop is the 12-tick squash, cold smoke and a returned spark.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.capped",
+    "size": [
+      24,
+      28
+    ],
+    "anchor": [
+      12,
+      28
+    ],
+    "hitbox": [
+      5,
+      10,
+      14,
+      18
+    ],
+    "ink": "v",
+    "states": {
+      "walk": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "pop": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "A snuffer under a small iron cap. Stomping pops the snuffer and leaves the cap (bannerpeak.cap).",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.cap",
+    "size": [
+      20,
+      16
+    ],
+    "anchor": [
+      10,
+      16
+    ],
+    "hitbox": [
+      3,
+      6,
+      14,
+      10
+    ],
+    "ink": "x",
+    "states": {
+      "rest": [
+        1
+      ],
+      "slide": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "carried": [
+        1
+      ],
+      "waking": [
+        5,
+        5
+      ]
+    },
+    "note": "The cap alone: lying still, spinning along the floor when kicked, held in the knight's arms. waking is the shake in the last thirty ticks of a carry (150 ticks), after which the snuffer wakes.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.wisp",
+    "size": [
+      20,
+      20
+    ],
+    "anchor": [
+      10,
+      20
+    ],
+    "hitbox": [
+      4,
+      8,
+      12,
+      12
+    ],
+    "ink": "T",
+    "states": {
+      "float": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "pop": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "A snuffer that floats in a small ring around its mark.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.loaf",
+    "size": [
+      20,
+      20
+    ],
+    "anchor": [
+      10,
+      20
+    ],
+    "hitbox": [
+      4,
+      8,
+      12,
+      12
+    ],
+    "ink": "O",
+    "states": {
+      "rise": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "idle": [
+        10,
+        10
+      ]
+    },
+    "note": "Hearth loaf. rise is the sixteen ticks it takes to come out of its rune block; it cannot be touched until the last frame.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.flame",
+    "size": [
+      16,
+      24
+    ],
+    "anchor": [
+      8,
+      24
+    ],
+    "hitbox": [
+      3,
+      10,
+      10,
+      14
+    ],
+    "ink": "y",
+    "states": {
+      "rise": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "idle": [
+        4,
+        4,
+        4
+      ]
+    },
+    "note": "Lantern flame; same rise as the loaf.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.bolt",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      6
+    ],
+    "hitbox": [
+      3,
+      3,
+      6,
+      6
+    ],
+    "ink": "y",
+    "states": {
+      "fly": [
+        3,
+        3,
+        3
+      ],
+      "spend": [
+        2,
+        2
+      ]
+    },
+    "note": "A bouncing bolt of light thrown by a flame knight; a low hop each bounce.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.rune-block",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "O",
+    "states": {
+      "idle": [
+        30,
+        30
+      ],
+      "bump": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "spent": [
+        1
+      ]
+    },
+    "note": "Rune block. Variants: coin, power (loaf or flame), many (a coin a bump, up to five). bump is the 8-tick lift when struck from below.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.brick",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "g",
+    "states": {
+      "idle": [
+        1
+      ],
+      "bump": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "note": "Plain brick block, bumps, never breaks.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.cracked",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "g",
+    "states": {
+      "idle": [
+        1
+      ],
+      "break": [
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "Cracked floor. break is the ground pound's debris; the shock radius is a rules number (bannerpeak_slam).",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.tiles",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "g",
+    "states": {
+      "stone": [
+        1
+      ],
+      "snow": [
+        1
+      ],
+      "ledge": [
+        1
+      ],
+      "spikes": [
+        1
+      ],
+      "hatch": [
+        1
+      ],
+      "hatch-open": [
+        4,
+        4
+      ]
+    },
+    "note": "The fixed tile set: stone (edge and fill, per tint of the section), snow (slippery), one-way wooden ledge, spikes, cellar hatch. Hitboxes are the tile.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.water",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "C",
+    "states": {
+      "surface": [
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "note": "Bog and mill-race water; deadly below the knight's knees.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.arch",
+    "size": [
+      32,
+      64
+    ],
+    "anchor": [
+      16,
+      64
+    ],
+    "hitbox": [
+      0,
+      0,
+      32,
+      64
+    ],
+    "ink": "P",
+    "states": {
+      "shut": [
+        1
+      ],
+      "rising": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "note": "The courtyard's tapestry door and the summit door (two skins). rising lifts it over thirty ticks as the count is met.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.spark",
+    "size": [
+      12,
+      12
+    ],
+    "anchor": [
+      6,
+      12
+    ],
+    "hitbox": [
+      1,
+      1,
+      10,
+      10
+    ],
+    "ink": "y",
+    "states": {
+      "bob": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "take": [
+        2,
+        2,
+        2
+      ]
+    },
+    "note": "A gold spark; sparkle on take. The coin ping is in the sound.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.ring-spark",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      1,
+      1,
+      14,
+      14
+    ],
+    "ink": "y",
+    "states": {
+      "bob": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "take": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "note": "One of the ring of eight; a ring of light that turns.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.gate",
+    "size": [
+      16,
+      40
+    ],
+    "anchor": [
+      8,
+      40
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      40
+    ],
+    "ink": "R",
+    "states": {
+      "down": [
+        1
+      ],
+      "raise": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "up": [
+        6,
+        6,
+        6
+      ]
+    },
+    "note": "Mid-level checkpoint gate. up flutters its banner; the party returns here.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.flagpole",
+    "size": [
+      24,
+      100
+    ],
+    "anchor": [
+      12,
+      100
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      96
+    ],
+    "ink": "H",
+    "states": {
+      "idle": [
+        1
+      ],
+      "slide": [
+        1
+      ],
+      "fly": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    "note": "The marsh's goal pole. The grabbed height scores; the knight slides down it; the banner climbs.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.great-pole",
+    "size": [
+      64,
+      136
+    ],
+    "anchor": [
+      32,
+      136
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "note": "The hub's Great Pole. Eight peg slots hold the banners; art fills them, rules decide which are up.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.banner",
+    "size": [
+      24,
+      20
+    ],
+    "anchor": [
+      0,
+      20
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "R",
+    "states": {
+      "empty": [
+        1
+      ],
+      "raise": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "fly": [
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "note": "Eight banners, one colour each (banner 1 to 8): blue, red-brown, green, tan, grey, sand, teal, gold. raise is the climb up the pole after an item-get pose. fly is the flutter.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.board",
+    "size": [
+      40,
+      56
+    ],
+    "anchor": [
+      20,
+      56
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "note": "The course board's post in the courtyard; the list itself is drawn by the game's own text.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.sign",
+    "size": [
+      48,
+      24
+    ],
+    "anchor": [
+      24,
+      24
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "idle": [
+        1
+      ]
+    },
+    "note": "Signs: two or three plain words each (RUN. JUMP., SLAM THE FLOOR, HOP HOP HOP, SHIELD UP: E, MIND THE BELL, WHEEL LIFTS).",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.boulder",
+    "size": [
+      36,
+      36
+    ],
+    "anchor": [
+      18,
+      36
+    ],
+    "hitbox": [
+      4,
+      8,
+      28,
+      28
+    ],
+    "ink": "x",
+    "states": {
+      "roll": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "toll": [
+        6,
+        6,
+        6
+      ]
+    },
+    "note": "The bell boulder, a rolling bronze bell on the snow ledge, the bell's lip dark. It is a springboard from above and a hit from the side. toll is the 36-tick warning before one rolls out.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.log",
+    "size": [
+      48,
+      12
+    ],
+    "anchor": [
+      24,
+      12
+    ],
+    "hitbox": [
+      0,
+      0,
+      48,
+      12
+    ],
+    "ink": "o",
+    "states": {
+      "idle": [
+        1
+      ],
+      "rock": [
+        10,
+        10
+      ]
+    },
+    "note": "The riding log on the bog and the mill-race; 48 wide, a platform.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.wheel",
+    "size": [
+      96,
+      96
+    ],
+    "anchor": [
+      48,
+      48
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "o",
+    "states": {
+      "turn": [
+        45,
+        45,
+        45,
+        45,
+        45,
+        45
+      ]
+    },
+    "note": "The waterwheel: radius 40, six buckets, one turn in 270 ticks, clockwise. The six buckets are platforms 28 wide; art draws the spokes and the water and never moves a bucket.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.cinder",
+    "size": [
+      64,
+      80
+    ],
+    "anchor": [
+      32,
+      80
+    ],
+    "hitbox": [
+      4,
+      20,
+      40,
+      60
+    ],
+    "ink": "R",
+    "states": {
+      "dormant": [
+        1
+      ],
+      "rest": [
+        44
+      ],
+      "stomp-tell": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "stomp": [
+        11,
+        11
+      ],
+      "sweep-tell": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "sweep": [
+        7,
+        7
+      ],
+      "embers-tell": [
+        10,
+        10,
+        10
+      ],
+      "embers": [
+        6,
+        6
+      ],
+      "kneel": [
+        150
+      ],
+      "rage": [
+        8,
+        8
+      ],
+      "down": [
+        1
+      ]
+    },
+    "note": "King Cinder, 48 wide, 64 tall standing and 44 kneeling (the hitbox is the standing body's side, a touch from the side hurts). He cannot be hit head on: after a few attacks he kneels, and a slam onto the crown from any knight takes a plate off (a plate per seat; three crowns, each a harder pattern). The head is a platform a knight can stand on. Timings are the first crown's, in ticks: tells run 40 (stomp), 32 (sweep) and 30 (embers), 3 shorter each crown, and a tell is always before the strike; rest is 44 less 6 a crown; kneel is 150 less 20 a crown (never under 70). Art never moves a hazard: the wave, sweep and ember columns are drawn where the rules put them.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.crown",
+    "size": [
+      40,
+      20
+    ],
+    "anchor": [
+      20,
+      20
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "y",
+    "states": {
+      "on": [
+        1
+      ],
+      "plate-off": [
+        3,
+        3,
+        3
+      ],
+      "down": [
+        1
+      ]
+    },
+    "note": "The crown, three of them in turn; plates (one per seat) come off with each slam.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.cinder-wave",
+    "size": [
+      16,
+      16
+    ],
+    "anchor": [
+      8,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "ink": "R",
+    "states": {
+      "tell": [
+        10
+      ],
+      "run": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "The stomp wave along the floor.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.cinder-ember",
+    "size": [
+      20,
+      176
+    ],
+    "anchor": [
+      10,
+      176
+    ],
+    "hitbox": [
+      0,
+      0,
+      20,
+      176
+    ],
+    "ink": "O",
+    "states": {
+      "tell": [
+        10
+      ],
+      "fall": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "A column of embers on a knight's mark.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.fx",
+    "size": [
+      32,
+      32
+    ],
+    "anchor": [
+      16,
+      16
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "H",
+    "states": {
+      "coin": [
+        2,
+        2,
+        2
+      ],
+      "pop": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "dust": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "ring": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "bump": [
+        2,
+        2,
+        2
+      ],
+      "debris": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "gleam": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "smoke": [
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    "note": "Fourteen-tick effects: coin sparkle, snuffer pop and cold smoke, landing dust, the ground-pound ring, a block bump, debris, a gleam, smoke. Solid body layers.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.sky",
+    "size": [
+      384,
+      224
+    ],
+    "anchor": [
+      192,
+      224
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "v",
+    "states": {
+      "night": [
+        1
+      ]
+    },
+    "note": "Parallax layers: stars and the mountain range behind the summit, hills behind the snow, the marsh's reeds, the courtyard's wall and towers. Three layers moving at 1/4, 1/2 and 3/4 of the camera.",
+    "placeholder": true
+  },
+  {
+    "id": "bannerpeak.door",
+    "size": [
+      32,
+      40
+    ],
+    "anchor": [
+      16,
+      40
+    ],
+    "hitbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "ink": "P",
+    "states": {
+      "dull": [
+        1
+      ],
+      "lit": [
+        1
+      ]
+    },
+    "note": "The kingdom door: a pole gate with eight pennons; dull until the mountain has been won once, in the eight colours after. Drawn only while its tile is in view.",
+    "placeholder": true
+  }
+]

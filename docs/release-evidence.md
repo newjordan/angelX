@@ -118,8 +118,8 @@ checksums, path normalization, regular-file type, exact `0644`/`0755` modes,
 zero uid/gid/mtime, zero padding and trailer bytes, and every manifest size and
 SHA-256, then the archive's cockpit source identity against the manifest. It
 writes a fresh temporary tree using exclusive creates and builds it with
-`cargo build --bin angel --no-default-features --release --locked --offline`
-inside Bubblewrap (`/usr/bin/bwrap`). The build receives only the extracted
+`cargo build --bin angel --no-default-features --features glass --release --locked --offline`
+(what the prebuilts ship) inside Bubblewrap (`/usr/bin/bwrap`). The build receives only the extracted
 source, read-only host Cargo executable/registry/git caches (not Cargo
 credentials), the read-only Rust toolchain, and the checksum-pinned `rusty_v8`
 static library at `--v8-archive`; its network namespace is unshared and
@@ -198,7 +198,7 @@ npm run release:verify:advisories -- \
 
 Requires Docker and outbound access to OSV.dev. The verifier freshly extracts
 the release, copies only the exact `cockpit/Cargo.lock`,
-`cockpit/portal-renderer/Cargo.lock`, and `package-lock.json` into the scanner
+`crates/Cargo.lock`, and `package-lock.json` into the scanner
 mount, validates OSV-Scanner `2.3.8` at commit
 `408fcd6f8707999a29e7ba45e15809764cf24f67`, and compares OSV's returned package
 counts with the manifest's per-lockfile counts. Python is explicitly
@@ -221,6 +221,10 @@ carries one package per platform (`angelX-linux-x86_64.tar.gz`,
 unpacked, with `angel` and `angel-sandbox` in `cockpit/target/release/` and a
 `PREBUILT.json` that names the source archive, its manifest and the binary
 digests. `bin/angelX` sees `PREBUILT.json` and runs the shipped binaries.
+They carry angelX's own window (`--features glass`, no video decoding), and
+`PREBUILT.json` says so with `"glass": true`. On a desktop the launcher opens
+the window only for a package that says so; an older one stays in the
+terminal it was typed in.
 
 The binaries are built from the release commit and carry the manifest's source
 and resource identities, so `angel --build-info --json` names the source

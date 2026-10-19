@@ -327,7 +327,7 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         .expect("the host's seat drew");
     assert_eq!(
         (picture.w, picture.h),
-        crate::stage::world_viz::overworld::arena::art_v2::size()
+        crate::stage::world_viz::overworld::arena::seat_size()
     );
 
     // An edit on the host reaches every client.

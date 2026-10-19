@@ -1,0 +1,334 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "4f108ec829745b8c01c1deb9e72888a3fd66ef14a24594dc2917d4cbde380945",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Standing iron-and-timber brazier, tall curling flame.",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.5,
+        478
+      ],
+      "source_rect_xywh": [
+        74,
+        45,
+        277,
+        478
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier with a leaning split flame.",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        139.0,
+        451
+      ],
+      "source_rect_xywh": [
+        444,
+        74,
+        278,
+        451
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier with compact flame and sparks.",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        138.5,
+        394
+      ],
+      "source_rect_xywh": [
+        826,
+        130,
+        277,
+        394
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Enclosed iron miner's lantern with candle.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        97.5,
+        357
+      ],
+      "source_rect_xywh": [
+        1247,
+        169,
+        195,
+        357
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Timber ore barrel/crate with copper and malachite.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.5,
+        367
+      ],
+      "source_rect_xywh": [
+        46,
+        613,
+        313,
+        367
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Rubble pile with bones and ore.",
+      "name": "bones",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        188.0,
+        313
+      ],
+      "source_rect_xywh": [
+        394,
+        666,
+        376,
+        313
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Rock overhang web with hanging iron chain.",
+      "name": "web",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        160.5,
+        386
+      ],
+      "source_rect_xywh": [
+        799,
+        601,
+        321,
+        386
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Broken pick and shovel crossed together.",
+      "name": "prop-0",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        171.0,
+        368
+      ],
+      "source_rect_xywh": [
+        1160,
+        625,
+        342,
+        368
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Small wheeled iron ore cart, loaded with copper and malachite.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        184.0,
+        362
+      ],
+      "source_rect_xywh": [
+        28,
+        1054,
+        368,
+        362
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Ochre fractured-rock decal with glowing copper seam.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        182.5,
+        386
+      ],
+      "source_rect_xywh": [
+        419,
+        1058,
+        365,
+        386
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Dark mineral stain with green malachite flecks.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        173.0,
+        354
+      ],
+      "source_rect_xywh": [
+        812,
+        1090,
+        346,
+        354
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.5
+      },
+      "label": "Warm radial light-pool glow.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        122.0,
+        120.0
+      ],
+      "source_rect_xywh": [
+        1229,
+        1126,
+        244,
+        240
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.mines",
+  "source_sha256": "540712501608385ca02dbcb43e4d3aad1cfa91aaa31cfbff4a844738e2ee3add",
+  "timing": ""
+}
