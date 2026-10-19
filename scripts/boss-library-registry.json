@@ -1,0 +1,1200 @@
+{
+  "iron-tusk-chief": {
+    "class": "chief",
+    "v1": [
+      46,
+      54
+    ],
+    "v2": [
+      82,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "iron-capped lower tusks",
+      "heavy spear",
+      "ore slab buckler"
+    ],
+    "study": {
+      "v1": [
+        [
+          29,
+          34
+        ],
+        [
+          40,
+          47
+        ],
+        [
+          52,
+          61
+        ],
+        [
+          58,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          61,
+          72
+        ],
+        [
+          82,
+          96
+        ],
+        [
+          109,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        352,
+        288
+      ],
+      "v2": [
+        400,
+        256
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "heavy spear",
+      "ore slab buckler"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 34.59 L*, rest presence 93.24%, edge 91.73%. Source body, effect banks and gameplay unchanged."
+  },
+  "cinderjaw": {
+    "class": "guardian",
+    "v1": [
+      64,
+      54
+    ],
+    "v2": [
+      116,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "strapped oak furnace torso",
+      "hinged iron jaw",
+      "belly fire grate"
+    ],
+    "study": {
+      "v1": [
+        [
+          36,
+          30
+        ],
+        [
+          51,
+          42
+        ],
+        [
+          65,
+          54
+        ],
+        [
+          72,
+          60
+        ]
+      ],
+      "v2": [
+        [
+          87,
+          72
+        ],
+        [
+          116,
+          96
+        ],
+        [
+          155,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        432,
+        640
+      ],
+      "v2": [
+        432,
+        416
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "strapped oak furnace torso",
+      "belly fire grate"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 39.34 L*, rest presence 86.10%, edge 86.81%. Source body, effect banks and gameplay unchanged."
+  },
+  "mother-of-spores": {
+    "class": "guardian",
+    "v1": [
+      68,
+      54
+    ],
+    "v2": [
+      120,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "cream and russet umbrella cap",
+      "orange gills",
+      "branching root arms"
+    ],
+    "study": {
+      "v1": [
+        [
+          38,
+          30
+        ],
+        [
+          52,
+          42
+        ],
+        [
+          68,
+          54
+        ],
+        [
+          75,
+          60
+        ]
+      ],
+      "v2": [
+        [
+          90,
+          72
+        ],
+        [
+          120,
+          96
+        ],
+        [
+          160,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        256,
+        768
+      ],
+      "v2": [
+        256,
+        304
+      ]
+    },
+    "cell_moss_mix": 128,
+    "cell_props": [
+      "cream and russet umbrella cap",
+      "branching root arms"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 32.88 L*, rest presence 90.91%, edge 88.89%. Source body, effect banks and gameplay unchanged."
+  },
+  "the-index": {
+    "class": "guardian",
+    "v1": [
+      55,
+      54
+    ],
+    "v2": [
+      98,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "open tome head",
+      "stacked blue books",
+      "folded page mittens"
+    ],
+    "study": {
+      "v1": [
+        [
+          35,
+          34
+        ],
+        [
+          43,
+          42
+        ],
+        [
+          55,
+          54
+        ],
+        [
+          69,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          74,
+          72
+        ],
+        [
+          98,
+          96
+        ],
+        [
+          131,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        256,
+        256
+      ],
+      "v2": [
+        288,
+        256
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "open tome head",
+      "stacked blue books"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 23.63 L*, rest presence 86.54%, edge 82.23%. Source body, effect banks and gameplay unchanged."
+  },
+  "waxen-warden": {
+    "class": "guardian",
+    "v1": [
+      43,
+      54
+    ],
+    "v2": [
+      77,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "twin candle crown",
+      "drooping wax face",
+      "slate blue mantle"
+    ],
+    "study": {
+      "v1": [
+        [
+          27,
+          34
+        ],
+        [
+          34,
+          42
+        ],
+        [
+          43,
+          54
+        ],
+        [
+          55,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          58,
+          72
+        ],
+        [
+          77,
+          96
+        ],
+        [
+          103,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "twin candle crown",
+      "slate blue mantle"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 39.24 L*, rest presence 96.51%, edge 89.05%. Source body, effect banks and gameplay unchanged."
+  },
+  "the-bone-choir": {
+    "class": "guardian",
+    "v1": [
+      49,
+      54
+    ],
+    "v2": [
+      87,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "three skull cluster",
+      "exposed ribcage",
+      "red conductor robe"
+    ],
+    "study": {
+      "v1": [
+        [
+          31,
+          34
+        ],
+        [
+          38,
+          42
+        ],
+        [
+          49,
+          54
+        ],
+        [
+          62,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          65,
+          72
+        ],
+        [
+          87,
+          96
+        ],
+        [
+          116,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "three skull cluster",
+      "red conductor robe"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 22.52 L*, rest presence 81.46%, edge 91.84%. Source body, effect banks and gameplay unchanged."
+  },
+  "crypt-tithe-marshal": {
+    "class": "guardian",
+    "v1": [
+      42,
+      54
+    ],
+    "v2": [
+      75,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "square steel helm",
+      "bone topped staff",
+      "red tithe tabard"
+    ],
+    "study": {
+      "v1": [
+        [
+          27,
+          34
+        ],
+        [
+          33,
+          42
+        ],
+        [
+          42,
+          54
+        ],
+        [
+          53,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          57,
+          72
+        ],
+        [
+          75,
+          96
+        ],
+        [
+          101,
+          128
+        ]
+      ]
+    },
+    "grade": {
+      "v1": [
+        320,
+        320
+      ],
+      "v2": [
+        320,
+        256
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "square steel helm",
+      "red tithe tabard"
+    ],
+    "active": true,
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 30.62 L*, rest presence 88.75%, edge 93.65%. Source body, effect banks and gameplay unchanged."
+  },
+  "archive-bellkeeper": {
+    "class": "guardian",
+    "v1": [
+      44,
+      54
+    ],
+    "v2": [
+      79,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "diving suit body",
+      "bell head clapper",
+      "diver mitten arm",
+      "kelp hose collar"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "diving suit body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 25.97 L*, rest presence 89.16%, edge 87.98%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "crypt-relic-liege": {
+    "class": "guardian",
+    "v1": [
+      51,
+      54
+    ],
+    "v2": [
+      92,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "royal armor coffer",
+      "crowned skull",
+      "near gauntlet",
+      "royal mantle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "royal armor coffer"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.53 L*, rest presence 90.01%, edge 93.03%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "crypt-tax-keeper": {
+    "class": "guardian",
+    "v1": [
+      66,
+      54
+    ],
+    "v2": [
+      117,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "coffer body",
+      "hood mask",
+      "chain arm",
+      "tax satchel"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "coffer body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 27.34 L*, rest presence 86.21%, edge 90.06%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "fungal-rootwarden": {
+    "class": "guardian",
+    "v1": [
+      62,
+      54
+    ],
+    "v2": [
+      110,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "knotted root body",
+      "bark mask antlers",
+      "root mitten arm",
+      "fungal shoulder clump"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "knotted root body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 30.24 L*, rest presence 93.65%, edge 96.08%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "fungal-spore-crown": {
+    "class": "guardian",
+    "v1": [
+      43,
+      54
+    ],
+    "v2": [
+      77,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "violet spore sac",
+      "five cap crown",
+      "fungal mitten arm",
+      "root tendril cluster"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "violet spore sac"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 31.34 L*, rest presence 93.36%, edge 93.65%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "grinwick": {
+    "class": "chief",
+    "v1": [
+      57,
+      54
+    ],
+    "v2": [
+      101,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "boiler body",
+      "porcelain faceplate",
+      "jointed spider leg",
+      "funnel whistle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "boiler body"
+    ],
+    "active": false,
+    "activation_note": "BOSS-ROLL-2: original body retained; grinwick v1 rest ROOM: body floor-contrast coverage. Measured correction in docs/ART-REQUESTS.md."
+  },
+  "hellforge-ash-castellan": {
+    "class": "guardian",
+    "v1": [
+      53,
+      54
+    ],
+    "v2": [
+      94,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "castle torso plinth",
+      "castellan helm",
+      "tower fist arm",
+      "charred pennant"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "castle torso plinth"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 23.04 L*, rest presence 86.19%, edge 86.28%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "hellforge-chain-keeper": {
+    "class": "guardian",
+    "v1": [
+      42,
+      54
+    ],
+    "v2": [
+      74,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "chain armor body",
+      "wedge visor head",
+      "hook chain arm",
+      "shackled fist arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "chain armor body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 25.58 L*, rest presence 86.56%, edge 82.34%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "hellforge-free-captain": {
+    "class": "guardian",
+    "v1": [
+      49,
+      54
+    ],
+    "v2": [
+      87,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "captain armor boots",
+      "crested helm",
+      "cutlass arm",
+      "slag shield arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "captain armor boots"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 28.16 L*, rest presence 87.68%, edge 93.18%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "hellforge-fuel-reeve": {
+    "class": "guardian",
+    "v1": [
+      41,
+      54
+    ],
+    "v2": [
+      73,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "apron armor body",
+      "coal bucket helm",
+      "shovel arm",
+      "fuel hopper"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "apron armor body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.56 L*, rest presence 92.12%, edge 90.46%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "hellforge-slag-sovereign": {
+    "class": "guardian",
+    "v1": [
+      45,
+      54
+    ],
+    "v2": [
+      80,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "molten armor body",
+      "five prong crown head",
+      "slag gauntlet",
+      "slag mantle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "molten armor body"
+    ],
+    "active": false,
+    "activation_note": "BOSS-ROLL-2: original body retained; hellforge-slag-sovereign/v1/windup: key_colour_agreement 0.8921 < 0.9; hellforge-slag-sovereign/v2/windup: key_colour_agreement 0.8814 < 0.9. Measured correction in docs/ART-REQUESTS.md."
+  },
+  "late-fee-leviathan": {
+    "class": "guardian",
+    "v1": [
+      43,
+      54
+    ],
+    "v2": [
+      77,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "barnacled body",
+      "fish face beard",
+      "anchor claw arm",
+      "soggy book claw"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "barnacled body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 37.77 L*, rest presence 91.31%, edge 91.80%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "red-pick-chief": {
+    "class": "chief",
+    "v1": [
+      38,
+      54
+    ],
+    "v2": [
+      67,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "powder harness body",
+      "red scarf head",
+      "pickaxe arm",
+      "powder keg"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "powder harness body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 32.67 L*, rest presence 92.87%, edge 90.85%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "salvage-claimant": {
+    "class": "chief",
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      89,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "dredger armor body",
+      "brass diving head",
+      "dredger claw arm",
+      "boat pole arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "dredger armor body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 23.04 L*, rest presence 87.68%, edge 91.04%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "shoggoth-heart": {
+    "class": "guardian",
+    "v1": [
+      58,
+      54
+    ],
+    "v2": [
+      104,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "jelly body",
+      "three eye face",
+      "club tentacle",
+      "mint heart crystal"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "jelly body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 30.38 L*, rest presence 90.92%, edge 92.38%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "the-big-ripper": {
+    "class": "chief",
+    "v1": [
+      55,
+      54
+    ],
+    "v2": [
+      97,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "round bog body",
+      "brow mouth face",
+      "stubby arm",
+      "gold crown medallion"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "round bog body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 30.86 L*, rest presence 94.33%, edge 93.52%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "the-foreman": {
+    "class": "chief",
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      88,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "harness torso boots",
+      "goblin lamp head",
+      "left whip arm",
+      "right whip arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "harness torso boots"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 31.25 L*, rest presence 86.98%, edge 91.09%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "unknown-memory-warden": {
+    "class": "guardian",
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      89,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "slate tablet body",
+      "single eye mask",
+      "floating arm block",
+      "broken memory halo"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "slate tablet body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.51 L*, rest presence 86.61%, edge 91.26%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  },
+  "unknown-silence-warden": {
+    "class": "guardian",
+    "v1": [
+      51,
+      54
+    ],
+    "v2": [
+      91,
+      96
+    ],
+    "anchor": "bottom-centre",
+    "props": [
+      "muffled stone body",
+      "sealed visor",
+      "stone mitten arm",
+      "muffling stole"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "muffled stone body"
+    ],
+    "active": true,
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 29.50 L*, rest presence 90.38%, edge 87.97%. Four-seat native/cell evidence retained; collision and timing unchanged."
+  }
+}

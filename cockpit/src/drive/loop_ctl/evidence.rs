@@ -650,6 +650,46 @@ pub(crate) fn says_done(reply: &str) -> bool {
     })
 }
 
+/// Whether an operator note asks the run itself to wrap up or stop. Only such
+/// a note lets a done claim end a loop that has no acceptance command; any
+/// other note (a hint, a pasted submission write-up, "stop the S5247
+/// research") leaves the run going.
+pub(crate) fn asks_wrap_up(note: &str) -> bool {
+    let lower = note.to_lowercase().replace('’', "'");
+    let words: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty())
+        .collect();
+    let at = |i: usize| words.get(i).copied();
+    let run = |w: Option<&str>| {
+        matches!(
+            w,
+            Some("loop" | "looping" | "run" | "running" | "session" | "comp" | "competition")
+        )
+    };
+    words.iter().enumerate().any(|(i, &w)| match w {
+        "wrapup" => true,
+        "wrap" => at(i + 1) == Some("up") || at(i + 2) == Some("up"),
+        "stop" | "end" => {
+            let negated = i > 0
+                && matches!(
+                    words[i - 1],
+                    "don't" | "dont" | "not" | "never" | "no" | "won't" | "wont"
+                );
+            let whole_run = match at(i + 1) {
+                None => w == "stop",
+                Some("now" | "here" | "there" | "after" | "once" | "when" | "it" | "please") => {
+                    w == "stop"
+                }
+                Some("the" | "this" | "your") => run(at(i + 2)),
+                next => run(next),
+            };
+            !negated && whole_run
+        }
+        _ => false,
+    })
+}
+
 /// Rough token estimate (≈4 chars/token) for the cumulative budget guard.
 pub(crate) fn est_tokens(s: &str) -> usize {
     s.len() / 4

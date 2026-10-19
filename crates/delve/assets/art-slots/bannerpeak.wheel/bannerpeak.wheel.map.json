@@ -1,0 +1,162 @@
+{
+  "anchor_canvas_wh": [
+    96,
+    96
+  ],
+  "anchor_xy": [
+    48,
+    48
+  ],
+  "comments": [
+    "One bank on the hub: six frames share one scale and the hub at the canvas centre (the 6-bucket / 8-spoke wheel is point symmetric, so the alpha box centre is the hub).",
+    "Left off (runtime false): the painted buckets and the rules' platforms visibly disagree. The rules' six 28 px planks sit at radius 40 on a clockwise 270-tick turn; the six frames are 0, 9, 13, 21, 30 and 37 degrees (nothing past 37 of the 60 a bucket repeats in), so the nearest frame is up to about 12 degrees off a platform, the painted paddles are radial where a knight stands on a flat plank, the planks peek out round them, and a knight on a bottom bucket stands in front of the spokes. See the review pictures in the import report."
+  ],
+  "delivered_pieces": 6,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 6,
+  "geometry": "The rules own six 28 px bucket platforms at radius 40, one turn in 270 ticks, clockwise; art never moves a bucket or sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the same wheel turned clockwise about 0, 9, 13, 21, 30 and 37 degrees (uneven, per the producer note).",
+  "notes_sha256": "67e4ebefed613d5109f095dd1c2ea8ad785cfbad5c1a50aa7d4dab7cef5cab01",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "turn-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        205.5,
+        212.5
+      ],
+      "source_rect_xywh": [
+        59,
+        47,
+        411,
+        425
+      ],
+      "state": "turn",
+      "ticks": 45
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "No delivered reading-order label",
+      "name": "turn-1",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        212.0,
+        210.5
+      ],
+      "source_rect_xywh": [
+        563,
+        47,
+        424,
+        421
+      ],
+      "state": "turn",
+      "ticks": 45
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "No delivered reading-order label",
+      "name": "turn-2",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        214.5,
+        212.0
+      ],
+      "source_rect_xywh": [
+        1079,
+        48,
+        429,
+        424
+      ],
+      "state": "turn",
+      "ticks": 45
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "No delivered reading-order label",
+      "name": "turn-3",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        218.5,
+        207.5
+      ],
+      "source_rect_xywh": [
+        50,
+        550,
+        437,
+        415
+      ],
+      "state": "turn",
+      "ticks": 45
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "No delivered reading-order label",
+      "name": "turn-4",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        216.0,
+        201.0
+      ],
+      "source_rect_xywh": [
+        563,
+        558,
+        432,
+        402
+      ],
+      "state": "turn",
+      "ticks": 45
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "No delivered reading-order label",
+      "name": "turn-5",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        217.0,
+        208.5
+      ],
+      "source_rect_xywh": [
+        1070,
+        547,
+        434,
+        417
+      ],
+      "state": "turn",
+      "ticks": 45
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 96x96, anchor centre (48,48); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      96,
+      96
+    ],
+    "v2": [
+      96,
+      96
+    ]
+  },
+  "slot": "bannerpeak.wheel",
+  "source_sha256": "6b6937fee30f149d22d161a94b9087858c4f8e46d982f9d4c1ccbe941832fa26",
+  "timing": "turn 6x45 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

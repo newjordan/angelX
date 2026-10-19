@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "d01d2e13ba2f4445001667c939ac090246b27a119576d252b869f0f7ee0a127b",
+  "metadata_sha256": "66f996a453495afe730dde78c426e6f41e80533deb768984613d6e3af21538fc",
+  "notes_sha256": "8fd5b3ff52ed3e4b3b61c253ab52b524e254181d78a4119a92fd5a8f7efdb401",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "20fea96b939c971629f4f609a133ccadba06cb37e66f42c59cd939cbafae1f3f",
+      "source_scale": 0.23382045929018788,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        384,
+        224
+      ],
+      "approved": true,
+      "canvas_wh": [
+        768,
+        448
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 21504,
+      "opaque_pixels": 344064,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "1e7a7ece2d5a374af3d8b6ef22d5e98d883acbd610bb894ae1e1b2456499e561",
+      "source_scale": 0.46764091858037576,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "brasswake.entrance",
+  "source_path": "/work/tmp/int-4-prepared/brasswake.entrance/source-sheet.png",
+  "source_sha256": "722a8fae4e0a2e2f04610f6ed15bc1725a8de361cf664bc411752cda06226ff1",
+  "tool_version": 2
+}

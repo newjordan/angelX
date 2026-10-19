@@ -1,0 +1,13 @@
+# Badger's Bothy: the sett, a turfed mound over the back with a round door in
+# its slope, a thatched porch and a tall stone chimney; a woodshed east.
+sphere   grass   at 92 0 -10 size 124 46 52 id bothy-mound
+arch-6   stone   at 92 0 11.5 size 34 32 8 id bothy-door-arch
+box      door    at 92 0 13.3 size 18 21 1.5 id bothy-door
+wedge    thatch  at 92 32 8 size 50 14 16 id bothy-porch
+box      stone   at 114 36 -12 size 12 32 12 id bothy-chimney
+cylinder stone   at 114 68 -12 size 8 8 8 id bothy-chimney-pot
+box      wood    at 310 0 4 size 66 22 24 id bothy-woodshed
+gable    thatch  at 310 22 4 size 72 14 24 id bothy-woodshed-roof
+box      trunk   at 290 0 15 size 14 6 2.5 id bothy-logs-1
+box      trunk   at 308 0 15 size 14 6 2.5 id bothy-logs-2
+box      trunk   at 299 6 15 size 14 6 2.5 id bothy-logs-3

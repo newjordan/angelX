@@ -1,0 +1,192 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    9,
+    28
+  ],
+  "pieces": [
+    {
+      "name": "idle-down-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-down-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-down-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-down-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-down-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-up-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-up-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-up-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-left-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-left-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-left-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-left-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "walk-right-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-right-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-right-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "walk-right-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "talk-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "talk-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "work-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "work-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "work-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "work-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "look-up-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "raise-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "raise-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    },
+    {
+      "name": "raise-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 8
+    }
+  ]
+}

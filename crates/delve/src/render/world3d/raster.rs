@@ -73,6 +73,93 @@ impl Firelight {
     }
 }
 
+/// Surfaces a scene may paint for itself, laid over the shared material
+/// table: per material, a table sampled exactly like the baked one (256 by 256
+/// samples, 32 to a world unit, wrapping), so one scene can give its rock or
+/// its stone a painted look without any other scene's rock changing. Only the
+/// base colour is replaced: the material's fog resistance, its emissive flag
+/// and all the lighting stay the shared ones. A painted table is nearest
+/// sampled like the shared one, but a dot far enough away reads a coarser copy
+/// of it (each half the side of the last, a box average), so a painted wall
+/// does not shimmer where a texel is smaller than a dot. It is opt-in and
+/// default off: every caller that does not hand one over ([`render_meshes`]
+/// and the rest) runs the shared table and nothing else.
+#[derive(Clone, Debug)]
+pub struct Painted {
+    tables: Vec<Option<Mips>>,
+    /// The depth, in world units, from which each coarser copy is read.
+    pub coarser_from: [f32; 3],
+}
+
+/// A painted table and its coarser copies: 256, 128, 64 and 32 on a side.
+#[derive(Clone, Debug)]
+struct Mips([Box<[[u8; 3]]>; 4]);
+
+impl Default for Painted {
+    fn default() -> Painted {
+        Painted {
+            tables: Vec::new(),
+            coarser_from: [14.0, 28.0, 56.0],
+        }
+    }
+}
+
+impl Painted {
+    /// How many samples a painted table is on a side.
+    pub const SIDE: usize = 256;
+
+    pub fn new() -> Painted {
+        Painted::default()
+    }
+
+    /// Lay `table` (`SIDE * SIDE` base colours, row by row) over `material`.
+    /// The moonlight and the torch pool are not baked in a table, so they
+    /// cannot be painted.
+    pub fn set(&mut self, material: u8, table: Vec<[u8; 3]>) {
+        assert_eq!(
+            table.len(),
+            Self::SIDE * Self::SIDE,
+            "a painted table is {0} by {0}",
+            Self::SIDE
+        );
+        assert!(
+            material != mat::MOONLIGHT && material != mat::TORCH_POOL,
+            "material {material} is not a baked table"
+        );
+        let mut levels = vec![table.into_boxed_slice()];
+        for k in 1..4 {
+            let side = Self::SIDE >> k;
+            let above = &levels[k - 1];
+            let mut level = Vec::with_capacity(side * side);
+            for y in 0..side {
+                for x in 0..side {
+                    let at = |dx: usize, dy: usize| above[(y * 2 + dy) * (side * 2) + x * 2 + dx];
+                    let four = [at(0, 0), at(1, 0), at(0, 1), at(1, 1)];
+                    level.push(std::array::from_fn(|c| {
+                        ((four.iter().map(|p| u32::from(p[c])).sum::<u32>() + 2) / 4) as u8
+                    }));
+                }
+            }
+            levels.push(level.into_boxed_slice());
+        }
+        let at = usize::from(material);
+        if self.tables.len() <= at {
+            self.tables.resize(at + 1, None);
+        }
+        let [a, b, c, d]: [Box<[[u8; 3]]>; 4] = levels.try_into().expect("four levels");
+        self.tables[at] = Some(Mips([a, b, c, d]));
+    }
+
+    /// The base colour of `material` at sample `(x, y)` (0 to `SIDE`) seen at
+    /// `depth`, when this scene paints it.
+    fn sample(&self, material: u8, x: usize, y: usize, depth: f32) -> Option<[u8; 3]> {
+        let mips = self.tables.get(usize::from(material))?.as_ref()?;
+        let level = self.coarser_from.iter().filter(|&&d| depth >= d).count();
+        let side = Self::SIDE >> level;
+        Some(mips.0[level][(y >> level) * side + (x >> level)])
+    }
+}
+
 /// Which emissives are *fire* — the only surfaces [`Firelight`] touches.
 fn flickers(material: u8) -> bool {
     matches!(material, mat::FIRE | mat::FLAME | mat::EMBER | mat::TORCH_POOL)
@@ -331,6 +418,22 @@ pub fn render_meshes(
     fog: f32,
     backdrop: Backdrop,
 ) -> (image::RgbaImage, Vec<f32>) {
+    render_meshes_painted(meshes, view, dot_w, dot_h, fire, fog, backdrop, None)
+}
+
+/// [`render_meshes`] with a scene's own [`Painted`] surfaces over the shared
+/// material table; `None` is `render_meshes` exactly.
+#[allow(clippy::too_many_arguments)]
+pub fn render_meshes_painted(
+    meshes: &[&Mesh],
+    view: &View3,
+    dot_w: usize,
+    dot_h: usize,
+    fire: Firelight,
+    fog: f32,
+    backdrop: Backdrop,
+    painted: Option<&Painted>,
+) -> (image::RgbaImage, Vec<f32>) {
     if dot_w == 0 || dot_h == 0 {
         return (RgbaImage::new(dot_w as u32, dot_h as u32), Vec::new());
     }
@@ -362,7 +465,7 @@ pub fn render_meshes(
                 for px in 0..dot_w {
                     let index = local * dot_w + px;
                     let color = if depth[index].is_finite() {
-                        surface[index].shade(uv[index], depth[index], fire, fog)
+                        surface[index].shade_with(uv[index], depth[index], fire, fog, painted)
                     } else {
                         match backdrop {
                             Backdrop::Night => sky_color(camera.ray(px, py)),
@@ -806,7 +909,19 @@ impl Surface {
     }
 
     fn shade(self, uv: [f32; 2], depth: f32, fire: Firelight, fog: f32) -> [u8; 3] {
-        let (base, fog_resistance, emissive) = material_sample(self.mat, uv);
+        self.shade_with(uv, depth, fire, fog, None)
+    }
+
+    fn shade_with(
+        self,
+        uv: [f32; 2],
+        depth: f32,
+        fire: Firelight,
+        fog: f32,
+        painted: Option<&Painted>,
+    ) -> [u8; 3] {
+        let (base, fog_resistance, emissive) =
+            material_sample_with(self.mat, uv, depth, painted);
         if emissive {
             // Lit windows are the one thing that punches through the haze —
             // but not all fires are one fire. A forge throat has to outburn a
@@ -899,6 +1014,17 @@ fn fog_amount(depth: f32, distance: f32) -> f32 {
 /// cost two coordinates and a lookup in a live frame, never noise interpolation
 /// or trigonometry per dot. Light pools retain their nonrepeating radial UVs.
 fn material_sample(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
+    material_sample_with(material, uv, 0.0, None)
+}
+
+/// [`material_sample`], with a scene's own [`Painted`] base colours over the
+/// shared table where it has them.
+fn material_sample_with(
+    material: u8,
+    uv: [f32; 2],
+    depth: f32,
+    painted: Option<&Painted>,
+) -> ([u8; 3], f32, bool) {
     const SIDE: usize = 256;
     const MATERIALS: usize = mat::FLAME as usize + 1;
     static TEXTURES: std::sync::OnceLock<Vec<Vec<[u8; 3]>>> = std::sync::OnceLock::new();
@@ -941,6 +1067,9 @@ fn material_sample(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
     let (x, y) = (coordinate(uv[0]), coordinate(uv[1]));
     let texture = textures.get(usize::from(material)).unwrap_or(&textures[0]);
     let &(resistance, emissive) = info.get(usize::from(material)).unwrap_or(&info[0]);
+    if let Some(base) = painted.and_then(|p| p.sample(material, x, y, depth)) {
+        return (base, resistance, emissive);
+    }
     (texture[y * SIDE + x], resistance, emissive)
 }
 

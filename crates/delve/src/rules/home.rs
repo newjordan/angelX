@@ -53,7 +53,7 @@ pub enum Station {
     /// Dame Fortune's wheel: more wedges, more ways down.
     Wheel,
     /// The Herald's coffer in Fortune's hall: the boxes achievements earn,
-    /// opened before the audience.
+    /// opened at the coffer.
     Coffer,
     /// Grubbins' stall in the Training Yard: its three wares.
     StallA,
@@ -285,7 +285,7 @@ pub const LADDERS: &[Ladder] = &[
             },
             Rung {
                 price: &[(Gold, 1200), (Gem, 8), (Scale, 2)],
-                says: "Ironman, Sponsors, Hollows",
+                says: "Ironman, Hollows",
                 needs: 4,
             },
         ],
@@ -296,6 +296,13 @@ pub const LADDERS: &[Ladder] = &[
 /// party has reached, and the landing the stair takes them to.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Home {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub siege_campaign_begun: bool,
+    /// What the Round Table adventures settled into the realm: a word of
+    /// flags each, in `roundtable::ADVENTURES` order, the bits each its own
+    /// (set in the adventure's `settle`).
+    #[serde(default, skip_serializing_if = "super::roundtable::unsaved")]
+    pub roundtable: [u32; 5],
     #[serde(default = "super::gear::legacy_wardrobe", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wardrobe: super::gear::Wardrobe,
     /// What knights have scratched on the privy wall, newest last; it stays
@@ -323,10 +330,6 @@ pub struct Home {
     /// and open his stall.
     #[serde(default)]
     pub goblins: u32,
-    /// The realm's best show: the most viewers a delve has had, in
-    /// thousands.
-    #[serde(default)]
-    pub best_show: u32,
     /// The Trophy Hall: how often the party has felled each guardian (by
     /// its id; the dragon is `dragon`) and found the Grail (`grail`).
     #[serde(default)]
@@ -341,6 +344,14 @@ pub struct Home {
     /// Ector has taught them.
     #[serde(default)]
     pub knights: BTreeMap<String, super::talents::Prowess>,
+    /// The school of the seven banners: missions, ranks and earned gear,
+    /// each knight by name.
+    #[serde(default)]
+    pub school: super::school::School,
+    /// The Fellowship of the Carried Fire: each knight's questline
+    /// progress, kept by name beside the school's rank.
+    #[serde(default)]
+    pub questlines: super::questline::Progress,
     /// Wren's board: the bounties pinned to it, and how often she has paid
     /// each.
     #[serde(default)]

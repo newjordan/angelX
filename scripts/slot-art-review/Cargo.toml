@@ -1,0 +1,29 @@
+[package]
+name = "slot-art-review"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "slot-art-review"
+path = "main.rs"
+
+[[bin]]
+name = "slot-entry-review"
+path = "entry.rs"
+
+[[bin]]
+name = "mossbell-fit-review"
+path = "mossbell_fit.rs"
+
+[dependencies]
+angel-delve = { path = "../../crates/delve", features = ["testing"] }
+ratatui = { version = "0.30.2", default-features = false }
+serde_json = "1"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+
+[[bin]]
+name = "entrance-review"
+path = "entrance.rs"

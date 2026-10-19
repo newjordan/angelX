@@ -41,6 +41,14 @@ const MOLE_REACH: f32 = 2.2;
 /// A pavise's wind-up, and the arc its shield covers, in degrees.
 pub const PAVISE_WINDUP: u32 = 22;
 pub const PAVISE_ARC: f32 = 70.0;
+/// A raised shield that has turned this share of its bearer's health in
+/// shots, in percent, is knocked aside (the user, 2026-10-18: "shield guys
+/// should have a damage threshold they drop their shield for a second").
+pub const GUARD_BREAK: u32 = 34;
+/// How long a knocked-aside shield stays down: a second.
+pub const GUARD_DOWN: u32 = HZ;
+/// How long a pavise pants with its shield low after a bash.
+const PAVISE_PANT: u32 = 44;
 /// A marksman's aim: how long, and when its line stops following.
 pub const AIM_TICKS: u32 = 42;
 pub const AIM_LOCK: u32 = 28;
@@ -83,7 +91,7 @@ impl EnemyKind {
 impl Enemy {
     /// A mole under the floor: nothing shoots it, nothing touches it.
     pub fn buried(&self) -> bool {
-        self.kind == EnemyKind::Mole && matches!(self.stage, 1 | 2)
+        (self.kind == EnemyKind::Mole && matches!(self.stage, 1 | 2)) || self.sunk()
     }
 
     /// What its plain touch does: twelve, but the swarm's little ones less.
@@ -105,10 +113,12 @@ impl Enemy {
     pub fn hurts_by_touch(&self) -> bool {
         !self.buried()
             && !self.latched()
+            // A charge-up's dash strikes with its sweep, once a knight.
+            && !(self.signature.blow != 0 && self.stage == signatures::DASH)
             && !(self.signature.active
                 && matches!(
                     self.stage,
-                    signatures::TELL | signatures::JUMP | signatures::DAZED
+                    signatures::TELL | signatures::JUMP | signatures::DAZED | signatures::WIND
                 ))
     }
 
@@ -116,6 +126,20 @@ impl Enemy {
     pub fn shield_up(&self) -> Option<(f32, f32)> {
         (self.kind == EnemyKind::Pavise && self.stage < 3).then_some(self.dir)
     }
+}
+
+/// A shot of `damage` turned by `enemy`'s raised shield: it counts toward a
+/// guard break. Returns whether this one knocked the shield aside, which
+/// leaves the bearer shield-low for `GUARD_DOWN`, as after its own bash.
+pub(super) fn guard_struck(enemy: &mut Enemy, damage: u32) -> bool {
+    enemy.guard = enemy.guard.saturating_add(damage.max(1));
+    if enemy.guard * 100 < enemy.max_hp.max(1) * GUARD_BREAK {
+        return false;
+    }
+    enemy.guard = 0;
+    enemy.stage = 3;
+    enemy.timer = PAVISE_PANT.saturating_sub(GUARD_DOWN);
+    true
 }
 
 /// Whether a knight's shot, flying `(vx, vy)`, meets this monster's raised
@@ -422,7 +446,8 @@ pub(super) fn act(
             }
             // Shield low, panting: the moment to hit it from the front.
             _ => {
-                if enemy.timer >= 44 {
+                enemy.guard = 0;
+                if enemy.timer >= PAVISE_PANT {
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
@@ -681,7 +706,7 @@ fn clear_line(grid: &Grid, a: (f32, f32), b: (f32, f32)) -> bool {
     let steps = ((b.0 - a.0).hypot(b.1 - a.1) / 0.5).ceil().max(1.0) as i32;
     (1..steps).all(|k| {
         let t = k as f32 / steps as f32;
-        !grid.stops_shot(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
+        !grid.stops_body(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, super::patterns::BODY)
     })
 }
 
@@ -691,7 +716,7 @@ impl Run {
         for (x, y) in doings.erupts {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if (hero.x - x).hypot(hero.y - y) < MOLE_REACH {
                     hero.hurt(22);
                     let (ux, uy) = unit(hero.x - x, hero.y - y);
@@ -716,14 +741,16 @@ impl Run {
         for ((x, y), (dx, dy)) in doings.bashes {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            let mut held = Vec::new();
+            for (&id, hero) in self.players.iter_mut().filter(|(_, h)| h.targetable()) {
                 let (rx, ry) = (hero.x - x, hero.y - y);
                 let d = rx.hypot(ry);
                 if d < 2.8 && (rx * dx + ry * dy) / d.max(0.001) > 0.3 {
-                    // A raised shield facing the bash takes it.
-                    let facing = -(dx * hero.aim_x + dy * hero.aim_y);
-                    if hero.shielding && facing >= SHIELD_ARC.to_radians().cos() {
-                        self.sounds.push("shield_block");
+                    // A raised shield facing the bash takes it: steel on
+                    // steel at its face (`shield`).
+                    if super::shield::turns(hero, (dx, dy)) {
+                        let at = super::shield::face(hero, (hero.x, hero.y), (x, y));
+                        held.push((id, at, (at.0 - hero.x, at.1 - hero.y)));
                     } else {
                         hero.hurt(20);
                         (hero.x, hero.y) = grid.slide(
@@ -735,6 +762,9 @@ impl Run {
                         self.sounds.push("hero_hurt");
                     }
                 }
+            }
+            for (id, at, out) in held {
+                self.shield_block(id, at, out, (dx, dy), Shot::Blade, 3);
             }
             self.critters.flash(Fx::Bash, x, y, (dx, dy));
             self.sounds.push("shield_block");
@@ -767,7 +797,7 @@ impl Run {
         for (x, y, reach, (dx, dy)) in doings.rams {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < reach {
                     hero.hurt(18);
                     let (sx, sy) = (-dy, dx);
@@ -801,7 +831,7 @@ impl Run {
         }
         self.critters.globs.retain(|g| g.fall > 0);
         for (x, y) in landed {
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if (hero.x - x).hypot(hero.y - y) < PUDDLE_REACH {
                     hero.hurt(10);
                 }
@@ -821,7 +851,7 @@ impl Run {
         }
         self.critters.puddles.retain(|p| p.left > 0);
         for puddle in &self.critters.puddles {
-            for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
                 if (hero.x - puddle.x).hypot(hero.y - puddle.y) < PUDDLE_REACH
                     && hero.rolling().is_none()
                 {
@@ -837,7 +867,7 @@ impl Run {
         let standing: Vec<(u32, f32, f32)> = self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone)
+            .filter(|(_, h)| h.targetable())
             .map(|(&id, h)| (id, h.x, h.y))
             .collect();
         let barred = self.barred();
@@ -845,7 +875,7 @@ impl Run {
             room: &self.dungeon.rooms[self.at],
             barred,
         };
-        for enemy in self.enemies.iter_mut().filter(|e| e.hp > 0 && e.latched()) {
+        for enemy in self.enemies.iter_mut().filter(|e| e.hp > 0 && e.latched() && !e.asleep(self.tick)) {
             let Some(&(id, ..)) = standing.iter().min_by(|a, b| {
                 (a.1 - enemy.x)
                     .hypot(a.2 - enemy.y)
@@ -901,7 +931,7 @@ impl Run {
                     (x + dx).clamp(2.5, room.width() - 2.5),
                     (y + dy).clamp(2.5, room.height() - 2.5),
                 );
-                if room.tile((px / TILE_UNITS) as i32, (py / TILE_UNITS) as i32) == Tile::Floor
+                if room.tile((px / TILE_UNITS) as i32, (py / TILE_UNITS) as i32).ground()
                     && self.spawn_at(EnemyKind::Biter, px, py).is_some()
                     && let Some(enemy) = self.enemies.last_mut()
                 {

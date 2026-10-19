@@ -933,12 +933,14 @@ pub fn colosseum() -> Img {
         im.ellipse(80.0, 44.0, rx, ry, ink);
         im.ellipse(80.0, 42.0, rx - 3.0, ry - 2.0, 'S');
     }
-    im.ellipse(80.0, 43.0, 47.0, 21.0, 'O');
-    im.ellipse(80.0, 42.0, 43.0, 18.0, 't');
+    // The sand at dusk: a dark rim, the floor a brown under the night,
+    // grains a step warmer.
+    im.ellipse(80.0, 43.0, 47.0, 21.0, 'B');
+    im.ellipse(80.0, 42.0, 43.0, 18.0, 'P');
     for y in 26..59 {
         for x in 37..123 {
-            if im.get(x, y) == super::ink::ink('t') && hash(x, y, 204).is_multiple_of(9) {
-                im.put(x, y, 'o');
+            if im.get(x, y) == super::ink::ink('P') && hash(x, y, 204).is_multiple_of(9) {
+                im.put(x, y, 'r');
             }
         }
     }
@@ -962,7 +964,7 @@ pub fn colosseum() -> Img {
         im.line(x + 3, 45, x + 3, 56, 't');
         im.line(x + 1, 50, x + 6, 50, 't');
     }
-    im
+    super::light::at_dusk(&im)
 }
 
 pub fn observatory(active: bool) -> Img {
@@ -1224,7 +1226,8 @@ pub fn lists_ground() -> Img {
     for x in (34..158).step_by(12) {
         im.rect(x, 44, 2, 5, 'b');
     }
-    im
+    // Bunting, crowd and barrier at dusk: cloth, not lamps.
+    super::light::at_dusk(&im)
 }
 
 /// A pavilion for a house of the tournament.
@@ -1255,7 +1258,9 @@ pub fn tent(house: Heraldry) -> Img {
     im.rect(13, 0, 5, 3, c1);
     im.put(12, 19, '4');
     im = shaded_rim(&im);
-    im
+    // Striped canvas at dusk: the house's colours as dyed cloth, never as
+    // the signal inks a rider or a board wears for the joust itself.
+    super::light::at_dusk(&im)
 }
 
 pub fn quintain(active: bool, tick: u32) -> Img {
@@ -1296,9 +1301,9 @@ pub fn board(rows: &[(String, u32, Heraldry)]) -> Img {
         let y = 3 + i as i32 * 9;
         im.rect(4, y + 2, 3, 3, house.inks().0);
         let name: String = name.chars().take(4).collect();
-        im.text(9, y, &name.to_uppercase(), '9');
+        im.text(9, y, &name.to_uppercase(), 'i');
         let s = (*score).min(99).to_string();
-        im.text(50 - super::ink::text_width(&s), y, &s, '9');
+        im.text(50 - super::ink::text_width(&s), y, &s, 'i');
     }
     im
 }
@@ -1418,8 +1423,8 @@ pub fn door_sign(name: &str, opens: bool) -> Img {
     let w = tw.max(ew) + 8;
     let mut im = Img::new(w + 1, 21);
     chrome::panel(&mut im, (0, 0, w, 20), chrome::Tone::FRAMED);
-    im.text((w - ew) / 2, 3, "ENTER", '4');
-    im.text((w - tw) / 2, 11, &text, '9');
+    im.text((w - ew) / 2, 3, "ENTER", 'O');
+    im.text((w - tw) / 2, 11, &text, 'i');
     im
 }
 
@@ -1437,8 +1442,8 @@ pub fn waiting_sign(place: &str, at_door: bool) -> Img {
     let mut im = Img::new(w + 1, 21);
     let tone = if frame == '4' { chrome::Tone::FRAMED } else { chrome::Tone::SIGN };
     chrome::panel(&mut im, (0, 0, w, 20), tone);
-    im.text((w - tw) / 2, 3, &top, if at_door { '4' } else { 'h' });
-    im.text((w - bw) / 2, 11, &bottom, '9');
+    im.text((w - tw) / 2, 3, &top, if at_door { 'O' } else { 'h' });
+    im.text((w - bw) / 2, 11, &bottom, 'i');
     im
 }
 
@@ -1680,7 +1685,7 @@ pub fn realm_sign(name: &str, short: bool) -> Img {
     let w = super::ink::text_width(&text) + 6;
     let mut im = Img::new(w + 1, 12);
     chrome::panel(&mut im, (0, 0, w, 11), chrome::Tone::NIGHT_SIGN);
-    im.text(3, 2, &text, '9');
+    im.text(3, 2, &text, 'i');
     im
 }
 
@@ -1691,7 +1696,7 @@ pub fn district_sign(name: &str) -> Img {
     let w = super::ink::text_width(&text) + 6;
     let mut im = Img::new(w + 1, 12);
     chrome::panel(&mut im, (0, 0, w, 11), chrome::Tone::SIGN);
-    im.text(3, 2, &text, '9');
+    im.text(3, 2, &text, 'i');
     im
 }
 

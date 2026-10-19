@@ -22,6 +22,7 @@ pub mod chrome;
 pub mod college;
 pub mod clerks;
 pub mod deeds;
+pub mod dressing;
 pub mod glass;
 pub mod ground;
 pub mod ink;
@@ -33,6 +34,7 @@ pub mod material;
 pub mod outcomes;
 pub mod scene;
 pub mod school;
+pub mod signs;
 pub mod sky;
 pub mod wishes;
 
@@ -68,11 +70,22 @@ impl View {
         }
     }
 
-    /// The screen holding a world point.
+    /// The screen holding a world point: the set piece it stands in, whole,
+    /// or out in the open country a screen's worth round it.
     pub fn screen_at(x: f32, y: f32) -> View {
-        let sx = ((x as i32).div_euclid(SCREEN_W * TILE)).clamp(0, map::SCREENS_X - 1);
-        let sy = ((y as i32).div_euclid(SCREEN_H * TILE)).clamp(0, map::SCREENS_Y - 1);
-        View::screen(sx, sy)
+        let (tx, ty) = ((x as i32).div_euclid(TILE), (y as i32).div_euclid(TILE));
+        let piece = map::set_pieces().find(|&(_, (ox, oy))| {
+            (ox..ox + SCREEN_W).contains(&tx) && (oy..oy + SCREEN_H).contains(&ty)
+        });
+        match piece {
+            Some((_, (ox, oy))) => View {
+                x: ox * TILE,
+                y: oy * TILE,
+                w: SCREEN_W * TILE,
+                h: SCREEN_H * TILE,
+            },
+            None => View::around(x, y, SCREEN_W * TILE, SCREEN_H * TILE),
+        }
     }
 
     /// The whole realm.
@@ -111,10 +124,12 @@ impl View {
 }
 
 fn rock_kind(tx: i32, ty: i32) -> RockKind {
-    let (sx, sy) = (tx / SCREEN_W, ty / SCREEN_H);
-    match (sx, sy) {
-        (2, 0) | (3, 0) | (2, 1) | (3, 1) => RockKind::Ore,
-        (4, 0) | (5, 0) | (4, 1) | (5, 1) => RockKind::Char,
+    use crate::world::biome::{self, Biome};
+    // Ore round the Mines (their chunk column), char in the Wastes, slate
+    // everywhere else.
+    match biome::at(tx, ty) {
+        Biome::Highlands if tx.div_euclid(map::CHUNK_W) == 4 => RockKind::Ore,
+        Biome::Wastes => RockKind::Char,
         _ => RockKind::Slate,
     }
 }
@@ -154,6 +169,9 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
     let tiles = Tiles::get();
     let mut cv = Img::black(view.w, view.h);
     let (realm_w, realm_h) = (MAP_W * TILE, MAP_H * TILE);
+    let dress = crate::world::dressing::get();
+    // Lots cleared for wishes the party paid for show bare ground.
+    let lots = wishes::lots(&scene.wishes);
     for y in 0..view.h {
         for x in 0..view.w {
             let (wx, wy) = (view.x + x, view.y + y);
@@ -182,7 +200,22 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
             } else if cleared {
                 ground::meadow(wx, wy)
             } else {
-                ground::mark(realm, wx, wy, scene.tick)
+                let base = ground::mark(realm, wx, wy, scene.tick);
+                let wished = || wishes::cleared(&lots, tx, ty);
+                // The country's footpaths and the clearings they lead to.
+                if dress.trail(tx, ty) && !wished() {
+                    let joined = |dx: i32, dy: i32| {
+                        let (x, y) = (tx + dx, ty + dy);
+                        dress.trail(x, y)
+                            || roads.get((y.clamp(0, MAP_H - 1) * MAP_W + x.clamp(0, MAP_W - 1)) as usize).copied().unwrap_or(false)
+                            || matches!(realm.at(x, y), b'=' | b':' | b'H')
+                    };
+                    ground::trail(wx, wy, realm.at(tx, ty), joined).unwrap_or(base)
+                } else if let Some(camp) = dress.bay_at(tx, ty).filter(|_| !wished()) {
+                    dressing::bay(wx, wy, (camp.at.0 * TILE + TILE / 2, camp.at.1 * TILE + TILE / 2)).or(base)
+                } else {
+                    base
+                }
             };
             if let Some(ch) = mark {
                 cv.put(x, y, ch);
@@ -200,8 +233,6 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
         view.y.div_euclid(TILE).max(0),
     );
     let tx1 = (view.x + view.w).div_euclid(TILE).min(MAP_W - 1);
-    // Lots cleared for wishes the party paid for show bare ground.
-    let lots = wishes::lots(&scene.wishes);
     let ty1 = (view.y + view.h).div_euclid(TILE).min(MAP_H - 1);
     // One tile past the view below and to each side: crowns overhang.
     for ty in ty0..=(ty1 + 1).min(MAP_H - 1) {
@@ -247,6 +278,8 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
             cv.stamp(sprite, tx * TILE - view.x, ty * TILE - view.y);
         }
     }
+    // The country's small stories, back to front, under the places' props.
+    dressing::paint(&mut cv, view, &|x, y| wishes::cleared(&lots, x, y));
     let mut staged = scene::stage(scene);
     lava_glow(&mut staged.lights, view, scene.tick);
     staged.props.sort_by_key(|p| p.base);

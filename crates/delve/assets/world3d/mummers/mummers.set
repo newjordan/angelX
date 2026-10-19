@@ -1,0 +1,205 @@
+set mummers
+# Mummers' Hollow: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the half-pipe's U-ramp (rows 9..12), a NO HORSES ON RAMP sign.
+
+# the ground: its top is the floor line
+box    ground  at 192 -4 8 size 384 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    grass   at 96 -4 56 size 160 4 80
+box    path    at 192 -4 120 size 32 4 208
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 96 -4 112 size 160 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 23
+box    foliage at 192 -4 8 size 384 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 10 8 8 size 20 16 16
+box    trunk   at 22 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 22 7 8 size 18 18 16
+box    trunk   at 42 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 42 7 8 size 18 17 16
+box    trunk   at 57 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 57 8 8 size 21 17 16
+box    trunk   at 70 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 70 8 8 size 18 18 16
+box    trunk   at 85 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 85 6 8 size 19 17 16
+box    trunk   at 103 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 103 7 8 size 19 16 16
+box    trunk   at 121 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 121 7 8 size 21 16 16
+box    trunk   at 137 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 137 7 8 size 18 18 16
+box    trunk   at 152 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 152 7 8 size 21 17 16
+box    trunk   at 167 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 167 8 8 size 20 19 16
+box    trunk   at 183 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 183 8 8 size 21 18 16
+box    trunk   at 200 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 200 7 8 size 21 16 16
+box    trunk   at 213 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 213 8 8 size 18 19 16
+box    trunk   at 235 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 235 9 8 size 21 18 16
+box    trunk   at 248 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 248 7 8 size 18 18 16
+box    trunk   at 266 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 266 9 8 size 21 16 16
+box    trunk   at 279 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 279 6 8 size 18 16 16
+box    trunk   at 296 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 296 9 8 size 20 16 16
+box    trunk   at 310 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 310 9 8 size 21 17 16
+box    trunk   at 325 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 325 7 8 size 19 18 16
+box    trunk   at 346 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 346 9 8 size 18 16 16
+box    trunk   at 358 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 358 6 8 size 21 18 16
+box    trunk   at 374 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 374 9 8 size 19 17 16
+sphere foliage at 6 0 -9 size 25 32 18
+sphere foliage at 20 0 -9 size 24 37 18
+sphere foliage at 37 0 -9 size 26 35 18
+sphere foliage at 59 0 -9 size 26 34 18
+sphere foliage at 71 0 -9 size 25 32 18
+sphere foliage at 87 0 -9 size 25 30 18
+sphere foliage at 108 0 -9 size 26 31 18
+sphere foliage at 124 0 -9 size 26 35 18
+sphere foliage at 136 0 -9 size 22 33 18
+sphere foliage at 149 0 -9 size 27 35 18
+sphere foliage at 171 0 -9 size 29 37 18
+sphere foliage at 187 0 -9 size 23 34 18
+sphere foliage at 197 0 -9 size 24 30 18
+sphere foliage at 218 0 -9 size 27 34 18
+sphere foliage at 232 0 -9 size 25 32 18
+sphere foliage at 246 0 -9 size 26 37 18
+sphere foliage at 265 0 -9 size 24 33 18
+sphere foliage at 281 0 -9 size 23 36 18
+sphere foliage at 296 0 -9 size 24 31 18
+sphere foliage at 308 0 -9 size 28 34 18
+sphere foliage at 329 0 -9 size 24 30 18
+sphere foliage at 343 0 -9 size 28 33 18
+sphere foliage at 363 0 -9 size 29 36 18
+sphere foliage at 372 0 -9 size 24 30 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 12
+box    foliage at 8 -4 112 size 16 9 192  # TODO prims: blob
+box    trunk   at 8 0 25 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 25 size 16 18 18
+box    trunk   at 8 0 41 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 41 size 16 16 21
+box    trunk   at 8 0 56 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 56 size 16 17 19
+box    trunk   at 8 0 70 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 70 size 16 18 20
+box    trunk   at 8 0 87 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 87 size 16 17 21
+box    trunk   at 8 0 103 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 103 size 16 19 20
+box    trunk   at 8 0 123 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 123 size 16 17 19
+box    trunk   at 8 0 138 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 138 size 16 19 18
+box    trunk   at 8 0 149 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 149 size 16 17 18
+box    trunk   at 8 0 167 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 167 size 16 16 20
+box    trunk   at 8 0 182 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 182 size 16 17 20
+box    trunk   at 8 0 198 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 198 size 16 16 20
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 26.5 size 16 16 21
+box    trunk   at 376 0 42 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 42 size 16 18 19
+box    trunk   at 376 0 58 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 58 size 16 18 18
+box    trunk   at 376 0 69 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 69 size 16 19 18
+box    trunk   at 376 0 85.5 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 85.5 size 16 16 21
+
+# the east wall, rows 8 to 12 (at 48% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 138.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 3.5 138.5 size 16 9 21
+box    trunk   at 376 0 151 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 151 size 16 16.5 20
+box    trunk   at 376 0 165 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 165 size 16 19 21
+box    trunk   at 376 0 183 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 183 size 16 19 21
+box    trunk   at 376 0 197.5 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 197.5 size 16 18 21
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# stage at 3,1 6x2
+box    wood    at 96 0 33 size 94 6 28 id stage
+box    cloth   at 96 0 18 size 94 22 2
+box    fire    at 64.67 6 46 size 2 2 1
+box    fire    at 96 6 46 size 2 2 1
+box    fire    at 127.33 6 46 size 2 2 1
+
+# flat at 16,1 5x2
+box    wood    at 296 0 32 size 78 28 30 id flat
+box    stone   at 296 3 47.25 size 76 22 0.5
+
+# crate at 4,11 4x2 (at 66% of its height, for the camera)
+box    wood    at 96 0 192 size 60 7.5 28 id crate
+
+# landmark (assets/world3d/mummers/landmark.set, hand-placed)
+# Mummers' Hollow: the stage's proscenium with its drawn curtains and tall painted sky, the castle flat cut out above its case, banner poles at the back.
+# the proscenium: two columns, a header beam, a pediment and a valance; the drawn curtains behind them
+box    wood    at 54 0 44 size 7 52 7
+box    wood    at 138 0 44 size 7 52 7
+box    wood    at 96 46 44 size 92 9 7
+gable  wood    at 96 55 44 size 100 14 10
+box    cloth   at 96 38 41 size 80 8 3
+box    cloth   at 64 6 36 size 14 40 5
+box    cloth   at 128 6 36 size 14 40 5
+box    plaster at 96 22 18 size 76 24 1.5
+# the castle flat: keep and towers cut out thin, their battlements, a slate cap on each tower
+box    stone   at 296 20 44 size 26 40 4
+box    stone   at 268 20 44 size 18 28 4
+box    stone   at 324 20 44 size 18 28 4
+box    stone   at 288 60 44 size 6 6 4
+box    stone   at 304 60 44 size 6 6 4
+pyramid slate  at 268 48 44 size 22 14 6
+pyramid slate  at 324 48 44 size 22 14 6
+# banner poles at the back
+box    wood    at 24 0 8 size 4 76 4
+box    wood    at 360 0 8 size 4 76 4
+box    cloth   at 24 54 8 size 14 22 1.5
+box    cloth   at 360 54 8 size 14 22 1.5

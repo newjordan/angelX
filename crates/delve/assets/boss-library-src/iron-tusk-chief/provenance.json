@@ -1,0 +1,78 @@
+{
+  "id": "iron-tusk-chief",
+  "source_path": "./cockpit/assets/boss-library/existing/iron-tusk-chief/v01/source-sheet-refined.png",
+  "source_sha256": "8a6145b64fc3a49502b7060dc3f39d94d9814fe9283d72cca7ecbe11976aae65",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Stocky green-grey ORC claim chief, huge lower tusks capped in iron, battered dark steel brow helmet, blue-grey ore plates lashed over leather and a wide ochre belt. Heavy spear in one giant hand and a slab of iron ore as a buckler in the other, short stomping boots. Proud bullying pit supervisor with more shoulders than neck. No red scarf or powder barrels.",
+  "definition_header": "name IRON TUSK CHIEF\ntext An orc claim-chief: ore pays the spear line, not the Foreman.\nby angelX\nwhere mines\nhp 580\nsize 1.4\nmove chase speed=1.3\nattack aimed shots=3 speed=7 every=65 damage=12 shot=bone\nphases lead gap_wall every=98 volleys=2 damage=12\nrage 30%\ndrops ore 4, gold 120",
+  "definition_sha256": "4de719df498622f24d076bf9c40e1085d0279c097f82fa55aa1f1369c3a7fbd8",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        68,
+        137,
+        260,
+        288
+      ],
+      "opaque_component_pixels": 40147,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "33b4791024212eb887e870c395876e7e45c1e3f4c842a02e7c7312dddf4fb59c"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        387,
+        230,
+        236,
+        195
+      ],
+      "opaque_component_pixels": 30970,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "b0e169e1af6b154b6622192aae0d9e90b6576c6086d4f4dee875a431ded6b31c"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        661,
+        142,
+        211,
+        287
+      ],
+      "opaque_component_pixels": 32537,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "2b3c4bcd1a66757eb107fdbe7ef18df60e11a38727efa108fe0475f4997cb7da"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        940,
+        262,
+        282,
+        167
+      ],
+      "opaque_component_pixels": 27577,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "8a4647fadb5ff4ac859b3a483e9882576f42c810e7583281a96ad07d0aa0c593"
+    }
+  ]
+}

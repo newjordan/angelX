@@ -1,0 +1,132 @@
+{
+  "alpha_threshold": 128,
+  "file": "source-sheet.png",
+  "pieces": [
+    {
+      "alpha_area": 74552,
+      "index": 0,
+      "source_rect_xywh": [
+        24,
+        130,
+        277,
+        288
+      ]
+    },
+    {
+      "alpha_area": 75545,
+      "index": 1,
+      "source_rect_xywh": [
+        332,
+        130,
+        280,
+        288
+      ]
+    },
+    {
+      "alpha_area": 75468,
+      "index": 2,
+      "source_rect_xywh": [
+        645,
+        130,
+        280,
+        288
+      ]
+    },
+    {
+      "alpha_area": 51226,
+      "index": 3,
+      "source_rect_xywh": [
+        969,
+        162,
+        251,
+        256
+      ]
+    },
+    {
+      "alpha_area": 48988,
+      "index": 4,
+      "source_rect_xywh": [
+        35,
+        418,
+        255,
+        348
+      ]
+    },
+    {
+      "alpha_area": 53514,
+      "index": 5,
+      "source_rect_xywh": [
+        343,
+        418,
+        258,
+        348
+      ]
+    },
+    {
+      "alpha_area": 60245,
+      "index": 6,
+      "source_rect_xywh": [
+        650,
+        418,
+        271,
+        418
+      ]
+    },
+    {
+      "alpha_area": 28706,
+      "index": 7,
+      "source_rect_xywh": [
+        956,
+        418,
+        277,
+        297
+      ]
+    },
+    {
+      "alpha_area": 27158,
+      "index": 8,
+      "source_rect_xywh": [
+        25,
+        949,
+        274,
+        123
+      ]
+    },
+    {
+      "alpha_area": 57101,
+      "index": 9,
+      "source_rect_xywh": [
+        343,
+        860,
+        256,
+        241
+      ]
+    },
+    {
+      "alpha_area": 82104,
+      "index": 10,
+      "source_rect_xywh": [
+        630,
+        836,
+        310,
+        280
+      ]
+    },
+    {
+      "alpha_area": 62764,
+      "index": 11,
+      "source_rect_xywh": [
+        940,
+        850,
+        285,
+        251
+      ]
+    }
+  ],
+  "review": "Measured per grid cell after connected-component merging; front states inspected intact.",
+  "size_wh": [
+    1254,
+    1254
+  ],
+  "warnings": []
+}

@@ -1,0 +1,121 @@
+set chunk-3-6
+# The kingdom, chunk 3,6 in The Fairground: tiles 72..96 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 1664
+plate 1536 1024
+
+# ground
+box    water   at 1160 -4 1600 size 16 1 128
+box    sand    at 1176 -4 1592 size 16 4 112
+box    grass   at 1248 -4 1576 size 128 4 80
+box    path    at 1344 -4 1560 size 64 4 48
+box    grass   at 1456 -4 1608 size 160 4 144
+box    grass   at 1320 -4 1608 size 16 4 48
+box    path    at 1352 -4 1688 size 48 4 208
+box    grass   at 1208 -4 1632 size 48 4 32
+box    path    at 1240 -4 1632 size 16 4 32
+box    grass   at 1280 -4 1624 size 64 4 16
+box    path    at 1288 -4 1640 size 80 4 16
+box    water   at 1176 -4 1720 size 16 1 144
+box    sand    at 1192 -4 1696 size 16 4 96
+box    grass   at 1264 -4 1704 size 128 4 112
+box    sand    at 1160 -4 1728 size 16 4 128
+box    path    at 1424 -4 1688 size 96 4 16
+box    grass   at 1504 -4 1736 size 64 4 112
+box    path    at 1416 -4 1704 size 80 4 16
+box    grass   at 1464 -4 1744 size 16 4 96
+box    grass   at 1416 -4 1752 size 80 4 80
+box    grass   at 1192 -4 1768 size 16 4 48
+box    grass   at 1256 -4 1776 size 112 4 32
+box    path    at 1320 -4 1776 size 16 4 32
+
+# ROYAL SPIN CYCLE: wash vats and drying lines at 90,102 4x3
+box    brick   at 1455.4 0 1668 size 26.8 11 20 id royal-spin-cycle
+gable  slate   at 1455.4 11 1668 size 29.8 8 23
+box    stone   at 1461.83 11 1666 size 4 9.8 4
+box    door    at 1450.04 0 1678.25 size 7 8 1
+cylinder wood    at 1475.2 0 1673 size 8 5 8
+cylinder water   at 1475.2 0 1673 size 6.5 5.25 6.5
+cylinder wood    at 1484.8 0 1670 size 8 5 8
+cylinder water   at 1484.8 0 1670 size 6.5 5.25 6.5
+box    wood    at 1473.28 0 1658 size 1.5 14 1.5
+box    wood    at 1501 0 1658 size 1.5 14 1.5
+box    cloth   at 1479.36 7 1658 size 8.32 6 0.8
+box    plaster at 1492.54 8 1658 size 12.92 5 0.8
+blob-42 foliage at 1448 0 1640 size 13 11 12
+blob-33 foliage at 1480 0 1640 size 13 9 12
+blob-58 foliage at 1480 0 1656 size 13 11 12
+blob-24 foliage at 1496 0 1656 size 13 11 12
+box    wood    at 1496 0 1672 size 14 4 8
+box    wood    at 1496 4 1672 size 10 3 6
+
+# fingerposts
+box    wood    at 1308 0 1544 size 1.5 19 1.5
+pyramid wood    at 1308 19 1544 size 2.2 1.5 2.2
+box    wood    at 1308 16 1540 size 0.6 1.8 6.5
+box    wood    at 1308 13.5 1548 size 0.6 1.8 6.5
+
+# set dressing
+box    wood    at 1288 0 1627 size 12 4 4
+box    wood    at 1282 0 1620 size 1.5 12 1.5
+box    wood    at 1294 0 1620 size 1.5 12 1.5
+box    wood    at 1192 0 1643 size 12 4 4
+box    wood    at 1186 0 1636 size 1.5 12 1.5
+box    wood    at 1198 0 1636 size 1.5 12 1.5
+sphere cloth   at 1236 0 1656 size 4 4 3.5
+sphere cloth   at 1240 0 1658 size 4 4 3.5
+sphere cloth   at 1244 0 1656 size 4 4 3.5
+
+# woods (at 32% of its height, for the camera)
+cylinder trunk   at 1521 0 1665 size 5 16 5
+blob-64 foliage at 1521 11 1665 size 33 22 31.35
+cylinder trunk   at 1201 0 1759 size 5 4.5 5
+blob-27 foliage at 1201 3 1759 size 33 9 31.35 turn 270
+cylinder trunk   at 1230 0 1777 size 4.5 8 4.5
+cone   foliage at 1230 5.5 1777 size 28 24.5 28
+cone   foliage at 1230 20.5 1777 size 20.16 24 20.16
+frustum trunk   at 1288.5 0 1544.5 size 3 4 3
+cone   foliage at 1288.5 2.5 1544.5 size 18 9.5 18
+cone   foliage at 1288.5 8 1544.5 size 12.96 9.5 12.96
+frustum trunk   at 1528.5 0 1576.5 size 3 9 3
+blob-17 foliage at 1528.5 4 1576.5 size 18 19 17.1 turn 270
+cylinder trunk   at 1528 0 1592 size 3 10 3
+blob-62 foliage at 1528 5 1592 size 19 16 18.05 turn 90
+cylinder trunk   at 1512 0 1640 size 3 4 3
+blob-53 foliage at 1512 2.5 1640 size 19 6.5 18.05 turn 180
+frustum trunk   at 1527 0 1639 size 3 11 3
+blob-39 foliage at 1527 6 1639 size 17 19 16.15
+frustum trunk   at 1225 0 1751 size 3 4 3
+cone   foliage at 1225 2.5 1751 size 17 10 17
+cone   foliage at 1225 8.5 1751 size 12.24 10 12.24
+cylinder trunk   at 1192.5 0 1782 size 3 9 3
+blob-64 foliage at 1192.5 4 1782 size 18 15 17.1 turn 90
+frustum trunk   at 1207 0 1784 size 3 9 3
+blob-51 foliage at 1207 4 1784 size 17 14 16.15 turn 180
+box    hedge   at 1224 0 1544 size 16 5 15
+blob-42 hedge   at 1224 3.5 1544 size 16 4.5 15
+box    hedge   at 1240 0 1544 size 16 5 15
+blob-26 hedge   at 1240 3 1544 size 16 5.5 15
+box    hedge   at 1528 0 1544 size 15 6 16
+blob-6 hedge   at 1528 3.5 1544 size 15 5 16
+box    hedge   at 1528 0 1560 size 15 6 16
+blob-39 hedge   at 1528 3.5 1560 size 15 5 16
+box    hedge   at 1528 0 1608 size 15 7 16
+blob-56 hedge   at 1528 4.5 1608 size 15 5 16
+box    hedge   at 1528 0 1624 size 15 7 16
+blob-1 hedge   at 1528 4.5 1624 size 15 5 16
+box    hedge   at 1528 0 1688 size 15 7 16
+blob-40 hedge   at 1528 4.5 1688 size 15 5 16
+box    hedge   at 1528 0 1704 size 15 6 16
+blob-9 hedge   at 1528 3.5 1704 size 15 6 16
+box    hedge   at 1528 0 1720 size 15 7 16
+blob-9 hedge   at 1528 4.5 1720 size 15 6 16
+box    hedge   at 1528 0 1736 size 15 7 16
+blob-6 hedge   at 1528 4.5 1736 size 15 5 16
+box    hedge   at 1528 0 1752 size 15 7 16
+blob-29 hedge   at 1528 4.5 1752 size 15 6 16
+box    hedge   at 1528 0 1768 size 15 7 16
+blob-44 hedge   at 1528 4.5 1768 size 15 6 16
+box    hedge   at 1528 0 1784 size 15 6 16
+blob-53 hedge   at 1528 3.5 1784 size 15 5 16

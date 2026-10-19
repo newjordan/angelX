@@ -713,9 +713,11 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
     blocked_tx
         .send(Ok(PreparedArtifact {
             decoded: Arc::new(decoded.clone()),
-            protocol: halfblock_picker()
-                .new_protocol(decoded, Rect::new(0, 0, 32, 8).into(), Resize::Fit(None))
-                .unwrap(),
+            protocol: Pic::Term(
+                halfblock_picker()
+                    .new_protocol(decoded, Rect::new(0, 0, 32, 8).into(), Resize::Fit(None))
+                    .unwrap(),
+            ),
         }))
         .unwrap();
     terminal

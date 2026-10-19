@@ -1,0 +1,66 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "9eb5699697bdee3aa861074b040eed9337a4f997d6bcd0b588e09d6f35a1be76",
+  "metadata_sha256": "f07bf7e8ca10d88a5b63e097cba5e7011879fba3185737976d690121a131bf1f",
+  "notes_sha256": "a8c5f269845886a4b670105ea69ed3ef7ad99fbdb79c8e6269d46913c6012f88",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "sha256": "2733c9a1ff9775fb9c9f0d63537ac0b15f2e6fb1aad1885563d3409da09f4cf9",
+      "source_scale": 0.23371880706025563,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        384,
+        224
+      ],
+      "approved": true,
+      "canvas_wh": [
+        768,
+        448
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 21504,
+      "opaque_pixels": 344064,
+      "piece": 0,
+      "sha256": "898a57a771d6ff0c38e4a2f37883185eda0a4edd807904550db9d355f59cdb37",
+      "source_scale": 0.46743761412051127,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "pennon.entrance",
+  "source_path": "/work/artifacts/delve-int-20261015/entrance-fix-1/prepared/pennon.entrance/source-sheet.png",
+  "source_sha256": "17a4234b7e50167c4a86dbe844e526b1c03fa152edfd8923eac96e06589b4c3b",
+  "tool_version": 2
+}

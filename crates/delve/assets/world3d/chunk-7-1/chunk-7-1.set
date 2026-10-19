@@ -1,0 +1,404 @@
+set chunk-7-1
+# The kingdom, chunk 7,1 in The Wastes: tiles 168..192 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2880 384
+plate 1536 1024
+
+# ground
+box    grass   at 2712 -4 304 size 48 4 96
+box    ground  at 2904 -4 312 size 336 4 112
+box    path    at 2704 -4 384 size 32 4 64
+box    grass   at 2728 -4 360 size 16 4 16
+box    path    at 2736 -4 392 size 32 4 48
+box    rock    at 2760 -4 376 size 16 4 16
+box    ground  at 2824 -4 376 size 112 4 16
+box    path    at 2888 -4 376 size 16 4 16
+box    ground  at 2944 -4 384 size 96 4 32
+box    rock    at 3000 -4 416 size 16 4 96
+box    grass   at 3016 -4 400 size 16 4 64
+box    ground  at 3048 -4 440 size 48 4 144
+box    path    at 2816 -4 392 size 128 4 16
+box    ground  at 2888 -4 416 size 16 4 64
+box    rock    at 2768 -4 432 size 32 4 64
+box    ground  at 2832 -4 408 size 96 4 16
+box    ground  at 2936 -4 408 size 80 4 16
+box    rock    at 2984 -4 432 size 16 4 64
+box    grass   at 2712 -4 424 size 48 4 16
+box    ground  at 2744 -4 464 size 16 4 96
+box    rock    at 2792 -4 440 size 16 4 48
+box    ground  at 2840 -4 424 size 80 4 16
+box    ground  at 2928 -4 424 size 64 4 16
+box    rock    at 2968 -4 440 size 16 4 48
+box    ground  at 2712 -4 472 size 48 4 80
+box    rock    at 2816 -4 448 size 32 4 32
+box    ground  at 2856 -4 440 size 48 4 16
+box    ground  at 2912 -4 440 size 32 4 16
+box    rock    at 2944 -4 448 size 32 4 32
+box    ground  at 3016 -4 472 size 16 4 80
+box    rock    at 2880 -4 456 size 96 4 16
+box    grass   at 2800 -4 488 size 96 4 48
+box    ground  at 2928 -4 488 size 160 4 48
+
+# Dragon Keep of Dragon Keep: a dark broken keep among rubble at 179,20 3x3
+box    stone   at 2887 0 339.5 size 28 32 29 id dragon-keep
+cylinder stone   at 2869 0 325 size 8 40 8
+box    stone   at 2867 40 325.5 size 3 4 3
+cylinder stone   at 2907 0 325 size 8 26 8
+cylinder stone   at 2869 0 360 size 8 20 8
+box    stone   at 2867 20 360.5 size 3 4 3
+cylinder stone   at 2907 0 360 size 8 30 8
+box    stone   at 2876 0 361 size 14 12 2
+box    stone   at 2902 0 361 size 10 7 2
+arch   stone   at 2890 0 361 size 14 18 3
+box    door    at 2890 0 361 size 7.5 13 1
+rock-32 rock    at 2897.06 0 363.24 size 3.58 6 3.22 turn 16
+rock-48 rock    at 2907.7 0 364.85 size 2.07 3.42 1.86 turn 81
+rock-19 rock    at 2897.68 0 362.13 size 1.63 4.5 1.47 turn 180
+
+# set dressing
+box    trunk   at 2856 0 504 size 1.5 13 1.5
+box    trunk   at 2858.5 9 504 size 4 1 1
+
+# hedges (at 64% of its height, for the camera)
+box    hedge   at 2744 0 264 size 18 4 18
+blob-10 hedge   at 2744 2.5 264 size 18 4 18
+box    hedge   at 2760 0 264 size 18 7 18
+blob-38 hedge   at 2760 4.5 264 size 18 5 18
+box    hedge   at 2776 0 264 size 18 7 18
+blob-3 hedge   at 2776 4.5 264 size 18 5 18
+box    hedge   at 2792 0 264 size 18 6 18
+blob-9 hedge   at 2792 3.5 264 size 18 6 18
+box    hedge   at 2808 0 264 size 18 6 18
+blob-17 hedge   at 2808 3.5 264 size 18 5 18
+box    hedge   at 2824 0 264 size 18 4 18
+blob-22 hedge   at 2824 2.5 264 size 18 3.5 18
+box    hedge   at 2840 0 264 size 18 4 18
+blob-2 hedge   at 2840 2.5 264 size 18 3.5 18
+box    hedge   at 2856 0 264 size 18 4 18
+blob-53 hedge   at 2856 2.5 264 size 18 3.5 18
+box    hedge   at 2872 0 264 size 18 4 18
+blob-62 hedge   at 2872 2.5 264 size 18 4.5 18
+box    hedge   at 2888 0 264 size 18 4 18
+blob-33 hedge   at 2888 2.5 264 size 18 3.5 18
+box    hedge   at 2904 0 264 size 18 4 18
+blob-7 hedge   at 2904 2.5 264 size 18 3.5 18
+box    hedge   at 2920 0 264 size 18 4 18
+blob-17 hedge   at 2920 2.5 264 size 18 3.5 18
+box    hedge   at 2936 0 264 size 18 4 18
+blob-61 hedge   at 2936 2.5 264 size 18 4.5 18
+box    hedge   at 2952 0 264 size 18 4 18
+blob-19 hedge   at 2952 2.5 264 size 18 3.5 18
+box    hedge   at 2968 0 264 size 18 4 18
+blob-9 hedge   at 2968 2.5 264 size 18 4.5 18
+box    hedge   at 2984 0 264 size 18 4 18
+blob-44 hedge   at 2984 2.5 264 size 18 4 18
+box    hedge   at 3000 0 264 size 18 4 18
+blob-28 hedge   at 3000 2.5 264 size 18 4 18
+box    hedge   at 3016 0 264 size 18 4 18
+blob-39 hedge   at 3016 2.5 264 size 18 3.5 18
+box    hedge   at 3032 0 264 size 18 4 18
+blob-46 hedge   at 3032 2.5 264 size 18 4.5 18
+box    hedge   at 2744 0 280 size 18 7 18
+blob-16 hedge   at 2744 4.5 280 size 18 6 18
+box    hedge   at 2760 0 280 size 18 6 18
+blob-11 hedge   at 2760 3.5 280 size 18 6 18
+box    hedge   at 2776 0 280 size 18 6 18
+blob-62 hedge   at 2776 3.5 280 size 18 6 18
+box    hedge   at 2792 0 280 size 18 6 18
+blob-18 hedge   at 2792 3.5 280 size 18 5 18
+box    hedge   at 2808 0 280 size 18 7 18
+blob-43 hedge   at 2808 4.5 280 size 18 6 18
+box    hedge   at 2824 0 280 size 18 7 18
+blob-24 hedge   at 2824 4.5 280 size 18 5 18
+box    hedge   at 2840 0 280 size 18 7 18
+blob-47 hedge   at 2840 4.5 280 size 18 6 18
+box    hedge   at 2856 0 280 size 18 6 18
+blob-46 hedge   at 2856 3.5 280 size 18 6 18
+box    hedge   at 2872 0 280 size 18 7 18
+blob-31 hedge   at 2872 4.5 280 size 18 6 18
+box    hedge   at 2888 0 280 size 18 6 18
+blob-13 hedge   at 2888 3.5 280 size 18 6 18
+box    hedge   at 2904 0 280 size 18 7 18
+blob-46 hedge   at 2904 4.5 280 size 18 6 18
+box    hedge   at 2920 0 280 size 18 6 18
+blob-51 hedge   at 2920 3.5 280 size 18 5 18
+box    hedge   at 2936 0 280 size 18 6 18
+blob-32 hedge   at 2936 3.5 280 size 18 6 18
+box    hedge   at 2952 0 280 size 18 7 18
+blob-56 hedge   at 2952 4.5 280 size 18 5 18
+box    hedge   at 2968 0 280 size 18 7 18
+blob-43 hedge   at 2968 4.5 280 size 18 6 18
+box    hedge   at 2984 0 280 size 18 6 18
+blob-2 hedge   at 2984 3.5 280 size 18 5 18
+box    hedge   at 3000 0 280 size 18 7 18
+blob-63 hedge   at 3000 4.5 280 size 18 6 18
+box    hedge   at 3016 0 280 size 18 6 18
+blob-1 hedge   at 3016 3.5 280 size 18 5 18
+box    hedge   at 3032 0 280 size 18 6 18
+blob-31 hedge   at 3032 3.5 280 size 18 6 18
+box    hedge   at 2744 0 296 size 18 6 18
+blob-19 hedge   at 2744 3.5 296 size 18 5 18
+box    hedge   at 2760 0 296 size 18 6 18
+blob-12 hedge   at 2760 3.5 296 size 18 6 18
+box    hedge   at 2776 0 296 size 18 6 18
+blob-57 hedge   at 2776 3.5 296 size 18 6 18
+box    hedge   at 2792 0 296 size 18 7 18
+blob-63 hedge   at 2792 4.5 296 size 18 6 18
+box    hedge   at 2808 0 296 size 18 6 18
+blob-5 hedge   at 2808 3.5 296 size 18 5 18
+box    hedge   at 2824 0 296 size 18 6 18
+blob-50 hedge   at 2824 3.5 296 size 18 5 18
+box    hedge   at 2840 0 296 size 18 7 18
+blob-39 hedge   at 2840 4.5 296 size 18 5 18
+box    hedge   at 2856 0 296 size 18 7 18
+blob-36 hedge   at 2856 4.5 296 size 18 5 18
+box    hedge   at 2872 0 296 size 18 7 18
+blob-41 hedge   at 2872 4.5 296 size 18 6 18
+box    hedge   at 2888 0 296 size 18 6 18
+blob-39 hedge   at 2888 3.5 296 size 18 5 18
+box    hedge   at 2904 0 296 size 18 6 18
+blob-51 hedge   at 2904 3.5 296 size 18 5 18
+box    hedge   at 2920 0 296 size 18 7 18
+blob-53 hedge   at 2920 4.5 296 size 18 5 18
+box    hedge   at 2936 0 296 size 18 7 18
+blob-27 hedge   at 2936 4.5 296 size 18 6 18
+box    hedge   at 2952 0 296 size 18 7 18
+blob-1 hedge   at 2952 4.5 296 size 18 5 18
+box    hedge   at 2968 0 296 size 18 6 18
+blob-62 hedge   at 2968 3.5 296 size 18 6 18
+box    hedge   at 2984 0 296 size 18 7 18
+blob-18 hedge   at 2984 4.5 296 size 18 5 18
+box    hedge   at 3000 0 296 size 18 6 18
+blob-35 hedge   at 3000 3.5 296 size 18 5 18
+box    hedge   at 3016 0 296 size 18 7 18
+blob-4 hedge   at 3016 4.5 296 size 18 5 18
+box    hedge   at 3032 0 296 size 18 6 18
+blob-1 hedge   at 3032 3.5 296 size 18 5 18
+box    hedge   at 2744 0 312 size 18 6 18
+blob-10 hedge   at 2744 3.5 312 size 18 6 18
+box    hedge   at 2760 0 312 size 18 6 18
+blob-18 hedge   at 2760 3.5 312 size 18 5 18
+box    hedge   at 2776 0 312 size 18 6 18
+blob-25 hedge   at 2776 3.5 312 size 18 6 18
+box    hedge   at 2792 0 312 size 18 6 18
+blob-4 hedge   at 2792 3.5 312 size 18 5 18
+box    hedge   at 2808 0 312 size 18 7 18
+blob-34 hedge   at 2808 4.5 312 size 18 5 18
+box    hedge   at 2824 0 312 size 18 6 18
+blob-23 hedge   at 2824 3.5 312 size 18 5 18
+box    hedge   at 2840 0 312 size 18 6 18
+blob-61 hedge   at 2840 3.5 312 size 18 6 18
+box    hedge   at 2856 0 312 size 18 6 18
+blob-30 hedge   at 2856 3.5 312 size 18 6 18
+box    hedge   at 2872 0 312 size 18 6 18
+blob-4 hedge   at 2872 3.5 312 size 18 5 18
+box    hedge   at 2888 0 312 size 18 6 18
+blob-38 hedge   at 2888 3.5 312 size 18 5 18
+box    hedge   at 2904 0 312 size 18 6 18
+blob-45 hedge   at 2904 3.5 312 size 18 6 18
+box    hedge   at 2920 0 312 size 18 7 18
+blob-15 hedge   at 2920 4.5 312 size 18 6 18
+box    hedge   at 2936 0 312 size 18 6 18
+blob-36 hedge   at 2936 3.5 312 size 18 5 18
+box    hedge   at 2952 0 312 size 18 6 18
+blob-41 hedge   at 2952 3.5 312 size 18 6 18
+box    hedge   at 2968 0 312 size 18 6 18
+blob-27 hedge   at 2968 3.5 312 size 18 6 18
+box    hedge   at 2984 0 312 size 18 6 18
+blob-54 hedge   at 2984 3.5 312 size 18 5 18
+box    hedge   at 3000 0 312 size 18 6 18
+blob-8 hedge   at 3000 3.5 312 size 18 5 18
+box    hedge   at 3016 0 312 size 18 7 18
+blob-46 hedge   at 3016 4.5 312 size 18 6 18
+box    hedge   at 3032 0 312 size 18 6 18
+blob-3 hedge   at 3032 3.5 312 size 18 5 18
+box    hedge   at 2744 0 328 size 18 7 18
+blob-61 hedge   at 2744 4.5 328 size 18 6 18
+box    hedge   at 2760 0 328 size 18 7 18
+blob-46 hedge   at 2760 4.5 328 size 18 6 18
+box    hedge   at 2776 0 328 size 18 7 18
+blob-21 hedge   at 2776 4.5 328 size 18 5 18
+box    hedge   at 2792 0 328 size 18 6 18
+blob-26 hedge   at 2792 3.5 328 size 18 6 18
+box    hedge   at 2808 0 328 size 18 6 18
+blob-19 hedge   at 2808 3.5 328 size 18 5 18
+box    hedge   at 2824 0 328 size 18 6 18
+blob-18 hedge   at 2824 3.5 328 size 18 5 18
+box    hedge   at 2840 0 328 size 18 6 18
+blob-27 hedge   at 2840 3.5 328 size 18 6 18
+box    hedge   at 2856 0 328 size 18 7 18
+blob-24 hedge   at 2856 4.5 328 size 18 5 18
+box    hedge   at 2920 0 328 size 18 6 18
+blob-22 hedge   at 2920 3.5 328 size 18 5 18
+box    hedge   at 2936 0 328 size 18 6 18
+blob-54 hedge   at 2936 3.5 328 size 18 5 18
+box    hedge   at 2952 0 328 size 18 6 18
+blob-37 hedge   at 2952 3.5 328 size 18 5 18
+box    hedge   at 2968 0 328 size 18 7 18
+blob-17 hedge   at 2968 4.5 328 size 18 5 18
+box    hedge   at 2984 0 328 size 18 6 18
+blob-24 hedge   at 2984 3.5 328 size 18 5 18
+box    hedge   at 3000 0 328 size 18 7 18
+blob-59 hedge   at 3000 4.5 328 size 18 6 18
+box    hedge   at 3016 0 328 size 18 6 18
+blob-14 hedge   at 3016 3.5 328 size 18 6 18
+box    hedge   at 3032 0 328 size 18 6 18
+blob-41 hedge   at 3032 3.5 328 size 18 6 18
+box    hedge   at 2744 0 344 size 18 7 18
+blob-42 hedge   at 2744 4.5 344 size 18 6 18
+box    hedge   at 2760 0 344 size 18 6 18
+blob-27 hedge   at 2760 3.5 344 size 18 6 18
+box    hedge   at 2776 0 344 size 18 7 18
+blob-48 hedge   at 2776 4.5 344 size 18 6 18
+box    hedge   at 2792 0 344 size 18 6 18
+blob-40 hedge   at 2792 3.5 344 size 18 5 18
+box    hedge   at 2808 0 344 size 18 7 18
+blob-19 hedge   at 2808 4.5 344 size 18 5 18
+box    hedge   at 2824 0 344 size 18 6 18
+blob-5 hedge   at 2824 3.5 344 size 18 5 18
+box    hedge   at 2840 0 344 size 18 7 18
+blob-42 hedge   at 2840 4.5 344 size 18 6 18
+box    hedge   at 2856 0 344 size 18 6 18
+blob-5 hedge   at 2856 3.5 344 size 18 5 18
+box    hedge   at 2920 0 344 size 18 6 18
+blob-42 hedge   at 2920 3.5 344 size 18 6 18
+box    hedge   at 2936 0 344 size 18 6 18
+blob-34 hedge   at 2936 3.5 344 size 18 5 18
+box    hedge   at 2952 0 344 size 18 6 18
+blob-37 hedge   at 2952 3.5 344 size 18 5 18
+box    hedge   at 2968 0 344 size 18 7 18
+blob-17 hedge   at 2968 4.5 344 size 18 5 18
+box    hedge   at 2984 0 344 size 18 7 18
+blob-15 hedge   at 2984 4.5 344 size 18 6 18
+box    hedge   at 3000 0 344 size 18 6 18
+blob-40 hedge   at 3000 3.5 344 size 18 5 18
+box    hedge   at 3016 0 344 size 18 6 18
+blob-34 hedge   at 3016 3.5 344 size 18 5 18
+box    hedge   at 3032 0 344 size 18 7 18
+blob-57 hedge   at 3032 4.5 344 size 18 6 18
+box    hedge   at 2744 0 360 size 18 6 18
+blob-29 hedge   at 2744 3.5 360 size 18 6 18
+box    hedge   at 2760 0 360 size 18 6 18
+blob-30 hedge   at 2760 3.5 360 size 18 6 18
+box    hedge   at 2776 0 360 size 18 6 18
+blob-27 hedge   at 2776 3.5 360 size 18 6 18
+box    hedge   at 2792 0 360 size 18 6 18
+blob-36 hedge   at 2792 3.5 360 size 18 5 18
+box    hedge   at 2808 0 360 size 18 6 18
+blob-58 hedge   at 2808 3.5 360 size 18 6 18
+box    hedge   at 2824 0 360 size 18 7 18
+blob-32 hedge   at 2824 4.5 360 size 18 6 18
+box    hedge   at 2840 0 360 size 18 7 18
+blob-50 hedge   at 2840 4.5 360 size 18 5 18
+box    hedge   at 2856 0 360 size 18 6 18
+blob-20 hedge   at 2856 3.5 360 size 18 5 18
+box    hedge   at 2920 0 360 size 18 7 18
+blob-19 hedge   at 2920 4.5 360 size 18 5 18
+box    hedge   at 2936 0 360 size 18 7 18
+blob-28 hedge   at 2936 4.5 360 size 18 6 18
+box    hedge   at 2952 0 360 size 18 7 18
+blob-51 hedge   at 2952 4.5 360 size 18 5 18
+box    hedge   at 2968 0 360 size 18 6 18
+blob-13 hedge   at 2968 3.5 360 size 18 6 18
+box    hedge   at 2984 0 360 size 18 6 18
+blob-49 hedge   at 2984 3.5 360 size 18 5 18
+box    hedge   at 3000 0 360 size 18 7 18
+blob-44 hedge   at 3000 4.5 360 size 18 6 18
+box    hedge   at 3016 0 360 size 18 6 18
+blob-25 hedge   at 3016 3.5 360 size 18 6 18
+box    hedge   at 3032 0 360 size 18 6 18
+blob-16 hedge   at 3032 3.5 360 size 18 6 18
+
+# rock
+box    rock    at 2760 0 376 size 16 3 16
+box    rock    at 3000 0 416 size 16 3 96
+box    rock    at 2768 0 416 size 32 3 32
+box    rock    at 2984 0 416 size 16 3 32
+box    rock    at 2792 0 440 size 16 3 48
+box    rock    at 2968 0 440 size 16 3 48
+box    rock    at 2760 0 448 size 16 3 32
+box    rock    at 2776 0 440 size 16 9 16
+box    rock    at 2816 0 448 size 32 3 32
+box    rock    at 2944 0 448 size 32 3 32
+box    rock    at 2984 0 440 size 16 9 16
+box    rock    at 2776 0 456 size 16 3 16
+box    rock    at 2880 0 456 size 96 3 16
+box    rock    at 2984 0 456 size 16 3 16
+rock-41 rock    at 2759 1.5 375 size 14 8 12.6 turn 90
+rock-9 rock    at 3001 1.5 377 size 15 8 13.5 turn 90
+rock-61 rock    at 2999 1.5 393 size 16 10 14.4 turn 270
+rock-30 rock    at 2761 1.5 409 size 14 9 12.6 turn 270
+rock-2 rock    at 2777 1.5 408 size 16 9 14.4
+rock-55 rock    at 2984 1.5 409 size 15 10 13.5 turn 180
+rock-32 rock    at 2999 1.5 407 size 17 9 15.3 turn 270
+rock-13 rock    at 2761 1.5 425 size 14 7 12.6 turn 90
+rock-59 rock    at 2776 1.5 425 size 16 10 14.4 turn 270
+rock-22 rock    at 2791 1.5 423 size 14 10 12.6 turn 180
+rock-18 rock    at 2967 1.5 424 size 14 8 12.6 turn 180
+rock-18 rock    at 2985 1.5 425 size 15 8 13.5 turn 180
+rock-63 rock    at 3001 1.5 425 size 15 10 13.5 turn 270
+rock-47 rock    at 2760 1.5 440 size 15 7 13.5 turn 90
+rock-10 rock    at 2777 7.5 439 size 13 6 11.7 turn 90
+rock-10 rock    at 2791 1.5 440 size 14 8 12.6 turn 90
+rock-47 rock    at 2808 1.5 439 size 16 9 14.4 turn 90
+rock-5 rock    at 2825 1.5 441 size 15 9 13.5
+rock-50 rock    at 2936 1.5 440 size 16 10 14.4 turn 180
+rock-25 rock    at 2952 1.5 441 size 14 9 12.6 turn 270
+rock-5 rock    at 2967 1.5 440 size 16 8 14.4
+rock-46 rock    at 2983 7.5 439 size 15 8 13.5 turn 90
+rock-38 rock    at 2999 1.5 440 size 15 9 13.5
+rock-44 rock    at 2760 1.5 455 size 17 9 15.3 turn 90
+rock-4 rock    at 2775 1.5 456 size 17 8 15.3
+rock-12 rock    at 2791 1.5 455 size 15 10 13.5 turn 90
+rock-19 rock    at 2809 1.5 455 size 17 7 15.3 turn 180
+rock-13 rock    at 2823 1.5 457 size 15 9 13.5 turn 90
+rock-39 rock    at 2839 1.5 457 size 14 9 12.6
+rock-42 rock    at 2856 1.5 456 size 14 10 12.6 turn 90
+rock-34 rock    at 2871 1.5 457 size 16 8 14.4
+rock-8 rock    at 2887 1.5 457 size 16 7 14.4
+rock-41 rock    at 2903 1.5 456 size 16 9 14.4 turn 90
+rock-36 rock    at 2921 1.5 456 size 14 10 12.6
+rock-63 rock    at 2935 1.5 457 size 15 8 13.5 turn 270
+rock-27 rock    at 2952 1.5 455 size 17 8 15.3 turn 270
+rock-58 rock    at 2969 1.5 456 size 15 7 13.5 turn 270
+rock-37 rock    at 2984 1.5 455 size 15 7 13.5
+rock-39 rock    at 2999 1.5 456 size 16 10 14.4
+
+# dead trees
+frustum trunk   at 3048 0 282 size 4 16 4
+box    trunk   at 3045.36 8.8 281.24 size 5.5 1.2 1.2 turn 164
+box    trunk   at 3049.56 11.52 283.62 size 4.5 1.2 1.2 turn 314
+box    trunk   at 3049.03 14.08 280.58 size 3.5 1.2 1.2 turn 414
+frustum trunk   at 3048 0 313 size 4 20 4
+box    trunk   at 3046.84 11 310.51 size 5.5 1.2 1.2 turn 115
+box    trunk   at 3047.8 14.4 315.24 size 4.5 1.2 1.2 turn 265
+box    trunk   at 3049.74 17.6 312.85 size 3.5 1.2 1.2 turn 365
+frustum trunk   at 3046 0 330 size 4 17 4
+box    trunk   at 3043.64 9.35 328.58 size 5.5 1.2 1.2 turn 149
+box    trunk   at 3047.09 12.24 331.97 size 4.5 1.2 1.2 turn 299
+box    trunk   at 3047.36 14.96 328.9 size 3.5 1.2 1.2 turn 399
+frustum trunk   at 3049 0 346 size 4 16 4
+box    trunk   at 3048.66 8.8 343.27 size 5.5 1.2 1.2 turn 97
+box    trunk   at 3048.12 11.52 348.07 size 4.5 1.2 1.2 turn 247
+box    trunk   at 3050.71 14.08 346.39 size 3.5 1.2 1.2 turn 347
+frustum trunk   at 3050 0 361 size 4 19 4
+box    trunk   at 3048.97 10.45 358.45 size 5.5 1.2 1.2 turn 112
+box    trunk   at 3049.69 13.68 363.23 size 4.5 1.2 1.2 turn 262
+box    trunk   at 3051.75 16.72 360.94 size 3.5 1.2 1.2 turn 362
+frustum trunk   at 2918 0 393 size 4 20 4
+box    trunk   at 2920.31 11 391.5 size 5.5 1.2 1.2 turn 33
+box    trunk   at 2915.75 14.4 393.12 size 4.5 1.2 1.2 turn 183
+box    trunk   at 2918.39 17.6 394.71 size 3.5 1.2 1.2 turn 283
+frustum trunk   at 2822 0 410 size 4 15 4
+box    trunk   at 2821.01 8.25 407.43 size 5.5 1.2 1.2 turn 111
+box    trunk   at 2821.65 10.8 412.22 size 4.5 1.2 1.2 turn 261
+box    trunk   at 2823.75 13.2 409.97 size 3.5 1.2 1.2 turn 361
+frustum trunk   at 3034 0 410 size 4 20 4
+box    trunk   at 3033.86 11 407.25 size 5.5 1.2 1.2 turn 93
+box    trunk   at 3032.98 14.4 412 size 4.5 1.2 1.2 turn 243
+box    trunk   at 3035.67 17.6 410.51 size 3.5 1.2 1.2 turn 343
+frustum trunk   at 2920 0 424 size 4 22 4
+box    trunk   at 2917.32 12.1 423.38 size 5.5 1.2 1.2 turn 167
+box    trunk   at 2921.65 15.84 425.53 size 4.5 1.2 1.2 turn 317
+box    trunk   at 2920.95 19.36 422.53 size 3.5 1.2 1.2 turn 417

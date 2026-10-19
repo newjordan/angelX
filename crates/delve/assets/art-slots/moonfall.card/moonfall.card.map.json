@@ -1,0 +1,36 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    150,
+    48
+  ],
+  "pieces": [
+    {
+      "name": "fade-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "fade-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "fade-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "fade-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    }
+  ]
+}

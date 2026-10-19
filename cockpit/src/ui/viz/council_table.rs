@@ -2,8 +2,7 @@
 //! (`assets/realm/v2/interiors/station-round-table.png`) lit by the live
 //! council, composed in Rust and shown through the viewer's Kitty path.
 //!
-//! It carries what the WebGPU portal frame carries. Light means activity: a
-//! sitting seat's chair is lit and its candle burns before it; a seat that
+//! Light means activity: a sitting seat's chair is lit and its candle burns before it; a seat that
 //! answered has its parchment laid out bright; a failed answer lies there in
 //! red; a cut seat and an empty chair sit in the dark. The map at the centre
 //! shows the deed: scales while judges weigh, a wax seal while verifiers
@@ -65,8 +64,8 @@ pub(crate) enum Deed {
 }
 
 impl Deed {
-    /// The renderer's `stage_kind`: synthesis, any judge panel, a verify
-    /// round, and the bare table for every other stage.
+    /// The deed a stage names: synthesis, any judge panel, a verify round,
+    /// and the bare table for every other stage.
     pub(crate) fn of_stage(stage: &str) -> Self {
         match stage {
             "synthesis" => Self::Synthesis,

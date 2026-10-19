@@ -1165,3 +1165,174 @@ fn an_open_loop_dialog_keeps_terminal_images_out_from_under_it() {
         "images return when it closes"
     );
 }
+
+#[test]
+fn transcript_link_click_opens_local_artifact_in_stage() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(Viewer::static_preview());
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
+    let root = app.tools.current_workspace().to_path_buf();
+    let path = root.join("Cargo.toml");
+    assert!(
+        path.is_file(),
+        "test workspace must have Cargo.toml: {root:?}"
+    );
+    app.messages.clear();
+    app.messages.push(crate::ui::transcript::Message::new(
+        crate::ui::transcript::Role::Angel,
+        "Real captures: including [the expanded dock](Cargo.toml).",
+    ));
+    let mut terminal = Terminal::new(TestBackend::new(36, 14)).unwrap();
+    terminal
+        .draw(|frame| render_transcript(frame, &mut app, frame.area()))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let pos = buffer
+        .content
+        .iter()
+        .enumerate()
+        .find(|(_, cell)| cell.modifier.contains(Modifier::UNDERLINED) && cell.symbol() != " ")
+        .map(|(i, _)| (i as u16 % 36, i as u16 / 36))
+        .expect("visible underlined link");
+    app.panes.push(
+        crate::ui::mouse::PaneId::Transcript,
+        Rect::new(1, 1, 34, 12),
+    );
+    let before = app.media.len();
+    for kind in [
+        ratatui::crossterm::event::MouseEventKind::Down(
+            ratatui::crossterm::event::MouseButton::Left,
+        ),
+        ratatui::crossterm::event::MouseEventKind::Up(ratatui::crossterm::event::MouseButton::Left),
+    ] {
+        app.on_mouse(ratatui::crossterm::event::MouseEvent {
+            kind,
+            column: pos.0,
+            row: pos.1,
+            modifiers: ratatui::crossterm::event::KeyModifiers::NONE,
+        });
+        if matches!(kind, ratatui::crossterm::event::MouseEventKind::Down(_)) {
+            // Glass can paint another frame before the release arrives.
+            app.transcript_links.clear();
+            terminal
+                .draw(|frame| render_transcript(frame, &mut app, frame.area()))
+                .unwrap();
+        }
+    }
+    assert_eq!(
+        app.media.len(),
+        before + 1,
+        "underlined transcript link did not open an artifact"
+    );
+    assert_eq!(
+        app.media.last().unwrap().local_path().unwrap(),
+        path.canonicalize().unwrap()
+    );
+}
+
+#[test]
+fn transcript_link_drag_selects_without_opening_and_stale_release_is_ignored() {
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(Viewer::static_preview());
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
+    app.messages.clear();
+    app.messages.push(crate::ui::transcript::Message::new(
+        crate::ui::transcript::Role::Angel,
+        "Click [the expanded dock](Cargo.toml) here.",
+    ));
+    let mut terminal = Terminal::new(TestBackend::new(64, 12)).unwrap();
+    terminal
+        .draw(|frame| render_transcript(frame, &mut app, frame.area()))
+        .unwrap();
+    let pos = app.transcript_links.first().expect("link hit").rect;
+    app.panes.push(
+        crate::ui::mouse::PaneId::Transcript,
+        Rect::new(1, 1, 62, 10),
+    );
+    let before = app.media.len();
+    let event = |kind, x| MouseEvent {
+        kind,
+        column: x,
+        row: pos.y,
+        modifiers: KeyModifiers::NONE,
+    };
+    app.on_mouse(event(MouseEventKind::Down(MouseButton::Left), pos.x));
+    app.on_mouse(event(MouseEventKind::Drag(MouseButton::Left), pos.x + 3));
+    app.on_mouse(event(MouseEventKind::Up(MouseButton::Left), pos.x + 3));
+    assert_eq!(app.media.len(), before);
+    assert!(app.copy_requested);
+    assert!(
+        app.selection
+            .as_ref()
+            .is_some_and(|selection| !selection.is_empty())
+    );
+    app.on_mouse(event(MouseEventKind::Down(MouseButton::Left), pos.x));
+    app.transcript_links.clear(); // Route change/hidden transcript before release.
+    app.on_mouse(event(MouseEventKind::Up(MouseButton::Left), pos.x));
+    assert_eq!(app.media.len(), before);
+}
+
+#[test]
+fn transcript_link_png_and_streamed_links_open_exact_images() {
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    let _guard = crate::tests::env_lock();
+    for streaming in [false, true] {
+        let mut app = App::preview(Viewer::static_preview());
+        app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
+        let root = app.tools.current_workspace();
+        let relative = [
+            "assets/agents/apollo-neutral.png",
+            "cockpit/assets/agents/apollo-neutral.png",
+        ]
+        .into_iter()
+        .find(|path| root.join(path).is_file())
+        .expect("tracked PNG fixture");
+        let expected = root.join(relative).canonicalize().unwrap();
+        let text = format!("Real GPU captures, including [the expanded dock]({relative}).");
+        app.messages.clear();
+        if streaming {
+            app.partial = text;
+            app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("test"));
+        } else {
+            app.messages.push(crate::ui::transcript::Message::new(
+                crate::ui::transcript::Role::Angel,
+                text,
+            ));
+        }
+        let mut terminal = Terminal::new(TestBackend::new(36, 14)).unwrap();
+        terminal
+            .draw(|frame| render_transcript(frame, &mut app, frame.area()))
+            .unwrap();
+        let link = app
+            .transcript_links
+            .last()
+            .expect("wrapped link hit")
+            .clone();
+        let before = app.media.len();
+        app.panes.push(
+            crate::ui::mouse::PaneId::Transcript,
+            Rect::new(1, 1, 34, 12),
+        );
+        for kind in [
+            MouseEventKind::Down(MouseButton::Left),
+            MouseEventKind::Up(MouseButton::Left),
+        ] {
+            app.on_mouse(MouseEvent {
+                kind,
+                column: link.rect.x,
+                row: link.rect.y,
+                modifiers: KeyModifiers::NONE,
+            });
+            if matches!(kind, MouseEventKind::Down(_)) {
+                terminal
+                    .draw(|frame| render_transcript(frame, &mut app, frame.area()))
+                    .unwrap();
+            }
+        }
+        assert_eq!(app.media.len(), before + 1, "streaming={streaming}");
+        assert!(app.media.last().unwrap().is_image());
+        assert_eq!(app.media.last().unwrap().local_path().unwrap(), expected);
+        assert_eq!(app.scryglass.active_media(), Some(app.media.len() - 1));
+    }
+}

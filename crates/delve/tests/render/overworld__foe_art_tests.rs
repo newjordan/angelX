@@ -311,6 +311,13 @@ fn approved_bestiary_pixels_stay_exact() {
     assert_eq!(approved_foe_hashes(), expected);
 }
 
+#[test]
+#[ignore = "exports candidates for a deliberately reviewed sprite rollout"]
+fn write_approved_foe_hashes() {
+    let path = std::env::var_os("ANGEL_FOE_HASHES").expect("candidate output path");
+    std::fs::write(path, serde_json::to_vec_pretty(&approved_foe_hashes()).unwrap()).unwrap();
+}
+
 /// Same pose and tick through each existing hit interval, in both kits.
 #[test]
 #[ignore]
@@ -342,7 +349,10 @@ fn write_foe_hit_shots() {
         for hurt in [0, 6, 4, 3, 1] {
             run.enemies[0].hurt = hurt;
             let src = foe_figure(&run, &run.enemies[0], run.tick as u32);
-            let im = marks::flashed(&src, &run.enemies[0], &run);
+            let library = run.enemies[0].boss.and_then(|i| run.bosses.get(i as usize))
+                .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
+                .is_some_and(boss_art::library_registered);
+            let im = if library { src } else { marks::flashed(&src, &run.enemies[0], &run) };
             image::RgbaImage::from_raw(im.w as u32, im.h as u32, im.rgba_bytes())
                 .unwrap()
                 .save(dir.join(format!("{name}-v1-{hurt}.png")))
@@ -377,6 +387,9 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
     }
     for (name, run) in fixtures {
         let mut e = run.enemies[0].clone();
+        let library = e.boss.and_then(|i| run.bosses.get(i as usize))
+            .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
+            .is_some_and(boss_art::library_registered);
         e.hp = e.max_hp;
         e.hurt = 0;
         let src = foe_figure(&run, &e, run.tick as u32);
@@ -384,7 +397,12 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
         let mut phases = Vec::new();
         for hurt in [6, 4, 3, 1] {
             e.hurt = hurt;
-            let hit = marks::flashed(&src, &e, &run);
+            // Delivered bodies already contain their cached RGB hit grade.
+            let hit = if library {
+                foe_figure(&run, &e, run.tick as u32)
+            } else {
+                marks::flashed(&src, &e, &run)
+            };
             let mut colors = HashSet::new();
             let mut brightness = 0u64;
             for y in 0..src.h {
@@ -392,7 +410,12 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
                     assert_eq!(src.solid(x, y), hit.solid(x, y), "{name}: coverage {x},{y}");
                     if let Some(c) = hit.get(x, y) {
                         colors.insert(c);
-                        assert!(palette_index(c).is_some(), "{name}: palette {c:?}");
+                        if library {
+                            assert_eq!(c, marks::hit_rgb(src.get(x, y).unwrap(), hurt >= 4),
+                                "{name}: exactly one cached material hit grade");
+                        } else {
+                            assert!(palette_index(c).is_some(), "{name}: palette {c:?}");
+                        }
                         assert!(
                             c.iter().copied().max().unwrap() <= 228,
                             "{name}: white bound"
@@ -403,7 +426,7 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
                                 matches!(palette_index(c), Some(41..=44 | 56..=59 | 70..=71)),
                                 "engine: brass must catch the bounded pale metal ramp"
                             );
-                        } else if matches!(source_bank, Some(1 | 2)) {
+                        } else if !library && matches!(source_bank, Some(1 | 2)) {
                             assert_eq!(bank_of(c), source_bank, "{name}: own ramp");
                         }
                         brightness += c.iter().map(|&n| u64::from(n)).sum::<u64>();

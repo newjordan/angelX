@@ -1,0 +1,14 @@
+# The Sunken Abbey: the choir's east wall with its three broken lancets
+# standing out of the back, a ruined tower stub at the east end.
+box      stone   at 48 0 6 size 14 60 14 id abbey-buttress-w
+arch-6   stone   at 76 0 8 size 28 48 12 id abbey-lancet-1
+arch-6   stone   at 104 0 8 size 28 58 12 id abbey-lancet-2
+arch-6   stone   at 132 0 8 size 28 40 12 id abbey-lancet-3
+box      stone   at 152 0 6 size 14 44 14 id abbey-buttress-e
+box      stone   at 62 48 8 size 12 10 10 id abbey-broken-1
+box      stone   at 118 58 8 size 10 8 10 id abbey-broken-2
+box      stone   at 250 0 6 size 36 26 12 id abbey-wall-1
+box      stone   at 330 0 -2 size 32 54 30 id abbey-tower-stub
+box      stone   at 322 54 4 size 12 8 12 id abbey-tower-broken-1
+box      stone   at 340 54 -4 size 12 16 12 id abbey-tower-broken-2
+blob-3   foliage at 348 20 8 size 22 24 14 id abbey-ivy

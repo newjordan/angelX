@@ -89,15 +89,15 @@ pub(super) fn sheet(run: &Run) -> Img {
     let h = 15 + rows.len().max(1) as i32 * 27;
     let mut im = Img::new(w + 1, h + 1);
     chrome::board(&mut im, (0, 0, w, h), 'B');
-    im.text((w - text_width(title)) / 2, 3, title, '5');
+    im.text((w - text_width(title)) / 2, 3, title, 'O');
     if rows.is_empty() {
         let none = "NOTHING PINNED YET";
         im.text((w - text_width(none)) / 2, 15, none, 'h');
     }
     for (i, (name, progress, k, pays)) in rows.iter().enumerate() {
         let y = 15 + i as i32 * 27;
-        im.text(6, y, name, '9');
-        im.text(w - 6 - text_width(progress), y, progress, 'H');
+        im.text(6, y, name, 'i');
+        im.text(w - 6 - text_width(progress), y, progress, 'i');
         let fill = ((w - 14) as f32 * k.clamp(0.0, 1.0)) as i32;
         chrome::meter(&mut im, (6, y + 9, w - 12, 4), fill, super::super::ink::ink('5').unwrap_or_default());
         let mut x = im.text(6, y + 16, "PAYS", 'h') + 5;
@@ -105,7 +105,7 @@ pub(super) fn sheet(run: &Run) -> Img {
             let mark = spoil_mark(spoil);
             im.stamp(&mark, x, y + 16 + (7 - mark.h) / 2);
             x += mark.w + 2;
-            x = im.text(x, y + 16, &n.to_string(), 'H') + 6;
+            x = im.text(x, y + 16, &n.to_string(), 'i') + 6;
         }
     }
     im

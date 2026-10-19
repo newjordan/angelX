@@ -36,6 +36,15 @@ impl<'a> DrawList<'a> {
         self.commands.push((layer, Box::new(paint)));
     }
 
+    /// The commands up to and including layer `last`, and the rest.
+    pub(super) fn split(self, last: Layer) -> (DrawList<'a>, DrawList<'a>) {
+        let (low, high) = self
+            .commands
+            .into_iter()
+            .partition(|(layer, _)| *layer <= last);
+        (DrawList { commands: low }, DrawList { commands: high })
+    }
+
     /// Paint every command into `cv`, back layer first.
     pub(super) fn paint(mut self, cv: &mut Img) {
         // A stable sort: one layer keeps the order its painters came in.

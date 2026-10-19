@@ -1,0 +1,22 @@
+ART DIRECTION
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES
+ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+ORIGINALITY: original designs only; never an existing commercial game character, enemy, vehicle or logo, or any famous character.
+
+Make a 1536x1024 transparent PNG prop sheet of ONE original Herald Podium in EXACTLY five cells on a 3-column x 2-row grid, reading order: cells 1, 2, 3 top row, cells 4, 5 bottom row left and middle; cell 6 bottom right fully empty and transparent. Each cell about 512x512, one square drawing about 340x340, same scale, centre and baseline per cell, at least 40px clear around each drawing. Exactly five drawings, nothing else. No floor or ground.
+
+Identity / brief: a herald’s broad low timber dais of two steps, lower step full width and upper step about 75% width, warm weathered brown timber, pale slate-grey stone plinth strip along bottom. On upper step a slanted reading lectern whose sloped top faces camera with pale rim, carrying a rolled cream scroll. At the back-left corner, a short thick pole rises to top edge of drawing, topped by small pale-brass ball, carrying a flat AQUA pennant with one pale crescent and no lettering. Dais, lectern, scroll and pole must be identically drawn in all five cells at same scale and baseline; ONLY pennant changes. Top edges have pale rim. Big flat shapes, thick dark warm-brown outline, max six flat colour masses, no fine texture, no grain, speckles, scratches, rivet rows or hairlines. Materials are chunky stepped shading, painterly hand-clustered, not pixelated block-art. Use warm timber, cool pale slate-grey, cream and brass; aqua only as pennant accent. No green, red, purple, pink, pure white, glow, halo, cast shadow, or soft edge.
+
+Poses in exact reading order:
+1 idle-0: pennant hangs limp straight down along the pole.
+2 cry-0: pennant streams right with an up-curl.
+3 cry-1: pennant streams right, flat and straight.
+4 cry-2: pennant streams right with a down-curl.
+5 cry-3: pennant streams right, flat with a double wave.
+The pennant tip stays inside its cell. No motion lines, sound waves, sparks or extra effects. No letters.
+
+Camera: RT high three-quarter front view, about 45 degrees above, for a top-down town game. Prop stands upright like a billboard sprite. Square silhouette roughly 1.5 knight widths. Design to reduce cleanly to native 26x26: broad readable silhouette, no detail finer than 1/16 of object height.
+
+Reference use: input image 1 is layout/quality reference, input image 2 knight anatomy reference, input image 3 props/VFX reference; all are STYLE AND MATERIAL anchors only. Do not copy their characters, costumes, heraldry, objects or layouts. Inputs 4 and 5 are accepted Moonfall material anchors for warm timber/brass contour and pale slate stone; use these only for style/materials, do not draw a bell, moonwell or frame.

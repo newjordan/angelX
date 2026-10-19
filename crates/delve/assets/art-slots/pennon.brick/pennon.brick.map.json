@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    16
+  ],
+  "anchor_xy": [
+    16,
+    8
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "ramparts(seed) owns four section spans and three gaps; supports()/landing() own feet. Do not bridge a breach with painted overhang.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "4e63e51b556e42c153a9de7a7743f96651c6b1068a506c94a5e4b1ab740c4624",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Intact tile variant with two iron ties and gently varied slate blocks.",
+      "name": "brick",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        66.5
+      ],
+      "source_rect_xywh": [
+        22,
+        241,
+        273,
+        133
+      ],
+      "state": "brick"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Intact tile variant with slightly changed seams and tie spacing.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        66.5
+      ],
+      "source_rect_xywh": [
+        335,
+        241,
+        272,
+        133
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Intact tile variant with altered slate contours and tie spacing.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        66.5
+      ],
+      "source_rect_xywh": [
+        647,
+        241,
+        272,
+        133
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Intact tile variant with another broad face arrangement.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        135.5,
+        67.0
+      ],
+      "source_rect_xywh": [
+        961,
+        241,
+        271,
+        134
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Slightly chipped tile.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        135.5,
+        66.0
+      ],
+      "source_rect_xywh": [
+        24,
+        598,
+        271,
+        132
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Tile with a long diagonal crack.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        66.0
+      ],
+      "source_rect_xywh": [
+        335,
+        598,
+        272,
+        132
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Larger broken corner on the right.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        134.5,
+        66.0
+      ],
+      "source_rect_xywh": [
+        649,
+        597,
+        269,
+        132
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Heavier fractured corner on the right.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.0,
+        65.5
+      ],
+      "source_rect_xywh": [
+        963,
+        598,
+        266,
+        131
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Left broken endcap with a ragged exposed edge.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.0,
+        72.5
+      ],
+      "source_rect_xywh": [
+        29,
+        909,
+        264,
+        145
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Right broken endcap with a ragged exposed edge.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.5,
+        72.5
+      ],
+      "source_rect_xywh": [
+        338,
+        909,
+        259,
+        145
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Detached chunky slate fragment.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        64.5,
+        65.0
+      ],
+      "source_rect_xywh": [
+        721,
+        930,
+        129,
+        130
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Detached smaller narrow slate fragment.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        47.0,
+        52.5
+      ],
+      "source_rect_xywh": [
+        1059,
+        951,
+        94,
+        105
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d716; tiled across a 32 px tall floor face beginning at FLOOR, **clipped per pixel at each physical breach edge**.",
+  "sizes": {
+    "v1": [
+      32,
+      16
+    ],
+    "v2": [
+      32,
+      16
+    ]
+  },
+  "slot": "pennon.brick",
+  "source_sha256": "5df6155c316386b0eca8cc7b098a06a6179f4058dfce533722b795742902ab37",
+  "timing": "Static repeating background in backdrop()."
+}

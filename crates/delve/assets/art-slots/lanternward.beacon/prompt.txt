@@ -1,0 +1,27 @@
+GENERATION 1
+ART DIRECTION (verbatim from the Codex art team's boss-library prompts; keep it in every image prompt):
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES (verbatim):
+ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+
+SHEET RULES AND LAYOUT: Create exactly one 1536x1024 transparent PNG sheet, 4 columns x 2 rows, each cell 384x512, reading order left-to-right then top-to-bottom. Exactly seven separate Beacon drawings, one centered in each of cells 1-7, same scale, center line, and baseline in all cells; at least 40 px clear transparent margin around each drawing. Cell 8 (bottom right) is completely empty and transparent. Each drawing is about 400 px tall. No touching/merging, no text or labels. Real alpha transparency. No glow, halo, floor, shadow, backdrop, checkerboard, scenery, or gradients.
+
+IDENTITY AND BRIEF: Original game prop Beacon, the big signal tower that knights relight at the end of Lanternward. Its upright billboard sprite silhouette is a tall round pale slate-grey stone tower, slightly wider at the foot, with a stout arched door at the base, one pale stone ring band at mid-height and one pale band just under the top, topped by a wide shallow dark iron fire-bowl held out by four iron struts ending in short iron spikes. In each drawing tower and bowl are the identical drawing; only fire/embers change. Simplify the supplied Beacon concept: no moss, stone-texture noise, tiny arched slit, rubble, or extra detail. Use 3-4 large block seams only. Design for reduction to native 24x36: big flat shapes, thick warm dark-brown-black outline, no detail finer than 1/16 of height, maximum six flat color masses, no texture or lettering. Keep stone mid-tones readable above 25% value; pale rim highlights on top edges and upper silhouette. Iron dark warm iron with chunky stepped shading and pale edge highlights. Use cool slate-gray stone, dark iron, warm brown-black contour; flame in gold and amber with deeper orange-brown base, hottest core about 85% value. No pure white, no green, red, purple, pink, aqua, or saturated accents outside amber flame. No lighting on stone.
+
+POSES / CELL ORDER EXACTLY:
+1 cold-0: bowl with grey ash and a few dead black coals, absolutely no flame, ember glow, or smoke.
+2 kindling-0: small amber flame about the height of the bowl in the middle, with two ember lumps.
+3 kindling-1: slightly bigger flame leaning right.
+4 lit-0: huge chunky tall straight flame.
+5 lit-1: huge chunky flame leaning left.
+6 lit-2: huge chunky short and fat flame.
+7 lit-3: huge chunky flame leaning right.
+Every flame is a solid outlined shape, distinct shape in every state, and never leaves the canvas. Do not add sparks or glow. The tower and bowl must stay identical across all seven cells.
+
+CAMERA: high three-quarter front view for a top-down dungeon game, camera about 40 degrees above; prop stands upright like a billboard sprite; draw no floor.
+
+INPUT IMAGE ROLES: Input image 1 is the boss-sheet layout and quality reference, image 2 is the knight anatomy reference, and image 3 is the props/VFX kit reference; all three are STYLE AND MATERIAL anchors only, do not copy their subjects, characters, costumes, or heraldry. Input image 4 is the Beacon concept reference for identity and silhouette only. Input image 5 is the accepted brazier sheet for iron color, contour weight, chunky stepped shading, and flame style only; do not copy its subject.
+
+GENERATION 2 (correction prompt):
+Keep the image exactly as it is: preserve all seven Beacon drawings, every flame shape, the tower and bowl details, colors, outlines, scale, positions, baselines, and the empty bottom-right cell. Change only the background and exterior lighting: remove the entire dark gradient/background and every exterior glow, halo, haze, bloom, and vignette; replace them with true fully transparent alpha pixels. Do not alter, redraw, crop, or simplify any object pixels. No background of any kind.

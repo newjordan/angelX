@@ -69,6 +69,9 @@ impl ShellPane {
         if let Some(cwd) = cwd {
             command.cwd(cwd.as_os_str());
         }
+        // The pane is a terminal: an angelX typed in it stays in it rather
+        // than opening a second window.
+        command.env("ANGEL_GLASS", "0");
         let (child, claim) = claim_spawn(
             || pair.slave.spawn_command(command),
             |child| child.process_id(),

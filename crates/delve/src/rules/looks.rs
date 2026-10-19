@@ -5,8 +5,9 @@
 //! - `worn`: over the knight, centred on their sixteen-pixel body (a bigger
 //!   shield, spiked pauldrons, a different helm); up to 24 by 24, so it may
 //!   stand four pixels proud of the figure on every side.
-//! - `shot`: the knight's shots and the spells they cast, drawn at twice
-//!   size like every shot; up to 12 by 12.
+//! - `shot`: the knight's shots and the spells they cast; up to 16 by 16,
+//!   drawn pixel for pixel in a shot's footprint (an 8-pixel shot at twice
+//!   size), so finer art keeps its detail.
 //! - `orbit`: what spins round the knight in place of the morningstar; up to
 //!   12 by 12.
 //! - `summon`: the creatures a `summon` effect calls; up to 16 by 16.
@@ -73,7 +74,8 @@ impl Slot {
     pub fn max_side(self) -> (usize, usize) {
         match self {
             Slot::Worn => (24, 24),
-            Slot::Shot | Slot::Orbit => (12, 12),
+            Slot::Shot => (16, 16),
+            Slot::Orbit => (12, 12),
             Slot::Summon => (16, 16),
             Slot::Aura => (32, 24),
         }
@@ -83,7 +85,7 @@ impl Slot {
     pub fn sheet_side(self) -> u32 {
         match self {
             Slot::Worn => 14,
-            Slot::Shot => 8,
+            Slot::Shot => 16,
             Slot::Orbit => 10,
             Slot::Summon => 12,
             Slot::Aura => 24,
@@ -96,7 +98,7 @@ impl Slot {
             Slot::Worn => {
                 "drawn over the knight, centred on their 16x16 body (up to 24x24: a bigger shield, spiked pauldrons, a new helm)"
             }
-            Slot::Shot => "the knight's shots and spell casts (up to 12x12, drawn at twice size)",
+            Slot::Shot => "the knight's shots and spell casts (up to 16x16, drawn pixel for pixel at a shot's size)",
             Slot::Orbit => "what spins round the knight instead of the morningstar (up to 12x12)",
             Slot::Summon => "the creatures a `summon` effect calls (up to 16x16)",
             Slot::Aura => "a glow on the ground under the knight (up to 32x24)",

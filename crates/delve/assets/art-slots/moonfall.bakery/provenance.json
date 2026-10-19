@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.bakery/v01",
+  "delivery_status": "Accepted by the wave-2 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): frontal cottage, three states read, the loaf sign hangs a few pixels outside the wall; transparent background, three separated drawings.",
+  "generation_sha256": "7deac8cac7a4e434950a018b220df1b3437b745482fe4ffcdee14fa7e002f255",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "6711cd227f3b94c55c74cbfc9ac60a69e66dcacb5533b6648bb8ecab3c0f35b6",
+  "native_contract": "Native 64x76, anchor bottom-centre (32,76).",
+  "notes_sha256": "2cf04e44181a8a33cdc605a87383585e1e36ac2775f11caf65de34db52f225bc",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "c3066483e299ebb04ba61e3db2a81a6a1ab2876f826885d093bbc59a129ca075",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bakery/v01/source-sheet.png",
+  "source_sha256": "10617dfa264230be3b724e763376eab8bc1c195c7a0948887d85131158823b72"
+}

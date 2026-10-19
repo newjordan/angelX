@@ -1,0 +1,576 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 1,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "690c7dfd94834161497fbf44329fbf39c14be6114419229fe2568b12467119e7",
+  "metadata_sha256": "5c83d35486eea94dd978ed77be1029807ad461b463da9c9d32c7bde182c7ae75",
+  "native_cleanup": {
+    "latch.knight/knight-thrust-contact": [
+      90,
+      45,
+      38,
+      35
+    ],
+    "reason": "Remove detached neighbouring boot in the manually separated source gutter."
+  },
+  "notes_sha256": "a79437d88cf4199368e809cc5061aa6b1a2f126fd60c11fa8fd319e1228ab6fa",
+  "outputs": {
+    "v1/knight-guard-high.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.982,
+      "frame": 0,
+      "half_cell_coverage": 218,
+      "opaque_pixels": 3115,
+      "piece": 2,
+      "seat_mask_sha256": "366c395432ff9357095649e27f40df269e5fc4abcb75fb9d8ebc458f2884b790",
+      "sha256": "add8770caedd3f432db8e49ddf4e39d2919877189259b96869f55ada9fc0ba2c",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-guard-high"
+    },
+    "v1/knight-guard-low.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9856,
+      "frame": 0,
+      "half_cell_coverage": 158,
+      "opaque_pixels": 2291,
+      "piece": 3,
+      "seat_mask_sha256": "4b9d84b1af457b3ff43b78660f57a3aa8e770f47d8007b5c617017f2321cf99a",
+      "sha256": "e4e395837b4c1bcc879e241523cecdec4fde3dd8471d56e0854c6256cfff3a41",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-guard-low"
+    },
+    "v1/knight-thrust-brace.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9769,
+      "frame": 0,
+      "half_cell_coverage": 211,
+      "opaque_pixels": 3029,
+      "piece": 0,
+      "seat_mask_sha256": "4f61792de2df1bc8d242275d63ccbd40221d565e137b44ffcdf11bfed84f7c07",
+      "sha256": "dd02c7f77e718864465a4e96483244ac343e9db95b42d7c34e48bc3ada811dda",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-brace"
+    },
+    "v1/knight-thrust-contact.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9757,
+      "frame": 0,
+      "half_cell_coverage": 228,
+      "opaque_pixels": 2997,
+      "piece": 4,
+      "seat_mask_sha256": "88ea38375acb23faee9b9210551a393730cec57752b2c19232f939a21e745967",
+      "sha256": "6d6cd02f5c3878e0ad0190c4761430827c9aa275eb4f6d70b91bd66b03d112db",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-contact"
+    },
+    "v1/knight-thrust-recover.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9844,
+      "frame": 0,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2625,
+      "piece": 11,
+      "seat_mask_sha256": "7c010790d4532815debff98336b5d185a64299090936d641f875ea782d4c6b08",
+      "sha256": "e1102fa8f550b069830987312bccdbde59063a7f71735f695bae101f5d9d9ef8",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-recover"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9787,
+      "frame": 1,
+      "half_cell_coverage": 173,
+      "opaque_pixels": 2483,
+      "piece": 1,
+      "seat_mask_sha256": "1b2f31909fc6f8b06a89683680c8039bc11f8097cd32698ce3ad0af9981ee990",
+      "sha256": "0f338a80fb36479726a5ad8c2925eba336253dbdc0779af885d90cde6f097fdc",
+      "source_scale": 0.2768166089965398,
+      "state": "crouched-low-guard-spear-lowered-and-shield-near-the-legs"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9834,
+      "frame": 5,
+      "half_cell_coverage": 194,
+      "opaque_pixels": 2768,
+      "piece": 5,
+      "seat_mask_sha256": "3e4ec8b3e22dfbfc86b18d49365345d0eaf074714fe1142fdc3903676fe4bc3c",
+      "sha256": "3b811cf94ea930d18cc7f2d54c0a8cda4e2d497f8550018cf123edf1428f495f",
+      "source_scale": 0.2768166089965398,
+      "state": "low-counter-thrust-crouched"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9892,
+      "frame": 6,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2593,
+      "piece": 6,
+      "seat_mask_sha256": "3a6fbf09d3fd062974cac836004d855afcc46f5ffc37d38869dfb8858ab6a413",
+      "sha256": "b8a40d44fbd614e76364ec20a40b5cf3a5050639fca3b2e208f5143a213139f4",
+      "source_scale": 0.2768166089965398,
+      "state": "miss-stagger-body-pitched-forward-with-blue-sweat-marks"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9844,
+      "frame": 7,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2628,
+      "piece": 7,
+      "seat_mask_sha256": "a02b8fb90d512fc83cc44de56f64832d74b51a0751ec550df854f669a772ee50",
+      "sha256": "01495ffa2d1a8b373cfa790b7fc7b7d201fce531804d8fa42f6ad525eaf5cc5e",
+      "source_scale": 0.2768166089965398,
+      "state": "hit-flinch-compressed-stance-with-shield-pulled-in"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9826,
+      "frame": 8,
+      "half_cell_coverage": 232,
+      "opaque_pixels": 3157,
+      "piece": 8,
+      "seat_mask_sha256": "c804069f677d4b581e298bfebdb94e967d72f9ef19b5ee4a16bc60adb051d0f1",
+      "sha256": "b6484d2bc3df8ce83cc0b5533b6125862417ea6435abe5204c4a8b6277c9bab7",
+      "source_scale": 0.2768166089965398,
+      "state": "victory-stance-with-raised-shield-spear-remains-level"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.98,
+      "frame": 9,
+      "half_cell_coverage": 168,
+      "opaque_pixels": 2447,
+      "piece": 9,
+      "seat_mask_sha256": "e1738086f4fa514ea2f9690e5bcaf10f69966035e5b8d791e5160d34979b7331",
+      "sha256": "476d8c51588d5a7ea33dc5b962e762a382c5cb159e164a4dc666d19694b10bc0",
+      "source_scale": 0.2768166089965398,
+      "state": "defeat-collapse-kneeling-low-with-spear-on-the-ground"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9842,
+      "frame": 10,
+      "half_cell_coverage": 199,
+      "opaque_pixels": 2909,
+      "piece": 10,
+      "seat_mask_sha256": "b05613a0f7d5fd022ff9315815cc881dbb21a44f9c6cce240004b5bb17e494f3",
+      "sha256": "ec35c281a6a80774b60c2db6a0916fc2c4707e21aff145967823dfe723ce5b22",
+      "source_scale": 0.2768166089965398,
+      "state": "anticipation-read-forward-loaded-stance"
+    },
+    "v2/knight-guard-high.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.982,
+      "frame": 0,
+      "half_cell_coverage": 218,
+      "opaque_pixels": 3115,
+      "piece": 2,
+      "seat_mask_sha256": "366c395432ff9357095649e27f40df269e5fc4abcb75fb9d8ebc458f2884b790",
+      "sha256": "add8770caedd3f432db8e49ddf4e39d2919877189259b96869f55ada9fc0ba2c",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-guard-high"
+    },
+    "v2/knight-guard-low.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9856,
+      "frame": 0,
+      "half_cell_coverage": 158,
+      "opaque_pixels": 2291,
+      "piece": 3,
+      "seat_mask_sha256": "4b9d84b1af457b3ff43b78660f57a3aa8e770f47d8007b5c617017f2321cf99a",
+      "sha256": "e4e395837b4c1bcc879e241523cecdec4fde3dd8471d56e0854c6256cfff3a41",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-guard-low"
+    },
+    "v2/knight-thrust-brace.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9769,
+      "frame": 0,
+      "half_cell_coverage": 211,
+      "opaque_pixels": 3029,
+      "piece": 0,
+      "seat_mask_sha256": "4f61792de2df1bc8d242275d63ccbd40221d565e137b44ffcdf11bfed84f7c07",
+      "sha256": "dd02c7f77e718864465a4e96483244ac343e9db95b42d7c34e48bc3ada811dda",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-brace"
+    },
+    "v2/knight-thrust-contact.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9757,
+      "frame": 0,
+      "half_cell_coverage": 228,
+      "opaque_pixels": 2997,
+      "piece": 4,
+      "seat_mask_sha256": "88ea38375acb23faee9b9210551a393730cec57752b2c19232f939a21e745967",
+      "sha256": "6d6cd02f5c3878e0ad0190c4761430827c9aa275eb4f6d70b91bd66b03d112db",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-contact"
+    },
+    "v2/knight-thrust-recover.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9844,
+      "frame": 0,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2625,
+      "piece": 11,
+      "seat_mask_sha256": "7c010790d4532815debff98336b5d185a64299090936d641f875ea782d4c6b08",
+      "sha256": "e1102fa8f550b069830987312bccdbde59063a7f71735f695bae101f5d9d9ef8",
+      "source_scale": 0.2768166089965398,
+      "state": "knight-thrust-recover"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9787,
+      "frame": 1,
+      "half_cell_coverage": 173,
+      "opaque_pixels": 2483,
+      "piece": 1,
+      "seat_mask_sha256": "1b2f31909fc6f8b06a89683680c8039bc11f8097cd32698ce3ad0af9981ee990",
+      "sha256": "0f338a80fb36479726a5ad8c2925eba336253dbdc0779af885d90cde6f097fdc",
+      "source_scale": 0.2768166089965398,
+      "state": "crouched-low-guard-spear-lowered-and-shield-near-the-legs"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9834,
+      "frame": 5,
+      "half_cell_coverage": 194,
+      "opaque_pixels": 2768,
+      "piece": 5,
+      "seat_mask_sha256": "3e4ec8b3e22dfbfc86b18d49365345d0eaf074714fe1142fdc3903676fe4bc3c",
+      "sha256": "3b811cf94ea930d18cc7f2d54c0a8cda4e2d497f8550018cf123edf1428f495f",
+      "source_scale": 0.2768166089965398,
+      "state": "low-counter-thrust-crouched"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9892,
+      "frame": 6,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2593,
+      "piece": 6,
+      "seat_mask_sha256": "3a6fbf09d3fd062974cac836004d855afcc46f5ffc37d38869dfb8858ab6a413",
+      "sha256": "b8a40d44fbd614e76364ec20a40b5cf3a5050639fca3b2e208f5143a213139f4",
+      "source_scale": 0.2768166089965398,
+      "state": "miss-stagger-body-pitched-forward-with-blue-sweat-marks"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9844,
+      "frame": 7,
+      "half_cell_coverage": 183,
+      "opaque_pixels": 2628,
+      "piece": 7,
+      "seat_mask_sha256": "a02b8fb90d512fc83cc44de56f64832d74b51a0751ec550df854f669a772ee50",
+      "sha256": "01495ffa2d1a8b373cfa790b7fc7b7d201fce531804d8fa42f6ad525eaf5cc5e",
+      "source_scale": 0.2768166089965398,
+      "state": "hit-flinch-compressed-stance-with-shield-pulled-in"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9826,
+      "frame": 8,
+      "half_cell_coverage": 232,
+      "opaque_pixels": 3157,
+      "piece": 8,
+      "seat_mask_sha256": "c804069f677d4b581e298bfebdb94e967d72f9ef19b5ee4a16bc60adb051d0f1",
+      "sha256": "b6484d2bc3df8ce83cc0b5533b6125862417ea6435abe5204c4a8b6277c9bab7",
+      "source_scale": 0.2768166089965398,
+      "state": "victory-stance-with-raised-shield-spear-remains-level"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.98,
+      "frame": 9,
+      "half_cell_coverage": 168,
+      "opaque_pixels": 2447,
+      "piece": 9,
+      "seat_mask_sha256": "e1738086f4fa514ea2f9690e5bcaf10f69966035e5b8d791e5160d34979b7331",
+      "sha256": "476d8c51588d5a7ea33dc5b962e762a382c5cb159e164a4dc666d19694b10bc0",
+      "source_scale": 0.2768166089965398,
+      "state": "defeat-collapse-kneeling-low-with-spear-on-the-ground"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        38,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        128,
+        80
+      ],
+      "colour_agreement": 0.9842,
+      "frame": 10,
+      "half_cell_coverage": 199,
+      "opaque_pixels": 2909,
+      "piece": 10,
+      "seat_mask_sha256": "b05613a0f7d5fd022ff9315815cc881dbb21a44f9c6cce240004b5bb17e494f3",
+      "sha256": "ec35c281a6a80774b60c2db6a0916fc2c4707e21aff145967823dfe723ce5b22",
+      "source_scale": 0.2768166089965398,
+      "state": "anticipation-read-forward-loaded-stance"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "seat_mask_cleanup": {
+    "cinder": "source polygons for ivory plume and tabard; warm cream only; alpha coverage 100/255",
+    "latch": "blue painted plume/tabard/shield, B>R+12 and B>G+5; alpha coverage 100/255",
+    "script": "crates/delve/assets/art-slots/cinder.chrome/masks.py"
+  },
+  "slot": "latch.knight",
+  "source_path": "/work/artifacts/boss-art-20261015/polish-a/prepared/latch.knight/source-sheet.png",
+  "source_sha256": "66310357c02da353c3d793126a6728383c8dc2ccc8fbd5be4a31a42b4d2031b7",
+  "tool_version": 2
+}

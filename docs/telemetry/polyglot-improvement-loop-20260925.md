@@ -21,7 +21,7 @@ measurements, source pins, all eligible runs and exact recorded settings.
 ```sh
 python3 scripts/analyze-polyglot-history.py \
   --output artifacts/polyglot-loop-2026-09-25/historical-board.json \
-  --repair-root /home/frosty40/angel_tests/angelX-bench/rerun-20260921
+  --repair-root ~/angel_tests/angelX-bench/rerun-20260921
 python3 scripts/analyze-qwen-traces.py \
   --output artifacts/polyglot-loop-2026-09-25/qwen-request-shapes.json
 ```

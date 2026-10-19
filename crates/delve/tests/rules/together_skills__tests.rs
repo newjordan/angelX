@@ -31,6 +31,7 @@ fn quiet() -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight && !r.great())
         .unwrap();
+    run.open_room_for_test(room);
     run.enter_for_test(room);
     run.calm_for_test();
     run.enemies.clear();
@@ -250,6 +251,8 @@ fn a_mine_is_not_armed_the_moment_it_lands() {
     assert!(!mine.armed());
     run.spawn_at_for_test(EnemyKind::Skeleton, mine.x, mine.y);
     run.enemies.last_mut().unwrap().hp = 5_000;
+    // It stands on the mine, whatever floor it would walk to the knight over.
+    run.enemies.last_mut().unwrap().frozen = u32::MAX / 2;
     idle(&mut run, 3);
     assert_eq!(run.works.mines.len(), 1, "an unarmed mine waits");
     idle(&mut run, skills::MINE_ARM);
@@ -850,6 +853,7 @@ fn finish_room(run: &mut Run) {
         }
     }
     panic!("the room would not clear");
+    while run.hitstop.left > 0 { run.step(&BTreeMap::new()); }
 }
 
 /// Slay every route chief by the production path, each in its own room.
@@ -943,7 +947,7 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (kx, ky);
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), Some(1));
     assert!(run.hud(1, &hud::Keys::FIRST).unwrap().key);
     assert!(run.boss_gate_line().unwrap().contains("carries it"));
@@ -953,7 +957,7 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
         (hero.x, hero.y) = (20.0, 10.0);
         hero.hp = 0;
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     let keyring::Hold::Lying { x: lx, y: ly, .. } = run.works.key.hold else {
         panic!("the fallen knight dropped it");
     };
@@ -965,15 +969,14 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (lx, ly);
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), Some(1));
     run.enter(beside, Some(2));
-    at_the_door(&mut run, dir);
-    run.step(&BTreeMap::new());
     assert!(
         run.key_bearer().is_some(),
         "the key crossed rooms in the hand"
     );
+    at_the_door(&mut run, dir);
     run.travel();
     assert_eq!(run.at, guardian, "the key opened the door");
     assert!(!run.boss_door_shut());
@@ -999,7 +1002,7 @@ fn a_knight_turned_to_stone_drops_the_boss_key_for_one_still_standing() {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (x, y);
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), Some(1));
     // Their player steps away: the key comes down at the stone's feet.
     {
@@ -1007,19 +1010,19 @@ fn a_knight_turned_to_stone_drops_the_boss_key_for_one_still_standing() {
         hero.stone = true;
         (hero.x, hero.y) = (20.0, 10.0);
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     let keyring::Hold::Lying { x: lx, y: ly, .. } = run.works.key.hold else {
         panic!("the stone knight dropped it: {:?}", run.works.key);
     };
     assert!((lx - 20.0).hypot(ly - 10.0) < 3.0, "at their feet");
     // The stone keeps no hold on it; the friend takes it up.
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), None);
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.x, hero.y) = (lx, ly);
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), Some(2));
 }
 
@@ -1042,7 +1045,7 @@ fn a_run_saved_before_the_key_existed_keeps_its_boss_door_open() {
     let mut run = on_floor(1, 6);
     slay_the_chiefs(&mut run);
     run.works = works::Works::default();
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(
         !run.boss_door_shut(),
         "no key was ever made: the door is open"
@@ -1106,7 +1109,7 @@ fn every_floor_has_a_chief_that_holds_the_key_and_a_way_to_the_door() {
             run.enter(room, Some(2));
             let hero = run.players.get_mut(&1).unwrap();
             (hero.x, hero.y) = (x, y);
-            run.step(&BTreeMap::new());
+            run.step_sim_for_test(&BTreeMap::new());
             assert_eq!(run.key_bearer(), Some(1), "floor {depth} seed {seed}");
             let (beside, dir) = door_room(&run);
             run.enter(beside, Some(2));

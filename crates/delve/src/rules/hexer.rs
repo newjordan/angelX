@@ -109,7 +109,6 @@ impl Run {
         self.cues.push("hexed".into());
         self.sounds.push("mana_empty");
         self.found = Some((self.tick, id, "Ribbit.".into()));
-        self.thrill(10);
         if self.hexes >= RIBBIT {
             self.notice("ribbit");
         }

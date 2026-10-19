@@ -1,0 +1,182 @@
+{
+  "anchor_canvas_wh": [
+    40,
+    44
+  ],
+  "anchor_xy": [
+    20,
+    44
+  ],
+  "comments": [
+    "Registered as one bank: the well ring, bell post and crescent plate share one scale and one baseline (bottom of the step); the source pivot x is the centre of the step in each crop, not the crop centre.",
+    "The tallest flame (lit-0) sets the shared scale so that no frame is clipped; the stage stamps the bottom-centre at the foot of the rules box."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "The rules use a 32x24 box centred on the well point; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the cold bowl with ash is idle-0; the bowl full of dark oil with the glint left, then the glint right with a ripple in the water, are oiled-0..1; the four flame shapes (tall, lean left, short and fat, lean right) are lit-0..3.",
+  "notes_sha256": "0a9ab4ba89b055ce6fb17a6ac8d665af789296bdaabbe7580789c3de8b5701a6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: cold grey ash in the back-left bowl, aqua water, crescent front plate.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        160.5,
+        382
+      ],
+      "source_rect_xywh": [
+        53,
+        93,
+        314,
+        382
+      ],
+      "state": "idle",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "oiled-0: dark oil with glint on left side of the bowl.",
+      "name": "oiled-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.0,
+        382
+      ],
+      "source_rect_xywh": [
+        427,
+        93,
+        316,
+        382
+      ],
+      "state": "oiled",
+      "ticks": 10
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "oiled-1: oil glint shifted right and a ring ripple in the water.",
+      "name": "oiled-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        167.5,
+        382
+      ],
+      "source_rect_xywh": [
+        806,
+        93,
+        322,
+        382
+      ],
+      "state": "oiled",
+      "ticks": 10
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: tall golden flame.",
+      "name": "lit-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        166.0,
+        388
+      ],
+      "source_rect_xywh": [
+        1186,
+        87,
+        320,
+        388
+      ],
+      "state": "lit",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: flame leaning left.",
+      "name": "lit-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        165.5,
+        380
+      ],
+      "source_rect_xywh": [
+        51,
+        571,
+        320,
+        380
+      ],
+      "state": "lit",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: short, fat flame.",
+      "name": "lit-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        166.0,
+        379
+      ],
+      "source_rect_xywh": [
+        428,
+        572,
+        320,
+        379
+      ],
+      "state": "lit",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3: flame leaning right.",
+      "name": "lit-3",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        169.5,
+        379
+      ],
+      "source_rect_xywh": [
+        809,
+        572,
+        324,
+        379
+      ],
+      "state": "lit",
+      "ticks": 6
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 40x44, anchor bottom-centre (20,44); stage 384x224 at 16 px per tile; a knight is 16x24 in this town; the Moonwell is about 2.5 knights wide.",
+  "sizes": {
+    "v1": [
+      40,
+      44
+    ],
+    "v2": [
+      40,
+      44
+    ]
+  },
+  "slot": "moonfall.moonwell",
+  "source_sha256": "63904bbb5c99302d3f11b099572d3a6a284b74d12a555d75233979ea2959e6fd",
+  "timing": "idle 12 ticks; oiled 2x10; lit 4x6 (30 Hz). Art never sets a hitbox (rules use a 32x24 box)."
+}

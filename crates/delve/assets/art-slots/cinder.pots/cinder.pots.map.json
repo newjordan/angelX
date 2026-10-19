@@ -1,0 +1,279 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    20
+  ],
+  "anchor_xy": [
+    12,
+    18
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only.",
+    "Ghost cuts are reviewed but rejected at native size (flask vanishes); retain exact renderer inset outlines. Blue/green warm emblems get cached material-hue grading for terminal cells."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "COLS=6, ROWS=10; Board::pair_at/fits/ghost/matches. Three colour identities must retain distinct shapes; slag does not match and clears beside matching pots.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "409f77e5ca8d516a16c76ab81ccdf70c2bd27a5d2b3340a94c5ae0aaf4e07517",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Round blue jar with painted yellow flame, upright idle.",
+      "name": "pot-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        211
+      ],
+      "source_rect_xywh": [
+        43,
+        210,
+        225,
+        211
+      ],
+      "state": "pot-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Low terracotta square crock with painted leaf, upright idle.",
+      "name": "pot-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        116.5,
+        180
+      ],
+      "source_rect_xywh": [
+        376,
+        241,
+        233,
+        180
+      ],
+      "state": "pot-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Tall green flask with painted water drop, upright idle.",
+      "name": "pot-3",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        83.0,
+        296
+      ],
+      "source_rect_xywh": [
+        716,
+        131,
+        166,
+        296
+      ],
+      "state": "pot-3"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Dim dashed slate-blue round-jar ghost outline.",
+      "name": "ghost-1",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.5,
+        183
+      ],
+      "source_rect_xywh": [
+        997,
+        234,
+        215,
+        183
+      ],
+      "state": "ghost-1"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Blue flame jar tilted and rattling.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        109.0
+      ],
+      "source_rect_xywh": [
+        52,
+        589,
+        242,
+        218
+      ],
+      "state": "blue-flame-jar-tilted-and-rattling"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Terracotta leaf crock tilted and rattling.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        102.0
+      ],
+      "source_rect_xywh": [
+        359,
+        609,
+        262,
+        204
+      ],
+      "state": "terracotta-leaf-crock-tilted-and-rattling"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Green drop flask tilted and rattling.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        100.5,
+        144.0
+      ],
+      "source_rect_xywh": [
+        707,
+        523,
+        201,
+        288
+      ],
+      "state": "green-drop-flask-tilted-and-rattling"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Dim dashed slate-blue crock ghost outline.",
+      "name": "ghost-2",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        155
+      ],
+      "source_rect_xywh": [
+        985,
+        637,
+        231,
+        155
+      ],
+      "state": "ghost-2"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Cracked blue flame jar with one detached ceramic shard.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.5,
+        99.5
+      ],
+      "source_rect_xywh": [
+        33,
+        984,
+        291,
+        199
+      ],
+      "state": "cracked-blue-flame-jar-with-one-detached-ceramic-shard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Cracked terracotta leaf crock with one detached ceramic shard.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        143.0,
+        86.5
+      ],
+      "source_rect_xywh": [
+        371,
+        1010,
+        286,
+        173
+      ],
+      "state": "cracked-terracotta-leaf-crock-with-one-detached-ceramic-shard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Cracked green drop flask with one detached ceramic shard.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.0,
+        146.5
+      ],
+      "source_rect_xywh": [
+        712,
+        888,
+        254,
+        293
+      ],
+      "state": "cracked-green-drop-flask-with-one-detached-ceramic-shard"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Dim dashed slate-blue flask ghost outline.",
+      "name": "ghost-3",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        77.0,
+        260
+      ],
+      "source_rect_xywh": [
+        1045,
+        922,
+        154,
+        260
+      ],
+      "state": "ghost-3"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "Cell canvas 24\u00d720; top-left (BX+column\u00d724,BY+row\u00d720), BX=96, BY=9, plus shake. Next pair uses the same grain; ghost uses inset 2 px.",
+  "sizes": {
+    "v1": [
+      24,
+      20
+    ],
+    "v2": [
+      24,
+      20
+    ]
+  },
+  "slot": "cinder.pots",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "4e44963156ea74238ac219840a35156c686b3198cf59af6f726536016383cb58",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.pots/v01/source-sheet.png",
+    "original_sha256": "3aba47f738f54e7605d3313a67014fcf1f9606e24895c9d3107be028ad3d88ab",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "8de09d00392be64d3e7b7c670be02fe603204f4474e3a53b6b4b65326a31eade",
+  "timing": "FALL=20 ticks/cell, SLIDE=5 repeat, LOCK=10 grounded; hard drop immediate. Clear persists 8 ticks, with 8 integer flight positions toward Crock; retry=15 (Board::step, renderer::pot/draw)."
+}

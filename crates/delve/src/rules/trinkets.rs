@@ -247,6 +247,9 @@ impl Run {
             }
             return true;
         }
+        if self.use_find(id) {
+            return true;
+        }
         // A bow to the nearest friend in reach; a bow back is a huzzah.
         let friend = self
             .players
@@ -304,6 +307,160 @@ impl Run {
 }
 
 impl Run {
+    /// The run's finds out in the open country that stand clear of the
+    /// party's wishes (a wish raised on one hides it), with their index.
+    pub fn standing_finds(&self) -> Vec<(usize, crate::world::finds::Find)> {
+        let lots = crate::world::wishes::lots(&self.kingdom.wishes);
+        crate::world::finds::finds(self.seed)
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(_, f)| !lots.iter().flatten().any(|l| l.contains(f.at.0, f.at.1)))
+            .collect()
+    }
+
+    /// E by one of the run's finds (`crate::world::finds`): a shrine mends,
+    /// a ruin or a cave gives up its cache once, a wanderer tells of a find
+    /// nobody has made, stones hum, a lost pack holds a card or a
+    /// consumable, a hermit trades a scroll for a potion, a well takes a
+    /// coin of renown for a small boon (each once a run). Returns whether
+    /// there was one.
+    fn use_find(&mut self, id: u32) -> bool {
+        use crate::world::finds::{CACHE, COIN, Kind, REACH};
+        let Some(hero) = self.players.get(&id) else {
+            return false;
+        };
+        let (hx, hy) = (hero.x, hero.y);
+        let all = self.standing_finds();
+        let Some(&(i, find)) = all.iter().find(|(_, f)| {
+            (hx - (f.at.0 as f32 + 0.5) * TILE_UNITS).hypot(hy - (f.at.1 as f32 + 0.5) * TILE_UNITS) < REACH * TILE_UNITS
+        }) else {
+            return false;
+        };
+        let tick = self.tick;
+        let first = self.kingdom.found & (1 << i) == 0;
+        // Whether this use counts as the find made (a hermit with nothing
+        // to trade, a well with nothing to give, are tried again).
+        let mut made = true;
+        let line = match find.kind {
+            Kind::Shrine => {
+                if let Some(hero) = self.players.get_mut(&id) {
+                    hero.hp = hero.max_hp;
+                }
+                self.sounds.push("wish_grant");
+                "THE SHRINE IS QUIET. YOU ARE MENDED".to_string()
+            }
+            Kind::Ruin | Kind::Cave if first => {
+                self.score = self.score.saturating_add(CACHE);
+                self.sounds.push("gold");
+                if find.kind == Kind::Ruin {
+                    format!("A CACHE UNDER THE STONES: {CACHE} RENOWN")
+                } else {
+                    format!("SOMETHING GLINTS IN THE DARK: {CACHE} RENOWN")
+                }
+            }
+            Kind::Ruin => "ONLY OLD STONES NOW".to_string(),
+            Kind::Cave => "ONLY BATS NOW".to_string(),
+            Kind::Campfire => {
+                self.sounds.push(super::chatter::clip(id, "ooh", (tick % 2) as usize));
+                let found = self.kingdom.found;
+                match all.iter().find(|(k, f)| found & (1 << k) == 0 && f.kind != Kind::Campfire) {
+                    Some((_, f)) => format!("A WANDERER: {} {}", f.kind.told(), f.biome.name().to_uppercase()),
+                    None => "A WANDERER: YOU HAVE SEEN ALL I KNOW".to_string(),
+                }
+            }
+            Kind::Stones => {
+                self.kingdom.woke = Some((i as u8, tick));
+                self.sounds.push("circle_toll");
+                "THE STONES HUM".to_string()
+            }
+            Kind::LostPack if first => {
+                // What the pack held rests on where it lies.
+                let which = (find.at.0 + 3 * find.at.1).rem_euclid(3);
+                let Some(hero) = self.players.get_mut(&id) else {
+                    return false;
+                };
+                let gift = match which {
+                    0 if hero.hand.len() < cards::HAND => {
+                        hero.hand.push("potion".into());
+                        "A POTION"
+                    }
+                    1 if hero.hand.len() < cards::HAND => {
+                        hero.hand.push("thunder-scroll".into());
+                        "A THUNDER SCROLL"
+                    }
+                    _ if hero.bombs < MAX_BOMBS => {
+                        hero.bombs += 1;
+                        "A BOMB"
+                    }
+                    _ => {
+                        self.score = self.score.saturating_add(CACHE);
+                        "A PURSE OF RENOWN"
+                    }
+                };
+                self.sounds.push("gold");
+                format!("A LOST PACK: {gift}")
+            }
+            Kind::LostPack => "THE PACK IS EMPTY NOW".to_string(),
+            Kind::Hermit if first => {
+                let Some(hero) = self.players.get_mut(&id) else {
+                    return false;
+                };
+                if let Some(at) = hero.hand.iter().position(|c| c == "potion") {
+                    hero.hand[at] = "thunder-scroll".into();
+                    self.sounds.push("gold");
+                    self.sounds.push(super::chatter::clip(id, "ooh", (tick % 2) as usize));
+                    "THE HERMIT TRADES A THUNDER SCROLL FOR YOUR POTION".to_string()
+                } else {
+                    made = false;
+                    "THE HERMIT WANTS A POTION FOR HIS THUNDER SCROLL".to_string()
+                }
+            }
+            Kind::Hermit => "THE HERMIT HAS NOTHING MORE TO TRADE".to_string(),
+            Kind::Well if first => {
+                let Some(hero) = self.players.get_mut(&id) else {
+                    return false;
+                };
+                // A mend, a potion or a bomb, in turn from where it stands,
+                // whichever the knight can use; none, and no coin is taken.
+                let mut boon = None;
+                for k in 0..3 {
+                    boon = match (i + k) % 3 {
+                        0 if hero.hp < hero.max_hp => Some("YOU ARE MENDED"),
+                        1 if hero.hand.len() < cards::HAND => Some("A POTION"),
+                        2 if hero.bombs < MAX_BOMBS => Some("A BOMB"),
+                        _ => None,
+                    };
+                    if boon.is_some() {
+                        break;
+                    }
+                }
+                if self.score < COIN {
+                    made = false;
+                    format!("THE WELL WANTS A COIN: {COIN} RENOWN")
+                } else if let Some(boon) = boon {
+                    self.score -= COIN;
+                    match boon {
+                        "YOU ARE MENDED" => hero.hp = hero.max_hp,
+                        "A POTION" => hero.hand.push("potion".into()),
+                        _ => hero.bombs += 1,
+                    }
+                    self.sounds.push("wish_grant");
+                    format!("A COIN DOWN THE WELL: {boon}")
+                } else {
+                    made = false;
+                    "THE WELL HAS NOTHING TO GIVE YOU".to_string()
+                }
+            }
+            Kind::Well => "THE WELL IS QUIET NOW".to_string(),
+        };
+        if made {
+            self.kingdom.found |= 1 << i;
+        }
+        self.found = Some((tick, id, line));
+        true
+    }
+
     /// Every countryside errand that still wants doing: its place, and what
     /// the crier calls about it.
     pub fn open_errands(&self) -> Vec<(RoomKind, &'static str)> {

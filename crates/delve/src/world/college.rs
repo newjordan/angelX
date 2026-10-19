@@ -5,13 +5,16 @@
 use super::wishes::{self, Lot};
 use std::sync::OnceLock;
 
+/// The College's ground, west of the Delve's gate above the North Road.
+pub const LOT: Lot = Lot {
+    tx: 80,
+    ty: 32,
+    tw: 8,
+    th: 4,
+};
+
 pub fn lot() -> Lot {
-    static LOT: OnceLock<Lot> = OnceLock::new();
-    *LOT.get_or_init(|| {
-        let gate = wishes::delve_gate();
-        wishes::find_nearest(8, 4, (gate.tx + gate.tw + 2, gate.ty), &[gate])
-            .expect("college has a free gate-side lot")
-    })
+    LOT
 }
 
 pub fn stand() -> (i32, i32) {

@@ -1,0 +1,37 @@
+{
+  "fit": "native canvas 60x100, anchor (14,100) at the pole foot; stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "slide-0"
+      ],
+      "source_pose_count": 1,
+      "state": "slide"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "fly-0",
+        "fly-1",
+        "fly-2",
+        "fly-3"
+      ],
+      "source_pose_count": 4,
+      "state": "fly"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "The marsh goal pole; the rules box is the pole; the pennon spills right past it; art never sets a hitbox.",
+  "id": "bannerpeak.flagpole",
+  "role": "prop",
+  "timing": "idle 1 ticks; slide 1 ticks; fly 4x6 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

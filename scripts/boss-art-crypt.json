@@ -1,0 +1,2866 @@
+[
+  {
+    "boss": "cockpit/assets/dungeon/bosses/waxen-warden.boss",
+    "output": "cockpit/assets/dungeon/bosses/waxen-warden",
+    "inks": "SUJhHotT@6",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            "..........@o....@o..........",
+            "..........@@....@@..........",
+            ".........UooUUUUooU.........",
+            ".......JJUHHHHHHHUUUU.......",
+            "......JJUUHHHHHHHHUUUU......",
+            ".....JJJJHHHHHHHHHHUUUU.....",
+            "....JJUJUSSSHHHHSSSUJUUU....",
+            "...JJUUJUJ@@HHHU@@JUJUUUU...",
+            "...JJUUJUJooHHHUooJUJUUUU...",
+            "..JJUUUJhUJJHHHUJJUUJUUUUS..",
+            "..JJUUUJhUUUHHHUUUUhJUUUJS..",
+            "..JJUUJJhUUUHHHUUUUhUJUUJS..",
+            ".JJUHUJhUUUUHHHUUUUhUJSHUJS.",
+            ".JJUHUJhUUUUHHHUUUUUhJSHUJS.",
+            "JJUUHUJhUJUUJJJJUUUUhJSHUUJS",
+            "JJUUUHJhUJJJUUUUJJJJJSSUUUJS",
+            "..JJUHHJJJJJJJJJJJJJJSSUUU..",
+            "...JJJHHJJHHHJJJHHJJJSSSS...",
+            "....JJUUUUJJJHHHHhhhUUSS....",
+            ".....JJUUUhhhhhhhhhJUUS.....",
+            "......JJUUUhhUUUUhhJJJ......",
+            "........JJUUhhhhhhhh........",
+            ".........SSUUUUUUSS.........",
+            "...........SSSSSS..........."
+          ],
+          "hand_pixels": [],
+          "signature_lights": [
+            {
+              "name": "paired 2x3 tallow flames",
+              "hues": {
+                "@": "#FFB040",
+                "o": "#D86A20"
+              },
+              "pixels": [
+                [
+                  10,
+                  0,
+                  "@"
+                ],
+                [
+                  11,
+                  1,
+                  "@"
+                ],
+                [
+                  16,
+                  0,
+                  "@"
+                ],
+                [
+                  17,
+                  1,
+                  "@"
+                ],
+                [
+                  10,
+                  1,
+                  "@"
+                ],
+                [
+                  16,
+                  1,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  11,
+                  0,
+                  "o"
+                ],
+                [
+                  10,
+                  2,
+                  "o"
+                ],
+                [
+                  11,
+                  2,
+                  "o"
+                ],
+                [
+                  17,
+                  0,
+                  "o"
+                ],
+                [
+                  16,
+                  2,
+                  "o"
+                ],
+                [
+                  17,
+                  2,
+                  "o"
+                ]
+              ]
+            },
+            {
+              "name": "molten eye slits",
+              "hues": {
+                "@": "#FFB040",
+                "o": "#D86A20"
+              },
+              "pixels": [
+                [
+                  10,
+                  7,
+                  "@"
+                ],
+                [
+                  11,
+                  7,
+                  "@"
+                ],
+                [
+                  16,
+                  7,
+                  "@"
+                ],
+                [
+                  17,
+                  7,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  10,
+                  8,
+                  "o"
+                ],
+                [
+                  11,
+                  8,
+                  "o"
+                ],
+                [
+                  16,
+                  8,
+                  "o"
+                ],
+                [
+                  17,
+                  8,
+                  "o"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D1AF84",
+            "h": "#A88A78",
+            "H": "#F4E3BF",
+            "o": "#D86A20",
+            "t": "#A88A78",
+            "T": "#D1AF84",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          }
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            "....................@oUU........@oUU....................",
+            "....................@@UU........@@UU....................",
+            "....................ooUU........ooUU....................",
+            "....................UUUU........UUUU....................",
+            "..................UUUUUUUUUUUUUUUUUUUU..................",
+            "..................UUUUUUUUUUUUUUUUUUUU..................",
+            "..............JJJJUUHHHHHHHHHHHHHHUUUUUUJJ..............",
+            "..............JJJJUUHHHHHHHHHHHHHHUUUUUUJJ..............",
+            "............JJJJUUUUHHHHHHHHHHHHHHHHUUUUUUJJ............",
+            "............JJJJUUUUHHHHHHHHHHHHHHHHUUUUUUJJ............",
+            "..........JJJJUUJJHHHHHHHHHHHHHHHHHHHHJJUUUUJJ..........",
+            "..........JJJJUUJJHHHHHHHHHHHHHHHHHHHHJJUUUUJJ..........",
+            "........JJJJUUJJUUSSSSSSHHHHHHHHSSSSSSUUJJUUUUJJ........",
+            "........JJJJUUJJUUSSSSSSSHHHHHHSSSSSSSUUJJUUUUJJ........",
+            "......JJJJUUUUJJUUJJ@@UUHHHHHHUU@@UUJJUUJJUUUUUUJJ......",
+            "......JJJJUUUUJJUUJJooUUHHHHHHUUooUUJJUUJJUUUUUUJJ......",
+            "......JJJJUUUUJJUUJJUUUUHHHHHHUUUUUUJJUUJJUUUUUUSS......",
+            "......JJJJUUUUJJUUJJUUUUHHHHHHUUUUUUJJUUJJUUUUUUSS......",
+            "....JJJJUUUUUUJJhhUUJJJJHHHHHHUUJJJJUUUUJJUUUUUUUUSS....",
+            "....JJJJUUUUUUJJhhUUJJJJHHHHHHUUJJJJUUUUJJUUUUUUUUSS....",
+            "....JJJJUUUUUUJJhhUUUUUUHHHHHHUUUUUUUUhhJJUUUUUUJJSS....",
+            "....JJJJUUUUUUJJhhUUUUUUHHHHHHUUUUUUUUhhJJUUUUUUJJSS....",
+            "....JJJJUUUUJJUUhhUUUUUUHHHHHHUUUUUUUUhhUUJJUUUUJJSS....",
+            "....JJJJUUUUJJUUhhUUUUUUHHHHHHUUUUUUUUhhUUJJUUUUJJSS....",
+            "..JJJJUUHHUUJJhhUUUUUUUUHHHHHHUUUUUUUUhhUUJJSSHHUUJJSS..",
+            "..JJJJUUHHUUJJhJUUUUUUUUHHHHHHUUUUUUUUhhUUJJSSHHUUJJSS..",
+            "..JJJJUUHHUUJJhJUUUUUUUUHHHHHHUUUUUUUUUUhhJJSSHHUUJJSS..",
+            "..JJJJUUHHUUJJhJUUUUUUUUHHHHHHUUUUUUUJUUhhJJSSHHUUJJSS..",
+            "JJJJUUUUHHUUJJhJUUJJUUUUJHJJJJJJUUUUUJUUhhJJSSHHUUUUJJSS",
+            "JJJJUUUUHHUUJJhJUUJJUUUUJJHJJJJJUUUUUJUUhhJJSSHHUUUUJJSS",
+            "JJJJUUUUUUHHJJhhJUJJJJJJUUHUUUUUJJJJJJhhUUSSSSUUUUUUJJSS",
+            "JJJJUUUUUUHHJJhhJUJJJJJJUUUUUUUUJJJJJJhhUUSSSSUUUUUUJJSS",
+            "....JJJJUUHHUUJJJJHHJJJJJJJJJJJJJJJJJHJJJJSSHHUUJJSS....",
+            "....JJJJUUHHUUJJJJHHJJJJJJJJJJJJJJJJHHJJJJSSHHUUJJSS....",
+            "......JJJJUUHHHHhhJJHHHHHHJJJJJJHHHHJJJJJJSSUUJJSS......",
+            "......JJJJUUHHHHhhJJHHHHHHJJJJJJHHHHJJJJJJSSUUJJSS......",
+            "........JJJJUUUUUUhhJJJJJJHHHHHHJJhhhhhhUUUUJJSS........",
+            "........JJJJUUUUUUhhJJJJJJHHHHHHJJhhhhhhUUUUJJSS........",
+            "..........JJJJUUUUUUhhhhUUhhhhhhhhhhhhJJUUJJSS..........",
+            "..........JJJJUUUUUUhhhhUUhhhhhhhhhhhhJJUUJJSS..........",
+            "............JJJJUUUUUUhhhhUUUUUUUUhhhhJJJJSS............",
+            "............JJJJUUUUUUhhhhUUUUUUUUhhhhJJJJSS............",
+            "................JJJJUUUUhhhhhhhhhhUUJJSS................",
+            "................JJJJUUUUhhhhhhhhhhUUJJSS................",
+            "..................SSSSUUUUUUUUUUUUSSSS..................",
+            "..................SSSSUUUUUUUUUUUUSSSS..................",
+            "......................SUUUUUUUUUUS......................",
+            "......................SSSSSSSSSSSS......................"
+          ],
+          "hand_pixels": [],
+          "signature_lights": [
+            {
+              "name": "paired 2x3 tallow flames",
+              "hues": {
+                "@": "#FFB040",
+                "o": "#D86A20"
+              },
+              "pixels": [
+                [
+                  20,
+                  0,
+                  "@"
+                ],
+                [
+                  21,
+                  1,
+                  "@"
+                ],
+                [
+                  32,
+                  0,
+                  "@"
+                ],
+                [
+                  33,
+                  1,
+                  "@"
+                ],
+                [
+                  20,
+                  1,
+                  "@"
+                ],
+                [
+                  32,
+                  1,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  21,
+                  0,
+                  "o"
+                ],
+                [
+                  20,
+                  2,
+                  "o"
+                ],
+                [
+                  21,
+                  2,
+                  "o"
+                ],
+                [
+                  33,
+                  0,
+                  "o"
+                ],
+                [
+                  32,
+                  2,
+                  "o"
+                ],
+                [
+                  33,
+                  2,
+                  "o"
+                ]
+              ]
+            },
+            {
+              "name": "molten eye slits",
+              "hues": {
+                "@": "#FFB040",
+                "o": "#D86A20"
+              },
+              "pixels": [
+                [
+                  20,
+                  14,
+                  "@"
+                ],
+                [
+                  21,
+                  14,
+                  "@"
+                ],
+                [
+                  32,
+                  14,
+                  "@"
+                ],
+                [
+                  33,
+                  14,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  20,
+                  15,
+                  "o"
+                ],
+                [
+                  21,
+                  15,
+                  "o"
+                ],
+                [
+                  32,
+                  15,
+                  "o"
+                ],
+                [
+                  33,
+                  15,
+                  "o"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D1AF84",
+            "h": "#A88A78",
+            "H": "#F4E3BF",
+            "o": "#D86A20",
+            "t": "#A88A78",
+            "T": "#D1AF84",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              18,
+              4,
+              38,
+              13
+            ],
+            "body": [
+              16,
+              29,
+              40,
+              40
+            ],
+            "room_size": [
+              56,
+              48
+            ],
+            "room_origin": [
+              356,
+              146
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            ".....oo..",
+            "..HHHoo..",
+            ".tttH66o.",
+            "Ht..@@@o.",
+            "Ht...Hoo.",
+            "Ht...HHo.",
+            ".t...HHo.",
+            "......oo.",
+            "........."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "...HHH...",
+            "..ttttt..",
+            "......tH.",
+            "......tH.",
+            ".....@HH.",
+            "..HHH@6oo",
+            ".oHHo@6oo",
+            ".oooooo..",
+            "........."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            "...........",
+            "...........",
+            "...........",
+            ".....@T....",
+            ".....oT....",
+            "...h.TT....",
+            "...h.TT....",
+            "...hJJJ....",
+            "...........",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              3
+            ],
+            [
+              5,
+              4
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...........",
+            "...........",
+            ".....@T....",
+            ".....oT....",
+            ".....TT....",
+            "..h..TT....",
+            "..h..TT....",
+            "..h..TT....",
+            "..hJJJJ....",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...........",
+            ".....@T....",
+            ".....oT....",
+            ".....TT....",
+            ".....TT....",
+            ".h...TT....",
+            ".h...TT....",
+            ".h...TT....",
+            ".h...TT....",
+            ".hJJJJJ....",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              2
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".....@T....",
+            ".....oT....",
+            ".....TT....",
+            ".....TT....",
+            ".....TT....",
+            "h....TT....",
+            "h....TT....",
+            "h....TT....",
+            "h....TT....",
+            "h....TT....",
+            "hJJJJJJ...."
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "..............t.............",
+            ".............ttt............",
+            "...........tttttt...........",
+            "...........tt666tt..........",
+            "..........ttt666tt..........",
+            "..........tt66666t..........",
+            ".........ttt66666tt.........",
+            ".........tttt666ttt.........",
+            "..........ttt666tt..........",
+            "...........ttt6ttt..........",
+            "...........tttttt...........",
+            "............ttttt...........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............t...............",
+            "............tt..............",
+            "............tttt............",
+            "............tttt............",
+            "...........ttt6t............",
+            ".......t...t66666.....t.....",
+            ".......ttt66666666ttttt.....",
+            "......tttt666666666ttt......",
+            "......tttt666666666ttt......",
+            "......ttt6666666666tt.......",
+            ".....tttt666666666ttt.......",
+            ".....ttttt66666666t.........",
+            "...........6666666..........",
+            "...........t6ttttt..........",
+            "...........tttttt...........",
+            "...........tttttt...........",
+            "...........tttttt...........",
+            ".............ttt............",
+            "...............t............",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "...............t............",
+            ".............tttt...........",
+            ".............ttttt..........",
+            ".............ttttt..........",
+            ".............tt6tt..........",
+            "....tttt....ttt6tt..........",
+            "...tttttt...ttt6tt....tttt..",
+            "...tttt6tt..tt66tt...ttttt..",
+            "..tt66666ttttt666t...ttt6tt.",
+            "..ttt66666tttt666tttttt66tt.",
+            "...ttt66666666666tttt666tt..",
+            "...ttt666666666666666666tt..",
+            "...tttt66666666666666666t...",
+            "......t666ttttt66666ttttt...",
+            "......tt66tttttt666tt.......",
+            "......tt6tt.....666tt.......",
+            "......ttttt.....t6ttt.......",
+            ".......ttt......ttttt.......",
+            ".......ttt......ttttt.......",
+            ".................ttt........",
+            "..................t.........",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".....T.............T........",
+            "....TTJ...........TTJ.......",
+            "....TJJ...........TJJ.......",
+            ".....J.............J........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".......................T....",
+            "......................TTJ...",
+            "......................TJJ...",
+            ".....T.................J....",
+            "....TTJ.....................",
+            "....TJJ.......T.............",
+            ".....J.......TTJ............",
+            ".............TJJ............",
+            "..............J.............",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "....T.......................",
+            "...TJJ.............T........",
+            "....J.............TJJ.......",
+            "...................J........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".......................T....",
+            "......................TJJ...",
+            ".......................J....",
+            "............................",
+            ".....T......................",
+            "....TJJ.......T.............",
+            ".....J.......TJJ............",
+            "..............J.............",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#5A4252",
+            "U": "#EFDDB2",
+            "J": "#D0AE7E",
+            "h": "#987A5C",
+            "H": "#EFDDB2",
+            "o": "#D86A20",
+            "t": "#987A5C",
+            "T": "#D0AE7E",
+            "@": "#FFB040",
+            "6": "#FFB040"
+          },
+          "hand_pixels": [
+            [
+              4,
+              8
+            ],
+            [
+              3,
+              9
+            ],
+            [
+              19,
+              9
+            ],
+            [
+              18,
+              10
+            ],
+            [
+              23,
+              17
+            ],
+            [
+              22,
+              18
+            ],
+            [
+              5,
+              21
+            ],
+            [
+              4,
+              22
+            ],
+            [
+              14,
+              22
+            ],
+            [
+              13,
+              23
+            ]
+          ]
+        }
+      ]
+    },
+    "review": {
+      "theme": "Rounded tallow mask, curved melt channels and overlapping wax folds; paired wick flames and shaped molten lids.",
+      "originality": "Original branching choir, melted candle mask and tribute officer; no commercial character likeness. Reviewed at native size, 3x and actual cells in both kits."
+    }
+  },
+  {
+    "boss": "cockpit/assets/dungeon/bosses/the-bone-choir.boss",
+    "output": "cockpit/assets/dungeon/bosses/the-bone-choir",
+    "inks": "sSUJhH123t",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            "...........JJHHHH...........",
+            "..........HJHHHHHH..........",
+            ".........UHssHHssJH.........",
+            ".........UHsSHHsSJH.....H...",
+            "..H......HHHSUUUSHH....H.H..",
+            ".H.H......HH1221HH......H...",
+            "..H........JJ11JJH..........",
+            "....HHHHH...UJJJ...JJHHH....",
+            "...HHHHHHH..UHHH..HJHHHHH...",
+            "..HssHHssJH.UJJJ.UHssHHssJ..",
+            "..HsSHHsSJH.UJJJ.UHsSHHsSJ..",
+            "..HHSUUUSHH.UJJJ.HHHSUUUSS..",
+            "...H1221HH..UHHH..HH1221S...",
+            "....111JJ...UJJJ...JJ111....",
+            ".....HHH..UUUJJJUU..JJH.....",
+            ".....HJJJHH.UJJJ.JJJJHH.....",
+            "......HHH...UHHH...HHH......",
+            "......JJJHH.UJJJ.HHJJJ......",
+            ".....HH...UUUJJJUU...HH.....",
+            "....JJ......UJJJ......JJ....",
+            "...HH.......UHHH.......HH...",
+            "............UJJJ............",
+            "...........HhhhhH...........",
+            "..........HH....HH.........."
+          ],
+          "hand_pixels": [
+            [
+              24,
+              3
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              23,
+              4
+            ],
+            [
+              25,
+              4
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              24,
+              5
+            ],
+            [
+              2,
+              6
+            ]
+          ],
+          "signature_lights": [
+            {
+              "name": "three compact singing mouths",
+              "hues": {
+                "2": "#4FE0D0",
+                "1": "#2A8C88"
+              },
+              "pixels": [
+                [
+                  13,
+                  5,
+                  "2"
+                ],
+                [
+                  14,
+                  5,
+                  "2"
+                ],
+                [
+                  5,
+                  12,
+                  "2"
+                ],
+                [
+                  6,
+                  12,
+                  "2"
+                ],
+                [
+                  21,
+                  12,
+                  "2"
+                ],
+                [
+                  22,
+                  12,
+                  "2"
+                ]
+              ],
+              "falloff": [
+                [
+                  12,
+                  5,
+                  "1"
+                ],
+                [
+                  15,
+                  5,
+                  "1"
+                ],
+                [
+                  13,
+                  6,
+                  "1"
+                ],
+                [
+                  14,
+                  6,
+                  "1"
+                ],
+                [
+                  4,
+                  12,
+                  "1"
+                ],
+                [
+                  7,
+                  12,
+                  "1"
+                ],
+                [
+                  5,
+                  13,
+                  "1"
+                ],
+                [
+                  6,
+                  13,
+                  "1"
+                ],
+                [
+                  20,
+                  12,
+                  "1"
+                ],
+                [
+                  23,
+                  12,
+                  "1"
+                ],
+                [
+                  21,
+                  13,
+                  "1"
+                ],
+                [
+                  22,
+                  13,
+                  "1"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "s": "#3C4450",
+            "S": "#5D6270",
+            "U": "#A3A5A2",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          }
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            "......................JJJJHHHHHHHH......................",
+            "......................JJJJHHHHHHHH......................",
+            "....................HHJJHHHHHHHHJJHH....................",
+            "....................HHJJHHHHHHHHJJHH....................",
+            "..................UUHHHsssHHHHsssHJJHH..................",
+            "..................UUHHHsssHHHHsssHJJHH..................",
+            "..................UUHHssssHHHHssssJJHH..........HH......",
+            "..................UUHHssSSHHHHsSSsJJHH..........HH......",
+            "....HH............HHHHJsSSUUUUsSSJHHHH........HH..HH....",
+            "....HH............HHHHJHSSUUUUHHSJHHHH........HH..HH....",
+            "..HH..HH............HHHHHH1221HHHHHH............HH......",
+            "..HH..HH............HHHHHHH11HHHHHHH............HH......",
+            "....HH................JJJJJJJJJJJJHH....................",
+            "....HH................JJUJJJJJJJJJHH....................",
+            "........JJHHHHHHHH......UUJJJJJJ......JJJJHHHHHH........",
+            "........JJHHHHHHHH......UUJJJJJJ......JJJJHHHHHH........",
+            "......JJHHHHHHHHJJHH....UUHHHHHH....HHJJHHHHHHHHJJ......",
+            "......JJHHHHHHHHJJHH....UUHHHHHH....HHJJHHHHHHHHJJ......",
+            "....HHHsssHHHHsssHJJHH..UJJJJJJJ..UUHHHsssHHHHsssHJJ....",
+            "....HHHsssHHHHsssHJJHH..UUJJJJJJ..UUHHHsssHHHHsssHJJ....",
+            "....HHssssHHHHssssJJHH..UUJJJJJJ..UUHHssssHHHHssssJJ....",
+            "....HHssSSHHHHsSSsJJHH..UUJJJJJJ..UUHHssSSHHHHsSSsJJ....",
+            "....HHJsSSUUUUsSSJHHHH..UUJJJJJJ..HHHHJsSSUUUUsSSJHH....",
+            "....HHJHSSUUUUHHSJHHHH..UUJJJJJJ..HHHHJHSSUUUUHHSJHH....",
+            "......HHHH1221HHHHHH....UUHHHHHH....HHHHHH1221HHHH......",
+            "......HHHHH11HHHHHHH....UUHHHHHH....HHHHHHH11HHHHH......",
+            "........JJJJJJJJJJ......UJJJJJJJ......JJJJJJJJJJ........",
+            "........JJJJJJJJJJ......UUJJJJJJ......JJJJJJJJJJ........",
+            "..........JJHHHH....UUUUUUJJJJJJUUUU....HHJJHH..........",
+            "..........JJHHHH....UUUUUUJJJJJJUUUU....HHJJHH..........",
+            "..........HHJJJJJJHHHH..UUJJJJJJ..JJJJJJJJHHHH..........",
+            "..........HHJJJJJJHHHH..UUJJJJJJ..JJJJJJJJHHHH..........",
+            "............HHHHHH......UUHHHHHH......HHHHHH............",
+            "............HHHHHH......UUHHHHHH......HHHHHH............",
+            "............JJJJJJHHHH..UJJJJJJJ..HHHHJJJJJJ............",
+            "............JJJJJJHHHH..UUJJJJJJ..HHHHJJJJJJ............",
+            "..........HHHH......UUUUUUJJJJJJUUUU......HHHH..........",
+            "..........HHHH......UUUUUUJJJJJJUUUU......HHHH..........",
+            "........JJJJ............UUJJJJJJ............JJJJ........",
+            "........JJJJ............UUJJJJJJ............JJJJ........",
+            "......HHHH..............UUHHHHHH..............HHHH......",
+            "......HHHH..............UUHHHHHH..............HHHH......",
+            "........................UJJJJJJJ........................",
+            "........................UUJJJJJJ........................",
+            "......................HHhhhhhhhhHH......................",
+            "......................HHhhhhhhhhHH......................",
+            "....................HHHH........HHHH....................",
+            "....................HHHH........HHHH...................."
+          ],
+          "hand_pixels": [],
+          "signature_lights": [
+            {
+              "name": "three compact singing mouths",
+              "hues": {
+                "2": "#4FE0D0",
+                "1": "#2A8C88"
+              },
+              "pixels": [
+                [
+                  27,
+                  10,
+                  "2"
+                ],
+                [
+                  28,
+                  10,
+                  "2"
+                ],
+                [
+                  11,
+                  24,
+                  "2"
+                ],
+                [
+                  12,
+                  24,
+                  "2"
+                ],
+                [
+                  43,
+                  24,
+                  "2"
+                ],
+                [
+                  44,
+                  24,
+                  "2"
+                ]
+              ],
+              "falloff": [
+                [
+                  26,
+                  10,
+                  "1"
+                ],
+                [
+                  29,
+                  10,
+                  "1"
+                ],
+                [
+                  27,
+                  11,
+                  "1"
+                ],
+                [
+                  28,
+                  11,
+                  "1"
+                ],
+                [
+                  10,
+                  24,
+                  "1"
+                ],
+                [
+                  13,
+                  24,
+                  "1"
+                ],
+                [
+                  11,
+                  25,
+                  "1"
+                ],
+                [
+                  12,
+                  25,
+                  "1"
+                ],
+                [
+                  42,
+                  24,
+                  "1"
+                ],
+                [
+                  45,
+                  24,
+                  "1"
+                ],
+                [
+                  43,
+                  25,
+                  "1"
+                ],
+                [
+                  44,
+                  25,
+                  "1"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "s": "#3C4450",
+            "S": "#5D6270",
+            "U": "#A3A5A2",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              22,
+              0,
+              34,
+              8
+            ],
+            "body": [
+              24,
+              30,
+              32,
+              44
+            ],
+            "room_size": [
+              56,
+              48
+            ],
+            "room_origin": [
+              356,
+              146
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            "..hh.....",
+            ".HHHh.hh.",
+            "hHH.hhHHh",
+            "hH..22HHh",
+            "hH..22...",
+            "hH...hHHh",
+            "hHH.hhHHh",
+            ".HHHh.hh.",
+            "..hh....."
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "..hhhhh..",
+            ".HHHHHHH.",
+            "hHH...HHh",
+            "hH.....Hh",
+            ".hh.22hh.",
+            "..hh22h..",
+            ".hHH.HHh.",
+            ".hHH.HHh.",
+            "..hh.hh.."
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            "...........",
+            "...........",
+            "...........",
+            "...hHHHH...",
+            "...h...2...",
+            "...h...2...",
+            "....h..2...",
+            "....HHHH...",
+            "...........",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              4,
+              6
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...........",
+            "...........",
+            "..hHHHHHH..",
+            "..h........",
+            "..h.....2..",
+            "...h....2..",
+            "...h....2..",
+            "...h.......",
+            "...HHHHHH..",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "...........",
+            ".hHHHHHHHH.",
+            ".h.........",
+            ".h.........",
+            "..h......2.",
+            "..h......2.",
+            "..h......2.",
+            "...h.......",
+            "...h.......",
+            "..HHHHHHHH.",
+            "..........."
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": []
+        },
+        {
+          "rows": [
+            "hHHHHHHHHHH",
+            "h..........",
+            "h..........",
+            ".h.........",
+            ".h........2",
+            ".h........2",
+            "..h.......2",
+            "..h........",
+            "..h........",
+            "...h.......",
+            ".HHHHHHHHHH"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              3,
+              9
+            ]
+          ]
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".....................Hh.....",
+            ".....................h......",
+            ".....Hh................2....",
+            ".....h...............221....",
+            "...................2211.....",
+            "................2..11.......",
+            "..............221...........",
+            "............2211............",
+            ".........2..11..............",
+            ".......221..................",
+            ".....2211...................",
+            ".....11.....................",
+            "..............Hh............",
+            "..............h.............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              21,
+              8
+            ],
+            [
+              22,
+              8
+            ],
+            [
+              21,
+              9
+            ],
+            [
+              5,
+              10
+            ],
+            [
+              6,
+              10
+            ],
+            [
+              23,
+              10
+            ],
+            [
+              5,
+              11
+            ],
+            [
+              23,
+              11
+            ],
+            [
+              16,
+              13
+            ],
+            [
+              16,
+              14
+            ],
+            [
+              9,
+              16
+            ],
+            [
+              9,
+              17
+            ],
+            [
+              14,
+              20
+            ],
+            [
+              15,
+              20
+            ],
+            [
+              14,
+              21
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "......................Hh....",
+            "......................h.....",
+            "....Hh.................2....",
+            "....h................221....",
+            "...................2211.....",
+            "................2..11.......",
+            "..............221...........",
+            "............2211............",
+            ".........2..11..............",
+            ".......221..................",
+            ".....2211...................",
+            ".....11.....................",
+            "............................",
+            "............................",
+            "..............Hh............",
+            "..............h.............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              22,
+              7
+            ],
+            [
+              23,
+              7
+            ],
+            [
+              22,
+              8
+            ],
+            [
+              4,
+              9
+            ],
+            [
+              5,
+              9
+            ],
+            [
+              23,
+              9
+            ],
+            [
+              4,
+              10
+            ],
+            [
+              23,
+              10
+            ],
+            [
+              16,
+              12
+            ],
+            [
+              16,
+              13
+            ],
+            [
+              9,
+              15
+            ],
+            [
+              9,
+              16
+            ],
+            [
+              14,
+              21
+            ],
+            [
+              15,
+              21
+            ],
+            [
+              14,
+              22
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".......................Hh...",
+            ".......................h....",
+            "...Hh..................2....",
+            "...h.................221....",
+            "...................2211.....",
+            "................2..11.......",
+            "..............221...........",
+            "............2211............",
+            ".........2..11..............",
+            ".......221..................",
+            ".....2211...................",
+            ".....11.....................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "..............Hh............",
+            "..............h.............",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              23,
+              6
+            ],
+            [
+              24,
+              6
+            ],
+            [
+              23,
+              7
+            ],
+            [
+              3,
+              8
+            ],
+            [
+              4,
+              8
+            ],
+            [
+              23,
+              8
+            ],
+            [
+              3,
+              9
+            ],
+            [
+              23,
+              9
+            ],
+            [
+              16,
+              11
+            ],
+            [
+              16,
+              12
+            ],
+            [
+              9,
+              14
+            ],
+            [
+              9,
+              15
+            ],
+            [
+              14,
+              22
+            ],
+            [
+              15,
+              22
+            ],
+            [
+              14,
+              23
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "........................Hh..",
+            "........................h...",
+            "..Hh...................2....",
+            "..h..................221....",
+            "...................2211.....",
+            "................2..11.......",
+            "..............221...........",
+            "............2211............",
+            ".........2..11..............",
+            ".......221..................",
+            ".....2211...................",
+            ".....11.....................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "..............Hh............",
+            "..............h.............",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              24,
+              5
+            ],
+            [
+              25,
+              5
+            ],
+            [
+              24,
+              6
+            ],
+            [
+              2,
+              7
+            ],
+            [
+              3,
+              7
+            ],
+            [
+              23,
+              7
+            ],
+            [
+              2,
+              8
+            ],
+            [
+              23,
+              8
+            ],
+            [
+              16,
+              10
+            ],
+            [
+              16,
+              11
+            ],
+            [
+              9,
+              13
+            ],
+            [
+              9,
+              14
+            ],
+            [
+              14,
+              23
+            ],
+            [
+              15,
+              23
+            ],
+            [
+              14,
+              24
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".........................Hh.",
+            ".........................h..",
+            ".Hh....................2....",
+            ".h...................221....",
+            "...................2211.....",
+            "................2..11.......",
+            "..............221...........",
+            "............2211............",
+            ".........2..11..............",
+            ".......221..................",
+            ".....2211...................",
+            ".....11.....................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "..............Hh............",
+            "..............h.............",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "s": "#474E5E",
+            "S": "#474E5E",
+            "U": "#7C828C",
+            "J": "#B9B19B",
+            "h": "#B9B19B",
+            "H": "#E6DEC6",
+            "t": "#B9B19B",
+            "1": "#2A8C88",
+            "2": "#4FE0D0",
+            "3": "#4FE0D0"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              25,
+              4
+            ],
+            [
+              26,
+              4
+            ],
+            [
+              25,
+              5
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              23,
+              6
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              23,
+              7
+            ],
+            [
+              16,
+              9
+            ],
+            [
+              16,
+              10
+            ],
+            [
+              9,
+              12
+            ],
+            [
+              9,
+              13
+            ],
+            [
+              14,
+              24
+            ],
+            [
+              15,
+              24
+            ],
+            [
+              14,
+              25
+            ]
+          ]
+        }
+      ]
+    },
+    "review": {
+      "theme": "Three eerie ivory skulls with recessed cool sockets, jaw shelves and articulated bone joints.",
+      "originality": "Original branching choir, melted candle mask and tribute officer; no commercial character likeness. Reviewed at native size, 3x and actual cells in both kits."
+    }
+  },
+  {
+    "boss": "cockpit/assets/dungeon/bosses/crypt-tithe-marshal.boss",
+    "output": "cockpit/assets/dungeon/bosses/crypt-tithe-marshal",
+    "inks": "SQUoOtT@6J",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            ".........S........O....",
+            ".....SSSSSSSSS....OO...",
+            ".....SSSTTOoo.....tO...",
+            "....SSSSTTOOoS....tO.OO",
+            "....SSStTTtOOS....tOOOO",
+            "....SStttttttSS...tOOOO",
+            ".....Sooo@@oo.....ttOtO",
+            "......StoooO......ttOtO",
+            "......StOOOO......ttOtO",
+            ".TTOOOQQQQQQTTOOO.OO.OO",
+            "SOttOOQQQQQQOttOOSOt...",
+            "SOOtTOQQQQQQOOtTOSOt...",
+            ".OOOTOUQQtttOSSTS.Ot...",
+            "..SSSQUQO@ottSQ.S.Ot...",
+            "..SSSQUQO@ootSQ..SOt...",
+            "..S.SQUQOO@ott...SOt...",
+            ".S..SUQQQOOOQQ....Ot...",
+            ".S...UQQJUOOUJS...Ot...",
+            ".S...UQQJUOOUJS...Ot...",
+            ".....QUQJUOOUJS...Ot...",
+            ".....QUQJUOOUJS...Ot...",
+            ".....QUJ...UJ.S...Ot...",
+            "......JJ...UJ.....Ot...",
+            ".....TTTT.TTTT....Ot...",
+            ".....TTTT.TTTT....Ot...",
+            ".....OOOO.OOOO....OO...",
+            "..................OO..."
+          ],
+          "hand_pixels": [],
+          "signature_lights": [
+            {
+              "name": "closed helm amber visor",
+              "hues": {
+                "@": "#F0A030",
+                "o": "#583D32"
+              },
+              "pixels": [
+                [
+                  9,
+                  6,
+                  "@"
+                ],
+                [
+                  10,
+                  6,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  9,
+                  7,
+                  "o"
+                ],
+                [
+                  10,
+                  7,
+                  "o"
+                ]
+              ]
+            },
+            {
+              "name": "tribute seal crescent",
+              "hues": {
+                "@": "#F0A030",
+                "o": "#583D32"
+              },
+              "pixels": [
+                [
+                  9,
+                  13,
+                  "@"
+                ],
+                [
+                  9,
+                  14,
+                  "@"
+                ],
+                [
+                  10,
+                  15,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  10,
+                  13,
+                  "o"
+                ],
+                [
+                  10,
+                  14,
+                  "o"
+                ],
+                [
+                  11,
+                  15,
+                  "o"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#57A8E8",
+            "J": "#3686CB",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          }
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            "..................TT................OO........",
+            "..................TT................OO........",
+            "..........SSSSSSSSSSSSSSSSSS........OOOO......",
+            "..........SSStttttSSSSSSSSSS........OOOO......",
+            "..........SSSSooTTTTOOoooo..........ttOO......",
+            "..........SSSSotTTTTOOoooo..........ttOO......",
+            "........SSSSSSOtTTTTOOOOooSS........ttOO..OOOO",
+            "........SSSSSSOtTTTTOOOOooSS........ttOO..OOOO",
+            "........SSSSSSttTTTTttOOOOSS........ttOOOOOOOO",
+            "........SSSSSStttTTTttOOOOSS........ttOOOOOOOO",
+            "........SSSSttTTTTTTTTTTttSSSS......ttOOOOOOOO",
+            "........SSSSttttttttttttttSSSS......ttOOOOOOOO",
+            "..........SSoooooo@@oooooo..........ttttOOttOO",
+            "..........SSoooooooooooooo..........ttttOOttOO",
+            "............SSttooooooOO............ttttOOttOO",
+            "............SSttooooooOO............ttttOOttOO",
+            "............SSttOOOOOOOO............ttttOOttOO",
+            "............SSttOOOOOOOO............ttttOOttOO",
+            "..TTTTOOOOOOQQQQQQQQQQQQTTTTOOOOTT..OOOO..TTOO",
+            "..TTTTOOOOOOQQQQQQQQQQQQTTTTOOOOTT..OOOO..TTOO",
+            "SSOOttttOOOOQQQQQQQQQQQQOOttttOOOOSSOOtt......",
+            "SSOOttttOOOOQQQQQQQQQQQQOOttttOOOOSSOOtt......",
+            "SSOOOOttTTOOQQQQQQQQQQQQOOOOttTTOOSSOOtt......",
+            "SSOOOOttTTOOQQQQQQQQQQQQOOOOttTTOOSSOOtt......",
+            "..OOOOOOTTOOUUQQQQttttttOOSSOOTTSS..OOtt......",
+            "..OOOOOOTTOOUUQQQQttttttOOSSOOTTSS..OOtt......",
+            "....SSSSSSQQUUQQOO@ooottttSSQQ..SS..OOtt......",
+            "....SSSSSSQQUUQQOOQQoottttSSQQ..SS..OOtt......",
+            "....SSSSSSQQJUQQOO@ooooottSSQQ....SSOOtt......",
+            "....SSSSSSQQJUQQOO@@oooottSSQQ....SSOOtt......",
+            "....SS..SSQQUJQQOOoo@ooottOO......SSOOtt......",
+            "....SS..SSQQUJQQOOoo@@oottOO......SSOOtt......",
+            "..SS....SSUUUJJJQQOOOOOOQQQQ........OOtt......",
+            "..SS....SSUUJQJJQQOOOOOOQQQQ........OOtt......",
+            "..SS......UUJQUQJJUUOOOOUUJJSS......OOtt......",
+            "..SS......UUJQUQJJUUOOOOUUJJSS......OOtt......",
+            "..SS......UUJQQUJJUUOOOOUUJJSS......OOtt......",
+            "..SS......UUJQQUJJUUOOOOUUJJSS......OOtt......",
+            "..........QQJUQUJJUUOOOOUUJJSS......OOtt......",
+            "..........QQUUUQJJUUOOOOUUJJSS......OOtt......",
+            "..........QQUUUQJJUUOOOOUUJJSS......OOtt......",
+            "..........QQUUUQJJUUOOOOUUJJSS......OOtt......",
+            "..........QQUUJJ......UUJJ..SS......OOtt......",
+            "..........QQUUJJ......UUJJ..SS......OOtt......",
+            "............QQJJ......UUJJ..........OOtt......",
+            "............QQJJ......UUJJ..........OOtt......",
+            "..........TTTTTTTT..TTTTTTTT........OOtt......",
+            "..........TTTTTTTT..TTTTTTTT........OOtt......",
+            "..........TTTTTTTT..TTTTTTTT........OOtt......",
+            "..........TTTTTTTT..TTTTTTTT........OOtt......",
+            "..........OOOOOOOO..OOOOOOOO........OOOO......",
+            "..........OOOOOOOO..OOOOOOOO........OOOO......",
+            "....................................OOOO......",
+            "....................................OOOO......"
+          ],
+          "hand_pixels": [],
+          "signature_lights": [
+            {
+              "name": "closed helm amber visor",
+              "hues": {
+                "@": "#F0A030",
+                "o": "#583D32"
+              },
+              "pixels": [
+                [
+                  18,
+                  12,
+                  "@"
+                ],
+                [
+                  19,
+                  12,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  18,
+                  13,
+                  "o"
+                ],
+                [
+                  19,
+                  13,
+                  "o"
+                ]
+              ]
+            },
+            {
+              "name": "tribute seal crescent",
+              "hues": {
+                "@": "#F0A030",
+                "o": "#583D32"
+              },
+              "pixels": [
+                [
+                  18,
+                  26,
+                  "@"
+                ],
+                [
+                  18,
+                  28,
+                  "@"
+                ],
+                [
+                  20,
+                  30,
+                  "@"
+                ]
+              ],
+              "falloff": [
+                [
+                  19,
+                  26,
+                  "o"
+                ],
+                [
+                  19,
+                  28,
+                  "o"
+                ],
+                [
+                  21,
+                  30,
+                  "o"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#57A8E8",
+            "J": "#3686CB",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              16,
+              6,
+              20,
+              10
+            ],
+            "body": [
+              12,
+              35,
+              27,
+              43
+            ],
+            "room_size": [
+              46,
+              54
+            ],
+            "room_origin": [
+              362,
+              140
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            "...ttt...",
+            "..tTTtt..",
+            ".tTOO..O.",
+            "tTTO..OOO",
+            "tOO..tOOO",
+            "tO..ttOOO",
+            ".O.ttOOO.",
+            "..OOOOO..",
+            "...OOO..."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...ttt...",
+            "..OOOTt..",
+            ".O..OTTt.",
+            "OOt..OOTt",
+            "OOtt..OTt",
+            "OOOtt..tt",
+            ".OOOOO.t.",
+            "..OOOOO..",
+            "...OOO..."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              6,
+              1
+            ],
+            [
+              7,
+              2
+            ]
+          ]
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            "...........",
+            "...........",
+            "...........",
+            ".....@.....",
+            "....t......",
+            "...t...O...",
+            "......O....",
+            ".....O.....",
+            "...........",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              3
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              5,
+              7
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...........",
+            "...........",
+            ".....@.....",
+            "...ttO.....",
+            "...t.......",
+            "..tt...OO..",
+            ".......O...",
+            ".....OOO...",
+            ".....O.....",
+            "...........",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "...........",
+            ".....@.....",
+            "...ttOO....",
+            "..t........",
+            "..t.....O..",
+            ".tt.....OO.",
+            "..t.....O..",
+            "........O..",
+            "....tOOO...",
+            ".....O.....",
+            "..........."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              1
+            ],
+            [
+              4,
+              8
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".....@.....",
+            "..tttOOO...",
+            ".tt........",
+            ".t.......O.",
+            ".t.......O.",
+            "tt.......OO",
+            ".t.......O.",
+            ".t.......O.",
+            "........OO.",
+            "...ttOOOO..",
+            ".....O....."
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              5,
+              0
+            ]
+          ]
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "...............Ttttt........",
+            "...............OOOO.........",
+            "......Ttttt....OOO..........",
+            "......OOOO.....OO...........",
+            "......OOO......O............",
+            "......OO....................",
+            "......O..........Ttttt......",
+            ".................OOOO.......",
+            "......Ttttt......OOO........",
+            "......OOOO.......OO.........",
+            "......OOO........O..........",
+            "......OO....Ttttt...........",
+            "......O.....OOOO............",
+            "............OOO.............",
+            "............OO..............",
+            "............O...............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              15,
+              6
+            ],
+            [
+              6,
+              8
+            ],
+            [
+              17,
+              12
+            ],
+            [
+              6,
+              14
+            ],
+            [
+              12,
+              17
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "................Ttttt.......",
+            "................OOOO........",
+            ".....Ttttt......OOO.........",
+            ".....OOOO.......OO..........",
+            ".....OOO........O...........",
+            ".....OO.....................",
+            ".....O......................",
+            "..................Ttttt.....",
+            "..................OOOO......",
+            "..................OOO.......",
+            ".....Ttttt........OO........",
+            ".....OOOO.........O.........",
+            ".....OOO....................",
+            ".....OO.....Ttttt...........",
+            ".....O......OOOO............",
+            "............OOO.............",
+            "............OO..............",
+            "............O...............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              16,
+              5
+            ],
+            [
+              5,
+              7
+            ],
+            [
+              18,
+              12
+            ],
+            [
+              5,
+              15
+            ],
+            [
+              12,
+              18
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "................Tttt........",
+            "................OOO.........",
+            "....Tttt........OO..........",
+            "....OOO.........O...........",
+            "....OO......................",
+            "....O.......................",
+            "............................",
+            "............................",
+            "............................",
+            "...................Tttt.....",
+            "...................OOO......",
+            "....Tttt...........OO.......",
+            "....OOO............O........",
+            "....OO......................",
+            "....O.......................",
+            "............Tttt............",
+            "............OOO.............",
+            "............OO..............",
+            "............O...............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              16,
+              4
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              19,
+              13
+            ],
+            [
+              4,
+              15
+            ],
+            [
+              12,
+              19
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            ".................Tttt.......",
+            ".................OOO........",
+            ".................OO.........",
+            "...Tttt..........O..........",
+            "...OOO......................",
+            "...OO.......................",
+            "...O........................",
+            "............................",
+            "............................",
+            "............................",
+            ".....................Tttt...",
+            ".....................OOO....",
+            ".....................OO.....",
+            "...Tttt..............O......",
+            "...OOO......................",
+            "...OO.......................",
+            "...O........................",
+            "............................",
+            ".............Tttt...........",
+            ".............OOO............",
+            ".............OO.............",
+            ".............O..............",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              17,
+              3
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              21,
+              13
+            ],
+            [
+              3,
+              16
+            ],
+            [
+              13,
+              21
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "...................Ttt......",
+            "...................OO.......",
+            "...................O........",
+            "...Ttt......................",
+            "...OO.......................",
+            "...O........................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".......................Ttt..",
+            ".......................OO...",
+            ".......................O....",
+            "............................",
+            "...Ttt......................",
+            "...OO.......................",
+            "...O........................",
+            "............................",
+            "............................",
+            "..............Ttt...........",
+            "..............OO............",
+            "..............O.............",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "S": "#203F6B",
+            "Q": "#236DB1",
+            "U": "#387EBC",
+            "o": "#583D32",
+            "O": "#8C5A2A",
+            "t": "#C68A42",
+            "T": "#DDA85D",
+            "J": "#203F6B",
+            "@": "#F0A030",
+            "6": "#F0A030"
+          },
+          "signature_lights": [],
+          "hand_pixels": [
+            [
+              19,
+              3
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              23,
+              14
+            ],
+            [
+              3,
+              18
+            ],
+            [
+              14,
+              23
+            ]
+          ]
+        }
+      ]
+    },
+    "review": {
+      "theme": "Closed bevelled bronze tribute helm, rounded riveted shoulders and four-tone cobalt cloth folds.",
+      "originality": "Original branching choir, melted candle mask and tribute officer; no commercial character likeness. Reviewed at native size, 3x and actual cells in both kits."
+    }
+  }
+]

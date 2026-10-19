@@ -1,0 +1,167 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    24
+  ],
+  "anchor_xy": [
+    12,
+    24
+  ],
+  "comments": [
+    "The three intact crates set the shared scale (0.0714: 24 px wide, 23 tall). The cracked crate is a little larger and loses under half a pixel at the edge.",
+    "The burst and the scatter are registered by their centres on the canvas centre (pivots below their centres); the burst is wider than the canvas and loses about 4 px each side. The stage draws only the three intact states."
+  ],
+  "delivered_pieces": 6,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 6,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "Six drawings: shield-0, sparks-0, spur-0, then the break: a cracked crate, a burst and scattered bits. The measured components of the scattered bits (two groups) are one drawing, merged.",
+  "notes_sha256": "e33d13891a4e2e0cdea18401f5144a10f73e2d27c69b83e619c94039922e6516",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "shield-0: delivered drawing 1 in reading order.",
+      "name": "shield-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        168.0,
+        321
+      ],
+      "source_rect_xywh": [
+        98,
+        135,
+        336,
+        321
+      ],
+      "state": "shield",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "sparks-0: delivered drawing 2 in reading order.",
+      "name": "sparks-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        168.0,
+        321
+      ],
+      "source_rect_xywh": [
+        606,
+        135,
+        336,
+        321
+      ],
+      "state": "sparks",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "spur-0: delivered drawing 3 in reading order.",
+      "name": "spur-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        168.5,
+        321
+      ],
+      "source_rect_xywh": [
+        1110,
+        135,
+        337,
+        321
+      ],
+      "state": "spur",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "break-0: delivered drawing 4 in reading order.",
+      "name": "break-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        172.5,
+        343
+      ],
+      "source_rect_xywh": [
+        99,
+        582,
+        345,
+        343
+      ],
+      "state": "break",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "break-1: delivered drawing 5 in reading order.",
+      "name": "break-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        219.5,
+        367
+      ],
+      "source_rect_xywh": [
+        567,
+        527,
+        439,
+        398
+      ],
+      "state": "break",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "break-2: delivered drawing 6 in reading order.",
+      "name": "break-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.5,
+        306
+      ],
+      "source_rect_xywh": [
+        1152,
+        628,
+        309,
+        276
+      ],
+      "state": "break",
+      "ticks": 3
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "scale_reference_pieces": [
+    0,
+    1,
+    2
+  ],
+  "schema_version": 1,
+  "size_basis": "native canvas 24x24, anchor bottom-centre (12,24); stage 384x224; a lantern crate, drawn as a 3/4 box.",
+  "sizes": {
+    "v1": [
+      24,
+      24
+    ],
+    "v2": [
+      24,
+      24
+    ]
+  },
+  "slot": "lightgallop.crate",
+  "source_sha256": "381e33060d74afbd867ad13fa05379d37b32f2c3c59af5e51688522bd23a07cd",
+  "timing": "shield 1 ticks; sparks 1 ticks; spur 1 ticks; break 3x3 ticks (30 Hz). Art never sets a hitbox."
+}

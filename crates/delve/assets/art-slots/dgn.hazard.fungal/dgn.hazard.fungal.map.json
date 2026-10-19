@@ -1,0 +1,344 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "4b2bff5a9eebe143974ce15ecd8eb39302460e0e2dc3637e43f0cd269c6de015",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.035,
+      "label": "Teal liquid with upper and lower mushroom reflections and violet motes.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        127.0
+      ],
+      "source_rect_xywh": [
+        179,
+        282,
+        262,
+        254
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.035,
+      "label": "Teal liquid with a broad ripple and motes.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        127.0
+      ],
+      "source_rect_xywh": [
+        485,
+        282,
+        262,
+        254
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.035,
+      "label": "Liquid with a reflected mushroom and drifting motes.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        127.0
+      ],
+      "source_rect_xywh": [
+        791,
+        282,
+        263,
+        254
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0.035,
+      "label": "Liquid with tall reflected stalks, cap reflection and violet motes.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        127.0
+      ],
+      "source_rect_xywh": [
+        1097,
+        282,
+        262,
+        254
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Top bank edge with roots, caps and glowing fungi; liquid below.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        179,
+        598,
+        262,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Bottom bank edge with liquid above. A small cap/earth protrusion at the right makes this edge less clean than the others.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        485,
+        598,
+        262,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Left bank edge with root and fungal growth; liquid to the right.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        129.5
+      ],
+      "source_rect_xywh": [
+        791,
+        598,
+        263,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Right bank edge with mushrooms and roots; liquid to the left.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        1097,
+        598,
+        262,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Outer top-left corner with bank wrapping the corner.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        128.0
+      ],
+      "source_rect_xywh": [
+        179,
+        918,
+        262,
+        256
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Outer bottom-right corner with bank wrapping the corner.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        128.0
+      ],
+      "source_rect_xywh": [
+        485,
+        918,
+        262,
+        256
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Inner top-right corner with bank intruding into the liquid.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.5,
+        128.0
+      ],
+      "source_rect_xywh": [
+        791,
+        918,
+        263,
+        256
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 0.7,
+        "value": 0.7
+      },
+      "inset_fraction": 0,
+      "label": "Inner bottom-left corner with bank intruding into the liquid.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        131.0,
+        128.0
+      ],
+      "source_rect_xywh": [
+        1097,
+        918,
+        262,
+        256
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.fungal",
+  "source_sha256": "e7d1b5d221d940bc55527a83dd7bdfe0728266bb5aea3bf5dd071b586ab26d12",
+  "timing": ""
+}

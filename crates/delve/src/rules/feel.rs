@@ -52,17 +52,25 @@ pub const GRAZE: f32 = 0.5;
 pub const TEMPER_MAX: u8 = 3;
 /// Fire Arrows: ticks the bow's arrows burn after a Fire Pit.
 pub const FIRE_ARROWS: u32 = 4 * HZ;
-/// Visual lists' caps: sparks, stuck shafts, puffs, deaths, tracers.
+/// Visual lists' caps: sparks, stuck shafts, puffs, deaths, tracers,
+/// shield blocks.
 const IMPACTS: usize = 48;
 const STUCK: usize = 24;
-const PUFFS: usize = 24;
+const PUFFS: usize = 32;
 const DEATHS: usize = 24;
 const TRACERS: usize = 16;
+const BLOCKS: usize = 16;
+const GLINTS: usize = 12;
 /// Ticks a spark, a tracer, a muzzle flash and a puff of smoke last.
 pub const IMPACT_TICKS: u8 = 6;
 pub const TRACER_TICKS: u8 = 8;
 pub const FLASH_TICKS: u8 = 3;
 pub const SMOKE_TICKS: u8 = 14;
+/// Ticks a shield's block shows: the flash, the knock and the shards.
+pub const BLOCK_TICKS: u8 = 10;
+/// Ticks a roll's dust hangs, and a find's glint rises.
+pub const DUST_TICKS: u8 = 12;
+pub const GLINT_TICKS: u8 = 16;
 
 /// A knight's shot by its kind: how far a hit pushes a monster.
 pub fn knock(kind: Shot) -> f32 {
@@ -75,13 +83,20 @@ pub fn knock(kind: Shot) -> f32 {
     }
 }
 
-/// A spark where a shot struck, in the shot's colour.
+/// A spark where a shot struck, in the shot's colour, and the way it was
+/// going (none for a shot popped where it hung).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Impact {
     pub x: f32,
     pub y: f32,
     pub kind: Shot,
     pub ttl: u8,
+    #[serde(default)]
+    pub dx: f32,
+    #[serde(default)]
+    pub dy: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boss_art: Option<bosses::Art>,
 }
 
 /// An arrow or bolt stuck in the stone, pointing the way it flew.
@@ -103,7 +118,8 @@ pub struct Tracer {
     pub ttl: u8,
 }
 
-/// A muzzle's flash or a handgonne's smoke.
+/// A muzzle's flash or a handgonne's smoke; or dust off a roll (`dust`:
+/// `KICK` as it starts, `TRAIL` along it, `LAND` where it ends).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Puff {
     pub x: f32,
@@ -112,15 +128,66 @@ pub struct Puff {
     pub dy: f32,
     pub smoke: bool,
     pub ttl: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub dust: u8,
 }
 
-/// A monster's death: a white frame, then its parts flying.
+fn is_zero(v: &u8) -> bool {
+    *v == 0
+}
+
+/// A roll's dust: kicked up as it starts, left along it, thrown out where
+/// it lands.
+pub const KICK: u8 = 1;
+pub const TRAIL: u8 = 2;
+pub const LAND: u8 = 3;
+
+/// A monster's death: a white frame, then its parts flying, in the colours
+/// of what it was.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Death {
     pub x: f32,
     pub y: f32,
     pub r: f32,
     pub ttl: u8,
+    #[serde(default)]
+    pub kind: Option<EnemyKind>,
+}
+
+/// Something taken off the floor: a glint rising where it lay, by how rare
+/// it was (0 a spoil or common find, 1 rare or a spell, 2 a relic).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Glint {
+    pub x: f32,
+    pub y: f32,
+    pub tier: u8,
+    pub ttl: u8,
+}
+
+/// A shot stopped on a raised shield's face (`shield`): where, the way it
+/// was going (a unit step), the way the face looks out there, what it was,
+/// how heavy (1 to 3) and whose shield it was.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Block {
+    pub x: f32,
+    pub y: f32,
+    pub dx: f32,
+    pub dy: f32,
+    #[serde(default)]
+    pub nx: f32,
+    #[serde(default)]
+    pub ny: f32,
+    pub kind: Shot,
+    pub weight: u8,
+    pub knight: u32,
+    pub ttl: u8,
+}
+
+impl Block {
+    /// Ticks since it struck: 0 the tick it is first drawn.
+    pub fn age(&self) -> u8 {
+        (BLOCK_TICKS - 1).saturating_sub(self.ttl)
+    }
 }
 
 /// A cancelled shot's coin, flying to the nearest knight.
@@ -165,6 +232,10 @@ pub struct Feel {
     pub puffs: Vec<Puff>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deaths: Vec<Death>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<Block>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub glints: Vec<Glint>,
     /// The ledger this room, by knight, and the tick each monster was first
     /// wounded; lines ready for the cockpit to write.
     #[serde(skip)]
@@ -197,6 +268,8 @@ impl Feel {
             && self.tracers.is_empty()
             && self.puffs.is_empty()
             && self.deaths.is_empty()
+            && self.blocks.is_empty()
+            && self.glints.is_empty()
     }
 
     pub fn valid(&self) -> bool {
@@ -207,11 +280,13 @@ impl Feel {
             && self.tracers.len() <= TRACERS
             && self.puffs.len() <= PUFFS
             && self.deaths.len() <= DEATHS
+            && self.blocks.len() <= BLOCKS
+            && self.glints.len() <= GLINTS
             && self.coins.iter().all(|c| point(c.x, c.y))
             && self
                 .impacts
                 .iter()
-                .all(|i| point(i.x, i.y) && i.ttl <= IMPACT_TICKS)
+                .all(|i| point(i.x, i.y) && point(i.dx, i.dy) && i.ttl <= IMPACT_TICKS)
             && self
                 .stuck
                 .iter()
@@ -222,21 +297,48 @@ impl Feel {
             && self
                 .puffs
                 .iter()
-                .all(|p| point(p.x, p.y) && point(p.dx, p.dy) && p.ttl <= SMOKE_TICKS)
+                .all(|p| point(p.x, p.y) && point(p.dx, p.dy) && p.ttl <= SMOKE_TICKS && p.dust <= LAND)
             && self
                 .deaths
                 .iter()
                 .all(|d| point(d.x, d.y) && d.r.is_finite() && d.r > 0.0 && d.ttl <= DEATH_TICKS)
+            && self.blocks.iter().all(|b| {
+                point(b.x, b.y) && point(b.dx, b.dy) && point(b.nx, b.ny) && b.ttl <= BLOCK_TICKS && (1..=3).contains(&b.weight)
+            })
+            && self.glints.iter().all(|g| point(g.x, g.y) && g.ttl <= GLINT_TICKS && g.tier <= 2)
     }
 
-    pub(super) fn impact(&mut self, x: f32, y: f32, kind: Shot) {
+    /// A shot of `kind` going `way` struck at `(x, y)`; `(0, 0)` for one
+    /// popped where it hung.
+    pub(super) fn impact(&mut self, x: f32, y: f32, kind: Shot, way: (f32, f32)) {
         if self.impacts.len() < IMPACTS {
+            let (dx, dy) = unit(way.0, way.1);
             self.impacts.push(Impact {
                 x,
                 y,
                 kind,
                 ttl: IMPACT_TICKS,
+                dx,
+                dy,
+                boss_art: None,
             });
+        }
+    }
+
+    pub(super) fn boss_impact(&mut self, shot: &Projectile) {
+        if let Some(art) = bosses::Art::of_shot(shot) {
+            if self.impacts.len() < IMPACTS {
+                let (dx, dy) = unit(shot.vx, shot.vy);
+                self.impacts.push(Impact {
+                    x: shot.x,
+                    y: shot.y,
+                    kind: shot.kind,
+                    ttl: IMPACT_TICKS,
+                    dx,
+                    dy,
+                    boss_art: Some(art),
+                });
+            }
         }
     }
 
@@ -271,18 +373,74 @@ impl Feel {
             dy,
             smoke,
             ttl: if smoke { SMOKE_TICKS } else { FLASH_TICKS },
+            dust: 0,
         });
     }
 
-    pub(super) fn death(&mut self, x: f32, y: f32, r: f32) {
+    /// Dust off a roll at a knight's feet `(x, y)`, the roll going `way`:
+    /// `KICK`, `TRAIL` or `LAND`.
+    pub(super) fn dust(&mut self, x: f32, y: f32, way: (f32, f32), dust: u8) {
+        if self.puffs.len() >= PUFFS {
+            self.puffs.remove(0);
+        }
+        let (dx, dy) = unit(way.0, way.1);
+        self.puffs.push(Puff {
+            x,
+            y,
+            dx,
+            dy,
+            smoke: false,
+            ttl: DUST_TICKS,
+            dust,
+        });
+    }
+
+    /// A find taken off the floor at `(x, y)`.
+    pub(super) fn glint(&mut self, x: f32, y: f32, tier: u8) {
+        if self.glints.len() >= GLINTS {
+            self.glints.remove(0);
+        }
+        self.glints.push(Glint {
+            x,
+            y,
+            tier: tier.min(2),
+            ttl: GLINT_TICKS,
+        });
+    }
+
+    pub(super) fn death(&mut self, x: f32, y: f32, kind: EnemyKind) {
         if self.deaths.len() < DEATHS {
             self.deaths.push(Death {
                 x,
                 y,
-                r,
+                r: kind.radius(),
                 ttl: DEATH_TICKS,
+                kind: Some(kind),
             });
         }
+    }
+
+    /// A shot stopped on knight `knight`'s shield at `at`, where the face
+    /// looks out along `out`, going `way`. The oldest block gives way when
+    /// the list is full: the newest is what a knight is looking at.
+    pub(super) fn block(&mut self, knight: u32, at: (f32, f32), out: (f32, f32), way: (f32, f32), kind: Shot, weight: u8) {
+        if self.blocks.len() >= BLOCKS {
+            self.blocks.remove(0);
+        }
+        let (dx, dy) = unit(way.0, way.1);
+        let (nx, ny) = unit(out.0, out.1);
+        self.blocks.push(Block {
+            x: at.0,
+            y: at.1,
+            dx,
+            dy,
+            nx,
+            ny,
+            kind,
+            weight: weight.clamp(1, 3),
+            knight,
+            ttl: BLOCK_TICKS,
+        });
     }
 
     /// A new room: what stuck in the last one, and its ledger, are gone.
@@ -292,6 +450,8 @@ impl Feel {
         self.tracers.clear();
         self.puffs.clear();
         self.deaths.clear();
+        self.blocks.clear();
+        self.glints.clear();
         self.ledger.clear();
         self.wounded.clear();
         self.credits.clear();
@@ -311,15 +471,27 @@ impl Feel {
                 // Smoke drifts on the way the ball went, and rises.
                 p.x += p.dx * 1.5 * DT;
                 p.y += p.dy * 1.5 * DT - 0.6 * DT;
+            } else if p.dust > 0 {
+                // Dust rolls on a little the way the knight went.
+                p.x += p.dx * 0.9 * DT;
+                p.y += p.dy * 0.9 * DT;
             }
         }
         for t in self.deaths.iter_mut().map(|i| &mut i.ttl) {
+            *t = t.saturating_sub(1);
+        }
+        for t in self.blocks.iter_mut().map(|b| &mut b.ttl) {
+            *t = t.saturating_sub(1);
+        }
+        for t in self.glints.iter_mut().map(|g| &mut g.ttl) {
             *t = t.saturating_sub(1);
         }
         self.impacts.retain(|i| i.ttl > 0);
         self.tracers.retain(|i| i.ttl > 0);
         self.puffs.retain(|i| i.ttl > 0);
         self.deaths.retain(|i| i.ttl > 0);
+        self.blocks.retain(|b| b.ttl > 0);
+        self.glints.retain(|g| g.ttl > 0);
     }
 }
 
@@ -343,6 +515,7 @@ impl Run {
                 *valour.entry(id).or_default() += VALOUR_HIT;
             }
         }
+        self.tally_floor(&dealt);
         if ledger_on() && self.phase == Phase::Fighting {
             for &id in self.players.keys() {
                 let tally = self.feel.ledger.entry(id).or_default();
@@ -370,11 +543,17 @@ impl Run {
 
     /// The room is won: every monster shot still in the air becomes a coin.
     pub(super) fn cancel_shots(&mut self) {
+        self.cancel_shots_where(|_| true);
+    }
+
+    /// A fight is won: each monster shot in the air that `near` takes
+    /// becomes a coin.
+    pub(super) fn cancel_shots_where(&mut self, near: impl Fn(&Projectile) -> bool) {
         let room = COINS.saturating_sub(self.feel.coins.len());
         let coins: Vec<Coin> = self
             .projectiles
             .iter()
-            .filter(|p| p.hostile)
+            .filter(|p| p.hostile && near(p))
             .take(room)
             .map(|p| Coin {
                 x: p.x,
@@ -539,15 +718,17 @@ impl Run {
     /// Ricochet's notice, and the clouds a Powder Keg ball lit.
     pub(super) fn land_synergies(
         &mut self,
-        burns: Vec<(u32, u8)>,
+        burns: Vec<(u32, u8, u8)>,
         turned: Vec<u8>,
         mut kegs: Vec<(usize, u8)>,
     ) {
-        for (foe, owner) in burns {
+        // A `burn N` wish burns N times as hot as Fire Arrows.
+        for (foe, owner, hot) in burns {
             let power = self
                 .players
                 .get(&u32::from(owner))
-                .map_or(skills::BURN_BASE, |h| h.scaled(skills::BURN_BASE));
+                .map_or(skills::BURN_BASE, |h| h.scaled(skills::BURN_BASE))
+                * u32::from(hot.clamp(1, 3));
             skills::afflict(
                 &mut self.works.banes,
                 foe,

@@ -1,0 +1,23 @@
+power wish:chain 3
+teacher Gil the Ley-Lighter
+place the Lamplighter's Walk, the marsh road's three lanterns
+room Marsh
+look a brass-buttoned coat, a long pole with one stub of candle, and a faint smell of pitch that arrives before he does
+line Every lamp is lit from the one before it. That's all a spark asks.
+hook The level-2 card carries ...and a smell of pitch, faint, as if a lamp had just been passed.
+step The lamp relay | light the three road lanterns on the marsh road in one walk | lanterns_lit_inwalk 1 | That's the Walk. Not the miles — the passing on. | cue lamp
+step The wet lamp | keep one lamp lit for a full hall's clear in the Drowned Archive | wet_lamps_kept 1 | Wet and lit. Both. Always both. | cue lamp
+step The priory tapers | carry an unlit taper from belfry to altar without dashing | tapers_carried 1 | Steady hands across the whole priory. I'd have taken you into the Fellowship for the hands alone. | cue carry
+step The chain of five | make one shot chain through five monsters in a row | chain_links_made 5 | Five's a street. Eight's a parade.
+trial The chain of eight | one shot must spark through eight monsters in a row | chain_links_made 8 | — and that's how you light a road.
+reward Chain Spark tier 3
+title the Passed Flame
+keepsake the Stub of Candle, worn at the collar, that lights small and steadies the hand on every chain kill
+ties His first lamp stands in Sela's beacon pool; the Walk lights the road to Hesper's hedge maze; the wet lamp is Maren's.
+art
+...8...
+..888..
+..l8l..
+..888..
+...8...
+..l.l..

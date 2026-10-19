@@ -1,0 +1,15 @@
+{
+  "fit": "48x48",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damage-action"
+    }
+  ],
+  "game": "pennon",
+  "geometry": "Shot hurtbox 32\u00d738 at (x\u221216,FLOOR\u221238). On action start emits one Shot::aimed from x\u221216 and FLOOR\u221226 (high) or FLOOR\u221216 (low) toward locked aim=(player x,player y\u221229). Sentry Area is not a damaging rectangle; the aimed bolt is the danger.",
+  "id": "pennon.sentry-damaged",
+  "role": "boss",
+  "timing": "Twelve bodies, walk 2\u00d77; first wait=6, then 45. Tell=33/29/25 at hp 3/2/1, action=10, rest=60/50/40; final <12 rest ticks select recover. Flinch=4. Only captain has four body tell stages; sentry aim line strengthens through four stages (Foe::step, foe_pose())."
+}

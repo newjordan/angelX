@@ -1,0 +1,95 @@
+set undercroft
+# The Undercroft: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: a runner from the foot of the room up to the stair's mouth (11,8), banners, the purchase plates before each station, the cellar stair up to the Delve's gate in the north wall.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# furnace at 2,1 4x2
+box    stone   at 64 0 32 size 62 22 30 id furnace
+box    stone   at 64 22 20.5 size 38.4 10 7  # TODO prims: frustum
+box    stone   at 64 32 19.5 size 6 12 5
+box    fire    at 64 3 47 size 20 10 1
+
+# desk at 18,1 4x2
+box    wood    at 320 0 32 size 62 9.8 30 id desk
+box    plaster at 320 9.8 32 size 63 1.2 31
+
+# cauldron at 2,11 4x2 (at 86% of its height, for the camera)
+box    stone   at 64 0 192 size 60 5 28 id cauldron
+sphere metal   at 64 5 192 size 58 7.5 26
+cone   fire    at 64 0 205 size 7 4.5 4
+
+# armour-rack at 18,11 4x2 (at 31% of its height, for the camera)
+box    wood    at 320 0 192 size 62 6.5 30 id armour-rack
+box    metal   at 320 0.5 207.25 size 60 5.5 0.5
+
+# bookcase at 1,5 1x4 (at 32% of its height, for the camera)
+box    wood    at 24 0 112 size 14 8 62 id bookcase
+box    cloth   at 24 0.5 143.25 size 12 7 0.5
+
+# plinth at 10,5 4x1 (at 81% of its height, for the camera)
+box    stone   at 192 0 88 size 62 6 14 id plinth-1
+
+# plinth at 10,6 1x3
+box    stone   at 168 0 120 size 14 8 46 id plinth-2
+
+# plinth at 13,6 1x3
+box    stone   at 216 0 120 size 14 8 46 id plinth-3
+
+# board at 15,9 3x1 (at 34% of its height, for the camera)
+box    wood    at 264 0 152 size 46 6.5 14 id board
+box    plaster at 264 1 159.25 size 44 4.5 0.5
+
+# plate at 11,6 2x2
+box    stone   at 192 0 112 size 30 1.5 30 id plate-1  # TODO prims: stairs
+
+# plate at 13,1 2x1
+box    stone   at 224 0 24 size 30 1.5 14 id plate-2  # TODO prims: stairs

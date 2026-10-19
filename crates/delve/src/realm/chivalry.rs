@@ -98,6 +98,9 @@ impl Mount {
 /// A tended mount carries its rider one knock longer.
 pub const TENDED_BALANCE: u32 = 1;
 
+/// The most horses the stable's herd yard keeps.
+pub const HERD_CAP: usize = 12;
+
 /// The stable as the realm keeps it: the mount saddled for the lists, which
 /// are tended (brushed, watered, tack checked: one bout's worth), and what
 /// the realm's knights have done at the lists.
@@ -178,7 +181,7 @@ impl Stable {
     /// Returns what was spent, or `None` and nothing changes.
     pub fn buy(&mut self, horse: Horse, gold: u32) -> Option<u32> {
         let price = horse.value(self);
-        (gold >= price && self.herd.len() < 12 && !horse.name.eq_ignore_ascii_case("Helios")).then(|| {
+        (gold >= price && self.herd.len() < HERD_CAP && !horse.name.eq_ignore_ascii_case("Helios")).then(|| {
             self.herd.push(horse);
             price
         })
@@ -204,7 +207,7 @@ impl Stable {
     /// blood, seasoned by the busier parent's house, and is named from
     /// both. The stable keeps at most twelve horses.
     pub fn breed(&mut self, sire: usize, dam: usize, seed: u64) -> Option<&Horse> {
-        if sire == dam || sire >= self.herd.len() || dam >= self.herd.len() || self.herd.len() >= 12
+        if sire == dam || sire >= self.herd.len() || dam >= self.herd.len() || self.herd.len() >= HERD_CAP
         {
             return None;
         }
@@ -333,6 +336,17 @@ pub struct Horse {
     /// Delves won at birth, for horses growing in the flower fields.
     #[serde(default)]
     pub born: Option<u32>,
+    /// A coat the horse was found with, over the one its name gives it (the
+    /// pictures read a coat off the name otherwise): the swamp's white mare.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coat: Option<HorseCoat>,
+}
+
+/// A coat a horse was found with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HorseCoat {
+    White,
 }
 
 fn legacy_mare() -> bool { true }

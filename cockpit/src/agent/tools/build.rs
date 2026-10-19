@@ -693,7 +693,7 @@ fn direct_cargo_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     for raw in [
         std::env::var_os("CARGO"),
-        option_env!("CARGO").map(OsString::from),
+        option_env!("ANGEL_BUILD_CARGO").map(OsString::from),
     ]
     .into_iter()
     .flatten()

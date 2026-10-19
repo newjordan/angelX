@@ -4,7 +4,7 @@
 # prompt + coding discipline both enabled. Detached via setsid from the
 # cockpit; polls once a minute so it never spins.
 set -euo pipefail
-RR=${ANGEL_BENCH_ROOT:-/home/frosty40/angel_tests/angelX-bench/polyglot-20260921}
+RR=${ANGEL_BENCH_ROOT:-~/angel_tests/angelX-bench/polyglot-20260921}
 cd "$RR"
 export ANGEL_BIN="$RR/pin/angel-gen-trim-09a15bd/angel"
 export OUT_ROOT=runs-gentrim-full

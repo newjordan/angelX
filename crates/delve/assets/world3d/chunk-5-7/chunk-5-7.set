@@ -1,0 +1,133 @@
+set chunk-5-7
+# The kingdom, chunk 5,7 in Wind Country: tiles 120..144 x 112..128 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 1920
+plate 1536 1024
+
+# ground
+box    grass   at 2000 -4 1824 size 160 4 64
+box    path    at 2136 -4 1808 size 112 4 32
+box    grass   at 2248 -4 1800 size 112 4 16
+box    path    at 2224 -4 1816 size 64 4 16
+box    grass   at 2280 -4 1816 size 48 4 16
+box    grass   at 2088 -4 1864 size 16 4 80
+box    path    at 2104 -4 1936 size 16 4 224
+box    grass   at 2176 -4 1840 size 128 4 32
+box    path    at 2272 -4 1840 size 64 4 32
+box    grass   at 1968 -4 1872 size 96 4 32
+box    crop    at 2048 -4 1880 size 64 4 48
+box    grass   at 2120 -4 1912 size 16 4 112
+box    crop    at 2168 -4 1872 size 80 4 32
+box    grass   at 2248 -4 1888 size 80 4 64
+box    path    at 2296 -4 1864 size 16 4 16
+box    grass   at 2296 -4 1960 size 16 4 176
+box    path    at 1936 -4 1920 size 32 4 64
+box    grass   at 1984 -4 1896 size 64 4 16
+box    grass   at 2168 -4 1904 size 80 4 32
+box    path    at 2024 -4 1912 size 144 4 16
+box    path    at 1968 -4 1936 size 32 4 32
+box    grass   at 2040 -4 1928 size 112 4 16
+box    crop    at 2160 -4 1936 size 64 4 32
+box    grass   at 2216 -4 1928 size 48 4 16
+box    sand    at 2256 -4 1928 size 32 4 16
+box    grass   at 2280 -4 1928 size 16 4 16
+box    grass   at 2000 -4 1992 size 32 4 112
+box    crop    at 2040 -4 1952 size 48 4 32
+box    grass   at 2080 -4 1992 size 32 4 112
+box    grass   at 2208 -4 1952 size 32 4 32
+box    water   at 2248 -4 1944 size 48 1 16
+box    sand    at 2280 -4 1944 size 16 4 16
+box    grass   at 1952 -4 2000 size 64 4 96
+box    grass   at 2160 -4 1960 size 64 4 16
+box    water   at 2240 -4 1976 size 32 1 48
+box    sand    at 2264 -4 1976 size 16 4 48
+box    grass   at 2280 -4 2000 size 16 4 96
+box    grass   at 2040 -4 2008 size 48 4 80
+box    path    at 2120 -4 2008 size 16 4 80
+box    grass   at 2152 -4 1976 size 48 4 16
+box    sand    at 2192 -4 1976 size 32 4 16
+box    water   at 2216 -4 1992 size 16 1 48
+box    grass   at 2144 -4 2000 size 32 4 32
+box    sand    at 2176 -4 2008 size 32 4 48
+box    water   at 2200 -4 2000 size 16 1 32
+box    water   at 2232 -4 2016 size 16 1 32
+box    sand    at 2248 -4 2016 size 16 4 32
+box    grass   at 2264 -4 2024 size 16 4 48
+box    crop    at 2144 -4 2032 size 32 4 32
+box    crop    at 2208 -4 2032 size 32 4 32
+box    crop    at 2176 -4 2040 size 32 4 16
+box    sand    at 2232 -4 2040 size 16 4 16
+box    grass   at 2248 -4 2040 size 16 4 16
+
+# crop furrows
+box    crop    at 2048 0 1859.5 size 62 2.5 2
+box    crop    at 2048 0 1864.5 size 62 2.5 2
+box    crop    at 2048 0 1869.5 size 62 2.5 2
+box    crop    at 2048 0 1874.5 size 62 2.5 2
+box    crop    at 2048 0 1879.5 size 62 2.5 2
+box    crop    at 2048 0 1884.5 size 62 2.5 2
+box    crop    at 2048 0 1889.5 size 62 2.5 2
+box    crop    at 2048 0 1894.5 size 62 2.5 2
+box    crop    at 2048 0 1899.5 size 62 2.5 2
+box    crop    at 2168 0 1859.5 size 78 2.5 2
+box    crop    at 2168 0 1864.5 size 78 2.5 2
+box    crop    at 2168 0 1869.5 size 78 2.5 2
+box    crop    at 2168 0 1874.5 size 78 2.5 2
+box    crop    at 2168 0 1879.5 size 78 2.5 2
+box    crop    at 2168 0 1884.5 size 78 2.5 2
+box    crop    at 2160 0 1923.5 size 62 2.5 2
+box    crop    at 2160 0 1928.5 size 62 2.5 2
+box    crop    at 2160 0 1933.5 size 62 2.5 2
+box    crop    at 2160 0 1938.5 size 62 2.5 2
+box    crop    at 2160 0 1943.5 size 62 2.5 2
+box    crop    at 2160 0 1948.5 size 62 2.5 2
+box    crop    at 2040 0 1939.5 size 46 2.5 2
+box    crop    at 2040 0 1944.5 size 46 2.5 2
+box    crop    at 2040 0 1949.5 size 46 2.5 2
+box    crop    at 2040 0 1954.5 size 46 2.5 2
+box    crop    at 2040 0 1959.5 size 46 2.5 2
+box    crop    at 2040 0 1964.5 size 46 2.5 2
+box    crop    at 2144 0 2019.5 size 30 2.5 2
+box    crop    at 2144 0 2024.5 size 30 2.5 2
+box    crop    at 2144 0 2029.5 size 30 2.5 2
+box    crop    at 2144 0 2034.5 size 30 2.5 2
+box    crop    at 2144 0 2039.5 size 30 2.5 2
+box    crop    at 2144 0 2044.5 size 30 2.5 2
+box    crop    at 2208 0 2019.5 size 30 2.5 2
+box    crop    at 2208 0 2024.5 size 30 2.5 2
+box    crop    at 2208 0 2029.5 size 30 2.5 2
+box    crop    at 2208 0 2034.5 size 30 2.5 2
+box    crop    at 2208 0 2039.5 size 30 2.5 2
+box    crop    at 2208 0 2044.5 size 30 2.5 2
+box    crop    at 2176 0 2035.5 size 30 2.5 2
+box    crop    at 2176 0 2040.5 size 30 2.5 2
+box    crop    at 2176 0 2045.5 size 30 2.5 2
+
+# the windmill: a windmill at 134,118 2x2 (at 66% of its height, for the camera)
+frustum plaster at 2160 0 1905 size 22 19.5 22 id windmill
+cone   thatch  at 2160 19.5 1905 size 14.85 5.5 14.85
+box    door    at 2160 0 1915.75 size 5 5.5 1
+box    window  at 2160 11.5 1913.8 size 2.5 3 1
+box    wood    at 2160 17 1912.82 size 26 1.5 1
+box    wood    at 2160 9 1912.82 size 2 17.5 1
+box    cloth   at 2167.5 18.5 1913.07 size 11 2.5 0.75
+box    cloth   at 2152.5 14.5 1913.07 size 11 2.5 0.75
+box    cloth   at 2162 9 1913.07 size 4 7.5 0.75
+box    cloth   at 2158 19 1913.07 size 4 7.5 0.75
+sphere wood    at 2160 16.5 1913.32 size 4 2.5 2
+
+# fingerposts
+box    wood    at 2076 0 1816 size 1.5 19 1.5
+pyramid wood    at 2076 19 1816 size 2.2 1.5 2.2
+box    wood    at 2080 16 1816 size 6.5 1.8 0.6
+box    wood    at 2076 13.5 1812 size 0.6 1.8 6.5
+box    wood    at 2076 11 1820 size 0.6 1.8 6.5
+
+# woods (at 33% of its height, for the camera)
+cylinder trunk   at 1936 0 1825 size 5 10.5 5
+blob-55 foliage at 1936 7 1825 size 33 18 31.35 turn 90
+cylinder trunk   at 1928 0 1800 size 3 3 3
+blob-1 foliage at 1928 1.5 1800 size 19 6.5 18.05 turn 270
+frustum trunk   at 1944 0 1800 size 3 4 3
+blob-56 foliage at 1944 2 1800 size 19 6 18.05 turn 180

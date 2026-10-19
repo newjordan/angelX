@@ -37,7 +37,7 @@ fn aerie_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         let mut paper = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::aerie::figures(&mut paper, &r);
         let before = paper.clone();
-        tray::corner(&mut paper, &r, None);
+        tray::corner(&mut paper, &r, None, false);
         let (cx, cy) = super::at(px, py);
         for y in cy - 8..cy + 4 {
             for x in cx - 6..cx + 6 {
@@ -79,7 +79,7 @@ fn aerie_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         let mut board = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::countryside::boards(&mut board, &r);
         let before = board.clone();
-        tray::corner(&mut board, &r, None);
+        tray::corner(&mut board, &r, None, false);
         for y in 0..board.h {
             for x in 0..board.w {
                 if before.get(x, y).is_some() {

@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24.0,
+    32
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "52\u00d7100 drop Area remains simulation-owned; burst art never replaces exact boundary marks.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "70892ab14c9eab9df71170967016f3d35332d318bc197eaee7b1086c6019cb1e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Tiny first contact: low amber burst with tight dust and debris. Readable but very small relative to later frames.",
+      "name": "fx-drop-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        82.0,
+        109
+      ],
+      "source_rect_xywh": [
+        79,
+        298,
+        164,
+        109
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Growing burst: wider dust base, upward sparks and a fragment.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.0,
+        174
+      ],
+      "source_rect_xywh": [
+        343,
+        237,
+        240,
+        174
+      ],
+      "state": "fx-drop-1"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 3; Peak: tall planted pennon and weight above a broad burst.",
+      "name": "fx-drop-1",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        330
+      ],
+      "source_rect_xywh": [
+        629,
+        89,
+        273,
+        330
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Peak continuation: similar pennon/impact with debris lifting; distinction from cell 3 is modest.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.5,
+        303
+      ],
+      "source_rect_xywh": [
+        955,
+        117,
+        257,
+        303
+      ],
+      "state": "fx-drop-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Heavy follow-through: pennon leans into a dense burst, strong vertical silhouette.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        142.0,
+        313
+      ],
+      "source_rect_xywh": [
+        30,
+        517,
+        284,
+        313
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Breaking: pennon and weight begin separating from the impact, with cool shards and sparks.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        139.0,
+        298
+      ],
+      "source_rect_xywh": [
+        342,
+        533,
+        278,
+        298
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Release: separated banner and fragments over the lingering core.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        289
+      ],
+      "source_rect_xywh": [
+        658,
+        541,
+        262,
+        289
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 8; Fragmenting: no upright shaft; cloth and debris peel away over dust.",
+      "name": "fx-drop-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        240
+      ],
+      "source_rect_xywh": [
+        972,
+        591,
+        263,
+        240
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Residual burst: small core, few sparks and dust.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        160
+      ],
+      "source_rect_xywh": [
+        40,
+        1024,
+        231,
+        160
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Scattered dust and remaining fragments; warm hit energy is subdued.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.5,
+        159
+      ],
+      "source_rect_xywh": [
+        343,
+        1022,
+        253,
+        159
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Sparse low dust and fragments, cool accent visible.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.0,
+        128
+      ],
+      "source_rect_xywh": [
+        666,
+        1056,
+        246,
+        128
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 12; Final faint remnant, small isolated dust and debris.",
+      "name": "fx-drop-3",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        94.0,
+        88
+      ],
+      "source_rect_xywh": [
+        1003,
+        1096,
+        188,
+        88
+      ],
+      "state": "drop"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732, bottom-centre (24,32) at the rule danger centre and FLOOR.",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "pennon.drop",
+  "source_sha256": "3d4b81fdb2a912183ea153a2ab5909659e132dd89051b5865d977c51138c0ccd",
+  "timing": "Four frames over 10 action ticks via floor((10\u2212ticks)\u00d74/10), clamped (draw())."
+}

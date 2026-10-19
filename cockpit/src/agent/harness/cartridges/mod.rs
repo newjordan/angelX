@@ -4,7 +4,8 @@
 //! HUD, truthful submit attribution, the book). A cartridge carries one
 //! family's specifics: its board CLI, its loop worker's brief, its status API
 //! and fleet sweep, its book pages. A tool cartridge carries slash commands
-//! instead, each a stack of its own skills loaded only when typed. A cartridge
+//! instead, each a stack of its own skills loaded only when typed, and deferred
+//! tools, each a program in its folder. A cartridge
 //! is a folder with
 //! `cartridge.toml`; with `src/mod.rs` beside it, `build.rs` compiles its Rust
 //! hooks in, otherwise the toml alone is read at startup. Folders come from
@@ -15,6 +16,7 @@ pub(crate) mod config;
 pub(crate) mod fleet;
 pub(crate) mod records;
 pub(crate) mod submit_identity;
+pub(crate) mod tools;
 
 use crate::agent::harness::WatchNotify;
 use crate::agent::harness::book::{Route, Sub};
@@ -142,11 +144,11 @@ impl Cartridge {
     }
 
     /// Whether this is a competition family. A config-only cartridge that
-    /// carries commands and names no board or worker is a tool: plugging it in
-    /// never makes it the active competition.
+    /// carries commands or tools and names no board or worker is a tool:
+    /// plugging it in never makes it the active competition.
     pub(crate) fn competes(&self) -> bool {
         self.compiled
-            || self.config.commands.is_empty()
+            || (self.config.commands.is_empty() && self.config.tools.is_empty())
             || !self.config.boards.is_empty()
             || !self.config.worker.is_empty()
     }

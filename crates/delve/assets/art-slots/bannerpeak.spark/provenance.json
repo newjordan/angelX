@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.spark/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED.",
+  "generation_sha256": "1acd807def3b575973956f70acb6e1f665af63576e69816850e19ac26f323c6f",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "fb6fa711e1661e5006f26b2e137e2a438f87f58793c905726168b56a0dd469ae",
+  "native_contract": "Native 12x12, centre anchor (6,6).",
+  "notes_sha256": "351bc5f12bfaa39b4cd021af1d15282ab34a0c4743db6b506c29d7b22c07968b",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "946dc162ad6b25e0df39e5c628f6fb702fe1550222a4a19a0e48233f229bd738",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.spark/v01/source-sheet.png",
+  "source_sha256": "5ce42b855b6d64688fc31933968e57024772a132d4a772ffa13f1036b7df4a30"
+}

@@ -141,7 +141,8 @@
 //! pages, a bullet one page, a block past ten pages continued in a
 //! `<name>, continued` section); the seat's knobs are data, not pages. Read
 //! through the ledger; the one page sent is ⡞⠙⠓, which an OpenAI seat stands
-//! on after its system block:
+//! on after its system block (the Anthropic seat's profile, `claude_seat.rs`,
+//! leaves two pages out instead):
 //!
 //! | cell     | chapter              | surface                                                   |
 //! |----------|----------------------|-----------------------------------------------------------|
@@ -186,6 +187,7 @@
 pub(crate) mod and_session;
 pub(crate) mod ar_seats;
 pub(crate) mod ch_edits;
+pub(crate) mod claude_seat;
 pub(crate) mod connect;
 pub(crate) mod continuity;
 pub(crate) mod d12467_sloptomizer;
@@ -474,7 +476,6 @@ pub(crate) const VOICED: &[(Route, bool)] = &[
     (v_verification::FLAKY, false),
     (v_verification::UNTESTED, false),
     (v_verification::TESTS_EDITED, false),
-    (d3456_advisories::POST_EDIT, false),
     (d3456_advisories::GREEN, false),
     (d3456_advisories::FINAL_MILE, false),
     (d3456_advisories::FIRST_WRITE, false),
@@ -503,15 +504,14 @@ pub(crate) fn is_warning(route: Route) -> bool {
 }
 
 /// The 0.1.6 name of the advisory a route carries, so the experience ledger
-/// and the analysis scripts that count `post_edit_logic_advisory`,
-/// `verification_recovery`, `error_advisory` and the rest keep counting them.
+/// and the analysis scripts that count `verification_recovery`,
+/// `error_advisory` and the rest keep counting them.
 pub(crate) fn legacy_kind(route: Route) -> Option<&'static str> {
     Some(match route {
         r if r == l_loops::SAME_BATCH => "spin_advisory",
         r if r == l_loops::STORM => "duplicate_storm_advisory",
         r if r == x_execution::ERRORS => "error_advisory",
         r if r == v_verification::RED_STREAK => "verification_recovery",
-        r if r == d3456_advisories::POST_EDIT => "post_edit_logic_advisory",
         r if r == d3456_advisories::GREEN => "green_verify_advisory",
         r if r == k_competition::WINNER_BANK => "green_verify_advisory",
         r if r == d3456_advisories::FINAL_MILE => "final_mile_advisory",

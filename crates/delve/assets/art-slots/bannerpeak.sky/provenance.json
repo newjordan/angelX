@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.sky/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP.",
+  "generation_sha256": "955c258fae4d974396a5ffa27eae7c3074d426e18c75acb6388c19c71fd2af76",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": null,
+  "native_contract": "Opaque 1672x941 painting, resampled once to the 384x224 stage.",
+  "notes_sha256": "1240fab4b6d7eab6e7c2ce48b70d3b8cc75e185aa71da18dfcaf287632c440d8",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "a6ddad467b510ce6ce0c8c3a991a6e4afe48cd2b613555e2d2026c9de7062c7a",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the second generation of one run; source-sheet-first.png, the busier first generation, is kept outside the repo and not used; source-sheet-2.png is byte-identical to source-sheet.png)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.sky/v01/source-sheet.png",
+  "source_sha256": "cc0a3e7222a5510c34f8ad8479976e497779d83927fba129f6069c74ba040125"
+}

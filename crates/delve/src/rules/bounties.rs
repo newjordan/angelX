@@ -19,8 +19,6 @@ pub enum Goal {
     Moment(&'static str),
     /// A floor reached.
     Reach(u32),
-    /// A show of so many thousand viewers.
-    Show(u32),
 }
 
 /// One of Wren's bounties.
@@ -98,20 +96,29 @@ pub const BOUNTIES: &[Bounty] = &[
     Bounty {
         id: "streak",
         title: "Unstoppable",
-        says: "Four in a breath, twice. The audience asked for it by name.",
+        says: "Four in a breath, twice. Keep the road clear for those behind you.",
         goal: Goal::Moment("slay4"),
         need: 2,
         from: 0,
         pays: &[(Spoil::Gold, 150), (Spoil::Ember, 1)],
     },
     Bounty {
-        id: "ratings",
-        title: "Ratings",
-        says: "Fortune says the audience is getting bored. Give them a show: a million and a half.",
-        goal: Goal::Show(1500),
-        need: 1500,
+        id: "safe_passage",
+        title: "Safe Passage",
+        says: "Clear three rooms without a scratch. The next party needs a safe road.",
+        goal: Goal::Moment("flawless"),
+        need: 3,
         from: 0,
         pays: &[(Spoil::Gold, 180), (Spoil::Gem, 1)],
+    },
+    Bounty {
+        id: "white_horse",
+        title: "The White Horse",
+        says: "Somebody took a white horse into the Swamp of Horrors. The plate's in Sir Damp's Marsh. Bring her home; mind your boots.",
+        goal: Goal::Moment(super::swamp::MOMENT),
+        need: 1,
+        from: 0,
+        pays: &[(Spoil::Gold, 200), (Spoil::Gem, 1)],
     },
     Bounty {
         id: "keep",
@@ -231,11 +238,11 @@ pub const BOUNTIES: &[Bounty] = &[
         pays: &[(Spoil::Gold, 350), (Spoil::Gem, 3)],
     },
     Bounty {
-        id: "prime",
-        title: "Prime Time",
-        says: "Five million viewers. Fortune has promised me a seat at the finale.",
-        goal: Goal::Show(5000),
-        need: 5000,
+        id: "roadwardens",
+        title: "Roadwardens",
+        says: "Put six guardians to rest. Leave their roads open to travellers.",
+        goal: Goal::Moment("boss_fall"),
+        need: 6,
         from: 3,
         pays: &[(Spoil::Gold, 350), (Spoil::Ember, 2)],
     },
@@ -299,15 +306,10 @@ pub fn bounty(id: &str) -> Option<&'static Bounty> {
     BOUNTIES.iter().find(|b| b.id == id)
 }
 
-/// How far along a bounty is, as the board writes it: 7/25, 1.20M/1.50M,
+/// How far along a bounty is, as the board writes it: 7/25,
 /// or the floor to reach.
 pub fn progress(bounty: &Bounty, have: u32) -> String {
     match bounty.goal {
-        Goal::Show(need) => format!(
-            "{}/{}",
-            super::audience::viewers(have),
-            super::audience::viewers(need)
-        ),
         Goal::Reach(floor) => format!("floor {floor}"),
         _ => format!("{have}/{}", bounty.need),
     }
@@ -350,13 +352,12 @@ impl Home {
     }
 
     /// What a delve just did: `marks` (kills and moments), the floor it is
-    /// on and its show. Returns the bounties it finished, taken off the
+    /// on. Returns the bounties it finished, taken off the
     /// board (the cockpit pays them and Wren pins the next).
     pub fn work_bounties(
         &mut self,
         marks: &BTreeMap<String, u32>,
         depth: u32,
-        audience: u32,
     ) -> Vec<&'static Bounty> {
         let mut done = Vec::new();
         for pinned in &mut self.bounties {
@@ -369,7 +370,6 @@ impl Home {
                     pinned.have + marks.get(&moment_mark(cue)).copied().unwrap_or(0)
                 }
                 Goal::Reach(floor) => u32::from(depth >= floor),
-                Goal::Show(_) => pinned.have.max(audience),
             }
             .min(bounty.need);
             if pinned.have >= bounty.need {

@@ -100,7 +100,7 @@ fn carved(run: &Run, w: i32, names: usize) -> Img {
     for y in (9..h - 3).step_by(7) {
         im.line(3, y, w - 4, y, 'b');
     }
-    centered(&mut im, 5, "PARTY BEST", 'T');
+    centered(&mut im, 5, "PARTY BEST", 'O');
     im.line(4, 14, w - 5, 14, 'P');
     if ranked.is_empty() {
         centered(&mut im, 19, "NO TIMES", 'J');
@@ -108,7 +108,7 @@ fn carved(run: &Run, w: i32, names: usize) -> Img {
     for (i, e) in ranked.iter().take(4).enumerate() {
         let y = 19 + i as i32 * 10;
         let name: String = e.name.to_uppercase().chars().take(names).collect();
-        im.text(5, y, &name, if i == 0 { 'T' } else { 'h' });
+        im.text(5, y, &name, if i == 0 { 'O' } else { 'h' });
         let t = seconds(e.best);
         im.text(w - 5 - text_width(&t), y, &t, 'i');
     }
@@ -584,7 +584,7 @@ fn scene(run: &Run, id: u32, hero: &Hero) -> Img {
                         (sx, 51, 91, 26),
                         Tone::TIMBER.rimmed(chrome::rim_of(ink)),
                     );
-                    cv.text(sx + (91 - text_width(word)) / 2, 57, word, 'T');
+                    cv.text(sx + (91 - text_width(word)) / 2, 57, word, 'O');
                     let ax = sx + 45;
                     cv.line(ax - 7, 69, ax + 7, 69, 'i');
                     let end = if left { ax - 7 } else { ax + 7 };
@@ -640,7 +640,7 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
     }
     let mut window = Img::new(352, 202);
     frame(&mut window);
-    window.text(14, 13, "PRIVY DASH", 'T');
+    window.text(14, 13, "PRIVY DASH", 'O');
     let name = hero
         .knight_name()
         .unwrap_or_else(|| hero.name.clone())
@@ -653,7 +653,7 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
         .as_ref()
         .map_or_else(|| hero.pit.result.as_ref().unwrap().total, |s| s.total);
     let time = format!("{}s", seconds(total));
-    window.text(338 - text_width(&time), 13, &time, 'T');
+    window.text(338 - text_width(&time), 13, &time, 'O');
     window.stamp(&scene(run, id, hero), 8, 31);
     if let Some(stop) = &hero.pit.stop {
         let label = if stop.waiting {
@@ -707,7 +707,7 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                 window.text(327, 171, "F", 'i');
             }
             Stage::Choose => {
-                centered(&mut window, 169, "PICK A SIDE", 'T');
+                centered(&mut window, 169, "PICK A SIDE", 'O');
                 chrome::meter(
                     &mut window,
                     (67, 185, 218, 5),
@@ -732,7 +732,7 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                         let line = &wall[(beat / 2 + id as usize) % wall.len()];
                         centered(&mut window, 169, &format!("\"{line}\""), 'J');
                     }
-                    None => centered(&mut window, 169, word, 'T'),
+                    None => centered(&mut window, 169, word, 'O'),
                 }
                 chrome::meter(
                     &mut window,

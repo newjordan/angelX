@@ -2,7 +2,7 @@
 //!
 //! East of the Undercroft is Fortune's hall, and in it her wheel — the
 //! Rota Fortunae that Arthur dreamt of, run the way the Delve's Herald runs
-//! everything: as a show, with an audience. A knight at its lever holds E
+//! the paths below: a different road with each turn. A knight at its lever holds E
 //! and the wheel spins once a delve; where it stops is how the delve goes.
 //! More wedges open as Fortune's ladder is bought.
 //!
@@ -24,6 +24,7 @@ pub const SPIN_TICKS: u32 = 4 * HZ;
 pub enum Mode {
     /// The delve as it always was.
     #[default]
+    #[serde(alias = "sponsors")]
     LongWayDown,
     /// Dark: light only round knights and fires.
     LightsOut,
@@ -49,8 +50,9 @@ pub enum Mode {
     Ironman,
     /// Every floor hides a vault behind a cracked wall.
     HollowWalls,
-    /// Sponsors: the audience counts double, so the boxes rain.
-    Sponsors,
+    /// Open Floors: every floor one map to explore, its companies waiting
+    /// in their chambers (`depths`).
+    OpenFloors,
 }
 
 impl Mode {
@@ -69,7 +71,7 @@ impl Mode {
         Mode::AllRandom,
         Mode::Ironman,
         Mode::HollowWalls,
-        Mode::Sponsors,
+        Mode::OpenFloors,
     ];
 
     pub fn name(self) -> &'static str {
@@ -87,7 +89,7 @@ impl Mode {
             Mode::AllRandom => "All Random",
             Mode::Ironman => "Ironman",
             Mode::HollowWalls => "Hollow Walls",
-            Mode::Sponsors => "Sponsors' Night",
+            Mode::OpenFloors => "Open Floors",
         }
     }
 
@@ -107,7 +109,7 @@ impl Mode {
             Mode::AllRandom => "all_random",
             Mode::Ironman => "ironman",
             Mode::HollowWalls => "hollow_walls",
-            Mode::Sponsors => "sponsors",
+            Mode::OpenFloors => "open_floors",
         }
     }
 
@@ -127,18 +129,18 @@ impl Mode {
             Mode::AllRandom => "a stranger's ultimate, half charged",
             Mode::Ironman => "no second winds: 3x spoils",
             Mode::HollowWalls => "a vault on every floor",
-            Mode::Sponsors => "the audience counts double",
+            Mode::OpenFloors => "no doors between fights: explore",
         }
     }
 
     /// The rung of Fortune's ladder that opens this wedge.
     pub fn rung(self) -> u8 {
         match self {
-            Mode::LongWayDown | Mode::LightsOut | Mode::GiantsFeast | Mode::MimicFair => 0,
+            Mode::LongWayDown | Mode::LightsOut | Mode::GiantsFeast | Mode::MimicFair | Mode::OpenFloors => 0,
             Mode::Collapse | Mode::GlassJaw => 1,
             Mode::HoldTheStair | Mode::Gauntlet => 2,
             Mode::Turbo | Mode::RuneRush | Mode::AllRandom => 3,
-            Mode::Ironman | Mode::HollowWalls | Mode::Sponsors => 4,
+            Mode::Ironman | Mode::HollowWalls => 4,
         }
     }
 
@@ -153,7 +155,7 @@ impl Mode {
             | Mode::RuneRush
             | Mode::AllRandom
             | Mode::HollowWalls
-            | Mode::Sponsors => (1, 1),
+            | Mode::OpenFloors => (1, 1),
             Mode::Ironman => (3, 1),
         }
     }
@@ -172,10 +174,18 @@ pub struct Spin {
     pub settled: bool,
     pub started: u64,
     pub from: f32,
+    #[serde(deserialize_with = "saved_wedge")]
     pub wedge: u8,
     pub turns: u8,
     /// Who pulled the lever.
     pub by: u32,
+}
+
+/// Saves made before viewers were retired may still be spinning toward the
+/// removed sponsor wedge. Resume that spin on the ordinary delve instead.
+fn saved_wedge<'de, D: serde::Deserializer<'de>>(de: D) -> Result<u8, D::Error> {
+    let wedge = u8::deserialize(de)?;
+    Ok(if usize::from(wedge) < Mode::WHEEL.len() { wedge } else { 0 })
 }
 
 impl Spin {

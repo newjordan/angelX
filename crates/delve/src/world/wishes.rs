@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex, OnceLock};
 
-use super::map::{MAP_H, MAP_W, Place, Realm, SCREEN_H, SCREEN_W, STRUCTURES, TILE, place_tile};
+use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
 use crate::realm::Wish;
 use crate::render::overworld::ink::Img;
 
@@ -91,11 +91,11 @@ fn footprint(wish: &Wish) -> (i32, i32) {
     (tw.max(1), th.max(2))
 }
 
-/// A wilderness screen of the heartland. The March to the south belongs to
-/// the houses, and wishes never move: lots stay where they always stood.
+/// The open country: off every set piece, and out of the March, which
+/// belongs to the houses. Wishes never move once raised: lots stay where
+/// they stood.
 fn wild(tx: i32, ty: i32) -> bool {
-    let (sx, sy) = (tx.div_euclid(SCREEN_W), ty.div_euclid(SCREEN_H));
-    sy < super::map::HEARTLAND_Y * 2 - 1 && (sx % 2 == 1 || sy % 2 == 1)
+    !super::map::in_set_piece(tx, ty) && super::biome::at(tx, ty) != super::biome::Biome::March
 }
 
 /// Ground a lot may be cleared on: meadow, ash, and trees or rocks to clear.
@@ -214,8 +214,10 @@ pub fn lots(wishes: &[Wish]) -> Arc<Vec<Option<Lot>>> {
     {
         return Arc::clone(lots);
     }
-    // The Delve's gate holds its own ground; wishes build around it.
+    // The Delve's gate holds its own ground and the castles theirs; wishes
+    // build around them.
     let mut taken: Vec<Lot> = vec![delve_gate(), super::college::lot()];
+    taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
     let mut out = Vec::with_capacity(wishes.len());
     for wish in wishes {
         let (tw, th) = footprint(wish);
@@ -254,19 +256,17 @@ pub fn cleared(lots: &[Option<Lot>], tx: i32, ty: i32) -> bool {
     lots.iter().flatten().any(|l| l.contains(tx, ty))
 }
 
-/// The Delve's gate: a stair into the hill near the Mines, on a lot of its
-/// own in the wild. Fixed for the realm, found once.
+/// The Delve's gate: a stair into the Highlands' hillside below the Mines,
+/// just above the North Road. Fixed for the realm.
+pub const DELVE_GATE: Lot = Lot {
+    tx: 92,
+    ty: 31,
+    tw: 3,
+    th: 3,
+};
+
 pub fn delve_gate() -> Lot {
-    static GATE: OnceLock<Lot> = OnceLock::new();
-    *GATE.get_or_init(|| {
-        let goal = Place::Mines.stand_world();
-        find(3, 3, (goal.0 + 3, goal.1 + 4), &[]).unwrap_or(Lot {
-            tx: goal.0 + 3,
-            ty: goal.1 + 4,
-            tw: 3,
-            th: 3,
-        })
-    })
+    DELVE_GATE
 }
 
 /// Where the knight stands to enter: just before the gate's mouth.

@@ -1,0 +1,323 @@
+set chunk-0-10
+# The kingdom, chunk 0,10 in The March: tiles 0..24 x 160..176 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 192 2688
+plate 1536 1024
+
+# ground
+box    grass   at 24 -4 2568 size 48 4 16
+box    path    at 64 -4 2624 size 32 4 128
+box    grass   at 88 -4 2608 size 16 4 96
+box    rock    at 240 -4 2568 size 288 4 16
+box    rock    at 8 -4 2600 size 16 4 48
+box    grass   at 32 -4 2696 size 32 4 240
+box    rock    at 104 -4 2592 size 16 4 32
+box    grass   at 120 -4 2648 size 16 4 144
+box    rock    at 136 -4 2584 size 16 4 16
+box    grass   at 160 -4 2648 size 32 4 144
+box    rock    at 208 -4 2584 size 64 4 16
+box    grass   at 248 -4 2648 size 16 4 144
+box    rock    at 296 -4 2584 size 80 4 16
+box    grass   at 344 -4 2648 size 16 4 144
+box    rock    at 368 -4 2584 size 32 4 16
+box    grass   at 136 -4 2656 size 16 4 128
+box    grass   at 208 -4 2656 size 64 4 128
+box    grass   at 296 -4 2656 size 80 4 128
+box    grass   at 368 -4 2656 size 32 4 128
+box    grass   at 104 -4 2648 size 16 4 80
+box    grass   at 8 -4 2720 size 16 4 192
+box    path    at 88 -4 2704 size 16 4 96
+box    grass   at 56 -4 2752 size 16 4 128
+box    path    at 72 -4 2704 size 16 4 32
+box    path    at 104 -4 2720 size 16 4 64
+box    grass   at 72 -4 2768 size 16 4 96
+box    path    at 248 -4 2736 size 272 4 32
+box    grass   at 232 -4 2784 size 304 4 64
+
+# The Silken Gate of the house of LongCat: a castle: curtain walls, towers, a keep and a gate at 8,162 16x8
+box    stone   at 256 0 2635 size 20 28 12 id silken-gate
+hip    roof    at 256 28 2635 size 22 10 14
+box    window  at 256 20 2641.25 size 2.5 4 1
+box    stone   at 256 0 2629.5 size 248 14 3
+box    stone   at 133.5 0 2673.75 size 3 14 85.5
+box    stone   at 378.5 0 2673.75 size 3 14 85.5
+box    stone   at 192.5 0 2715 size 115 14 3
+box    stone   at 319.5 0 2715 size 115 14 3
+box    stone   at 137.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 142.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 147.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 152.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 157.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 162.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 167.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 172.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 177.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 182.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 187.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 192.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 197.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 202.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 207.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 212.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 217.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 222.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 227.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 232.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 237.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 242.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 247.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 264.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 269.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 274.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 279.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 284.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 289.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 294.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 299.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 304.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 309.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 314.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 319.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 324.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 329.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 334.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 339.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 344.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 349.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 354.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 359.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 364.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 369.5 14 2715.75 size 2.75 2.5 1.5
+box    stone   at 374.5 14 2715.75 size 2.75 2.5 1.5
+arch   stone   at 256 0 2715 size 12 18 4
+box    door    at 256 0 2715 size 6.7 13.9 1.5
+cylinder stone   at 135.5 0 2713 size 9 22 9
+cone   roof    at 135.5 22 2713 size 11 7.2 11
+box    window  at 135.5 14 2717.25 size 2.5 4 1
+cylinder stone   at 376.5 0 2713 size 9 22 9
+cone   roof    at 376.5 22 2713 size 11 7.2 11
+box    window  at 376.5 14 2717.25 size 2.5 4 1
+cylinder stone   at 135.5 0 2631.5 size 9 22 9
+cone   roof    at 135.5 22 2631.5 size 11 7.2 11
+box    window  at 135.5 14 2635.75 size 2.5 4 1
+cylinder stone   at 376.5 0 2631.5 size 9 22 9
+cone   roof    at 376.5 22 2631.5 size 11 7.2 11
+box    window  at 376.5 14 2635.75 size 2.5 4 1
+box    wood    at 152 0 2600 size 14 4 8
+box    wood    at 152 4 2600 size 10 3 6
+box    wood    at 168 0 2600 size 14 4 8
+box    wood    at 168 4 2600 size 10 3 6
+blob-52 foliage at 184 0 2600 size 13 11 12
+blob-27 foliage at 200 0 2600 size 13 8 12
+box    wood    at 216 0 2600 size 14 4 8
+box    wood    at 216 4 2600 size 10 3 6
+blob-48 foliage at 232 0 2600 size 13 11 12
+box    wood    at 280 0 2600 size 14 4 8
+box    wood    at 280 4 2600 size 10 3 6
+box    wood    at 296 0 2600 size 14 4 8
+box    wood    at 296 4 2600 size 10 3 6
+blob-56 foliage at 312 0 2600 size 13 10 12
+blob-58 foliage at 328 0 2600 size 13 11 12
+box    wood    at 344 0 2600 size 14 4 8
+box    wood    at 344 4 2600 size 10 3 6
+blob-43 foliage at 360 0 2600 size 13 8 12
+frustum trunk   at 152 0 2648 size 3 11 3
+blob-14 foliage at 152 6 2648 size 14 18 13.3 turn 180
+frustum trunk   at 168 0 2648 size 3 10 3
+blob-40 foliage at 168 5 2648 size 14 19 13.3
+box    wood    at 184 0 2648 size 14 4 8
+box    wood    at 184 4 2648 size 10 3 6
+frustum trunk   at 200 0 2648 size 3 12 3
+blob-45 foliage at 200 7 2648 size 14 20 13.3
+frustum trunk   at 216 0 2648 size 3 9 3
+blob-52 foliage at 216 4 2648 size 14 21 13.3 turn 270
+blob-16 foliage at 232 0 2648 size 13 10 12
+cylinder trunk   at 248 0 2648 size 3 11 3
+blob-52 foliage at 248 6 2648 size 14 20 13.3
+box    wood    at 264 0 2648 size 14 4 8
+box    wood    at 264 4 2648 size 10 3 6
+cylinder trunk   at 280 0 2648 size 3 9 3
+blob-3 foliage at 280 4 2648 size 14 21 13.3 turn 90
+blob-62 foliage at 296 0 2648 size 13 11 12
+blob-15 foliage at 312 0 2648 size 13 9 12
+cylinder trunk   at 328 0 2648 size 3 10 3
+blob-57 foliage at 328 5 2648 size 14 19 13.3 turn 90
+box    wood    at 344 0 2648 size 14 4 8
+box    wood    at 344 4 2648 size 10 3 6
+box    wood    at 360 0 2648 size 14 4 8
+box    wood    at 360 4 2648 size 10 3 6
+blob-64 foliage at 152 0 2664 size 13 11 12
+frustum trunk   at 168 0 2664 size 3 9 3
+blob-17 foliage at 168 4 2664 size 14 17 13.3 turn 270
+frustum trunk   at 184 0 2664 size 3 12 3
+blob-61 foliage at 184 7 2664 size 14 16 13.3
+box    wood    at 200 0 2664 size 14 4 8
+box    wood    at 200 4 2664 size 10 3 6
+box    wood    at 216 0 2664 size 14 4 8
+box    wood    at 216 4 2664 size 10 3 6
+cylinder trunk   at 232 0 2664 size 3 11 3
+blob-6 foliage at 232 6 2664 size 14 19 13.3 turn 90
+cylinder trunk   at 248 0 2664 size 3 9 3
+blob-34 foliage at 248 4 2664 size 14 17 13.3
+box    wood    at 264 0 2664 size 14 4 8
+box    wood    at 264 4 2664 size 10 3 6
+blob-36 foliage at 280 0 2664 size 13 10 12
+box    wood    at 296 0 2664 size 14 4 8
+box    wood    at 296 4 2664 size 10 3 6
+blob-27 foliage at 312 0 2664 size 13 8 12
+blob-64 foliage at 328 0 2664 size 13 10 12
+blob-5 foliage at 344 0 2664 size 13 9 12
+blob-23 foliage at 360 0 2664 size 13 8 12
+frustum trunk   at 152 0 2680 size 3 10 3
+blob-22 foliage at 152 5 2680 size 14 20 13.3
+blob-15 foliage at 168 0 2680 size 13 9 12
+cylinder trunk   at 184 0 2680 size 3 11 3
+blob-20 foliage at 184 6 2680 size 14 17 13.3 turn 180
+blob-43 foliage at 200 0 2680 size 13 8 12
+blob-39 foliage at 216 0 2680 size 13 9 12
+blob-47 foliage at 232 0 2680 size 13 8 12
+box    wood    at 248 0 2680 size 14 4 8
+box    wood    at 248 4 2680 size 10 3 6
+frustum trunk   at 264 0 2680 size 3 12 3
+blob-62 foliage at 264 7 2680 size 14 21 13.3 turn 270
+cylinder trunk   at 280 0 2680 size 3 10 3
+blob-7 foliage at 280 5 2680 size 14 15 13.3
+blob-44 foliage at 296 0 2680 size 13 11 12
+blob-39 foliage at 312 0 2680 size 13 9 12
+blob-7 foliage at 328 0 2680 size 13 8 12
+box    wood    at 344 0 2680 size 14 4 8
+box    wood    at 344 4 2680 size 10 3 6
+blob-20 foliage at 360 0 2680 size 13 11 12
+
+# hedges (at 78% of its height, for the camera)
+box    hedge   at 8 0 2568 size 18 6 18
+blob-54 hedge   at 8 3.5 2568 size 18 5 18
+box    hedge   at 8 0 2632 size 18 7 18
+blob-54 hedge   at 8 4.5 2632 size 18 5 18
+box    hedge   at 8 0 2648 size 18 6 18
+blob-48 hedge   at 8 3.5 2648 size 18 6 18
+box    hedge   at 8 0 2664 size 18 6 18
+blob-28 hedge   at 8 3.5 2664 size 18 6 18
+box    hedge   at 8 0 2680 size 18 6 18
+blob-44 hedge   at 8 3.5 2680 size 18 6 18
+box    hedge   at 8 0 2696 size 18 6 18
+blob-6 hedge   at 8 3.5 2696 size 18 5 18
+box    hedge   at 8 0 2712 size 18 7 18
+blob-43 hedge   at 8 4.5 2712 size 18 6 18
+box    hedge   at 8 0 2728 size 18 6 18
+blob-23 hedge   at 8 3.5 2728 size 18 5 18
+box    hedge   at 8 0 2744 size 18 6 18
+blob-61 hedge   at 8 3.5 2744 size 18 6 18
+box    hedge   at 8 0 2760 size 18 6 18
+blob-20 hedge   at 8 3.5 2760 size 18 5 18
+box    hedge   at 8 0 2776 size 18 7 18
+blob-8 hedge   at 8 4.5 2776 size 18 5 18
+box    hedge   at 8 0 2792 size 18 7 18
+blob-11 hedge   at 8 4.5 2792 size 18 6 18
+box    hedge   at 8 0 2808 size 18 7 18
+blob-17 hedge   at 8 4.5 2808 size 18 5 18
+box    hedge   at 24 0 2808 size 18 5 18
+blob-39 hedge   at 24 3 2808 size 18 4.5 18
+box    hedge   at 40 0 2808 size 18 5 18
+blob-21 hedge   at 40 3.5 2808 size 18 3.5 18
+box    hedge   at 56 0 2808 size 18 5 18
+blob-36 hedge   at 56 3 2808 size 18 4.5 18
+box    hedge   at 72 0 2808 size 18 7 18
+blob-3 hedge   at 72 4.5 2808 size 18 5 18
+box    hedge   at 88 0 2808 size 18 6 18
+blob-50 hedge   at 88 3.5 2808 size 18 5 18
+box    hedge   at 104 0 2808 size 18 7 18
+blob-48 hedge   at 104 4.5 2808 size 18 6 18
+box    hedge   at 120 0 2808 size 18 5 18
+blob-14 hedge   at 120 3.5 2808 size 18 4.5 18
+box    hedge   at 136 0 2808 size 18 5 18
+blob-38 hedge   at 136 3.5 2808 size 18 3.5 18
+box    hedge   at 152 0 2808 size 18 5 18
+blob-52 hedge   at 152 3.5 2808 size 18 3.5 18
+box    hedge   at 168 0 2808 size 18 5 18
+blob-58 hedge   at 168 3 2808 size 18 5.5 18
+box    hedge   at 184 0 2808 size 18 5 18
+blob-34 hedge   at 184 3 2808 size 18 4.5 18
+box    hedge   at 200 0 2808 size 18 5 18
+blob-33 hedge   at 200 3 2808 size 18 4.5 18
+box    hedge   at 216 0 2808 size 18 5 18
+blob-10 hedge   at 216 3 2808 size 18 5.5 18
+box    hedge   at 232 0 2808 size 18 5 18
+blob-34 hedge   at 232 3.5 2808 size 18 3.5 18
+box    hedge   at 248 0 2808 size 18 5 18
+blob-6 hedge   at 248 3 2808 size 18 4.5 18
+box    hedge   at 264 0 2808 size 18 5 18
+blob-29 hedge   at 264 3.5 2808 size 18 4.5 18
+box    hedge   at 280 0 2808 size 18 5 18
+blob-52 hedge   at 280 3.5 2808 size 18 3.5 18
+box    hedge   at 296 0 2808 size 18 5 18
+blob-37 hedge   at 296 3 2808 size 18 4.5 18
+box    hedge   at 312 0 2808 size 18 5 18
+blob-45 hedge   at 312 3.5 2808 size 18 4.5 18
+box    hedge   at 328 0 2808 size 18 5 18
+blob-16 hedge   at 328 3 2808 size 18 5.5 18
+box    hedge   at 344 0 2808 size 18 5 18
+blob-32 hedge   at 344 3.5 2808 size 18 4.5 18
+box    hedge   at 360 0 2808 size 18 5 18
+blob-52 hedge   at 360 3.5 2808 size 18 3.5 18
+box    hedge   at 376 0 2808 size 18 5 18
+blob-47 hedge   at 376 3.5 2808 size 18 4.5 18
+
+# rock (at 99% of its height, for the camera)
+box    rock    at 192 0 2568 size 192 3 16
+box    rock    at 296 0 2568 size 16 2.5 16
+box    rock    at 344 0 2568 size 80 3 16
+box    rock    at 8 0 2600 size 16 3 48
+box    rock    at 104 0 2592 size 16 3 32
+box    rock    at 136 0 2584 size 16 3 16
+box    rock    at 208 0 2584 size 64 3 16
+box    rock    at 296 0 2584 size 80 3 16
+box    rock    at 368 0 2584 size 32 3 16
+rock-51 rock    at 104 1.5 2569 size 17 9 15.3 turn 180
+rock-37 rock    at 120 1.5 2569 size 17 9 15.3
+rock-44 rock    at 136 1.5 2567 size 15 7 13.5 turn 90
+rock-35 rock    at 153 1.5 2567 size 16 7 14.4
+rock-48 rock    at 167 1.5 2567 size 14 8 12.6 turn 90
+rock-59 rock    at 184 1.5 2569 size 16 8 14.4 turn 270
+rock-43 rock    at 201 1.5 2567 size 17 7 15.3 turn 90
+rock-12 rock    at 215 1.5 2567 size 15 7 13.5 turn 90
+rock-24 rock    at 232 1.5 2568 size 15 8 13.5 turn 180
+rock-8 rock    at 249 1.5 2569 size 15 7 13.5
+rock-51 rock    at 263 1.5 2568 size 14 7 12.6 turn 180
+rock-49 rock    at 279 1.5 2569 size 16 7 14.4 turn 180
+rock-39 rock    at 297 1 2568 size 16 10 14.4
+rock-28 rock    at 311 1.5 2569 size 14 7 12.6 turn 270
+rock-12 rock    at 328 1.5 2567 size 14 8 12.6 turn 90
+rock-28 rock    at 345 1.5 2569 size 14 7 12.6 turn 270
+rock-57 rock    at 359 1.5 2568 size 14 10 12.6 turn 270
+rock-25 rock    at 375 1.5 2568 size 15 7 13.5 turn 270
+rock-50 rock    at 7 1.5 2584 size 15 9 13.5 turn 180
+rock-49 rock    at 105 1.5 2585 size 16 7 14.4 turn 180
+rock-64 rock    at 135 1.5 2585 size 14 7 12.6 turn 270
+rock-62 rock    at 184 1.5 2583 size 17 7 15.3 turn 270
+rock-1 rock    at 199 1.5 2584 size 16 8 14.4
+rock-7 rock    at 216 1.5 2585 size 17 9 15.3
+rock-49 rock    at 231 1.5 2584 size 16 10 14.4 turn 180
+rock-13 rock    at 264 1.5 2584 size 15 7 13.5 turn 90
+rock-20 rock    at 280 1.5 2585 size 16 8 14.4 turn 180
+rock-7 rock    at 297 1.5 2584 size 14 7 12.6
+rock-15 rock    at 313 1.5 2585 size 16 10 14.4 turn 90
+rock-46 rock    at 328 1.5 2585 size 17 7 15.3 turn 90
+rock-10 rock    at 361 1.5 2583 size 17 7 15.3 turn 90
+rock-48 rock    at 375 1.5 2583 size 17 8 15.3 turn 90
+rock-27 rock    at 9 1.5 2601 size 17 8 15.3 turn 270
+rock-58 rock    at 103 1.5 2600 size 14 7 12.6 turn 270
+rock-32 rock    at 9 1.5 2616 size 15 8 13.5 turn 270
+
+# woods (at 43% of its height, for the camera)
+frustum trunk   at 55.5 0 2775.5 size 3 4.5 3
+blob-23 foliage at 55.5 2 2775.5 size 18 8.5 17.1 turn 90
+cylinder trunk   at 71.5 0 2776 size 3 4.5 3
+blob-17 foliage at 71.5 2.5 2776 size 18 8 17.1 turn 270
+cylinder trunk   at 72.5 0 2794 size 3 9 3
+blob-59 foliage at 72.5 4 2794 size 18 15 17.1 turn 180
+box    hedge   at 88 0 2792.25 size 16 6 15.5
+blob-23 hedge   at 88 3.5 2792.25 size 16 5 15.5
+box    hedge   at 104 0 2792.25 size 16 6 15.5
+blob-42 hedge   at 104 3.5 2792.25 size 16 6 15.5

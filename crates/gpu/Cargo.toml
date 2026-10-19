@@ -1,0 +1,21 @@
+[package]
+name = "angel-gpu"
+version = "0.1.0"
+description = "angelX's renderer core: one instanced-quad pipeline, a mesh pipeline with depth for 3D scenes, pictures, stages and the layer compiler on a wgpu device the host makes (docs/GLASS_CORE.md)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# wgpu's browser backend, so the core can be checked for wasm32-unknown-unknown
+# (`cargo check -p angel-gpu --target wasm32-unknown-unknown --features web`).
+# The core picks no backend of its own: the window's crate turns on Vulkan and
+# Metal, the browser seat turns on this.
+web = ["wgpu/webgpu"]
+
+[dependencies]
+# What a stage is: layers, motes, pictures (shared with the browser).
+angel-stage = { path = "../stage" }
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
+bytemuck = { version = "1", features = ["derive"] }

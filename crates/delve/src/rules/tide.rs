@@ -34,6 +34,19 @@ pub struct Ravage {
     pub step: u32,
     pub damage: u32,
     pub age: u32,
+    /// Appearance travels with the cast after its owner moves or falls.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boss_art: Option<bosses::Art>,
+    /// A guardian's slam (`signatures::tag`): its rings strike as that
+    /// charge-up's blow, once a knight (`Hero::blow`).
+    #[serde(default, skip_serializing_if = "zero")]
+    pub blow: u32,
+}
+
+/// Ticks between one ring bursting and the next, for rings spreading at
+/// `speed`.
+pub fn step_for(speed: f32) -> u32 {
+    (RING_GAP / speed.max(1.0) * HZ as f32).round().max(2.0) as u32
 }
 
 impl Ravage {
@@ -53,9 +66,11 @@ impl Ravage {
             rings: rings.clamp(1, 8) as u8,
             lane: (mix(beat) % 360) as f32 * PI / 180.0,
             width: arc.to_radians(),
-            step: (RING_GAP / speed.max(1.0) * HZ as f32).round().max(2.0) as u32,
+            step: step_for(speed),
             damage,
             age: 0,
+            boss_art: None,
+            blow: 0,
         }
     }
 
@@ -106,7 +121,13 @@ impl Run {
                     {
                         continue;
                     }
-                    hero.hurt(ravage.damage);
+                    if ravage.blow != 0 {
+                        if !hero.blow(ravage.damage, ravage.blow) {
+                            continue;
+                        }
+                    } else {
+                        hero.hurt(ravage.damage);
+                    }
                     hero.tossed = TOSSED;
                     let (ux, uy) = unit(hero.x - ravage.x, hero.y - ravage.y);
                     (hero.x, hero.y) = grid.slide(

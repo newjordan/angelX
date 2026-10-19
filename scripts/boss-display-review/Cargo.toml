@@ -1,0 +1,20 @@
+[package]
+name = "boss-display-review"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["library-trials"]
+library-trials = ["angel-delve/boss-library-review"]
+
+[dependencies]
+angel-delve = { path = "../../crates/delve", features = ["testing", "arcade-review"] }
+ratatui = { version = "0.30.2", default-features = false }
+serde_json = "1"
+image = { version = "0.25.10", default-features = false, features = ["png"] }

@@ -1,9 +1,7 @@
-//! The `/setup` scroll. The plate (cockpit/assets/onboarding/setup/scroll.png)
-//! is painted into half-block cells and stretched nine-slice: the rollers and
-//! their knobs keep their shape while the parchment between them grows to fit
-//! the terminal. The page is inked onto the parchment, and the guide knight
-//! stands beside it through the portrait pipeline. Without the plate the
-//! scroll is plain parchment cells; on a tiny terminal the page is plain text.
+//! `/setup` as a floating, physically unrolling paper surface in the window.
+//! Native atlas text follows the curved paper in the final compositor pass.
+//! Terminals keep the authored nine-slice parchment/guide; tiny layouts use
+//! plain text. Setup actions and asynchronous provider jobs stay in setup_menu.
 
 use crate::app::App;
 use crate::app::setup_menu::{Hit, Page, Pose};
@@ -12,7 +10,6 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    widgets::Clear,
 };
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
@@ -34,6 +31,8 @@ const MAX_ROWS: u16 = 30;
 /// Below this the page is plain text without a scroll.
 const MIN_COLS: u16 = 44;
 const MIN_ROWS: u16 = 12;
+/// Below this the existing compact layout keeps more action rows readable.
+const MIN_NATIVE_SCROLL_ROWS: u16 = 20;
 
 const PARCHMENT: [u8; 3] = [236, 216, 174];
 const ROLLER: [u8; 3] = [146, 96, 46];
@@ -668,6 +667,18 @@ fn next_pose(pose: Pose) -> Pose {
 }
 
 pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
+    #[cfg(feature = "glass")]
+    if crate::ui::glass::active() && root.width >= MIN_COLS && root.height >= MIN_NATIVE_SCROLL_ROWS {
+        render_scroll(root, app);
+        return;
+    }
+    #[cfg(feature = "glass")]
+    if crate::ui::glass::active() {
+        // Tiny windows use the existing plain-text layout, never a zero-row 3D menu.
+        app.setup.scroll_motion.snap(app.setup.open(), Instant::now());
+        app.setup.scroll_page = None;
+        crate::ui::glass::set_scroll(None);
+    }
     let Some(menu) = app.setup.menu.as_ref() else {
         return;
     };
@@ -678,7 +689,7 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
         .guide
         .clone()
         .filter(|_| app.viewer.portraits_enabled());
-    frame.render_widget(Clear, root);
+
     let plate = plate();
     let lay = layout(
         root,
@@ -690,6 +701,7 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
     let buf = frame.buffer_mut();
     let inks = match lay.scroll {
         Some(scroll) => {
+            fill(buf, scroll, Color::Rgb(PARCHMENT[0], PARCHMENT[1], PARCHMENT[2]));
             match plate {
                 Some(plate) => {
                     paint_plate(buf, scroll, &painted(plate, scroll.width, scroll.height))
@@ -698,9 +710,13 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
             }
             ON_PARCHMENT
         }
-        None => ON_BLACK,
+        None => {
+            fill(buf, lay.write, Color::Black);
+            ON_BLACK
+        },
     };
     ink(buf, lay.write, &page, inks, seconds, &mut hits);
+    fill(buf, lay.bar, Color::Black);
     key_bar(buf, lay.bar, &page, &mut hits);
     app.setup.hits = hits;
     if let (Some(path), Some(area)) = (guide, lay.guide) {
@@ -716,3 +732,72 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/setup_view__tests.rs"]
 mod tests;
+
+/// The window keeps the workspace in its normal grid and presents this separate
+/// native-text page in the final compositor pass. Terminal rendering stays above.
+#[cfg(feature = "glass")]
+fn render_scroll(root: Rect, app: &mut App) {
+    use angel_glass::scroll::Page as ScrollPage;
+    let now = Instant::now();
+    app.setup.scroll_motion.advance(now);
+    if app.visual_motion != crate::ui::viz::lifecycle_viz::MotionMode::Full {
+        app.setup.scroll_motion.snap(app.setup.open(), now);
+    }
+    let pose = app.setup.scroll_motion.pose();
+    if app.pending_approval.is_some() {
+        if let Some(page) = app.setup.scroll_page.as_mut() {
+            page.interactive = false;
+        }
+        app.setup.hits.clear();
+        crate::ui::glass::set_scroll(None);
+        return;
+    }
+    if let Some(menu) = app.setup.menu.as_ref() {
+        let (area, buf, hits) = native_content(root, &menu.page(now));
+        app.setup.hits = hits;
+        app.setup.scroll_page = ScrollPage::new(area, buf, pose);
+    } else if app.setup.scroll_motion.hidden() {
+        app.setup.scroll_page = None;
+    }
+    let page = app.setup.scroll_page.as_mut().map(|page| {
+        page.pose = pose;
+        page.interactive = app.setup.menu.is_some();
+        page.clone()
+    });
+    crate::ui::glass::set_scroll(page);
+}
+
+/// Terminal image protocols repaint whole image tiles. Downgrade only panes
+/// touching this menu (not the whole workspace) so a retained image cannot
+/// repaint across the parchment between UI frames. Native glass has its own pass.
+pub(crate) fn register_image_occlusion(root: Rect, app: &mut App) {
+    if !app.setup.open() || (crate::ui::glass::active() && root.width >= MIN_COLS && root.height >= MIN_NATIVE_SCROLL_ROWS) {
+        return;
+    }
+    let layout = layout(root, plate().map(image::RgbaImage::dimensions),
+        app.viewer.portraits_enabled(), app.viewer.portrait_cell_pixels());
+    app.image_occluders.push(layout.scroll.unwrap_or(layout.write));
+    app.image_occluders.push(layout.bar);
+    if let Some(guide) = layout.guide { app.image_occluders.push(guide); }
+}
+
+/// Pure page construction lets native and terminal menu contracts be tested
+/// without opening a real window or invoking provider discovery.
+#[cfg(feature = "glass")]
+fn native_content(root: Rect, page: &Page) -> (Rect, Buffer, Vec<(Rect, Hit)>) {
+    let width = root.width.saturating_sub(8).min(104).max(1);
+    let height = root.height.saturating_sub(4).min(36).max(1);
+    let area = Rect::new(root.x + root.width.saturating_sub(width) / 2,
+        root.y + root.height.saturating_sub(height) / 2, width, height);
+    let mut buf = Buffer::empty(Rect::new(0,0,width,height));
+    // The key bar sits on the flat paper, two rows clear of where it curls
+    // under the lower roller (at `height - 4` it lay under the roller).
+    let bar_row = angel_glass::scroll::readable_rows(height).saturating_sub(2).min(height.saturating_sub(4));
+    let write = Rect::new(4.min(width),3.min(height),width.saturating_sub(8),bar_row.saturating_sub(3));
+    let bar = Rect::new(4.min(width),bar_row,width.saturating_sub(8),1);
+    let mut hits = Vec::new();
+    ink(&mut buf,write,page,ON_PARCHMENT,0.0,&mut hits);
+    key_bar(&mut buf,bar,page,&mut hits);
+    for (rect,_) in &mut hits {rect.x += area.x; rect.y += area.y;}
+    (area,buf,hits)
+}

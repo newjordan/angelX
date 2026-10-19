@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "128c26a16cfdde16efe469519e54ed43702f7e9fd64fc0064487840c5a47a39d",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Iron-ringed basalt pillar with fissures.",
+      "name": "pillar-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        108.5,
+        347
+      ],
+      "source_rect_xywh": [
+        112,
+        159,
+        217,
+        347
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Chain-wrapped broken slate column.",
+      "name": "pillar-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.0,
+        334
+      ],
+      "source_rect_xywh": [
+        458,
+        172,
+        246,
+        334
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Grated basalt forge pier with glowing vent.",
+      "name": "pillar-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.5,
+        344
+      ],
+      "source_rect_xywh": [
+        832,
+        168,
+        229,
+        344
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Iron-banded basalt hoard coffer with scorched coins.",
+      "name": "tomb-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.0,
+        254
+      ],
+      "source_rect_xywh": [
+        1159,
+        252,
+        292,
+        254
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Chained iron-and-stone grate crate.",
+      "name": "tomb-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        127.0,
+        271
+      ],
+      "source_rect_xywh": [
+        93,
+        648,
+        254,
+        271
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Slate masonry cache with inset coins and iron braces.",
+      "name": "tomb-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.0,
+        291
+      ],
+      "source_rect_xywh": [
+        453,
+        638,
+        258,
+        291
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Angular fissured basalt boulder / outcrop.",
+      "name": "boulder-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        313
+      ],
+      "source_rect_xywh": [
+        819,
+        625,
+        263,
+        313
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Chain-bound rubble cluster.",
+      "name": "boulder-1",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        151.0,
+        263
+      ],
+      "source_rect_xywh": [
+        1170,
+        668,
+        302,
+        263
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Jagged ember-cracked mineral growth.",
+      "name": "boulder-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.0,
+        333
+      ],
+      "source_rect_xywh": [
+        83,
+        1050,
+        284,
+        333
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Fractured pillar stump with ring hardware.",
+      "name": "broken-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        141.5,
+        316
+      ],
+      "source_rect_xywh": [
+        447,
+        1067,
+        283,
+        316
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Broken leaning column with chain and missing stones.",
+      "name": "broken-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.0,
+        336
+      ],
+      "source_rect_xywh": [
+        830,
+        1050,
+        274,
+        336
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Collapsed grate pier with fractured masonry.",
+      "name": "broken-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        144.0,
+        288
+      ],
+      "source_rect_xywh": [
+        1174,
+        1104,
+        288,
+        288
+      ],
+      "state": "block"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.block.keep",
+  "source_sha256": "400b36b1d66477727ec1c8a52c534d196f771bf9708a657cc5b598e748b4e4e1",
+  "timing": ""
+}

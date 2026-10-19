@@ -1,0 +1,105 @@
+{
+  "boss": "fungal-spore-crown",
+  "camera": "overhead",
+  "definition_sha256": "d62284c426822529b483cda922db86897837b8fb3b89ffc78bda505b085ada85",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 31.34 L*, rest presence 93.36%, edge 93.65%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "violet spore sac"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "violet spore sac",
+      "five cap crown",
+      "fungal mitten arm",
+      "root tendril cluster"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      43,
+      54
+    ],
+    "v2": [
+      77,
+      96
+    ]
+  },
+  "identity_props": [
+    "violet spore sac",
+    "five cap crown",
+    "fungal mitten arm",
+    "root tendril cluster"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 54,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9647540983606557,
+      "opaque_pixels": 1220,
+      "sha256": "8e6c518ed57f830284fdd725cc400ffcf17c89c587f770dee4ca36239167d90f",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 58,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.945176960444136,
+      "opaque_pixels": 1441,
+      "sha256": "34062a5d92cb1df0c6e2bce410fee48c9f71ad3529cbafb490181db8590a24c5",
+      "silhouette_iou": 1.0,
+      "size": [
+        43,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 66,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.969961489088575,
+      "opaque_pixels": 3895,
+      "sha256": "29f8dab45ff6309d9d9b97ab9ac31ae3b818588187e73b6842ca9aa054aa398b",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 64,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9416265850459117,
+      "opaque_pixels": 4574,
+      "sha256": "5112f7f6bb3a07e2915680ab182ad1fafa3ef2a829c8435727e7cd2bcb050d1b",
+      "silhouette_iou": 1.0,
+      "size": [
+        77,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

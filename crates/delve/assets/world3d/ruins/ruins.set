@@ -1,0 +1,240 @@
+set ruins
+# The Old Watch: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: rubble heaps at the feet of the walls.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10.5 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 10.5 9 8 size 21 19 16
+box    trunk   at 21 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 21 6 8 size 21 18 16
+box    trunk   at 43 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 43 8 8 size 21 17 16
+box    trunk   at 55 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 55 6 8 size 18 19 16
+box    trunk   at 75 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 75 7 8 size 19 16 16
+box    trunk   at 86 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 86 9 8 size 19 17 16
+box    trunk   at 107 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 107 7 8 size 18 18 16
+box    trunk   at 119 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 119 8 8 size 21 19 16
+box    trunk   at 138 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 138 8 8 size 20 17 16
+box    trunk   at 151 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 151 6 8 size 21 18 16
+box    trunk   at 165 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 165 8 8 size 21 19 16
+sphere foliage at 12 0 -9 size 29 35 18
+sphere foliage at 22 0 -9 size 27 33 18
+sphere foliage at 40 0 -9 size 27 32 18
+sphere foliage at 54 0 -9 size 25 35 18
+sphere foliage at 70 0 -9 size 24 30 18
+sphere foliage at 88 0 -9 size 23 35 18
+sphere foliage at 106 0 -9 size 23 31 18
+sphere foliage at 121 0 -9 size 28 34 18
+sphere foliage at 139 0 -9 size 28 31 18
+sphere foliage at 148 0 -9 size 25 36 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 218.5 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 218.5 9 8 size 21 19 16
+box    trunk   at 229 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 229 7 8 size 18 19 16
+box    trunk   at 250 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 250 6 8 size 20 19 16
+box    trunk   at 267 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 267 6 8 size 21 16 16
+box    trunk   at 281 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 281 9 8 size 21 17 16
+box    trunk   at 293 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 293 8 8 size 18 19 16
+box    trunk   at 312 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 312 7 8 size 20 18 16
+box    trunk   at 331 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 331 9 8 size 21 18 16
+box    trunk   at 343 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 343 8 8 size 18 18 16
+box    trunk   at 363 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 363 6 8 size 20 17 16
+box    trunk   at 373.5 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 373.5 6 8 size 21 18 16
+sphere foliage at 233 0 -9 size 23 34 18
+sphere foliage at 247 0 -9 size 29 35 18
+sphere foliage at 266 0 -9 size 26 32 18
+sphere foliage at 278 0 -9 size 25 30 18
+sphere foliage at 297 0 -9 size 28 34 18
+sphere foliage at 309 0 -9 size 26 37 18
+sphere foliage at 330 0 -9 size 25 32 18
+sphere foliage at 347 0 -9 size 28 34 18
+sphere foliage at 358 0 -9 size 28 33 18
+sphere foliage at 372 0 -9 size 22 33 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 25.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 25.5 size 16 19 19
+box    trunk   at 8 0 41 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 41 size 16 16 20
+box    trunk   at 8 0 58 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 58 size 16 18 18
+box    trunk   at 8 0 69 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 69 size 16 18 21
+box    trunk   at 8 0 85 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 85 size 16 16 19
+
+# the west wall, rows 8 to 12 (at 49% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 137 size 4 4.5 4  # TODO prims: cylinder
+sphere foliage at 8 3 137 size 16 9.5 18
+box    trunk   at 8 0 152 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 152 size 16 17 21
+box    trunk   at 8 0 169 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 169 size 16 18 18
+box    trunk   at 8 0 185 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 185 size 16 19 20
+box    trunk   at 8 0 197.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 197.5 size 16 18 21
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 26 size 16 19 19
+box    trunk   at 376 0 39 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 39 size 16 18 20
+box    trunk   at 376 0 59 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 59 size 16 16 19
+box    trunk   at 376 0 72 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 72 size 16 19 18
+box    trunk   at 376 0 85.5 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 85.5 size 16 18 21
+
+# the east wall, rows 8 to 12 (at 48% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 376 4 137 size 16 8 18
+box    trunk   at 376 0 153 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 153 size 16 16 21
+box    trunk   at 376 0 168 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 168 size 16 18 19
+box    trunk   at 376 0 182 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 182 size 16 17 18
+box    trunk   at 376 0 197.5 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 197.5 size 16 18 21
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# ruin at 4,2 2x1 (at 46% of its height, for the camera)
+box    stone   at 80 0 40.5 size 30 6.5 13 id ruin-1
+box    stone   at 68 6.5 45.5 size 4 2.5 3
+box    stone   at 80 6.5 45.5 size 4 2.5 3
+box    foliage at 80 6.5 36.5 size 26 0.5 3
+box    door    at 80 0 47 size 6 4 1
+
+# ruin at 6,2 4x3 (at 46% of its height, for the camera)
+box    stone   at 128 0 56.5 size 62 6.5 45 id ruin-2
+box    stone   at 106 6.5 77.5 size 4 2.5 3
+box    stone   at 112 6.5 77.5 size 4 2.5 3
+box    stone   at 130 6.5 77.5 size 4 2.5 3
+box    stone   at 136 6.5 77.5 size 4 2.5 3
+box    stone   at 142 6.5 77.5 size 4 2.5 3
+box    foliage at 128 6.5 36.5 size 58 0.5 3
+box    door    at 128 0 79 size 6 4 1
+
+# ruin at 18,3 2x2 (at 46% of its height, for the camera)
+box    stone   at 304 0 64.5 size 30 6.5 29 id ruin-3
+box    stone   at 304 6.5 77.5 size 4 2.5 3
+box    stone   at 310 6.5 77.5 size 4 2.5 3
+box    foliage at 304 6.5 52.5 size 26 0.5 3
+box    door    at 304 0 79 size 6 4 1
+
+# ruin at 6,10 2x2 (at 53% of its height, for the camera)
+box    stone   at 112 0 176.5 size 30 7.5 29 id ruin-4
+box    stone   at 100 7.5 189.5 size 4 3 3
+box    stone   at 106 7.5 189.5 size 4 3 3
+box    stone   at 112 7.5 189.5 size 4 3 3
+box    stone   at 118 7.5 189.5 size 4 3 3
+box    foliage at 112 7.5 164.5 size 26 1 3
+box    door    at 112 0 191 size 6 4.5 1
+
+# site at 17,10 4x2
+box    wood    at 274 0 166 size 2 7 2
+box    wood    at 333 0 166 size 2 7 2
+box    wood    at 274 0 189 size 2 7 2
+box    wood    at 333 0 189 size 2 7 2
+box    cloth   at 303.5 5 166 size 59 1 1 id site  # TODO prims: fence
+box    cloth   at 303.5 5 189 size 59 1 1  # TODO prims: fence
+box    cloth   at 274 5 177.5 size 1 1 23  # TODO prims: fence
+box    cloth   at 333 5 177.5 size 1 1 23  # TODO prims: fence
+box    wood    at 287 0 183 size 16 3 6
+gem    rock    at 325 0 187 size 5 4 5  # TODO prims: rock
+gem    rock    at 328 0 184 size 5 4 5 turn 30  # TODO prims: rock
+gem    rock    at 331 0 187 size 5 4 5 turn 60  # TODO prims: rock
+
+# landmark (assets/world3d/ruins/landmark.set, hand-placed)
+# The Old Watch: the broken watchtower stump on the back edge with its dark
+# doorway and a tattered flag, ruined curtain wall running east and a
+# broken turret.
+cylinder stone   at 128 0 -9 size 50 48 50 id ruins-tower
+box      stone   at 108 48 8 size 12 12 10 id ruins-crenel-1
+box      stone   at 128 48 11 size 14 4 8 id ruins-crenel-2
+box      stone   at 150 48 6 size 12 18 12 id ruins-crenel-3
+box      stone   at 132 48 -20 size 22 12 10 id ruins-crenel-4
+arch-6   stone   at 128 0 12 size 22 26 8 id ruins-doorway
+box      door    at 128 0 15.7 size 12 17 1.4 id ruins-door
+blob-4   foliage at 148 14 5 size 20 24 14 id ruins-ivy
+cylinder wood    at 108 48 -8 size 2.5 22 2.5 id ruins-flagpole
+box      cloth   at 116 62 -8 size 14 8 1 id ruins-flag
+box      stone   at 238 0 13 size 46 30 6 id ruins-wall-1
+box      stone   at 270 30 13 size 12 8 6 id ruins-wall-1-top
+box      stone   at 286 0 13 size 20 44 6 id ruins-wall-2
+box      stone   at 280 44 13 size 8 8 6 id ruins-wall-2-top
+cylinder stone   at 336 0 0 size 36 40 32 id ruins-turret
+box      stone   at 326 40 6 size 12 8 8 id ruins-turret-crenel
+box      stone   at 348 40 0 size 10 16 12 id ruins-turret-crenel-2
+box      stone   at 316 0 13 size 14 20 6 id ruins-wall-3

@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.crypt-relic-liege.projectile/v01/source-sheet.png",
+  "source_sha256": "797cd9f07c73c081e711017634e498f5041ff5aff9064444204be5f3db7d51b9",
+  "original_sheet_sha256": "797cd9f07c73c081e711017634e498f5041ff5aff9064444204be5f3db7d51b9",
+  "metadata_sha256": "e9af9c79d1de26422e06ab9d4f3fc17094e6d2f725d104d28f7032f4977867ab",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        38,
+        235,
+        258,
+        141
+      ],
+      "alpha_area": 21619,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "b14844ea21521728e363faa33880dbadfde8945e3c0d7b3bbea7c320f9421d5a"
+    },
+    {
+      "source_rect_xywh": [
+        355,
+        215,
+        227,
+        174
+      ],
+      "alpha_area": 20333,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "cf2a5b4dae699bd3728432792ad66bfc362a25719782d4eb8cd3b2c35d661e2a"
+    },
+    {
+      "source_rect_xywh": [
+        973,
+        217,
+        248,
+        183
+      ],
+      "alpha_area": 22818,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "15b5cdfcd4b3f9cb254ff083fe774cf760bd87576dba63be41e59c6aa13c9b72"
+    },
+    {
+      "source_rect_xywh": [
+        670,
+        244,
+        247,
+        148
+      ],
+      "alpha_area": 21457,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "35d78ac406fd9ab9b62d3d08fde9d553bf5b8c80e1492162f6f344ad0f2d1194"
+    },
+    {
+      "source_rect_xywh": [
+        32,
+        555,
+        270,
+        190
+      ],
+      "alpha_area": 28841,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "e807a6155316cdaf3d444926a2ef0c7a43651f3520d380b47246d5de59855525"
+    },
+    {
+      "source_rect_xywh": [
+        384,
+        593,
+        189,
+        123
+      ],
+      "alpha_area": 12929,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "e7ad5060ee4f8c8adcf9571cd272086cf6dde4a47c67e8baac4e6b347cb3cbd5"
+    },
+    {
+      "source_rect_xywh": [
+        670,
+        582,
+        242,
+        144
+      ],
+      "alpha_area": 19270,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "0e9f2eff2daf150a86da2845834b9d8c0b3c17fb166b2b2adcb81b3908b5b52f"
+    },
+    {
+      "source_rect_xywh": [
+        1016,
+        593,
+        194,
+        123
+      ],
+      "alpha_area": 12310,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "4dca7cd6a2eb65da4fc096a6aed44fa137bf318c8c2d5677df58c95ca2642232"
+    },
+    {
+      "source_rect_xywh": [
+        47,
+        950,
+        239,
+        115
+      ],
+      "alpha_area": 13784,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "5de75ac69170773b7d895c54cdc533a2b967460b5385facabe775ac1ef6c31cd"
+    },
+    {
+      "source_rect_xywh": [
+        378,
+        970,
+        194,
+        83
+      ],
+      "alpha_area": 7622,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "4ad3a22b8b88635ad596dc0b4577df512098f5fef031e920ed5f143bf21af502"
+    },
+    {
+      "source_rect_xywh": [
+        706,
+        960,
+        179,
+        102
+      ],
+      "alpha_area": 8334,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "b78745bcfe1bd026eaddfcfe1732b60ed54be4773bd5c0d5086dbf4736941273"
+    },
+    {
+      "source_rect_xywh": [
+        1046,
+        977,
+        126,
+        77
+      ],
+      "alpha_area": 4995,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "56201483ef5f5e0cc4eab1bdd648eb936d5a3eb22c75e0ea6d9205c1b700a613"
+    }
+  ]
+}

@@ -208,7 +208,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             let sign = format!("SOAK {BATH_GOLD}G");
             let w = text_width(&sign) + 6;
             chrome::inset_panel(cv, (2 * TILE, 5 * TILE - 2, w, 11), chrome::Tone::TIMBER);
-            cv.text(2 * TILE + 3, 5 * TILE, &sign, 'T');
+            cv.text(2 * TILE + 3, 5 * TILE, &sign, 'O');
         }
         RoomKind::Smithy => {
             hearth(cv, tick);
@@ -267,7 +267,7 @@ fn keeper(cv: &mut Img, run: &Run, i: usize) {
         mat::boards(cv, (sx, sy, sw, sh), true, 214 + i as u32);
         mat::boards(cv, (sx, sy + 4, sw, 3), false, 215 + i as u32);
         super::super::chrome::restore(cv, &kept);
-        cv.text(x + w / 2 - 9, front - 6, "OUT", 'T');
+        cv.text(x + w / 2 - 9, front - 6, "OUT", 'O');
         return;
     }
     let haggle = run.town.haggles.values().find(|&&(s, _)| usize::from(s) == i).map(|&(_, n)| n);
@@ -320,12 +320,7 @@ fn suds(cv: &mut Img, x: i32, y: i32, scrubbing: bool, tick: u64) {
 /// A knight up to the chin in a tub: the helm, its plume in the seat's
 /// colour, suds and the duck.
 fn soaker(cv: &mut Img, x: i32, y: i32, id: u32, tick: u64) {
-    let plume = match id {
-        1 => '7',
-        2 => '1',
-        3 => 'A',
-        _ => '4',
-    };
+    let plume = super::knights::seat_cloth(id);
     // The helm, still on (it is a very brave bath), the plume up.
     cv.ellipse(x as f32, (y - 6) as f32, 7.0, 7.0, 'J');
     cv.rect(x - 7, y - 6, 15, 6, 'J');
@@ -399,8 +394,8 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let top = gold == STALLS[i].top;
                 // Beside the seller, clear of the keeper's face.
                 let (lx, ly) = (x + 12, y - 22);
-                chrome::board(cv, (lx, ly, w, 11), if top { '5' } else { 'B' });
-                cv.text(lx + 3, ly + 2, &label, if top { '5' } else { 'O' });
+                chrome::board(cv, (lx, ly, w, 11), if top { 'o' } else { 'B' });
+                cv.text(lx + 3, ly + 2, &label, 'O');
             }
         }
         RoomKind::Bathhouse => {

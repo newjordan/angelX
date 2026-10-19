@@ -1,0 +1,41 @@
+GENERATION 1
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+KNIGHT ANATOMY (from the onboarding art direction): enormous helmets, gloves nearly as large as helmets, heavy boots, short limbs, round bellies, spring-loaded stances; bent feathers, uneven repairs, dents; bold dark contours; bright steel glints; royal blue, ochre, cream, red and brown. Choose expressive asymmetry over catalogue symmetry. Recruits wear a brown headband around a bucket helmet and a cheap off-white karate-gi; player knights have modular helmets, pauldrons, surcoats, heraldry, capes and crests.
+SHEET RULES (they produced the good results): ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+ORIGINALITY: original designs only; never an existing commercial game character, enemy, vehicle or logo, or any famous character.
+
+Create one PROP SHEET, exactly 1536x1024 pixels, with 4 columns x 2 rows in reading order. Fully transparent background. Maintain at least 40 px transparent gutters around every drawing. Exactly seven isolated drawings and nothing else; bottom-right eighth cell is completely empty and transparent. Same compact landmark at identical scale and baseline in every cell, within each cell, no piece touching cell edges. No floor, ground, grass, scenery or shadows.
+
+Asset identity: Moonwell, kind and a little funny, central landmark of a fen town. A squat round grey-stone well ring, wider than tall, on exactly one low stone step; pale aqua water fills the ring with simple flat painted ripples. A short iron bell post rises from the back-right rim and holds one small brass bell. An iron flame bowl, a small spiked bowl on a stone pier, sits at the back-left rim. The flame bowl is the signature feature. A pale crescent-moon plate is set into the front face of the well. Simplify the concept: omit the four lantern posts and broad stepped plaza; exactly one bell post, exactly one flame bowl, one low step; no moss, no stone texture noise. Compact near-square footprint, about as wide as tall plus a little. Grey stone with a few darker block lines, iron and brass. Bold masses and simple readable silhouette.
+
+Seven cells, exact order:
+1 idle-0 (dim): bowl cold and dim, grey ash, no flame, no oil.
+2 oiled-0: bowl filled with dark glossy oil, no flame; one small bright glint on one side of oil.
+3 oiled-1: same well and oil, glint moved to opposite side, plus a simple water ripple, no flame.
+4 lit-0: bowl burns with chunky warm golden tall flame.
+5 lit-1: chunky warm golden flame leaning left.
+6 lit-2: short fat chunky warm golden flame.
+7 lit-3: chunky warm golden flame leaning right.
+The same bell post and all other landmark details remain unchanged in all seven cells. Lit cells have slightly brighter aqua water. Flame is a solid clearly outlined shape; hottest core about 85% value, never white. No glow, halo, bloom, smoke, light pool or haze.
+
+Camera: high three-quarter front view for a top-down town game, about 45 degrees above, landmark stands like a billboard sprite; consistent angle and scale in every cell.
+Native-use readability: drawing will be reduced to 40x44 px; design for that size with bold simple masses, a thick unbroken 1-pixel dark warm-brown contour, about six flat colour masses per drawing, exaggerated flame bowl and crescent so they read. No fine surface texture, tiny rivets, scratches or hairlines. Same baseline in every cell. Warm ivory directional highlights and cool shadows. Hand-clustered painterly arcade-comic rendering, not blocky pixel tiles. Hard dark warm-brown outline on every subject; no black tile outlines, no lettering or UI.
+Reference use: input image 1 is layout and quality reference, input image 2 is knight anatomy reference, and input image 3 is props/VFX reference; all three are STYLE ONLY, do not copy their characters, costumes, heraldry, props or exact designs. Input image 4 is identity and concept reference only.
+
+GENERATION 2 (refinement)
+Refine this sprite sheet into a compliant PROP SHEET. Correct only the listed failures while preserving the established painted arcade-comic style and Moonwell identity. Output exactly 1536x1024 with 4 columns x 2 rows, seven separate cells in reading order, bottom-right cell entirely empty. CRITICAL: real transparent alpha everywhere outside the artwork, no dark/vignette/gradient background, no matte, shadow or glow. The current brown background must become fully transparent.
+
+Make each landmark compact and squat, near-square, with only one low step. Remove the wide multi-tier plaza appearance: no extra rings of stairs or broad platform. Keep a round stone well ring, pale aqua water, front crescent plate, one small spiked flame bowl on a stone pier at back-left rim, and one short iron bell post with one small brass bell at back-right rim. Do not change the camera: high three-quarter front, about 45 degrees above. Keep the same scale and same baseline for all seven.
+
+Make the states truly distinct and exactly in order: cell 1 idle, cold grey ash, no fire, no oil; cell 2 dark glossy oil with one small glint on LEFT side, no fire; cell 3 same oil but glint on RIGHT side and one clear water ripple, no fire; cell 4 tall chunky golden flame; cell 5 golden flame leaning left; cell 6 short fat golden flame; cell 7 golden flame leaning right. Lit states have slightly brighter aqua water. Keep post and all other details fixed. Eighth cell empty and transparent. Four columns by two rows. Keep at least 40 pixels clear transparent gutters.
+
+Keep hard dark warm-brown contour, flat limited colour masses, and hand-clustered rendering. No flame glow, halo, bloom, light pool, haze or smoke; no floor shadow. Flame hottest core around 85% value, never white. No text, labels, grid, props outside the well, fine texture, moss, extra lanterns, broad plaza or other background.
+
+GENERATION 3 (final correction)
+Final correction to this exact sprite sheet. Keep seven landmarks in their current 4x2 positions, same scale, same camera, same poses/states and the empty eighth cell. Keep true transparent alpha outside each illustration. Preserve the painterly arcade style and recognizable Moonwell details.
+
+Only fix these points:
+1. Remove ALL orange/yellow light haze, halos, glow, bloom and lighting spill around the four flames. Flame pixels must stay inside their own dark warm-brown outlined silhouette. No environmental illumination.
+2. Simplify the stone base to exactly one single low step under the round well ring. Remove extra concentric platform tiers and broad plaza. Keep the compact near-square footprint. Do not introduce ground or floor.
+3. Keep the bowl cold grey ash in first cell, dark oil and glint left in cell 2, glint shifted right plus water ripple in cell 3, then four distinct outlined golden flame shapes: tall, lean left, short fat, lean right. No fire in cells 1-3.
+No other changes. No text, no backdrop, no matte, no shadows, no extra props.

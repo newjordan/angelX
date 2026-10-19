@@ -7,6 +7,23 @@ pub(super) struct Scenery {
 }
 
 pub(super) fn bake(run: &Run, origin: (i32, i32)) -> Scenery {
+    if super::super::dungeon_art::supported(run) {
+        let scene = super::super::dungeon_art::scene(run, 2);
+        let mut canvas = Canvas::new(scene.base.w as usize, scene.base.h as usize, [0; 3]);
+        canvas.px = scene.base.pixels().collect();
+        // The seat view marks ground after tick-only light poses are applied.
+        // A full-room ground clone here is unused, especially in great rooms.
+        let lights = scene
+            .fires
+            .iter()
+            .map(|&(x, y)| Point::new(x as f32 / 2.0, y as f32 / 2.0, 40.0, 'T', 0.45))
+            .collect();
+        return Scenery {
+            canvas,
+            lights,
+            fires: vec![],
+        };
+    }
     let (w, h) = if run.room().kind == RoomKind::Kingdom || run.chariot.is_some() {
         (1024, 704)
     } else {
@@ -16,6 +33,25 @@ pub(super) fn bake(run: &Run, origin: (i32, i32)) -> Scenery {
     cv.origin = (origin.0 as f32, origin.1 as f32);
     let mut lights = vec![];
     let mut fires = vec![];
+    if super::cavern_chief_room(run) {
+        // Keep the Chief in his authoritative cavern, including its actual
+        // block geometry. Bake the native scenery once at integer 2x.
+        let native = super::super::scenery(run);
+        for y in 0..cv.h {
+            for x in 0..cv.w {
+                if let Some(c) = native.get(x as i32 / 2, y as i32 / 2) {
+                    cv.px[y * cv.w + x] = c;
+                }
+            }
+        }
+        cv.mark_ground();
+        for (x,y) in [(8.0,8.0),(168.0,8.0),(216.0,8.0),(376.0,8.0),
+            (8.0,80.0),(376.0,80.0),(8.0,128.0),(376.0,128.0),
+            (8.0,216.0),(168.0,216.0),(216.0,216.0),(376.0,216.0)] {
+            lights.push(Point::new(x,y,48.0,'@',0.9));
+        }
+        return Scenery { canvas: cv, lights, fires };
+    }
     if run.chariot.is_some() {
         super::race::bake(&mut cv, run);
         let course = run.chariot.as_ref().unwrap().course();
@@ -425,7 +461,7 @@ fn hall(cv: &mut Canvas, lights: &mut Vec<Point>, fires: &mut Vec<(f32, f32)>) {
         candle(cv, x, y, lights, fires);
     }
     super::ui::plaque(cv, (154.0, 2.0, 76.0, 12.0), material('q'), bronze().at(0.8));
-    cv.text(162.0, 5.0, "GREAT HALL", 'T');
+    cv.text(162.0, 5.0, "GREAT HALL", 'O');
     // Door strips keep the two side approaches and south exit visible.
     for x in [0.0, 368.0] {
         cv.rect(x, 96.0, 16.0, 32.0, material('s'));

@@ -1,0 +1,48 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  8,
+  16
+ ],
+ "pieces": [
+  {
+   "name": "hidden-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "revealing-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "revealing-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "revealing-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "found-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "found-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  }
+ ]
+}

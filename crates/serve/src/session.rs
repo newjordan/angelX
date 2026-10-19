@@ -56,6 +56,8 @@ pub struct Sessions {
     seats: Vec<Option<Taken>>,
     watchers: u32,
     kicked: Vec<String>,
+    /// Seats kept for their players by name ([`Sessions::keep`]).
+    kept: Vec<Option<String>>,
 }
 
 impl Sessions {
@@ -66,6 +68,20 @@ impl Sessions {
             seats: vec![None; seats.min(MAX_PLAYERS) as usize],
             watchers: 0,
             kicked: Vec::new(),
+            kept: vec![None; seats.min(MAX_PLAYERS) as usize],
+        }
+    }
+
+    /// Seats kept for the players named: a restored run's knights, whose
+    /// tokens went with the old server. A player who joins by that name
+    /// takes their own seat back (so their own knight), and newcomers take
+    /// the seats nobody keeps first (the operator, 2026-10-18: a restart
+    /// and a reload swapped two friends' knights).
+    pub fn keep(&mut self, names: &[(u32, String)]) {
+        for (seat, name) in names {
+            if let Some(kept) = self.kept.get_mut(*seat as usize) {
+                *kept = Some(name.trim().to_lowercase());
+            }
         }
     }
 
@@ -133,9 +149,19 @@ impl Sessions {
         if !host && self.locked {
             return Err(Reject::Locked);
         }
-        let free = if watch { None } else { self.seats.iter().position(Option::is_none) };
+        let free = if watch {
+            None
+        } else {
+            let wanted = clean_name(name, 0).to_lowercase();
+            let free = |seat: usize| self.seats[seat].is_none();
+            (0..self.seats.len())
+                .find(|&s| free(s) && self.kept[s].as_deref() == Some(wanted.as_str()))
+                .or_else(|| (0..self.seats.len()).find(|&s| free(s) && self.kept[s].is_none()))
+                .or_else(|| (0..self.seats.len()).find(|&s| free(s)))
+        };
         match free {
             Some(seat) => {
+                self.kept[seat] = None;
                 let token = new_token();
                 let name = clean_name(name, seat as u32);
                 self.seats[seat] =
@@ -235,6 +261,36 @@ mod tests {
     use super::*;
 
     const KEY: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    #[test]
+    fn after_a_restart_each_player_takes_their_own_seat_back_by_name() {
+        let now = Instant::now();
+        let mut s = Sessions::new(KEY, 4);
+        s.keep(&[(1, "Frank".into()), (2, "Jordan".into())]);
+        let seat = |a: Admit| match a {
+            Admit::Seat { seat, .. } => seat,
+            Admit::Watch => panic!("seated"),
+        };
+        // The host first, then the friends in the other order, with stale tokens.
+        assert_eq!(seat(s.hello(1, "", "", "host", false, true, now, || "t1".into()).unwrap()), 0);
+        assert_eq!(seat(s.hello(2, KEY, "old-2", "jordan", false, false, now, || "t2".into()).unwrap()), 2);
+        assert_eq!(seat(s.hello(3, KEY, "", "Frank ", false, false, now, || "t3".into()).unwrap()), 1);
+        // A newcomer takes a seat nobody keeps.
+        assert_eq!(seat(s.hello(4, KEY, "", "Ada", false, false, now, || "t4".into()).unwrap()), 3);
+    }
+
+    #[test]
+    fn a_newcomer_takes_a_kept_seat_only_when_no_other_is_free() {
+        let now = Instant::now();
+        let mut s = Sessions::new(KEY, 2);
+        s.keep(&[(0, "Frank".into())]);
+        let seat = |a: Admit| match a {
+            Admit::Seat { seat, .. } => seat,
+            Admit::Watch => panic!("seated"),
+        };
+        assert_eq!(seat(s.hello(1, KEY, "", "Ada", false, false, now, || "t1".into()).unwrap()), 1);
+        assert_eq!(seat(s.hello(2, KEY, "", "Bo", false, false, now, || "t2".into()).unwrap()), 0);
+    }
 
     fn tokens() -> impl FnMut() -> String {
         let mut n = 0;

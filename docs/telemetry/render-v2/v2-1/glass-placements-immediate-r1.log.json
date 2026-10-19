@@ -1,0 +1,24 @@
+{
+ "host": "glass",
+ "mode": "placements",
+ "present": "immediate",
+ "fps": 179.95,
+ "render_p50_ms": 0.956,
+ "render_p95_ms": 1.387,
+ "build_mean_ms": 0.16,
+ "submit_mean_ms": 0.098,
+ "present_mean_ms": 0.649,
+ "upload_ms_per_frame": 0.0,
+ "bench": {
+  "mode": "placements",
+  "frames": "1170",
+  "cols": "219",
+  "rows": "56",
+  "payload_bytes": "0",
+  "produce_p50_ms": "0.122",
+  "produce_p95_ms": "0.225"
+ },
+ "cells": 12264,
+ "cells_per_s": 2206907,
+ "series": "glass-placements-immediate-r1.log.series.json"
+}

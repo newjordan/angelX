@@ -61,6 +61,77 @@ fn idle(_: &mut Run, _: &Inputs) {}
 /// rides this tick.
 pub static RIDES: &[Activity] = &[
     Activity {
+        name: "Pennon Rush", on: |run| run.room().kind == RoomKind::Muster,
+        ride: Some(|run, inputs| {run.tick_pennon(inputs);run.pennon.as_ref().map(|_| BTreeMap::new())}),
+        tick: idle, end: |run| run.pennon = None, ends_outside: true,
+        settle: None, fields: &["pennon"],
+    },
+    Activity {
+        name: "Forest Road", on: Run::forest_road_showing,
+        ride: Some(|run, inputs| { run.tick_forest_road(inputs); Some(BTreeMap::new()) }),
+        tick: idle, end: |run| run.forest_road = None, ends_outside: true,
+        settle: Some(|realm, marks| {
+            let changed = marks.contains_key(forest_road::CAMPAIGN_MARK) && !realm.home.siege_campaign_begun;
+            if changed { realm.home.siege_campaign_begun = true; }
+            Settled { changed, said: if changed { vec![("forest".into(), "Siege campaign begun. Old Oak stands by the Dark Forest.".into())] } else { vec![] } }
+        }), fields: &["forest_road"],
+    },
+    // The Round Table adventures: each its own entry, in its own module.
+    // Lanternward
+    lanternward::ACTIVITY,
+    // Moonfall
+    moonfall::ACTIVITY,
+    // Bannerpeak
+    bannerpeak::ACTIVITY,
+    // Griffinwing
+    griffinwing::ACTIVITY,
+    // Lightgallop
+    lightgallop::ACTIVITY,
+    Activity {
+        name: "Rafterwake", on: |run| run.room().kind == RoomKind::Workshop,
+        ride: Some(|run, inputs| { run.tick_rafterwake(inputs); run.rafterwake.as_ref().map(|_| BTreeMap::new()) }),
+        tick: idle, end: |run| run.rafterwake = None, ends_outside: true,
+        settle: None, fields: &["rafterwake"],
+    },
+    Activity {
+        name: "Brasswake", on: |run| run.room().kind == RoomKind::Tavern,
+        ride: Some(|run, inputs| { run.tick_brasswake(inputs); run.brasswake.as_ref().map(|_| BTreeMap::new()) }),
+        tick: idle, end: |run| run.brasswake = None, ends_outside: true,
+        settle: None, fields: &["brasswake"],
+    },
+    Activity {
+        name: "Mossbell", on: |run| run.room().kind == RoomKind::Bathhouse,
+        ride: Some(|run, inputs| {run.tick_mossbell(inputs);run.mossbell.as_ref().map(|_| BTreeMap::new())}),
+        tick: idle, end: |run| run.mossbell = None, ends_outside: true,
+        settle: None, fields: &["mossbell"],
+    },
+    Activity {
+        name: "Latch Duel",
+        on: |run| run.room().kind == RoomKind::Smithy,
+        ride: Some(|run, inputs| {
+            run.tick_latch(inputs);
+            run.latch.as_ref().map(|_| BTreeMap::new())
+        }),
+        tick: idle,
+        end: |run| run.latch = None,
+        ends_outside: true,
+        settle: None,
+        fields: &["latch"],
+    },
+    Activity {
+        name: "Cinder Stack",
+        on: |run| run.room().kind == RoomKind::CollegeLab,
+        ride: Some(|run, inputs| {
+            run.tick_cinder(inputs);
+            run.cinder.as_ref().map(|_| BTreeMap::new())
+        }),
+        tick: idle,
+        end: |run| run.cinder = None,
+        ends_outside: true,
+        settle: None,
+        fields: &["cinder"],
+    },
+    Activity {
         name: "the lists",
         on: |run| run.at_home_now() && run.room().kind == RoomKind::Lists,
         ride: Some(|run, inputs| {
@@ -96,9 +167,10 @@ pub static RIDES: &[Activity] = &[
     },
     Activity {
         name: "the Hippodrome",
-        on: |run| run.at_home_now() && run.room().kind == RoomKind::Hippodrome,
+        on: |run| run.at_home_now() && run.room().kind == RoomKind::Hippodrome && !run.race3d_showing(),
         ride: Some(|run, inputs| {
             run.tick_hippodrome_race(inputs);
+            if run.race3d_showing() { return Some(BTreeMap::new()); }
             // Every driver's keys are the race's: the one who boarded and
             // each friend at the reins of a rival team.
             run.chariot.as_ref().map(|c| {
@@ -267,7 +339,7 @@ pub static HOME_ROOMS: &[Activity] = &[
         |run| {
             matches!(
                 run.room().kind,
-                RoomKind::Hall | RoomKind::Stockpile | RoomKind::Workshop | RoomKind::Quarters
+                RoomKind::Hall | RoomKind::Stockpile | RoomKind::Muster | RoomKind::Workshop | RoomKind::Quarters
             )
         },
         |_, _| {},
@@ -335,6 +407,22 @@ pub static PLACES: &[Activity] = &[
             }
         }),
         ..place("the ranch", |_| true, |run, inputs| run.tick_ranch(inputs))
+    },
+    Activity {
+        settle: Some(|realm, marks| {
+            // The Swamp of Horrors: the notice read, and the white horse
+            // into the herd once she is out of the pen.
+            let (changed, said) = swamp::settle(
+                &mut realm.home.countryside,
+                &mut realm.home.stable,
+                marks,
+            );
+            Settled {
+                changed,
+                said: said.into_iter().map(|line| ("swamp".to_string(), line)).collect(),
+            }
+        }),
+        ..place("the Swamp of Horrors", |_| true, |run, inputs| run.tick_swamp_notice(inputs))
     },
     place("the merchant", |_| true, |run, _| run.tick_merchant()),
 ];

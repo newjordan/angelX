@@ -1,0 +1,344 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "5fdf96b90a233e829cbe7e70261df7ce00a95f2bc1c0831b4bf88f5ec7a23cc5",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Seamless lava fill: broad diagonal molten seam with scattered basalt islands.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        147.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        46,
+        237,
+        295,
+        291
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Seamless lava fill: branching Y-shaped molten channel and clustered basalt.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.0,
+        146.0
+      ],
+      "source_rect_xywh": [
+        430,
+        237,
+        296,
+        292
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Seamless lava fill: sinuous channel with larger basalt fragments around its edges.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        147.5,
+        146.0
+      ],
+      "source_rect_xywh": [
+        812,
+        237,
+        295,
+        292
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0.035,
+      "label": "Seamless lava fill: diagonal branching flow with a dense basalt cluster near the upper edge.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        149.0,
+        146.0
+      ],
+      "source_rect_xywh": [
+        1198,
+        237,
+        298,
+        292
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Top river rim: basalt masonry with a forge chain above the lava.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.5,
+        144.5
+      ],
+      "source_rect_xywh": [
+        46,
+        620,
+        297,
+        289
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Bottom river rim: basalt masonry and an iron grate below the lava.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.5,
+        144.0
+      ],
+      "source_rect_xywh": [
+        429,
+        620,
+        297,
+        288
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Left river rim: vertical basalt wall with chain detail.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        147.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        813,
+        619,
+        295,
+        291
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Right river rim: vertical basalt wall with chain detail.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.5,
+        146.0
+      ],
+      "source_rect_xywh": [
+        1195,
+        620,
+        297,
+        292
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner: broad stone apron with a diagonal lava turn and scorched coins.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        149.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        45,
+        1003,
+        299,
+        291
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Outer corner: opposite-facing masonry bend, with coins and a diagonal basalt divider.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        428,
+        1003,
+        297,
+        291
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner: masonry, grate, and chain frame a concave lava bend.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        148.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        812,
+        1003,
+        297,
+        291
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.75
+      },
+      "inset_fraction": 0,
+      "label": "Inner corner: opposite-facing masonry bend with grate and coin accents.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        149.0,
+        145.5
+      ],
+      "source_rect_xywh": [
+        1195,
+        1003,
+        298,
+        291
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.keep",
+  "source_sha256": "5acd7bd1b2630e0868819a457acc4605e0527d5a603b79615068e23a1eec2bb5",
+  "timing": ""
+}

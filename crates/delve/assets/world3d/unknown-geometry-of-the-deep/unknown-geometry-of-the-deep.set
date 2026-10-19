@@ -1,0 +1,392 @@
+set unknown-geometry-of-the-deep
+# The Geometry of the Deep: 48 x 28 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 768 448
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 384 -4 48 size 768 4 96
+box    floor   at 40 -4 272 size 80 4 352
+box    floor   at 160 -4 272 size 64 4 352
+box    floor   at 272 -4 272 size 64 4 352
+box    floor   at 384 -4 272 size 96 4 352
+box    floor   at 496 -4 272 size 64 4 352
+box    floor   at 608 -4 272 size 64 4 352
+box    floor   at 728 -4 272 size 80 4 352
+box    floor   at 104 -4 224 size 48 4 224
+box    floor   at 216 -4 224 size 48 4 224
+box    floor   at 320 -4 224 size 32 4 224
+box    floor   at 448 -4 224 size 32 4 224
+box    floor   at 552 -4 224 size 48 4 224
+box    floor   at 664 -4 224 size 48 4 224
+box    floor   at 104 -4 400 size 48 4 96
+box    floor   at 216 -4 400 size 48 4 96
+box    floor   at 320 -4 400 size 32 4 96
+box    floor   at 448 -4 400 size 32 4 96
+box    floor   at 552 -4 400 size 48 4 96
+box    floor   at 664 -4 400 size 48 4 96
+
+# pits: holes in the floor, dark below
+
+# the north wall, columns 0 to 22
+box    stone   at 184 -4 8 size 368 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 25 to 47
+box    stone   at 584 -4 8 size 368 52 16
+box    metal   at 760 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 760 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 22 (at 81% of its height, for the camera)
+box    stone   at 184 -4 436 size 368 10 8  # TODO prims: wedge
+box    stone   at 184 -4 444 size 368 16.5 8
+box    metal   at 8 12.5 444 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 444 size 6 6.5 6
+
+# the south wall, columns 25 to 47 (at 81% of its height, for the camera)
+box    stone   at 584 -4 436 size 368 10 8  # TODO prims: wedge
+box    stone   at 584 -4 444 size 368 16.5 8
+box    metal   at 760 12.5 444 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 760 15 444 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the west wall, rows 15 to 26 (at 12% of its height, for the camera)
+box    stone   at 8 -4 264 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 360 size 16 52 144
+
+# the east wall, rows 1 to 12
+box    stone   at 760 -4 112 size 16 52 192
+
+# the east wall, rows 15 to 26 (at 12% of its height, for the camera)
+box    stone   at 760 -4 264 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 760 -4 360 size 16 52 144
+
+# the north door, columns 23 to 24
+box    door    at 384 -4 -1 size 32 36 2 id door-north
+box    stone   at 384 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 23 to 24
+box    door    at 384 -4 449 size 32 5 2 id door-south
+
+# the west door, rows 13 to 14
+box    door    at -1 -4 224 size 2 36 32 id door-west
+box    stone   at 8 32 224 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 13 to 14
+box    door    at 769 -4 224 size 2 36 32 id door-east
+box    stone   at 760 32 224 size 16 16 32  # TODO prims: arch
+
+# shard at 3,2 1x1
+gem    stone   at 56 0 42 size 8 27 8 turn 25 id shard-1
+
+# shard at 7,2 1x2
+gem    stone   at 120 0 42 size 8 29 8 turn 33 id shard-2
+gem    stone   at 120 0 58 size 8 30 8 turn 40
+
+# shard at 11,2 1x1
+gem    stone   at 184 0 42 size 8 30 8 turn 28 id shard-3
+
+# shard at 15,2 1x1
+gem    stone   at 248 0 42 size 8 31 8 turn 59 id shard-4
+
+# shard at 19,2 1x1
+gem    stone   at 312 0 42 size 8 31 8 turn 53 id shard-5
+
+# shard at 28,2 1x1
+gem    stone   at 456 0 42 size 8 30 8 turn 28 id shard-6
+
+# shard at 32,2 1x1
+gem    stone   at 520 0 42 size 8 28 8 turn 38 id shard-7
+
+# shard at 36,2 1x1
+gem    stone   at 584 0 42 size 8 30 8 turn 10 id shard-8
+
+# shard at 40,2 1x2
+gem    stone   at 648 0 42 size 8 26 8 turn 66 id shard-9
+gem    stone   at 648 0 58 size 8 28 8 turn 26
+
+# shard at 44,2 1x1
+gem    stone   at 712 0 42 size 8 26 8 turn 24 id shard-10
+
+# shard at 16,3 1x1
+gem    stone   at 264 0 58 size 8 30 8 turn 52 id shard-11
+
+# shard at 31,3 1x1
+gem    stone   at 504 0 58 size 8 27 8 turn 31 id shard-12
+
+# shard at 2,4 4x1
+gem    stone   at 40 0 74 size 8 27 8 turn 1 id shard-13
+gem    stone   at 56 0 74 size 8 26 8 turn 60
+gem    stone   at 72 0 74 size 8 31 8 turn 89
+gem    stone   at 88 0 74 size 8 26 8 turn 18
+
+# shard at 10,4 4x1
+gem    stone   at 168 0 74 size 8 27 8 turn 25 id shard-14
+gem    stone   at 184 0 74 size 8 29 8 turn 27
+gem    stone   at 200 0 74 size 8 26 8 turn 66
+gem    stone   at 216 0 74 size 8 31 8 turn 89
+
+# shard at 18,4 4x1
+gem    stone   at 296 0 74 size 8 29 8 turn 3 id shard-15
+gem    stone   at 312 0 74 size 8 27 8 turn 61
+gem    stone   at 328 0 74 size 8 27 8 turn 31
+gem    stone   at 344 0 74 size 8 30 8 turn 52
+
+# shard at 26,4 4x1
+gem    stone   at 424 0 74 size 8 26 8 turn 54 id shard-16
+gem    stone   at 440 0 74 size 8 26 8 turn 66
+gem    stone   at 456 0 74 size 8 30 8 turn 58
+gem    stone   at 472 0 74 size 8 28 8 turn 2
+
+# shard at 34,4 4x1
+gem    stone   at 552 0 74 size 8 27 8 turn 31 id shard-17
+gem    stone   at 568 0 74 size 8 30 8 turn 52
+gem    stone   at 584 0 74 size 8 29 8 turn 45
+gem    stone   at 600 0 74 size 8 30 8 turn 76
+
+# shard at 42,4 4x1
+gem    stone   at 680 0 74 size 8 30 8 turn 52 id shard-18
+gem    stone   at 696 0 74 size 8 30 8 turn 10
+gem    stone   at 712 0 74 size 8 26 8 turn 30
+gem    stone   at 728 0 74 size 8 31 8 turn 47
+
+# shard at 2,8 4x1
+gem    stone   at 40 0 138 size 8 28 8 turn 56 id shard-19
+gem    stone   at 56 0 138 size 8 27 8 turn 37
+gem    stone   at 72 0 138 size 8 26 8 turn 30
+gem    stone   at 88 0 138 size 8 26 8 turn 72
+
+# shard at 10,8 4x1
+gem    stone   at 168 0 138 size 8 26 8 turn 24 id shard-20
+gem    stone   at 184 0 138 size 8 26 8 turn 36
+gem    stone   at 200 0 138 size 8 26 8 turn 48
+gem    stone   at 216 0 138 size 8 27 8 turn 43
+
+# shard at 18,8 4x1
+gem    stone   at 296 0 138 size 8 29 8 turn 39 id shard-21
+gem    stone   at 312 0 138 size 8 29 8 turn 57
+gem    stone   at 328 0 138 size 8 31 8 turn 47
+gem    stone   at 344 0 138 size 8 28 8 turn 86
+
+# shard at 26,8 4x1
+gem    stone   at 424 0 138 size 8 26 8 turn 78 id shard-22
+gem    stone   at 440 0 138 size 8 29 8 turn 33
+gem    stone   at 456 0 138 size 8 26 8 turn 12
+gem    stone   at 472 0 138 size 8 31 8 turn 11
+
+# shard at 34,8 4x1
+gem    stone   at 552 0 138 size 8 27 8 turn 85 id shard-23
+gem    stone   at 568 0 138 size 8 26 8
+gem    stone   at 584 0 138 size 8 31 8 turn 11
+gem    stone   at 600 0 138 size 8 27 8 turn 31
+
+# shard at 42,8 4x1
+gem    stone   at 680 0 138 size 8 31 8 turn 23 id shard-24
+gem    stone   at 696 0 138 size 8 30 8 turn 10
+gem    stone   at 712 0 138 size 8 29 8 turn 21
+gem    stone   at 728 0 138 size 8 27 8 turn 25
+
+# shard at 3,10 1x1
+gem    stone   at 56 0 170 size 8 31 8 turn 47 id shard-25
+
+# shard at 7,10 1x2
+gem    stone   at 120 0 170 size 8 30 8 turn 64 id shard-26
+gem    stone   at 120 0 186 size 8 27 8 turn 49
+
+# shard at 11,10 1x1
+gem    stone   at 184 0 170 size 8 26 8 turn 36 id shard-27
+
+# shard at 15,10 1x1
+gem    stone   at 248 0 170 size 8 27 8 turn 49 id shard-28
+
+# shard at 19,10 1x1
+gem    stone   at 312 0 170 size 8 28 8 turn 20 id shard-29
+
+# shard at 28,10 1x1
+gem    stone   at 456 0 170 size 8 26 8 turn 42 id shard-30
+
+# shard at 32,10 1x1
+gem    stone   at 520 0 170 size 8 31 8 turn 35 id shard-31
+
+# shard at 36,10 1x1
+gem    stone   at 584 0 170 size 8 28 8 turn 62 id shard-32
+
+# shard at 40,10 1x2
+gem    stone   at 648 0 170 size 8 26 8 id shard-33
+gem    stone   at 648 0 186 size 8 31 8 turn 77
+
+# shard at 44,10 1x1
+gem    stone   at 712 0 170 size 8 31 8 turn 59 id shard-34
+
+# shard at 16,11 1x1
+gem    stone   at 264 0 186 size 8 29 8 turn 63 id shard-35
+
+# shard at 31,11 1x1
+gem    stone   at 504 0 186 size 8 28 8 turn 50 id shard-36
+
+# shard at 7,16 1x2
+gem    stone   at 120 0 266 size 8 27 8 turn 55 id shard-37
+gem    stone   at 120 0 282 size 8 31 8 turn 29
+
+# shard at 16,16 1x1
+gem    stone   at 264 0 266 size 8 26 8 turn 72 id shard-38
+
+# shard at 31,16 1x1
+gem    stone   at 504 0 266 size 8 27 8 turn 25 id shard-39
+
+# shard at 40,16 1x2
+gem    stone   at 648 0 266 size 8 27 8 turn 1 id shard-40
+gem    stone   at 648 0 282 size 8 28 8 turn 80
+
+# shard at 3,17 1x1
+gem    stone   at 56 0 282 size 8 27 8 turn 43 id shard-41
+
+# shard at 11,17 1x1
+gem    stone   at 184 0 282 size 8 30 8 turn 34 id shard-42
+
+# shard at 15,17 1x1
+gem    stone   at 248 0 282 size 8 31 8 turn 35 id shard-43
+
+# shard at 19,17 1x1
+gem    stone   at 312 0 282 size 8 30 8 turn 76 id shard-44
+
+# shard at 28,17 1x1
+gem    stone   at 456 0 282 size 8 30 8 turn 40 id shard-45
+
+# shard at 32,17 1x1
+gem    stone   at 520 0 282 size 8 29 8 turn 27 id shard-46
+
+# shard at 36,17 1x1
+gem    stone   at 584 0 282 size 8 29 8 turn 39 id shard-47
+
+# shard at 44,17 1x1
+gem    stone   at 712 0 282 size 8 27 8 turn 7 id shard-48
+
+# shard at 2,19 4x1
+gem    stone   at 40 0 314 size 8 30 8 turn 46 id shard-49
+gem    stone   at 56 0 314 size 8 31 8 turn 65
+gem    stone   at 72 0 314 size 8 29 8 turn 81
+gem    stone   at 88 0 314 size 8 27 8 turn 7
+
+# shard at 10,19 4x1
+gem    stone   at 168 0 314 size 8 26 8 turn 36 id shard-50
+gem    stone   at 184 0 314 size 8 31 8 turn 17
+gem    stone   at 200 0 314 size 8 28 8 turn 20
+gem    stone   at 216 0 314 size 8 31 8 turn 77
+
+# shard at 18,19 4x1
+gem    stone   at 296 0 314 size 8 28 8 turn 44 id shard-51
+gem    stone   at 312 0 314 size 8 27 8 turn 85
+gem    stone   at 328 0 314 size 8 31 8 turn 29
+gem    stone   at 344 0 314 size 8 31 8 turn 47
+
+# shard at 26,19 4x1
+gem    stone   at 424 0 314 size 8 30 8 turn 4 id shard-52
+gem    stone   at 440 0 314 size 8 27 8 turn 85
+gem    stone   at 456 0 314 size 8 30 8 turn 46
+gem    stone   at 472 0 314 size 8 30 8 turn 58
+
+# shard at 34,19 4x1
+gem    stone   at 552 0 314 size 8 29 8 turn 81 id shard-53
+gem    stone   at 568 0 314 size 8 29 8 turn 39
+gem    stone   at 584 0 314 size 8 28 8 turn 8
+gem    stone   at 600 0 314 size 8 31 8 turn 71
+
+# shard at 42,19 4x1
+gem    stone   at 680 0 314 size 8 31 8 turn 71 id shard-54
+gem    stone   at 696 0 314 size 8 31 8 turn 89
+gem    stone   at 712 0 314 size 8 28 8 turn 2
+gem    stone   at 728 0 314 size 8 26 8 turn 24
+
+# shard at 2,23 4x1
+gem    stone   at 40 0 378 size 8 26 8 turn 54 id shard-55
+gem    stone   at 56 0 378 size 8 29 8 turn 57
+gem    stone   at 72 0 378 size 8 27 8 turn 61
+gem    stone   at 88 0 378 size 8 26 8 turn 54
+
+# shard at 10,23 4x1
+gem    stone   at 168 0 378 size 8 29 8 turn 33 id shard-56
+gem    stone   at 184 0 378 size 8 30 8 turn 58
+gem    stone   at 200 0 378 size 8 26 8 turn 18
+gem    stone   at 216 0 378 size 8 28 8 turn 32
+
+# shard at 18,23 4x1
+gem    stone   at 296 0 378 size 8 28 8 turn 20 id shard-57
+gem    stone   at 312 0 378 size 8 27 8 turn 79
+gem    stone   at 328 0 378 size 8 26 8 turn 24
+gem    stone   at 344 0 378 size 8 29 8 turn 45
+
+# shard at 26,23 4x1
+gem    stone   at 424 0 378 size 8 29 8 turn 45 id shard-58
+gem    stone   at 440 0 378 size 8 29 8 turn 15
+gem    stone   at 456 0 378 size 8 31 8 turn 71
+gem    stone   at 472 0 378 size 8 30 8 turn 16
+
+# shard at 34,23 4x1
+gem    stone   at 552 0 378 size 8 29 8 turn 63 id shard-59
+gem    stone   at 568 0 378 size 8 26 8 turn 36
+gem    stone   at 584 0 378 size 8 27 8 turn 85
+gem    stone   at 600 0 378 size 8 30 8 turn 76
+
+# shard at 42,23 4x1
+gem    stone   at 680 0 378 size 8 26 8 turn 84 id shard-60
+gem    stone   at 696 0 378 size 8 29 8 turn 87
+gem    stone   at 712 0 378 size 8 27 8 turn 13
+gem    stone   at 728 0 378 size 8 30 8 turn 70
+
+# shard at 7,24 1x2
+gem    stone   at 120 0 394 size 8 26 8 turn 12 id shard-61
+gem    stone   at 120 0 410 size 8 31 8 turn 59
+
+# shard at 16,24 1x1
+gem    stone   at 264 0 394 size 8 30 8 turn 28 id shard-62
+
+# shard at 31,24 1x1
+gem    stone   at 504 0 394 size 8 31 8 turn 5 id shard-63
+
+# shard at 40,24 1x2
+gem    stone   at 648 0 394 size 8 29 8 turn 81 id shard-64
+gem    stone   at 648 0 410 size 8 30 8 turn 16
+
+# shard at 3,25 1x1
+gem    stone   at 56 0 410 size 8 30 8 turn 88 id shard-65
+
+# shard at 11,25 1x1
+gem    stone   at 184 0 410 size 8 27 8 turn 19 id shard-66
+
+# shard at 15,25 1x1
+gem    stone   at 248 0 410 size 8 27 8 turn 73 id shard-67
+
+# shard at 19,25 1x1
+gem    stone   at 312 0 410 size 8 30 8 turn 58 id shard-68
+
+# shard at 28,25 1x1
+gem    stone   at 456 0 410 size 8 31 8 turn 5 id shard-69
+
+# shard at 32,25 1x1
+gem    stone   at 520 0 410 size 8 30 8 turn 76 id shard-70
+
+# shard at 36,25 1x1
+gem    stone   at 584 0 410 size 8 29 8 turn 27 id shard-71
+
+# shard at 44,25 1x1
+gem    stone   at 712 0 410 size 8 27 8 turn 7 id shard-72
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 360 18 16 size 3 6 3
+cone   fire    at 360 24 16 size 4 7 4
+box    metal   at 408 18 16 size 3 6 3
+cone   fire    at 408 24 16 size 4 7 4
+box    metal   at 16 18 200 size 3 6 3
+cone   fire    at 16 24 200 size 4 7 4
+box    metal   at 16 4 248 size 3 5 3
+cone   fire    at 16 9 248 size 4 5 4
+box    metal   at 752 18 200 size 3 6 3
+cone   fire    at 752 24 200 size 4 7 4
+box    metal   at 752 4 248 size 3 5 3
+cone   fire    at 752 9 248 size 4 5 4

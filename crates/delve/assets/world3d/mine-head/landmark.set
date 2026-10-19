@@ -1,0 +1,24 @@
+# The adit's timber headframe over the north door, the gate-hall of Caer Dwfn rising out of its ruin, spoil heaps.
+# the headframe: two legs either side of the door, the adit lintel, the cross-beam, the sheave wheel and its rope
+box    wood    at 167 0 8 size 11 66 11
+box    wood    at 217 0 8 size 11 66 11
+box    wood    at 192 32 8 size 58 6 12
+box    wood    at 192 54 8 size 66 6 10
+sphere metal   at 192 56 8 size 22 22 4
+box    metal   at 192 32 8 size 2 22 2
+box    wood    at 192 66 8 size 74 5 12
+# the gate-hall: two pillars either side of the stair, a keystone arch over it, two broken tower stubs
+box    stone   at 72 0 104 size 14 34 14
+box    stone   at 120 0 104 size 14 34 14
+arch-8 stone   at 96 34 104 size 62 16 12
+cylinder-10 stone at 48 0 90 size 28 26 24
+wedge  stone   at 48 26 90 size 28 7 24
+frustum-8 stone at 131 0 88 size 18 26 16
+# the ore tipple and a spoil heap against the north wall, east of the adit
+box    wood    at 262 0 8 size 7 34 9
+box    wood    at 302 0 8 size 7 34 9
+box    wood    at 282 34 8 size 54 18 14
+wedge  wood    at 282 52 8 size 54 8 14
+rock-3 rock    at 330 0 8 size 70 48 16
+rock-9 rock    at 296 0 8 size 36 30 16
+rock-5 rock    at 362 0 8 size 28 30 16

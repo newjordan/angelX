@@ -1,0 +1,55 @@
+set chunk-9-2
+# The kingdom, chunk 9,2 in The Coast: tiles 216..240 x 32..48 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 640
+plate 1536 1024
+
+# ground
+box    path    at 3480 -4 560 size 48 4 96
+box    grass   at 3520 -4 568 size 32 4 112
+box    sand    at 3568 -4 520 size 64 4 16
+box    rock    at 3624 -4 520 size 48 4 16
+box    grass   at 3656 -4 528 size 16 4 32
+box    sand    at 3672 -4 528 size 16 4 32
+box    water   at 3760 -4 640 size 160 1 256
+box    grass   at 3544 -4 576 size 16 4 96
+box    sand    at 3584 -4 536 size 64 4 16
+box    grass   at 3632 -4 560 size 32 4 64
+box    grass   at 3584 -4 584 size 64 4 80
+box    sand    at 3656 -4 568 size 16 4 48
+box    water   at 3672 -4 656 size 16 1 224
+box    grass   at 3624 -4 616 size 16 4 48
+box    sand    at 3640 -4 616 size 16 4 48
+box    water   at 3656 -4 656 size 16 1 128
+box    path    at 3472 -4 632 size 32 4 48
+box    grass   at 3496 -4 616 size 16 4 16
+box    path    at 3544 -4 632 size 112 4 16
+box    grass   at 3608 -4 696 size 16 4 144
+box    grass   at 3544 -4 704 size 112 4 128
+box    sand    at 3624 -4 648 size 16 4 16
+box    water   at 3640 -4 648 size 16 1 16
+box    path    at 3464 -4 680 size 16 4 48
+box    grass   at 3480 -4 712 size 16 4 112
+box    grass   at 3624 -4 712 size 16 4 112
+box    sand    at 3640 -4 688 size 16 4 64
+box    grass   at 3464 -4 728 size 16 4 48
+box    grass   at 3640 -4 744 size 16 4 48
+box    sand    at 3656 -4 744 size 16 4 48
+box    rock    at 3464 -4 760 size 16 4 16
+
+# set dressing
+box    trunk   at 3592 0 600 size 10 1.5 2 turn -20
+box    trunk   at 3589 0 603 size 7 1.5 1.5 turn 35
+box    wood    at 3532 0 648 size 1.5 12 1.5
+box    wood    at 3544 0 648 size 1.5 12 1.5
+box    wood    at 3556 0 648 size 1.5 12 1.5
+box    cloth   at 3544 0 650.5 size 26 1 4
+
+# rock
+box    rock    at 3624 0 520 size 48 3 16
+box    rock    at 3464 0 760 size 16 3 16
+rock-42 rock    at 3608 1.5 520 size 15 8 13.5 turn 90
+rock-43 rock    at 3625 1.5 521 size 16 10 14.4 turn 90
+rock-21 rock    at 3639 1.5 520 size 16 8 14.4 turn 180
+rock-45 rock    at 3465 1.5 760 size 16 7 14.4 turn 90

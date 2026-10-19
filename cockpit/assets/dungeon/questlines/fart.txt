@@ -1,0 +1,28 @@
+# Fart Bombs — Brother Fenwick the Unashamed, the Sunken Abbey.
+power wish:fart 3
+teacher Brother Fenwick the Unashamed
+place   the Sunken Abbey's dry chapel
+room    abbey
+at      6 9
+look    a habit hitched to the knees, an unrepentant grin, and a rosary of beans
+line    The marsh was given the same gift. I merely take notes.
+teach   A knight who cannot clear a room with dignity has never truly had dignity.
+hook    The level-2 card carries a bean, pressed flat, used as a bookmark; the abbey's dry chapel door bears the three-flames mark in bean-paste.
+reward  Fart Bombs tier 3 (fart 3)
+title   the Unashamed
+keepsake the Bean Rosary
+tie     the punt and sluice work share the marsh roads with Gil and Stilt (Chain Spark, Awakened Fork)
+tie     the cleared room's shape is shared with Widow Peascod's cloud-hall (Fart Cloud)
+tie     the orchard rows are the badger's soup road (Mending Strike, Awakened Fork)
+step    The order of things | | offices_sat 3 | The body is a gift, and gifts should be shared. At range.
+step    The punt house | | punt_roundtrips 1 | The punt pole is lent; the bell is returned; the marsh is impressed.
+step    The cleared room | | fart_pure_halls 1 | A knight who cannot clear a room with dignity has never truly had dignity.
+step    The tribute of beans | | beans_delivered 3 | Three beans. The trinity of the marsh.
+trial   The unashamed hall | | unashamed_halls 1 | 
+art
+..888..
+.8...8.
+.8.b.8.
+.8...8.
+..888..
+..b.b..

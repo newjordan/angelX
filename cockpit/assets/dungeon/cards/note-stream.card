@@ -1,0 +1,14 @@
+# Temporary card icon; delivery slot bard-knight in bard/slots.json.
+name   Note Stream
+kind   arm
+rarity common
+text   Hold F: a short cone of light musical notes.
+drop   0
+chest  0
+arm    notes
+art
+.444.
+.4.4.
+.444.
+.4.4.
+.444.

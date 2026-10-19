@@ -1,7 +1,9 @@
 //! Back to the kingdom once the run has fallen or is won. Any knight whose
 //! player is here may ask (Enter on the verdict's board). The first to ask
 //! starts a short wait everyone sees; the party goes when every player here
-//! has asked, or when the wait runs out. Nobody is yanked from the verdict
+//! has asked, or when the wait runs out. With nobody asking, the party goes
+//! anyway once the verdict has stood `VERDICT_HOLD` (longer with the run's
+//! deeds to show, `Run::verdict_hold`). Nobody is yanked from the verdict
 //! the moment it lands, and nobody away can hold the party there.
 //!
 //! The rules only keep who asked and how long is left. The host's server
@@ -14,6 +16,9 @@ use std::collections::BTreeSet;
 
 /// How long the party waits once the first knight asks: five seconds.
 pub const AGAIN_WAIT: u32 = 5 * HZ;
+/// With nobody asking, the verdict stands this long and then the party
+/// goes back anyway: a fallen party is never left on the board.
+pub const VERDICT_HOLD: u32 = 10 * HZ;
 
 /// Who has asked to go back, and the ticks left before the party goes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,6 +42,7 @@ impl Run {
         }
         let again = self.again.get_or_insert_with(|| Again { asked: BTreeSet::new(), left: AGAIN_WAIT });
         again.asked.insert(id);
+        again.left = again.left.min(AGAIN_WAIT);
     }
 
     /// One tick of the wait: whether the party goes now, every player here
@@ -53,9 +59,8 @@ impl Run {
             .filter(|(_, h)| !h.away && !h.absent)
             .map(|(&id, _)| id)
             .collect();
-        let Some(again) = self.again.as_mut() else {
-            return false;
-        };
+        let hold = self.verdict_hold();
+        let again = self.again.get_or_insert_with(|| Again { asked: BTreeSet::new(), left: hold });
         again.left = again.left.saturating_sub(1);
         again.left == 0 || here.iter().all(|id| again.asked.contains(id))
     }

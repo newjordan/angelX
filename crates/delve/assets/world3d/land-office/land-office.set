@@ -1,0 +1,53 @@
+set land-office
+# The Court of Deeds: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: the runner from the door to the desk, banners on the east wall, lamps by the door.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# board at 2,1 20x3
+box    wood    at 192 0 40 size 318 28 46 id board
+box    plaster at 192 3 63.25 size 316 22 0.5
+
+# bookcase at 1,4 6x9 (at 21% of its height, for the camera)
+box    wood    at 64 0 136 size 94 6 142 id bookcase
+box    cloth   at 64 0.5 207.25 size 92 5 0.5
+
+# table at 10,5 4x1 (at 54% of its height, for the camera)
+box    wood    at 192 0 88 size 62 5 14 id table
+box    cloth   at 192 5 88 size 63 0.5 15
+
+# crate at 20,5 2x2 (at 58% of its height, for the camera)
+box    wood    at 336 0 96 size 28 6.5 28 id crate

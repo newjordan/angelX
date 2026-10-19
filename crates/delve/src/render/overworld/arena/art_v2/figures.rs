@@ -17,6 +17,7 @@ pub fn knight_supported(
         && h.avatar.is_none()
         && h.worn(&run.book).is_empty()
         && !h.frog()
+        && h.possessed.is_none()
         && !h.stone
         && h.chilled == 0
         && h.rolling().is_none()
@@ -25,13 +26,18 @@ pub fn knight_supported(
         && h.pit.stop.is_none()
 }
 
+/// The seats the kit's pose studies are painted for: red, blue, green, gold.
+const STUDIED_SEATS: u32 = 4;
+
 /// Whether the kit's own pose studies show this knight: the realm's knight
 /// whole, in no company's colours, the shield on the arm or raised across.
 /// Any other knight (a class, a stage of dress, a shield thrown or raised
-/// toward or away, the dwarf, a kit's colours) is the arena's own drawing
-/// brought up to this canvas.
-fn studied(h: &Hero, thrown: bool) -> bool {
+/// toward or away, the dwarf, a kit's colours, or one of the two seats past
+/// the four the studies are painted for) is the arena's own drawing brought
+/// up to this canvas.
+fn studied(h: &Hero, thrown: bool, id: u32) -> bool {
     Look::of(h).is_none()
+        && id <= STUDIED_SEATS
         && !thrown
         && !(h.shielding && h.aim_y.abs() > h.aim_x.abs() * 1.25)
         && h.knight.as_deref() != Some(super::super::knights::DWARF)
@@ -40,7 +46,7 @@ fn studied(h: &Hero, thrown: bool) -> bool {
 }
 
 pub fn knight(cv: &mut Canvas, x: f32, y: f32, h: &Hero, _tick: u64, id: u32, thrown: bool) {
-    if !studied(h, thrown) {
+    if !studied(h, thrown, id) {
         return class_figure(cv, x, y, h, id, thrown);
     }
     let steel = Ramp::inks('s', 'u', 'i');

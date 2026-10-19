@@ -1,0 +1,163 @@
+set chunk-8-3
+# The kingdom, chunk 8,3 in The Coast: tiles 192..216 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 896
+plate 1536 1024
+
+# ground
+box    water   at 3088 -4 776 size 32 1 16
+box    sand    at 3112 -4 776 size 16 4 16
+box    grass   at 3136 -4 872 size 32 4 208
+box    rock    at 3160 -4 776 size 16 4 16
+box    grass   at 3176 -4 880 size 16 4 224
+box    rock    at 3192 -4 776 size 16 4 16
+box    grass   at 3232 -4 816 size 64 4 96
+box    rock    at 3304 -4 776 size 80 4 16
+box    grass   at 3352 -4 784 size 16 4 32
+box    path    at 3392 -4 792 size 64 4 48
+box    grass   at 3432 -4 816 size 16 4 96
+box    rock    at 3448 -4 776 size 16 4 16
+box    rock    at 3088 -4 792 size 32 4 16
+box    grass   at 3112 -4 880 size 16 4 192
+box    grass   at 3160 -4 888 size 16 4 208
+box    grass   at 3192 -4 896 size 16 4 224
+box    rock    at 3280 -4 792 size 32 4 16
+box    grass   at 3320 -4 808 size 48 4 48
+box    grass   at 3448 -4 824 size 16 4 80
+box    grass   at 3088 -4 808 size 32 4 16
+box    grass   at 3280 -4 832 size 32 4 64
+box    path    at 3352 -4 872 size 16 4 144
+box    rock    at 3080 -4 824 size 16 4 16
+box    grass   at 3096 -4 896 size 16 4 160
+box    path    at 3384 -4 832 size 48 4 32
+box    grass   at 3416 -4 840 size 16 4 48
+box    grass   at 3080 -4 840 size 16 4 16
+box    grass   at 3312 -4 848 size 32 4 32
+box    path    at 3336 -4 904 size 16 4 144
+box    rock    at 3080 -4 856 size 16 4 16
+box    path    at 3376 -4 864 size 32 4 32
+box    grass   at 3400 -4 856 size 16 4 16
+box    grass   at 3080 -4 880 size 16 4 32
+box    grass   at 3208 -4 936 size 16 4 144
+box    path    at 3272 -4 872 size 112 4 16
+box    path    at 3424 -4 872 size 64 4 16
+box    grass   at 3224 -4 944 size 16 4 128
+box    path    at 3280 -4 888 size 96 4 16
+box    path    at 3368 -4 896 size 16 4 32
+box    grass   at 3416 -4 896 size 80 4 32
+box    rock    at 3080 -4 912 size 16 4 32
+box    grass   at 3264 -4 904 size 64 4 16
+box    path    at 3312 -4 960 size 32 4 128
+box    grass   at 3240 -4 920 size 16 4 16
+box    sand    at 3256 -4 920 size 16 4 16
+box    grass   at 3280 -4 920 size 32 4 16
+box    grass   at 3376 -4 968 size 32 4 112
+box    sand    at 3408 -4 920 size 32 4 16
+box    grass   at 3440 -4 936 size 32 4 48
+box    grass   at 3080 -4 952 size 16 4 48
+box    sand    at 3240 -4 936 size 16 4 16
+box    grass   at 3264 -4 952 size 32 4 48
+box    path    at 3288 -4 976 size 16 4 96
+box    sand    at 3400 -4 936 size 16 4 16
+box    grass   at 3416 -4 976 size 16 4 96
+box    grass   at 3240 -4 984 size 16 4 80
+box    grass   at 3352 -4 984 size 16 4 80
+box    grass   at 3400 -4 984 size 16 4 80
+box    grass   at 3432 -4 992 size 16 4 64
+box    rock    at 3448 -4 984 size 16 4 48
+box    path    at 3104 -4 1000 size 64 4 48
+box    grass   at 3144 -4 984 size 16 4 16
+box    grass   at 3256 -4 992 size 16 4 32
+box    path    at 3272 -4 1000 size 16 4 48
+box    grass   at 3336 -4 1000 size 16 4 48
+box    path    at 3160 -4 1008 size 48 4 32
+box    path    at 3208 -4 1016 size 48 4 16
+box    path    at 3256 -4 1016 size 16 4 16
+box    grass   at 3448 -4 1016 size 16 4 16
+
+# GULLIBLE CLIFFS: a stepped cliff at 200,51 4x3 (at 92% of its height, for the camera)
+box    rock    at 3232 0 841 size 60 16.5 14 id gullible-cliffs
+box    rock    at 3232 0 852 size 60 8 8
+rock-12 rock    at 3208 14.5 840.64 size 12 10 12.8
+rock-32 rock    at 3208 6.5 852 size 10.8 5.5 6
+rock-7 rock    at 3220 14.5 840.64 size 12 9 12.8
+rock-51 rock    at 3220 6.5 852 size 10.8 5 6
+rock-35 rock    at 3232 14.5 840.64 size 12 7.5 12.8
+rock-25 rock    at 3232 6.5 852 size 10.8 5 6
+rock-50 rock    at 3244 14.5 840.64 size 12 9 12.8
+rock-17 rock    at 3244 6.5 852 size 10.8 6.5 6
+rock-52 rock    at 3256 14.5 840.64 size 12 8.5 12.8
+rock-64 rock    at 3256 6.5 852 size 10.8 6.5 6
+rock-19 rock    at 3223.24 0 857.43 size 4.67 6 4.2 turn 62
+rock-13 rock    at 3204.63 0 859 size 3.58 2.7 3.22 turn 341
+rock-14 rock    at 3257.12 0 858.42 size 2.33 3.78 2.1 turn 89
+rock-3 rock    at 3247.13 0 858.89 size 4.2 3.78 3.78 turn 285
+
+# fingerposts
+box    wood    at 3080 0 972 size 1.5 19 1.5
+pyramid wood    at 3080 19 972 size 2.2 1.5 2.2
+box    wood    at 3084 16 972 size 6.5 1.8 0.6
+box    wood    at 3076 13.5 972 size 6.5 1.8 0.6
+box    wood    at 3244 0 1020 size 1.5 19 1.5
+pyramid wood    at 3244 19 1020 size 2.2 1.5 2.2
+box    wood    at 3244 16 1016 size 0.6 1.8 6.5
+box    wood    at 3240 13.5 1020 size 6.5 1.8 0.6
+
+# set dressing
+box    wood    at 3196 0 952 size 1.5 12 1.5
+box    wood    at 3208 0 952 size 1.5 12 1.5
+box    wood    at 3220 0 952 size 1.5 12 1.5
+box    cloth   at 3208 0 954.5 size 26 1 4
+
+# rock
+box    rock    at 3160 0 776 size 16 3 16
+box    rock    at 3192 0 776 size 16 3 16
+box    rock    at 3304 0 776 size 80 3 16
+box    rock    at 3448 0 776 size 16 3 16
+box    rock    at 3088 0 792 size 32 3 16
+box    rock    at 3280 0 792 size 32 3 16
+box    rock    at 3080 0 824 size 16 3 16
+box    rock    at 3080 0 856 size 16 3 16
+box    rock    at 3080 0 912 size 16 3 32
+box    rock    at 3448 0 984 size 16 3 48
+rock-9 rock    at 3160 1.5 776 size 16 7 14.4 turn 90
+rock-14 rock    at 3193 1.5 776 size 16 7 14.4 turn 90
+rock-7 rock    at 3271 1.5 776 size 15 9 13.5
+rock-17 rock    at 3288 1.5 777 size 15 9 13.5 turn 180
+rock-49 rock    at 3303 1.5 776 size 15 7 13.5 turn 180
+rock-12 rock    at 3319 1.5 776 size 14 7 12.6 turn 90
+rock-2 rock    at 3335 1.5 777 size 16 7 14.4
+rock-63 rock    at 3448 1.5 777 size 17 8 15.3 turn 270
+rock-5 rock    at 3079 1.5 793 size 17 9 15.3
+rock-27 rock    at 3096 1.5 791 size 14 9 12.6 turn 270
+rock-40 rock    at 3271 1.5 793 size 15 9 13.5
+rock-29 rock    at 3287 1.5 792 size 16 8 14.4 turn 270
+rock-37 rock    at 3080 1.5 823 size 14 8 12.6
+rock-5 rock    at 3079 1.5 855 size 17 7 15.3
+rock-56 rock    at 3079 1.5 905 size 14 10 12.6 turn 180
+rock-13 rock    at 3080 1.5 919 size 17 7 15.3 turn 90
+rock-26 rock    at 3447 1.5 967 size 17 7 15.3 turn 270
+rock-31 rock    at 3449 1.5 984 size 15 9 13.5 turn 270
+rock-13 rock    at 3449 1.5 1000 size 14 8 12.6 turn 90
+
+# woods (at 64% of its height, for the camera)
+frustum trunk   at 3106 0 815 size 4.5 5.5 4.5
+cone   foliage at 3106 3.5 815 size 28 17.5 28
+cone   foliage at 3106 14 815 size 20.16 17.5 20.16
+cylinder trunk   at 3094 0 841 size 3 7.5 3
+cone   foliage at 3094 5 841 size 18 16.5 18
+cone   foliage at 3094 15 841 size 12.96 16.5 12.96
+cylinder trunk   at 3112 0 839 size 3 7 3
+cone   foliage at 3112 4 839 size 17 19.84 17
+cone   foliage at 3112 16.16 839 size 12.24 19.84 12.24
+cylinder trunk   at 3097 0 855 size 3 11 3
+blob-6 foliage at 3097 6 855 size 17 21 16.15 turn 270
+frustum trunk   at 3112 0 856 size 3 12 3
+blob-47 foliage at 3112 7 856 size 19 16 18.05 turn 270
+frustum trunk   at 3080 0 872 size 3 10 3
+blob-23 foliage at 3080 5 872 size 19 20 18.05 turn 90
+frustum trunk   at 3096 0 872 size 3 10 3
+blob-60 foliage at 3096 5 872 size 19 17 18.05 turn 270
+box    hedge   at 3080 0 840 size 16 7 16
+blob-46 hedge   at 3080 4.5 840 size 16 6 16

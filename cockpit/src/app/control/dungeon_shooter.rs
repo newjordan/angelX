@@ -12,9 +12,9 @@ use std::time::{Duration, Instant};
 
 const DUNGEON_COMMANDS: &str = "\
 The Delve — knights against monsters, for spoils that build the realm.
-/dungeon                send your knight to the Delve's gate on the map; click the mini-viz there (or F4) to choose a knight and enter
+/dungeon                send your knight to the Delve's gate on the map; click the dungeon on the map (or F4) to choose a knight and enter
 /dungeon start [name]   skip the walk and begin at once, at the Delve's gate (a name adds a second knight on this keyboard)
-/dungeon_host --N [--watch] [address:port]  host for N friends (up to 3); --watch plays no knight of your own: one link for everyone, a browser page or /dungeon join in angelX · /dungeon invite [new]|lock|unlock|kick [knight]
+/dungeon_host --N [--watch] [address:port]  host for N friends (up to 5); --watch plays no knight of your own: one link for everyone, a browser page or /dungeon join in angelX · /dungeon invite [new]|lock|unlock|kick [knight]
 /dungeon stable [select <mount>|tend]   walk to the stables beside the gate · /dungeon tournament walks to the lists, where the joust is ridden
 /dungeon join <line>    play in a friend's delve from your angelX · /dungeon leave goes home
 /dungeon settlement     visit the saved loop site (new run only); west from the PLAYER HALL
@@ -30,7 +30,7 @@ fn dungeon_help() -> String {
     use shooter::hud::Keys;
     let (one, two) = (Keys::FIRST, Keys::SECOND);
     format!(
-        "{DUNGEON_COMMANDS}\nKeys: {}\n{}\n{}\nG keeps vigil, Tab shows cards and realm, V votes, K voices (Shift+K with a couch knight), R replays after a win or a fall, ` clears held keys.\nPlayer 2: B votes, I/K select, J/L rate, 5-9 stars, 0 clear, U untried.\nPlayer 2 on this keyboard: {}\n{}\n{}",
+        "{DUNGEON_COMMANDS}\nKeys: {}\n{}\n{}\nG keeps vigil, Tab shows cards and realm, hold N for the whole floor's map (the minimap is always in the corner), V votes, K voices (Shift+K with a couch knight), R replays after a win or a fall, ` clears held keys.\nPlayer 2: B votes, I/K select, J/L rate, 5-9 stars, 0 clear, U untried.\nPlayer 2 on this keyboard: {}\n{}\n{}",
         one.fight_line(false),
         one.kit_line(),
         one.skills_line(),
@@ -83,7 +83,9 @@ impl DungeonView {
             }))
         };
         let p1 = ShooterInput {
+            latch_tick: None,
             leave_activity: false,
+            leave_held: down(KeyCode::Esc) != 0,
             activity_menu: false,
             skip_plate: false,
             move_x: down(KeyCode::Char('d')) - down(KeyCode::Char('a')),
@@ -120,6 +122,7 @@ impl DungeonView {
             again: false,
         };
         let mut p2 = ShooterInput {
+            leave_held: down(KeyCode::Delete) != 0,
             move_x: down(KeyCode::Char('l')) - down(KeyCode::Char('j')),
             move_y: down(KeyCode::Char('k')) - down(KeyCode::Char('i')),
             fire: down(KeyCode::Enter) != 0,
@@ -369,13 +372,21 @@ impl App {
     /// here, and never in the sim.
     pub(super) fn send_keys(&mut self, now: Instant) {
         let inputs = self.dungeon.local_inputs(now);
+        // N held is the first knight's map: the seat's own screen shows it
+        // (`angel_delve::client::DelveClient::map_open`), the run never hears.
+        let map = if self.dungeon.held.contains_key(&KeyCode::Char('n')) {
+            angel_net::input::button::MAP
+        } else {
+            0
+        };
         if let Some(joined) = &self.dungeon.joined {
-            joined.seat.set_held(crate::drive::together_seat::bits(&inputs[&1]));
+            joined.seat.set_held(crate::drive::together_seat::bits(&inputs[&1]) | map);
             return;
         }
         for (&knight, input) in &inputs {
             if let Some(seat) = self.dungeon.shooter.seat(knight) {
-                seat.set_held(crate::drive::together_seat::bits(input));
+                let own = if knight == 1 { map } else { 0 };
+                seat.set_held(crate::drive::together_seat::bits(input) | own);
             }
         }
     }
@@ -602,7 +613,8 @@ impl App {
         if self.dungeon.hosting.is_some() {
             return format!("Dungeon already hosted.\n{}", self.invitation_lines());
         }
-        // `--3` (or `-3`) seats three friends; a lone name keeps the old form.
+        // `--3` (or `-3`) seats three friends, up to `--5`; a lone name keeps
+        // the old form.
         // `--watch` hosts without a knight of the host's own.
         let mut friends = 1usize;
         let mut watch = Hosting::watch_by_default();
@@ -743,7 +755,7 @@ impl App {
     /// leaves. To keep them out, make a new link too (they still hold this one).
     fn kick_knight(&mut self, knight: u32) -> String {
         let Some(seat) = angel_delve::wire::seat_of(knight).filter(|_| knight != 1) else {
-            return "Kick a friend's knight: /dungeon kick 2, 3 or 4.".into();
+            return "Kick a friend's knight: /dungeon kick 2 to 6.".into();
         };
         if !self.dungeon.shooter.server().is_some_and(|s| s.kick(seat)) {
             return format!("Nobody plays knight {knight}.");
@@ -1051,9 +1063,9 @@ impl App {
                                 .get(&knight)
                                 .and_then(|h| shooter::phrasebook::find_for(&words, &h.deck));
                             if !run.can_wish(knight) {
-                                replies.push((knight, "Wishes open when the room is clear: one each.".into()));
+                                replies.push((knight, "No wishes held: each floor brings two, and its boss a super wish.".into()));
                             } else if let Some(wish) = known {
-                                match run.grant(knight, &wish) {
+                                match run.wish(knight, &wish) {
                                     Ok(name) => {
                                         self.dungeon.notice = format!("Knight {knight} is granted {name}");
                                         replies.push((knight, format!("Granted: {name}.")));
@@ -1068,7 +1080,7 @@ impl App {
                         Gear::Boon(id) => {
                             let granted = shooter::phrasebook::get(&id)
                                 .filter(|_| run.can_wish(knight))
-                                .map(|wish| run.grant(knight, &wish));
+                                .map(|wish| run.wish(knight, &wish));
                             if let Some(Ok(name)) = granted {
                                 self.dungeon.notice = format!("Knight {knight} is granted {name}");
                             }
@@ -1227,7 +1239,13 @@ impl App {
         for seat in self.dungeon.shooter.seats() {
             let lines = seat.take_lines();
             if seat.knight() == Some(shown) {
-                sounds.extend(lines.into_iter().filter_map(|l| l.strip_prefix("sfx ").map(str::to_string)));
+                for line in lines {
+                    if let Some(sound) = line.strip_prefix("sfx ") {
+                        sounds.push(sound.to_string());
+                    } else if let Some(notice) = line.strip_prefix("notice ") {
+                        self.dungeon.notice = notice.to_string();
+                    }
+                }
             }
         }
         for sound in sounds {
@@ -1511,6 +1529,7 @@ impl App {
                     | ']'
                     | 'y'
                     | 'm'
+                    | 'n'
                     | ','
                     | '.'
                     | ';'
@@ -1563,6 +1582,7 @@ fn first_seat_key(code: KeyCode) -> bool {
                     | '3'
                     | '4'
                     | 'm'
+                    | 'n'
                     | ','
                     | '.'
                     | ';'

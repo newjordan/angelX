@@ -1,0 +1,360 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  24,
+  56
+ ],
+ "pieces": [
+  {
+   "name": "sleep-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 30
+  },
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "idle-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "walk-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "walk-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "walk-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "walk-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-tell-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "beam-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "beam-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "beam-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "beam-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "beam-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "beam-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slam-tell-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-tell-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "slam-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slam-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slam-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slam-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "slam-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "summon-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "summon-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "summon-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "summon-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "hit-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "hit-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "rear-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "rear-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "rear-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "rear-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "rear-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "rear-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "stagger-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "stagger-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "stagger-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "die-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "die-7",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "heart-shut-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "heart-open-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "heart-open-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

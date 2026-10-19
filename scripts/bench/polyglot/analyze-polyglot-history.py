@@ -318,7 +318,7 @@ def repair_history(root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921"))
+    parser.add_argument("--root", type=Path, default=Path("~/angel_tests/angelX-bench/polyglot-20260921").expanduser())
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repair-root", type=Path,
                         help="Also summarize the separate 18-task repeated repair benchmark")

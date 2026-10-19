@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.fungal-spore-crown.projectile/v01/source-sheet.png",
+  "source_sha256": "8e402ae5b6f613765b3bcba26fcb177d8484d76ab9d9692c660fe13c76b94d35",
+  "original_sheet_sha256": "8e402ae5b6f613765b3bcba26fcb177d8484d76ab9d9692c660fe13c76b94d35",
+  "metadata_sha256": "f88fd2f4f54c91c1ece7afda40b3707e9b9a0dae746c44ccbe19d9e17cbdb8a5",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        56,
+        214,
+        233,
+        178
+      ],
+      "alpha_area": 27411,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "a55e8dcb287a664aefbe9a97bbd912ae57aa302f33fca4c2dccc7a6d3b1062d6"
+    },
+    {
+      "source_rect_xywh": [
+        368,
+        191,
+        224,
+        216
+      ],
+      "alpha_area": 34436,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "ad2efad79c1940e025eb3095987d58d464ae0171fed2779535f2d669f043ff21"
+    },
+    {
+      "source_rect_xywh": [
+        667,
+        218,
+        246,
+        183
+      ],
+      "alpha_area": 28745,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "844486b42728c0f63fb29d6c180e7c407ac1f08243cdf3ab3e2ccf79459d5348"
+    },
+    {
+      "source_rect_xywh": [
+        988,
+        181,
+        217,
+        212
+      ],
+      "alpha_area": 30858,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "309ff131e4bafb9087b7138817c159a048083db5d7afb87d1ee40e13cb23d78b"
+    },
+    {
+      "source_rect_xywh": [
+        84,
+        595,
+        175,
+        138
+      ],
+      "alpha_area": 16963,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "4c4e80c6845ad926d0a6a25cbe05fc43e320acacfaa0bbccd07c5780b1eea1bf"
+    },
+    {
+      "source_rect_xywh": [
+        362,
+        531,
+        232,
+        244
+      ],
+      "alpha_area": 40358,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "4865f1ea829f0554651d60754ef222b74ccefa62bea04731051eda76c7a6ee74"
+    },
+    {
+      "source_rect_xywh": [
+        692,
+        569,
+        198,
+        184
+      ],
+      "alpha_area": 24544,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "f6f8c107edb4dd7c0803e5055d55ebd78ee87bf06c3bf316572e8189650bf804"
+    },
+    {
+      "source_rect_xywh": [
+        1016,
+        589,
+        168,
+        140
+      ],
+      "alpha_area": 17932,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "c143f0995c8ca7a595564b4bddddf0cf30c4d5e827c3cf91b7b5f5a891a5180c"
+    },
+    {
+      "source_rect_xywh": [
+        66,
+        941,
+        223,
+        135
+      ],
+      "alpha_area": 18070,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "4fc15b6111812a48690fca31666119cf8b45c477d319a42c7bbdc753c42b8c97"
+    },
+    {
+      "source_rect_xywh": [
+        370,
+        923,
+        220,
+        146
+      ],
+      "alpha_area": 17572,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "3848af6356536d1e2149c69860c29569f19e70eaeb0a799335da033002cc1072"
+    },
+    {
+      "source_rect_xywh": [
+        715,
+        964,
+        143,
+        96
+      ],
+      "alpha_area": 6939,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "2eb8f4d41d7a887ac3c45876ed98f23f566353c6c1b452bd6fb09403c0dcc48b"
+    },
+    {
+      "source_rect_xywh": [
+        1025,
+        951,
+        163,
+        113
+      ],
+      "alpha_area": 7805,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "2331f0821b11d15da5e9f25482e706d74eb91f25335ff27dbbc707b56ba02c9c"
+    }
+  ]
+}

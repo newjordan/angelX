@@ -12,7 +12,7 @@ pub struct Entry {
     pub says: &'static str,
 }
 
-pub const ENTRIES: [Entry; 37] = [
+pub const ENTRIES: [Entry; 40] = [
     Entry {
         kind: EnemyKind::Bat,
         name: "Bat",
@@ -197,6 +197,21 @@ pub const ENTRIES: [Entry; 37] = [
         kind: EnemyKind::Whirlgrave,
         name: "Whirlgrave",
         says: "Leans on the world until the world leans back.",
+    },
+    Entry {
+        kind: EnemyKind::BogHand,
+        name: "Bog Hand",
+        says: "It was somebody's once. Now it only wants yours.",
+    },
+    Entry {
+        kind: EnemyKind::Drowned,
+        name: "Drowned Knight",
+        says: "Took his oath to the bottom of the mere and kept it there.",
+    },
+    Entry {
+        kind: EnemyKind::Wisp,
+        name: "Will-o'-Wisp",
+        says: "A lantern nobody is holding, for a good reason.",
     },
 ];
 

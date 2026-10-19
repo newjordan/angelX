@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.gate/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP (re-run).",
+  "generation_sha256": "2462c945f450bfacd34ed95cb2662b1318b32941d48c744751c67b8e884b9058",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "17f3bd9842e25738ed105be82bfca8e7710c55a5d373e465588bb01902e7804b",
+  "native_contract": "Native canvas wider than the slot, post foot anchored at (8,40).",
+  "notes_sha256": "d7eb3362099bb54a1d5ac43943d5698fcd3afed2237d4fe95cd20b30d01d9ec7",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "391843f4fa860f7823e40a08ecf83b9d4231e4adae63ead4250172e9bc783651",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the re-run; v01-first is kept outside the repo and not used)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.gate/v01/source-sheet.png",
+  "source_sha256": "23d5cf0a463459de8d9d8bdc2fe0deb30e5d2edb92123147eb1a2d00f0a4d756"
+}

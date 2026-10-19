@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    18,
+    24
+  ],
+  "anchor_xy": [
+    9,
+    12
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Renderer::landing finds the actual empty cell. Full column means cough/reset; no art-derived radius.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "97717785290cc2da8d62f1e98099214f2bc7273d794169041949b73891afb4d5",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small broad-face shard angled down-right, diagonal seam, detached tail.",
+      "name": "slag",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        125.5
+      ],
+      "source_rect_xywh": [
+        64,
+        158,
+        244,
+        251
+      ],
+      "state": "slag"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Small narrow-edge shard with seam partly visible, detached tail.",
+      "name": "piece-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        87.5,
+        135.5
+      ],
+      "source_rect_xywh": [
+        385,
+        141,
+        175,
+        271
+      ],
+      "state": "small-narrow-edge-shard-with-seam-partly-visible-detached-tail"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Small tumble with leading lower corner and diagonal seam, detached tail.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.5,
+        134.0
+      ],
+      "source_rect_xywh": [
+        665,
+        160,
+        217,
+        268
+      ],
+      "state": "small-tumble-with-leading-lower-corner-and-diagonal-seam-detache"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Small upright broad-face shard, center seam, detached tail.",
+      "name": "piece-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.0,
+        140.5
+      ],
+      "source_rect_xywh": [
+        993,
+        141,
+        214,
+        281
+      ],
+      "state": "small-upright-broad-face-shard-center-seam-detached-tail"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Medium left-tilted broad shard with larger crack facets, detached tail.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        149.0
+      ],
+      "source_rect_xywh": [
+        71,
+        503,
+        237,
+        298
+      ],
+      "state": "medium-left-tilted-broad-shard-with-larger-crack-facets-detached"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Medium steep nose-down shard with a diagonal seam, detached tail.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        89.0,
+        158.0
+      ],
+      "source_rect_xywh": [
+        400,
+        491,
+        178,
+        316
+      ],
+      "state": "medium-steep-nose-down-shard-with-a-diagonal-seam-detached-tail"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Medium edge-on shard with a jagged profile and vertical seam, detached tail.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        79.0,
+        149.0
+      ],
+      "source_rect_xywh": [
+        695,
+        515,
+        158,
+        298
+      ],
+      "state": "medium-edge-on-shard-with-a-jagged-profile-and-vertical-seam-det"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Medium right-tilted shard with chipped facets, detached tail.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.0,
+        142.0
+      ],
+      "source_rect_xywh": [
+        986,
+        520,
+        240,
+        284
+      ],
+      "state": "medium-right-tilted-shard-with-chipped-facets-detached-tail"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Very short hooked copper streak.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        55.5,
+        47.5
+      ],
+      "source_rect_xywh": [
+        114,
+        981,
+        111,
+        95
+      ],
+      "state": "very-short-hooked-copper-streak"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Short diagonal copper streak.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        55.5,
+        50.5
+      ],
+      "source_rect_xywh": [
+        422,
+        982,
+        111,
+        101
+      ],
+      "state": "short-diagonal-copper-streak"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Medium curved copper streak with flecks.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        89.5,
+        61.5
+      ],
+      "source_rect_xywh": [
+        671,
+        975,
+        179,
+        123
+      ],
+      "state": "medium-curved-copper-streak-with-flecks"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Short split flick streak.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        72.0,
+        48.0
+      ],
+      "source_rect_xywh": [
+        1005,
+        995,
+        144,
+        96
+      ],
+      "state": "short-split-flick-streak"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "18\u00d724; top-left (marked cell x+3,fall_y). Keep centre over the 24 px column; bottom may cross neighbouring art, not gameplay cells.",
+  "sizes": {
+    "v1": [
+      18,
+      24
+    ],
+    "v2": [
+      18,
+      24
+    ]
+  },
+  "slot": "cinder.slag",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "8afb86c414fbda752c635b0d30e81fcb1a2f9c593e0fd1b41fae037b1f8925c3",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.slag/v01/source-sheet.png",
+    "original_sha256": "4d09bd049eb82da2649d9edea01a5f43aa769115a187266302d4d3a7f7c27684",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "cc8819448a7d1ad9346eb77011711fe166d3bccb5bd9e95c828e019715641d1d",
+  "timing": "Position interpolates through tuned 27-tick tell; landing inserts a slag cell immediately, not a ballistic projectile (Board::step; renderer::draw)."
+}

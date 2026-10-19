@@ -1,0 +1,105 @@
+{
+  "boss": "unknown-silence-warden",
+  "camera": "overhead",
+  "definition_sha256": "5fed24cc15d9e472e5965c75450cfccdbf1af9c8b4a2ef083a113a6bc2b2fd26",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 29.50 L*, rest presence 90.38%, edge 87.97%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "muffled stone body"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "muffled stone body",
+      "sealed visor",
+      "stone mitten arm",
+      "muffling stole"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      51,
+      54
+    ],
+    "v2": [
+      91,
+      96
+    ]
+  },
+  "identity_props": [
+    "muffled stone body",
+    "sealed visor",
+    "stone mitten arm",
+    "muffling stole"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 32,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9832522960561858,
+      "opaque_pixels": 1851,
+      "sha256": "bf80bc108b140ac7ca06b32fb6deaa3dd0566a6d42e5e54e22ce3c1fcde0003f",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 34,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.989440337909187,
+      "opaque_pixels": 1894,
+      "sha256": "f267f42038354923bfc844e70768145e94482aa3b6cd910fc98a4a2e605327d0",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 43,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9896187882913546,
+      "opaque_pixels": 5876,
+      "sha256": "d50b0c80ec68633a6156da0c80bfa2292384e4cb2ff3aae62f044fa9a5590205",
+      "silhouette_iou": 1.0,
+      "size": [
+        91,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 43,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9905236907730673,
+      "opaque_pixels": 6015,
+      "sha256": "0daaa9d2a1d7c4efe17f182af69b90381b5aeabde27fded05401c2c3e7b6aadf",
+      "silhouette_iou": 1.0,
+      "size": [
+        91,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

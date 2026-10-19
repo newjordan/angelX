@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3758
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5456
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7167
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 10467
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3439
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4300
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5502
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8740
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7812
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6419
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3539
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 2539
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "db9912f0d95f710345d822ff99a07fa73084549f9ed62297aa50ee411fef7150",
+  "metadata_sha256": "0b6992504694a6a43f9bbf8bcfbe9f7109cf2733c00fc01db157f27469d4dd2c",
+  "notes_sha256": "b0d9336ce17e37b2be0f44df55e1dd309c45cea7e24b9a523bfa7a3fe2d56306",
+  "outputs": {
+    "v1/proposal-00.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9726,
+      "frame": 0,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 73,
+      "piece": 0,
+      "sha256": "4855a09b7fb978a16811ea3db0145e7d8515d49fff27095b39ec7c459b7bb541",
+      "source_scale": 0.06666666666666667,
+      "state": "right-facing-first-sprout-compact-coiled-base-one-lead-bud-small"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.975,
+      "frame": 1,
+      "half_cell_coverage": 8,
+      "opaque_pixels": 120,
+      "piece": 1,
+      "sha256": "b82a8672c5cdf6654cf0b0198af8305a75c4fd2a98bb145f5bb1edf5498c0214",
+      "source_scale": 0.07246376811594203,
+      "state": "right-facing-early-extension-two-airy-tendrils-and-forward-bud"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 92,
+      "piece": 2,
+      "sha256": "08a66ac5fc6e62a290f0457326931abd85cf334c273565ca62f86697c773167b",
+      "source_scale": 0.057803468208092484,
+      "state": "right-facing-broad-sweep-longer-branches-clearly-forward-lead-bu"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 83,
+      "piece": 3,
+      "sha256": "875baf341a0f00deb5227ab374bce1ca57841354d416b69f68bc9566741b0463",
+      "source_scale": 0.04854368932038835,
+      "state": "right-facing-peak-broadest-advance-with-lifted-branches-and-the-"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9897,
+      "frame": 7,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 97,
+      "piece": 4,
+      "sha256": "2dce95e2cb88a3b80902c7c6276647697138a60a4d488bd3d23a221b103a3d6b",
+      "source_scale": 0.05649717514124294,
+      "state": "left-facing-peak-longest-silhouette-in-the-reverse-direction"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9759,
+      "frame": 4,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 83,
+      "piece": 5,
+      "sha256": "471041fc81ac406222aa3805729dd36c1c5441473c819f8f0e95df25b212110c",
+      "source_scale": 0.07936507936507936,
+      "state": "left-facing-first-advance-small-mirrored-silhouette-with-bud-lea"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9741,
+      "frame": 5,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 116,
+      "piece": 6,
+      "sha256": "65861164b3a9d4d3e698d226fd227801f5ce536fff8958c30828c2d61205aa8a",
+      "source_scale": 0.07518796992481203,
+      "state": "left-facing-second-stage-short-spread-with-lifted-bumper"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9808,
+      "frame": 6,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 104,
+      "piece": 7,
+      "sha256": "a9600dcbe530186865ac01092c1526861160a6378f8fa07ef1cc7498363558eb",
+      "source_scale": 0.06666666666666667,
+      "state": "left-facing-third-stage-broader-branching-sweep"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9863,
+      "frame": 8,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 73,
+      "piece": 8,
+      "sha256": "646ff67b17f75509cea712beafe2c7c70137c23058b5c41209eac2d11f2e55bb",
+      "source_scale": 0.04716981132075472,
+      "state": "open-curled-settle-retract-form-with-raised-loop-and-attached-am"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9859,
+      "frame": 9,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 71,
+      "piece": 9,
+      "sha256": "f51521e124ac80d9e3cba5dc414a312e3e12a048a47ccec4eb992e83002a74c6",
+      "source_scale": 0.05235602094240838,
+      "state": "mid-curl-retract-loop-tightens-and-body-draws-inward"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9574,
+      "frame": 10,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 94,
+      "piece": 10,
+      "sha256": "b5ceb33fe15daa01fbfb5e462e667c09b89e0b0a16c777536367f8c8cade606f",
+      "source_scale": 0.07142857142857142,
+      "state": "compacting-root-cluster-shorter-reaching-tendrils"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9873,
+      "frame": 11,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 79,
+      "piece": 11,
+      "sha256": "263cfcb6d47a0f651f9c5e92138c2ac4fef20ce7d6385ac67efc207ecff8bc21",
+      "source_scale": 0.07352941176470588,
+      "state": "final-compact-root-knot-amber-bud-remains-attached"
+    },
+    "v2/proposal-00.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9726,
+      "frame": 0,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 73,
+      "piece": 0,
+      "sha256": "4855a09b7fb978a16811ea3db0145e7d8515d49fff27095b39ec7c459b7bb541",
+      "source_scale": 0.06666666666666667,
+      "state": "right-facing-first-sprout-compact-coiled-base-one-lead-bud-small"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.975,
+      "frame": 1,
+      "half_cell_coverage": 8,
+      "opaque_pixels": 120,
+      "piece": 1,
+      "sha256": "b82a8672c5cdf6654cf0b0198af8305a75c4fd2a98bb145f5bb1edf5498c0214",
+      "source_scale": 0.07246376811594203,
+      "state": "right-facing-early-extension-two-airy-tendrils-and-forward-bud"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 92,
+      "piece": 2,
+      "sha256": "08a66ac5fc6e62a290f0457326931abd85cf334c273565ca62f86697c773167b",
+      "source_scale": 0.057803468208092484,
+      "state": "right-facing-broad-sweep-longer-branches-clearly-forward-lead-bu"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 83,
+      "piece": 3,
+      "sha256": "875baf341a0f00deb5227ab374bce1ca57841354d416b69f68bc9566741b0463",
+      "source_scale": 0.04854368932038835,
+      "state": "right-facing-peak-broadest-advance-with-lifted-branches-and-the-"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9897,
+      "frame": 7,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 97,
+      "piece": 4,
+      "sha256": "2dce95e2cb88a3b80902c7c6276647697138a60a4d488bd3d23a221b103a3d6b",
+      "source_scale": 0.05649717514124294,
+      "state": "left-facing-peak-longest-silhouette-in-the-reverse-direction"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9759,
+      "frame": 4,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 83,
+      "piece": 5,
+      "sha256": "471041fc81ac406222aa3805729dd36c1c5441473c819f8f0e95df25b212110c",
+      "source_scale": 0.07936507936507936,
+      "state": "left-facing-first-advance-small-mirrored-silhouette-with-bud-lea"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9741,
+      "frame": 5,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 116,
+      "piece": 6,
+      "sha256": "65861164b3a9d4d3e698d226fd227801f5ce536fff8958c30828c2d61205aa8a",
+      "source_scale": 0.07518796992481203,
+      "state": "left-facing-second-stage-short-spread-with-lifted-bumper"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9808,
+      "frame": 6,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 104,
+      "piece": 7,
+      "sha256": "a9600dcbe530186865ac01092c1526861160a6378f8fa07ef1cc7498363558eb",
+      "source_scale": 0.06666666666666667,
+      "state": "left-facing-third-stage-broader-branching-sweep"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9863,
+      "frame": 8,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 73,
+      "piece": 8,
+      "sha256": "646ff67b17f75509cea712beafe2c7c70137c23058b5c41209eac2d11f2e55bb",
+      "source_scale": 0.04716981132075472,
+      "state": "open-curled-settle-retract-form-with-raised-loop-and-attached-am"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9859,
+      "frame": 9,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 71,
+      "piece": 9,
+      "sha256": "f51521e124ac80d9e3cba5dc414a312e3e12a048a47ccec4eb992e83002a74c6",
+      "source_scale": 0.05235602094240838,
+      "state": "mid-curl-retract-loop-tightens-and-body-draws-inward"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9574,
+      "frame": 10,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 94,
+      "piece": 10,
+      "sha256": "b5ceb33fe15daa01fbfb5e462e667c09b89e0b0a16c777536367f8c8cade606f",
+      "source_scale": 0.07142857142857142,
+      "state": "compacting-root-cluster-shorter-reaching-tendrils"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        92,
+        5
+      ],
+      "approved": true,
+      "canvas_wh": [
+        184,
+        11
+      ],
+      "colour_agreement": 0.9873,
+      "frame": 11,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 79,
+      "piece": 11,
+      "sha256": "263cfcb6d47a0f651f9c5e92138c2ac4fef20ce7d6385ac67efc207ecff8bc21",
+      "source_scale": 0.07352941176470588,
+      "state": "final-compact-root-knot-amber-bud-remains-attached"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": false,
+  "slot": "mossbell.root",
+  "source_path": "/work/artifacts/art-prod/slots/mossbell.root/v01/source-sheet.png",
+  "source_sha256": "f9168b1e313409edb483aa11b9ecd43926f01412623476b2150171bf70043a14",
+  "tool_version": 2
+}

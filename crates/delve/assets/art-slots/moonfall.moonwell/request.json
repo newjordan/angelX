@@ -1,0 +1,38 @@
+{
+  "fit": "native canvas 40x44, anchor bottom-centre (20,44); stage 384x224 at 16 px per tile; a knight is 16x24 in this town; the Moonwell is about 2.5 knights wide.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0"
+      ],
+      "source_pose_count": 1,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "oiled-0",
+        "oiled-1"
+      ],
+      "source_pose_count": 2,
+      "state": "oiled"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "The rules use a 32x24 box centred on the well point; art never sets a hitbox.",
+  "id": "moonfall.moonwell",
+  "role": "prop",
+  "timing": "idle 12 ticks; oiled 2x10; lit 4x6 (30 Hz). Art never sets a hitbox (rules use a 32x24 box)."
+}

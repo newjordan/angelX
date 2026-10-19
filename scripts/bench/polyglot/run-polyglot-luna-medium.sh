@@ -8,8 +8,8 @@
 # token/cache numbers come from angel.usage (Responses usage), not proxy traces.
 set -euo pipefail
 
-RR=/home/frosty40/angel_tests/angelX-bench/polyglot-20260921
-WS=/home/frosty40/angelX
+RR=~/angel_tests/angelX-bench/polyglot-20260921
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 CODEX_HOME_PIN=$RR/codex-home-luna
 CFG=$RR/configs/luna-medium.toml
 ANGEL_ROUTE=luna-direct
@@ -114,7 +114,7 @@ if "LUNA_CODEX_HOME" not in text:
                     "ANGEL_REASONING_EFFORT": os.environ.get("LUNA_EFFORT", "medium"),
                     "CODEX_HOME": os.environ.get(
                         "LUNA_CODEX_HOME",
-                        "/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/codex-home-luna",
+                        "~/angel_tests/angelX-bench/polyglot-20260921/codex-home-luna",
                     ),
                     "ANGEL_HTTP_TIMEOUT": "180",
                     "ANGEL_HTTP_RETRIES": "1",
@@ -179,7 +179,7 @@ printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/luna-angelx-current-run.txt"
 
 echo "cell model=$LUNA_MODEL effort=$LUNA_EFFORT harness=angelx seed=$SEED n=$N wall=${WALL_SECS}s bin=$ANGEL_BIN out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=/home/frosty40 USER=frosty40 LOGNAME=frosty40 LANG=C.UTF-8 TERM=dumb \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb \
   PATH="$AGENT_PATH:$RR/prime_v1/.venv/bin" \
   OPENAI_API_KEY="$KEY_VALUE" \
   LUNA_MODEL="$LUNA_MODEL" \
@@ -187,7 +187,7 @@ exec env -i \
   LUNA_CODEX_HOME="$CODEX_HOME_PIN" \
   PRIME_AGENT_ISOLATION=fresh-home \
   PRIME_AGENT_PATH="$AGENT_PATH" \
-  PRIME_REAL_HOME=/home/frosty40 \
+  PRIME_REAL_HOME=~ \
   PRIME_AGENT_WALL_SECS=$WALL_SECS \
   PRIME_AGENT_GRADE_ANY_EXIT=1 \
   "$RR/prime_v1/.venv/bin/eval" angel-action-v1 @ "$CFG" \

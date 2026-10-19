@@ -1,0 +1,331 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    32
+  ],
+  "anchor_xy": [
+    8.0,
+    16.0
+  ],
+  "comments": [
+    "Exact native BOX conversion; binary alpha 128; existing shared palette.",
+    "First six states active; worn alternatives retained as proposals. Fixed shared centre/scale across all states."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "mapping_basis": "ART-18 accepted source; measured reading order reviewed against notes",
+  "notes_sha256": "d08299f657921dd6259dbcfdef752c772f788930451a8011b31775ab9cf678c2",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-closed",
+      "name": "west-closed",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        71.5,
+        165.5
+      ],
+      "source_rect_xywh": [
+        77,
+        57,
+        143,
+        331
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-open",
+      "name": "west-open",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        69.5,
+        165.5
+      ],
+      "source_rect_xywh": [
+        390,
+        57,
+        139,
+        331
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-locked",
+      "name": "west-locked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        72.0,
+        165.5
+      ],
+      "source_rect_xywh": [
+        709,
+        57,
+        144,
+        331
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-closed",
+      "name": "east-closed",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        72.0,
+        166.0
+      ],
+      "source_rect_xywh": [
+        1034,
+        57,
+        144,
+        332
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-open",
+      "name": "east-open",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        71.0,
+        167.5
+      ],
+      "source_rect_xywh": [
+        94,
+        452,
+        142,
+        335
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-locked",
+      "name": "east-locked",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        72.5,
+        167.5
+      ],
+      "source_rect_xywh": [
+        403,
+        452,
+        145,
+        335
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-closed-worn",
+      "name": "west-closed-worn",
+      "piece": 6,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        72.0,
+        168.0
+      ],
+      "source_rect_xywh": [
+        707,
+        452,
+        144,
+        336
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-open-worn",
+      "name": "west-open-worn",
+      "piece": 7,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        69.5,
+        168.0
+      ],
+      "source_rect_xywh": [
+        1020,
+        452,
+        139,
+        336
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "west-locked-worn",
+      "name": "west-locked-worn",
+      "piece": 8,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        74.5,
+        167.5
+      ],
+      "source_rect_xywh": [
+        78,
+        849,
+        149,
+        335
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-closed-worn",
+      "name": "east-closed-worn",
+      "piece": 9,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        73.5,
+        168.5
+      ],
+      "source_rect_xywh": [
+        402,
+        847,
+        147,
+        337
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-open-worn",
+      "name": "east-open-worn",
+      "piece": 10,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        72.5,
+        169.0
+      ],
+      "source_rect_xywh": [
+        719,
+        845,
+        145,
+        338
+      ],
+      "state": "door"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.72,
+        "value": 0.8
+      },
+      "label": "east-locked-worn",
+      "name": "east-locked-worn",
+      "piece": 11,
+      "runtime": false,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        76.5,
+        169.5
+      ],
+      "source_rect_xywh": [
+        1028,
+        845,
+        153,
+        339
+      ],
+      "state": "door"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x32; v2 32x64",
+  "sizes": {
+    "v1": [
+      16,
+      32
+    ],
+    "v2": [
+      32,
+      64
+    ]
+  },
+  "slot": "dgn.sidedoor-fungal",
+  "source_sha256": "26e7376adfff793eba24228825926279afe133f7e63ba0d8d1bd4449ea9bb411",
+  "timing": "Static; existing room entry and door state only."
+}

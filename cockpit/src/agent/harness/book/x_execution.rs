@@ -150,7 +150,7 @@ pub(crate) const ERROR_NUDGE_HOPS: usize = 3;
 pub(crate) const ERROR_CASCADE_HOPS: usize = 6;
 
 /// Consecutive hops where every call failed at dispatch. The third in a row
-/// throws `⠭⠁`, once per streak; the sixth throws `⠼⠊` and starts the count
+/// throws `⠭⠁`, once per streak; the sixth throws `⠼⠓` and starts the count
 /// again, as the 0.1.6 error breaker did before its stop was taken away.
 #[derive(Default)]
 pub(crate) struct ErrorStreak {

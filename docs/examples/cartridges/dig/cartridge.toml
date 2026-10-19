@@ -1,0 +1,40 @@
+# DigUp (github.com/ARahim3/DigUp, MIT) as a tool cartridge: search chosen
+# folders by what their files show or say (pictures, PDFs, documents,
+# recordings, video, and code once a folder is added for it) with
+# EmbeddingGemma 2, on this machine. Plugged in, it costs nothing until used:
+# `/dig` carries the `dig` skill and drives DigUp's CLI, and `dig_search` sits
+# with the core coding tools. Both search an index built ahead of
+# time. ./install.sh plugs it in; removing ~/.angelX/cartridges/dig unplugs it.
+id = "dig"
+label = "DigUp"
+
+[[commands]]
+name = "dig"
+usage = "<what you're looking for, in your own words>"
+skills = ["dig"]
+
+[[tools]]
+name = "dig_search"
+description = "Find code in this repository by what it does: the file and line of the function or type that does what you describe, even when you don't know its name; exact names work too. Searches a local semantic index (DigUp). With `kinds`, it searches the indexed pictures, screenshots, PDFs, documents, recordings and video instead, by what they show or say."
+run = "bin/dig-search"
+# Beside grep in the core coding tools, not behind tool_search.
+core = true
+
+[tools.params]
+type = "object"
+required = ["query"]
+additionalProperties = false
+
+[tools.params.properties.query]
+type = "string"
+description = "What the code does, or a name in it"
+
+[tools.params.properties.kinds]
+type = "array"
+items = { type = "string", enum = ["screenshot", "image", "pdf", "doc", "audio", "video"] }
+description = "Search files of these kinds instead of code"
+
+[tools.params.properties.limit]
+type = "integer"
+minimum = 1
+maximum = 20

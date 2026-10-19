@@ -1,0 +1,334 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "6cd4283fe408dbc90eda5d67081017402fa4e38a7f34d2cb1b759e5e102b0208",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Chained basalt forge brazier, tall flame frame 1.",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.5,
+        387
+      ],
+      "source_rect_xywh": [
+        48,
+        59,
+        241,
+        387
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, flame frame 2; frames remain quite similar.",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        338
+      ],
+      "source_rect_xywh": [
+        361,
+        108,
+        242,
+        338
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, flame frame 3; slight flame variation.",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        358
+      ],
+      "source_rect_xywh": [
+        671,
+        88,
+        242,
+        358
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Small candle set into an iron floor lamp.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        111.0,
+        245
+      ],
+      "source_rect_xywh": [
+        975,
+        191,
+        222,
+        245
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Iron-bound wooden barrel with a red cloth panel; cloth is a warm accent outside the requested orange-only hot palette.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        117.5,
+        284
+      ],
+      "source_rect_xywh": [
+        49,
+        532,
+        235,
+        284
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Dragon skull and bone rubble with scattered coins.",
+      "name": "bones",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.0,
+        251
+      ],
+      "source_rect_xywh": [
+        341,
+        582,
+        318,
+        251
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Hanging chain and torn web; web has the clearest visible red fringe.",
+      "name": "web",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        108.5,
+        326
+      ],
+      "source_rect_xywh": [
+        686,
+        488,
+        217,
+        326
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Basalt anvil with hammer.",
+      "name": "prop-0",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        139.5,
+        280
+      ],
+      "source_rect_xywh": [
+        951,
+        541,
+        279,
+        280
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Scorched gold coin hoard with a small dragon ornament.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        157.0,
+        250
+      ],
+      "source_rect_xywh": [
+        22,
+        922,
+        314,
+        250
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Broad lava fissure through slate slabs.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.5,
+        243
+      ],
+      "source_rect_xywh": [
+        353,
+        922,
+        275,
+        243
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Separate lava fissure decal with a different branch pattern.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.5,
+        238
+      ],
+      "source_rect_xywh": [
+        669,
+        925,
+        259,
+        238
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.5
+      },
+      "label": "Orange-gold radial glow pool; soft, but broad and noisy at full sheet view.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        74.0,
+        74.0
+      ],
+      "source_rect_xywh": [
+        1026,
+        972,
+        148,
+        148
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.keep",
+  "source_sha256": "dee7d989107a030f9c7edc211cc3e13c977084c3940bd542df460e8211516972",
+  "timing": ""
+}

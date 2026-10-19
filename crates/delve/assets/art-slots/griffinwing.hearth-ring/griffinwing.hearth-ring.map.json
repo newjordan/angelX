@@ -1,0 +1,276 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    64
+  ],
+  "anchor_xy": [
+    32,
+    32
+  ],
+  "comments": [
+    "Each drawing is cut by its own components, so a neighbour's lantern tip never enters it. Pivot is the ring's centre, shared by all nine at one scale. The ring band's inner edge is about 116 source px in radius (measured on the native frames between the lanterns: a median of 16.0 to 17.4 dots, 16.8 on average): the stage scales that clear opening to the rules' radius of 2.2 units less a tenth.",
+    "Reviewed ink grade: the 184 dots of the one red ink (a8341f), a thin rim on the lit lanterns that is the delivery's red halo, map to the copper (924f1d) beside it; red is the realm's danger colour and gold is ours. No dot moves and no alpha changes."
+  ],
+  "delivered_pieces": 9,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 9,
+  "geometry": "A hearth ring flown through: the rules judge it at the sim radius of 2.2 units; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered sheet, 2026-10-19: a 3x3 grid in reading order, idle-0..3 (two neighbouring lanterns lit, clockwise from the top), taken-0 (all eight lit), taken-1 (ring shrunk, leaning flames), taken-2 (thin ring, eight flames outside), taken-3 (four crescent flame-sparks), taken-4 (three tiny sparks).",
+  "notes_sha256": "30f93e6be04e6efdab2ab2ee5f2252519f00763d361481cd063f74c067dcb340",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0",
+      "name": "idle-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        174.5,
+        209.5
+      ],
+      "source_rect_xywh": [
+        47,
+        18,
+        349,
+        419
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "idle-1",
+      "name": "idle-1",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        176.0,
+        204.5
+      ],
+      "source_rect_xywh": [
+        453,
+        25,
+        352,
+        409
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "idle-2",
+      "name": "idle-2",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        169.5,
+        203.5
+      ],
+      "source_rect_xywh": [
+        866,
+        24,
+        339,
+        407
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "idle-3",
+      "name": "idle-3",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        173.0,
+        196.0
+      ],
+      "source_rect_xywh": [
+        47,
+        458,
+        346,
+        392
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "taken-0",
+      "name": "taken-0",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        177.0,
+        204.5
+      ],
+      "source_rect_xywh": [
+        450,
+        446,
+        354,
+        409
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "taken-1",
+      "name": "taken-1",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        135.7,
+        164.1
+      ],
+      "source_rect_xywh": [
+        895,
+        499,
+        273,
+        318
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "taken-2",
+      "name": "taken-2",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        118.0,
+        146.6
+      ],
+      "source_rect_xywh": [
+        103,
+        900,
+        236,
+        272
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "taken-3",
+      "name": "taken-3",
+      "piece": 7,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        83.0,
+        95.0
+      ],
+      "source_rect_xywh": [
+        542,
+        946,
+        166,
+        190
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "taken-4",
+      "name": "taken-4",
+      "piece": 8,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        47.5,
+        52.0
+      ],
+      "source_rect_xywh": [
+        991,
+        997,
+        95,
+        104
+      ],
+      "state": "taken",
+      "ticks": 3
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 64x64, anchor centre of the ring (32,32); stage 384x224.",
+  "sizes": {
+    "v1": [
+      64,
+      64
+    ],
+    "v2": [
+      64,
+      64
+    ]
+  },
+  "slot": "griffinwing.hearth-ring",
+  "source_sha256": "7b324f5ea8c9c2e154b15c8b57a9d5865ee43d532b89ba0b64f04a4945b20b49",
+  "timing": "idle 4x8 ticks; taken 5x3 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

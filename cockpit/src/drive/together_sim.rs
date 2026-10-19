@@ -206,6 +206,12 @@ impl Shared {
     /// snapshot is stored under the run's lock, so snapshots are newest in
     /// the order the run changed.
     fn publish(&self, core: &mut Core) -> Arc<Snapshot> {
+        // A run no page could draw froze every seat at once on the play box
+        // (2026-10-17): it is mended before it goes out, never sent as it is.
+        if !angel_delve::wire::drawable(&core.run) {
+            let mended = core.run.mend();
+            tracing::warn!(?mended, "the run was not drawable; mended before publishing");
+        }
         let snapshot = Arc::new(Snapshot {
             run: core.run.clone(),
         });
@@ -247,15 +253,23 @@ pub(crate) struct DelveServer {
     /// Each knight whose seat nobody holds, not even for a resume: ticks
     /// so (`UNSEATED_LEAVE`).
     unseated: BTreeMap<u32, u32>,
-    /// The raid the party last asked to leave, told the host once.
-    again_for: Option<u64>,
+    /// The raid the party last asked to leave, and the server tick the host
+    /// was last told: told again every `AGAIN_RETELL` until it goes, so a
+    /// host busy settling the realm the first time still takes the party
+    /// home.
+    again_for: Option<(u64, u32)>,
 }
+
+/// Ticks between telling the host again that the party is due home.
+const AGAIN_RETELL: u32 = 2 * angel_delve::rules::HZ;
 
 /// A knight whose seat nobody holds (no player, nor a player's resume:
 /// knights a restarted host restored, whose players' seats went with the
-/// old server) leaves the party after this long: ten seconds. A seat given
+/// old server) leaves the party after this long: a minute and a half, for a
+/// friend on a slow line to load the page again and take their seat back by
+/// name (`Sessions::keep`). A seat given
 /// up while this server runs leaves at once (`DelveServer::leave`).
-const UNSEATED_LEAVE: u32 = 10 * shooter::HZ;
+const UNSEATED_LEAVE: u32 = 90 * shooter::HZ;
 
 /// The party came into a room at tick `tick`: it holds until every player
 /// here has applied that tick, or until tick `until`.
@@ -424,6 +438,11 @@ impl DocView for SeatView {
     fn view<'a>(&self, tree: &'a Value, seat: Option<u32>) -> Cow<'a, Value> {
         wire::seat_tree(tree, seat)
     }
+
+    /// The kingdom's chunks a few a snapshot (`wire::pace`).
+    fn pace<'a>(&self, view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
+        wire::pace(view, held)
+    }
 }
 
 /// An event for the clients: one knight's to that seat alone, anything
@@ -507,6 +526,10 @@ impl GameServer for DelveServer {
         });
     }
 
+    fn input_age(&mut self, seat: u32, ticks: u64) {
+        lock(&self.shared.core).run.latch_input_age.insert(wire::knight_of(seat), ticks);
+    }
+
     fn presence(&mut self, _tick: u32, seats: &[Presence]) {
         self.here.clear();
         self.here.extend_from_slice(seats);
@@ -559,20 +582,22 @@ impl GameServer for DelveServer {
         let run = &mut core.run;
         // Back to the kingdom once the run is over (`rules::again`): any
         // player here asks; the party goes when every one has, or when the
-        // wait runs out, and the host is told once.
+        // wait runs out, and the host is told until it goes.
         for (&knight, input) in &inputs {
             if input.valid() && input.again {
                 run.ask_again(knight);
             }
         }
-        if run.again_due() && self.again_for != Some(run.raid_id) {
-            self.again_for = Some(run.raid_id);
+        if run.again_due()
+            && self.again_for.is_none_or(|(raid, at)| raid != run.raid_id || tick.wrapping_sub(at) >= AGAIN_RETELL)
+        {
+            self.again_for = Some((run.raid_id, tick));
             news.push(News::Again);
         }
         // What the tick said: cues for the host's chorus, sounds for every
         // seat in the party's room, the feel ledger's lines.
         news.extend(std::mem::take(&mut run.cues).into_iter().map(News::Cue));
-        for event in wire::take_sounds(run) {
+        for event in wire::take_sounds(run).into_iter().chain(wire::take_notices(run)) {
             send(events, &event);
         }
         let feel = std::mem::take(&mut run.feel.lines);
@@ -967,6 +992,18 @@ impl Live {
         let mut config = door.config();
         config.tune_file = lock(&shared.tune_file).clone();
         config.dev = dev_mode();
+        // A restored run's knights keep their seats for their players, who
+        // come only through a hosted door: a solo door's seats are this
+        // terminal's own, and its couch partner takes knight 2's.
+        if hosted {
+            config.names = lock(&shared.core)
+                .run
+                .players
+                .iter()
+                .filter(|&(&knight, _)| knight != 1)
+                .filter_map(|(&knight, hero)| wire::seat_of(knight).map(|seat| (seat, hero.name.clone())))
+                .collect();
+        }
         let started = if thread {
             Server::start(game, config).map(|server| (server, None))
         } else {

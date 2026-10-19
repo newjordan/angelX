@@ -1,0 +1,101 @@
+{
+  "anchor_canvas_wh": [
+    144,
+    60
+  ],
+  "anchor_xy": [
+    72,
+    60
+  ],
+  "comments": [
+    "Registered as one bank on the footing line (the crop bottom); the pivot x is the centre of the footing stones. The painted hall is width-limited: 144 px wide and about 42 px tall on a 60 px canvas."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. The three drawings are stacked, top to bottom: day-0, night-0 (shuttered windows), lit-0 (amber windows, ajar door). The crops are tight and separated by empty rows (checked against the sheet's alpha).",
+  "notes_sha256": "58d5b7dfa5cd79f2529425c334af5a8225deacabea79c3618027f72972d111f7",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: plain pale blue-grey glass, door shut, lantern dark.",
+      "name": "day-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        523.5,
+        310
+      ],
+      "source_rect_xywh": [
+        244,
+        14,
+        1047,
+        310
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: dark indigo glass, ground-floor windows shuttered, door shut, lantern dark.",
+      "name": "night-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        523.5,
+        310
+      ],
+      "source_rect_xywh": [
+        244,
+        352,
+        1047,
+        310
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber windows, door ajar with an amber slice, amber lantern.",
+      "name": "lit-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        523.5,
+        311
+      ],
+      "source_rect_xywh": [
+        244,
+        685,
+        1047,
+        311
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 144x60, anchor bottom-centre (72,60); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; the inn is 9 tiles wide.",
+  "sizes": {
+    "v1": [
+      144,
+      60
+    ],
+    "v2": [
+      144,
+      60
+    ]
+  },
+  "slot": "moonfall.inn",
+  "source_sha256": "d37799d3f393b5fa257332ce71bff54f6f5af8594035cbb49eba39fed2a7375f",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

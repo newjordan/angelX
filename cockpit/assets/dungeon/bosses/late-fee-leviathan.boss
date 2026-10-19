@@ -5,36 +5,37 @@ where archive
 hp 860
 size 1.7
 move chase speed=1.1
-attack ravage shots=5 arc=50 speed=8 every=210 damage=16
-attack aimed shots=2 speed=7 every=45 damage=12 shot=orb
 attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=bone
-phases weave curve laser every=72 volleys=2 damage=12
+attack ravage shots=4 arc=50 speed=8 every=240 damage=16 from=middle
+attack aimed shots=2 speed=7 every=50 damage=12 shot=orb from=rage
+phases weave curve laser every=100 volleys=2 damage=12
+windup charge every=220 damage=16 speed=30 cry=OVERDUE
 rage 35%
 drops gem 4, bone 4, gold 260
 art
-............qQQq................
-..........qQQzzQQq..............
-......DDDDqQQQQQQqDDDD..........
-....DDeeeeeeeeeeeeeeeeDD........
-...DeeVeeCeeeeeeeeCeeVeeD.......
-..DeeeC55CeeeeeeeeC55CeeeD......
-..DeeeeCCeeeeeeeeeeCCeeeeD......
-..DeekkkkkkkkkkkkkkkkkkkeD......
-..DeekHkHkkkkkkkkkkkHkHkeD......
-..DeekkkkkkkkkkkkkkkkkkkeD...hh.
-..DeeHkHkHkHkHkHkHkHkHkHeD..h..h
-.DDeeeeeeeeeeeeeeeeeeeeeeDD.h..h
-DeeeCeeeUUUUUUUUUUUeeeCeeeD..hh.
-DeeCeeeUUvvvvvvvvvUUeeeCeeDJJJJJ
-DeCeeDeUvvVvvvvvVvvvUeDeeCeeJh..
-DeeeDDeUvvvvvvvvvvvvUeDDeCCCJh..
-DeeDf.DUvvvvVvvvvvvvUD.DeCCCJh..
-DeCD..DeUvvvvvvvvvVUeD..DeeeJh..
-DCCeD.DeeUUvvvvvvUUeeD...DD.Jh..
-DCCCD..DeeeUUUUUUeeeD.......Jh..
-.DDD...DeeeeeeeeeeeeD...J...Jh.J
-.......DeeeD..DeeeeD....J..JJh.J
-......DeeeeD..DeeeeeD....J.Jh.J.
-...qQ.DDDDD.qQ.DDDDDQq....JJhJJ.
-..qQzQq...qQzQq..qQzQq.....JJJ..
-.qQ..Qzq.qQ..QqqQq..Qzq.........
+............SUUS................
+..........ooSUUSoo..............
+......TTTTTTSSSSTTTTTT..........
+....TTHHHHTTTTTTTTHHHHTT........
+...TTTHHHTTTTTTTTTTHHHTTo.......
+..TooTTTTTTTTTTTTTTTTTTToo......
+..ToottttttttttttttttttToo......
+..Toohhhnnnnnnnnnnnnhhhnoo......
+..Toohhhnnnnnnnnnnnnhhhnoo......
+..Toonhnnnnnnnnnnnnnnhnnoo...TT.
+..Toonhnnnnnnnnnnnnnnhnnoo..T..o
+.TToooooooooooooooooooooSoo.T..o
+oSSoonnnnnnnnnnnnnnnnnnnStt..tt.
+oUSSSnnnhnnnnnnhnnnnnnhnSUoooTTT
+oUUUUnnhhhnnnnhhhnnnnhhhUUUooT..
+oSSUttttttttttttttttttttUUUooT..
+oSUUU.SssSOOUUUUUOOOOS.UUUUooT..
+oSSU..SssSOOOOUOOOOOSS..SSSooT..
+oSSSS.SsssOOOOOOOOOOSS...oo.oT..
+oooSS..SsssSSOOOOOSSS.......oT..
+.ooo...SUSSSSSSOSSUSS...o...oT.t
+.......SUSSS..SSSSUS....o..toT.t
+......SUSSSS..SSSSSSS....o.to.t.
+...UU.SUSSS.UU.ooSSSSS....ttttt.
+..SSSSS...SSSUU..UUUUS.....ttt..
+.SS..SSS.SS..SSSSS..UUU.........

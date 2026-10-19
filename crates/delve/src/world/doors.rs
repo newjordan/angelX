@@ -74,9 +74,7 @@ fn title_case(text: &str) -> String {
 
 /// Every door in the realm, with the tile in front of it. A door no road
 /// reaches opens from the walkable ground across from what stands behind
-/// it: the Delve's gate is in a pocket of rock and stream (the knight, with
-/// no road there, walks straight in), so the visitor goes in from the bank
-/// across the stream.
+/// it, nearest and level with it.
 pub fn doors() -> &'static [((i32, i32), Door)] {
     static DOORS: OnceLock<Vec<((i32, i32), Door)>> = OnceLock::new();
     DOORS.get_or_init(|| {

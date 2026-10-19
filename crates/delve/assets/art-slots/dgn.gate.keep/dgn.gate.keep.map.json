@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "58cbd6d6e4c1044568f5abcda828e3c6b0939957a13ab8751cf1127c6e227859",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door barred, basalt arch with iron bars.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        297
+      ],
+      "source_rect_xywh": [
+        37,
+        124,
+        266,
+        297
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door open, dark lit passage.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        300
+      ],
+      "source_rect_xywh": [
+        353,
+        123,
+        267,
+        300
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door half-open, raised bar panel.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        299
+      ],
+      "source_rect_xywh": [
+        663,
+        124,
+        267,
+        299
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-facing side door barred.",
+      "name": "side-left-barred",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.0,
+        295
+      ],
+      "source_rect_xywh": [
+        974,
+        134,
+        246,
+        295
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-facing side door open.",
+      "name": "side-left-open",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        296
+      ],
+      "source_rect_xywh": [
+        30,
+        498,
+        249,
+        296
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-facing side door barred.",
+      "name": "side-right-barred",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.0,
+        298
+      ],
+      "source_rect_xywh": [
+        344,
+        498,
+        250,
+        298
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-facing side door open.",
+      "name": "side-right-open",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.5,
+        299
+      ],
+      "source_rect_xywh": [
+        672,
+        499,
+        253,
+        299
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down.",
+      "name": "stairs-down",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        294
+      ],
+      "source_rect_xywh": [
+        962,
+        506,
+        265,
+        294
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs up.",
+      "name": "stairs-up",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        297
+      ],
+      "source_rect_xywh": [
+        27,
+        860,
+        265,
+        297
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Larger ornate barred boss door.",
+      "name": "boss",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        170.0,
+        320
+      ],
+      "source_rect_xywh": [
+        324,
+        839,
+        340,
+        320
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Empty treasure alcove with scattered coins.",
+      "name": "alcove",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        118.5,
+        265
+      ],
+      "source_rect_xywh": [
+        701,
+        867,
+        237,
+        265
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Locked-seal ember marker.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        102.0,
+        208
+      ],
+      "source_rect_xywh": [
+        998,
+        910,
+        204,
+        208
+      ],
+      "state": "gate"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.gate.keep",
+  "source_sha256": "69f7caeac1d59268b5d331f27cd2beba1e755421835c180066910cb9ca297728",
+  "timing": ""
+}

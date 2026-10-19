@@ -447,7 +447,7 @@ pub fn scenery(run: &Run) -> Img {
             let (x, y) = (6 * TILE, 2 * TILE);
             super::super::chrome::inset_panel(&mut cv, (x, y, 12 * TILE, 2 * TILE), super::super::chrome::Tone::CHALK);
             cv.text(x + 12, y + 7, "q -> test -> claim", 'C');
-            cv.text(x + 12, y + 19, "x + y = ?", 'Y');
+            cv.text(x + 12, y + 19, "x + y = ?", 'y');
             for &(x, y, w, h) in c::blocks(kind).iter().skip(1) {
                 table(
                     &mut cv,
@@ -1041,14 +1041,14 @@ pub fn dialogue(cv: &mut Img, run: &Run) {
             }
         }
     }
-    cv.text(16, y + 9, title, 'H');
+    cv.text(16, y + 9, title, 'i');
     for (i, (s, selected)) in rows.into_iter().enumerate() {
         let yy = y + 26 + i as i32 * 12;
         if selected {
             super::super::chrome::highlight(cv, (71, yy - 2, cv.w - 87, 11));
-            cv.text(73, yy, ">", 'T');
+            cv.text(73, yy, ">", 'O');
         }
-        cv.text(83, yy, &s, if selected { 'T' } else { 'i' });
+        cv.text(83, yy, &s, if selected { 'O' } else { 'i' });
     }
     cv.text(16, y + h - 15, hint, 'O');
 }

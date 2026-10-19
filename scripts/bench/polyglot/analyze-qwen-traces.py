@@ -119,7 +119,7 @@ def read_cohort(paths):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921"))
+    parser.add_argument("--root", type=Path, default=Path("~/angel_tests/angelX-bench/polyglot-20260921").expanduser())
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     cohorts = {"angel-original": "runs-qwen/qwen/angelx", "angel-compact": "runs-compact-full/qwen/angelx",

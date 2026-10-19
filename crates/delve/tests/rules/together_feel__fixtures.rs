@@ -7,6 +7,7 @@ use crate::render::overworld::Img;
 pub fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     let room = fight_room(&run);
+    run.open_room_for_test(room);
     run.enter_for_test(room);
     run.calm_for_test();
     run.enemies.clear();

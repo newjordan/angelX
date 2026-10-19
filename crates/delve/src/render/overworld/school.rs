@@ -57,7 +57,7 @@ fn sign(text: &str) -> Img {
         (0, 0, w, 11),
         super::chrome::Tone::NIGHT_SIGN.rimmed(super::chrome::rim_of('P')),
     );
-    image.text(3, 2, text, 'H');
+    image.text(3, 2, text, 'i');
     image
 }
 
@@ -364,7 +364,7 @@ pub(super) fn render_room(
     bookcase(&mut image, rw - shelf_w - 18, 30, shelf_w, snapshot.checks);
     stair(&mut image, 15, rh - 61, !vault);
     if rw >= 160 {
-        image.text(13, rh - 26, if vault { "UP" } else { "DOWN" }, 'H');
+        image.text(13, rh - 26, if vault { "UP" } else { "DOWN" }, 'i');
     }
     let (cx, cy) = (rw / 2 + 5, (rh / 2 + 6).max(64));
     if vault {

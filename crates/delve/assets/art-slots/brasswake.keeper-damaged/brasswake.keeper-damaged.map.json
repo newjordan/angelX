@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    80
+  ],
+  "anchor_xy": [
+    40,
+    80
+  ],
+  "comments": [
+    "All twelve measured rectangles retained. Stage 2 rush actions are absent; base bank remains fallback. Source delivery was pre-enlarged by producer; integration BOX samples below original generation grain.",
+    "Feet registration uses the full bottom edge; separate steam stays source art, no new effects or events.",
+    "DAMAGE-1 activates recovery A/B, strong hit recoil and both collapse poses; missing severe rush actions retain the base bank."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 12,
+  "geometry": "Foe::danger: rush 96\u00d720 spanning x to x+dir\u00d796,y\u221210; slam 48\u00d728 at (x+dir\u00d728\u221224,y\u221214). Lane::step_at clips to wave boundaries. Hits test knight feet; art must not enlarge these marks.",
+  "mapping_basis": "POLISH-B visual mapping of all twelve isolated pieces; reading order confirmed against damage-state notes.",
+  "notes_sha256": "fafd059bd8872a4ec2f6f359a5718d6704352ead9c4fb4c7d833cf50b46d0436",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Windup A, stage 2: leans back and raises one cup-gauntlet.",
+      "name": "stage-1-slam-tell",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        145.5,
+        371
+      ],
+      "source_rect_xywh": [
+        72,
+        124,
+        291,
+        371
+      ],
+      "state": "stage-1-slam-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Attack A, stage 2: lunges right with one cup-gauntlet extended.",
+      "name": "stage-1-slam",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        185.5,
+        296
+      ],
+      "source_rect_xywh": [
+        424,
+        198,
+        371,
+        296
+      ],
+      "state": "stage-1-slam"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Recovery A, stage 2: settles upright with arms lowered.",
+      "name": "stage-1-recover",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.0,
+        319
+      ],
+      "source_rect_xywh": [
+        824,
+        175,
+        304,
+        319
+      ],
+      "state": "stage-1-recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Windup B, stage 2: crouches with both arms drawn back.",
+      "name": "stage-1-rush-tell",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.5,
+        286
+      ],
+      "source_rect_xywh": [
+        1183,
+        206,
+        313,
+        286
+      ],
+      "state": "stage-1-rush-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Attack B, stage 2: low forward sweep with steam venting.",
+      "name": "stage-1-rush",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        185.5,
+        290
+      ],
+      "source_rect_xywh": [
+        38,
+        665,
+        371,
+        290
+      ],
+      "state": "stage-1-rush"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Recovery B, stage 2: rocks upright with a leaking seam.",
+      "name": "stage-1-rush-recover",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.0,
+        324
+      ],
+      "source_rect_xywh": [
+        473,
+        631,
+        274,
+        324
+      ],
+      "state": "stage-1-rush-recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle, stage 3: heavily slumped, damaged lens and missing shell panel.",
+      "name": "stage-2-idle",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.5,
+        305
+      ],
+      "source_rect_xywh": [
+        835,
+        654,
+        305,
+        305
+      ],
+      "state": "stage-2-idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Windup A, stage 3: raises one arm, shell visibly cracked.",
+      "name": "stage-2-slam-tell",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        378
+      ],
+      "source_rect_xywh": [
+        1226,
+        581,
+        273,
+        378
+      ],
+      "state": "stage-2-slam-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Attack A, stage 3: forward thrust with severe damage and loose rivets.",
+      "name": "stage-2-slam",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        179.5,
+        342
+      ],
+      "source_rect_xywh": [
+        48,
+        1067,
+        359,
+        342
+      ],
+      "state": "stage-2-slam"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Strong flinch: recoils with arms splayed and small loose parts.",
+      "name": "strong-flinch",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        173.5,
+        340
+      ],
+      "source_rect_xywh": [
+        448,
+        1066,
+        347,
+        340
+      ],
+      "state": "strong-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Comic defeat, frame 1: buckles and tips forward with arms flailing.",
+      "name": "defeat-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.5,
+        287
+      ],
+      "source_rect_xywh": [
+        830,
+        1122,
+        319,
+        287
+      ],
+      "state": "defeat-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Comic defeat, frame 2: lies collapsed on its side.",
+      "name": "defeat-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.5,
+        236
+      ],
+      "source_rect_xywh": [
+        1171,
+        1180,
+        329,
+        236
+      ],
+      "state": "defeat-2"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "80\u00d780, feet at (40,80), display 3/2",
+  "sizes": {
+    "v1": [
+      80,
+      80
+    ],
+    "v2": [
+      80,
+      80
+    ]
+  },
+  "slot": "brasswake.keeper-damaged",
+  "source_sha256": "57176925f4773b03fb0c383f3e7a6e9642eb43156462952d67f5ec7c8ae33165",
+  "timing": "Twelve source poses; walk 2 frames at 7 ticks each. Tell=max(brass_tell\u22123\u00d7stage,23)=27/24/23; action=9; rest=42/35/28. Flinch=10 after punch. Stage thresholds hp<=21 and <=10 from full 32. Recover file loaded but Rest selects idle/damage, not recover (Foe::stage/step, draw())."
+}

@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -11,8 +11,12 @@ publish = false
 autotests = false
 
 [features]
-default = ["scryglass-video"]
+default = ["scryglass-video", "glass"]
 scryglass-video = ["dotmax/video"]
+# angelX's own window: `ANGEL_GLASS=1` opens the cockpit in a GPU window
+# instead of the terminal (docs/RENDER_FOUNDATION.md). The launcher sets it on
+# any desktop; `--no-default-features` leaves the window out.
+glass = ["dep:angel-glass"]
 
 [[bin]]
 name = "angel"
@@ -25,6 +29,12 @@ path = "src/main.rs"
 [[bin]]
 name = "angel-sandbox"
 path = "src/sandbox_main.rs"
+
+# The gold coin's isolated visual verifier draws in the window, so it only
+# builds where the window does.
+[[example]]
+name = "spend_coin_preview"
+required-features = ["glass"]
 
 # Ship-speed profile: thin LTO + one codegen unit buys cross-crate inlining
 # (serde_json/ureq/ratatui hot paths) for a modest compile-time cost; fat LTO
@@ -39,9 +49,15 @@ strip = "symbols"
 angel-net = { path = "../crates/net" }
 # The Delve: its rules, renderer and world (docs/ENGINE.md).
 angel-delve = { path = "../crates/delve" }
+# The marks a picture cell carries, the same table the window reads.
+angel-stage = { path = "../crates/stage" }
 # The engine's server, which hosts the Delve, and the native client a
 # friend's angelX joins with (`tls`: through Funnel or a relay).
 angel-serve = { path = "../crates/serve", features = ["tls"] }
+# The Round Table: the host-arbitrated work board's rules and client.
+angel-table = { path = "../crates/table" }
+# The GPU window: a ratatui backend, its compositor and its input.
+angel-glass = { path = "../crates/glass", optional = true }
 # Keep the terminal UI family on one Ratatui generation. The vendored dotmax
 # manifest carries the same compatibility pin.
 # unstable-rendered-line-info exposes Paragraph::line_count for wrap-aware scroll.

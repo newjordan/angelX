@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "45318fd4cf200d4eab1a0c2c846716da929478d3a66acfe0a9354bacfadd4609",
+  "metadata_sha256": "f7b35e2aaa485bf0c563df7db349c7071e952e8a8ed97efda6ab2a105d4b7804",
+  "notes_sha256": "34935c6a04f79ef825c9be86ab5ffa66fd8df0a411e958221c27a485b930d688",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "4e51b697563d0a9bd6f86522bab406fe34b4af2d6429231c87d0e53155c8c0ee",
+      "source_scale": 0.23382045929018788,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        384,
+        224
+      ],
+      "approved": true,
+      "canvas_wh": [
+        768,
+        448
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 21504,
+      "opaque_pixels": 344064,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "502dea4ed796530b56395e33603c9510f1212f07b215447a297b6eb74ee4724f",
+      "source_scale": 0.46764091858037576,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "mossbell.entrance",
+  "source_path": "/work/tmp/int-4-prepared/mossbell.entrance/source-sheet.png",
+  "source_sha256": "001d9ff36fc749363dd5b3cd078de179a3b58cc251b5dd869038426c90ace101",
+  "tool_version": 2
+}

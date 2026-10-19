@@ -127,7 +127,8 @@ fn art_dispatch_and_special_body_fallbacks_keep_their_contract() {
     assert!(!knight_supported(&r, &r.players[&1], 1));
     r.players.get_mut(&1).unwrap().stone = false;
     r.dungeon.pack = Pack::Cavern;
-    assert_eq!(
+    assert!(supported(&r), "delivered dungeon kit covers the Mines");
+    assert_ne!(
         frame(&r, 768, 448, Some(1)),
         super::super::frame_v1(&r, 768, 448, Some(1))
     );
@@ -360,4 +361,21 @@ fn approved_creature_sample_pixels_stay_exact() {
     for (name,hash) in expected {
         assert_eq!(figures::foe_sprite(&name).content_hash(),hash,"approved {name} sample");
     }
+}
+
+#[test]
+fn chief_original_and_current_use_the_same_cavern_scenery() {
+    let chief = boss("iron-tusk-chief");
+    assert_eq!(chief.dungeon.pack, Pack::Cavern);
+    assert!(super::cavern_chief_room(&chief));
+    let mut old = chief.clone();
+    let index = old.enemies[0].boss.unwrap() as usize;
+    old.bosses[index].id = "old-sprite-review".into();
+    assert!(supported(&old));
+    assert!(super::cavern_chief_room(&old));
+    let current = super::scenery(&chief, (0, 0));
+    let original = super::scenery(&old, (0, 0));
+    assert_eq!(current.canvas.px, original.canvas.px);
+    assert_eq!(current.canvas.ground, original.canvas.ground);
+    assert!(!super::cavern_chief_room(&boss("crypt-tax-keeper")));
 }

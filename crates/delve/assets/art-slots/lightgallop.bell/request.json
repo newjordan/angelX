@@ -1,0 +1,31 @@
+{
+  "fit": "native canvas 48x72, anchor bottom-centre (24,72); stage 384x224; the bronze bell on its timber yoke.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "rest-0"
+      ],
+      "source_pose_count": 1,
+      "state": "rest"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "ring-0",
+        "ring-1",
+        "ring-2",
+        "ring-3",
+        "ring-4",
+        "ring-5"
+      ],
+      "source_pose_count": 6,
+      "state": "ring"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.bell",
+  "role": "prop",
+  "timing": "rest 1 ticks; ring 6x4 ticks (30 Hz). Art never sets a hitbox."
+}

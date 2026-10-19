@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.inn/v01",
+  "delivery_status": "Accepted by the wave-2 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): long hall with a crescent-and-mug sign, width-limited so it is lower than its footprint, the door small beside a knight; transparent background, three drawings stacked top to bottom.",
+  "generation_sha256": "a24ee18a93aea7de1d4123e74ead175cbf7fd6335ab79e6abd57e26a1e30aa70",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "2b70013ce6b2a45135bed1dfabd2696c813c49b498353a5a2286654dce4c3de2",
+  "native_contract": "Native 144x60, anchor bottom-centre (72,60).",
+  "notes_sha256": "58d5b7dfa5cd79f2529425c334af5a8225deacabea79c3618027f72972d111f7",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "c6288f2eb73a6d2d67859db160b289026f92074d3c21c4f79a9167e1faa266aa",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.inn/v01/source-sheet.png",
+  "source_sha256": "d37799d3f393b5fa257332ce71bff54f6f5af8594035cbb49eba39fed2a7375f"
+}

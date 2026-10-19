@@ -66,6 +66,7 @@ pub fn of_pack(pack: Pack) -> [RoomKind; 2] {
         Pack::Archive => [RoomKind::Reading, RoomKind::Loft],
         Pack::Fungal => [RoomKind::Still, RoomKind::Kitchen],
         Pack::Unknown => [RoomKind::Reading, RoomKind::Ossuary],
+        Pack::Swamp => [RoomKind::Still, RoomKind::Ossuary],
     }
 }
 

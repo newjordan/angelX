@@ -69,6 +69,8 @@ fn natives(pack: Pack) -> Vec<Boss> {
                 include_str!("../../../../cockpit/assets/dungeon/bosses/hellforge-free-captain.boss"),
             ),
         ],
+        // The swamp's one guardian is a built-in (`the-mire-king`).
+        Pack::Swamp => &[],
         Pack::Unknown => &[
             (
                 "unknown-memory-warden",
@@ -124,7 +126,10 @@ pub(super) fn leaders(bosses: &mut Vec<Boss>, pack: Pack, count: usize) -> Optio
         .enumerate()
         .take(64)
         .filter(|(_, b)| {
+            // A chief's camp is led by an elite (`keyring`), so the pack's
+            // signature bosses are kept for the stairs (`boss_population`).
             b.only_in == pack
+                && !super::signatures::special(b)
                 && !matches!(
                     b.id.as_str(),
                     "shoggoth-heart"

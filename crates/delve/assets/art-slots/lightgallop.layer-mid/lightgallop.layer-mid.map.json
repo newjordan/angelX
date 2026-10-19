@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    192,
+    96
+  ],
+  "anchor_xy": [
+    96,
+    48
+  ],
+  "comments": [
+    "One piece, the whole sheet, so the transparent sky above the treeline is kept in the frame."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "The first generation (source-sheet.png) is the kept strip: 1774x887 RGBA with real alpha above the treeline. The whole sheet is the single piece, reduced by 0.10823 to exactly 192x96. notes.md describes the second generation, which is not used.",
+  "notes_sha256": "d6f50f368a4a276dfeaa0af480b8779a6e096984ed83e3a57f4d35433d2c2a33",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: delivered drawing 1 in reading order.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        887,
+        443.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1774,
+        887
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 192x96, one frame, repeating horizontally; real alpha above the treeline; scrolled between far and near; stage 384x224.",
+  "sizes": {
+    "v1": [
+      192,
+      96
+    ],
+    "v2": [
+      192,
+      96
+    ]
+  },
+  "slot": "lightgallop.layer-mid",
+  "source_sha256": "3b09387bff4fa136cadc72c354acd469168f3c85cd7e8a5825bcaa93189c6188",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

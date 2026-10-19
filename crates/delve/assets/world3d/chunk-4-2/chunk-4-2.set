@@ -1,0 +1,109 @@
+set chunk-4-2
+# The kingdom, chunk 4,2 in The Highlands: tiles 96..120 x 32..48 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 640
+plate 1536 1024
+
+# ground
+box    grass   at 1560 -4 520 size 48 4 16
+box    path    at 1640 -4 520 size 112 4 16
+box    grass   at 1736 -4 544 size 80 4 64
+box    rock    at 1816 -4 536 size 80 4 48
+box    grass   at 1888 -4 624 size 64 4 224
+box    grass   at 1552 -4 536 size 32 4 16
+box    path    at 1616 -4 536 size 96 4 16
+box    grass   at 1672 -4 632 size 16 4 208
+box    path    at 1688 -4 560 size 16 4 64
+box    path    at 1592 -4 552 size 112 4 16
+box    grass   at 1656 -4 632 size 16 4 176
+box    path    at 1584 -4 568 size 96 4 16
+box    grass   at 1640 -4 640 size 16 4 160
+box    grass   at 1784 -4 648 size 16 4 176
+box    rock    at 1816 -4 568 size 48 4 16
+box    grass   at 1848 -4 648 size 16 4 176
+box    path    at 1576 -4 584 size 80 4 16
+box    grass   at 1624 -4 648 size 16 4 144
+box    path    at 1720 -4 584 size 48 4 16
+box    grass   at 1760 -4 656 size 32 4 160
+box    grass   at 1816 -4 656 size 48 4 160
+box    path    at 1552 -4 600 size 32 4 16
+box    grass   at 1576 -4 656 size 16 4 128
+box    path    at 1592 -4 632 size 16 4 80
+box    grass   at 1608 -4 656 size 16 4 128
+box    grass   at 1704 -4 664 size 48 4 144
+box    path    at 1736 -4 600 size 16 4 16
+box    grass   at 1552 -4 664 size 32 4 112
+box    grass   at 1736 -4 672 size 16 4 128
+box    grass   at 1592 -4 696 size 16 4 48
+box    sand    at 1600 -4 728 size 128 4 16
+box    water   at 1600 -4 752 size 128 1 32
+box    sand    at 1792 -4 744 size 256 4 16
+box    water   at 1792 -4 760 size 256 1 16
+
+# set dressing
+cylinder stone   at 1784 0 584 size 12 4 12
+rock-29 stone   at 1791 0 588 size 4 2 3
+rock-42 rock    at 1688 0 600 size 8 2.5 7
+rock-10 rock    at 1688 2 600 size 5 2 4.5
+rock-22 rock    at 1685 0 633 size 4 2 3.5
+rock-25 rock    at 1688 0 635 size 4 2 3.5
+rock-9 rock    at 1692 0 632 size 4 2 3.5
+rock-23 rock    at 1687 0 633 size 4 2 3.5
+cylinder stone   at 1560 0 648 size 12 4 12
+rock-12 stone   at 1553 0 652 size 4 2 3
+rock-21 rock    at 1640 0 664 size 8 2.5 7
+rock-62 rock    at 1640 2 664 size 5 2 4.5
+rock-59 rock    at 1636 0 692 size 4 2 3.5
+rock-62 rock    at 1636 0 693 size 4 2 3.5
+rock-62 rock    at 1638 0 694 size 4 2 3.5
+rock-6 rock    at 1643 0 694 size 4 2 3.5
+
+# rock (at 99% of its height, for the camera)
+box    rock    at 1784 0 520 size 16 2.5 16
+box    rock    at 1800 0 520 size 16 3 16
+box    rock    at 1816 0 536 size 16 9 48
+box    rock    at 1840 0 520 size 32 3 16
+box    rock    at 1784 0 544 size 16 3 32
+box    rock    at 1800 0 536 size 16 9 16
+box    rock    at 1832 0 536 size 16 9 16
+box    rock    at 1848 0 544 size 16 3 32
+box    rock    at 1800 0 560 size 16 3 32
+box    rock    at 1832 0 560 size 16 3 32
+box    rock    at 1816 0 568 size 16 3 16
+rock-56 rock    at 1783 1 520 size 16 9 14.4 turn 180
+rock-8 rock    at 1800 1.5 519 size 16 8 14.4
+rock-63 rock    at 1815 7.5 520 size 13 7 11.7 turn 270
+rock-30 rock    at 1833 1.5 520 size 14 10 12.6 turn 270
+rock-12 rock    at 1849 1.5 521 size 14 8 12.6 turn 90
+rock-55 rock    at 1784 1.5 537 size 15 10 13.5 turn 180
+rock-50 rock    at 1799 7.5 537 size 14 7 12.6 turn 180
+rock-63 rock    at 1816 7.5 536 size 13 9 11.7 turn 270
+rock-16 rock    at 1831 7.5 537 size 13 7 11.7 turn 90
+rock-29 rock    at 1849 1.5 536 size 14 10 12.6 turn 270
+rock-17 rock    at 1785 1.5 551 size 17 9 15.3 turn 180
+rock-1 rock    at 1799 1.5 551 size 15 9 13.5
+rock-18 rock    at 1815 7.5 553 size 14 7 12.6 turn 180
+rock-38 rock    at 1832 1.5 552 size 15 10 13.5
+rock-24 rock    at 1848 1.5 553 size 15 10 13.5 turn 180
+rock-24 rock    at 1799 1.5 568 size 16 10 14.4 turn 180
+rock-51 rock    at 1815 1.5 568 size 16 8 14.4 turn 180
+rock-54 rock    at 1833 1.5 569 size 17 9 15.3 turn 180
+
+# woods (at 43% of its height, for the camera)
+frustum trunk   at 1543.5 0 682 size 3 7 3
+blob-47 foliage at 1543.5 4 682 size 18 9 17.1
+cylinder trunk   at 1559.5 0 680 size 3 4.5 3
+blob-43 foliage at 1559.5 2.5 680 size 18 8 17.1
+frustum trunk   at 1543 0 697 size 3 10 3
+blob-2 foliage at 1543 5 697 size 20 19 19
+cylinder trunk   at 1560 0 696 size 3 10 3
+blob-1 foliage at 1560 5 696 size 19 14 18.05 turn 180
+frustum trunk   at 1576 0 695 size 3 4.5 3
+blob-31 foliage at 1576 2 695 size 17 7.5 16.15 turn 90
+frustum trunk   at 1544 0 712 size 3 12 3
+blob-2 foliage at 1544 7 712 size 19 21 18.05 turn 180
+frustum trunk   at 1561 0 713 size 3 9 3
+blob-63 foliage at 1561 4 713 size 17 14 16.15
+cylinder trunk   at 1576.5 0 711.5 size 3 11 3
+blob-53 foliage at 1576.5 6 711.5 size 18 16 17.1

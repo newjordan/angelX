@@ -1,0 +1,215 @@
+{
+  "id": "hellforge-ash-castellan",
+  "source_path": "./cockpit/assets/boss-library/existing/hellforge-ash-castellan/v01/source-sheet-refined.png",
+  "source_sha256": "2d7143330635cc0b26a96ae8d08927bcd76c03242d0d0e2bc3e70163e0449ad9",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "LIVING IRON fortress guardian, anchored on a squat dark iron plinth. Broad ash-grey armored torso shaped like a tiny castle keep, two square crenellated tower shoulders, central closed dark helm with orange visor, giant iron mitten fists. Charred cream pennant and dull copper rivets. Weighty blocky mass with a tiny officious head, no molten slime and no wheels.",
+  "definition_header": "name THE ASH CASTELLAN\ntext The dragon entrusted the lower seal to living iron.\nby angelX\nwhere hellforge\nhp 620\nsize 1.4\nmove anchor\nattack ring shots=8 speed=5 every=95 damage=10 shot=ember\nphases twin_spiral sweep every=91 volleys=2 damage=10\nrage 35%\ndrops gold 110, gem 1",
+  "source_definition_sha256": "164fa886b194da283fa311ab72c085401a2a3427132acc0c660acf81bfaf391d",
+  "definition_sha256": "164fa886b194da283fa311ab72c085401a2a3427132acc0c660acf81bfaf391d",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        59,
+        165,
+        224,
+        250
+      ],
+      "opaque_component_pixels": 35887,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "64f718c464937645d4f246437f11ce6f9667aa80a9d6ae4c5fe90cdea11aeac2"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        368,
+        184,
+        246,
+        228
+      ],
+      "opaque_component_pixels": 34404,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "adbe7db2fcc7ef0c731afb8580e32e12cefe4340aa2cd6103387568cd71ba02b"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        692,
+        162,
+        211,
+        243
+      ],
+      "opaque_component_pixels": 29913,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "52630087e31c6c4a642335dd46b7e551a50d3170955b04b6252b59b33c1c57e4"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        995,
+        171,
+        213,
+        234
+      ],
+      "opaque_component_pixels": 28166,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "959683fceca38ab9699992543535d33c2111818e78395f84bd548b8c6cb8df0d"
+    },
+    {
+      "id": "overhead/part/castle-torso-plinth",
+      "source_rect_xywh": [
+        64,
+        563,
+        213,
+        221
+      ],
+      "opaque_component_pixels": 32451,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-castle-torso-plinth.png",
+      "sha256": "3e52c775ca2f6eb62d6adc5222d7c5a031ef85065a5e0da4c67709e65197b3f2"
+    },
+    {
+      "id": "overhead/part/castellan-helm",
+      "source_rect_xywh": [
+        429,
+        620,
+        116,
+        132
+      ],
+      "opaque_component_pixels": 9466,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-castellan-helm.png",
+      "sha256": "1f42af8a736fbf95f45f0f50130e0b7733167d95c21fb93c3490ebad411527b3"
+    },
+    {
+      "id": "overhead/part/tower-fist-arm",
+      "source_rect_xywh": [
+        722,
+        539,
+        173,
+        234
+      ],
+      "opaque_component_pixels": 24613,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-tower-fist-arm.png",
+      "sha256": "dab66521aad42fec640c7b04cf35b70370164133abaa5e9980754186b7e05794"
+    },
+    {
+      "id": "overhead/part/charred-pennant",
+      "source_rect_xywh": [
+        1020,
+        583,
+        158,
+        185
+      ],
+      "opaque_component_pixels": 15162,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-charred-pennant.png",
+      "sha256": "ea62354040f3f5ae0a13df744785f216007803c5ef4c946dbf5e7c638a500a8d"
+    },
+    {
+      "id": "side/part/castle-torso-plinth",
+      "source_rect_xywh": [
+        65,
+        931,
+        210,
+        215
+      ],
+      "opaque_component_pixels": 32033,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-castle-torso-plinth.png",
+      "sha256": "3890d34e8fb580a34821fecd756c19e3c0e00498339d7f30e34e9193b60dd712"
+    },
+    {
+      "id": "side/part/castellan-helm",
+      "source_rect_xywh": [
+        434,
+        983,
+        114,
+        130
+      ],
+      "opaque_component_pixels": 9224,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-castellan-helm.png",
+      "sha256": "12ff82bec0f3992df0f6902166557141ec4f0bdde1d153bc8eb5b493d215a742"
+    },
+    {
+      "id": "side/part/tower-fist-arm",
+      "source_rect_xywh": [
+        722,
+        906,
+        172,
+        232
+      ],
+      "opaque_component_pixels": 24518,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-tower-fist-arm.png",
+      "sha256": "ff1a31715d5baf0381ce042fe1577d6c4bd58d58e6e21ddf526030bcef48dc30"
+    },
+    {
+      "id": "side/part/charred-pennant",
+      "source_rect_xywh": [
+        1020,
+        946,
+        158,
+        185
+      ],
+      "opaque_component_pixels": 15373,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-charred-pennant.png",
+      "sha256": "7f0046e34de5cd6621f492cd5810964b7314f674e4911a19525a220a2f2a3980"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

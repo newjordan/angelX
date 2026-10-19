@@ -1,0 +1,114 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  11,
+  24
+ ],
+ "pieces": [
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "idle-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "tell-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "fire-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "fire-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 3
+  },
+  {
+   "name": "recover-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 15
+  },
+  {
+   "name": "recover-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 15
+  },
+  {
+   "name": "recover-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 15
+  },
+  {
+   "name": "recover-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 15
+  },
+  {
+   "name": "stun-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "stun-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

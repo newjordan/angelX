@@ -45,6 +45,11 @@ pub struct Works {
     /// This room's own dangers.
     #[serde(default)]
     pub perils: Vec<perils::Peril>,
+    /// This room's gauntlet: a bridge and its axes, hammers, a boulder's
+    /// lane, a saw's rail. Left out when there is none, so a room without
+    /// one is written as it always was.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gauntlets: Vec<gauntlets::Gauntlet>,
     /// The floor's Boss Key and its door.
     #[serde(default)]
     pub key: keyring::Key,
@@ -70,6 +75,8 @@ impl Works {
                 .all(|f| f.x.is_finite() && f.y.is_finite() && f.struck.len() <= 64)
             && self.banes.len() <= 128
             && self.perils.len() <= MAX_EFFECTS
+            && self.gauntlets.len() <= MAX_EFFECTS
+            && self.gauntlets.iter().all(gauntlets::Gauntlet::valid)
             && self.clouds.iter().all(|c| finite(c.x, c.y))
             && self.clouds.iter().filter(|c| c.wall()).count() <= signatures::WALL_MAX
             && self
@@ -100,6 +107,7 @@ impl Works {
         self.flights.clear();
         self.banes.clear();
         self.perils.clear();
+        self.gauntlets.clear();
     }
 }
 
@@ -130,6 +138,7 @@ impl Run {
         self.sync_works();
         self.works.leave_room();
         self.arm_perils();
+        self.arm_gauntlets();
     }
 
     /// One tick of the skills, the perils, the key and the showdown, after
@@ -138,6 +147,7 @@ impl Run {
         self.sync_works();
         self.tick_skills(inputs);
         self.tick_perils();
+        self.tick_gauntlets();
         self.tick_key();
         self.tick_outlaw();
     }

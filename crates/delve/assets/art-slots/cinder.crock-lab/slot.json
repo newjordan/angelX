@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "1d79dc6ed196c27b02d2c850b0b34a8836d8e0267af20447d755e55d694d4580",
+  "metadata_sha256": "6d46aa5d56af56b8e64e4e3d3f23b0449eb72ac18690648c91cf73e0a8235a8e",
+  "notes_sha256": "c37799ad40e9070d9391259973db245fef852502cbefa3c162606b6f89921e8f",
+  "outputs": {
+    "v1/crock-small.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 549,
+      "piece": 0,
+      "sha256": "0f2417511109c6a3e8dfa54a5728e89c08f48749ec0675a724e5abec2b6435e1",
+      "source_scale": 0.1111111111111111,
+      "state": "crock-small"
+    },
+    "v1/piece-01.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 38,
+      "opaque_pixels": 508,
+      "piece": 1,
+      "sha256": "d034f367ba2ddff61f77158cfa021532a2fc98d430ca0365321e3c1dcba06e9e",
+      "source_scale": 0.099644128113879,
+      "state": "crock-with-lid-slightly-raised"
+    },
+    "v1/piece-02.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 387,
+      "piece": 2,
+      "sha256": "ea9c320badad381544e30627bfe97759e108365e8bbd8663de02c399ad6875a6",
+      "source_scale": 0.08433734939759036,
+      "state": "lid-removed-and-hovering-above-the-open-cavity"
+    },
+    "v1/piece-03.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 395,
+      "piece": 3,
+      "sha256": "09f82bbc4b47d0183e1b29df89221c1e6526591855652dc8daed076e23148597",
+      "source_scale": 0.1407035175879397,
+      "state": "detached-lid-alone-angled-to-show-the-underside"
+    },
+    "v1/piece-04.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 40,
+      "opaque_pixels": 542,
+      "piece": 4,
+      "sha256": "4fea7b20494a0cf60dba26f6de50b04a0a95f80bd04c93f43d4a27917c66d05b",
+      "source_scale": 0.10852713178294573,
+      "state": "open-crock-with-dark-cavity-visible"
+    },
+    "v1/piece-05.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 405,
+      "piece": 5,
+      "sha256": "339b3520e1a62c5877179aa141785e7698eef5286f2ffb36613447193cc23a4f",
+      "source_scale": 0.13861386138613863,
+      "state": "detached-lid-alone-top-handle-visible"
+    },
+    "v1/piece-06.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 547,
+      "piece": 6,
+      "sha256": "c4264f17a5d20ff4277339147c62fb38d0ff790bad67c41ff85adadf80c6dff6",
+      "source_scale": 0.1111111111111111,
+      "state": "crock-idle-variant-slight-forward-lean"
+    },
+    "v1/piece-07.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 39,
+      "opaque_pixels": 535,
+      "piece": 7,
+      "sha256": "66425b976717de9e9bf80f741e67567a1170453f5f563e1ff69e45cb07a02613",
+      "source_scale": 0.11244979919678715,
+      "state": "crock-idle-variant-slight-backward-rock"
+    },
+    "v1/piece-08.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 568,
+      "piece": 8,
+      "sha256": "fa5409991d2c4a6fd85312fa27b0f5e73c2322d9f66a9e7cd434727e85802015",
+      "source_scale": 0.10980392156862745,
+      "state": "seated-lid-used-crock-with-dents-and-soot"
+    },
+    "v1/piece-09.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 576,
+      "piece": 9,
+      "sha256": "15d27f2981d892df7a59b4dfa2db15bcd1ce382c42d88c8fc41f293afb22fc66",
+      "source_scale": 0.11155378486055777,
+      "state": "seated-lid-crock-with-chipped-worn-material"
+    },
+    "v1/piece-10.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 407,
+      "piece": 10,
+      "sha256": "58a4eba7b08fc1b3ea1ec440f48f6f48c986ae0023f46d209c75d5e6fb5eb1ee",
+      "source_scale": 0.13658536585365855,
+      "state": "detached-damaged-lid"
+    },
+    "v1/piece-11.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 40,
+      "opaque_pixels": 542,
+      "piece": 11,
+      "sha256": "cd75a772ec708362207813cbd2d8f9bb7e54e43dbd2c71d1545fad767fffb939",
+      "source_scale": 0.11290322580645161,
+      "state": "open-crock-in-a-slightly-more-side-on-profile"
+    },
+    "v2/crock-small.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 549,
+      "piece": 0,
+      "sha256": "0f2417511109c6a3e8dfa54a5728e89c08f48749ec0675a724e5abec2b6435e1",
+      "source_scale": 0.1111111111111111,
+      "state": "crock-small"
+    },
+    "v2/piece-01.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 38,
+      "opaque_pixels": 508,
+      "piece": 1,
+      "sha256": "d034f367ba2ddff61f77158cfa021532a2fc98d430ca0365321e3c1dcba06e9e",
+      "source_scale": 0.099644128113879,
+      "state": "crock-with-lid-slightly-raised"
+    },
+    "v2/piece-02.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 387,
+      "piece": 2,
+      "sha256": "ea9c320badad381544e30627bfe97759e108365e8bbd8663de02c399ad6875a6",
+      "source_scale": 0.08433734939759036,
+      "state": "lid-removed-and-hovering-above-the-open-cavity"
+    },
+    "v2/piece-03.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 395,
+      "piece": 3,
+      "sha256": "09f82bbc4b47d0183e1b29df89221c1e6526591855652dc8daed076e23148597",
+      "source_scale": 0.1407035175879397,
+      "state": "detached-lid-alone-angled-to-show-the-underside"
+    },
+    "v2/piece-04.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 40,
+      "opaque_pixels": 542,
+      "piece": 4,
+      "sha256": "4fea7b20494a0cf60dba26f6de50b04a0a95f80bd04c93f43d4a27917c66d05b",
+      "source_scale": 0.10852713178294573,
+      "state": "open-crock-with-dark-cavity-visible"
+    },
+    "v2/piece-05.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 405,
+      "piece": 5,
+      "sha256": "339b3520e1a62c5877179aa141785e7698eef5286f2ffb36613447193cc23a4f",
+      "source_scale": 0.13861386138613863,
+      "state": "detached-lid-alone-top-handle-visible"
+    },
+    "v2/piece-06.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 547,
+      "piece": 6,
+      "sha256": "c4264f17a5d20ff4277339147c62fb38d0ff790bad67c41ff85adadf80c6dff6",
+      "source_scale": 0.1111111111111111,
+      "state": "crock-idle-variant-slight-forward-lean"
+    },
+    "v2/piece-07.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 39,
+      "opaque_pixels": 535,
+      "piece": 7,
+      "sha256": "66425b976717de9e9bf80f741e67567a1170453f5f563e1ff69e45cb07a02613",
+      "source_scale": 0.11244979919678715,
+      "state": "crock-idle-variant-slight-backward-rock"
+    },
+    "v2/piece-08.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 568,
+      "piece": 8,
+      "sha256": "fa5409991d2c4a6fd85312fa27b0f5e73c2322d9f66a9e7cd434727e85802015",
+      "source_scale": 0.10980392156862745,
+      "state": "seated-lid-used-crock-with-dents-and-soot"
+    },
+    "v2/piece-09.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 576,
+      "piece": 9,
+      "sha256": "15d27f2981d892df7a59b4dfa2db15bcd1ce382c42d88c8fc41f293afb22fc66",
+      "source_scale": 0.11155378486055777,
+      "state": "seated-lid-crock-with-chipped-worn-material"
+    },
+    "v2/piece-10.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 407,
+      "piece": 10,
+      "sha256": "58a4eba7b08fc1b3ea1ec440f48f6f48c986ae0023f46d209c75d5e6fb5eb1ee",
+      "source_scale": 0.13658536585365855,
+      "state": "detached-damaged-lid"
+    },
+    "v2/piece-11.png": {
+      "anchor_xy": [
+        14,
+        14
+      ],
+      "approved": true,
+      "canvas_wh": [
+        28,
+        28
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 40,
+      "opaque_pixels": 542,
+      "piece": 11,
+      "sha256": "cd75a772ec708362207813cbd2d8f9bb7e54e43dbd2c71d1545fad767fffb939",
+      "source_scale": 0.11290322580645161,
+      "state": "open-crock-in-a-slightly-more-side-on-profile"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.crock-lab",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.crock-lab/source-sheet.png",
+  "source_sha256": "9375c6ea2cc1e8a39514290317334f591313a97e83804fdd443088f5c461d73f",
+  "tool_version": 2
+}

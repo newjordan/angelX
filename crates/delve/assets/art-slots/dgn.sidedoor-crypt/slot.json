@@ -1,0 +1,536 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [],
+  "map_sha256": "12f2cb97c5f3d7c564ade42b586401b43fa9fc11bc426307f9a5701d2c1ce0c9",
+  "metadata_sha256": "2679c51684bf2a8957dcf314291a56704f703e8dac0ef9a5474484229249e76a",
+  "notes_sha256": "796d405b05f5136360b2b8287ff06a9231e2aea8b5c2354b6ef45ce00d49fc13",
+  "outputs": {
+    "v1/east-closed-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 408,
+      "piece": 9,
+      "sha256": "2cfebde0a5fc83c9d9a7602b4966ff80faac4edf0f577614942cec4d5bdaf05c",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/east-closed.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 29,
+      "opaque_pixels": 350,
+      "piece": 3,
+      "sha256": "e6f4cf518fcc263ce3ed6d81c5951ef2f1b3be8ea64760a73fac458e439a2ea5",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/east-locked-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 407,
+      "piece": 11,
+      "sha256": "dab590feb15ba19f9b0a43a44b8486cb76a94caa05d61060d6d2e61f96aad55b",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/east-locked.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 383,
+      "piece": 5,
+      "sha256": "8c3520bcdd159d378f50e69d4d182c71a7eeb6cf49b60517a96dab5560d706e6",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/east-open-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 379,
+      "piece": 10,
+      "sha256": "584208193a3c75f9db14aaafbd1f0c17ce41cd6dcc537142f23a1900d450a704",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/east-open.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 381,
+      "piece": 4,
+      "sha256": "0e783f4f5f36e062afd93175e03c6553632ada1852044efb03e58b1f3b9ffe23",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-closed-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 384,
+      "piece": 6,
+      "sha256": "eec38a3a169ab9dacc2bec1646e7e390fc214dfa3ff62776c618ac0fbf8f622a",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-closed.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 379,
+      "piece": 0,
+      "sha256": "3dc869b0ada68c8dcb5233071b98eace9f609cf8bd4f0599f12742eadd0b4a37",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-locked-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 406,
+      "piece": 8,
+      "sha256": "1d34f4bdfc2fffe8b93bcaced9f80d641d0947522c82fb0ea2ce544eb3751b95",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-locked.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 377,
+      "piece": 2,
+      "sha256": "8a7f5e1f085a71471def07320f250d6f65381d0bdafa751b200e8c99986577d3",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-open-worn.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 31,
+      "opaque_pixels": 382,
+      "piece": 7,
+      "sha256": "6c6aae61f220c761262dce030a4318aa5c4b2ddbdc910d0734c351735c2f5c3f",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v1/west-open.png": {
+      "anchor_xy": [
+        8,
+        16
+      ],
+      "approved": true,
+      "canvas_wh": [
+        16,
+        32
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 30,
+      "opaque_pixels": 376,
+      "piece": 1,
+      "sha256": "a68c1f800ddc529527c50de4594085ecc452e15fc12f9076de3c6406df6e5e92",
+      "source_scale": 0.0886426592797784,
+      "state": "door"
+    },
+    "v2/east-closed-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 116,
+      "opaque_pixels": 1635,
+      "piece": 9,
+      "sha256": "6fe0ac01448e5b7cc1e4e1c9a36e18453c044a793f86d27dce7eba7e49438c3e",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/east-closed.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 105,
+      "opaque_pixels": 1471,
+      "piece": 3,
+      "sha256": "41ff4918d5406c7b2ec88060fe54e21914625a98efdd994b926f370be3f6803a",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/east-locked-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 111,
+      "opaque_pixels": 1613,
+      "piece": 11,
+      "sha256": "df4ba349fcff117d53d50be837c90e65ad1bff75b33aca8dec95268c93d21d4e",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/east-locked.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 107,
+      "opaque_pixels": 1507,
+      "piece": 5,
+      "sha256": "007b154836a731431f18587c46083297866d4b04097b0c8ad7d3382634a47645",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/east-open-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 112,
+      "opaque_pixels": 1567,
+      "piece": 10,
+      "sha256": "6323dc4f7edb6a18f46001e47072c948cb5953354db81fcc67f746d31dabd5b1",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/east-open.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 108,
+      "opaque_pixels": 1466,
+      "piece": 4,
+      "sha256": "a82a375e12d5ff1cbcade9cef088b4d9a26a2a1fbe6965e98925bc353110ee52",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-closed-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 107,
+      "opaque_pixels": 1487,
+      "piece": 6,
+      "sha256": "723a2a03e69b26b27e0cb8e855da0beb5b07d4577f1fb54bd57ee092c768aac2",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-closed.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 105,
+      "opaque_pixels": 1472,
+      "piece": 0,
+      "sha256": "47f6304cb4a4e6cace69dbeed446035700f73905d8c00e99de3a7b89ac3f7b12",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-locked-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 106,
+      "opaque_pixels": 1573,
+      "piece": 8,
+      "sha256": "58b13c66aa97657f71039e41d8e71385e6ec85111b261a7357548b381a6f5474",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-locked.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 105,
+      "opaque_pixels": 1469,
+      "piece": 2,
+      "sha256": "12ec7747ac2912ab55dc6f47b6a7d9220b523e5e22857cd13f77470ed11fafdb",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-open-worn.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 106,
+      "opaque_pixels": 1506,
+      "piece": 7,
+      "sha256": "410f9196bde9dfec41f3ce464229bd6d0d63485d11dc0d98be05a79436710bd3",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    },
+    "v2/west-open.png": {
+      "anchor_xy": [
+        16,
+        32
+      ],
+      "approved": true,
+      "canvas_wh": [
+        32,
+        64
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 104,
+      "opaque_pixels": 1455,
+      "piece": 1,
+      "sha256": "49047a464ac1c224d23bfd7690f3678173019009f80a2da6b508c9f972109525",
+      "source_scale": 0.1772853185595568,
+      "state": "door"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-pivot",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "dgn.sidedoor-crypt",
+  "source_path": "/work/tmp/int-4-prepared/dgn.sidedoor-crypt/source-sheet.png",
+  "source_sha256": "d85707cc5df356e59b3082a951d16fb5e15c0a3d7cad7686b773f86e4894a9c4",
+  "tool_version": 2
+}

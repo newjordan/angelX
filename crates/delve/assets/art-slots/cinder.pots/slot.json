@@ -1,0 +1,541 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch",
+    "source colour fidelity below 0.90",
+    "weak v1 cell silhouette",
+    "weak v2 silhouette"
+  ],
+  "map_sha256": "0033bc368c969890b7a64dae4087c23be982954ca29654907447e7facce5abf4",
+  "metadata_sha256": "7019e0d1ba10de113e6542802b2f4d41fa1708d0ea9885b629905bc27a9187bc",
+  "notes_sha256": "409f77e5ca8d516a16c76ab81ccdf70c2bd27a5d2b3340a94c5ae0aaf4e07517",
+  "outputs": {
+    "v1/ghost-1.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 11,
+      "piece": 3,
+      "sha256": "a540c035c61bb23c25e33a3d147fa63e5110221688dbb7c53ddec93e720c7d5f",
+      "source_scale": 0.09836065573770492,
+      "state": "ghost-1"
+    },
+    "v1/ghost-2.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 13,
+      "piece": 7,
+      "sha256": "b51797809bcfb956cb9e8138d2639086e7b3e3d7844da7410ad9f272f16517dc",
+      "source_scale": 0.1038961038961039,
+      "state": "ghost-2"
+    },
+    "v1/ghost-3.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 0.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 0,
+      "piece": 11,
+      "sha256": "a4784fddfd8b193f597f77cf226da860927f528a2c30cde7e683062ea1a97aa9",
+      "source_scale": 0.06923076923076923,
+      "state": "ghost-3"
+    },
+    "v1/piece-04.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 13,
+      "piece": 4,
+      "sha256": "b3e79e8674fc5f45b16c90bb43d35072115e97ec3bb10d50f8b1353cd3c82916",
+      "source_scale": 0.01834862385321101,
+      "state": "blue-flame-jar-tilted-and-rattling"
+    },
+    "v1/piece-05.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 17,
+      "piece": 5,
+      "sha256": "4569e0298f0a914025d94a1131c95c8ed43e212977e7b411d5aca051a7eeaf30",
+      "source_scale": 0.0196078431372549,
+      "state": "terracotta-leaf-crock-tilted-and-rattling"
+    },
+    "v1/piece-06.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 1,
+      "opaque_pixels": 8,
+      "piece": 6,
+      "sha256": "429cb9995dd15d023f3d6a6934756a9fdba17d0a25dea3473d8e701598c7b113",
+      "source_scale": 0.013888888888888888,
+      "state": "green-drop-flask-tilted-and-rattling"
+    },
+    "v1/piece-08.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 17,
+      "piece": 8,
+      "sha256": "cf939362bb60e766b72a734700df30b834872a237432662104dff934174f60f7",
+      "source_scale": 0.020100502512562814,
+      "state": "cracked-blue-flame-jar-with-one-detached-ceramic-shard"
+    },
+    "v1/piece-09.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 20,
+      "piece": 9,
+      "sha256": "65f8c964ea222bdca43219ae6e6c9e8a36787b6effb7a7b65de493d7b7e5b1b0",
+      "source_scale": 0.023121387283236993,
+      "state": "cracked-terracotta-leaf-crock-with-one-detached-ceramic-shard"
+    },
+    "v1/piece-10.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 1,
+      "opaque_pixels": 7,
+      "piece": 10,
+      "sha256": "e6d23a8e7f05481bd04ed3274aad3f960735dac47548412dac1c00b31317c601",
+      "source_scale": 0.013651877133105802,
+      "state": "cracked-green-drop-flask-with-one-detached-ceramic-shard"
+    },
+    "v1/pot-1.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 0.9674,
+      "frame": 0,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 276,
+      "piece": 1,
+      "sha256": "8bbe6fa41146281ad80603e3e13424d54d37ad00fd80f04736b2cdcbb241cf4d",
+      "source_scale": 0.08530805687203792,
+      "state": "pot-1"
+    },
+    "v1/pot-2.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 376,
+      "piece": 2,
+      "sha256": "be507094cd5523d858f2050d58fe8c21a540ff8a0dc3244aa64d1bc089e2d74a",
+      "source_scale": 0.1,
+      "state": "pot-2"
+    },
+    "v1/pot-3.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 134,
+      "piece": 0,
+      "sha256": "022292047ea18bf18f77c846be9ceac4c68faf9f5c1a668bbfda10cbeadaa8ed",
+      "source_scale": 0.060810810810810814,
+      "state": "pot-3"
+    },
+    "v2/ghost-1.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 11,
+      "piece": 3,
+      "sha256": "a540c035c61bb23c25e33a3d147fa63e5110221688dbb7c53ddec93e720c7d5f",
+      "source_scale": 0.09836065573770492,
+      "state": "ghost-1"
+    },
+    "v2/ghost-2.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 13,
+      "piece": 7,
+      "sha256": "b51797809bcfb956cb9e8138d2639086e7b3e3d7844da7410ad9f272f16517dc",
+      "source_scale": 0.1038961038961039,
+      "state": "ghost-2"
+    },
+    "v2/ghost-3.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 0.0,
+      "frame": 0,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 0,
+      "piece": 11,
+      "sha256": "a4784fddfd8b193f597f77cf226da860927f528a2c30cde7e683062ea1a97aa9",
+      "source_scale": 0.06923076923076923,
+      "state": "ghost-3"
+    },
+    "v2/piece-04.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 13,
+      "piece": 4,
+      "sha256": "b3e79e8674fc5f45b16c90bb43d35072115e97ec3bb10d50f8b1353cd3c82916",
+      "source_scale": 0.01834862385321101,
+      "state": "blue-flame-jar-tilted-and-rattling"
+    },
+    "v2/piece-05.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 17,
+      "piece": 5,
+      "sha256": "4569e0298f0a914025d94a1131c95c8ed43e212977e7b411d5aca051a7eeaf30",
+      "source_scale": 0.0196078431372549,
+      "state": "terracotta-leaf-crock-tilted-and-rattling"
+    },
+    "v2/piece-06.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 1,
+      "opaque_pixels": 8,
+      "piece": 6,
+      "sha256": "429cb9995dd15d023f3d6a6934756a9fdba17d0a25dea3473d8e701598c7b113",
+      "source_scale": 0.013888888888888888,
+      "state": "green-drop-flask-tilted-and-rattling"
+    },
+    "v2/piece-08.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 17,
+      "piece": 8,
+      "sha256": "cf939362bb60e766b72a734700df30b834872a237432662104dff934174f60f7",
+      "source_scale": 0.020100502512562814,
+      "state": "cracked-blue-flame-jar-with-one-detached-ceramic-shard"
+    },
+    "v2/piece-09.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 20,
+      "piece": 9,
+      "sha256": "65f8c964ea222bdca43219ae6e6c9e8a36787b6effb7a7b65de493d7b7e5b1b0",
+      "source_scale": 0.023121387283236993,
+      "state": "cracked-terracotta-leaf-crock-with-one-detached-ceramic-shard"
+    },
+    "v2/piece-10.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 1,
+      "opaque_pixels": 7,
+      "piece": 10,
+      "sha256": "e6d23a8e7f05481bd04ed3274aad3f960735dac47548412dac1c00b31317c601",
+      "source_scale": 0.013651877133105802,
+      "state": "cracked-green-drop-flask-with-one-detached-ceramic-shard"
+    },
+    "v2/pot-1.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 0.9674,
+      "frame": 0,
+      "half_cell_coverage": 22,
+      "opaque_pixels": 276,
+      "piece": 1,
+      "sha256": "8bbe6fa41146281ad80603e3e13424d54d37ad00fd80f04736b2cdcbb241cf4d",
+      "source_scale": 0.08530805687203792,
+      "state": "pot-1"
+    },
+    "v2/pot-2.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 376,
+      "piece": 2,
+      "sha256": "be507094cd5523d858f2050d58fe8c21a540ff8a0dc3244aa64d1bc089e2d74a",
+      "source_scale": 0.1,
+      "state": "pot-2"
+    },
+    "v2/pot-3.png": {
+      "anchor_xy": [
+        12,
+        18
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        20
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 134,
+      "piece": 0,
+      "sha256": "022292047ea18bf18f77c846be9ceac4c68faf9f5c1a668bbfda10cbeadaa8ed",
+      "source_scale": 0.060810810810810814,
+      "state": "pot-3"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.pots",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.pots/source-sheet.png",
+  "source_sha256": "8de09d00392be64d3e7b7c670be02fe603204f4474e3a53b6b4b65326a31eade",
+  "tool_version": 2
+}

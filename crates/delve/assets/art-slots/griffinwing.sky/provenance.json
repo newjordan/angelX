@@ -1,0 +1,17 @@
+{
+  "delivery": "griffinwing.sky/v01",
+  "delivery_status": "Producer note (wave 6): ACCEPTED (use source-sheet-2.png).",
+  "generation_sha256": "8e01ee3f7aec1fc70e393e9ded72c34ec4597390d7ea10502f932fe313724021",
+  "generations": 2,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "measured_by": "crates/delve/assets/griffinwing/prepare-art.py (the delivery carries no crop metadata): the importer reads a byte-identical copy of the sheet beside measured crops",
+  "metadata_sha256": "1b75070644e80fc39fe035909e42ce24ebf3ebf14e33b0f81f2c8eee4a4cb84e",
+  "native_contract": "Four opaque bands of about 970x320 px on magenta (3.0 to 1), cut and reduced to 384x112.",
+  "notes_sha256": "adfe8c44ead226187dcb5b30375123e842da24edaaf858a3b1db7eced722a2ba",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "e4b2fc0e924488914fff531f0d76dd74c83ae67b975f7984b77a09890077dbad",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet-2.png (the second image of one run, the one the producer kept; source-sheet.png, the first, whose clouds run into the side edges and so do not wrap, is not used). The importer reads a byte-identical copy of source-sheet-2.png named source-sheet.png in the prepared folder",
+  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.sky/v01/source-sheet-2.png",
+  "source_sha256": "755db6485c73b8b87ccfd823802c84f4a539608aca728f1855612a3680023d35"
+}

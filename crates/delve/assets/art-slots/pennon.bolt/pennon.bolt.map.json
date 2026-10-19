@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    8
+  ],
+  "anchor_xy": [
+    8,
+    4
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "segment_hits performs swept point-segment vs foe rectangles; no art-width collision expansion. Player muzzle coordinates in knight block.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "e83374e5780b6718850e503c15352323667a5d60d36d4b6ce1b3dbe535dd1034",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Standard horizontal bolt pointing right.",
+      "name": "bolt",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        127.0,
+        34.5
+      ],
+      "source_rect_xywh": [
+        46,
+        221,
+        254,
+        69
+      ],
+      "state": "bolt"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Standard bolt aimed up-right at a diagonal.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.5,
+        98.0
+      ],
+      "source_rect_xywh": [
+        375,
+        145,
+        215,
+        196
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Standard bolt aimed down-right at a diagonal.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.0,
+        88.0
+      ],
+      "source_rect_xywh": [
+        658,
+        177,
+        210,
+        176
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Standard bolt pointing left.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.5,
+        34.5
+      ],
+      "source_rect_xywh": [
+        953,
+        221,
+        255,
+        69
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Standard bolt aimed shallowly up-right.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        59.0
+      ],
+      "source_rect_xywh": [
+        49,
+        564,
+        249,
+        118
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Standard bolt aimed shallowly down-right.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        55.0
+      ],
+      "source_rect_xywh": [
+        373,
+        578,
+        243,
+        110
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Standard bolt aimed steeply up-right.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        67.0,
+        122.5
+      ],
+      "source_rect_xywh": [
+        718,
+        489,
+        134,
+        245
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Standard bolt aimed steeply down-right.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        81.0,
+        115.5
+      ],
+      "source_rect_xywh": [
+        1006,
+        502,
+        162,
+        231
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Compact horizontal bolt pointing right.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        86.0,
+        26.5
+      ],
+      "source_rect_xywh": [
+        82,
+        964,
+        172,
+        53
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Heavier horizontal bolt pointing right.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        140.5,
+        44.5
+      ],
+      "source_rect_xywh": [
+        339,
+        944,
+        281,
+        89
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Compact bolt aimed up-right.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        72.5,
+        62.5
+      ],
+      "source_rect_xywh": [
+        704,
+        938,
+        145,
+        125
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Heavier bolt aimed down-right.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        83.0
+      ],
+      "source_rect_xywh": [
+        960,
+        919,
+        256,
+        166
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16\u00d78 centred on shot position, anchor (8,4); keep a solid terminal core.",
+  "sizes": {
+    "v1": [
+      16,
+      8
+    ],
+    "v2": [
+      16,
+      8
+    ]
+  },
+  "slot": "pennon.bolt",
+  "source_sha256": "e45e86d163b851588f5e14707ecb218010e0447784dbec9b97687bfe3e9e8e4d",
+  "timing": "One source; life=30 ticks, axial speed=2048 fixed units/tick, diagonal component=1448; firing cooldown=12 (Lane::step_at)."
+}

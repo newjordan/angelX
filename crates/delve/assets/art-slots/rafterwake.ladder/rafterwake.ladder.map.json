@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    20,
+    36
+  ],
+  "anchor_xy": [
+    10,
+    18
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "ladder()/Lane::near_ladder require |feet x\u2212ladder x|<=14 and feet y from upper deck\u22124 to lower deck+4; retain rung height and hand clearance rather than infer climbable pixels.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "f2da97d1bed89d7ec5f54e09bfb583f931e785c886bf1b3eb06646ea6a2bc146",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Clean three-rung ladder segment, profile.",
+      "name": "ladder",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        199.5
+      ],
+      "source_rect_xywh": [
+        98,
+        124,
+        244,
+        399
+      ],
+      "state": "ladder"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Same three-rung segment with a slight rail-depth view.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.5,
+        206.5
+      ],
+      "source_rect_xywh": [
+        457,
+        120,
+        289,
+        413
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Clean segment from a subtly lower angle.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.5,
+        193.5
+      ],
+      "source_rect_xywh": [
+        821,
+        145,
+        301,
+        387
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Clean segment with a warm repaired iron tie.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        196.5
+      ],
+      "source_rect_xywh": [
+        1219,
+        140,
+        262,
+        393
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Worn intact segment with chips in the rails and rungs.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.0,
+        207.0
+      ],
+      "source_rect_xywh": [
+        88,
+        603,
+        276,
+        414
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Segment with a bent/repaired lower iron tie.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        142.0,
+        201.5
+      ],
+      "source_rect_xywh": [
+        463,
+        605,
+        284,
+        403
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Segment with a visibly cracked middle rung, still attached.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.5,
+        208.0
+      ],
+      "source_rect_xywh": [
+        844,
+        608,
+        277,
+        416
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; One loose timber replacement rung.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.0,
+        49.0
+      ],
+      "source_rect_xywh": [
+        1210,
+        788,
+        262,
+        98
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Connected iron bracket/endcap set with a short linking pin.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        144.5,
+        98.5
+      ],
+      "source_rect_xywh": [
+        83,
+        1180,
+        289,
+        197
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Connected timber rail joiner/endcap set with a short iron link.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.0,
+        123.5
+      ],
+      "source_rect_xywh": [
+        474,
+        1135,
+        254,
+        247
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Compact three-rung ladder segment.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        128.5
+      ],
+      "source_rect_xywh": [
+        859,
+        1138,
+        235,
+        257
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Segment with a lighter replacement rung and repair marks.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        185.5
+      ],
+      "source_rect_xywh": [
+        1211,
+        1072,
+        265,
+        371
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "20\u00d736 segment top-left (screen ladder x\u221210,py(deck y)); ladder centre x=120 at interior deck indices 1,4,7,10.",
+  "sizes": {
+    "v1": [
+      20,
+      36
+    ],
+    "v2": [
+      20,
+      36
+    ]
+  },
+  "slot": "rafterwake.ladder",
+  "source_sha256": "653d55834bf4bcda422e377a3e95ba759208ed221e39a66e223beacb05fd66a1",
+  "timing": "Static, body climbs at LADDER=384 fixed units/tick; ladder pose clock is separate (ladder(), Lane::step_at)."
+}

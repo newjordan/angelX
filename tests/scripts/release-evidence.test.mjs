@@ -493,6 +493,24 @@ function engineCrateRoot(source) {
   return dir
 }
 
+test('every target the cockpit manifest declares ships, so the archive builds on its own', () => {
+  // Cargo refuses a manifest whose declared bin, example, test or bench file
+  // is missing, so one left out of the archive breaks `release:verify`.
+  const manifest = readFileSync(join(ROOT, 'cockpit/Cargo.toml'), 'utf8')
+  const shipped = (path) => RELEASE_PATHS.some((entry) => path === entry || path.startsWith(`${entry}/`))
+  const defaults = { bin: 'src/bin', example: 'examples', test: 'tests', bench: 'benches' }
+  const missing = []
+  for (const block of manifest.split(/^\[\[/mu).slice(1)) {
+    const kind = block.slice(0, block.indexOf(']]'))
+    if (!(kind in defaults)) continue
+    const name = /^name\s*=\s*"([^"]+)"/mu.exec(block)?.[1]
+    const path = /^path\s*=\s*"([^"]+)"/mu.exec(block)?.[1] ?? `${defaults[kind]}/${name}.rs`
+    const file = relative(ROOT, resolve(ROOT, 'cockpit', path)).split(sep).join('/')
+    if (!shipped(file)) missing.push(`${kind} ${name}: ${file}`)
+  }
+  assert.deepEqual(missing, [])
+})
+
 test('embedded allowlist equals every compile-time include target of the packaged crates', () => {
   const included = new Map()
   const crates = ['cockpit/src', 'tests/cockpit', 'crates', 'vendor/dotmax/src', 'vendor/ureq/src']
@@ -532,6 +550,10 @@ test('embedded allowlist equals every compile-time include target of the package
       if (!included.has(target)) included.set(target, [])
       included.get(target).push(source)
     }
+    // A build script writes includes into generated code from inputs it reads
+    // at build time (as cockpit/build.rs does); the package's own build proves
+    // those inputs ship. Source files must stay literal.
+    if (source.endsWith('/build.rs')) continue
     assert.doesNotMatch(
       text,
       NON_LITERAL_INCLUDE,
@@ -713,11 +735,11 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   assert.equal(rust.advisory_scanners[0].version, '2.3.8')
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.path),
-    ['cockpit/Cargo.lock', 'cockpit/portal-renderer/Cargo.lock', 'crates/Cargo.lock', 'package-lock.json'],
+    ['cockpit/Cargo.lock', 'crates/Cargo.lock', 'package-lock.json'],
   )
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.package_count),
-    [376, 121, 99, 79],
+    [519, 339, 79],
   )
   assert.equal(rust.advisory_policy.python.status, 'not-applicable')
   assert.deepEqual(

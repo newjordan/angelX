@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Review: selected complete four-frame subset; extra cycles/components remain unwired. Bumper burst remains retained-unused, as in existing renderer.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Jackpot requires Keeper hp=0 and all three lit bits; art is celebratory, no damage.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "ae91b0aadc665f52aad879e421c4eaeb444f90fcd4c5a499b8927c2ef3f2841a",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Tight bronze seed core with a small closed petal collar and scattered soil chunks.",
+      "name": "jackpot-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.0,
+        81.5
+      ],
+      "source_rect_xywh": [
+        58,
+        265,
+        226,
+        163
+      ],
+      "state": "jackpot-0"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Bronze core swelling; first ivory seed petals open and small sparks appear.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.5,
+        112.5
+      ],
+      "source_rect_xywh": [
+        372,
+        203,
+        223,
+        225
+      ],
+      "state": "bronze-core-swelling-first-ivory-seed-petals-open-and-small-spar"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Petals open farther around the bright centre; upward sparks and debris signal growth.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        114.5
+      ],
+      "source_rect_xywh": [
+        657,
+        199,
+        244,
+        229
+      ],
+      "state": "petals-open-farther-around-the-bright-centre-upward-sparks-and-d"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Full upright bloom at the top of its opening arc.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.5,
+        142.0
+      ],
+      "source_rect_xywh": [
+        957,
+        154,
+        273,
+        284
+      ],
+      "state": "full-upright-bloom-at-the-top-of-its-opening-arc"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Peak: broad petals fan around the core with celebratory impact stars.",
+      "name": "jackpot-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        139.5,
+        149.0
+      ],
+      "source_rect_xywh": [
+        26,
+        515,
+        279,
+        298
+      ],
+      "state": "jackpot-1"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Peak breakup begins; detached petals and bronze rays spread around the centre.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        141.0,
+        150.5
+      ],
+      "source_rect_xywh": [
+        334,
+        515,
+        282,
+        301
+      ],
+      "state": "peak-breakup-begins-detached-petals-and-bronze-rays-spread-aroun"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Petals and chunky debris travel outward, leaving the central flash/core readable.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        134.5,
+        147.5
+      ],
+      "source_rect_xywh": [
+        655,
+        505,
+        269,
+        295
+      ],
+      "state": "petals-and-chunky-debris-travel-outward-leaving-the-central-flas"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "More separated petals and debris; the centre remains visible.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.0,
+        135.5
+      ],
+      "source_rect_xywh": [
+        966,
+        533,
+        260,
+        271
+      ],
+      "state": "more-separated-petals-and-debris-the-centre-remains-visible"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Breakup with rounded dark-outlined smoke, scattered petals, and a smaller core.",
+      "name": "jackpot-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        126.5,
+        135.5
+      ],
+      "source_rect_xywh": [
+        43,
+        917,
+        253,
+        271
+      ],
+      "state": "jackpot-2"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Smoke and two detached petals trail the shrinking seed core.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.0,
+        115.5
+      ],
+      "source_rect_xywh": [
+        364,
+        942,
+        232,
+        231
+      ],
+      "state": "smoke-and-two-detached-petals-trail-the-shrinking-seed-core"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Sparse smoke, remnant core, and a few small particles.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        109.5
+      ],
+      "source_rect_xywh": [
+        667,
+        951,
+        234,
+        219
+      ],
+      "state": "sparse-smoke-remnant-core-and-a-few-small-particles"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Final small bronze seed and a couple of petals/particles fade out.",
+      "name": "jackpot-3",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        99.5,
+        72.0
+      ],
+      "source_rect_xywh": [
+        1001,
+        1012,
+        199,
+        144
+      ],
+      "state": "jackpot-3"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732 at mapped (80,63)\u2212(16,16); no enlarged particle cloud.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "mossbell.jackpot",
+  "source_sha256": "8d94aa5802131623e9bbaab24c513a294fbb3a3cd08aaaf0892d18019a2ea29c",
+  "timing": "Four frames, 4 ticks each when jackpot sets burst=16 at (80,63); normal contact formula is shared (Ball::step, draw())."
+}

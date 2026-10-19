@@ -30,11 +30,9 @@ pub fn finish_room(run: &mut Run) {
 pub fn kill_leader(run: &mut Run, which: usize) {
     let w = run.boss_gates.as_ref().unwrap().leaders[which].clone();
     run.enter(w.room, Some(2)); // deliberately use production entry, not fixture bypass
-    assert!(
-        run.enemies
-            .iter()
-            .any(|e| e.boss == Some(w.boss) && e.hp > 0)
-    );
+    // The chief's camp is led by an elite with the Boss Key, never a boss.
+    assert!(run.enemies.iter().any(|e| e.elite && run.carries_key(e)));
+    assert!(!run.enemies.iter().any(|e| e.is_boss()));
     finish_room(run); // actual zero-HP removal through step/settle_kills
     assert!(run.boss_gates.as_ref().unwrap().leaders[which].defeated);
     assert!(run.room().cleared);

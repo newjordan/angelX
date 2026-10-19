@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.boulder/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED.",
+  "generation_sha256": "4fe7f5c2cd126179a57e55106d655435eb6510e8da1d2ef95d04e4737185e85f",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "52f725cf8f6632b0b3c536fb2c1d739349645662617f0105b2b2e58c07070683",
+  "native_contract": "Native 36x36, anchor bottom-centre (18,36).",
+  "notes_sha256": "7136921293dc5b898ac83403ab51fcd8b1bf12316a60137268a27c7564c681c4",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "71d2423f3a407c0a36756c32cbf3532d33b469b84ca39ea58f8c1829b21a0164",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.boulder/v01/source-sheet.png",
+  "source_sha256": "4b490b94222c8d0d792a953ff5e0d4d749f0ed1e01242818a57a78cac61f713c"
+}

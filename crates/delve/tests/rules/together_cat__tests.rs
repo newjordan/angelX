@@ -60,7 +60,7 @@ fn she_fetches_spoils_home_to_her_knight_and_leaves_the_rest() {
             card: card.into(),
             x,
             y,
-            held_off: None,
+            held_off: None, took: Vec::new(),
         });
     }
     for _ in 0..6 * HZ {
@@ -110,7 +110,7 @@ fn a_pillar_in_her_way_does_not_keep_her() {
         card: "gold".into(),
         x: 33.0,
         y: 13.0,
-        held_off: None,
+        held_off: None, took: Vec::new(),
     });
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 13.0);

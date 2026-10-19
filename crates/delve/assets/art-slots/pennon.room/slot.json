@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "3bd9be9d9eabde3cc7c25538eb7cf437a2ee6c4818a2955a0a19ec8be1933438",
+  "metadata_sha256": null,
+  "notes_sha256": "10b7f5b429a59ecb5465c76210847ac835b97631f55c79123a36676bf779dcdf",
+  "outputs": {
+    "v1/backdrop.png": {
+      "anchor_xy": [
+        600,
+        338
+      ],
+      "approved": true,
+      "canvas_wh": [
+        1200,
+        676
+      ],
+      "colour_agreement": 0.9964,
+      "frame": 0,
+      "half_cell_coverage": 50700,
+      "opaque_pixels": 810000,
+      "piece": 0,
+      "sha256": "08fb22a0abf0b078d985f510655c46259c24ca89bcb0110b0d2d722132196697",
+      "source_scale": 0.7177033492822966,
+      "state": "backdrop"
+    },
+    "v2/backdrop.png": {
+      "anchor_xy": [
+        600,
+        338
+      ],
+      "approved": true,
+      "canvas_wh": [
+        1200,
+        676
+      ],
+      "colour_agreement": 0.9964,
+      "frame": 0,
+      "half_cell_coverage": 50700,
+      "opaque_pixels": 810000,
+      "piece": 0,
+      "sha256": "08fb22a0abf0b078d985f510655c46259c24ca89bcb0110b0d2d722132196697",
+      "source_scale": 0.7177033492822966,
+      "state": "backdrop"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "pennon.room",
+  "source_path": "/work/artifacts/art-prod/slots/pennon.room/v01/source-sheet.png",
+  "source_sha256": "f584ed3a668e3e9102cd6bd6f249e492a464dc606a29a618b6dd979ec4a0e3ab",
+  "tool_version": 2
+}

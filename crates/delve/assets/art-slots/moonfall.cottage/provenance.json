@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.cottage/v01",
+  "delivery_status": "Accepted by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): thatched fen cottage, 46 of 48 px wide, door about 25 px, lantern at the door; the drawings nearly touch on the sheet and are cut at the column gaps; transparent background, three separated drawings.",
+  "generation_sha256": "5fe6bae549f0de0132f7e7318f64d80e3e2d27f05f3109d15c87a737f1ca1a4f",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "dd7239be2f9e9d2e2f79ca0fd94478f58aa047fab811d9cbe714e6a3f375e784",
+  "native_contract": "Native 48x72, anchor bottom-centre (24,72).",
+  "notes_sha256": "fd339f61c572a5b3e109980ab471328b2056b249645d28fd7cc90ce65defdc04",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "2a0c40b1569fb22031d23b312ea2576ff62fabc5ae7112921bd3a823dc60f77e",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.cottage/v01/source-sheet.png",
+  "source_sha256": "d818e2439ec188050914e4a45abbc217394642a6acbe6ce806f1f825167de410"
+}

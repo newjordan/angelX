@@ -1,0 +1,26 @@
+# The Royal Dog-Paddle: the mill on the north bank with its tall chimney and hopper, a waterwheel standing in the west pond, stone parapets along the bridge between the ponds.
+# the millhouse on the north bank: stone walls, a tiled roof, a tall chimney, a hopper, a lit window
+box    stone   at 84 0 8 size 70 34 16
+gable  roof    at 84 34 8 size 76 18 22
+box    brick   at 118 0 8 size 10 62 10
+box    window  at 66 20 15.8 size 8 9 1.3
+box    door    at 94 0 15.8 size 12 20 1.3
+box    wood    at 40 34 8 size 14 12 12
+wedge  wood    at 40 46 8 size 14 8 12
+# the waterwheel in the west pond: eight paddles on a spoked frame and a hub, between two stone cheeks
+box    stone   at 100 -3 96 size 8 12 10
+box    stone   at 130 -3 96 size 8 12 10
+box    wood    at 127 9.5 100 size 5 5 5
+box    wood    at 123.49 17.99 100 size 5 5 5
+box    wood    at 115 21.5 100 size 5 5 5
+box    wood    at 106.51 17.99 100 size 5 5 5
+box    wood    at 103 9.5 100 size 5 5 5
+box    wood    at 106.51 1.01 100 size 5 5 5
+box    wood    at 115 -2.5 100 size 5 5 5
+box    wood    at 123.49 1.01 100 size 5 5 5
+box    wood    at 115 0 100 size 3 24 3
+box    wood    at 115 10.5 100 size 24 3 3
+sphere metal   at 115 8.5 100 size 7 7 7
+# the dry bridge's parapets between the ponds
+box    stone   at 172 0 104 size 8 9 80
+box    stone   at 212 0 104 size 8 9 80

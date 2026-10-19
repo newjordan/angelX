@@ -45,6 +45,7 @@ mod overworld_walk;
 pub(crate) use overworld_walk::Walk;
 mod rating;
 mod research;
+mod round_table;
 mod session_meta;
 mod text;
 mod turn_io;

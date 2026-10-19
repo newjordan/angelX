@@ -1,0 +1,218 @@
+set strand
+# Soggy Bottom Strand: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: a sign and shells on the sand, driftwood and a beached boat (19,5).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    sand    at 24 -4 56 size 16 4 80
+box    sand    at 160 -4 56 size 32 4 80
+box    sand    at 224 -4 56 size 32 4 80
+box    sand    at 360 -4 56 size 16 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    sand    at 88 -4 80 size 112 4 32
+box    sand    at 296 -4 80 size 112 4 32
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    sand    at 96 -4 152 size 160 4 48
+box    sand    at 288 -4 152 size 160 4 48
+box    ground  at 376 -4 176 size 16 4 96
+box    sand    at 24 -4 192 size 16 4 32
+box    sand    at 160 -4 192 size 32 4 32
+box    sand    at 224 -4 192 size 32 4 32
+box    sand    at 360 -4 192 size 16 4 32
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# water, 3 below the floor line
+box    water   at 88 -4 40 size 112 1 48
+box    water   at 296 -4 40 size 112 1 48
+box    water   at 88 -4 192 size 112 1 32
+box    water   at 296 -4 192 size 112 1 32
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 10.5 8 8 size 21 17 16
+box    trunk   at 24 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 24 7 8 size 20 16 16
+box    trunk   at 38 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 38 7 8 size 19 18 16
+box    trunk   at 56 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 56 7 8 size 18 17 16
+box    trunk   at 69 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 69 8 8 size 19 16 16
+box    trunk   at 89 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 89 8 8 size 19 17 16
+box    trunk   at 102 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 102 7 8 size 21 19 16
+box    trunk   at 123 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 123 9 8 size 21 16 16
+box    trunk   at 133 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 133 6 8 size 20 18 16
+box    trunk   at 151 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 151 9 8 size 18 18 16
+box    trunk   at 165.5 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 165.5 8 8 size 21 17 16
+sphere foliage at 7 0 -9 size 24 32 18
+sphere foliage at 24 0 -9 size 23 33 18
+sphere foliage at 37 0 -9 size 22 34 18
+sphere foliage at 59 0 -9 size 25 32 18
+sphere foliage at 75 0 -9 size 25 32 18
+sphere foliage at 91 0 -9 size 29 31 18
+sphere foliage at 100 0 -9 size 28 32 18
+sphere foliage at 119 0 -9 size 29 30 18
+sphere foliage at 136 0 -9 size 29 35 18
+sphere foliage at 156 0 -9 size 25 37 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 218.5 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 218.5 6 8 size 21 16 16
+box    trunk   at 231 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 231 7 8 size 21 17 16
+box    trunk   at 247 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 247 6 8 size 19 19 16
+box    trunk   at 267 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 267 6 8 size 18 16 16
+box    trunk   at 282 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 282 9 8 size 20 18 16
+box    trunk   at 293 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 293 9 8 size 18 18 16
+box    trunk   at 311 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 311 8 8 size 21 16 16
+box    trunk   at 325 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 325 9 8 size 21 18 16
+box    trunk   at 342 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 342 9 8 size 20 17 16
+box    trunk   at 362 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 362 7 8 size 18 19 16
+box    trunk   at 374 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 374 7 8 size 20 16 16
+sphere foliage at 236 0 -9 size 26 36 18
+sphere foliage at 252 0 -9 size 25 32 18
+sphere foliage at 267 0 -9 size 29 34 18
+sphere foliage at 278 0 -9 size 27 36 18
+sphere foliage at 295 0 -9 size 24 34 18
+sphere foliage at 311 0 -9 size 25 35 18
+sphere foliage at 330 0 -9 size 24 32 18
+sphere foliage at 340 0 -9 size 29 31 18
+sphere foliage at 363 0 -9 size 23 31 18
+sphere foliage at 374 0 -9 size 23 33 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 26 size 16 18 20
+box    trunk   at 8 0 40 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 40 size 16 16 21
+box    trunk   at 8 0 54 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 54 size 16 19 21
+box    trunk   at 8 0 74 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 74 size 16 17 20
+box    trunk   at 8 0 85 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 85 size 16 18 21
+
+# the west wall, rows 8 to 12 (at 46% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 138 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 8 4 138 size 16 8.5 20
+box    trunk   at 8 0 152 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 8 6.5 152 size 16 18 20
+box    trunk   at 8 0 170 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 170 size 16 16 21
+box    trunk   at 8 0 181 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 181 size 16 19 21
+box    trunk   at 8 0 199 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 199 size 16 17 18
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 26 size 16 19 19
+box    trunk   at 376 0 41 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 41 size 16 19 20
+box    trunk   at 376 0 59 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 59 size 16 19 21
+box    trunk   at 376 0 74 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 74 size 16 17 18
+box    trunk   at 376 0 86 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 86 size 16 16 19
+
+# the east wall, rows 8 to 12 (at 56% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 137.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 3 137.5 size 16 9.5 19
+box    trunk   at 376 0 150 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 150 size 16 16.5 21
+box    trunk   at 376 0 166 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 166 size 16 19 21
+box    trunk   at 376 0 183 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 183 size 16 16 18
+box    trunk   at 376 0 199 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 199 size 16 17 18
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# landmark (assets/world3d/strand/landmark.set, hand-placed)
+# Soggy Bottom Strand: a plank pier with a T-head running out over the north-west sea on its piles, a rowing boat moored by it, a fisher's hut on stilts in the north-east water, a whale-rib arch over the north gate.
+# the pier: decking, a wider head at the far end, piles down both sides, a lamp post
+box    wood    at 88 2 42 size 14 3 42
+box    wood    at 88 2 26 size 36 3 12
+cylinder-6 trunk at 80 -3 56 size 4 11 4
+cylinder-6 trunk at 96 -3 56 size 4 11 4
+cylinder-6 trunk at 80 -3 42 size 4 11 4
+cylinder-6 trunk at 96 -3 42 size 4 11 4
+cylinder-6 trunk at 72 -3 22 size 4 14 4
+cylinder-6 trunk at 104 -3 22 size 4 14 4
+cylinder-6 trunk at 72 -3 31 size 4 11 4
+cylinder-6 trunk at 104 -3 31 size 4 11 4
+box    wood    at 88 5 20 size 3 24 3
+box    wood    at 88 27 20 size 10 3 3
+# a rowing boat moored along the pier: hull, bow, stern, thwart
+box    wood    at 56 -2 44 size 22 6 11
+wedge  wood    at 41 -2 44 size 8 6 11 turn 90
+wedge  wood    at 71 -2 44 size 8 6 11 turn -90
+box    wood    at 56 4 44 size 3 2 11
+# the fisher's hut on stilts: four piles, a floor, plank walls, a thatched roof
+cylinder-6 trunk at 276 -3 24 size 6 18 6
+cylinder-6 trunk at 332 -3 24 size 6 18 6
+cylinder-6 trunk at 276 -3 54 size 6 18 6
+cylinder-6 trunk at 332 -3 54 size 6 18 6
+box    wood    at 304 15 40 size 72 3 44
+box    wood    at 304 18 40 size 54 24 32
+gable  thatch  at 304 42 40 size 64 18 40
+box    door    at 304 18 55.8 size 10 16 1.3
+# the whale-rib arch over the north door
+box    bone    at 168 0 8 size 9 46 9
+box    bone    at 216 0 8 size 9 46 9
+arch-8 bone    at 192 46 8 size 64 22 8

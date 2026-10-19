@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 fn resolve_root(
     configured: Option<PathBuf>,
     executable: Option<&Path>,
-    manifest: &Path,
+    manifest: Option<&Path>,
     source: &str,
 ) -> PathBuf {
     if let Some(root) = configured {
@@ -24,7 +24,8 @@ fn resolve_root(
             }
         }
     }
-    manifest.parent().unwrap_or(manifest).to_path_buf()
+    // A portable build has no source tree to fall back on.
+    manifest.map_or_else(|| PathBuf::from("."), |manifest| manifest.parent().unwrap_or(manifest).to_path_buf())
 }
 
 pub(crate) fn root() -> PathBuf {
@@ -33,7 +34,7 @@ pub(crate) fn root() -> PathBuf {
             .filter(|v| !v.is_empty())
             .map(PathBuf::from),
         std::env::current_exe().ok().as_deref(),
-        Path::new(env!("CARGO_MANIFEST_DIR")),
+        option_env!("ANGEL_SOURCE_COCKPIT_DIR").map(Path::new),
         bundle_identity(),
     )
 }

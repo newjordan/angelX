@@ -1,0 +1,302 @@
+{
+  "boss": "crypt-tithe-marshal",
+  "camera": "overhead",
+  "definition_sha256": "fea1a3c7ff6232fa3f815b4225df55bb97671b41e1f0c4ee2ec7bf4c6137154f",
+  "display_policy": {
+    "activation_note": "BOSS-READ-1: shaded guardian floor and source-colour silhouette rim pass the unchanged local floor rule in both poses, paths and kits; minimum median delta 30.62 L*, rest presence 88.75%, edge 93.65%. Source body, effect banks and gameplay unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "square steel helm",
+      "red tithe tabard"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        320,
+        320
+      ],
+      "v2": [
+        320,
+        256
+      ]
+    },
+    "props": [
+      "square steel helm",
+      "bone topped staff",
+      "red tithe tabard"
+    ],
+    "study": {
+      "v1": [
+        [
+          27,
+          34
+        ],
+        [
+          33,
+          42
+        ],
+        [
+          42,
+          54
+        ],
+        [
+          53,
+          68
+        ]
+      ],
+      "v2": [
+        [
+          57,
+          72
+        ],
+        [
+          75,
+          96
+        ],
+        [
+          101,
+          128
+        ]
+      ]
+    },
+    "v1": [
+      42,
+      54
+    ],
+    "v2": [
+      75,
+      96
+    ]
+  },
+  "identity_props": [
+    "square steel helm",
+    "bone topped staff",
+    "red tithe tabard"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9782411604714415,
+      "opaque_pixels": 1103,
+      "sha256": "2db641e3feb39ec523b149c0cb7832222d027ad18a10c35598e691ca7ca45671",
+      "silhouette_iou": 1.0,
+      "size": [
+        42,
+        54
+      ]
+    },
+    "library-v1-study-1-rest.png": {
+      "colours": 32,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9691629955947136,
+      "opaque_pixels": 454,
+      "sha256": "034ade58fb6e128bea10a7a61fc98b1195538c2a6889c08bd1843913cdbd0202",
+      "silhouette_iou": 1.0,
+      "size": [
+        27,
+        34
+      ]
+    },
+    "library-v1-study-1-windup.png": {
+      "colours": 32,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9712041884816754,
+      "opaque_pixels": 382,
+      "sha256": "535ad62f8c3256d8703f3f485f55f59b492f6aea2c1625361eb5231b3675ccc7",
+      "silhouette_iou": 1.0,
+      "size": [
+        27,
+        34
+      ]
+    },
+    "library-v1-study-2-rest.png": {
+      "colours": 35,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9767441860465116,
+      "opaque_pixels": 688,
+      "sha256": "4f6203e37b25c2658efa902f5713c1a5d765604f91a06e69848256f16e527566",
+      "silhouette_iou": 1.0,
+      "size": [
+        33,
+        42
+      ]
+    },
+    "library-v1-study-2-windup.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9771929824561404,
+      "opaque_pixels": 570,
+      "sha256": "3c69dee001e6a36eae2e9b3d7c32222b031fffb27db21a755ee5bf1654faee1b",
+      "silhouette_iou": 1.0,
+      "size": [
+        33,
+        42
+      ]
+    },
+    "library-v1-study-3-rest.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9782411604714415,
+      "opaque_pixels": 1103,
+      "sha256": "2db641e3feb39ec523b149c0cb7832222d027ad18a10c35598e691ca7ca45671",
+      "silhouette_iou": 1.0,
+      "size": [
+        42,
+        54
+      ]
+    },
+    "library-v1-study-3-windup.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9793478260869565,
+      "opaque_pixels": 920,
+      "sha256": "d946bf1cfb73c78c448dafcf67b406919763838d587234454e1068463a2a6893",
+      "silhouette_iou": 1.0,
+      "size": [
+        42,
+        54
+      ]
+    },
+    "library-v1-study-4-rest.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9778156996587031,
+      "opaque_pixels": 1758,
+      "sha256": "bdc5653b65d4b05b52145cbc4614858b1d9bf1aac407a5ee9fe6ebeaf3d5adcb",
+      "silhouette_iou": 1.0,
+      "size": [
+        53,
+        68
+      ]
+    },
+    "library-v1-study-4-windup.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9767918088737202,
+      "opaque_pixels": 1465,
+      "sha256": "89a6a0b1aec2f4c58fb8929cd0c56aab286c15be8424834a99d6196b86344630",
+      "silhouette_iou": 1.0,
+      "size": [
+        53,
+        68
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9793478260869565,
+      "opaque_pixels": 920,
+      "sha256": "d946bf1cfb73c78c448dafcf67b406919763838d587234454e1068463a2a6893",
+      "silhouette_iou": 1.0,
+      "size": [
+        42,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9838846480067854,
+      "opaque_pixels": 3537,
+      "sha256": "08ebcfbbca212076f382675d2c3b75819ee36ff2c5c1f50f51bc37c66775cb56",
+      "silhouette_iou": 1.0,
+      "size": [
+        75,
+        96
+      ]
+    },
+    "library-v2-study-1-rest.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9808165272995573,
+      "opaque_pixels": 2033,
+      "sha256": "cc7e6d99679588409739d6d80af197738cba31e9d9e35915b5425dd3b4def5fb",
+      "silhouette_iou": 1.0,
+      "size": [
+        57,
+        72
+      ]
+    },
+    "library-v2-study-1-windup.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9776207302709069,
+      "opaque_pixels": 1698,
+      "sha256": "25635769a5802a271fe79a13a5f12a5a871e6ab6b751ea7a81db5776499d7a19",
+      "silhouette_iou": 1.0,
+      "size": [
+        57,
+        72
+      ]
+    },
+    "library-v2-study-2-rest.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9838846480067854,
+      "opaque_pixels": 3537,
+      "sha256": "08ebcfbbca212076f382675d2c3b75819ee36ff2c5c1f50f51bc37c66775cb56",
+      "silhouette_iou": 1.0,
+      "size": [
+        75,
+        96
+      ]
+    },
+    "library-v2-study-2-windup.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9789115646258504,
+      "opaque_pixels": 2940,
+      "sha256": "b39decbf9eb32b648ad483b76e14e296a7dbfc9c6bbdd2d1276a792194edbc9e",
+      "silhouette_iou": 1.0,
+      "size": [
+        75,
+        96
+      ]
+    },
+    "library-v2-study-3-rest.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9879555764117003,
+      "opaque_pixels": 6393,
+      "sha256": "90af10633cc62b29bdcb223e57601fe1be49a6c15fbccdcf68d81fde42334b56",
+      "silhouette_iou": 1.0,
+      "size": [
+        101,
+        128
+      ]
+    },
+    "library-v2-study-3-windup.png": {
+      "colours": 46,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9848399775407075,
+      "opaque_pixels": 5343,
+      "sha256": "56b990de94085e24b856a8796e030e2880c5be9f7a3e6800541d78c179a4ddd4",
+      "silhouette_iou": 1.0,
+      "size": [
+        101,
+        128
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 45,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9789115646258504,
+      "opaque_pixels": 2940,
+      "sha256": "b39decbf9eb32b648ad483b76e14e296a7dbfc9c6bbdd2d1276a792194edbc9e",
+      "silhouette_iou": 1.0,
+      "size": [
+        75,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

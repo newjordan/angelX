@@ -245,6 +245,9 @@ pub trait GameServer: Send + 'static {
     /// server knows of that seat's player this tick. A game that keeps an
     /// absent player's character out of harm's way reads it here.
     fn presence(&mut self, _tick: u32, _seats: &[Presence]) {}
+    /// Maximum age of a sampled input: measured snapshot round trip, one
+    /// snapshot interval, and the existing command cushion. No wire message.
+    fn input_age(&mut self, _seat: u32, _ticks: u64) {}
     /// One tick. `cmds[seat]` is the seat's command, `None` for an empty seat.
     fn step(&mut self, tick: u32, cmds: &[Option<Self::Cmd>], events: &mut Events);
     /// What the writers read for this tick, published once.

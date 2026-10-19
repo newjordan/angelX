@@ -1,0 +1,156 @@
+set chunk-1-4
+# The kingdom, chunk 1,4 in The Fen: tiles 24..48 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 576 1152
+plate 1536 1024
+
+# ground
+box    water   at 424 -4 1048 size 80 1 48
+box    sand    at 496 -4 1032 size 64 4 16
+box    water   at 568 -4 1032 size 80 1 16
+box    wood    at 624 -4 1032 size 32 4 16
+box    water   at 704 -4 1032 size 128 1 16
+box    sand    at 472 -4 1056 size 16 4 32
+box    grass   at 504 -4 1088 size 48 4 96
+box    sand    at 536 -4 1048 size 16 4 16
+box    mud     at 568 -4 1088 size 48 4 96
+box    path    at 624 -4 1048 size 64 4 16
+box    sand    at 696 -4 1048 size 80 4 16
+box    water   at 744 -4 1056 size 16 1 32
+box    sand    at 760 -4 1048 size 16 4 16
+box    mud     at 536 -4 1096 size 16 4 80
+box    path    at 616 -4 1152 size 48 4 192
+box    grass   at 680 -4 1064 size 80 4 16
+box    sand    at 728 -4 1072 size 16 4 32
+box    water   at 760 -4 1088 size 16 1 64
+box    water   at 408 -4 1080 size 48 1 16
+box    mud     at 440 -4 1096 size 16 4 48
+box    sand    at 456 -4 1080 size 16 4 16
+box    grass   at 472 -4 1104 size 16 4 64
+box    mud     at 656 -4 1128 size 32 4 112
+box    grass   at 688 -4 1080 size 32 4 16
+box    sand    at 712 -4 1080 size 16 4 16
+box    sand    at 744 -4 1088 size 16 4 32
+box    mud     at 408 -4 1104 size 48 4 32
+box    mud     at 456 -4 1096 size 16 4 16
+box    grass   at 680 -4 1104 size 16 4 32
+box    sand    at 696 -4 1112 size 16 4 48
+box    water   at 720 -4 1112 size 32 1 48
+box    ground  at 456 -4 1112 size 16 4 16
+box    water   at 744 -4 1120 size 16 1 32
+box    grass   at 424 -4 1152 size 80 4 64
+box    mud     at 680 -4 1152 size 16 4 64
+box    sand    at 760 -4 1136 size 16 4 32
+box    mud     at 496 -4 1176 size 64 4 80
+box    grass   at 560 -4 1152 size 64 4 32
+box    mud     at 704 -4 1160 size 32 4 48
+box    sand    at 736 -4 1144 size 32 4 16
+box    mud     at 736 -4 1160 size 32 4 16
+box    grass   at 760 -4 1168 size 16 4 32
+box    grass   at 536 -4 1176 size 16 4 16
+box    path    at 568 -4 1176 size 48 4 16
+box    grass   at 736 -4 1200 size 32 4 64
+box    grass   at 416 -4 1192 size 64 4 16
+box    mud     at 456 -4 1216 size 16 4 64
+box    mud     at 544 -4 1224 size 32 4 80
+box    path    at 576 -4 1192 size 32 4 16
+box    grass   at 680 -4 1192 size 80 4 16
+box    sand    at 760 -4 1208 size 16 4 48
+box    grass   at 400 -4 1208 size 32 4 16
+box    mud     at 432 -4 1232 size 32 4 64
+box    mud     at 576 -4 1232 size 32 4 64
+box    path    at 648 -4 1240 size 16 4 80
+box    grass   at 688 -4 1216 size 64 4 32
+box    grass   at 392 -4 1224 size 16 4 16
+box    mud     at 408 -4 1240 size 16 4 48
+box    grass   at 480 -4 1248 size 32 4 64
+box    mud     at 512 -4 1232 size 32 4 32
+box    mud     at 392 -4 1256 size 16 4 48
+box    grass   at 680 -4 1256 size 48 4 48
+box    ground  at 720 -4 1240 size 32 4 16
+box    sand    at 744 -4 1248 size 16 4 32
+box    water   at 760 -4 1256 size 16 1 48
+box    grass   at 456 -4 1264 size 16 4 32
+box    grass   at 512 -4 1264 size 32 4 32
+box    grass   at 600 -4 1264 size 16 4 32
+box    path    at 624 -4 1264 size 32 4 32
+box    grass   at 720 -4 1256 size 32 4 16
+box    grass   at 424 -4 1272 size 48 4 16
+box    grass   at 560 -4 1272 size 64 4 16
+box    mud     at 728 -4 1272 size 48 4 16
+
+# ROYAL DOG PADDLE: a watermill and its wheel at 33,70 4x3
+box    brick   at 548.84 0 1154 size 37.68 14 24 id royal-dog-paddle
+gable  slate   at 548.84 14 1154 size 40.68 11 27
+box    stone   at 557.88 14 1151.6 size 4 12.35 4
+box    door    at 548.84 0 1166.25 size 7 11 1
+box    window  at 539.42 5.88 1166.25 size 5 4.2 1
+box    window  at 558.26 5.88 1166.25 size 5 4.2 1
+box    water   at 579.34 -2 1154 size 21.32 2.5 24
+box    stone   at 579.34 0 1143 size 21.32 4 2
+sphere wood    at 579.84 -2 1164.5 size 21.32 21.32 2.5
+box    wood    at 584 0 1128 size 14 4 8
+box    wood    at 584 4 1128 size 10 3 6
+
+# set dressing
+cylinder wood    at 691 0 1096 size 3.5 3 3.5
+cylinder wood    at 696 0 1098 size 3.5 3 3.5
+cylinder wood    at 701 0 1096 size 3.5 3 3.5
+cone   thatch  at 744 0 1096 size 9 4 8
+
+# woods (at 39% of its height, for the camera)
+cylinder trunk   at 401 0 1200 size 5 5 5
+blob-16 foliage at 401 3.5 1200 size 33 8.5 31.35 turn 90
+frustum trunk   at 391 0 1222 size 3 11 3
+blob-22 foliage at 391 6 1222 size 17 20 16.15
+frustum trunk   at 423.5 0 1271.5 size 3 6 3
+blob-55 foliage at 423.5 3 1271.5 size 18 8 17.1 turn 180
+cylinder trunk   at 440 0 1272 size 3 4.5 3
+blob-24 foliage at 440 2 1272 size 19 8.5 18.05 turn 270
+cylinder trunk   at 456 0 1272 size 3 5.5 3
+blob-4 foliage at 456 3 1272 size 19 6.5 18.05 turn 180
+
+# dead trees
+frustum trunk   at 439 0 1080 size 4 18 4
+box    trunk   at 436.36 9.9 1079.24 size 5.5 1.2 1.2 turn 164
+box    trunk   at 440.56 12.96 1081.62 size 4.5 1.2 1.2 turn 314
+box    trunk   at 440.03 15.84 1078.58 size 3.5 1.2 1.2 turn 414
+frustum trunk   at 394 0 1097 size 4 18 4
+box    trunk   at 393.76 9.9 1094.26 size 5.5 1.2 1.2 turn 95
+box    trunk   at 393.05 12.96 1099.04 size 4.5 1.2 1.2 turn 245
+box    trunk   at 395.69 15.84 1097.45 size 3.5 1.2 1.2 turn 345
+frustum trunk   at 409 0 1096 size 4 20 4
+box    trunk   at 407.97 11 1093.45 size 5.5 1.2 1.2 turn 112
+box    trunk   at 408.69 14.4 1098.23 size 4.5 1.2 1.2 turn 262
+box    trunk   at 410.75 17.6 1095.94 size 3.5 1.2 1.2 turn 362
+frustum trunk   at 425 0 1095 size 4 18 4
+box    trunk   at 425.52 9.9 1092.3 size 5.5 1.2 1.2 turn 79
+box    trunk   at 423.52 12.96 1096.7 size 4.5 1.2 1.2 turn 229
+box    trunk   at 426.5 15.84 1095.9 size 3.5 1.2 1.2 turn 329
+frustum trunk   at 455 0 1097 size 4 21 4
+box    trunk   at 457.38 11.55 1095.63 size 5.5 1.2 1.2 turn 30
+box    trunk   at 452.75 15.12 1097 size 4.5 1.2 1.2 turn 180
+box    trunk   at 455.3 18.48 1098.72 size 3.5 1.2 1.2 turn 280
+frustum trunk   at 438 0 1112 size 4 19 4
+box    trunk   at 437.24 10.45 1109.36 size 5.5 1.2 1.2 turn 106
+box    trunk   at 437.46 13.68 1114.18 size 4.5 1.2 1.2 turn 256
+box    trunk   at 439.75 16.72 1112.12 size 3.5 1.2 1.2 turn 356
+frustum trunk   at 456 0 1114 size 4 21 4
+box    trunk   at 454.63 11.55 1111.62 size 5.5 1.2 1.2 turn 120
+box    trunk   at 456 15.12 1116.25 size 4.5 1.2 1.2 turn 270
+box    trunk   at 457.72 18.48 1113.7 size 3.5 1.2 1.2 turn 370
+frustum trunk   at 711 0 1238 size 4 15 4
+box    trunk   at 709.31 8.25 1235.83 size 5.5 1.2 1.2 turn 128
+box    trunk   at 711.31 10.8 1240.23 size 4.5 1.2 1.2 turn 278
+box    trunk   at 712.66 13.2 1237.46 size 3.5 1.2 1.2 turn 378
+frustum trunk   at 730 0 1238 size 4 18 4
+box    trunk   at 731.73 9.9 1235.86 size 5.5 1.2 1.2 turn 51
+box    trunk   at 727.9 12.96 1238.81 size 4.5 1.2 1.2 turn 201
+box    trunk   at 730.9 15.84 1239.5 size 3.5 1.2 1.2 turn 301
+
+# bridges
+box    wood    at 600 -3 1032 size 16 5.5 16
+box    wood    at 648 -3 1032 size 16 5.5 16
+box    wood    at 591.25 0 1032 size 1.5 6 16
+box    wood    at 656.75 0 1032 size 1.5 6 16

@@ -63,6 +63,15 @@ pub struct DocTick {
 /// What of the tree a client may see (the Delve: the seat's room).
 pub trait DocView: Send + Sync + 'static {
     fn view<'a>(&self, tree: &'a Value, seat: Option<u32>) -> Cow<'a, Value>;
+    /// What of `view` this snapshot sends a client that holds `held` (`None`:
+    /// nothing yet, the snapshot is whole). A view may hold back some of what
+    /// it would add, to come in the snapshots after, so no one snapshot is
+    /// more than a client reads (`angel_net::proto::MAX_SERVER_MESSAGE`):
+    /// what it held back is new to the client again next time. All of it,
+    /// unless a game says otherwise.
+    fn pace<'a>(&self, view: Cow<'a, Value>, _held: Option<&Value>) -> Cow<'a, Value> {
+        view
+    }
     fn hears(&self, _tree: &Value, _seat: Option<u32>, _x: i32, _y: i32) -> bool {
         true
     }
@@ -96,7 +105,7 @@ impl<V: DocView> Replicate for DocRep<V> {
     }
 
     fn snapshot(&self, tick: &DocTick, seat: Option<u32>, viewer: &mut DocViewer, out: &mut Vec<u8>) -> bool {
-        let view = self.0.view(&tick.tree, seat);
+        let view = self.0.pace(self.0.view(&tick.tree, seat), viewer.last.as_ref());
         match &viewer.last {
             None => {
                 viewer.names.value(out, &view);
@@ -165,5 +174,49 @@ mod tests {
         rep.snapshot(&DocTick { tree: tree(5) }, Some(1), &mut viewer, &mut out);
         apply(&mut held, reader.patch(&mut Bytes::new(&out)).unwrap()).unwrap();
         assert_eq!(held.field("gold"), Some(&Value::U(5)));
+    }
+
+    /// A game that sends a map's new entries one a snapshot.
+    struct OneNew;
+
+    impl DocView for OneNew {
+        fn view<'a>(&self, tree: &'a Value, _seat: Option<u32>) -> Cow<'a, Value> {
+            Cow::Borrowed(tree)
+        }
+
+        fn pace<'a>(&self, view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
+            let had = |key: &Value| matches!(held, Some(Value::Map(h)) if h.iter().any(|(k, _)| k == key));
+            let Value::Map(entries) = view.as_ref() else { return view };
+            let mut first = true;
+            let paced: Vec<_> = entries
+                .iter()
+                .filter(|(key, _)| had(key) || std::mem::take(&mut first))
+                .cloned()
+                .collect();
+            Cow::Owned(Value::Map(paced))
+        }
+    }
+
+    #[test]
+    fn a_view_may_hold_back_what_is_new_until_the_snapshots_after() {
+        let rep = DocRep(OneNew);
+        let tree = Value::Map((0..3).map(|i| (Value::U(i), Value::Bytes(vec![i as u8; 1000].into()))).collect());
+        let mut viewer = rep.viewer(Some(0));
+        let mut reader = Reader::default();
+        let mut out = Vec::new();
+        assert!(rep.snapshot(&DocTick { tree: tree.clone() }, Some(0), &mut viewer, &mut out));
+        let mut held = reader.value(&mut Bytes::new(&out)).unwrap();
+        assert!(matches!(&held, Value::Map(h) if h.len() == 1), "a whole snapshot is paced too");
+        for n in 2..=3 {
+            out.clear();
+            assert!(!rep.snapshot(&DocTick { tree: tree.clone() }, Some(0), &mut viewer, &mut out));
+            assert!(out.len() < 1100, "one new entry a snapshot: {} bytes", out.len());
+            apply(&mut held, reader.patch(&mut Bytes::new(&out)).unwrap()).unwrap();
+            assert!(matches!(&held, Value::Map(h) if h.len() == n));
+        }
+        assert_eq!(held, tree, "and then the client holds all of it");
+        out.clear();
+        rep.snapshot(&DocTick { tree }, Some(0), &mut viewer, &mut out);
+        assert!(out.is_empty(), "nothing more to send");
     }
 }

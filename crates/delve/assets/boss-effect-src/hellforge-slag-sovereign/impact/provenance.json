@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-slag-sovereign.impact/v01/source-sheet.png",
+  "source_sha256": "c1b6d11284a001c5f4230983582841b94db42c1cf05ec1376cc188026fd61165",
+  "original_sheet_sha256": "c1b6d11284a001c5f4230983582841b94db42c1cf05ec1376cc188026fd61165",
+  "metadata_sha256": "57bd6d60da58b97f0b734ac8aeff7f3003466b5cf0a6fbcfc13033eca28380b3",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        322,
+        133,
+        288,
+        303
+      ],
+      "alpha_area": 40098,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "223571a542920c312c055796f71681b6cb9d8df25165d49f0039a25a5f1675e2"
+    },
+    {
+      "source_rect_xywh": [
+        651,
+        169,
+        281,
+        260
+      ],
+      "alpha_area": 31723,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "fb78e241f02ba2d6c8045d89d58f4ce319f10b5af9ebc8611ad781a3e1593601"
+    },
+    {
+      "source_rect_xywh": [
+        1013,
+        187,
+        190,
+        220
+      ],
+      "alpha_area": 18704,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "30bdf27b20bf76193e4bcb59b3eb38a9e9959ebf01ba02777010f120a4cbb286"
+    },
+    {
+      "source_rect_xywh": [
+        77,
+        232,
+        161,
+        164
+      ],
+      "alpha_area": 9944,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "23948bb0ce3da9b45b632c7fec6ad4797f97292aaad13d9a4f8c04688913f0e9"
+    },
+    {
+      "source_rect_xywh": [
+        88,
+        613,
+        186,
+        174
+      ],
+      "alpha_area": 16718,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "c1f6df19a22f170ade6439bdb9fc630b30018929fca4fa63370f285d34065332"
+    },
+    {
+      "source_rect_xywh": [
+        362,
+        592,
+        206,
+        203
+      ],
+      "alpha_area": 16591,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "2c6fa7c53410b36146b3cc6a52e5e9b87aee4a52e0dddc66a24c63b2975d7650"
+    },
+    {
+      "source_rect_xywh": [
+        652,
+        541,
+        279,
+        283
+      ],
+      "alpha_area": 36191,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "7faca7e28a2ec0ee030c0a2d66255fd9ba4ecb174be267ef174528c63583196c"
+    },
+    {
+      "source_rect_xywh": [
+        982,
+        561,
+        222,
+        248
+      ],
+      "alpha_area": 24290,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "f0f997e5efb99e92a88c763863ddf769461ebfd91d1405c7aba0ed0c1491a507"
+    },
+    {
+      "source_rect_xywh": [
+        113,
+        951,
+        162,
+        179
+      ],
+      "alpha_area": 11935,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "e139d81e41a4cb9b8b2be24fb74984dea4c6ac22e261a5523cd07d11e8ebead0"
+    },
+    {
+      "source_rect_xywh": [
+        426,
+        975,
+        107,
+        159
+      ],
+      "alpha_area": 7185,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "1a404aa6c50d3e143d83cb764b8f9e0aadbd8802824d169bfc9fa03b36669b86"
+    },
+    {
+      "source_rect_xywh": [
+        695,
+        974,
+        226,
+        180
+      ],
+      "alpha_area": 21671,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "d36ccf9ee1842d34ab43730bee3f422ba910d0094c033d1d5f18f90ff47c2d32"
+    },
+    {
+      "source_rect_xywh": [
+        1041,
+        994,
+        126,
+        135
+      ],
+      "alpha_area": 9114,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "4611a86640e72e351e534d512d14c0534a62bedd803a4d230c04627912c8df84"
+    }
+  ]
+}

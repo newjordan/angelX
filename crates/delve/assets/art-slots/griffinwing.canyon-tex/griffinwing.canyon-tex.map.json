@@ -1,0 +1,168 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    64
+  ],
+  "anchor_xy": [
+    32,
+    32
+  ],
+  "comments": [
+    "Each 466-px swatch is BOX reduced once to 64x64 (7.3 to 1). Rock is wrap-blended in y and mist in x by the lane; stone, causeway, lava and bone tile as drawn (seams in the producer note).",
+    "The stage chooses how many units one tile spans and dims the textures before the haze; neither is done here. Lava and mist are imported whole but the stage keeps its emissive materials."
+  ],
+  "delivered_pieces": 6,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 6,
+  "geometry": "Surface textures for the canyon's 3D walls and floors; the stage sets how many units a tile spans; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the six picked swatches (v01/picked, the producer's choice) pasted unscaled on one sheet, 2026-10-19. Reading order equals the slot order: rock, stone, causeway, bone, lava, mist.",
+  "notes_sha256": "522f7eb7144cebab6f1a6cdfd795875489cea155e04d32b7b3a0acb9912cc3b8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "rock-0",
+      "name": "rock-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.0,
+        233.0
+      ],
+      "source_rect_xywh": [
+        4,
+        4,
+        466,
+        466
+      ],
+      "state": "rock",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "stone-0",
+      "name": "stone-0",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.0,
+        233.0
+      ],
+      "source_rect_xywh": [
+        479,
+        4,
+        466,
+        466
+      ],
+      "state": "stone",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "causeway-0",
+      "name": "causeway-0",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.0,
+        233.0
+      ],
+      "source_rect_xywh": [
+        954,
+        4,
+        466,
+        466
+      ],
+      "state": "causeway",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "bone-0",
+      "name": "bone-0",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.5,
+        233.5
+      ],
+      "source_rect_xywh": [
+        4,
+        479,
+        467,
+        467
+      ],
+      "state": "bone",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lava-0",
+      "name": "lava-0",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.0,
+        233.0
+      ],
+      "source_rect_xywh": [
+        479,
+        479,
+        466,
+        466
+      ],
+      "state": "lava",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "mist-0",
+      "name": "mist-0",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        233.0,
+        233.0
+      ],
+      "source_rect_xywh": [
+        954,
+        479,
+        466,
+        466
+      ],
+      "state": "mist",
+      "ticks": 1
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native tile 64x64 (opaque, seamless), anchor centre (32,32); stage 384x224.",
+  "sizes": {
+    "v1": [
+      64,
+      64
+    ],
+    "v2": [
+      64,
+      64
+    ]
+  },
+  "slot": "griffinwing.canyon-tex",
+  "source_sha256": "8e232d4b80ce7b285919e705266f33bfca707d7cf7438655a712669489449fcf",
+  "timing": "rock 1 ticks; stone 1 ticks; causeway 1 ticks; bone 1 ticks; lava 1 ticks; mist 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

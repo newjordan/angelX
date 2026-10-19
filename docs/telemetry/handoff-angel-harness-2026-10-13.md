@@ -74,7 +74,7 @@ This handoff is intended to be the next scoped commit after `81a48040`.
 Verify it with `git ls-remote origin refs/heads/dev` after publication rather
 than trusting any hash self-reference in this file.
 
-The main workspace remains `/home/frosty40/angelX` on `glm_map_fixes` at
+The main workspace remains `.` on `glm_map_fixes` at
 `1c826605`, with a deliberately dirty tree. As of this handoff, all 15 scoped
 sentinel/TLS/watch/research files in that workspace were byte-identical to
 the publish worktree content already on private `dev`. Do not broad-add,

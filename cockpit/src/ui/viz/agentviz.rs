@@ -46,7 +46,7 @@ impl StageSnapshot {
     }
 
     /// How many seats have come back with a result (`Returned`) — the "3/6
-    /// back" count for status rows and the portal.
+    /// back" count for status rows.
     pub fn returned(&self) -> usize {
         self.seat_states
             .iter()
@@ -58,7 +58,7 @@ impl StageSnapshot {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActivitySnapshot {
     /// Monotonic revision of the activity signal, including a transition to
-    /// the empty state. Portal frames use this to reject late results.
+    /// the empty state. Followers use this to see that the activity moved.
     pub sequence: u64,
     pub stage: Option<StageSnapshot>,
 }

@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    28,
+    28
+  ],
+  "anchor_xy": [
+    14,
+    14
+  ],
+  "comments": [
+    "Review: one idle body per silhouette. Flash contours are generated from that body; supplied flash variants are proposals.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Ball::circle uses (bumper radius+3)\u00d7Q. Keep three silhouette identities and the centre target above root art; lit indicator below each target is code-owned.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "e987ea25f0d0e115aaffe790f6b5c233932ce6dd1d4efd1ba2fed7f1124379b8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Ring bumper idle; worn copper annulus, dark support base, amber status jewel.",
+      "name": "ring",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.5,
+        100.0
+      ],
+      "source_rect_xywh": [
+        53,
+        198,
+        231,
+        200
+      ],
+      "state": "ring"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Ring flash 1; same contour with brighter amber edge.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        100.0
+      ],
+      "source_rect_xywh": [
+        361,
+        198,
+        231,
+        200
+      ],
+      "state": "ring-flash-1-same-contour-with-brighter-amber-edge"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Ring flash 2; stronger amber contour.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.5,
+        100.0
+      ],
+      "source_rect_xywh": [
+        661,
+        198,
+        233,
+        200
+      ],
+      "state": "ring-flash-2-stronger-amber-contour"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Ring flash 3; brightest amber contour.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.5,
+        100.0
+      ],
+      "source_rect_xywh": [
+        970,
+        198,
+        231,
+        200
+      ],
+      "state": "ring-flash-3-brightest-amber-contour"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Diamond bumper idle; copper diamond plate with four corner fittings and dark support.",
+      "name": "diamond",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        117.5,
+        103.0
+      ],
+      "source_rect_xywh": [
+        52,
+        524,
+        235,
+        206
+      ],
+      "state": "diamond"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Diamond flash 1; first amber edge highlight.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        103.0
+      ],
+      "source_rect_xywh": [
+        355,
+        524,
+        237,
+        206
+      ],
+      "state": "diamond-flash-1-first-amber-edge-highlight"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Diamond flash 2; brighter edge highlight.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        103.0
+      ],
+      "source_rect_xywh": [
+        659,
+        524,
+        237,
+        206
+      ],
+      "state": "diamond-flash-2-brighter-edge-highlight"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Diamond flash 3; brightest edge highlight.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        119.0,
+        103.0
+      ],
+      "source_rect_xywh": [
+        966,
+        524,
+        238,
+        206
+      ],
+      "state": "diamond-flash-3-brightest-edge-highlight"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Three seed-petal bumper idle; three rounded copper lobes around an amber status jewel.",
+      "name": "petals",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        46,
+        861,
+        242,
+        217
+      ],
+      "state": "petals"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Seed-petal flash 1; first amber contour glow.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        352,
+        861,
+        244,
+        217
+      ],
+      "state": "seed-petal-flash-1-first-amber-contour-glow"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Seed-petal flash 2; stronger contour glow.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        656,
+        861,
+        244,
+        217
+      ],
+      "state": "seed-petal-flash-2-stronger-contour-glow"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Seed-petal flash 3; brightest contour glow.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        965,
+        861,
+        244,
+        217
+      ],
+      "state": "seed-petal-flash-3-brightest-contour-glow"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "28\u00d728 at each display bumper centre\u2212(14,14). BUMPERS=(44,57,10),(116,57,10),(80,83,11) in physics pixels/radii.",
+  "sizes": {
+    "v1": [
+      28,
+      28
+    ],
+    "v2": [
+      28,
+      28
+    ]
+  },
+  "slot": "mossbell.targets",
+  "source_sha256": "2b7247d111d92ba8518d38488b4e03a44aa6d358e0ffc164bde479066f266ea0",
+  "timing": "Three shapes, four contour-flash frames each, 3 ticks/frame over flash=12; lit indicator persists until drain (art()/draw(), Ball::step)."
+}

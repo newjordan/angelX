@@ -1,0 +1,99 @@
+set chunk-1-8
+# The kingdom, chunk 1,8 in The Fairground: tiles 24..48 x 128..144 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 576 2176
+plate 1536 1024
+
+# ground
+box    water   at 416 -4 2056 size 64 1 16
+box    wood    at 464 -4 2056 size 32 4 16
+box    water   at 536 -4 2056 size 112 1 16
+box    sand    at 680 -4 2056 size 176 4 16
+box    water   at 392 -4 2096 size 16 1 64
+box    sand    at 408 -4 2088 size 16 4 48
+box    path    at 448 -4 2088 size 64 4 48
+box    sand    at 528 -4 2072 size 96 4 16
+box    water   at 672 -4 2072 size 192 1 16
+box    grass   at 528 -4 2152 size 96 4 144
+box    sand    at 672 -4 2088 size 192 4 16
+box    grass   at 672 -4 2168 size 192 4 144
+box    water   at 408 -4 2128 size 16 1 32
+box    path    at 440 -4 2144 size 48 4 64
+box    grass   at 472 -4 2176 size 16 4 128
+box    sand    at 392 -4 2168 size 16 4 80
+box    wood    at 408 -4 2224 size 16 4 160
+box    path    at 432 -4 2216 size 32 4 80
+box    grass   at 456 -4 2208 size 16 4 64
+box    path    at 392 -4 2240 size 16 4 64
+box    grass   at 504 -4 2240 size 48 4 32
+box    path    at 536 -4 2248 size 16 4 48
+box    grass   at 560 -4 2240 size 32 4 32
+box    path    at 464 -4 2248 size 32 4 16
+box    grass   at 640 -4 2248 size 128 4 16
+box    path    at 712 -4 2256 size 16 4 32
+box    grass   at 744 -4 2248 size 48 4 16
+box    path    at 424 -4 2264 size 16 4 16
+box    grass   at 448 -4 2264 size 32 4 16
+box    path    at 496 -4 2264 size 64 4 16
+box    path    at 624 -4 2264 size 160 4 16
+box    sand    at 736 -4 2264 size 32 4 16
+box    grass   at 760 -4 2264 size 16 4 16
+box    water   at 392 -4 2288 size 16 1 32
+box    wood    at 424 -4 2280 size 16 4 16
+box    sand    at 456 -4 2280 size 48 4 16
+box    water   at 624 -4 2288 size 288 1 32
+box    water   at 448 -4 2296 size 64 1 16
+
+# fingerposts
+box    wood    at 484 0 2068 size 1.5 19 1.5
+pyramid wood    at 484 19 2068 size 2.2 1.5 2.2
+box    wood    at 484 16 2064 size 0.6 1.8 6.5
+box    wood    at 484 13.5 2072 size 0.6 1.8 6.5
+
+# set dressing
+box    wood    at 536 0 2104 size 10 3.5 6
+sphere wood    at 542 0 2104 size 1.2 4 4
+box    wood    at 500 0 2216 size 1.5 16 1.5
+box    wood    at 508 0 2216 size 1.5 16 1.5
+box    wood    at 584 0 2232 size 36 2.5 10
+gable  cloth   at 584 2.5 2232 size 34 1.5 9
+cylinder wood    at 484 0 2246 size 5 4 5
+cylinder wood    at 491 0 2246 size 5 4 5
+cylinder wood    at 484 0 2251 size 5 4 5
+box    wood    at 660 0 2248 size 1.5 16 1.5
+box    wood    at 668 0 2248 size 1.5 16 1.5
+box    wood    at 756 0 2248 size 1.5 16 1.5
+box    wood    at 764 0 2248 size 1.5 16 1.5
+
+# woods (at 41% of its height, for the camera)
+frustum trunk   at 703 0 2191 size 5 11 5
+blob-32 foliage at 703 7.5 2191 size 33 19 31.35 turn 180
+cylinder trunk   at 679.5 0 2168 size 3 3.5 3
+blob-25 foliage at 679.5 1.5 2168 size 18 8.5 17.1
+cylinder trunk   at 697 0 2169 size 3 4.5 3
+blob-7 foliage at 697 2 2169 size 17 10.5 16.15 turn 180
+cylinder trunk   at 712 0 2168 size 3 5 3
+blob-8 foliage at 712 2.5 2168 size 19 6 18.05 turn 90
+frustum trunk   at 682 0 2184 size 3 9 3
+blob-41 foliage at 682 4.5 2184 size 19 19 18.05 turn 270
+cylinder trunk   at 760 0 2184 size 3 5 3
+blob-20 foliage at 760 3 2184 size 19 6.5 18.05 turn 180
+cylinder trunk   at 679.5 0 2200.5 size 3 9 3
+blob-63 foliage at 679.5 4 2200.5 size 18 19 17.1 turn 270
+cylinder trunk   at 759.5 0 2200 size 3 10.5 3
+blob-13 foliage at 759.5 5.5 2200 size 18 21 17.1 turn 270
+box    hedge   at 760 0 2264.25 size 16 6 15.5
+blob-45 hedge   at 760 4 2264.25 size 16 5 15.5
+
+# bridges
+box    wood    at 440 -3 2056 size 16 5.5 16
+box    wood    at 488 -3 2056 size 16 5.5 16
+box    wood    at 408 -3 2136 size 16 5.5 16
+box    wood    at 392 -3 2288 size 16 5.5 32
+box    wood    at 424 -3 2296 size 16 5.5 16
+box    wood    at 431.25 0 2056 size 1.5 6 16
+box    wood    at 496.75 0 2056 size 1.5 6 16
+box    wood    at 408 0 2127.25 size 16 6 1.5
+box    wood    at 383.25 0 2288 size 1.5 6 32
+box    wood    at 432.75 0 2296 size 1.5 6 16

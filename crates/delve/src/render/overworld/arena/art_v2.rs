@@ -24,6 +24,8 @@ pub fn size() -> (u32, u32) {
     }
 }
 pub fn supported(run: &Run) -> bool {
+    if run.race3d_showing() { return false; }
+    if super::dungeon_art::supported(run) && run.floor_plate(None).is_none() { return true; }
     run.floor_plate(None).is_none()
         && !run.side_on()
         && run.circle() == 0
@@ -47,7 +49,9 @@ pub fn supported(run: &Run) -> bool {
                             b.id.as_str(),
                             crate::rules::signatures::RIPPER
                                 | crate::rules::signatures::ENGINE
-                        )
+                                | "red-pick-chief" | "the-foreman" | "late-fee-leviathan"
+                        ) || crate::rules::bosses::Art::for_id(&b.id).is_some()
+                            || (cfg!(any(test, feature = "testing")) && b.id == "old-sprite-review")
                     })
             }))
 }
@@ -64,14 +68,26 @@ pub(super) fn foe_supported(run: &Run, e: &crate::rules::Enemy) -> bool {
     combat::supported(run, e)
 }
 
+fn cavern_chief_room(run: &Run) -> bool {
+    run.dungeon.pack == Pack::Cavern && run.enemies.iter().any(|e| {
+        e.boss.and_then(|i| run.bosses.get(i as usize)).is_some_and(|b| {
+            matches!(b.id.as_str(), "iron-tusk-chief" | "red-pick-chief" | "the-foreman")
+                || (cfg!(any(test, feature = "testing")) && b.id == "old-sprite-review")
+        })
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Key {
+    delivered: bool,
     raid: u64,
     depth: u32,
     pack: Pack,
+    cavern_chief: bool,
     room: usize,
     print: u64,
     barred: bool,
+    side_state: usize,
     origin: (i32, i32),
     home: u64,
     wishes: String,
@@ -79,12 +95,15 @@ struct Key {
 }
 fn key(run: &Run, origin: (i32, i32)) -> Key {
     Key {
+        delivered: super::dungeon_art::supported(run),
         raid: run.raid_id,
         depth: run.dungeon.depth,
         pack: run.dungeon.pack,
+        cavern_chief: cavern_chief_room(run),
         room: run.at,
         print: run.room().fingerprint(),
         barred: run.barred(),
+        side_state: super::dungeon_art::side_state(run),
         origin,
         home: home_print(run),
         course: run.chariot.as_ref().map(|r| (r.seed, r.track)),
@@ -199,16 +218,34 @@ pub fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if w < NATIVE_W || h < NATIVE_H {
         return super::frame_v1(run, w, h, focus);
     }
-    compose(run, focus).map_or_else(|| super::frame_v1(run, w, h, focus), |cv| fit(&cv, w, h))
+    compose(run, focus, false).map_or_else(|| super::frame_v1(run, w, h, focus), |cv| {
+        fit(&cv, w, h)
+    })
 }
 /// Full art layers serve native transport and the actual terminal cell painter.
 pub fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
-    compose(run, focus).map(|cv| cv.layers())
+    if run.forest_road_showing() { return Some(super::forest_road::layers(run, focus)); }
+    if let Some(scene) = super::roundtable::terminal_layers(run, focus) { return Some(scene); }
+    if run.race3d_showing() {
+        let (base, _) = super::race3d::layers(run, focus, false);
+        let empty = Img::new(base.w, base.h);
+        return Some((base, empty));
+    }
+    if super::entrance_art::supported(run) { return Some(super::entrance_art::layers(run, focus)); }
+    if run.mossbell_showing() { return Some(super::mossbell::terminal_layers(run, focus)); }
+    if run.brasswake_showing() { return Some(super::brasswake::terminal_layers(run, focus)); }
+    if run.pennon_showing() { return Some(super::pennon::terminal_layers(run, focus)); }
+    if run.rafterwake_showing() { return Some(super::rafterwake::terminal_layers(run, focus)); }
+    if run.latch_showing() { return Some(super::latch::terminal_layers(run, focus)); }
+    if run.cinder_showing() { return Some(super::cinder::terminal_layers(run, focus)); }
+    compose(run, focus, true).map(|cv| {
+        if super::dungeon_art::supported(run) {super::dungeon_art::terminal_layers(&cv,run)} else {cv.layers()}
+    })
 }
 pub fn terminal_layers_live(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     super::during_live(|| terminal_layers(run, focus))
 }
-fn compose(run: &Run, focus: Option<u32>) -> Option<Canvas> {
+fn compose(run: &Run, focus: Option<u32>, cell_path: bool) -> Option<Canvas> {
     if !supported(run) {
         return None;
     }
@@ -236,16 +273,31 @@ fn compose(run: &Run, focus: Option<u32>) -> Option<Canvas> {
     };
     // All dynamics use world-space fractional positions; the scene's camera
     // origin is shared with v1. A half world pixel is a real new art sample.
+    if super::dungeon_art::supported(run) {
+        super::dungeon_art::v2_ground(&mut cv,run);
+        super::boss_art::library_ground_v2(&mut cv,run);
+        cv.mark_ground();
+        for e in &run.enemies { cv.flat_ellipse(e.x*UNIT,e.y*UNIT,5.0,1.7,[0;3],0.60); }
+        for h in run.players.values().filter(|h|h.hp>0) {cv.flat_ellipse(h.x*UNIT,h.y*UNIT,5.0,1.7,[0;3],0.60);}
+    }
     combat::under(&mut cv, run);
+    let delivered = super::dungeon_art::supported(run);
+    let mut depths = if delivered { vec![i32::MIN; cv.px.len()] } else { vec![] };
     for e in &run.enemies {
+        if e.boss.is_some() && super::boss_art::library_hidden() { continue; }
         if foe_supported(run, e) {
             let (x, y) = (e.x * UNIT, e.y * UNIT);
             lit_figure(
                 &mut cv,
                 (x - 11.0, y - 22.0, 23.0, 25.0),
                 &scene.lights,
-                |cv| combat::foe(cv, run, e),
+                |cv| combat::foe(cv, run, e, cell_path),
+                delivered.then_some((&mut depths[..], (y * 2.0).round() as i32)),
             );
+            if let Some(art) = e.boss.and_then(|i| run.bosses.get(i as usize))
+                .and_then(|b| crate::rules::bosses::Art::for_id(&b.id)) {
+                super::boss_art::paint_signature_lights(&mut cv,run,e,art,cell_path);
+            }
         }
     }
     if run.room().kind == RoomKind::Pasture {
@@ -304,13 +356,22 @@ fn compose(run: &Run, focus: Option<u32>) -> Option<Canvas> {
             (x - 18.0, y - 38.0, 36.0, 40.0),
             &scene.lights,
             |cv| figures::knight(cv, x, y, hero, run.tick, id, run.shield_out(id)),
+            delivered.then_some((&mut depths[..], (y * 2.0).round() as i32)),
         );
         // The same shield/aim and gameplay marks are drawn by the ink overlay.
     }
     for (i, &(x, y)) in scene.fires.iter().enumerate() {
         flame(&mut cv, x, y, run.tick, i as u32);
     }
-    atmosphere(&mut cv, run);
+    if delivered {
+        super::dungeon_art::v2_foreground(&mut cv, run, &depths);
+        super::dungeon_art::v2_flames(&mut cv, run);
+    }
+    if delivered {
+        super::dungeon_art::v2_motes(&mut cv,run);
+        // Retain the established large guardians' braille atmosphere.
+        if run.enemies.iter().any(|e|e.boss.and_then(|i|run.bosses.get(i as usize)).is_some_and(|b|matches!(b.id.as_str(),crate::rules::signatures::RIPPER|crate::rules::signatures::ENGINE))) {atmosphere(&mut cv,run);}
+    } else {atmosphere(&mut cv, run);}
 
     // Bloom stays local to emissives; no convolution touches gameplay edges.
     for shot in run.projectiles.iter().take(384) {
@@ -323,6 +384,7 @@ fn compose(run: &Run, focus: Option<u32>) -> Option<Canvas> {
         ));
     }
     combat::shots(&mut cv, run);
+    super::boss_art::projectiles_v2(&mut cv, run, origin);
     let (_, over) = super::scene_layers_with(run, focus, true, true);
     cv.origin = (0.0, 0.0);
     ui::stamp_overlay(&mut cv, &over);
@@ -337,6 +399,7 @@ fn lit_figure(
     bounds: (f32, f32, f32, f32),
     lights: &[Point],
     draw: impl FnOnce(&mut Canvas),
+    mut depth: Option<(&mut [i32], i32)>,
 ) {
     let (x, y, w, h) = bounds;
     let x0 = ((x - cv.origin.0) * 2.0).floor().clamp(0.0, cv.w as f32) as usize;
@@ -353,6 +416,7 @@ fn lit_figure(
         for xx in x0..x1 {
             let i = yy * cv.w + xx;
             if cv.px[i] != before[(yy - y0) * (x1 - x0) + xx - x0] {
+                if let Some((samples, feet)) = depth.as_mut() { samples[i] = *feet; }
                 cv.px[i] = crate::render::art::grade_actor(cv.px[i], light);
             }
         }
@@ -425,10 +489,10 @@ fn atmosphere(cv: &mut Canvas, run: &Run) {
     }
 }
 fn fit(cv: &Canvas, w: i32, h: i32) -> Img {
-    if w == WIDTH && h == HEIGHT {
-        return cv.image();
-    }
     let image = cv.image();
+    if w == WIDTH && h == HEIGHT {
+        return image;
+    }
     let scale = (w as f32 / WIDTH as f32).min(h as f32 / HEIGHT as f32);
     let (tw, th) = (
         (WIDTH as f32 * scale).round() as usize,
@@ -601,6 +665,7 @@ fn walk_layers_inner(
             (x - 12.0, y - 22.0, 26.0, 24.0),
             &scenery.lights,
             |cv| figures::knight(cv, x, y, &hero, scene.tick as u64, id, false),
+            None,
         );
     }
     // Retain published activity/status cues; never invent work or outcomes.
@@ -741,6 +806,6 @@ pub(super) fn foe_hit_sample(run: &Run) -> Img {
         run.enemies[0].x * UNIT - 80.0,
         run.enemies[0].y * UNIT - 80.0,
     );
-    combat::foe(&mut cv, run, &run.enemies[0]);
+    combat::foe(&mut cv, run, &run.enemies[0], false);
     cv.image()
 }

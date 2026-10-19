@@ -510,7 +510,46 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
             cv.stamp(&im, x - im.w / 2, dy - im.h + 1);
             lights.push(fire(x, dy - im.h + 3, 44.0, 0.34));
         }
+        // The inscription stands outside, west of the doorway and stair.
+        cv.stamp(hall_sign(), hx - 26, dy + 10);
     }
+}
+
+/// "accelerando spoken here", cut into a board on two timber posts.
+/// The six glyphs are the upstream Accelerando shapes, rather than the
+/// Latin source text rendered through the realm's ordinary pixel font.
+fn hall_sign() -> &'static Img {
+    static SIGN: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    SIGN.get_or_init(|| {
+        #[derive(serde::Deserialize)]
+        struct Inscription {
+            glyphs: Vec<Vec<[[i32; 2]; 2]>>,
+        }
+        let inscription: Inscription = serde_json::from_str(include_str!(
+            "../../../../../../cockpit/assets/realm/inscriptions/accelerando-spoken-here.json"
+        ))
+        .expect("the authored Accelerando inscription is valid");
+        let mut sign = Img::new(72, 36);
+        for x in [6, 63] {
+            sign.rect(x, 16, 3, 20, 'b');
+            sign.line(x, 21, x, 35, 'r');
+        }
+        sign.rect(0, 0, 72, 21, 'b');
+        sign.rect(2, 2, 68, 17, 'I');
+        sign.frame(1, 1, 70, 19, 'P');
+        sign.line(1, 0, 70, 0, 'o');
+        for x in [4, 67] {
+            sign.put(x, 3, 'J');
+            sign.put(x, 17, 'g');
+        }
+        for (i, glyph) in inscription.glyphs.iter().enumerate() {
+            let x = 4 + i as i32 * 11;
+            for &[[x0, y0], [x1, y1]] in glyph {
+                sign.line(x + x0 * 4, 6 + y0 * 4, x + x1 * 4, 6 + y1 * 4, 'T');
+            }
+        }
+        sign
+    })
 }
 
 /// The King's banner: the foaming tankard on the red of Caer Dwfn.
@@ -896,7 +935,7 @@ fn price_board(
     for (mark, n, have) in &items {
         im.stamp(mark, x, row_y + (7 - mark.h) / 2);
         x += mark.w + 2;
-        x = im.text(x, row_y, n, if *have { 'H' } else { '7' }) + 7;
+        x = im.text(x, row_y, n, if *have { 'i' } else { '7' }) + 7;
     }
     if let Some(buying) = buying {
         let bar_y = row_y + 9;

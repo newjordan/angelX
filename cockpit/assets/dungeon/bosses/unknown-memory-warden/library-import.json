@@ -1,0 +1,105 @@
+{
+  "boss": "unknown-memory-warden",
+  "camera": "overhead",
+  "definition_sha256": "936dede78255521426cd662618ab740fb06732e95badd3f9bc0980e5a908c33c",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.51 L*, rest presence 86.61%, edge 91.26%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "slate tablet body"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "slate tablet body",
+      "single eye mask",
+      "floating arm block",
+      "broken memory halo"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      89,
+      96
+    ]
+  },
+  "identity_props": [
+    "slate tablet body",
+    "single eye mask",
+    "floating arm block",
+    "broken memory halo"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 51,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9878917378917379,
+      "opaque_pixels": 1404,
+      "sha256": "9cf291c399bff9a32155a4c4f69257e23bd3b68f48e8b6abb5857d293b17a9fe",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 49,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9879261363636364,
+      "opaque_pixels": 1408,
+      "sha256": "3ce364eb8ebc6520327cc6c69da6c0e225787e97c7f77bda87a125a2fb22f240",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 57,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9868361325465275,
+      "opaque_pixels": 4406,
+      "sha256": "acac7875b05d68cacc95ba75e194b949b7cab2ec8c7332fb4fdbe2e6bc33010c",
+      "silhouette_iou": 1.0,
+      "size": [
+        89,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 56,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9874298540965207,
+      "opaque_pixels": 4455,
+      "sha256": "984f3270bae936586b2281d971feb91357be08689734e754df131ab1a82c6e43",
+      "silhouette_iou": 1.0,
+      "size": [
+        89,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

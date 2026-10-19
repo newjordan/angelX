@@ -1,0 +1,151 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8578
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8861
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8516
+    }
+  ],
+  "flags": [],
+  "map_sha256": "0d5658be0318b2b8d92aeb03f9531027b4f269d4748312340e79d4fc6bf280a5",
+  "metadata_sha256": "6711cd227f3b94c55c74cbfc9ac60a69e66dcacb5533b6648bb8ecab3c0f35b6",
+  "notes_sha256": "2cf04e44181a8a33cdc605a87383585e1e36ac2775f11caf65de34db52f225bc",
+  "outputs": {
+    "v1/day-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 231,
+      "opaque_pixels": 3402,
+      "piece": 0,
+      "sha256": "f5f414d1e96fa728253124bc71892a689f7c4ace663059af57af2421dc34ec7b",
+      "source_scale": 0.11603053435114503,
+      "state": "day"
+    },
+    "v1/lit-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 0.9756,
+      "frame": 0,
+      "half_cell_coverage": 231,
+      "opaque_pixels": 3395,
+      "piece": 2,
+      "reviewed_processing_sha256": "8abc6d599b98d8a801ba0053ca9f86fca609cdd9caccea53783bb9c86b2c9f84",
+      "sha256": "30d46ecdb6d87f07d3dbaf3efea8295dc023d8527062d275c0f7d4725c46340e",
+      "source_scale": 0.11603053435114503,
+      "state": "lit"
+    },
+    "v1/night-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 226,
+      "opaque_pixels": 3379,
+      "piece": 1,
+      "sha256": "b7a313608e842c118b875ee95be44f4d0c6f9db7697111ee82886d7eb1b89d3c",
+      "source_scale": 0.11603053435114503,
+      "state": "night"
+    },
+    "v2/day-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 231,
+      "opaque_pixels": 3402,
+      "piece": 0,
+      "sha256": "f5f414d1e96fa728253124bc71892a689f7c4ace663059af57af2421dc34ec7b",
+      "source_scale": 0.11603053435114503,
+      "state": "day"
+    },
+    "v2/lit-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 0.9756,
+      "frame": 0,
+      "half_cell_coverage": 231,
+      "opaque_pixels": 3395,
+      "piece": 2,
+      "reviewed_processing_sha256": "8abc6d599b98d8a801ba0053ca9f86fca609cdd9caccea53783bb9c86b2c9f84",
+      "sha256": "30d46ecdb6d87f07d3dbaf3efea8295dc023d8527062d275c0f7d4725c46340e",
+      "source_scale": 0.11603053435114503,
+      "state": "lit"
+    },
+    "v2/night-0.png": {
+      "anchor_xy": [
+        32,
+        76
+      ],
+      "approved": true,
+      "canvas_wh": [
+        64,
+        76
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 226,
+      "opaque_pixels": 3379,
+      "piece": 1,
+      "sha256": "b7a313608e842c118b875ee95be44f4d0c6f9db7697111ee82886d7eb1b89d3c",
+      "source_scale": 0.11603053435114503,
+      "state": "night"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "moonfall.bakery",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bakery/v01/source-sheet.png",
+  "source_sha256": "10617dfa264230be3b724e763376eab8bc1c195c7a0948887d85131158823b72",
+  "tool_version": 2
+}

@@ -214,6 +214,19 @@ fn count(bytes: &mut Bytes) -> Result<usize, Malformed> {
     Ok(n as usize)
 }
 
+/// A text's or a blob's length: no more than the bytes left, which bound
+/// it as they bound the message. Its bytes are the message's own, so it
+/// claims nothing the message does not hold (`MAX_ITEMS` bounds what a
+/// count would make): a picture sent whole, a world plate's PNG of 1.3 MB,
+/// reads.
+fn length(bytes: &mut Bytes) -> Result<usize, Malformed> {
+    let n = bytes.varint()?;
+    if n > bytes.rest.len() as u64 {
+        return Err(Malformed);
+    }
+    Ok(n as usize)
+}
+
 impl Reader {
     fn name(&mut self, bytes: &mut Bytes) -> Result<Name, Malformed> {
         match bytes.varint()? {
@@ -254,12 +267,12 @@ impl Reader {
                     .ok_or(Malformed)?,
             ),
             STR => {
-                let len = count(bytes)?;
+                let len = length(bytes)?;
                 let text = std::str::from_utf8(bytes.take(len)?).map_err(|_| Malformed)?;
                 Value::Str(text.into())
             }
             BYTES => {
-                let len = count(bytes)?;
+                let len = length(bytes)?;
                 Value::Bytes(bytes.take(len)?.into())
             }
             NONE => Value::None,
@@ -370,5 +383,28 @@ impl Reader {
             P_VARIANT => Patch::Variant(Box::new(self.patch_at(bytes, d)?)),
             _ => return Err(Malformed),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_blob_or_text_longer_than_max_items_reads_and_one_past_the_end_does_not() {
+        let plate = Value::Bytes(vec![7u8; MAX_ITEMS as usize + 250_000].into());
+        let text = Value::Str("a".repeat(MAX_ITEMS as usize + 1).into());
+        for value in [plate, text] {
+            let mut out = Vec::new();
+            Writer::default().value(&mut out, &value);
+            assert_eq!(Reader::default().value(&mut Bytes::new(&out)), Ok(value));
+            out.pop();
+            assert_eq!(Reader::default().value(&mut Bytes::new(&out)), Err(Malformed), "one byte short");
+        }
+        // A list still may not claim more than `MAX_ITEMS`, whatever is left.
+        let mut out = vec![SEQ];
+        put_varint(&mut out, MAX_ITEMS + 1);
+        out.extend(std::iter::repeat_n(UNIT, MAX_ITEMS as usize + 1));
+        assert_eq!(Reader::default().value(&mut Bytes::new(&out)), Err(Malformed));
     }
 }

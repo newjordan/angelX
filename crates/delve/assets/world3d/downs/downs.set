@@ -1,0 +1,191 @@
+set downs
+# Wheyward Downs: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: goats, a signpost.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 96 size 32 4 192
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 48 size 160 4 64
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    grass   at 32 -4 144 size 32 4 128
+box    path    at 112 -4 96 size 128 4 32
+box    grass   at 8 -4 112 size 16 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    grass   at 112 -4 160 size 128 4 96
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    grass   at 192 -4 200 size 32 4 16
+box    ground  at 192 -4 216 size 352 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 10 7 8 size 20 19 16
+box    trunk   at 23 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 23 9 8 size 21 19 16
+box    trunk   at 41 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 41 8 8 size 21 16 16
+box    trunk   at 59 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 59 8 8 size 18 16 16
+box    trunk   at 73 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 73 9 8 size 18 18 16
+box    trunk   at 90 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 90 8 8 size 18 19 16
+box    trunk   at 102 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 102 8 8 size 21 19 16
+box    trunk   at 123 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 123 6 8 size 21 18 16
+box    trunk   at 137 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 137 6 8 size 21 16 16
+box    trunk   at 149 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 149 7 8 size 19 19 16
+box    trunk   at 167 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 167 7 8 size 18 18 16
+sphere foliage at 6 0 -9 size 28 31 18
+sphere foliage at 26 0 -9 size 22 33 18
+sphere foliage at 44 0 -9 size 26 31 18
+sphere foliage at 55 0 -9 size 24 32 18
+sphere foliage at 71 0 -9 size 25 31 18
+sphere foliage at 91 0 -9 size 24 30 18
+sphere foliage at 100 0 -9 size 28 37 18
+sphere foliage at 121 0 -9 size 23 34 18
+sphere foliage at 134 0 -9 size 22 35 18
+sphere foliage at 150 0 -9 size 23 32 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 219 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 219 6 8 size 21 19 16
+box    trunk   at 234 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 234 8 8 size 20 17 16
+box    trunk   at 245 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 245 8 8 size 18 19 16
+box    trunk   at 264 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 264 9 8 size 21 17 16
+box    trunk   at 280 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 280 9 8 size 18 19 16
+box    trunk   at 295 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 295 8 8 size 20 19 16
+box    trunk   at 313 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 313 7 8 size 18 16 16
+box    trunk   at 327 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 327 7 8 size 21 19 16
+box    trunk   at 344 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 344 7 8 size 20 17 16
+box    trunk   at 361 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 361 7 8 size 21 19 16
+box    trunk   at 374 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 374 6 8 size 19 19 16
+sphere foliage at 235 0 -9 size 24 35 18
+sphere foliage at 244 0 -9 size 22 36 18
+sphere foliage at 261 0 -9 size 29 30 18
+sphere foliage at 284 0 -9 size 29 34 18
+sphere foliage at 297 0 -9 size 27 33 18
+sphere foliage at 312 0 -9 size 23 37 18
+sphere foliage at 326 0 -9 size 27 36 18
+sphere foliage at 340 0 -9 size 23 30 18
+sphere foliage at 357 0 -9 size 27 34 18
+sphere foliage at 373 0 -9 size 29 33 18
+
+# the south wall, columns 0 to 23
+box    foliage at 192 -4 212 size 384 8 8  # TODO prims: wedge
+box    foliage at 192 -4 220 size 384 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26.5 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 26.5 size 16 19 21
+box    trunk   at 8 0 37 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 37 size 16 19 19
+box    trunk   at 8 0 54 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 54 size 16 19 19
+box    trunk   at 8 0 75 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 75 size 16 18 21
+box    trunk   at 8 0 86.5 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 86.5 size 16 19 19
+
+# the west wall, rows 8 to 12 (at 51% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 138.5 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 8 4 138.5 size 16 8.5 21
+box    trunk   at 8 0 152 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7.5 152 size 16 17.5 18
+box    trunk   at 8 0 168 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 168 size 16 18 21
+box    trunk   at 8 0 183 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 183 size 16 17 21
+box    trunk   at 8 0 198.5 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 198.5 size 16 17 19
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 26.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 26.5 size 16 17 21
+box    trunk   at 376 0 42 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 42 size 16 19 18
+box    trunk   at 376 0 59 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 59 size 16 16 19
+box    trunk   at 376 0 71 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 71 size 16 16 20
+box    trunk   at 376 0 85.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 85.5 size 16 18 21
+
+# the east wall, rows 8 to 12 (at 48% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 139 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 376 4 139 size 16 9 21
+box    trunk   at 376 0 149 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 149 size 16 15.5 18
+box    trunk   at 376 0 165 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 165 size 16 18 19
+box    trunk   at 376 0 181 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 181 size 16 18 18
+box    trunk   at 376 0 197 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 197 size 16 19 21
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# rick at 4,1 4x2
+box    crop    at 96 0 33 size 62 9 28 id rick-1
+sphere crop    at 96 9 33 size 60 8 26  # TODO prims: gable
+
+# rick at 16,1 4x2
+box    crop    at 288 0 33 size 62 9 28 id rick-2
+sphere crop    at 288 9 33 size 60 8 26  # TODO prims: gable
+
+# landmark (assets/world3d/downs/landmark.set, hand-placed)
+# Wheyward Downs: rolling chalk-green hills behind, a stack of cheese wheels
+# on each hay rick, a lone thorn on the hill and the cheese-chuck flag.
+frustum  grass   at 76 0 -12 size 170 34 56 id downs-hill-w
+sphere   grass   at 76 22 -12 size 104 40 50 id downs-hill-w-crest
+frustum  grass   at 306 0 -10 size 172 30 52 id downs-hill-e
+sphere   grass   at 306 20 -10 size 100 36 46 id downs-hill-e-crest
+cylinder wood    at 66 58 -12 size 3 8 3 id downs-thorn-trunk
+blob-4   foliage at 66 63 -12 size 18 12 14 id downs-thorn
+cylinder thatch  at 96 0 32 size 30 12 30 id downs-cheese-w1
+cylinder thatch  at 96 12 32 size 26 12 26 id downs-cheese-w2
+cylinder thatch  at 96 24 32 size 22 12 22 id downs-cheese-w3
+cylinder thatch  at 96 36 32 size 18 12 18 id downs-cheese-w4
+cylinder thatch  at 288 0 32 size 30 12 30 id downs-cheese-e1
+cylinder thatch  at 288 12 32 size 24 12 24 id downs-cheese-e2
+cylinder thatch  at 288 24 32 size 18 12 18 id downs-cheese-e3
+cylinder wood    at 352 0 10 size 4 64 4 id downs-flagpole
+box      cloth   at 364 50 10 size 22 14 1.5 id downs-flag

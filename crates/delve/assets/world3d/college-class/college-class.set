@@ -1,0 +1,54 @@
+set college-class
+# Chalk Classroom: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: candles on the desks (58,69) (325,69), a shelf and a door at the west and east walls.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# slate-board at 6,2 12x2 (at 23% of its height, for the camera)
+box    wood    at 192 0 48 size 190 5.5 30 id slate-board
+box    slate   at 192 0.5 63.25 size 188 4.5 0.5
+
+# desk at 4,6 4x1 (at 59% of its height, for the camera)
+box    wood    at 96 0 104 size 62 5 14 id desk-1
+box    plaster at 96 5 104 size 63 0.5 15
+
+# desk at 10,6 4x1 (at 59% of its height, for the camera)
+box    wood    at 192 0 104 size 62 5 14 id desk-2
+box    plaster at 192 5 104 size 63 0.5 15
+
+# desk at 16,6 4x1 (at 59% of its height, for the camera)
+box    wood    at 288 0 104 size 62 5 14 id desk-3
+box    plaster at 288 5 104 size 63 0.5 15
+
+# desk at 4,9 4x1 (at 64% of its height, for the camera)
+box    wood    at 96 0 152 size 62 5.5 14 id desk-4
+box    plaster at 96 5.5 152 size 63 0.5 15
+
+# desk at 16,9 4x1 (at 64% of its height, for the camera)
+box    wood    at 288 0 152 size 62 5.5 14 id desk-5
+box    plaster at 288 5.5 152 size 63 0.5 15
+
+# plate at 11,12 2x1
+box    stone   at 192 0 200 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    cloth   at 40 14 15.75 size 10 26 2.5
+box    cloth   at 336 14 15.75 size 10 26 2.5

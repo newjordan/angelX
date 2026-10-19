@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "da9fc96b5812e608f7da27d1409ce08d82f2d74e7884226a7268aa103ab81a12",
+  "metadata_sha256": "db9f8c68a07784669e97ad11fd13c2a075767a71364a2faeae41c616190886ab",
+  "notes_sha256": "9dacba0a564ec090daa44e58d86346abce6e57356a16e2d880cae1a41c8ea18c",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "3f40798177876d658e015eb6ac471fb2b82c34c02ea3959ed29330c655a936dd",
+      "source_scale": 0.23382045929018788,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        384,
+        224
+      ],
+      "approved": true,
+      "canvas_wh": [
+        768,
+        448
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 21504,
+      "opaque_pixels": 344064,
+      "piece": 0,
+      "reviewed_processing_sha256": "0f1d35f8aae1adfc0e77f7ce7b766873f44e922f508073daaafff1ad61347d5c",
+      "sha256": "a3c11df87eb4c296f138a0a48d896719dbcffb3a86061a6574be52b602059fa5",
+      "source_scale": 0.46764091858037576,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.entrance",
+  "source_path": "/work/tmp/int-4-prepared/cinder.entrance/source-sheet.png",
+  "source_sha256": "9d2d49de5f43e0999062236bea72709e801e8d898edf4a1f22a2d9c3674903cd",
+  "tool_version": 2
+}

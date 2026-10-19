@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    28,
+    28
+  ],
+  "anchor_xy": [
+    14,
+    14
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "cinder::KILN=(40,20) is the room interaction point; sign is decorative, not a collision proxy.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "c37799ad40e9070d9391259973db245fef852502cbefa3c162606b6f89921e8f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Seated-lid idle Crock, furnace grille and brows visible.",
+      "name": "crock-small",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        126.0,
+        122.5
+      ],
+      "source_rect_xywh": [
+        39,
+        172,
+        252,
+        245
+      ],
+      "state": "crock-small"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Crock with lid slightly raised.",
+      "name": "piece-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.0,
+        140.5
+      ],
+      "source_rect_xywh": [
+        359,
+        136,
+        250,
+        281
+      ],
+      "state": "crock-with-lid-slightly-raised"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Lid removed and hovering above the open cavity.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        166.0
+      ],
+      "source_rect_xywh": [
+        671,
+        85,
+        249,
+        332
+      ],
+      "state": "lid-removed-and-hovering-above-the-open-cavity"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Detached lid alone, angled to show the underside.",
+      "name": "piece-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        99.5,
+        78.0
+      ],
+      "source_rect_xywh": [
+        1000,
+        205,
+        199,
+        156
+      ],
+      "state": "detached-lid-alone-angled-to-show-the-underside"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Open Crock with dark cavity visible.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        46,
+        565,
+        258,
+        217
+      ],
+      "state": "open-crock-with-dark-cavity-visible"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Detached lid alone, top handle visible.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        101.0,
+        75.5
+      ],
+      "source_rect_xywh": [
+        386,
+        580,
+        202,
+        151
+      ],
+      "state": "detached-lid-alone-top-handle-visible"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Crock idle variant, slight forward lean.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        118.0
+      ],
+      "source_rect_xywh": [
+        671,
+        548,
+        252,
+        236
+      ],
+      "state": "crock-idle-variant-slight-forward-lean"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Crock idle variant, slight backward rock.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        121.5
+      ],
+      "source_rect_xywh": [
+        980,
+        541,
+        249,
+        243
+      ],
+      "state": "crock-idle-variant-slight-backward-rock"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Seated-lid used Crock with dents and soot.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        127.5,
+        125.5
+      ],
+      "source_rect_xywh": [
+        37,
+        910,
+        255,
+        251
+      ],
+      "state": "seated-lid-used-crock-with-dents-and-soot"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Seated-lid Crock with chipped/worn material.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.0,
+        125.5
+      ],
+      "source_rect_xywh": [
+        360,
+        908,
+        250,
+        251
+      ],
+      "state": "seated-lid-crock-with-chipped-worn-material"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Detached damaged lid.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        102.5,
+        79.0
+      ],
+      "source_rect_xywh": [
+        680,
+        959,
+        205,
+        158
+      ],
+      "state": "detached-damaged-lid"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Open Crock in a slightly more side-on profile.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.0,
+        104.5
+      ],
+      "source_rect_xywh": [
+        976,
+        948,
+        248,
+        209
+      ],
+      "state": "open-crock-in-a-slightly-more-side-on-profile"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "28\u00d728; sign stamps at (325,94), canvas top-left; pivot convention (14,28).",
+  "sizes": {
+    "v1": [
+      28,
+      28
+    ],
+    "v2": [
+      28,
+      28
+    ]
+  },
+  "slot": "cinder.crock-lab",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "201a3789dd21cd0a763883493137fb1700f5c9dc9d143ad43c55e378a5a22a52",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.crock-lab/v01/source-sheet.png",
+    "original_sha256": "cb5b3dcc6e6722c23e912c4547205a28de058d2b81395ed450e9c2fbb6b6dd36",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "9375c6ea2cc1e8a39514290317334f591313a97e83804fdd443088f5c461d73f",
+  "timing": "Static room sign, no independent timer (renderer::sign)."
+}

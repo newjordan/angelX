@@ -352,8 +352,51 @@ pub fn render_plain(text: &str, style: Style) -> Vec<Line<'static>> {
 // Walker — accumulates spans into the current line, flushes on block end
 // -----------------------------------------------------------------------
 
+#[derive(Clone, Debug)]
+pub(crate) struct MarkdownLink {
+    pub(crate) line: usize,
+    pub(crate) span: usize,
+    pub(crate) target: std::sync::Arc<str>,
+}
+
+// A small, separate metadata cache leaves the established text-render API and
+// visible styles untouched. Only visible, ordinarily sized rich messages use it.
+type LinkCacheEntry = (String, usize, Arc<Vec<MarkdownLink>>);
+thread_local! {
+    static LINK_CACHE: RefCell<std::collections::VecDeque<LinkCacheEntry>> = const {
+        RefCell::new(std::collections::VecDeque::new())
+    };
+}
+
+pub(crate) fn links(text: &str, width: usize) -> Arc<Vec<MarkdownLink>> {
+    LINK_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if let Some(index) = cache.iter().position(|(t, w, _)| t == text && *w == width) {
+            let entry = cache.remove(index).unwrap();
+            let result = Arc::clone(&entry.2);
+            cache.push_front(entry);
+            return result;
+        }
+        let normalized = normalize_tex_delimiters(text);
+        let parser = Parser::new_ext(
+            &normalized,
+            Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_MATH,
+        );
+        let mut walker = Walker::new(width);
+        for event in parser {
+            walker.handle(event);
+        }
+        let result = Arc::new(walker.link_spans);
+        cache.push_front((text.to_owned(), width, Arc::clone(&result)));
+        cache.truncate(16);
+        result
+    })
+}
+
 struct Walker {
     lines: Vec<Line<'static>>,
+    link_target: Option<Arc<str>>,
+    link_spans: Vec<MarkdownLink>,
     /// Spans for the line currently being built.
     current: Vec<Span<'static>>,
     /// Whether the current line has any non-whitespace content yet (for
@@ -379,6 +422,8 @@ impl Walker {
     fn new(width: usize) -> Self {
         Self {
             lines: Vec::new(),
+            link_target: None,
+            link_spans: Vec::new(),
             current: Vec::new(),
             pending_text: false,
             style_stack: Vec::new(),
@@ -402,6 +447,13 @@ impl Walker {
     fn push_span(&mut self, text: impl Into<String>, style: Style) {
         let text = text.into();
         if !text.is_empty() {
+            if let Some(target) = &self.link_target {
+                self.link_spans.push(MarkdownLink {
+                    line: self.lines.len(),
+                    span: self.current.len() + usize::from(self.quote_depth > 0),
+                    target: Arc::clone(target),
+                });
+            }
             self.current.push(Span::styled(text, style));
             self.pending_text = true;
         }
@@ -507,10 +559,12 @@ impl Walker {
             }
 
             // ----- links -----
-            Event::Start(Tag::Link { .. }) => {
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                self.link_target = Some(Arc::from(dest_url.as_ref()));
                 self.style_stack.push(LINK_STYLE);
             }
             Event::End(TagEnd::Link) => {
+                self.link_target = None;
                 self.style_stack.pop();
             }
 

@@ -174,7 +174,7 @@ impl Run {
                     let index = (y * cols + x) as u16;
                     if p.crates.remove(&index) {
                         self.dungeon.rooms[self.at].set(x as usize, y as usize, Tile::Floor);
-                        *p.broken.entry(k.owner).or_default() += 1;
+                        if let Some(score) = p.broken.get_mut(&k.owner) { *score += 1; }
                         cross.push((x, y));
                         break;
                     }

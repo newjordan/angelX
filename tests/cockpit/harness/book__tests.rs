@@ -2434,6 +2434,83 @@ fn a_connected_seat_reads_its_routes_through_the_ledger_reader() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// A club that reads off the ledger on every hop but one: `script[n]` is the
+/// path it asks for on hop `n`; past the script it answers.
+struct GuessingReaderClub {
+    script: Vec<&'static str>,
+    offered: std::sync::Mutex<Vec<usize>>,
+    last_said: std::sync::Mutex<Vec<String>>,
+}
+
+impl crate::agent::club::Club for GuessingReaderClub {
+    fn label(&self) -> &str {
+        "guessing-reader"
+    }
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Err("chat only".into())
+    }
+    fn chat(
+        &self,
+        messages: &[crate::agent::club::ChatMsg],
+        tools: &[crate::agent::club::ToolDef],
+    ) -> Result<crate::agent::club::ClubReply, String> {
+        use crate::agent::club::{ClubReply, ToolCall};
+        let last = messages
+            .last()
+            .map(|m| m.content.to_string())
+            .unwrap_or_default();
+        self.last_said.lock().unwrap().push(last);
+        let mut offered = self.offered.lock().unwrap();
+        let hop = offered.len();
+        offered.push(tools.len());
+        match self.script.get(hop) {
+            Some(path) if !tools.is_empty() => Ok(ClubReply::Calls(vec![ToolCall {
+                id: format!("read-{hop}"),
+                name: "read_file".into(),
+                args: serde_json::json!({ "path": path }),
+            }])),
+            _ => Ok(ClubReply::Text("answered".into())),
+        }
+    }
+}
+
+/// Reads that miss `MISSED_HOPS` hops in a row take the reader away and say
+/// so; a read that lands in between resets the count.
+#[test]
+fn a_connected_seat_that_keeps_missing_is_asked_to_answer() {
+    let root = scratch("connect-missed");
+    let club = GuessingReaderClub {
+        script: vec![
+            "/etc/passwd",
+            "ledger://",
+            "/etc/passwd",
+            "/etc/passwd",
+            "/etc/passwd",
+        ],
+        offered: Default::default(),
+        last_said: Default::default(),
+    };
+    let messages = [crate::agent::club::ChatMsg::user("digest this")];
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let answer = connect::chat(&club, &root, &messages, None, &cancel).unwrap();
+    assert_eq!(answer, "answered");
+    assert_eq!(connect::MISSED_HOPS, 2);
+    assert_eq!(*club.offered.lock().unwrap(), vec![1, 1, 1, 1, 0]);
+    let said = club.last_said.lock().unwrap();
+    assert_eq!(
+        said.last().unwrap(),
+        connect::READER_CLOSED,
+        "the tool-less hop is told why"
+    );
+    assert!(
+        said[..said.len() - 1]
+            .iter()
+            .all(|m| m != connect::READER_CLOSED),
+        "only the tool-less hop is told"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// A text-only mixture stage is connected: the stage call is offered the
 /// ledger reader alone, reads its route, is refused anything off the ledger,
 /// and reads the evidence of the workspace its turn entered.

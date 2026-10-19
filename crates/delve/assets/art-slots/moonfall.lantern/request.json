@@ -1,0 +1,38 @@
+{
+  "fit": "native canvas 16x34, anchor bottom-centre (8,34); the foot of the post stands on its lamp tile; stage 384x224; a knight is 16x24 in this town.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "unlit-0"
+      ],
+      "source_pose_count": 1,
+      "state": "unlit"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2"
+      ],
+      "source_pose_count": 3,
+      "state": "lit"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "snuffing-0",
+        "snuffing-1",
+        "snuffing-2"
+      ],
+      "source_pose_count": 3,
+      "state": "snuffing"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "id": "moonfall.lantern",
+  "role": "prop",
+  "timing": "unlit 12, lit 3 frames of 7, snuffing 3 frames of 6 ticks (30 Hz). Art never sets a hitbox."
+}

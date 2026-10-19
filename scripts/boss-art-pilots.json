@@ -1,0 +1,3276 @@
+[
+  {
+    "boss": "cockpit/assets/dungeon/bosses/cinderjaw.boss",
+    "output": "cockpit/assets/dungeon/bosses/cinderjaw",
+    "inks": "sSuUPRo@6",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            ".........ssssssssss.........",
+            "........ssUUUUUUUUUU........",
+            "........ssUUUUUUUUUoss......",
+            ".......ssUUUUUUUUUUooss.....",
+            "......sssUUuuuuuus6uoos.....",
+            "......ssUUs6uuuuussuoos.....",
+            "......ssUUssuuuuuuuuoos.....",
+            "......ssuUuuuPuuuuuuPoos....",
+            "....s.ssuuPPPPPPPPPPPoos....",
+            "...ssUssuuPP@@@@@@@PPosss...",
+            ".UUUUUussuPP@@6666@PPsssso..",
+            ".UuuuuussuuPPP6666PPPssooous",
+            ".uuuuuusssuuPPPPPPPPsssouuus",
+            "suuuuuussssssssssPsssssuuuus",
+            "suuuuuus.suooooooouss.suuuus",
+            "suuuuuus.suuuuuuuuuss.suuuus",
+            ".uuuuuussssuuuuuuuuus.suuuus",
+            ".uuuuuussssuuuuuuusssssssss.",
+            "...ssss..ssssssssssssss..s..",
+            ".....s...UUUusssssUUUus.....",
+            "........suuuuss..suuuuss....",
+            "........sssssss..sssssss....",
+            "........ssssss...ssssss....."
+          ],
+          "hand_pixels": [
+            [
+              18,
+              4
+            ],
+            [
+              11,
+              5
+            ]
+          ],
+          "signature_lights": [
+            {
+              "name": "furnace",
+              "hues": {
+                "6": "#fbd070",
+                "@": "#f6b450"
+              },
+              "pixels": [
+                [
+                  18,
+                  4,
+                  "6"
+                ],
+                [
+                  11,
+                  5,
+                  "6"
+                ],
+                [
+                  12,
+                  9,
+                  "@"
+                ],
+                [
+                  13,
+                  9,
+                  "@"
+                ],
+                [
+                  14,
+                  9,
+                  "@"
+                ],
+                [
+                  15,
+                  9,
+                  "@"
+                ],
+                [
+                  16,
+                  9,
+                  "@"
+                ],
+                [
+                  17,
+                  9,
+                  "@"
+                ],
+                [
+                  18,
+                  9,
+                  "@"
+                ],
+                [
+                  12,
+                  10,
+                  "@"
+                ],
+                [
+                  13,
+                  10,
+                  "@"
+                ],
+                [
+                  14,
+                  10,
+                  "6"
+                ],
+                [
+                  15,
+                  10,
+                  "6"
+                ],
+                [
+                  16,
+                  10,
+                  "6"
+                ],
+                [
+                  17,
+                  10,
+                  "6"
+                ],
+                [
+                  18,
+                  10,
+                  "@"
+                ],
+                [
+                  14,
+                  11,
+                  "6"
+                ],
+                [
+                  15,
+                  11,
+                  "6"
+                ],
+                [
+                  16,
+                  11,
+                  "6"
+                ],
+                [
+                  17,
+                  11,
+                  "6"
+                ]
+              ]
+            }
+          ],
+          "pigments": {
+            "u": "#506C78",
+            "U": "#B8C9D2"
+          }
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            "....................uuuuuuuuuuuPPuuu....................",
+            "....................uuuuuuuUUUuPPuuu....................",
+            "..............uuuuuuuuuuuuUUUUUUUPPuuuuuuu..............",
+            "..............uuuuuUuuuuSSUUUUUUPuuuuuuuuu..............",
+            "............uuuuuuUUUuSSUUUUUUUUPuuuuuuuuuuu............",
+            "............uuRRRRUUUUUUUUUUUuuuuuuuuuuuuuuu............",
+            "..........uuuUUUUUUUUUUUUUUUUuuuuuuuusssuuuuuu..........",
+            "..........uSSUUUUUUUUUUUUUUU@@uuuuuuu@@suuuuuu..........",
+            "........uuuUUUUUUUUUUUUUUUUU@@PPPPPPP@@uuuuuuuuu........",
+            "........uuUUUUUUUUUUUUUUUUUURPPPPPPPPPuuussuuuuu........",
+            "........uUUUUUUUUUUUUUuuuuPP@@RR@@@@@@PPuuuuuuuu........",
+            "........usUUUUUUUUUUUUUuuuPP@@RR@@@@@@PPPuuussuu........",
+            "......uuusUUUuuuuuuuuRRSSS@@6666666666@@PSSSSsuuuu......",
+            "......uuusUUUuuuuuuuuRsuSS@@6666666666@@SSSSSsuuuu......",
+            "......uuusUUUuuuuuuuP6suSS@@6666RR6666@@SSSSSSsuuu......",
+            "......uuuusUUuuuuuuuuRRsuS@@6666RR6666@@SSSSSSsuuu......",
+            "......uuuusUUuuuuuuuuRRsuSPP@@@@@@RR@@PPSSSSSPuuuu......",
+            "......uuuusuuuuuuuuuuu6usSPP@@@@@@RR@@PPSSSUUPuuuu......",
+            "......uSSSuuuuuuuuuuuuRusSSSSSSSSSSSSRSSSSUUUuuuuu......",
+            "......SSSSSSSSSSSSSSSSRRSSSSSSSSSSSSSSSsUUUPuuuuuu......",
+            "......sSSSSSSSSSSSSSSSR6SSSSSSSSSSSSSSSsUUUPuPPuuu......",
+            "......sSSSSSSSSSSSSSSSSRSSSSSSSSSSSSSUsUUUUUUUUUuu......",
+            ".....UUSSSSSSSSSSSSSSsSRSSSSSSSSSSSUUUsUUUUUUUUUUu......",
+            "....UUUUUUSSSSSSSSSSSsSRSSSSSSSSSSUUUUsUUUUUUUUUUU......",
+            "....UUUUUUUUSSSSSSSSSSSSSSSSSSSSUUUUUURUUUUUUUUUUUU.....",
+            "...UUUUUUUUUUUUSSSSSSSSSSSSSSSSUUUUUUURUUUUUUUUUUUUP....",
+            "...sUUUUUUUUUUUUUSSSSSSSSSSSSUUUUUUUUP6UUUUUUUUUUUUP....",
+            "...sUUUUUUUUUUUUUUURSSSSSSSSSUUUUUUUUsRUUUUuuuuuuuuus...",
+            "..usUUuuuuuuuuuuuuuRuSSSSSSSUUUUUUUUUsRRUUUuuuuuuuuusu..",
+            "..usUUuuuuuuuuuuuuP6uuuSSSSSUUUUUUUUUUS6UUUuuuuuuuuusu..",
+            "..uusUuuuuuuuuuuuusRuuuuuuSUUUUUUUUUUUSRUUUuuuuuuuuusu..",
+            "..uusUuuuR6uuuuuuusRRuuuuuuUUUUUUUUUUUSRUUUuuuR6uuuusu..",
+            "....sUuuuuuuuuuuuusu6uuuuuuuuuuuuuuuuuSRuuuuuuuuuuuus...",
+            "....suuuuuuuuuuuuusuRuuuuuussuuuuuuuuuS6uuuuuuuuuuuus...",
+            "....suuuuuuuuuuuusuuRuuusuuuussssSSSSSSRSSSSSSSSSSSSs...",
+            ".....sSSSSSSSSSSSsSSRSSSsuuuuuuuuSSSSSSSsSSSSSSSSSSSs...",
+            ".....sSSSSSSSSSSSsSS6SSSSSuuuuuusSSSSSSSsSSSSSSSSSSSs...",
+            "......sSSSSSSSSSSsSSRSSSsuuuuuuusSSSSSSSSSSSSSSSSSSs....",
+            "......sSSSSSSSSSSsSSSSSSsuuuuuuusSSSSSSSSussSSSSSSSs....",
+            ".......SSSSSSSssSSSSSSSSSSuuuuuusSSSSSSSSsuuSSSSSSS.....",
+            "........ssssssuusSSSSSSSSsuuuuusSSSSSSSSSsuu.sssss......",
+            "............uuuusSSSSSSSSsuuuuusSSSSSSSSSsuu............",
+            "..............uSSSSSSSSSSsuuuuusSSSSSSSSSSS.............",
+            "..............SSSSSSSSSSSSSuuuussSSSSSSSSSSs............",
+            "..............SSSSSSSSssss.......sssssssSsss............",
+            "...............sssssss..................S..............."
+          ],
+          "pigments": {
+            "P": "#4b3e51",
+            "S": "#41485b",
+            "u": "#77677F",
+            "U": "#B9A8BD",
+            "R": "#c8501e",
+            "@": "#ff9a3c",
+            "6": "#ffc860",
+            "s": "#5B5669"
+          },
+          "signature_lights": [
+            {
+              "name": "notched furnace grin",
+              "pixels": [
+                [
+                  28,
+                  10,
+                  "@"
+                ],
+                [
+                  29,
+                  10,
+                  "@"
+                ],
+                [
+                  28,
+                  11,
+                  "@"
+                ],
+                [
+                  29,
+                  11,
+                  "@"
+                ],
+                [
+                  30,
+                  10,
+                  "R"
+                ],
+                [
+                  31,
+                  10,
+                  "R"
+                ],
+                [
+                  30,
+                  11,
+                  "R"
+                ],
+                [
+                  31,
+                  11,
+                  "R"
+                ],
+                [
+                  32,
+                  10,
+                  "@"
+                ],
+                [
+                  33,
+                  10,
+                  "@"
+                ],
+                [
+                  32,
+                  11,
+                  "@"
+                ],
+                [
+                  33,
+                  11,
+                  "@"
+                ],
+                [
+                  34,
+                  10,
+                  "@"
+                ],
+                [
+                  35,
+                  10,
+                  "@"
+                ],
+                [
+                  34,
+                  11,
+                  "@"
+                ],
+                [
+                  35,
+                  11,
+                  "@"
+                ],
+                [
+                  36,
+                  10,
+                  "@"
+                ],
+                [
+                  37,
+                  10,
+                  "@"
+                ],
+                [
+                  36,
+                  11,
+                  "@"
+                ],
+                [
+                  37,
+                  11,
+                  "@"
+                ],
+                [
+                  26,
+                  12,
+                  "@"
+                ],
+                [
+                  27,
+                  12,
+                  "@"
+                ],
+                [
+                  26,
+                  13,
+                  "@"
+                ],
+                [
+                  27,
+                  13,
+                  "@"
+                ],
+                [
+                  28,
+                  12,
+                  "6"
+                ],
+                [
+                  29,
+                  12,
+                  "6"
+                ],
+                [
+                  28,
+                  13,
+                  "6"
+                ],
+                [
+                  29,
+                  13,
+                  "6"
+                ],
+                [
+                  30,
+                  12,
+                  "6"
+                ],
+                [
+                  31,
+                  12,
+                  "6"
+                ],
+                [
+                  30,
+                  13,
+                  "6"
+                ],
+                [
+                  31,
+                  13,
+                  "6"
+                ],
+                [
+                  32,
+                  12,
+                  "6"
+                ],
+                [
+                  33,
+                  12,
+                  "6"
+                ],
+                [
+                  32,
+                  13,
+                  "6"
+                ],
+                [
+                  33,
+                  13,
+                  "6"
+                ],
+                [
+                  34,
+                  12,
+                  "6"
+                ],
+                [
+                  35,
+                  12,
+                  "6"
+                ],
+                [
+                  34,
+                  13,
+                  "6"
+                ],
+                [
+                  35,
+                  13,
+                  "6"
+                ],
+                [
+                  36,
+                  12,
+                  "6"
+                ],
+                [
+                  37,
+                  12,
+                  "6"
+                ],
+                [
+                  36,
+                  13,
+                  "6"
+                ],
+                [
+                  37,
+                  13,
+                  "6"
+                ],
+                [
+                  38,
+                  12,
+                  "@"
+                ],
+                [
+                  39,
+                  12,
+                  "@"
+                ],
+                [
+                  38,
+                  13,
+                  "@"
+                ],
+                [
+                  39,
+                  13,
+                  "@"
+                ],
+                [
+                  26,
+                  14,
+                  "@"
+                ],
+                [
+                  27,
+                  14,
+                  "@"
+                ],
+                [
+                  26,
+                  15,
+                  "@"
+                ],
+                [
+                  27,
+                  15,
+                  "@"
+                ],
+                [
+                  28,
+                  14,
+                  "6"
+                ],
+                [
+                  29,
+                  14,
+                  "6"
+                ],
+                [
+                  28,
+                  15,
+                  "6"
+                ],
+                [
+                  29,
+                  15,
+                  "6"
+                ],
+                [
+                  30,
+                  14,
+                  "6"
+                ],
+                [
+                  31,
+                  14,
+                  "6"
+                ],
+                [
+                  30,
+                  15,
+                  "6"
+                ],
+                [
+                  31,
+                  15,
+                  "6"
+                ],
+                [
+                  32,
+                  14,
+                  "R"
+                ],
+                [
+                  33,
+                  14,
+                  "R"
+                ],
+                [
+                  32,
+                  15,
+                  "R"
+                ],
+                [
+                  33,
+                  15,
+                  "R"
+                ],
+                [
+                  34,
+                  14,
+                  "6"
+                ],
+                [
+                  35,
+                  14,
+                  "6"
+                ],
+                [
+                  34,
+                  15,
+                  "6"
+                ],
+                [
+                  35,
+                  15,
+                  "6"
+                ],
+                [
+                  36,
+                  14,
+                  "6"
+                ],
+                [
+                  37,
+                  14,
+                  "6"
+                ],
+                [
+                  36,
+                  15,
+                  "6"
+                ],
+                [
+                  37,
+                  15,
+                  "6"
+                ],
+                [
+                  38,
+                  14,
+                  "@"
+                ],
+                [
+                  39,
+                  14,
+                  "@"
+                ],
+                [
+                  38,
+                  15,
+                  "@"
+                ],
+                [
+                  39,
+                  15,
+                  "@"
+                ],
+                [
+                  28,
+                  16,
+                  "@"
+                ],
+                [
+                  29,
+                  16,
+                  "@"
+                ],
+                [
+                  28,
+                  17,
+                  "@"
+                ],
+                [
+                  29,
+                  17,
+                  "@"
+                ],
+                [
+                  30,
+                  16,
+                  "@"
+                ],
+                [
+                  31,
+                  16,
+                  "@"
+                ],
+                [
+                  30,
+                  17,
+                  "@"
+                ],
+                [
+                  31,
+                  17,
+                  "@"
+                ],
+                [
+                  32,
+                  16,
+                  "@"
+                ],
+                [
+                  33,
+                  16,
+                  "@"
+                ],
+                [
+                  32,
+                  17,
+                  "@"
+                ],
+                [
+                  33,
+                  17,
+                  "@"
+                ],
+                [
+                  34,
+                  16,
+                  "R"
+                ],
+                [
+                  35,
+                  16,
+                  "R"
+                ],
+                [
+                  34,
+                  17,
+                  "R"
+                ],
+                [
+                  35,
+                  17,
+                  "R"
+                ],
+                [
+                  36,
+                  16,
+                  "@"
+                ],
+                [
+                  37,
+                  16,
+                  "@"
+                ],
+                [
+                  36,
+                  17,
+                  "@"
+                ],
+                [
+                  37,
+                  17,
+                  "@"
+                ]
+              ],
+              "hues": {
+                "R": "#c8501e",
+                "@": "#ff9a3c",
+                "6": "#ffc860"
+              },
+              "falloff": [
+                [
+                  28,
+                  9,
+                  "R"
+                ],
+                [
+                  37,
+                  18,
+                  "R"
+                ]
+              ]
+            },
+            {
+              "name": "connected plate cracks and fist embers",
+              "pixels": [
+                [
+                  21,
+                  12,
+                  "R"
+                ],
+                [
+                  21,
+                  13,
+                  "R"
+                ],
+                [
+                  21,
+                  14,
+                  "6"
+                ],
+                [
+                  21,
+                  15,
+                  "R"
+                ],
+                [
+                  21,
+                  16,
+                  "R"
+                ],
+                [
+                  22,
+                  16,
+                  "R"
+                ],
+                [
+                  22,
+                  17,
+                  "6"
+                ],
+                [
+                  22,
+                  18,
+                  "R"
+                ],
+                [
+                  22,
+                  19,
+                  "R"
+                ],
+                [
+                  22,
+                  20,
+                  "R"
+                ],
+                [
+                  23,
+                  20,
+                  "6"
+                ],
+                [
+                  23,
+                  21,
+                  "R"
+                ],
+                [
+                  23,
+                  22,
+                  "R"
+                ],
+                [
+                  23,
+                  23,
+                  "R"
+                ],
+                [
+                  19,
+                  27,
+                  "R"
+                ],
+                [
+                  19,
+                  28,
+                  "R"
+                ],
+                [
+                  19,
+                  29,
+                  "6"
+                ],
+                [
+                  19,
+                  30,
+                  "R"
+                ],
+                [
+                  19,
+                  31,
+                  "R"
+                ],
+                [
+                  20,
+                  31,
+                  "R"
+                ],
+                [
+                  20,
+                  32,
+                  "6"
+                ],
+                [
+                  20,
+                  33,
+                  "R"
+                ],
+                [
+                  20,
+                  34,
+                  "R"
+                ],
+                [
+                  20,
+                  35,
+                  "R"
+                ],
+                [
+                  20,
+                  36,
+                  "6"
+                ],
+                [
+                  20,
+                  37,
+                  "R"
+                ],
+                [
+                  38,
+                  24,
+                  "R"
+                ],
+                [
+                  38,
+                  25,
+                  "R"
+                ],
+                [
+                  38,
+                  26,
+                  "6"
+                ],
+                [
+                  38,
+                  27,
+                  "R"
+                ],
+                [
+                  38,
+                  28,
+                  "R"
+                ],
+                [
+                  39,
+                  28,
+                  "R"
+                ],
+                [
+                  39,
+                  29,
+                  "6"
+                ],
+                [
+                  39,
+                  30,
+                  "R"
+                ],
+                [
+                  39,
+                  31,
+                  "R"
+                ],
+                [
+                  39,
+                  32,
+                  "R"
+                ],
+                [
+                  39,
+                  33,
+                  "6"
+                ],
+                [
+                  39,
+                  34,
+                  "R"
+                ],
+                [
+                  10,
+                  31,
+                  "6"
+                ],
+                [
+                  47,
+                  31,
+                  "6"
+                ]
+              ],
+              "hues": {
+                "R": "#c8501e",
+                "6": "#ffc860",
+                "P": "#4b3e51"
+              },
+              "falloff": [
+                [
+                  20,
+                  14,
+                  "P"
+                ],
+                [
+                  18,
+                  29,
+                  "P"
+                ],
+                [
+                  37,
+                  26,
+                  "P"
+                ],
+                [
+                  9,
+                  31,
+                  "R"
+                ],
+                [
+                  46,
+                  31,
+                  "R"
+                ]
+              ]
+            }
+          ],
+          "hand_pixels": [
+            [
+              28,
+              9
+            ],
+            [
+              20,
+              14
+            ],
+            [
+              21,
+              14
+            ],
+            [
+              22,
+              17
+            ],
+            [
+              37,
+              18
+            ],
+            [
+              23,
+              20
+            ],
+            [
+              37,
+              26
+            ],
+            [
+              38,
+              26
+            ],
+            [
+              18,
+              29
+            ],
+            [
+              19,
+              29
+            ],
+            [
+              39,
+              29
+            ],
+            [
+              9,
+              31
+            ],
+            [
+              10,
+              31
+            ],
+            [
+              46,
+              31
+            ],
+            [
+              47,
+              31
+            ],
+            [
+              20,
+              32
+            ],
+            [
+              39,
+              33
+            ],
+            [
+              39,
+              34
+            ],
+            [
+              20,
+              36
+            ],
+            [
+              20,
+              37
+            ],
+            [
+              41,
+              38
+            ]
+          ],
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              13,
+              4,
+              40,
+              11
+            ],
+            "body": [
+              15,
+              26,
+              38,
+              40
+            ],
+            "room_size": [
+              58,
+              48
+            ],
+            "room_origin": [
+              356,
+              146
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            ".........",
+            "....RRR..",
+            "...R@@@R.",
+            "...R@@@R.",
+            "PRo@66@@@",
+            "...R@@@R.",
+            "...R@@@R.",
+            "....RRR..",
+            "........."
+          ],
+          "hand_pixels": [
+            [
+              0,
+              4
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".........",
+            "...RRRR..",
+            "...R@@@R.",
+            ".R.R@@@R.",
+            "PRo@66@@@",
+            ".R.R@@@R.",
+            "...R@@@R.",
+            "...RRRR..",
+            "........."
+          ],
+          "hand_pixels": [
+            [
+              0,
+              4
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ]
+          ]
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            ".........RRRRRRR.........",
+            ".......RRoooooooRR.......",
+            ".....RRoooooooooooRR.....",
+            "....RRoooo.....ooooRR....",
+            "...Roooo.........ooooR...",
+            "..RRoo.............ooRR..",
+            "..Roo...............o@R..",
+            ".Rooo@.............@@@@R.",
+            ".Roo@@@@..........@@@ooR.",
+            "Rooo..@@@.......@@@@.oooR",
+            "Roo....@@@@.....@@....ooR",
+            "Roo......@@.....@@....ooR",
+            "Roo.....@@......@@....ooR",
+            "Roo....@@@......@@....ooR",
+            "Roo...@@@@@.@@@@@@....ooR",
+            "Rooo.@@@..@@@@.......oooR",
+            ".Roo@@@.....@@.......ooR.",
+            ".Rooo@.......@@.....oooR.",
+            "..Roo........@@.....ooR..",
+            "..RRoo........@@...ooRR..",
+            "...Roooo......@@.ooooR...",
+            "....RRoooo.....ooooRR....",
+            ".....RRoooooooooooRR.....",
+            ".......RRoooooooRR.......",
+            ".........RRRRRRR........."
+          ]
+        },
+        {
+          "rows": [
+            ".........RRRRRRR.........",
+            ".......RRoooooooRR.......",
+            ".....RRoooooooooooRR.....",
+            "....RRooooRRRRRooooRR....",
+            "...RooooRRRRRRRRRooooR...",
+            "..RRooRRRRRRRRRRRRRooRR..",
+            "..RooRRRRR.....RRRRRo@R..",
+            ".Rooo@RRR.......RRR@@@@R.",
+            ".Roo@@@@.........R@@@ooR.",
+            "RoooRR@@@.......@@@@RoooR",
+            "RooRRR.@@@@.....@@.RRRooR",
+            "RooRRR...@@.....@@.RRRooR",
+            "RooRRR..@@......@@.RRRooR",
+            "RooRRR.@@@......@@.RRRooR",
+            "RooRRR@@@@@.@@@@@@.RRRooR",
+            "RoooR@@@..@@@@....RRRoooR",
+            ".Roo@@@R....@@...RRRRooR.",
+            ".Rooo@RRR....@@.RRRRoooR.",
+            "..RooRRRRR...@@RRRRRooR..",
+            "..RRooRRRRRRRR@@RRRooRR..",
+            "...RooooRRRRRR@@RooooR...",
+            "....RRooooRRRRRooooRR....",
+            ".....RRoooooooooooRR.....",
+            ".......RRoooooooRR.......",
+            ".........RRRRRRR........."
+          ]
+        },
+        {
+          "rows": [
+            ".........RRRRRRR.........",
+            ".......RRoooooooRR.......",
+            ".....RRoooooooooooRR.....",
+            "....RRooooRRRRRooooRR....",
+            "...RooooRRRRRRRRRooooR...",
+            "..RRooRRRRRRRRRRRRRooRR..",
+            "..RooRRRRRRRRRRRRRRRo@R..",
+            ".Rooo@RRRRRRRRRRRRR@@@@R.",
+            ".Roo@@@@RRRRRRRRRR@@@ooR.",
+            "RoooRR@@@RR...RR@@@@RoooR",
+            "RooRRRR@@@@....R@@RRRRooR",
+            "RooRRRRRR@@.....@@RRRRooR",
+            "RooRRRRR@@......@@RRRRooR",
+            "RooRRRR@@@......@@RRRRooR",
+            "RooRRR@@@@@.@@@@@@RRRRooR",
+            "RoooR@@@RR@@@@RRRRRRRoooR",
+            ".Roo@@@RRRRR@@RRRRRRRooR.",
+            ".Rooo@RRRRRRR@@RRRRRoooR.",
+            "..RooRRRRRRRR@@RRRRRooR..",
+            "..RRooRRRRRRRR@@RRRooRR..",
+            "...RooooRRRRRR@@RooooR...",
+            "....RRooooRRRRRooooRR....",
+            ".....RRoooooooooooRR.....",
+            ".......RRoooooooRR.......",
+            ".........RRRRRRR........."
+          ]
+        },
+        {
+          "rows": [
+            ".........RRRRRRR.........",
+            ".......RRoooooooRR.......",
+            ".....RRoooooooooooRR.....",
+            "....RRooooRRRRRooooRR....",
+            "...RooooRRRRRRRRRooooR...",
+            "..RRooRRRRRRRRRRRRRooRR..",
+            "..RooRRRRRRRRRRRRRRRo@R..",
+            ".Rooo@RRRRRRRRRRRRR@@@@R.",
+            ".Roo@@@@RRRRRRRRRR@@@ooR.",
+            "RoooRR@@@RRRRRRR@@@@RoooR",
+            "RooRRRR@@@@RRRRR@@RRRRooR",
+            "RooRRRRRR@@RRRRR@@RRRRooR",
+            "RooRRRRR@@RRRRRR@@RRRRooR",
+            "RooRRRR@@@RRRRRR@@RRRRooR",
+            "RooRRR@@@@@R@@@@@@RRRRooR",
+            "RoooR@@@RR@@@@RRRRRRRoooR",
+            ".Roo@@@RRRRR@@RRRRRRRooR.",
+            ".Rooo@RRRRRRR@@RRRRRoooR.",
+            "..RooRRRRRRRR@@RRRRRooR..",
+            "..RRooRRRRRRRR@@RRRooRR..",
+            "...RooooRRRRRR@@RooooR...",
+            "....RRooooRRRRRooooRR....",
+            ".....RRoooooooooooRR.....",
+            ".......RRoooooooRR.......",
+            ".........RRRRRRR........."
+          ]
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".............@..............",
+            ".............@@.............",
+            "............@@@.............",
+            "............@@@@............",
+            "...........666666...........",
+            ".........@@666666@@.........",
+            ".......@@@@666666@@@@@......",
+            "........@@@666666@@@........",
+            "..........@666666@@.........",
+            "...........666666...........",
+            "...........@@@@@............",
+            "............@@@@............",
+            "............@@@.............",
+            ".............@@.............",
+            ".............@..............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".........@..................",
+            "........@@@.......@@........",
+            ".........@@@.....@@@........",
+            ".........@@@RR.RR@@R........",
+            ".........R@RR666@@@R........",
+            ".........RR6666666RR........",
+            ".........R.6666666.R........",
+            ".....@@@@@666666666RRR......",
+            ".....@@@@@666666666@@@@@....",
+            ".......RRR666666666@@@@@....",
+            ".........R.6666666.@........",
+            "...........66666666.........",
+            "...........@@666RR@.........",
+            "...........@@@..R@@@........",
+            "..........@@@.....@@........",
+            "..........@@......@@@.......",
+            "...................@........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "........@...................",
+            ".......@@@.........@@.......",
+            "........@@@.......@@@.......",
+            "........@@@RR...RR@@R.......",
+            "........R@RRR...R@@@R.......",
+            "........RRRR.....R@RR.......",
+            "...........R.....R..........",
+            "............................",
+            "............................",
+            "......@...............R.....",
+            "..@@@@@R.............RRRR...",
+            "..@@@@@RR...........RR@@@@@.",
+            "....RRRR.............R@@@@@.",
+            "......R...............@.....",
+            "............................",
+            "............................",
+            "............................",
+            ".........@@@.....RRR........",
+            ".........@@@.....RR@........",
+            ".........@@@.....R@@@.......",
+            "........@@@........@@.......",
+            "........@@.........@@@......",
+            "....................@.......",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            ".......@....................",
+            "......@@@...........@@......",
+            ".......@@@.........@@@......",
+            ".......@@@RR.....RR@@R......",
+            ".......R@RRR.....R@@@R......",
+            ".......RRRR.......R@RR......",
+            "..........R.......R.........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "....@...................R...",
+            "@@@@@R.................RRRR.",
+            "@@@@@RR...............RR@@@@",
+            "..RRRR.................R@@@@",
+            "....R...................@...",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "........@@@.......RRR.......",
+            "........@@@.......RR@.......",
+            "........@@@.......R@@@......",
+            ".......@@@..........@@......",
+            ".......@@...........@@@.....",
+            ".....................@......"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "......oo............oo......",
+            ".......oRR..........oR......",
+            ".......ooR.........ooR......",
+            ".......RRR..........o.......",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".ooo.....................o..",
+            ".oooo...................oooo",
+            "...o.....................ooo",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "........RRR.........o.......",
+            "........Roo........ooo......",
+            "........Roo.........oo......",
+            "........oo...........oo.....",
+            "............................"
+          ]
+        }
+      ]
+    },
+    "review": {
+      "theme": "Furnace maw and molten seams read at 1x and in real cells.",
+      "originality": "Original guardian silhouette and material identity; no famous commercial character or franchise likeness."
+    }
+  },
+  {
+    "boss": "cockpit/assets/dungeon/bosses/the-index.boss",
+    "output": "cockpit/assets/dungeon/bosses/the-index",
+    "inks": "bPotTsSU27",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            "..........oPPPPP..........",
+            ".........oTTTTTTTo........",
+            "........oTTTTTTTTTo.......",
+            ".......oPoTTsssoooPo......",
+            ".......oPoos2sssooPo......",
+            ".......oPoos2sssooPo......",
+            ".......oPoos222sooP.......",
+            "........oooosssoooo.......",
+            ".....oooooPPoooPPoooo.....",
+            ".....oooooooooooooooo.....",
+            "....PPoottttttttttooPP....",
+            "...tttPooUUPttPSSPoPttt...",
+            "..otttPooUUPttPSSPoPttto..",
+            ".ooPPPoooUUPttPSSPooPPPoo.",
+            "ooPooPoooUUPttPSSPooPooPoo",
+            "ooPoooootttttttttttooooPoo",
+            "oPoooooooPttPSSPUUooooooPo",
+            "PPoooooooPttPSSPUUooooooPP",
+            "PPoooooooPttPSSPUUooooooPP",
+            ".PPPPooooPttPSSPUUoooPPPP.",
+            ".Po..oootttttttttttoo..oP.",
+            ".....oooPPPoooooPPPoo.....",
+            ".......oooooooo.oooooo....",
+            ".......boooo...boooo......",
+            ".......bbbbbb..bbbbbb....."
+          ],
+          "signature_lights": [
+            {
+              "name": "lens",
+              "hues": {
+                "2": "#50c6b3"
+              },
+              "pixels": [
+                [
+                  12,
+                  4,
+                  "2"
+                ],
+                [
+                  12,
+                  5,
+                  "2"
+                ],
+                [
+                  12,
+                  6,
+                  "2"
+                ],
+                [
+                  13,
+                  6,
+                  "2"
+                ],
+                [
+                  14,
+                  6,
+                  "2"
+                ]
+              ]
+            }
+          ],
+          "hand_pixels": [
+            [
+              10,
+              0
+            ],
+            [
+              9,
+              1
+            ],
+            [
+              17,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              18,
+              2
+            ],
+            [
+              2,
+              20
+            ],
+            [
+              23,
+              20
+            ]
+          ]
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            ".....................bbbbbbbbbb.....................",
+            "....................bbbPPoobbbbb....................",
+            "..................bbbPPTTTTTTbbbb...................",
+            "................bbbbPPoTTTTTTTTTbbbb................",
+            "..............bbbbtttoooTTTTTTTTbbbbb...............",
+            "..............bPPPtttoooooooTToobbbbbb..............",
+            "..............bbbboooooooooottoobbbbb...............",
+            "..............bbbbboottoTt7oTooobbbbb...............",
+            ".............bbbbbboottttttoTooobbbbbb..............",
+            ".............bbbbbbootto7t7oTootbbbbbb..............",
+            "..............bbbbbttttoooooTtttbbbbbb..............",
+            "...............bbTTTTttttttttttbbbbbb...............",
+            "...............bbTTUUUtttttttttbbbbb................",
+            "................bbUUUUUtttttttbbbbbb................",
+            "...............bbPUUUUUtbttttbbbbbbbb...............",
+            "...............bbPPUUUUUbbbbbbbbbbbbbb..............",
+            "..............bbPPPUUUUooboobbbbboobbb..............",
+            "............bbbPPPPPoooooooPooobbooobbb.............",
+            "...........bbbbbbPPPooobbbbPPPPPoooobbbb............",
+            "..........bbbbPPbbPPbbbbbbbbbbbbbboooobbb...........",
+            "..........bbPPTTbbPP2222bbSStttbbPPPoTbbbb..........",
+            "..........bbboTTbbPP2222PbbS77tPPPPPoTbbbb..........",
+            "..........bbbootttPP2222PbbS77tSSPPPTTTbbb..........",
+            "..........booootttPP2222PbSS77tSSPPPTTTbbb..........",
+            "..........oooooSSSPP2222PbPP77tSSPPPoooTbb..........",
+            ".....b..PPTTTooSSSPPPPPPPPPPPPPPPPPPoooTTb..........",
+            ".....bbbPTTTTobbsSPPPPSSSSPPbbbbbPPbbboTTTT.bbb.....",
+            "....bbbPPPTTTTbbsSPPPPSSSPtPbPbttPPbbboTTTPbbbbb....",
+            "....bbbbPPPPTTbbsPPPPPSSSPttbPbttP22bboTPPPPTbbbb...",
+            "...bbbbbPPPPTbbbsPPPPPSSSPttbPbttP22bbbTPooPTbbbb...",
+            "..bb.PPTTTooobbbsPPPPPSSSPttbPbttP22bbbbPooTTTb.bb..",
+            "..bb.bTTTTTTobbbsPPPPPSSSPtPbPbttP22bbbboooTTTb.bb..",
+            ".....bTTTTTTTbbbbPPPPPPPPPPPPPPPPPPbbbbboTTTTTb.....",
+            ".b..ooooooTTbbbbbPPPPPPPPPSSSSSPPPPbbbbbttTTTTTT..b.",
+            "....booooPTbbbbbbPPPPPPPPPPPSttPPPbbbbbTttttPPPTb...",
+            "....boooPPTbbbbbbPPPSSSPPSSSSttSSPbbbbbTttTtPPPPb...",
+            "...bbPPPPPTbbbbbbPPPSSSPPSSSSttSSPPbbbbbbbTToooPb...",
+            "...bPPPPoPPPPbbbbPPPSSSSPSSSSPPSSPPbbbbbbbTToooo....",
+            "...bPPPoobbbbbbPPPPPPPPPPPPPPPPPPPPbbbbbbbbbbooob...",
+            "....PPPobbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbooob...",
+            "....bbPob.bbbbbbbbbooobbbbbPPboobbbbbbbbbbb.booob...",
+            "....bbbooobbbbbbbbbboobbbbbbPPooobbbbbbbbbb.booob...",
+            ".....bbboobbbbbb..booobb...bbPPobb..bbbbbb.bboPb....",
+            ".....bb.ooobbbbb..bTTTbb....bTTTbb..bbbbbbbb.bPb....",
+            "......bbbbbb..PPbTTTTTPPbbbbTTTTTTbbbb..bbbbbbb.....",
+            "........bbbb.bbbbbTTTTTTbbbTTToTTbbbbb..bbbbb.......",
+            "......bbbbbbbbbbbbooooobbbbboooTTbbbbbbbbbbbbb......",
+            "......bb.bbbbbPboooooobobbbbbbooobbbbbbbbbbbbb......",
+            ".............bPPooooooooo..P.boooobbbb..............",
+            "..............bbbbb.bbbb....bbb.bbbbb..............."
+          ],
+          "hand_pixels": [
+            [
+              24,
+              7
+            ],
+            [
+              26,
+              7
+            ],
+            [
+              24,
+              9
+            ],
+            [
+              26,
+              9
+            ],
+            [
+              1,
+              33
+            ],
+            [
+              50,
+              33
+            ],
+            [
+              22,
+              47
+            ],
+            [
+              27,
+              48
+            ]
+          ],
+          "pigments": {
+            "o": "#b57336",
+            "t": "#ffb43c",
+            "T": "#fff0b0",
+            "7": "#8a4a1e",
+            "b": "#65503c",
+            "s": "#5a3a1e"
+          },
+          "signature_lights": [
+            {
+              "name": "amber eye",
+              "pixels": [
+                [
+                  25,
+                  7,
+                  "t"
+                ],
+                [
+                  24,
+                  8,
+                  "t"
+                ],
+                [
+                  25,
+                  8,
+                  "t"
+                ],
+                [
+                  26,
+                  8,
+                  "t"
+                ],
+                [
+                  25,
+                  9,
+                  "t"
+                ],
+                [
+                  24,
+                  7,
+                  "T"
+                ]
+              ],
+              "hues": {
+                "t": "#ffb43c",
+                "T": "#fff0b0",
+                "7": "#8a4a1e"
+              },
+              "falloff": [
+                [
+                  26,
+                  7,
+                  "7"
+                ],
+                [
+                  24,
+                  9,
+                  "7"
+                ],
+                [
+                  26,
+                  9,
+                  "7"
+                ]
+              ]
+            }
+          ],
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              20,
+              2,
+              31,
+              12
+            ],
+            "body": [
+              16,
+              20,
+              35,
+              35
+            ],
+            "room_size": [
+              52,
+              50
+            ],
+            "room_origin": [
+              358,
+              144
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            ".PPPPPPP.",
+            ".PtTTTTP.",
+            ".PtTTTTP.",
+            ".PTTSTTP.",
+            ".PTTSTTP.",
+            ".PTTTtTP.",
+            ".PTTTtTP.",
+            ".PPPPPPP.",
+            "........."
+          ]
+        },
+        {
+          "rows": [
+            ".........",
+            ".........",
+            ".PPPPPPP.",
+            ".PtttttP.",
+            ".PTTSTTP.",
+            ".PTTSTTP.",
+            ".PPPPPPP.",
+            ".........",
+            "........."
+          ]
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            "........................",
+            "........................",
+            "........................",
+            "....2............U......",
+            "...2.............U......",
+            "222222UUUUUUUUUUUUUUUUUU",
+            "..........U...........UU",
+            "...........U............",
+            "........................",
+            "........................",
+            "........................"
+          ],
+          "hand_pixels": [
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              11,
+              7
+            ],
+            [
+              17,
+              4
+            ],
+            [
+              17,
+              3
+            ],
+            [
+              22,
+              6
+            ],
+            [
+              23,
+              6
+            ]
+          ],
+          "pigments": {
+            "2": "#4ac0b0",
+            "U": "#2a5a56"
+          }
+        },
+        {
+          "rows": [
+            "........................",
+            "........................",
+            "........................",
+            "....2............U......",
+            "...2.............U......",
+            "222222222222UUUUUUUUUUUU",
+            "..........2...........UU",
+            "...........2............",
+            "........................",
+            "........................",
+            "........................"
+          ],
+          "hand_pixels": [
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              11,
+              7
+            ],
+            [
+              17,
+              4
+            ],
+            [
+              17,
+              3
+            ],
+            [
+              22,
+              6
+            ],
+            [
+              23,
+              6
+            ]
+          ],
+          "pigments": {
+            "2": "#4ac0b0",
+            "U": "#2a5a56"
+          }
+        },
+        {
+          "rows": [
+            "........................",
+            "........................",
+            "........................",
+            "....2............2......",
+            "...2.............2......",
+            "222222222222222222UUUUUU",
+            "..........2...........UU",
+            "...........2............",
+            "........................",
+            "........................",
+            "........................"
+          ],
+          "hand_pixels": [
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              11,
+              7
+            ],
+            [
+              17,
+              4
+            ],
+            [
+              17,
+              3
+            ],
+            [
+              22,
+              6
+            ],
+            [
+              23,
+              6
+            ]
+          ],
+          "pigments": {
+            "2": "#4ac0b0",
+            "U": "#2a5a56"
+          }
+        },
+        {
+          "rows": [
+            "........................",
+            "........................",
+            "........................",
+            "....2............2......",
+            "...2.............2......",
+            "222222222222222222222222",
+            "..........2...........22",
+            "...........2............",
+            "........................",
+            "........................",
+            "........................"
+          ],
+          "hand_pixels": [
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              11,
+              7
+            ],
+            [
+              17,
+              4
+            ],
+            [
+              17,
+              3
+            ],
+            [
+              22,
+              6
+            ],
+            [
+              23,
+              6
+            ]
+          ],
+          "pigments": {
+            "2": "#4ac0b0",
+            "U": "#2a5a56"
+          }
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".............t..............",
+            "...........ttttt............",
+            "..........ttttttt...........",
+            "........ttttttttttt.........",
+            "........tttTTTTTTtttt.......",
+            ".........ttTTTTTTtttt.......",
+            ".........ttTTTTTTttt........",
+            ".........ttTTTTTTttt........",
+            ".........ttTTTTTTtt.........",
+            "..........ttttttttt.........",
+            "..........ttttttttt.........",
+            "..........tttttttt..........",
+            ".................t..........",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "......S.......S.............",
+            "......STSSSSSSSTSSSSSS......",
+            "......STTTTTTSSTTTTTTS......",
+            ".......STTTTTS.STTTTTS......",
+            ".......STTTTTTSSTTTTTTS.....",
+            ".......SSSSSTTTTTSSSSTS.....",
+            "............TTTTT.....S.....",
+            "............TTTTT...........",
+            "......S.....TTTTT...........",
+            "......STSSSSTTTTTSSSSS......",
+            "......STTTTTTSSTTTTTTS......",
+            ".......STTTTTS.STTTTTS......",
+            ".......STTTTTTSSTTTTTTS.....",
+            ".......SSSSSSTSSSSSSSTS.....",
+            "..............S.......S.....",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "...S.............S..........",
+            "...STSSSSSS......STSSSSSS...",
+            "...STTTTTTS......STTTTTTS...",
+            "....STTTTTS.......STTTTTS...",
+            "....STTTTTTS......STTTTTTS..",
+            "....SSSSSSTS......SSSSSSTS..",
+            "...........S.............S..",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "...S.............S..........",
+            "...STSSSSSS......STSSSSSS...",
+            "...STTTTTTS......STTTTTTS...",
+            "....STTTTTS.......STTTTTS...",
+            "....STTTTTTS......STTTTTTS..",
+            "....SSSSSSTS......SSSSSSTS..",
+            "...........S.............S..",
+            "............................",
+            "............................",
+            "............................"
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "S...................S.......",
+            "StSSSSSS............StSSSSSS",
+            "SttttttS............SttttttS",
+            ".StttttS.............StttttS",
+            ".SttttttS............Stttttt",
+            ".SSSSSStS............SSSSSSt",
+            "........S...................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "S...................S.......",
+            "StSSSSSS............StSSSSSS",
+            "SttttttS............SttttttS",
+            ".StttttS.............StttttS",
+            ".SttttttS............Stttttt",
+            ".SSSSSStS............SSSSSSt",
+            "........S..................."
+          ]
+        },
+        {
+          "rows": [
+            "............................",
+            "..S...................S.....",
+            "..StSS................StSS..",
+            "..SttS................SttS..",
+            "...StS.................StS..",
+            "...SttS................SttS.",
+            "...SStS................SStS.",
+            "......S...................S.",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "..S...................S.....",
+            "..StSS................StSS..",
+            "..SttS................SttS..",
+            "...StS.................StS..",
+            "...SttS................SttS.",
+            "...SStS................SStS.",
+            "......S...................S."
+          ]
+        }
+      ]
+    },
+    "review": {
+      "theme": "Amber lens and coloured book spines read at 1x and in real cells.",
+      "originality": "Original guardian silhouette and material identity; no famous commercial character or franchise likeness."
+    }
+  },
+  {
+    "boss": "cockpit/assets/dungeon/bosses/mother-of-spores.boss",
+    "output": "cockpit/assets/dungeon/bosses/mother-of-spores",
+    "inks": "bPRotT7mAY",
+    "frames": {
+      "v1": [
+        {
+          "rows": [
+            "...........PPPPPPPPP..........",
+            ".........PPoooooooooPP........",
+            ".......PPooooRRRRoooooo.......",
+            "......PPooooRRRRRRoooooPP.....",
+            ".....77777777RRRR777777777....",
+            "...777RR777777777777777RR7PP..",
+            "..P77RRRR7777777777777RRRR7PP.",
+            ".PP777RR777777777777777RR777P.",
+            ".P77777777777777777777777777PP",
+            "PP777777777777777777777777777P",
+            ".PPPAAYAAYPPPPPPPPPPPYAAYAAPP.",
+            "..PPPPPPPPPtTTTTTTtPPPPPPPPP..",
+            ".....PPP..PtPPTTPPtP..PPP.....",
+            "....PPoPP.PtPPTTPPtPPPPoPP....",
+            "...PPPoP..PtTTTTTTTtP.PoPPP...",
+            "...PPoo...PtTTPPTTTtP..ooPP...",
+            "...PPo....PTTTTTTTTtP...oPP...",
+            "...PPo...PtTTTTTTTTTPP..oPP...",
+            "...PPPP..PttTTTTTTTttP.PPPP...",
+            "....PPP.PPPtTTTTTTTtPPPPPP....",
+            "......P..PPtttttttttPP.P......",
+            "..........PPPPPPPPPPPP........",
+            "........PoooP....PoooP........",
+            "........PPPPPP...PPPPPP......."
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#E0C7E0",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#DDCBB9",
+            "T": "#F4E5D7",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          },
+          "signature_lights": [
+            {
+              "name": "luminous gills",
+              "hues": {
+                "A": "#9eb962",
+                "Y": "#dce7a0"
+              },
+              "pixels": [
+                [
+                  4,
+                  10,
+                  "A"
+                ],
+                [
+                  5,
+                  10,
+                  "A"
+                ],
+                [
+                  6,
+                  10,
+                  "Y"
+                ],
+                [
+                  7,
+                  10,
+                  "A"
+                ],
+                [
+                  8,
+                  10,
+                  "A"
+                ],
+                [
+                  9,
+                  10,
+                  "Y"
+                ],
+                [
+                  21,
+                  10,
+                  "Y"
+                ],
+                [
+                  22,
+                  10,
+                  "A"
+                ],
+                [
+                  23,
+                  10,
+                  "A"
+                ],
+                [
+                  24,
+                  10,
+                  "Y"
+                ],
+                [
+                  25,
+                  10,
+                  "A"
+                ],
+                [
+                  26,
+                  10,
+                  "A"
+                ]
+              ]
+            }
+          ],
+          "hand_pixels": [
+            [
+              6,
+              10
+            ],
+            [
+              9,
+              10
+            ],
+            [
+              21,
+              10
+            ],
+            [
+              24,
+              10
+            ]
+          ]
+        }
+      ],
+      "v2": [
+        {
+          "rows": [
+            "............................PPPPP...........................",
+            ".........................PPP77777PPP........................",
+            ".......................PPPP7777777RRPPP.....................",
+            ".....................PPPPPPP77777777777PP...................",
+            "...................PP777RRRR7777777777777PPP................",
+            ".................PP7777RRRR777777777777777RRPPP.............",
+            "...............PPP7777RRRR7777777777777777777777............",
+            ".............PPPPP7777RR77777777777777777P7777777...........",
+            "...........PPPPPP77777777777777777PPPPPPPPP777777PP.........",
+            "..........77PPPPPPPPPPP777777P7PPPPP777777PPPP777777........",
+            ".........777PPPPPPPPP7PP77777PP7P777777777P77PP77777P.......",
+            "........777PPPPPPPPPP777777PPP77777777777777RPPP7777P.......",
+            ".......777PPPPPPPPPPPPPPPPPP7777RR77777777RRRRRPP7777P......",
+            ".......PPPPPPPPPPPPPPP777P777777RRR7777777RRRRPPP7PP7P......",
+            "......PPPPPPPPPPPPPPP7P77777777RRRR777777777RRRPPPPP7P......",
+            "......PPPPPPPPPP77PP77P7PPP777RRRRRR777777777777PPPPP.......",
+            "......PPP777P7777777777PPPPPP77RRRRRPP7YYYYbYYYYPPP.........",
+            "......PPPYYYbYYYYbYYYbYPPPPPP77RRRRRPPmAAAmbAAA77PP.........",
+            ".......P7AAAbAAAPbAAPbPPPPP777PRRRRPPPmmmmmmmmm.P...........",
+            ".......P7777PPPPPPPPPPmmPmm77PPPRRRRPmmmmmmmm...P...........",
+            "........PPPPPPPPPPPPPPmmmmm77PPRRRRRRmmmm...................",
+            "........P..PPPPPPPPPPPmmPPm7RRPRRRRRR.mm....................",
+            "........P...o...o.tttooooooTTTTTTTTTTotmtt..................",
+            "............o...o.ttooooTTTTTTTTTTTTTotttt..................",
+            "............o.....tooooTTTTTTTTTTTTTTTTttt..................",
+            "............o.....ooooooooTbbTTTTTbbTTTTtt..................",
+            "...............ttoTTooooooTbbTTTTTbbTTTToooot...............",
+            "..............toooTToooommTTTTTTTTTTTTTTToott...............",
+            "..............oooTTTTTmmmTTTTTTTTTTTTTTTToooot..............",
+            "..............TTTTTTToommmTTTTbbbTTTTTTToooott..............",
+            "............AAmooTTTTooooTTTTTTTTTTTTTTTooTToo..............",
+            "............mmmooTTTToooooTTTTTTTTTTTTTTToTTTo..............",
+            "............mmTooTTooooooTTTTTTTTTTTTTTTToTToooo............",
+            "............TTTTTotoommmmTToTTTTTTTTTTTTToooooTo............",
+            "...........oooooootoommmmoooTTTTTTTTTTTTTTTooTTTT...........",
+            "...........ooooooottoooTooooTTTTTTTTTTTTooToooTToo..........",
+            "..........ooooooototoooTTTTTTTTTTToTTTTottotooTToo..........",
+            "..........ooooooottttoooTTTTTTTTTooooTTottottoooooo.........",
+            "..........oo.TTTTTttttooTTTTmmTTTTTooTotttottoooooo.........",
+            "..........oo..TTottttooTTTTTmmmmmmooTTotttttoo.oooo.........",
+            "..........o....ootttooTTTTTTTmmoooooooottttto..ooo..........",
+            "...........oo..oottooooTTTTTTTTTToooooooott.oo.ooo..........",
+            "..............oo.toooooTTTToTTTTToooooooott...o.o...........",
+            ".................tooTTTTooToTTTTooooooTTTTt...ooo...........",
+            "................ooooTooooooootttoooooooooTo.oo..............",
+            "...............mmoooTooooooooo..ooooooooooo..o..............",
+            "..............mmmooooooooooooo..ooooo.oooooooo..............",
+            "....................ooooo..................................."
+          ],
+          "hand_pixels": [
+            [
+              22,
+              17
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              18,
+              36
+            ]
+          ],
+          "pigments": {
+            "b": "#4a2244",
+            "P": "#A35E95",
+            "7": "#D0A8C0",
+            "R": "#e0b8e0",
+            "o": "#987EA3",
+            "t": "#b99eb8",
+            "T": "#F4E5D7",
+            "m": "#556f39",
+            "A": "#9ab84a",
+            "Y": "#e8f0a0"
+          },
+          "signature_lights": [
+            {
+              "name": "broken luminous gills",
+              "pixels": [
+                [
+                  9,
+                  17,
+                  "Y"
+                ],
+                [
+                  9,
+                  18,
+                  "A"
+                ],
+                [
+                  10,
+                  17,
+                  "Y"
+                ],
+                [
+                  10,
+                  18,
+                  "A"
+                ],
+                [
+                  11,
+                  17,
+                  "Y"
+                ],
+                [
+                  13,
+                  17,
+                  "Y"
+                ],
+                [
+                  13,
+                  18,
+                  "A"
+                ],
+                [
+                  14,
+                  17,
+                  "Y"
+                ],
+                [
+                  14,
+                  18,
+                  "A"
+                ],
+                [
+                  15,
+                  17,
+                  "Y"
+                ],
+                [
+                  15,
+                  18,
+                  "A"
+                ],
+                [
+                  16,
+                  17,
+                  "Y"
+                ],
+                [
+                  18,
+                  17,
+                  "Y"
+                ],
+                [
+                  18,
+                  18,
+                  "A"
+                ],
+                [
+                  19,
+                  17,
+                  "Y"
+                ],
+                [
+                  19,
+                  18,
+                  "A"
+                ],
+                [
+                  20,
+                  17,
+                  "Y"
+                ],
+                [
+                  22,
+                  17,
+                  "Y"
+                ],
+                [
+                  39,
+                  16,
+                  "Y"
+                ],
+                [
+                  39,
+                  17,
+                  "A"
+                ],
+                [
+                  40,
+                  16,
+                  "Y"
+                ],
+                [
+                  40,
+                  17,
+                  "A"
+                ],
+                [
+                  41,
+                  16,
+                  "Y"
+                ],
+                [
+                  41,
+                  17,
+                  "A"
+                ],
+                [
+                  42,
+                  16,
+                  "Y"
+                ],
+                [
+                  44,
+                  16,
+                  "Y"
+                ],
+                [
+                  44,
+                  17,
+                  "A"
+                ],
+                [
+                  45,
+                  16,
+                  "Y"
+                ],
+                [
+                  45,
+                  17,
+                  "A"
+                ],
+                [
+                  46,
+                  16,
+                  "Y"
+                ],
+                [
+                  46,
+                  17,
+                  "A"
+                ],
+                [
+                  47,
+                  16,
+                  "Y"
+                ]
+              ],
+              "hues": {
+                "Y": "#e8f0a0",
+                "A": "#9ab84a",
+                "7": "#D0A8C0"
+              },
+              "falloff": [
+                [
+                  9,
+                  16,
+                  "7"
+                ],
+                [
+                  10,
+                  16,
+                  "7"
+                ],
+                [
+                  11,
+                  16,
+                  "7"
+                ],
+                [
+                  13,
+                  16,
+                  "7"
+                ],
+                [
+                  14,
+                  16,
+                  "7"
+                ],
+                [
+                  15,
+                  16,
+                  "7"
+                ],
+                [
+                  16,
+                  16,
+                  "7"
+                ],
+                [
+                  18,
+                  16,
+                  "7"
+                ],
+                [
+                  19,
+                  16,
+                  "7"
+                ],
+                [
+                  20,
+                  16,
+                  "7"
+                ],
+                [
+                  22,
+                  16,
+                  "7"
+                ],
+                [
+                  39,
+                  15,
+                  "7"
+                ],
+                [
+                  40,
+                  15,
+                  "7"
+                ],
+                [
+                  41,
+                  15,
+                  "7"
+                ],
+                [
+                  42,
+                  15,
+                  "7"
+                ],
+                [
+                  44,
+                  15,
+                  "7"
+                ],
+                [
+                  45,
+                  15,
+                  "7"
+                ],
+                [
+                  46,
+                  15,
+                  "7"
+                ],
+                [
+                  47,
+                  15,
+                  "7"
+                ]
+              ]
+            }
+          ],
+          "separation": {
+            "floor": "#000000",
+            "head": [
+              10,
+              5,
+              49,
+              15
+            ],
+            "body": [
+              23,
+              25,
+              39,
+              39
+            ],
+            "room_size": [
+              60,
+              48
+            ],
+            "room_origin": [
+              354,
+              146
+            ],
+            "floor_sample": [
+              400,
+              210
+            ]
+          }
+        }
+      ],
+      "projectile": [
+        {
+          "rows": [
+            "...PPP...",
+            "..PPTPP..",
+            "..PPTPP..",
+            "...PbP...",
+            ".PPbTbPP.",
+            "PPTTbTTPP",
+            "PPPbbbPPP",
+            ".PPP.PPP.",
+            "..P...P.."
+          ],
+          "pigments": {
+            "b": "#4a2244",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              4,
+              1
+            ],
+            [
+              4,
+              2
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              5,
+              6
+            ]
+          ]
+        },
+        {
+          "rows": [
+            "..PP.....",
+            ".PPPP....",
+            "PPPTP.PP.",
+            ".PbTbPPPP",
+            "..bbTbTTP",
+            ".PbTbPPPP",
+            "PPPTP.PP.",
+            ".PPPP....",
+            "..PP....."
+          ],
+          "pigments": {
+            "b": "#4a2244",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              3,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              3,
+              6
+            ]
+          ]
+        }
+      ],
+      "tell": [
+        {
+          "rows": [
+            ".....P.....",
+            "..PPPPPPP..",
+            ".PPPAAAPPP.",
+            ".PPTTAATPP.",
+            ".PAA.TT..P.",
+            "PP...T...PP",
+            ".P...T...P.",
+            ".PP..T..PP.",
+            ".PPP...PPP.",
+            "..PPPPPPP..",
+            ".....P....."
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9ab84a",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              5,
+              7
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".....P.....",
+            "..PPPPPPP..",
+            ".PPPAAAPPP.",
+            ".PPTTAATPP.",
+            ".PAAATTAAP.",
+            "PPAAAT...PP",
+            ".P...T...P.",
+            ".PP..T..PP.",
+            ".PPP...PPP.",
+            "..PPPPPPP..",
+            ".....P....."
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9ab84a",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              5,
+              7
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".....P.....",
+            "..PPPPPPP..",
+            ".PPPAAAPPP.",
+            ".PPTTAATPP.",
+            ".PAAATTAAP.",
+            "PPAAATAAAPP",
+            ".PAAATAA.P.",
+            ".PP..T..PP.",
+            ".PPP...PPP.",
+            "..PPPPPPP..",
+            ".....P....."
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9ab84a",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              5,
+              7
+            ]
+          ]
+        },
+        {
+          "rows": [
+            ".....P.....",
+            "..PPPPPPP..",
+            ".PPPAAAPPP.",
+            ".PPTTAATPP.",
+            ".PAAATTAAP.",
+            "PPAAATAAAPP",
+            ".PAAATAAAP.",
+            ".PPAATAAPP.",
+            ".PPPAAAPPP.",
+            "..PPPPPPP..",
+            ".....P....."
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#9a5a8a",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f0e2b8",
+            "m": "#556f39",
+            "A": "#9ab84a",
+            "Y": "#dce7a0"
+          },
+          "hand_pixels": [
+            [
+              3,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              5,
+              7
+            ]
+          ]
+        }
+      ],
+      "impact": [
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............AAAA............",
+            "..........AAYYYYAA..........",
+            ".........AAYYYYYYAA.........",
+            ".........AYYTTTTYYA.........",
+            "........AAYTTTTTTYAA........",
+            "........AAYTTTTTTYAA........",
+            "........AAYTTTTTTYAA........",
+            "........AAATTTTTTAAA........",
+            ".........AAATTTTAAA.........",
+            ".........AAAAAAAAAA.........",
+            "..........AAAAAAAA..........",
+            "............AAAA............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f3e8cb",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          }
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "............mmmmm...........",
+            "...........YYYYYYY..........",
+            "..........YYYYYYYYY.........",
+            ".........mmYYYYYYYYm........",
+            "........mmmmmYYYmmmmm.......",
+            ".......YYYYYYYYYYYYYYY......",
+            "......YYYYYYTTTTYYYYYYY.....",
+            ".....AAYYYYTTTTTTYYYYYYY....",
+            "....mAYYYYTTTTTTTTYYYYYAm...",
+            "....mAYYYYTTTTTTTTYYYYYAm...",
+            "....mAYYYYTTTTTTTTYYYYYAm...",
+            "....mAAYYYTTTTTTTTYYYYAAm...",
+            "....mAAYmAYTTTTTTYYAmYAAm...",
+            ".....AAAmAYYTTTTYYYAmAAA....",
+            "......AAmAYYYYYYYYYAmAA.....",
+            ".......mmAAYYYYYYYAAmm......",
+            "........mAAYYYYYYYAAm.......",
+            ".........AAAAYYYAAAA........",
+            "..........AAAAAAAAA.........",
+            "...........AAAAAAA..........",
+            "............mmmmm...........",
+            "............................",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f3e8cb",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          }
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............mmmmm...........",
+            "...........YYYYYYY..........",
+            "..........YYYYYYYYY.........",
+            ".........AAYYYYYYYYY........",
+            "........mAYYYYYYYYYAm.......",
+            "........mAYYYYYYYYYAm.......",
+            "......mmmmmYYYYYYYmmmmm.....",
+            ".....YYYYYYYTTTTYYYYYYYY....",
+            "....YYYYYYTTTTTTTTYYYYYYY...",
+            "...AAYYYYYTTTTTTTTYYYYYYYY..",
+            "..mAYYYYYTTTTTTTTTTYYYYYYAm.",
+            "..mAYYYYYTTTTTTTTTTYYYYYYAm.",
+            "..mAYYYYYTTTTTTTTTTYYYYYYAm.",
+            "..mAAYYYYTTTTTTTTTTYYYYYAAm.",
+            "..mAAYYYYYTTTTTTTTYYYYYYAAm.",
+            "...AAAAYYYTTTTTTTTYYYYAAAA..",
+            "....AAAAmAYYTTTTYYYAmAAAA...",
+            ".....AAAmAYYYYYYYYYAmAAA....",
+            "......mmmAYYYYYYYYYAmmm.....",
+            "........mAAYYYYYYYAAm.......",
+            "........mAAYYYYYYYAAm.......",
+            ".........AAAAYYYAAAA........",
+            "..........AAAAAAAAA.........",
+            "...........AAAAAAA..........",
+            "............mmmmm...........",
+            "............................"
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#f3e8cb",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          }
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            ".............mmm............",
+            "...........mmYYYmm..........",
+            "...........mYYYYYm..........",
+            "..........mAYYYYYAm.........",
+            "..........mAYYYYYAm.........",
+            "..........mAAYYYAAm.........",
+            "...........mAAAAAm..........",
+            "...........mmAAAmm..........",
+            ".....mmm.....mmm.....mmm....",
+            "...mmYYYmm.........mmYYYmm..",
+            "...mYYYYYm.........mYYYYYm..",
+            "..mAYYYYYAm.......mAYYYYYAm.",
+            "..mAYYYYYAm.......mAYYYYYAm.",
+            "..mAAYYYAAm.......mAAYYYAAm.",
+            "...mAAAAAm.........mAAAAAm..",
+            "...mmAAAmm.........mmAAAmm..",
+            ".....mmm.....mmm.....mmm....",
+            "...........mmYYYmm..........",
+            "...........mYYYYYm..........",
+            "..........mAYYYYYAm.........",
+            "..........mAYYYYYAm.........",
+            "..........mAAYYYAAm.........",
+            "...........mAAAAAm..........",
+            "...........mmAAAmm..........",
+            ".............mmm............",
+            "............................"
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#e8d1a6",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          }
+        },
+        {
+          "rows": [
+            "............................",
+            "............................",
+            "............................",
+            ".............mmm............",
+            "............mmAmm...........",
+            "............mAAAm...........",
+            "............mmAmm...........",
+            ".............mmm............",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            "....mmm...............mmm...",
+            "...mmAmm.............mmAmm..",
+            "...mAAAm.............mAAAm..",
+            "...mmAmm.............mmAmm..",
+            "....mmm...............mmm...",
+            "............................",
+            "............................",
+            "............................",
+            "............................",
+            ".............mmm............",
+            "............mmAmm...........",
+            "............mAAAm...........",
+            "............mmAmm...........",
+            ".............mmm............",
+            "............................",
+            "............................"
+          ],
+          "pigments": {
+            "b": "#37263b",
+            "P": "#62405d",
+            "R": "#d6b5d5",
+            "o": "#aa7490",
+            "7": "#93456f",
+            "t": "#b79979",
+            "T": "#e8d1a6",
+            "m": "#556f39",
+            "A": "#9eb962",
+            "Y": "#dce7a0"
+          }
+        }
+      ]
+    },
+    "review": {
+      "theme": "Plum cap, lilac spots and luminous gills read at 1x and in real cells.",
+      "originality": "Original guardian silhouette and material identity; no famous commercial character or franchise likeness."
+    }
+  }
+]

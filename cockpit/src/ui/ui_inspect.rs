@@ -533,6 +533,12 @@ fn render_snapshot(
 
 fn semantic_state(app: &App) -> Value {
     let focused = app.module_host.focused().map(|id| id.as_str().to_string());
+    // Only stable menu labels; never the typed field, credentials, or job output.
+    let setup_menu = app.setup.menu.as_ref().map(|menu| {
+        let page = menu.page(std::time::Instant::now());
+        json!({ "open": true, "title": page.title, "selected": page.cursor,
+            "actions": page.items.iter().map(|item| item.label.as_str()).collect::<Vec<_>>() })
+    });
     let agent_menu = app.agent_menu.map(|menu| {
         json!({
             "kind": format!("{:?}", menu.kind).to_ascii_lowercase(),
@@ -629,6 +635,7 @@ fn semantic_state(app: &App) -> Value {
             "approval_scope": app.pending_approval.as_ref().and_then(|pending| pending.scope_label.clone()),
             "loop_dialog": app.loop_dialog.is_some(),
             "agent_menu": agent_menu,
+            "setup_menu": setup_menu,
             "shell": app.shell_focused
         },
         "agent": {
@@ -679,6 +686,16 @@ fn semantic_state(app: &App) -> Value {
                 "paused": video_paused,
                 "ended": video_ended
             }
+        },
+        "object_dock": {
+            "visible": app.object_dock.visible,
+            "expanded": app.object_dock.open,
+            "page": app.object_dock.page,
+            "animating": app.object_dock.animating(std::time::Instant::now(), app.visual_motion),
+            "actions": app.object_dock.tiles.iter().map(|(rect, action)| serde_json::json!({
+                "action": format!("{action:?}"),
+                "rect": [rect.x, rect.y, rect.width, rect.height]
+            })).collect::<Vec<_>>()
         },
         "world": {
             "town": app.world.town_name(),

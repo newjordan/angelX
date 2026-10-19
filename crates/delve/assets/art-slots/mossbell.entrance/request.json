@@ -1,0 +1,17 @@
+{
+  "fit": "384x224; v2 768x448",
+  "frame_groups": [
+    {
+      "names": [
+        "room"
+      ],
+      "source_pose_count": 1,
+      "state": "room"
+    }
+  ],
+  "game": "mossbell",
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "id": "mossbell.entrance",
+  "role": "backdrop",
+  "timing": "Static; existing room entry and door state only."
+}

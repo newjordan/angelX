@@ -14,7 +14,7 @@ spec.loader.exec_module(table)
 
 
 def newest():
-    root = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/runs/grok/angelx")
+    root = Path("~/angel_tests/angelX-bench/polyglot-20260921/runs/grok/angelx").expanduser()
     runs = [p for p in root.glob("seed0-*") if (p / "traces.jsonl").is_file()]
     if not runs:
         raise SystemExit(f"no grok runs under {root}")

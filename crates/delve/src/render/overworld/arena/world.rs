@@ -785,7 +785,7 @@ fn signpost(cv: &mut Img, x: i32, y: i32) {
             1 => cv.line(bx + w, by + 3, bx + w, by + 4, 'B'),
             _ => cv.line(bx + w / 2 - 1, by - 1, bx + w / 2, by - 1, 'r'),
         }
-        cv.text(bx + 3, by + 1, name, 'T');
+        cv.text(bx + 3, by + 1, name, 'O');
     }
 }
 
@@ -1013,9 +1013,11 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
 /// knight is near.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
-    if crate::rules::college::is_room(kind) {
+    // The College and the Colosseum letter their own doors.
+    if crate::rules::college::is_room(kind) || crate::rules::colosseum::is_room(kind) {
         return;
     }
+    super::swamp::marsh_board(cv, run);
     if kind == RoomKind::Gate {
         let label = if run.kingdom.return_to.is_some() {
             "KINGDOM"
@@ -1093,7 +1095,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                 (
                     if run.returns_to_kingdom(e.id) {
                         "TAKE STAIR"
-                    } else if e.id.ends_with("coach") || e.id.ends_with("ferry") || e.id.ends_with("lift") || e.needs == Some("country:caravan")
+                    } else if e.id.ends_with("coach") || e.id.ends_with("ferry") || e.id.ends_with("lift") || e.id.ends_with("plate") || e.needs == Some("country:caravan")
                     {
                         "STAND ON THE TRAVEL PLATE"
                     } else {

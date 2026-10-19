@@ -1,0 +1,24 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-slag-sovereign.tell/v01/source-sheet.png",
+  "source_sha256": "d4d457e0113181b599fb053df0ee06ecd6db2679f5c87a0846c1598e8f813894",
+  "original_sheet_sha256": "d4d457e0113181b599fb053df0ee06ecd6db2679f5c87a0846c1598e8f813894",
+  "metadata_sha256": "fcbf8dfcad078c0df13800a58d9805f771aca293857dbe29ef79a4308cda6bf1",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        0,
+        0,
+        1252,
+        1252
+      ],
+      "alpha_area": 1567504,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "84ebac9200f2c69760482f170ca51666b96f993da58194a83d8c89b7494deeb2"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "delivery": "griffinwing.shutter/v01",
+  "delivery_status": "Producer note (wave 6): ACCEPTED.",
+  "generation_sha256": "7aaa55041f5b535fdf85239f9aed0da00add05010b95f8b321b6450c0d99227d",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "measured_by": "crates/delve/assets/griffinwing/prepare-art.py (the delivery carries no crop metadata): the importer reads a byte-identical copy of the sheet beside measured crops",
+  "metadata_sha256": "af6389c5e541fc6ccee7f344511bfad64a03beace6ebc6533bbe5aa5d5b126cf",
+  "native_contract": "Native 96x192, anchor bottom-centre (48,192).",
+  "notes_sha256": "aef064ac38679d03a200e01079de0d21326929766a50a612a73fd93ed5a53f7e",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "24cdff3b8f43e7087982db7307bde5a9ab3641e9e5965d49b30f74671a2b0d2f",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.shutter/v01/source-sheet.png",
+  "source_sha256": "fbff24397963f72d11ba9d51cf5a8a903bafd3ead98d8eef198f1729534b6f6e"
+}

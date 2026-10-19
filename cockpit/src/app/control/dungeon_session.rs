@@ -66,6 +66,11 @@ impl DungeonView {
             return Err("dungeon save is too large".into());
         }
         let mut saved: Saved = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        // What can be put right is, so a restart keeps the run and its link.
+        let mended = saved.run.mend();
+        if !mended.is_empty() {
+            tracing::warn!(?mended, "dungeon checkpoint mended on restore");
+        }
         if saved.version != 1
             || !saved.run.valid_snapshot()
             || saved.country_intents.len() > crate::drive::together_shooter::countryside::INTENT_LIMIT
@@ -203,13 +208,31 @@ mod tests {
         view.checkpoint(Instant::now(), true).unwrap();
         let path = view.save_path.clone().unwrap();
         drop(view);
-        let mut value: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        value["run"]["at"] = 999.into();
-        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&saved).unwrap();
+        // A room out of range is mended on restore (`Run::mend`), not refused.
+        let mut mendable = value.clone();
+        mendable["run"]["at"] = 999.into();
+        std::fs::write(&path, serde_json::to_vec(&mendable).unwrap()).unwrap();
         let mut restored = DungeonView::default();
-        assert!(restored.restore(dir.path()).is_err());
-        assert!(restored.shooter.is_none() && restored.hosting.is_none());
+        restored.restore(dir.path()).unwrap();
+        assert_eq!(restored.shooter.as_ref().unwrap().at, 0);
+        assert!(restored.hosting.is_none());
+        // What cannot be read, or is not a checkpoint this build writes, is.
+        let mut undecodable = value.clone();
+        undecodable["run"]["at"] = "nowhere".into();
+        let mut unknown = value;
+        unknown["version"] = 2.into();
+        for corrupt in [
+            saved[..saved.len() / 2].to_vec(),
+            serde_json::to_vec(&undecodable).unwrap(),
+            serde_json::to_vec(&unknown).unwrap(),
+        ] {
+            std::fs::write(&path, corrupt).unwrap();
+            let mut restored = DungeonView::default();
+            assert!(restored.restore(dir.path()).is_err());
+            assert!(restored.shooter.is_none() && restored.hosting.is_none());
+        }
     }
 }
 

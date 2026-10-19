@@ -1480,3 +1480,56 @@ fn a_session_opens_on_the_overworld_map() {
         StageRoute::Explore(Building::Smithy)
     );
 }
+
+#[test]
+fn video_fps_cap_plays_media_at_source_rate_in_full_motion() {
+    use crate::ui::viz::lifecycle_viz::MotionMode;
+    assert_eq!(video_fps_cap(MotionMode::Full), 60);
+    assert_eq!(video_fps_cap(MotionMode::Reduced), 12);
+    assert_eq!(video_fps_cap(MotionMode::Off), 1);
+}
+
+#[cfg(feature = "scryglass-video")]
+#[test]
+fn video_sampling_honours_the_cap() {
+    assert_eq!(video_sample_every(30.0, 60), 1);
+    assert_eq!(video_sample_every(30.0, 12), 3);
+    assert_eq!(video_sample_every(24.0, 12), 2);
+    assert_eq!(video_sample_every(60.0, 60), 1);
+}
+
+#[cfg(feature = "scryglass-video")]
+#[test]
+fn video_playing_requires_visible_unpaused_unended() {
+    let (tx, _rx) = mpsc::channel();
+    let mailbox = Arc::new(Mutex::new(VideoSnapshot::default()));
+    let mut surface = VideoSurface {
+        active: Some(ActiveVideo {
+            key: VideoKey {
+                source: crate::ui::media::MediaSource::operator(std::path::PathBuf::from(
+                    "clip.mp4",
+                )),
+                request_id: 1,
+                width: 16,
+                height: 16,
+                fps_cap: 60,
+                autoplay: true,
+            },
+            tx,
+            mailbox: Arc::clone(&mailbox),
+            visible: true,
+            cancelled: Arc::new(AtomicBool::new(false)),
+        }),
+    };
+    assert!(surface.playing());
+    mailbox.lock().unwrap().paused = true;
+    assert!(!surface.playing());
+    mailbox.lock().unwrap().paused = false;
+    mailbox.lock().unwrap().ended = true;
+    assert!(!surface.playing());
+    mailbox.lock().unwrap().ended = false;
+    surface.set_visible(false);
+    assert!(!surface.playing());
+    surface.stop();
+    assert!(!surface.playing());
+}

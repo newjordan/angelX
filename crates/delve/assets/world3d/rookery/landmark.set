@@ -1,0 +1,31 @@
+# Rookery Pass: the Royal Bird Office's pigeon loft with its rows of holes and a second dovecote, between two crags of the pass.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the loft tower: stone, a slate spire, rows of pigeon-holes and a ledge
+box    stone   at 232 0 0 size 44 56 28 id lm-loft
+pyramid slate   at 232 56 0 size 52 18 32
+box    slate   at 218.5 22 14.6 size 5 5 1.2
+box    slate   at 227.5 22 14.6 size 5 5 1.2
+box    slate   at 236.5 22 14.6 size 5 5 1.2
+box    slate   at 245.5 22 14.6 size 5 5 1.2
+box    slate   at 218.5 31 14.6 size 5 5 1.2
+box    slate   at 227.5 31 14.6 size 5 5 1.2
+box    slate   at 236.5 31 14.6 size 5 5 1.2
+box    slate   at 245.5 31 14.6 size 5 5 1.2
+box    slate   at 218.5 40 14.6 size 5 5 1.2
+box    slate   at 227.5 40 14.6 size 5 5 1.2
+box    slate   at 236.5 40 14.6 size 5 5 1.2
+box    slate   at 245.5 40 14.6 size 5 5 1.2
+box    stone   at 232 48 14.2 size 38 2.5 4
+# a second dovecote on the ridge
+box    stone   at 168 0 0 size 26 44 22 id lm-dovecote
+pyramid slate   at 168 44 0 size 32 14 28
+box    slate   at 163 28 11.6 size 4 4 1.2
+box    slate   at 163 20 11.6 size 4 4 1.2
+box    slate   at 173 28 11.6 size 4 4 1.2
+box    slate   at 173 20 11.6 size 4 4 1.2
+# the crags of the pass
+rock-3 rock    at 60 0 -4 size 84 70 34 id lm-crag-west
+rock-9 rock    at 332 0 -2 size 96 62 34 id lm-crag-east
+pyramid rock    at 112 0 -8 size 30 62 24

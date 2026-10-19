@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""The dig_search tool: the call's arguments as JSON on stdin, the hits on stdout.
+
+Without `kinds` it searches code, the workspace's own; with them, every indexed folder.
+"""
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+KINDS = {"screenshot", "image", "pdf", "doc", "audio", "video"}
+# The longest first pass a call waits for to index a workspace no index covers.
+SCRATCH_SECONDS = 120
+
+
+def clock(seconds):
+    seconds = int(seconds)
+    return f"{seconds // 3600}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}" if seconds >= 3600 \
+        else f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def place(hit):
+    loc, end, segment = hit.get("loc"), hit.get("loc_end"), hit.get("segment")
+    if segment in ("lines", "cells"):
+        return f":{int(hit.get('focus', loc))}" if loc is not None else ""
+    if loc is None:
+        return "  [text in image]" if segment == "ocr" else ""
+    if segment in ("page", "page_image"):
+        return f"  [p. {int(loc)}]"
+    if segment in ("audio", "frame"):
+        return f"  [at {clock(loc)}{' (sound)' if segment == 'audio' else ''}]"
+    if segment == "chunk":
+        return f"  [part {int(loc)}]"
+    return ""
+
+
+def checkouts(workspace):
+    """Every worktree of the workspace's repository, so one indexed checkout serves the others."""
+    run = subprocess.run(["git", "-C", workspace, "worktree", "list", "--porcelain"], capture_output=True, text=True)
+    return [os.path.realpath(line[len("worktree "):]) for line in run.stdout.splitlines()
+            if line.startswith("worktree ")] if run.returncode == 0 else []
+
+
+def digup(here, *args):
+    run = subprocess.run([os.path.join(here, "bin", "digup"), *args], capture_output=True, text=True)
+    if run.returncode != 0:
+        sys.exit(run.stderr.strip()[-2000:] or f"digup exited {run.returncode}")
+    return run.stdout
+
+
+def scratch(here, workspace, query, limit):
+    """A workspace no index covers gets one of its own beside the session, when its first pass is short."""
+    estimate = json.loads(digup(here, "estimate", "--code", workspace, "--json").splitlines()[-1])
+    if estimate.get("seconds", 0) > SCRATCH_SECONDS:
+        return None
+    index = os.path.join(tempfile.gettempdir(), "dig-scratch", hashlib.sha256(workspace.encode()).hexdigest()[:16])
+    digup(here, "index", "--code", workspace, "--index", index)   # again on every call: it catches up with edits
+    # A few files give a meaning match nothing to stand out from, so the gate is off here.
+    return json.loads(digup(here, "search", f"code: {query}", "-n", str(limit), "--json", "--zgate", "0",
+                            "--index", index) or "[]")
+
+
+def main():
+    args = json.load(sys.stdin)
+    query = str(args.get("query") or "").strip()
+    if not query:
+        sys.exit("dig_search: 'query' is empty")
+    kinds = [kind for kind in args.get("kinds") or [] if kind in KINDS]
+    code = not kinds
+    limit = max(1, min(int(args.get("limit") or 8), 20))
+    here = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    search = ["search", f"code: {query}" if code else query, "-n", str(limit * 4 if code else limit), "--json"]
+    if kinds:
+        search += ["--kind", ",".join(kinds)]
+    hits = json.loads(digup(here, *search) or "[]")
+    workspace = os.path.realpath(os.environ.get("ANGEL_WORKSPACE") or os.getcwd())
+    if code:
+        roots = [workspace] + [root for root in checkouts(workspace) if root != workspace]
+        mapped = []
+        for hit in hits:
+            path = os.path.realpath(hit["path"])
+            for root in roots:
+                if path.startswith(root + os.sep):
+                    # Another checkout of this repository: the same file here.
+                    hit["path"] = os.path.join(workspace, os.path.relpath(path, root))
+                    if os.path.exists(hit["path"]):
+                        mapped.append(hit)
+                    break
+        hits = mapped[:limit]
+        if not hits:
+            hits = scratch(here, workspace, query, limit)
+            if hits is None:
+                print(f"{workspace} isn't indexed and is too big to index now; "
+                      f"`{here}/bin/digup index --code {workspace}` adds it")
+                return
+    if not hits:
+        print("no good matches")
+        return
+    for rank, hit in enumerate(hits, 1):
+        path = hit["path"]
+        if code:
+            path = os.path.relpath(os.path.realpath(path), workspace)
+        print(f"{rank}. {path}{place(hit)}  ({hit['kind']})")
+        excerpt = " ".join((hit.get("excerpt") or "").split())
+        if excerpt:
+            print(f"   {excerpt[:200]}")
+
+
+if __name__ == "__main__":
+    main()

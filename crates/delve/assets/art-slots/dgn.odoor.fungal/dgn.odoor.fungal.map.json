@@ -1,0 +1,503 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    12.0
+  ],
+  "comments": [
+    "Source design unchanged; BOX reduction, binary alpha and shared inks.",
+    "Side states remain staged where native barred/open silhouettes are ambiguous."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "North door 2 tiles wide; side/south doors 1 tile gap.",
+  "mapping_basis": "Reviewed delivered reading order; per-grid Mines/Keep crops repair merged detector groups.",
+  "notes_sha256": "baae0d95936fc4d15ad47a978ec5507bfb244478640bb24ac38616aff6cd9acd",
+  "pieces": [
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North door barred: front-facing root arch with iron bars.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        112.5,
+        116.5
+      ],
+      "source_rect_xywh": [
+        97,
+        215,
+        225,
+        233
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North door open: root arch with dark passage and faint teal depth.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        117.5,
+        116.5
+      ],
+      "source_rect_xywh": [
+        384,
+        215,
+        235,
+        233
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "North door half-open: root arch with partial bar across the opening.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          24
+        ],
+        "v2": [
+          64,
+          48
+        ]
+      },
+      "source_pivot_xy": [
+        117.5,
+        117.5
+      ],
+      "source_rect_xywh": [
+        685,
+        214,
+        235,
+        235
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "West door barred: top-down vertical cap strip with a post row.",
+      "name": "west-barred",
+      "piece": 3,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        57.0,
+        123.0
+      ],
+      "source_rect_xywh": [
+        1023,
+        215,
+        114,
+        246
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "West door open: top-down vertical strip with an open gap.",
+      "name": "west-open",
+      "piece": 4,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        73.5,
+        125.0
+      ],
+      "source_rect_xywh": [
+        134,
+        532,
+        147,
+        250
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "East door barred: top-down vertical cap strip with posts.",
+      "name": "east-barred",
+      "piece": 5,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        67.0,
+        125.0
+      ],
+      "source_rect_xywh": [
+        426,
+        532,
+        134,
+        250
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": false,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "East door open: top-down vertical strip with an open gap.",
+      "name": "east-open",
+      "piece": 6,
+      "review_note": "Side opening remains ambiguous after native reduction; retain dim pack-coloured passage placeholders.",
+      "runtime": false,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          32
+        ],
+        "v2": [
+          32,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        71.0,
+        125.0
+      ],
+      "source_rect_xywh": [
+        675,
+        531,
+        142,
+        250
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "South door barred: horizontal top-down threshold with posts.",
+      "name": "south-barred",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        124.5,
+        68.5
+      ],
+      "source_rect_xywh": [
+        921,
+        653,
+        249,
+        137
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "South door open: horizontal top-down open threshold.",
+      "name": "south-open",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          16
+        ],
+        "v2": [
+          64,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        123.5,
+        68.5
+      ],
+      "source_rect_xywh": [
+        89,
+        972,
+        247,
+        137
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Stairs down: north-descending stair opening, axis-aligned.",
+      "name": "stairs-down",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        100.5,
+        112.5
+      ],
+      "source_rect_xywh": [
+        381,
+        883,
+        201,
+        225
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Boss seal door: ornate barred root door with central fungal seal.",
+      "name": "boss",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          32,
+          32
+        ],
+        "v2": [
+          64,
+          64
+        ]
+      },
+      "source_pivot_xy": [
+        147.5,
+        135.0
+      ],
+      "source_rect_xywh": [
+        628,
+        843,
+        295,
+        270
+      ],
+      "state": "odoor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Floor seal glow marker: top-down root-ring marker with teal glyph-like fungus.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        107.5,
+        107.5
+      ],
+      "source_rect_xywh": [
+        965,
+        897,
+        215,
+        215
+      ],
+      "state": "odoor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-native",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.odoor.fungal",
+  "source_sha256": "706b6bcbedbf091455d646ae392e9b8cb5e306c4f71265713dfbb1674be02d30",
+  "timing": ""
+}

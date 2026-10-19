@@ -1,0 +1,58 @@
+{
+  "fit": "native tile 64x64 (opaque, seamless), anchor centre (32,32); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "rock-0"
+      ],
+      "source_pose_count": 1,
+      "state": "rock"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "stone-0"
+      ],
+      "source_pose_count": 1,
+      "state": "stone"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "causeway-0"
+      ],
+      "source_pose_count": 1,
+      "state": "causeway"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "bone-0"
+      ],
+      "source_pose_count": 1,
+      "state": "bone"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lava-0"
+      ],
+      "source_pose_count": 1,
+      "state": "lava"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "mist-0"
+      ],
+      "source_pose_count": 1,
+      "state": "mist"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "Surface textures for the canyon's 3D walls and floors; the stage sets how many units a tile spans; art never sets a hitbox (none).",
+  "id": "griffinwing.canyon-tex",
+  "role": "prop",
+  "timing": "rock 1 ticks; stone 1 ticks; causeway 1 ticks; bone 1 ticks; lava 1 ticks; mist 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

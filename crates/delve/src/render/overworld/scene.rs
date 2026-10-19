@@ -1064,6 +1064,9 @@ pub fn stage(scene: &Scene) -> Stage {
     // ── the March: the model houses' castles and their knights abroad ──
     super::castles::stage(&scene.march, &mut props, &mut lights, tick);
 
+    // ── fingerposts at the biome crossings and the road junctions ──
+    super::signs::stage(&mut props);
+
     // ── receipt lanterns: actual outcomes settle at their place of work ──
     // These are world coordinates, after the authored-place translation.
     for echo in &scene.outcomes {

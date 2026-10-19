@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "6bf9a313fb46237c086b2ee67fca7b529c4c4c3a405fdd9a065a38a7780d6ae8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door barred: frontal stone portal, skull reliefs, candle, and heavy iron bars.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.0,
+        342
+      ],
+      "source_rect_xywh": [
+        43,
+        141,
+        308,
+        342
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door open: open double leaves reveal a dark passage with a small amber light.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.0,
+        344
+      ],
+      "source_rect_xywh": [
+        413,
+        141,
+        328,
+        344
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door half-open: one door leaf swings across the barred opening.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        165.5,
+        342
+      ],
+      "source_rect_xywh": [
+        803,
+        141,
+        331,
+        342
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left side door barred: receding side-wall portal with bars, skulls, and brazier.",
+      "name": "side-left-barred",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        148.5,
+        369
+      ],
+      "source_rect_xywh": [
+        1194,
+        137,
+        297,
+        369
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left side door open: angled doorway with open leaf and a dark, lit passage.",
+      "name": "side-left-open",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        158.0,
+        364
+      ],
+      "source_rect_xywh": [
+        45,
+        595,
+        316,
+        364
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right side door barred: opposite angled wall doorway with bars and ossuary detail.",
+      "name": "side-right-barred",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        156.5,
+        366
+      ],
+      "source_rect_xywh": [
+        427,
+        587,
+        313,
+        366
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right side door open: angled open passage with a candle and faint interior light.",
+      "name": "side-right-open",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        158.0,
+        365
+      ],
+      "source_rect_xywh": [
+        798,
+        591,
+        316,
+        365
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down: descending stair portal into darkness.",
+      "name": "stairs-down",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        165.0,
+        360
+      ],
+      "source_rect_xywh": [
+        1178,
+        603,
+        330,
+        360
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs up: ascending stair portal toward a warm opening.",
+      "name": "stairs-up",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.5,
+        358
+      ],
+      "source_rect_xywh": [
+        42,
+        1048,
+        305,
+        358
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Boss door: larger ornate barred portal with bone and iron details.",
+      "name": "boss",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        182.0,
+        394
+      ],
+      "source_rect_xywh": [
+        395,
+        1022,
+        364,
+        394
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Treasure alcove: recessed, visibly empty sarcophagus-like stone niche.",
+      "name": "alcove",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        171.5,
+        368
+      ],
+      "source_rect_xywh": [
+        794,
+        1048,
+        343,
+        368
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Locked-seal marker: compact skull seal with restrained amber center and candles.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        162.5,
+        289
+      ],
+      "source_rect_xywh": [
+        1179,
+        1108,
+        325,
+        289
+      ],
+      "state": "gate"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.gate.crypt",
+  "source_sha256": "029b248ea268853554345714cf31f4b5fff7da9cee3387ea837d4622eb28c9c9",
+  "timing": ""
+}

@@ -216,7 +216,7 @@ python3 scripts/analyze-polyglot-full136.py \
 python3 -m unittest discover -s tests/python -p 'test_polyglot*.py' -v
 ```
 
-The body-free JSON includes every discovered path/hash, all full-cohort task rows, whole-cohort and language statistics, both pairing scopes, top contributors, task-contract checks, timing audits, confirmation treatment pairs and publication reconciliation. It contains no prompts, model answers, raw reasoning, credentials or HTTP request bodies. The relevant source root is `/home/frosty40/angel_tests/angelX-bench/polyglot-20260921`.
+The body-free JSON includes every discovered path/hash, all full-cohort task rows, whole-cohort and language statistics, both pairing scopes, top contributors, task-contract checks, timing audits, confirmation treatment pairs and publication reconciliation. It contains no prompts, model answers, raw reasoning, credentials or HTTP request bodies. The relevant source root is `~/angel_tests/angelX-bench/polyglot-20260921`.
 
 ## Primary cell identities
 

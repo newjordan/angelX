@@ -411,7 +411,7 @@ impl Site {
             }
         }
         if self.tavern {
-            layout::dig_tavern(&mut replay.floor);
+            layout::dig_tavern_reserved(&mut replay.floor);
             replay.tavern = true;
         }
         if !self.restore_exhibits(&mut replay) {
@@ -582,7 +582,7 @@ impl Store {
                 }
             }
             if tavern && !next.tavern {
-                layout::dig_tavern(&mut next.floor);
+                layout::dig_tavern_reserved(&mut next.floor);
                 next.tavern = true;
             }
             Ok(())

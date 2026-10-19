@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.bridge-hut/v01",
+  "delivery_status": "Accepted by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): plank hut with a windlass wheel and rope coil, 47 of 48 px wide, door about 24 px; transparent background, three separated drawings.",
+  "generation_sha256": "d84cf1f95c386c58325a37480291425f1cb4019ca8d0fc7336191e7193c0db2d",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "8e927e99099b80b7cb48ac41317f9599888bcc53b8caf4c8f1b354f906ff6952",
+  "native_contract": "Native 48x60, anchor bottom-centre (24,60).",
+  "notes_sha256": "c5ddc4b048c22cf5c34fcabcc4bcae876e1eebc79a024883a0e4fe451a4c15cf",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "649b6fdb2746ca2ff47186c5b91cca3e3045a2e9b1a529e2fa6a93fafd181950",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bridge-hut/v01/source-sheet.png",
+  "source_sha256": "9b27c6835c98da896298146594a4eadb17c97a7617195e46973b0e8018ed81a4"
+}

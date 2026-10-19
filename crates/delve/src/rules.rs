@@ -10,16 +10,23 @@
 
 pub mod aerie;
 pub mod aoe;
-pub mod audience;
+pub mod bodies;
+#[cfg(test)]
+#[path = "../tests/rules/together_audience__tests.rs"]
+mod audience_retirement_tests;
 pub mod barony;
+pub mod bard;
+pub mod peasant;
 pub mod bestiary;
 mod boss_ecology;
 mod boss_gates;
 mod boss_population;
+mod pacing;
 pub mod bosses;
 pub mod bounties;
 pub mod bowcountry;
 pub mod cards;
+pub mod cauldron;
 pub mod cat;
 pub mod chariot;
 pub mod chatter;
@@ -28,15 +35,20 @@ pub mod command;
 pub mod coastal;
 pub mod crown;
 pub mod college;
+pub mod colosseum;
 pub mod countryside;
 pub mod critters;
 pub mod dares;
+pub mod depths;
 pub mod desperate;
 mod encounter_catalog;
 pub mod exhibits;
 pub mod exits;
+mod mend;
 pub mod feats;
+pub mod fellowship;
 pub mod feel;
+pub mod floor_map;
 pub mod foes;
 pub mod folly;
 pub mod folk;
@@ -61,6 +73,7 @@ pub mod joust;
 pub mod keyring;
 pub mod kingdom;
 pub mod tune;
+pub mod hitstop;
 pub mod knights;
 pub mod layout;
 pub mod ledge;
@@ -70,14 +83,26 @@ mod loot;
 pub mod merchant;
 pub mod merlin;
 pub mod mirror;
+pub mod music;
 mod monsters;
 pub mod mummers;
 pub mod outlaw;
 pub mod overclass;
 pub mod pastimes;
+pub mod cinder;
+pub mod latch;
+pub mod brasswake;
+pub mod rafterwake;
+pub mod pennon;
+pub mod mossbell;
 pub mod patterns;
 pub mod perils;
+pub mod gauntlets;
 pub mod phrasebook;
+pub mod artistry;
+pub mod combos;
+pub mod cover;
+pub mod questline;
 pub mod pit;
 pub mod pitstop;
 pub mod pots;
@@ -96,23 +121,44 @@ pub mod race_wagers;
 pub mod ranch;
 pub mod raids;
 pub mod rescues;
+pub mod rooms;
 mod risen;
 pub mod runes;
 pub mod script;
 pub mod secrets;
+pub mod shield;
 pub mod signatures;
 pub mod skills;
+pub mod skulls;
 pub mod spectacle;
 mod spells;
 pub mod spin;
 pub mod stakes;
 pub mod thief;
 pub mod wetland;
+pub mod swamp;
+pub mod horrors;
 pub mod windcountry;
+pub mod wishcraft;
 pub mod woodland;
 use stakes::FURY;
 pub mod floor_plates;
+pub mod floor_stats;
 pub mod forest;
+pub mod forest_road;
+// The Round Table adventures (docs/ROUNDTABLE-ADVENTURES.md): the shared shell,
+// then one module each. Set in the prep commit; a builder adds no line here.
+pub mod roundtable;
+
+pub mod lanternward;
+
+pub mod moonfall;
+
+pub mod bannerpeak;
+
+pub mod griffinwing;
+
+pub mod lightgallop;
 pub mod talents;
 pub mod tavern;
 pub mod tide;
@@ -124,6 +170,7 @@ pub mod trophies;
 pub mod ults;
 pub mod votes;
 pub mod works;
+pub mod school;
 pub mod world;
 pub mod yard;
 
@@ -147,11 +194,46 @@ pub const HZ: u32 = 30;
 pub const FLOORS: u32 = 3;
 /// The bottom of the deep below it: the Unknown.
 pub const DEEPEST: u32 = 6;
+/// The first floor of the deep below the dragon (the Archive): from here
+/// down the dungeon stands up in 3D (`world3d::room`, docs/WORLD-3D.md
+/// "Deeper floors").
+pub const DEEP_FLOOR: u32 = 4;
 pub const MAX_PROJECTILES: usize = 384;
+/// The most shots one knight may have in flight at once: their arm's
+/// volleys and what those fork and split into, however many wishes stack
+/// (`tests/client_stacked_wishes__tests.rs`). Six knights at it leave
+/// room under `MAX_PROJECTILES` for the monsters' (82 at most in that
+/// bench); a plain arm keeps 5 aloft, the delve's own wish ladders stacked
+/// on a handgonne 42 (95th in the hundred), on a bow 155.
+pub const KNIGHT_SHOTS: usize = 48;
+/// Forks and splits spawn only while their knight has fewer than this in
+/// flight, so a fresh volley always finds room (a stacked bow's is 15).
+pub const KNIGHT_CHILDREN: usize = 32;
+
+/// Knight `id`'s shots in flight among `shots`.
+pub fn in_flight(shots: &[Projectile], id: u32) -> usize {
+    shots
+        .iter()
+        .filter(|p| !p.hostile && u32::from(p.traits.owner) == id)
+        .count()
+}
+
+/// Of the shots loosed from `from` on, at most `room` fly: the volley's
+/// middle, so a knight at `KNIGHT_SHOTS` still shoots where they aim.
+fn fit_volley(shots: &mut Vec<Projectile>, from: usize, room: usize) {
+    let loosed = shots.len().saturating_sub(from);
+    if loosed <= room {
+        return;
+    }
+    let cut = loosed - room;
+    shots.truncate(shots.len() - (cut - cut / 2));
+    shots.drain(from..from + cut / 2);
+}
 pub const MAX_BOMBS: u32 = 5;
 pub const MAX_ARMOR: u32 = 2;
-/// A party of four: the host and three invited friends.
-pub const MAX_PLAYERS: u32 = 4;
+/// A party of six: the host and five invited friends. A host who plays no
+/// knight (`Hero::absent`) leaves seats 2 to 6 for five friends.
+pub const MAX_PLAYERS: u32 = 6;
 /// A knight whose player is here but has pressed nothing for this long is
 /// away too (`Run::away`): a host gone back to their code with the game
 /// still on screen. (A player not here at all, a page closed or hidden, is
@@ -161,6 +243,12 @@ pub const MAX_PLAYERS: u32 = 4;
 pub const AWAY_TICKS: u32 = 20 * HZ;
 const MAX_ITEMS: usize = 24;
 const DT: f32 = 1.0 / HZ as f32;
+/// How far apart a party of `count` stands in a row when it walks in: 2.4
+/// a knight up to four, then no wider a row than those four make (the
+/// doorway's clear ground), so a fifth and sixth stand closer.
+pub(crate) fn stand_apart(count: f32) -> f32 {
+    if count > 4.0 { 3.0 * 2.4 / (count - 1.0) } else { 2.4 }
+}
 pub const HERO_RADIUS: f32 = 0.42;
 const HERO_SPEED: f32 = 13.0;
 /// The dodge roll: a short tumble, untouchable throughout, then a rearm.
@@ -169,8 +257,6 @@ const ROLL_SPEED: f32 = 27.0;
 const ROLL_REARM: u32 = 36;
 /// How much of its speed a knight keeps behind a raised shield.
 const SHIELD_PACE: f32 = 0.45;
-/// A shield turns shots arriving within this many degrees of its facing.
-const SHIELD_ARC: f32 = 65.0;
 /// Mana: what a held wall drinks. It flows back after a short rest.
 pub const MAX_MANA: f32 = 100.0;
 const MANA_REST: u32 = HZ / 2;
@@ -178,6 +264,18 @@ const MANA_FLOW: f32 = 22.0;
 /// A wall stands this far ahead of the knight holding it.
 const WALL_REACH: f32 = 1.7;
 const WALL_PACE: f32 = 0.6;
+
+/// Ticks a knight walks one way with no aim held before facing it: half a
+/// second.
+pub const TURN_TO_WALK: u32 = HZ / 2;
+
+/// Down to this floor a boss stands alone in its room: no camp troops,
+/// escort or party extras come in with it (its own summons still do).
+pub const BOSS_ALONE_TO: u32 = 3;
+
+/// How far a boss rises from every knight in the room (units; a tile is
+/// two): a party coming in through a door never stands on top of one.
+pub const BOSS_CLEARANCE: f32 = 12.0;
 
 /// What a knight's guard key did on a tick, for the sim to sound out.
 #[derive(Clone, Copy, Debug, Default)]
@@ -198,6 +296,10 @@ impl Hero {
     /// (`Run::play`), and a client drawing its own knight ahead steps it
     /// the same (`Run::predict`). Returns the walk.
     fn own_keys(&mut self, input: &Input, side: bool, shield_free: bool) -> ((f32, f32), Guarded) {
+        self.flee_ticks = self.flee_ticks.saturating_sub(1);
+        let input = if self.flee_ticks > 0 {
+            &Input { move_x: input.move_x, move_y: input.move_y, aim_x: input.aim_x, aim_y: input.aim_y, ..Default::default() }
+        } else { input };
         let mut guarded = Guarded::default();
         self.dash_cooldown = self.dash_cooldown.saturating_sub(1);
         // In the stocks a knight can aim and throw back, but not walk.
@@ -207,12 +309,23 @@ impl Hero {
             unit(input.move_x as f32, input.move_y as f32)
         };
         let (ax, ay) = unit(input.aim_x as f32, input.aim_y as f32);
+        let walk = if self.stocked { (0, 0) } else { (input.move_x.signum(), input.move_y.signum()) };
+        if ax != 0.0 || ay != 0.0 || walk == (0, 0) || walk != self.walk_dir {
+            self.walk_ticks = 0;
+        } else {
+            self.walk_ticks = self.walk_ticks.saturating_add(1);
+        }
+        self.walk_dir = if ax != 0.0 || ay != 0.0 { (0, 0) } else { walk };
         if ax != 0.0 || ay != 0.0 {
             self.aim_x = ax;
             self.aim_y = ay;
         } else if side && mx != 0.0 {
             // Side-on, a knight faces the way they run.
             (self.aim_x, self.aim_y) = (mx.signum(), 0.0);
+        } else if self.walk_ticks >= TURN_TO_WALK {
+            // Top-down, a knight who keeps walking one way with no aim held
+            // turns to face it.
+            (self.aim_x, self.aim_y) = (mx, my);
         }
         self.shielding = false;
         match self.guard {
@@ -301,7 +414,10 @@ impl Hero {
             items::blink(self, grid);
         }
         let pace = pace(self);
-        let step = if self.dash_ticks > 0 {
+        let step = if self.flee_ticks > 0 {
+            let (dx, dy) = if mx == 0.0 && my == 0.0 { (self.aim_x, self.aim_y) } else { (mx, my) };
+            (dx, dy, pace * peasant::SPRINT_PACE)
+        } else if self.dash_ticks > 0 {
             self.dash_ticks -= 1;
             let ease = 0.55 + 0.45 * self.dash_ticks as f32 / ROLL_TICKS as f32;
             (self.dash_x, self.dash_y, roll_speed * ease)
@@ -315,6 +431,238 @@ impl Hero {
             (mx, my, pace)
         };
         (step, blinked)
+    }
+}
+/// What a knight's ranged arm let fly on a tick it fired (`Hero::loose`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Loosed {
+    /// A forged blade, thrown to come back.
+    Throw,
+    /// A forged weapon's bolts, this many.
+    Bolts(u32),
+    /// A plain arm's shots, this many, along its aim.
+    Arm(u32, (f32, f32)),
+}
+
+impl Hero {
+    /// The shots this knight's ranged arm looses on a tick its fire key
+    /// fires, into `shots`, with its cooldown set: a forged weapon's thrown
+    /// blade or its bolts, else the plain arm's (`Weapon::arms`), with every
+    /// card, temper and volley it carries. Fists and a forged weapon's swing
+    /// strike rather than shoot; the sim does those itself. The sim fires by
+    /// it (`Run::play`), and so does a client drawing its own knight's shots
+    /// ahead of the server (`Run::predict_fire`), so the two loose alike.
+    /// `burning`: the bow's Fire Arrows are lit; `rng`: the tick's dice,
+    /// for how a stream strays. `None` for a forged weapon that neither
+    /// throws nor shoots. `flying`: the knight's shots in flight already
+    /// (`in_flight`): what is loosed past `KNIGHT_SHOTS` stays in the
+    /// quiver, the volley's middle flying (`fit_volley`).
+    pub(super) fn loose(
+        &mut self,
+        id: u32,
+        book: &Book,
+        burning: bool,
+        rng: u64,
+        flying: usize,
+        shots: &mut Vec<Projectile>,
+    ) -> Option<Loosed> {
+        let from = shots.len();
+        let loosed = self.loose_all(id, book, burning, rng, shots);
+        fit_volley(shots, from, KNIGHT_SHOTS.saturating_sub(flying));
+        loosed
+    }
+
+    /// `loose`, every shot the arm and its cards make.
+    fn loose_all(
+        &mut self,
+        id: u32,
+        book: &Book,
+        burning: bool,
+        rng: u64,
+        shots: &mut Vec<Projectile>,
+    ) -> Option<Loosed> {
+        if let Some(weapon) = &self.forged {
+            if let Some(throw) = weapon.throw {
+                // The blade flies out along the aim and comes back.
+                self.fire_cooldown = self.cooldown(throw.every);
+                self.swing = 6;
+                self.sword = false;
+                let (ux, uy) = (self.aim_x, self.aim_y);
+                let out = (throw.range / BLADE_SPEED * HZ as f32).ceil() as u16;
+                shots.push(Projectile {
+                    x: self.x + ux * 0.6,
+                    y: self.y + uy * 0.6,
+                    vx: ux * BLADE_SPEED,
+                    vy: uy * BLADE_SPEED,
+                    hostile: false,
+                    kind: Shot::Blade,
+                    look: self.shot_look(book),
+                    damage: self.scaled(throw.damage),
+                    pierce: u8::MAX,
+                    last_hit: None,
+                    empowered: false,
+                    ttl: u32::from(out) * 2 + 3 * HZ,
+                    traits: ShotTraits {
+                        back: 1,
+                        owner: id as u8,
+                        out,
+                        ..ShotTraits::of(&self.bonus)
+                    },
+                });
+                return Some(Loosed::Throw);
+            }
+            let bolt = weapon.bolt?;
+            self.fire_cooldown = self.cooldown(bolt.every);
+            // (Hero::volley, by field: the forged weapon is borrowed.)
+            self.loosed = self.loosed.wrapping_add(1);
+            let volley = self.bonus.volley > 0 && self.loosed % self.bonus.volley == 0;
+            let dressed = self.shot_look(book);
+            let count = weapon.shots() + self.bonus.shots + if volley { 2 } else { 0 };
+            let traits = ShotTraits {
+                owner: id as u8,
+                ..ShotTraits::of(&self.bonus)
+            };
+            let arc = weapon
+                .spread
+                .map_or(0.0, |spread| spread.arc.to_radians())
+                .max(if volley { VOLLEY_FAN } else { FAN } * (count - 1) as f32);
+            let angle = self.aim_y.atan2(self.aim_x);
+            // However it was forged, its shots fly fast.
+            let speed = bolt.speed.max(cards::FORGED_SPEED);
+            for i in 0..count {
+                let theta = angle
+                    + if count > 1 {
+                        arc * (i as f32 / (count - 1) as f32 - 0.5)
+                    } else {
+                        0.0
+                    };
+                shots.push(Projectile {
+                    x: self.x + theta.cos() * 0.6,
+                    y: self.y + theta.sin() * 0.6,
+                    vx: theta.cos() * speed,
+                    vy: theta.sin() * speed,
+                    hostile: false,
+                    kind: Shot::Bolt,
+                    damage: self.scaled(bolt.damage),
+                    pierce: self.bonus.pierce as u8,
+                    last_hit: None,
+                    empowered: false,
+                    ttl: (bolt.range / speed * HZ as f32).ceil() as u32,
+                    look: dressed.clone().or_else(|| {
+                        Some((weapon.colour.clone(), weapon.shape.clone()))
+                    }),
+                    traits: traits.clone(),
+                });
+            }
+            return Some(Loosed::Bolts(count));
+        }
+        let arms = self.weapon.arms();
+        let temper = self.temper.min(feel::TEMPER_MAX);
+        self.fire_cooldown = self.cooldown(arms.cooldown);
+        let volley = self.volley();
+        let extra = self.bonus.shots + if volley { 2 } else { 0 };
+        // A card's dressing first; else the class's own shot (a Bard's
+        // notes, a Peasant's stones).
+        let dressed = self.shot_look(book).or_else(|| match self.weapon {
+            Weapon::Notes => Some(("gold".into(), "note".into())),
+            Weapon::Stones => Some(("stone".into(), "stone".into())),
+            _ => classes::shot_look(self),
+        });
+        let fan = if volley { VOLLEY_FAN } else { FAN };
+        let base = ShotTraits {
+            owner: id as u8,
+            temper,
+            fire: burning,
+            arm: true,
+            stone: self.weapon == Weapon::Stones,
+            ..ShotTraits::of(&self.bonus)
+        };
+        // A stream strays a little, so it looks alive.
+        let wobble = (rng % 2001) as f32 / 1000.0 - 1.0;
+        let angle = self.aim_y.atan2(self.aim_x) + wobble * arms.jitter;
+        let (ax, ay) = (angle.cos(), angle.sin());
+        // Each pull: the arm's own shape, then tempering's.
+        let mut pull: Vec<(f32, f32, ShotTraits)> = Vec::new();
+        match self.weapon {
+            Weapon::Fists => unreachable!("fists use the punch branch"),
+            Weapon::Notes | Weapon::Stones => {
+                let count = arms.shots + extra;
+                for i in 0..count {
+                    let k = i as f32 / (count - 1).max(1) as f32 - 0.5;
+                    pull.push((angle + arms.arc.to_radians() * k, 0.0, base.clone()));
+                }
+            }
+            Weapon::Handgonne => {
+                // Each extra shot a card gives is another fan's worth.
+                let balls =
+                    (arms.shots + if temper >= 1 { 2 } else { 0 }) * (1 + extra);
+                let arc = arms.arc.to_radians() + fan * extra as f32;
+                let traits = ShotTraits {
+                    bounce: base.bounce.max(u8::from(temper >= 2)),
+                    ..base
+                };
+                for i in 0..balls {
+                    let k = i as f32 / (balls - 1).max(1) as f32 - 0.5;
+                    pull.push((angle + arc * k, 0.0, traits.clone()));
+                }
+            }
+            Weapon::Bow | Weapon::Crossbow => {
+                // A tempered bow looses streams side by side.
+                let lanes: &[f32] = match (self.weapon, temper) {
+                    (Weapon::Bow, 0) => &[0.0],
+                    (Weapon::Bow, 1) => &[-0.3, 0.3],
+                    (Weapon::Bow, _) => &[-0.55, 0.0, 0.55],
+                    _ => &[0.0],
+                };
+                let count = 1 + extra;
+                for &lane in lanes {
+                    let traits = ShotTraits {
+                        // The outer streams of a thrice-tempered bow home.
+                        homing: if temper >= 3 && lane != 0.0 {
+                            base.homing.max(2)
+                        } else {
+                            base.homing
+                        },
+                        // A thrice-tempered rail chains.
+                        chain: if self.weapon == Weapon::Crossbow && temper >= 3 {
+                            base.chain.max(2)
+                        } else {
+                            base.chain
+                        },
+                        ..base.clone()
+                    };
+                    for i in 0..count {
+                        let theta = angle + fan * (i as f32 - (count - 1) as f32 / 2.0);
+                        pull.push((theta, lane, traits.clone()));
+                    }
+                }
+            }
+        }
+        let count = pull.len() as u32;
+        for (theta, lane, traits) in pull {
+            let (ux, uy) = (theta.cos(), theta.sin());
+            shots.push(Projectile {
+                x: self.x + ux * 0.6 - ay * lane,
+                y: self.y + uy * 0.6 + ax * lane,
+                vx: ux * arms.speed,
+                vy: uy * arms.speed,
+                hostile: false,
+                kind: match self.weapon {
+                    Weapon::Fists => unreachable!("fists use the punch branch"),
+                    Weapon::Bow | Weapon::Notes | Weapon::Stones => Shot::Arrow,
+                    Weapon::Crossbow => Shot::Bolt,
+                    Weapon::Handgonne => Shot::Ball,
+                },
+                look: dressed.clone(),
+                damage: self.scaled(arms.damage),
+                pierce: arms.pierce.saturating_add(self.bonus.pierce as u8),
+                last_hit: None,
+                empowered: false,
+                traits,
+                ttl: arms.ttl,
+            });
+        }
+        Some(Loosed::Arm(count, (ax, ay)))
     }
 }
 const BOMB_DAMAGE: u32 = 60;
@@ -372,8 +720,14 @@ pub const TELEGRAPH: u32 = HZ;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Input {
+    /// The picture tick for a duel counter or table stroke. Repeats clear it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latch_tick: Option<u64>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub leave_activity: bool,
+    /// Menu held in a mini-game; the host counts consecutive fixed steps.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub leave_held: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub activity_menu: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -544,6 +898,9 @@ pub struct ShotTraits {
     /// A plain arm's shot, rather than a spell or a forged bolt.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub arm: bool,
+    /// A lobbed stone: gameplay identity is independent of cosmetic dressing.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stone: bool,
     /// Foes this rail has passed through; each may be struck only once.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pierced: Vec<u32>,
@@ -553,6 +910,32 @@ pub struct ShotTraits {
     /// Fart Bombs: what it hits gets a cloud (`skills::fart_hits`).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub fart: u8,
+    /// What a wish made literal (`wishcraft`): a bigger shot, a harder
+    /// shove, a burning, chilling or poisoning hit, a shot that comes back,
+    /// a faster one (percent).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub size: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub knock: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub burn: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub chill: u8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub poison: u8,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub boomerang: bool,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub velocity: u8,
+    /// Part of a guardian's charge-up (`signatures::tag`): it strikes as
+    /// that charge-up's blow, once a knight (`Hero::blow`).
+    #[serde(default, skip_serializing_if = "zero")]
+    pub blow: u32,
+    /// A monster's shot loosed by a knight in its body (`bodies`): a lob
+    /// comes down on the monsters, a beam burns them, and what turns after
+    /// someone turns after them.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub borrowed: bool,
 }
 
 /// A forked shot's turn off its parent's line, each way (radians), and the
@@ -578,6 +961,13 @@ impl ShotTraits {
             burst: bonus.burst.min(100) as u8,
             fork: bonus.fork.min(3) as u8,
             fart: bonus.fart.min(3) as u8,
+            size: bonus.size.min(3) as u8,
+            knock: bonus.knock.min(3) as u8,
+            burn: bonus.burn.min(3) as u8,
+            chill: bonus.chill.min(3) as u8,
+            poison: bonus.poison.min(3) as u8,
+            boomerang: bonus.boomerang > 0,
+            velocity: bonus.velocity.min(100) as u8,
             ..ShotTraits::default()
         }
     }
@@ -601,6 +991,9 @@ pub struct Run {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub naked_start: bool,
     pub tick: u64,
+    /// Shared impact hold; transport ticks continue while room time stands.
+    #[serde(default, skip_serializing_if = "hitstop::State::quiet")]
+    pub hitstop: hitstop::State,
     pub phase: Phase,
     /// Cosmetic playback; never participates in travel or combat gates.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -609,6 +1002,11 @@ pub struct Run {
     pub exits: exits::State,
     pub players: BTreeMap<u32, Hero>,
     pub enemies: Vec<Enemy>,
+    /// An open floor's companies while the party is off its map, in a side
+    /// room (`depths`): back where they were when it returns. The server's
+    /// own (`wire::PRIVATE`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parked: Vec<Enemy>,
     pub projectiles: Vec<Projectile>,
     pub score: u32,
     pub dungeon: Floor,
@@ -656,6 +1054,10 @@ pub struct Run {
     /// How this delve goes, as Fortune's wheel decided it.
     #[serde(default)]
     pub mode: fortune::Mode,
+    /// Every floor of this delve is laid open (`depths`), whatever the
+    /// wheel says: the host's switch (`settings::Settings::open_floors`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub open_floors: bool,
     /// The wheel's spin this delve, if it was pulled.
     #[serde(default)]
     pub spin: Option<fortune::Spin>,
@@ -665,6 +1067,11 @@ pub struct Run {
     /// The Collapse: the tick this floor falls in.
     #[serde(default)]
     pub collapse_at: Option<u64>,
+    /// The tick the party came down into the deep ([`DEEP_FLOOR`] and
+    /// below) from above it, for the beat a window plays as the dungeon
+    /// stands up around it (`world3d::room::beat`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deep_beat: Option<u64>,
     /// Ultimates playing out: Trebuchet's shells, Stillhours, phantoms.
     #[serde(default)]
     pub strikes: Vec<ults::Strike>,
@@ -672,9 +1079,16 @@ pub struct Run {
     pub spheres: Vec<ults::Sphere>,
     #[serde(default)]
     pub phantoms: Vec<ults::Phantom>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bard_songs: Vec<bard::Song>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scarecrows: Vec<peasant::Scarecrow>,
     /// Creatures cards summoned (`imps`).
     #[serde(default)]
     pub imps: Vec<imps::Imp>,
+    /// The floor's cauldron, risen when its guardian fell (`cauldron`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cauldron: Option<cauldron::Cauldron>,
     /// The pack of the delve's first floor, for the floors below it.
     #[serde(default)]
     pub first: Pack,
@@ -691,6 +1105,10 @@ pub struct Run {
     /// A new achievement's banner: when, and which.
     #[serde(default)]
     pub banner: Option<(u64, String)>,
+    /// Achievements earned down in this delve, in the order earned: kept
+    /// quiet through the fighting and shown together when the match ends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deeds: Vec<String>,
     /// A box just opened at the coffer: when, its grade, what was in it.
     #[serde(default)]
     pub unboxed: Option<(u64, feats::Tier, String)>,
@@ -707,14 +1125,6 @@ pub struct Run {
     /// starts its own count.
     #[serde(skip)]
     descend_for: Option<&'static str>,
-    /// Fortune's audience this delve, in thousands of viewers; the fan
-    /// boxes it has thrown, and those still floating down.
-    #[serde(default)]
-    pub audience: u32,
-    #[serde(default)]
-    pub fans: u32,
-    #[serde(default)]
-    pub fan_boxes: Vec<audience::FanBox>,
     /// Whoever waits in a cage on this floor.
     #[serde(default)]
     pub captive: Option<rescues::Captive>,
@@ -851,11 +1261,52 @@ pub struct Run {
     /// The clearing's shared games and personal-best ledger.
     #[serde(default)]
     pub forest: forest::Forest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forest_road: Option<forest_road::Session>,
+    /// The Round Table adventures, while one is run: each a session in the
+    /// Dark Forest's room, opened at its kingdom tile (`roundtable`).
+    /// Lanternward (rules/lanternward.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lanternward: Option<lanternward::Session>,
+    /// Moonfall (rules/moonfall.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moonfall: Option<moonfall::Session>,
+    /// Bannerpeak (rules/bannerpeak.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bannerpeak: Option<bannerpeak::Session>,
+    /// Griffinwing (rules/griffinwing.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub griffinwing: Option<griffinwing::Session>,
+    /// Lightgallop (rules/lightgallop.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lightgallop: Option<lightgallop::Session>,
     #[serde(default)]
     pub college: college::Dialogue,
+    /// A master's board at a school banner, while a knight reads it.
+    #[serde(default)]
+    pub school: school::Board,
+    /// The teachers' questlines: whose reading is open, and this tick's
+    /// queued counter notes.
+    #[serde(default)]
+    pub questline: questline::Board,
     /// Shared, model-free festival round; records live in the realm's home.
     #[serde(default)]
     pub pastimes: pastimes::State,
+    #[serde(default)]
+    pub cinder: Option<cinder::Session>,
+    #[serde(default)]
+    pub latch: Option<latch::Session>,
+    #[serde(default)]
+    pub brasswake: Option<brasswake::Session>,
+    #[serde(default)]
+    pub rafterwake: Option<rafterwake::Session>,
+    #[serde(default)]
+    pub pennon: Option<pennon::Session>,
+    /// Host-only input age allowance from the existing network measurement.
+    #[serde(skip)]
+    pub latch_input_age: BTreeMap<u32, u64>,
+    #[serde(default)]
+    pub mossbell: Option<mossbell::Session>,
     #[serde(skip)]
     build_hold: Option<(usize, u32, u32)>,
     /// Which knights (a bit each) held E at the signal hill last tick: a
@@ -898,6 +1349,10 @@ pub struct Run {
     /// Sounds this step made, drained by the cockpit's mixer.
     #[serde(skip)]
     pub sounds: Vec<&'static str>,
+    /// Hostile shots loosed since the run began, bursts included: what the
+    /// boss census counts.
+    #[serde(skip)]
+    pub hostile_shots: u64,
     /// Ticks of screen shake left (a guardian's fall, a bomb).
     #[serde(default)]
     pub shake: u32,
@@ -924,10 +1379,18 @@ pub struct Run {
     /// the Boss Key and the Wanted hall's showdown.
     #[serde(default)]
     pub works: works::Works,
-    /// The Overclass window open now, if any: one wish each until the next
-    /// fight.
+    /// Wishes just given (`overclass`), for their sign, until the next
+    /// fight. The wishes themselves are each knight's (`Hero::wishes`).
     #[serde(default)]
     pub window: Option<overclass::Window>,
+    /// The wishes knights made in their own words this run, by wish id:
+    /// who made it (knight, name). The card's `by` line and the sheet's
+    /// YOUR WISHES are theirs (`overclass`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub makers: BTreeMap<String, (u32, String)>,
+    /// Lines everyone is shown, drained by the server (`wire::take_notices`).
+    #[serde(skip)]
+    pub notices: Vec<String>,
     /// The demon hand's claims, the hell gate and its circles.
     #[serde(default)]
     pub spectacle: spectacle::Spectacle,
@@ -947,6 +1410,13 @@ pub struct Run {
     /// end in coins (`feel`).
     #[serde(default, skip_serializing_if = "feel::Feel::quiet")]
     pub feel: feel::Feel,
+    /// The floor as it is played, knight by knight (`floor_stats`). The
+    /// server's own (`wire::PRIVATE`).
+    #[serde(default)]
+    pub floor_tally: floor_stats::Tally,
+    /// The last floor closed: its results, as the plate shows them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub floor_results: Option<floor_stats::Results>,
     /// Wishes just granted: to which knight, and when.
     #[serde(default)]
     pub boons: Vec<(u32, u64)>,
@@ -967,6 +1437,10 @@ pub struct Run {
     /// it each tick; the rules alone never do.
     #[serde(default)]
     pub held: Hold,
+    /// Knights standing in a doorway or on the stairs the rest of the
+    /// party has yet to reach (`fellowship`): the way waits for everyone.
+    #[serde(default, skip_serializing_if = "fellowship::State::is_empty")]
+    pub fellowship: fellowship::State,
     /// How many knights the monsters' health was last scaled for
     /// (`Run::rescale_party`); 0 for every knight in the party, which is
     /// how a run is written while all of them are here.
@@ -1057,6 +1531,9 @@ enum Mover {
     Hero,
     Walker,
     Flier,
+    /// Walks as a walker does, but the bog does not hold it: the swamp's
+    /// own horrors (`horrors`).
+    Wader,
 }
 
 /// The current room's tiles as movement and shots see them.
@@ -1076,7 +1553,7 @@ impl Grid<'_> {
 
     fn open(&self, x: f32, y: f32, mover: Mover) -> bool {
         match self.tile_at(x, y) {
-            Tile::Floor | Tile::Stairs | Tile::Ledge => true,
+            Tile::Floor | Tile::Stairs | Tile::Ledge | Tile::Bog => true,
             Tile::Wall | Tile::Block => false,
             Tile::Hazard => mover == Mover::Flier,
             Tile::Door => mover == Mover::Hero && !self.barred,
@@ -1089,8 +1566,16 @@ impl Grid<'_> {
             .all(|(dx, dy)| self.open(x + dx, y + dy, mover))
     }
 
-    /// Move with wall sliding, one axis at a time.
+    /// Move with wall sliding, one axis at a time. Feet in the bog go at
+    /// `swamp::BOG_PACE`; wings and the swamp's own waders do not.
     fn slide(&self, (x, y): (f32, f32), (dx, dy): (f32, f32), r: f32, mover: Mover) -> (f32, f32) {
+        let (dx, dy) = if matches!(mover, Mover::Hero | Mover::Walker)
+            && self.tile_at(x, y) == Tile::Bog
+        {
+            (dx * swamp::BOG_PACE, dy * swamp::BOG_PACE)
+        } else {
+            (dx, dy)
+        };
         let x = if self.clear(x + dx, y, r, mover) {
             x + dx
         } else {
@@ -1118,12 +1603,31 @@ impl Grid<'_> {
     /// A fast friendly shot stops at the first stone it crosses, including
     /// a thin wall between two open endpoints.
     fn shot_stop(&self, from: (f32, f32), to: (f32, f32)) -> Option<(f32, f32)> {
+        self.shot_stop_body(from, to, 0.0)
+    }
+
+    /// A shot whose body is `body` units round its middle: stopped by stone
+    /// at its middle, and by a prop (a tomb, a pillar, a shelf, a crate,
+    /// furniture: anything a knight cannot walk into that is not the
+    /// room's own wall or door) wherever its body touches one. What a
+    /// knight walks over (water, lava, a pit, a plate) never stops it.
+    fn stops_body(&self, x: f32, y: f32, body: f32) -> bool {
+        self.stops_shot(x, y)
+            || (body > 0.0
+                && [(body, 0.0), (-body, 0.0), (0.0, body), (0.0, -body)]
+                    .into_iter()
+                    .any(|(dx, dy)| self.tile_at(x + dx, y + dy) == Tile::Block))
+    }
+
+    /// `shot_stop` for a shot with a body (`stops_body`): where it first
+    /// touches stone or a prop on its way from `from` to `to`.
+    fn shot_stop_body(&self, from: (f32, f32), to: (f32, f32), body: f32) -> Option<(f32, f32)> {
         let (dx, dy) = (to.0 - from.0, to.1 - from.1);
         let steps = (dx.hypot(dy) / 0.25).ceil().clamp(1.0, 256.0) as u32;
         for i in 1..=steps {
             let t = i as f32 / steps as f32;
             let at = (from.0 + dx * t, from.1 + dy * t);
-            if self.stops_shot(at.0, at.1) {
+            if self.stops_body(at.0, at.1, body) {
                 return Some(at);
             }
         }
@@ -1145,6 +1649,7 @@ impl Run {
         (0..=DEEPEST).contains(&self.dungeon.depth)
             && self.kingdom.valid()
             && self.tune.valid()
+            && self.hitstop.valid()
             && self.exits.valid(self.dungeon.rooms.len())
             && self
                 .exits
@@ -1156,9 +1661,19 @@ impl Run {
                 .values()
                 .all(|h| h.camera.is_none_or(|(x, y)| x.is_finite() && y.is_finite()))
             && self.forest.valid()
+            && self.forest_road.as_ref().is_none_or(|s| s.valid())
+            && roundtable::valid(self)
             && self.college.valid()
             && self.home.college.valid()
+            && self.home.school.valid()
+            && self.school.valid()
             && self.pastimes.valid()
+            && self.cinder.as_ref().is_none_or(|s| s.valid())
+            && self.latch.as_ref().is_none_or(|s| s.valid())
+            && self.brasswake.as_ref().is_none_or(|s| s.valid())
+            && self.rafterwake.as_ref().is_none_or(|s| s.valid())
+            && self.pennon.as_ref().is_none_or(|s| s.valid())
+            && self.mossbell.as_ref().is_none_or(|s| s.valid())
             && self.home.countryside.valid()
             && self.home.privy_wall.len() <= pitstop::WALL
             && self.home.privy_wall.iter().all(|l| l.len() <= 64)
@@ -1197,6 +1712,8 @@ impl Run {
             && self.settlement_exhibits.len() <= 32
             && (self.settlement_exhibits.is_empty() || self.settlement_site.is_some())
             && self.dungeon.rooms.iter().all(Room::valid_snapshot)
+            && self.dungeon.open.as_ref().is_none_or(|o| o.valid(&self.dungeon.rooms))
+            && self.parked.len() <= 128
             && self.dungeon.valid_secret()
             && self
                 .light
@@ -1224,6 +1741,7 @@ impl Run {
                 e.boss
                     .is_none_or(|b| usize::from(b) < self.bosses.len() && e.kind == EnemyKind::Boss)
                     && e.signature.valid()
+                    && e.hoard.len() <= boss_ecology::ROSTER_CAP
                     && !self.enemies[..i].iter().any(|a| a.id == e.id)
             })
             && self.valid_boss_gates()
@@ -1239,7 +1757,12 @@ impl Run {
         } else {
             Pack::Cavern
         };
-        let dungeon = layout::floor(1, pack, &mut rng);
+        let open_floors = crate::settings::get().open_floors;
+        let dungeon = if open_floors {
+            layout::open_floor(1, pack, 1 + usize::from(guest.is_some()), &mut rng)
+        } else {
+            layout::floor(1, pack, &mut rng)
+        };
         let mut players = BTreeMap::new();
         for (id, name) in std::iter::once((1, "You")).chain(guest.map(|name| (2, name))) {
             let x = if guest.is_some() {
@@ -1253,12 +1776,15 @@ impl Run {
             playtest: votes::State::default(),
             raid_id,
             naked_start: false,
+            questline: questline::Board::default(),
             kingdom: kingdom::State::default(),
             tick: 0,
+            hitstop: Default::default(),
             phase: Phase::Exploring,
             floor_plates: BTreeMap::new(),
             players,
             enemies: Vec::new(),
+            parked: Vec::new(),
             projectiles: Vec::new(),
             score: 0,
             dungeon,
@@ -1275,13 +1801,18 @@ impl Run {
             peddled: Vec::new(),
             greeted: 0,
             mode: fortune::Mode::default(),
+            open_floors,
             spin: None,
             mode_said: None,
             collapse_at: None,
+            deep_beat: None,
             strikes: Vec::new(),
             spheres: Vec::new(),
             phantoms: Vec::new(),
+            bard_songs: Vec::new(),
+            scarecrows: Vec::new(),
             imps: Vec::new(),
+            cauldron: None,
             kegs: Vec::new(),
             lobs: Vec::new(),
             flings: Vec::new(),
@@ -1294,8 +1825,27 @@ impl Run {
             joust: None,
             chariot: None,
             forest: forest::Forest::default(),
+            forest_road: None,
+            lanternward: None,
+
+            moonfall: None,
+
+            bannerpeak: None,
+
+            griffinwing: None,
+
+            lightgallop: None,
+
             college: college::Dialogue::default(),
+            school: school::Board::default(),
             pastimes: pastimes::State::default(),
+            cinder: None,
+            latch: None,
+            brasswake: None,
+            rafterwake: None,
+            pennon: None,
+            latch_input_age: BTreeMap::new(),
+            mossbell: None,
             exits: exits::State::default(),
             build_hold: None,
             lever_held: 0,
@@ -1311,14 +1861,12 @@ impl Run {
             triumph: None,
             feats: Vec::new(),
             banner: None,
+            deeds: Vec::new(),
             unboxed: None,
             slimes_slain: 0,
             stall: Vec::new(),
             descending: 0,
             descend_for: None,
-            audience: 0,
-            fans: 0,
-            fan_boxes: Vec::new(),
             captive: None,
             met: 0,
             cat: None,
@@ -1357,6 +1905,7 @@ impl Run {
             found: None,
             cues: vec!["run_start".into()],
             sounds: Vec::new(),
+            hostile_shots: 0,
             shake: 0,
             streak: (0, 0),
             room_hurt: false,
@@ -1367,10 +1916,14 @@ impl Run {
             spiked: false,
             works: works::Works::default(),
             window: None,
+            makers: BTreeMap::new(),
+            notices: Vec::new(),
             sparks: Vec::new(),
             fx: Vec::new(),
             blasts: Vec::new(),
             feel: feel::Feel::default(),
+            floor_tally: floor_stats::Tally::default(),
+            floor_results: None,
             boons: Vec::new(),
             spectacle: spectacle::Spectacle::default(),
             chatter: chatter::Chatter::default(),
@@ -1378,6 +1931,7 @@ impl Run {
             hallowed: None,
             stairs_held: false,
             held: Hold::Open,
+            fellowship: fellowship::State::default(),
             scaled_for: 0,
             again: None,
             tune: tune::Tune::default(),
@@ -1406,6 +1960,10 @@ impl Run {
 
     /// Doors stay barred while anything in the room still lives.
     pub fn barred(&self) -> bool {
+        // On an open map only the guardian's lock-in bars a door.
+        if let Some(open) = self.open_here() {
+            return open.chambers[usize::from(open.guardian)].sealed;
+        }
         self.foes_left()
             || (self.phase == Phase::Fighting && self.waves.pending())
             || self.folly.as_ref().is_some_and(|f| f.room == self.at && !f.done)
@@ -1508,7 +2066,7 @@ impl Run {
         self.join_seat(2, name);
     }
 
-    /// Knight `id` (2 to 4) joins beside player 1, or takes a new name if
+    /// Knight `id` (2 to `MAX_PLAYERS`) joins beside player 1, or takes a new name if
     /// already here.
     pub fn join_seat(&mut self, id: u32, name: &str) {
         if !(2..=MAX_PLAYERS).contains(&id) {
@@ -1550,6 +2108,7 @@ impl Run {
         if !self.at_home_now() {
             self.harden();
         }
+        self.wishes_for_newcomer(id);
         if self.party_len() >= 4 {
             self.notice("party_of_four");
         }
@@ -1561,6 +2120,7 @@ impl Run {
         self.floor_plates.remove(&id);
         self.exits.outside.remove(&id);
         self.playtest.seats.remove(&id);
+        if let Some(race) = &mut self.race3d { race.riders.remove(&id); }
         self.keep_gear(id);
         let Some(hero) = self.players.remove(&id) else {
             return;
@@ -1632,6 +2192,11 @@ impl Run {
     /// Walk the party into room `index` through its door `from` (the side
     /// they enter on), or onto a new floor's entrance with `None`.
     pub fn enter(&mut self, index: usize, from: Option<usize>) {
+        let came_from = self.at;
+        // Off an open floor's map, its companies wait where they are.
+        if index != self.at && self.open_map() {
+            self.parked = std::mem::take(&mut self.enemies).into_iter().filter(|e| e.hp > 0).collect();
+        }
         self.remember_activity_entry(index);
         if self
             .dungeon
@@ -1648,7 +2213,14 @@ impl Run {
         }
         self.joust = None;
         self.chariot = None;
+        self.latch = None;
+        self.brasswake = None;
+        self.rafterwake = None;
+        self.pennon = None;
+        self.mossbell = None;
         self.forest.leave();
+        self.forest_road = None;
+        roundtable::clear(self);
         self.college = Default::default();
         self.pastimes.leave();
         self.build_hold = None;
@@ -1675,6 +2247,9 @@ impl Run {
         self.strikes.clear();
         self.spheres.clear();
         self.phantoms.clear();
+        self.bard_songs.clear();
+        self.scarecrows.clear();
+        for h in self.players.values_mut() { h.flee_ticks = 0; }
         self.kegs.clear();
         self.lobs.clear();
         self.flings.clear();
@@ -1697,9 +2272,14 @@ impl Run {
             self.dungeon.rooms[index].width(),
             self.dungeon.rooms[index].height(),
         );
+        // Onto an open map: out of the door just taken, or at the arrival.
+        let landing = self
+            .open_landing(index, came_from)
+            .map(|at| self.open_spots(index, at, living.len()));
         for (slot, id) in living.into_iter().enumerate() {
-            let offset = (slot as f32 - (count - 1.0) / 2.0) * 2.4;
+            let offset = (slot as f32 - (count - 1.0) / 2.0) * stand_apart(count);
             let (x, y) = match from {
+                _ if landing.is_some() => landing.as_ref().map_or((0.0, 0.0), |spots| spots[slot]),
                 Some(0) => (w / 2.0 + offset, 3.3),
                 Some(1) => (w - 3.3, h / 2.0 + offset),
                 Some(2) => (w / 2.0 + offset, h - 3.3),
@@ -1711,6 +2291,8 @@ impl Run {
             };
             let hero = self.players.get_mut(&id).expect("listed hero");
             (hero.x, hero.y) = (x, y);
+            // A skull dropped in the room before goes back to its bones.
+            hero.skull_at = None;
             hero.invulnerable = hero.invulnerable.max(20);
             hero.dash_ticks = 0;
             hero.privy = 0;
@@ -1729,11 +2311,14 @@ impl Run {
         ) {
             self.arrive_side_on();
         }
-        self.follow_fan_boxes();
         self.tallow_follows();
         self.hireling_follows();
         let sealed = self.guardian_locked();
         let first_visit = !self.dungeon.rooms[index].visited;
+        if self.open_map() {
+            self.enter_open(index, first_visit);
+            return;
+        }
         let folly_here = self.folly_room == Some(index)
             && !self.dungeon.rooms[index].cleared
             && !sealed
@@ -1746,7 +2331,7 @@ impl Run {
             // The halls' follies take turns down the delve: the Wax Maze,
             // the Belfry Shoot, then the Powder Room and Book Hop by turns.
             match self.dungeon.depth % 3 {
-                1 => self.start_wax_maze(index),
+                1 => self.start_wax_maze(index, from),
                 2 => self.start_bat_shoot(index),
                 _ if self.dungeon.depth % 6 == 0 => self.start_book_hop(index),
                 _ => self.start_powder(index),
@@ -1768,13 +2353,19 @@ impl Run {
             self.dungeon.rooms[index].visited = true;
             self.start_race3d(index);
         }
+        // A folly left mid-game and come back to plays on as it stood: its
+        // room raises no company.
+        let resumed = self.folly_running();
         let room = &mut self.dungeon.rooms[index];
         room.visited = true;
-        if !room.cleared && !sealed && !folly_here && !gantry_here && !race_here {
+        if !room.cleared && !sealed && !folly_here && !gantry_here && !race_here && !resumed {
             let roster = room.roster.clone();
-            let guarded = room.kind == RoomKind::Stairs;
             let kind = room.kind;
             let pack = self.dungeon.pack;
+            // The swamp's guardian is the Mire King, in its last hall only:
+            // the stairs rooms above it are its toughest fights.
+            let guarded = kind == RoomKind::Stairs
+                && !(pack == Pack::Swamp && self.dungeon.depth < swamp::FLOORS);
             // A delve meets one of its pack's guardians, the same one for
             // the whole delve.
             let guardians: Vec<usize> = (0..self.bosses.len())
@@ -1790,14 +2381,9 @@ impl Run {
                 .as_ref()
                 .is_some_and(|g| g.economy.camp(index).is_some())
             {
-                let (leader, apex, defeated, gate) = {
+                let (apex, defeated, gate) = {
                     let g = self.boss_gates.as_ref().unwrap();
-                    (
-                        g.leader(index).filter(|l| !l.defeated).map(|l| l.boss),
-                        g.guardian_boss,
-                        g.guardian_defeated,
-                        g.guardian == index,
-                    )
+                    (g.guardian_boss, g.guardian_defeated, g.guardian == index)
                 };
                 let troops = self
                     .boss_gates
@@ -1814,17 +2400,34 @@ impl Run {
                     .camp(index)
                     .unwrap()
                     .faction;
+                // A chief's camp is led by its toughest, an elite who carries
+                // the Boss Key; the floor's one boss is its guardian.
+                let carrier = self.boss_gates.as_ref().unwrap().key_carrier(index);
+                // On the first floors that boss stands alone: its troops
+                // never come, and the floor's books count them gone.
+                let alone = self.dungeon.depth <= BOSS_ALONE_TO
+                    && gate
+                    && !defeated
+                    && (kind == RoomKind::Lair || apex.is_some());
+                // So does the key's carrier: on the first floors its camp is
+                // its spoils, not its company (a carrier still to come).
+                let lone_carrier = self.dungeon.depth <= BOSS_ALONE_TO
+                    && carrier.is_some_and(|c| troops.iter().any(|&(slot, _, _)| slot == c));
                 for (slot, kind, troop_faction) in troops {
+                    if alone || (lone_carrier && carrier != Some(slot)) {
+                        self.boss_gates.as_mut().unwrap().economy.casualty(index, slot);
+                        continue;
+                    }
                     self.spawn(kind);
                     if let Some(e) = self.enemies.last_mut() {
                         e.camp_slot = Some(slot);
                         e.faction = Some(troop_faction);
+                        if carrier == Some(slot) {
+                            e.raise_elite();
+                        }
                     }
                 }
-                if let Some(boss) = leader {
-                    self.spawn_boss(usize::from(boss));
-                    self.enemies.last_mut().unwrap().faction = Some(faction);
-                } else if gate && !defeated {
+                if gate && !defeated {
                     if kind == RoomKind::Lair {
                         self.spawn(EnemyKind::Dragon);
                         self.enemies.last_mut().unwrap().faction = Some(faction);
@@ -1833,11 +2436,38 @@ impl Run {
                         self.enemies.last_mut().unwrap().faction = Some(faction);
                     }
                 }
+                // The hoard is the camp's whole company, not just the troops
+                // this entry deployed: a chief met again after the party left
+                // still carries the spoils.
+                if alone || lone_carrier {
+                    let hoard = self
+                        .boss_gates
+                        .as_ref()
+                        .unwrap()
+                        .economy
+                        .camp(index)
+                        .unwrap()
+                        .roster
+                        .clone();
+                    let holder = if alone {
+                        self.enemies.last_mut()
+                    } else {
+                        self.enemies.iter_mut().find(|e| e.camp_slot.is_some() && e.camp_slot == carrier)
+                    };
+                    if let Some(holder) = holder {
+                        holder.hoard = hoard;
+                    }
+                }
             } else if guarded && let Some(&boss) = guardians.get(pick) {
                 self.spawn_boss(boss);
-                // A guardian keeps a lighter escort.
-                for kind in roster.into_iter().take(2) {
-                    self.spawn(kind);
+                // A guardian keeps a lighter escort, below the first floors;
+                // on them it stands alone with the escort's spoils.
+                if self.dungeon.depth > BOSS_ALONE_TO {
+                    for kind in roster.into_iter().take(2) {
+                        self.spawn(kind);
+                    }
+                } else if let Some(guardian) = self.enemies.last_mut() {
+                    guardian.hoard = roster.into_iter().take(2).collect();
                 }
             } else {
                 // The monsters-a-room knob: more of the room's own kinds
@@ -2038,6 +2668,8 @@ impl Run {
     /// A quiet room: wounds close a little, mana fills, and the altar's
     /// sign says what it is for.
     fn hallow(&mut self) {
+        // The well of the floor: a knight in a borrowed body is themselves.
+        self.unpossess_all();
         for hero in self.players.values_mut() {
             if hero.hp > 0 {
                 hero.mend(hero.max_hp / 5, stakes::Mend::Rest);
@@ -2047,11 +2679,31 @@ impl Run {
         self.hallowed = Some(self.tick);
         self.cues.push("sanctuary".into());
         self.frogs_arrive();
-        // A Sanctuary is an Overclass window too: a known wish each.
-        self.window = Some(overclass::Window {
-            opened: self.tick,
-            wished: Vec::new(),
-        });
+    }
+
+    /// Where a boss (or the dragon) rises in the room: at the head of the
+    /// room, unless the party has just come in there. Then the far end, or
+    /// a quarter in from a side, whichever first lies [`BOSS_CLEARANCE`]
+    /// from every knight;
+    /// failing all of them, the one farthest from the nearest knight.
+    fn boss_anchor(&self) -> (f32, f32) {
+        let room = self.room();
+        let (w, h) = (room.width(), room.height());
+        let anchors = [(w / 2.0, 7.0), (w / 2.0, h - 7.0), (w / 4.0, h / 2.0), (w * 3.0 / 4.0, h / 2.0)];
+        let nearest = |(x, y): (f32, f32)| {
+            self.players
+                .values()
+                .filter(|hero| !hero.absent)
+                .map(|hero| (hero.x - x).hypot(hero.y - y))
+                .fold(f32::MAX, f32::min)
+        };
+        anchors
+            .iter()
+            .copied()
+            .find(|&a| nearest(a) >= BOSS_CLEARANCE)
+            .unwrap_or_else(|| {
+                anchors.iter().copied().max_by(|&a, &b| nearest(a).total_cmp(&nearest(b))).unwrap_or(anchors[0])
+            })
     }
 
     /// Place a monster on open floor, well away from the knights.
@@ -2069,9 +2721,19 @@ impl Run {
             }
             return;
         }
+        // On an open map a newcomer comes into the party's chamber, awake.
+        if self.open_map() {
+            if let Some(((x, y), home)) = self.open_spawn_spot()
+                && self.spawn_body(kind, x, y).is_some()
+                && let Some(e) = self.enemies.last_mut()
+            {
+                e.home = Some(home);
+            }
+            return;
+        }
         let room = &self.dungeon.rooms[self.at];
         let (x, y) = if kind == EnemyKind::Dragon {
-            (room.width() / 2.0, 7.0)
+            self.boss_anchor()
         } else {
             let mut spot = (room.width() / 2.0, 6.0);
             for attempt in 0..64 {
@@ -2089,7 +2751,7 @@ impl Run {
                     .enemies
                     .iter()
                     .any(|e| (e.x - x).abs() < 1.0 && (e.y - y).abs() < 1.0);
-                if room.tile(col, row) == Tile::Floor && far && !taken {
+                if room.tile(col, row).ground() && far && !taken {
                     spot = (x, y);
                     break;
                 }
@@ -2132,6 +2794,7 @@ impl Run {
         let hp = base * self.party_len().max(1) as u32;
         self.next_id = self.next_id.checked_add(1)?;
         self.enemies.push(Enemy {
+            hoard: Vec::new(),
             faction: None,
             camp_slot: None,
             x,
@@ -2157,13 +2820,18 @@ impl Run {
             fury: FURY[(self.dungeon.depth.clamp(1, 6) - 1) as usize]
                 + stakes::party_fury(self.party_len()),
             rung: 0,
+            chilled: 0,
             pattern_volleys: 0,
             frozen: 0,
+            sleep_until: 0,
             stage: 0,
             timer: 0,
             dir: (0.0, 0.0),
+            guard: 0,
             wits: press::Wits::default(),
             signature: signatures::State::default(),
+            home: None,
+            dormant: false,
         });
         Some(self.next_id)
     }
@@ -2178,7 +2846,7 @@ impl Run {
         let base = boss.hp * self.toughness() / 100 * self.boss_health() / 100;
         let hp = base * self.party_len().max(1) as u32;
         let room = self.room();
-        let (mut x, mut y) = (room.width() / 2.0, 7.0);
+        let (mut x, mut y) = self.boss_anchor();
         // Threshold scenery and chamber pillars must not bury an anchor boss.
         let col = (x / TILE_UNITS) as i32;
         let row = (y / TILE_UNITS) as i32;
@@ -2188,18 +2856,19 @@ impl Run {
         };
         let open = |c: i32, r: i32| {
             if boss.id == signatures::ENGINE {
-                grid.clear(
-                    (c as f32 + 0.5) * TILE_UNITS,
-                    (r as f32 + 0.5) * TILE_UNITS,
-                    boss.radius,
-                    Mover::Walker,
-                )
+                room.tile(c, r) == Tile::Floor
+                    && grid.clear(
+                        (c as f32 + 0.5) * TILE_UNITS,
+                        (r as f32 + 0.5) * TILE_UNITS,
+                        boss.radius,
+                        Mover::Walker,
+                    )
             } else {
                 (-1..=1).all(|dc| (-1..=1).all(|dr| room.tile(c + dc, r + dr) == Tile::Floor))
             }
         };
         let clear = if boss.id == signatures::ENGINE {
-            grid.clear(x, y, boss.radius, Mover::Walker)
+            room.tile(col, row) == Tile::Floor && grid.clear(x, y, boss.radius, Mover::Walker)
         } else {
             open(col, row)
         };
@@ -2214,6 +2883,7 @@ impl Run {
         }
         self.next_id += 1;
         self.enemies.push(Enemy {
+            hoard: Vec::new(),
             faction: None,
             camp_slot: None,
             x,
@@ -2240,14 +2910,25 @@ impl Run {
             // the head count thickens them.
             fury: stakes::party_fury(self.party_len()),
             rung: 0,
+            chilled: 0,
             pattern_volleys: 0,
             frozen: 0,
+            sleep_until: 0,
             stage: 0,
             timer: 0,
             dir: (0.0, 0.0),
+            guard: 0,
             wits: press::Wits::default(),
             signature: signatures::State::default(),
+            home: None,
+            dormant: false,
         });
+    }
+
+    /// How many knights the floors are laid out for: every seat with a
+    /// knight in it, the host's empty seat not counted.
+    pub fn party_size(&self) -> usize {
+        self.players.values().filter(|h| !h.absent).count()
     }
 
     fn descend(&mut self) {
@@ -2274,6 +2955,10 @@ impl Run {
         if !from_home && self.dungeon.depth >= DEEPEST {
             return;
         }
+        // The swamp ends in the Mire King's hall: no way down from it.
+        if !from_home && self.dungeon.pack == Pack::Swamp && self.dungeon.depth >= swamp::FLOORS {
+            return;
+        }
         let (depth, pack) = if from_home {
             // Down the Winding Stair: to the landing chosen, in the delve
             // chosen for the top.
@@ -2281,6 +2966,9 @@ impl Run {
             self.first = self.dungeon.pack;
             (depth, Pack::at(depth, self.first))
         } else {
+            // The floor behind is closed: its results open the next one's
+            // plate.
+            self.close_floor(floor_stats::End::Cleared);
             self.settle_dare();
             self.unwashed_toll();
             self.lift_gifts();
@@ -2306,6 +2994,9 @@ impl Run {
         if from_home {
             self.notice("first_delve");
         } else {
+            // The school's boards: a floor behind them. Whoever never fell
+            // stands a step nearer the school's highest honours.
+            self.school_stairs();
             if self.mode == fortune::Mode::GlassJaw {
                 self.notice("fragile");
             }
@@ -2318,7 +3009,16 @@ impl Run {
         }
         self.settlement_site = None;
         self.settlement_exhibits.clear();
-        self.dungeon = layout::floor_for(self.mode, depth, pack, &mut self.rng);
+        // Down out of the upper floors into the deep: the dungeon stands up.
+        if depth >= DEEP_FLOOR && self.dungeon.depth < DEEP_FLOOR {
+            self.deep_beat = Some(self.tick);
+        }
+        self.dungeon = if self.wants_open() {
+            layout::open_floor(depth, pack, self.party_size(), &mut self.rng)
+        } else {
+            layout::floor_for_party(self.mode, depth, pack, self.party_size(), &mut self.rng)
+        };
+        self.parked.clear();
         self.stock_gear_cache();
         self.at = 0;
         self.kingdom.return_to = None;
@@ -2339,6 +3039,12 @@ impl Run {
         self.pick_folly();
         self.pick_gantry();
         self.pick_race3d();
+        if self.dungeon.open.is_some() {
+            // The rooms' games wait for open floors (docs/OPEN-FLOORS.md).
+            self.folly_room = None;
+            self.gantry_room = None;
+            self.race3d_room = None;
+        }
         self.pots_broken.clear();
         self.pips_map();
         if from_home {
@@ -2354,8 +3060,15 @@ impl Run {
             self.hire();
             self.iron();
             self.cues.push("run_start".into());
+            // A delve starts: three wishes each, fresh (`overclass`).
+            for hero in self.players.values_mut() {
+                (hero.wishes, hero.great_wishes) = (0, 0);
+            }
+            self.give_wishes(overclass::START_WISHES, 0);
         } else {
             self.refill_winds();
+            // A new floor: two more wishes each.
+            self.give_wishes(overclass::FLOOR_WISHES, 0);
         }
         self.collapse_at = (self.mode == fortune::Mode::Collapse)
             .then(|| self.tick + u64::from(fortune::Mode::collapse_secs(depth) * HZ));
@@ -2364,6 +3077,12 @@ impl Run {
         if self.players.values().any(|h| h.hp == 0) {
             self.cues.push("revive".into());
         }
+        let carried: Vec<u32> = self
+            .players
+            .iter()
+            .filter(|(_, h)| h.hp == 0)
+            .map(|(&id, _)| id)
+            .collect();
         for hero in self.players.values_mut() {
             // The stairs bring a fallen companion back to their feet.
             if hero.hp == 0 {
@@ -2372,16 +3091,40 @@ impl Run {
                 hero.mend(10, stakes::Mend::Rest);
             }
         }
+        // The school's boards: the stairs carried a fallen friend up; the
+        // realm lets the first living knight carry the deed.
+        if !carried.is_empty() && let Some(&id) = self.players.keys().next() {
+            self.school.note(id, "healer-carry", carried.len() as u32);
+        }
         self.half_charge();
         self.enter(0, None);
         self.call_dare();
         self.begin_floor_plate(floor_plates::Kind::of(pack));
+        if from_home {
+            self.floor_results = None;
+            self.floor_tally.new_delve(self.tick);
+            self.deeds.clear();
+        } else {
+            self.floor_tally.next_floor(self.tick);
+            for plate in self.floor_plates.values_mut() {
+                plate.results = floor_stats::SHOWN;
+            }
+        }
     }
 
     /// One fixed step of the run, and of the show watching it.
     /// Deterministic simulation: no clock, ambient randomness, network or
     /// model calls.
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>) {
+        // Leaving follows transport time, even while an impact holds the scene.
+        let mut transport_inputs = inputs.clone();
+        self.tick_leave_hold(&mut transport_inputs);
+        let Some(inputs) = self.hitstop.inputs(&self.tune, &self.players, &transport_inputs) else {
+            return;
+        };
+        let inputs = &inputs;
+        // A knight's wishes are held to the budget of the floor they stand on.
+        self.keep_wish_floor();
         // Who is here may have changed since the last tick: the monsters
         // stand scaled for the knights who are.
         let before = self.scaled();
@@ -2406,10 +3149,14 @@ impl Run {
         let inputs = &inputs;
         let (live, heard, sounded) = (self.active(), self.cues.len(), self.sounds.len());
         let seen = live.then(|| self.seen());
+        let was_over = self.over();
         self.advance(inputs);
-        if self.turbo() {
+        if self.turbo() && self.hitstop.left == 0 {
             self.advance(inputs);
         }
+        self.flush_school();
+        self.flush_questlines();
+        self.tick_teachers(&inputs);
         self.follow_kingdom_cameras();
         if let Some(seen) = seen {
             self.watch(seen);
@@ -2418,16 +3165,19 @@ impl Run {
             self.watch_dare(heard, sounded);
             self.mark_moments(heard);
             self.mark_trophies(heard);
-            self.tick_audience(heard);
         }
         if self.phase == Phase::Wiped && detached.values().any(|h| h.hp > 0) {
-            self.phase = if self.barred() {
+            self.phase = if self.barred() && !self.open_map() {
                 Phase::Fighting
             } else {
                 Phase::Exploring
             };
         }
         self.players.extend(detached);
+        if !was_over && self.over() {
+            self.close_run();
+        }
+        self.stand_verdict();
         if !self.active() {
             self.floor_plates.clear();
         }
@@ -2457,6 +3207,17 @@ impl Run {
         self.players.get(&id).is_some_and(|h| h.away) || self.idle.get(&id).is_some_and(|&t| t >= AWAY_TICKS)
     }
 
+    /// Whether F belongs to a festival round playing in this room (the
+    /// courier, the turnip) rather than to the party's arms.
+    fn arcade(&self) -> bool {
+        self.at_home_now()
+            && self
+                .pastimes
+                .round
+                .as_ref()
+                .is_some_and(|r| r.game.room() == self.room().kind)
+    }
+
     fn advance(&mut self, inputs: &BTreeMap<u32, Input>) {
         if !self.active() {
             return;
@@ -2464,6 +3225,7 @@ impl Run {
         self.play(inputs);
         // What the tick showed: its shakes and sparks (`fx`).
         self.present();
+        self.finish_hitstop();
     }
 
     /// One tick of the rules.
@@ -2472,8 +3234,17 @@ impl Run {
         // and takes the keys of the knights it seats (`activity::RIDES`).
         let reined = self.ride(inputs);
         let inputs = reined.as_ref().unwrap_or(inputs);
+        // The cauldron answers its own keys first (`cauldron`).
+        let stirred = self.tend_cauldron(inputs);
+        let inputs = stirred.as_ref().unwrap_or(inputs);
         self.fade();
+        let boss_beats: Vec<_> = self.enemies.iter()
+            .filter(|e| e.is_boss() && e.hp > 0)
+            .map(|e| (e.id, e.raged, e.frozen, self.boss_phase(e)))
+            .collect();
         self.tick += 1;
+        // Who waits in a way out is said afresh each tick (`travel`).
+        self.fellowship.clear();
         // A room holding for its party wards every knight through the tick.
         self.ward_while_held();
         self.set_stakes();
@@ -2501,12 +3272,7 @@ impl Run {
         // wound when the other is felled by a blow meant for one. A stroke
         // that reaches both breaks no oath; it ends it.
         self.tick_oathbound();
-        let arcade = self.at_home_now()
-            && self
-                .pastimes
-                .round
-                .as_ref()
-                .is_some_and(|r| r.game.room() == self.room().kind);
+        let arcade = self.arcade();
         let grid = Grid {
             room: &self.dungeon.rooms[self.at],
             barred: self.barred(),
@@ -2519,7 +3285,7 @@ impl Run {
             .iter()
             .map(|(&id, h)| (id, (h.x, h.y)))
             .collect();
-        let fighting = self.phase == Phase::Fighting;
+        let fighting = self.fighting();
         // The kingdom's roads, for the trot along them.
         let roads = (self.room().kind == RoomKind::Kingdom)
             .then(|| map::geography(&self.kingdom.wishes));
@@ -2531,6 +3297,7 @@ impl Run {
         } else {
             self.players.iter().map(|(&id, h)| (id, h.fire_cooldown)).collect()
         };
+        self.scarecrows.retain(|d| d.collapse_until > self.tick);
         for (id, hero) in &mut self.players {
             let input = inputs
                 .get(id)
@@ -2540,6 +3307,7 @@ impl Run {
             // The vigil answers its key's press, from stone too, and holds
             // with no key at all: its player has stepped away. A knight
             // wakes from it any time, but never kneels to it mid-fight.
+            Run::wake_on_first_move(hero, &input);
             hero.vigil_rearm = hero.vigil_rearm.saturating_sub(1);
             if input.vigil
                 && !hero.vigil_key
@@ -2594,7 +3362,13 @@ impl Run {
                 && hero.ult_charge >= ults::ULT_FULL
                 && hero.slashes == 0
                 && hero.aiming.is_none()
+                && hero.flee_ticks == 0
             {
+                if hero.ult() == ults::Ult::Desertion {
+                    peasant::start(hero, *id, self.tick, &mut self.scarecrows);
+                    // The Peasant's boards: every Desertion run.
+                    self.school.note(*id, "peasant-desert", 1);
+                }
                 casts.push(*id);
             }
             if hero.slashes > 0 {
@@ -2626,6 +3400,10 @@ impl Run {
             if let Some(age) = guarded.spin_age
                 && spin::sweeping(age)
             {
+                let heavy = hero.whirl > 0 && self.enemies.iter().any(|e| {
+                    e.hp > 0 && e.is_boss()
+                        && (e.x - hero.x).hypot(e.y - hero.y) <= spin::REACH + e.radius()
+                });
                 let dealt = spin::sweep(
                     *id,
                     hero,
@@ -2633,10 +3411,16 @@ impl Run {
                     &mut self.projectiles,
                     &mut self.sounds,
                 );
+                if heavy && dealt > 0 {
+                    self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                }
                 if dealt > 0 {
                     credits.push((*id, dealt));
+                    // The Berserker's boards: a spin that cut.
+                    self.school.note(*id, "berserk-spin", 1);
                 }
             }
+            let rolled_before = hero.dash_ticks;
             // Sir Dinadan's Lay of Haste among the rest, to a knight who hears it.
             let ((dx, dy, speed), blinked) = hero.own_step((mx, my), &grid, self.tune.roll_speed, |h| {
                 fx::ground_pace(h, &self.webs, self.song.as_deref(), roads.as_deref(), &self.tune)
@@ -2652,6 +3436,23 @@ impl Run {
                 // Down on firm ground is a crouch: shots at the chest pass over.
                 let duck = input.move_y > 0 && hero.grounded && hero.dropping == 0 && !rolling;
                 self.works.kits.entry(*id).or_default().duck = duck;
+            } else if let Some(to) = self
+                .folly
+                .as_mut()
+                .filter(|m| m.room == self.at)
+                .and_then(|m| {
+                    // A roll is a burst along the lanes, steered by the keys.
+                    let way = if (mx, my) != (0.0, 0.0) { (mx, my) } else { (dx, dy) };
+                    m.glide(*id, grid.room, (hero.x, hero.y), way, speed * DT)
+                })
+            {
+                // In the Wax Maze a knight glides its lanes, and faces the
+                // way they go unless they aim.
+                let moved = (to.0 - hero.x, to.1 - hero.y);
+                (hero.x, hero.y) = to;
+                if ax == 0.0 && ay == 0.0 && moved.0.abs().max(moved.1.abs()) > 1e-4 {
+                    (hero.aim_x, hero.aim_y) = unit(moved.0, moved.1);
+                }
             } else {
                 (hero.x, hero.y) = grid.slide(
                     (hero.x, hero.y),
@@ -2660,10 +3461,33 @@ impl Run {
                     Mover::Hero,
                 );
             }
+            // A roll's dust at the knight's feet: kicked up as it starts,
+            // left along it, thrown out where it lands (`feel`).
+            let feet = (hero.x, hero.y + if side { ledge::FOOT } else { 0.0 });
+            let way = hero.roll_dir();
+            if guarded.rolled {
+                self.feel.dust(feet.0, feet.1, way, feel::KICK);
+            } else if rolled_before == 1 && hero.dash_ticks == 0 {
+                self.feel.dust(feet.0, feet.1, way, feel::LAND);
+            } else if hero.dash_ticks > 0 && hero.dash_ticks % 3 == 0 {
+                self.feel.dust(feet.0, feet.1, way, feel::TRAIL);
+            }
+            let input = if hero.flee_ticks > 0 { Input::default() } else { input };
             for timer in &mut hero.spell_cooldowns {
                 *timer = timer.saturating_sub(1);
             }
-            if let Some(slot) = usize::from(input.cast)
+            hero.body_rearm = hero.body_rearm.saturating_sub(1);
+            if hero.possessed.is_some() {
+                // A borrowed body casts its own spell on any spell key, and
+                // the knight's spell cards wait (`bodies`).
+                if (1..=cards::SPELL_SLOTS).contains(&usize::from(input.cast)) {
+                    let salt = mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 40);
+                    if let Some(name) = bodies::cast(hero, *id, &grid, &self.enemies, salt, &mut shots) {
+                        self.found = Some((self.tick, *id, format!("cast {name}")));
+                        self.sounds.push("spell_cast");
+                    }
+                }
+            } else if let Some(slot) = usize::from(input.cast)
                 .checked_sub(1)
                 .filter(|s| *s < cards::SPELL_SLOTS)
                 && hero.spell_cooldowns[slot] == 0
@@ -2711,6 +3535,7 @@ impl Run {
                 }
                 self.found = Some((self.tick, *id, format!("cast {}", card.name)));
                 self.sounds.push("spell_cast");
+                self.school.note(*id, "mage-cast", 1);
             }
             hero.play_cooldown = hero.play_cooldown.saturating_sub(1);
             let slot = usize::from(input.play);
@@ -2777,7 +3602,12 @@ impl Run {
                 self.sounds.push("bomb");
             }
             hero.sword_cooldown = hero.sword_cooldown.saturating_sub(1);
-            if input.swing && !hero.unarmed() && hero.sword_cooldown == 0 && hero.dash_ticks == 0 {
+            if input.swing
+                && !hero.unarmed()
+                && hero.possessed.is_none()
+                && hero.sword_cooldown == 0
+                && hero.dash_ticks == 0
+            {
                 hero.sword_cooldown = hero.cooldown(SWORD_REARM);
                 hero.swing = 8;
                 hero.sword = true;
@@ -2811,13 +3641,31 @@ impl Run {
                     }
                 }
             }
-            let guarded = hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0;
+            let guarded = hero.flee_ticks > 0 || hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0;
             if !arcade
                 && (input.fire || ax != 0.0 || ay != 0.0)
                 && hero.fire_cooldown == 0
                 && !guarded
             {
-                if hero.unarmed() {
+                if hero.possessed.is_some() {
+                    // A borrowed body looses what its monster looses
+                    // (`bodies`), never the knight's own arm.
+                    let salt = mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 48);
+                    let pack = self.dungeon.pack;
+                    match bodies::loose(hero, *id, pack, &grid, &mut self.enemies, salt, &mut shots) {
+                        Some(bodies::Loosed::Bite(struck)) => {
+                            self.sounds.push("swing");
+                            for (i, dealt) in struck {
+                                let enemy = &self.enemies[i];
+                                credits.push((*id, dealt));
+                                self.feel.impact(enemy.x, enemy.y, Shot::Sacred, (enemy.x - hero.x, enemy.y - hero.y));
+                                self.sounds.push("hit");
+                            }
+                        }
+                        Some(bodies::Loosed::Volley(n)) if n > 0 => self.sounds.push("shot_spark"),
+                        _ => {}
+                    }
+                } else if hero.unarmed() {
                     hero.fire_cooldown = 9;
                     hero.swing = 5;
                     hero.sword = false;
@@ -2833,7 +3681,7 @@ impl Run {
                         let enemy = &mut self.enemies[i];
                         enemy.wits.foe = *id;
                         credits.push((*id, dealt));
-                        self.feel.impact(enemy.x, enemy.y, Shot::Sacred);
+                        self.feel.impact(enemy.x, enemy.y, Shot::Sacred, (enemy.x - hx, enemy.y - hy));
                         self.sounds.push("hit");
                         if !enemy.is_boss() && !matches!(enemy.kind, EnemyKind::Dummy | EnemyKind::Ward) {
                             if enemy.wits.flinch == 0 {
@@ -2903,193 +3751,46 @@ impl Run {
                                 shot.ttl = 0;
                             }
                         }
-                    } else if let Some(throw) = weapon.throw {
-                        // The blade flies out along the aim and comes back.
-                        hero.fire_cooldown = hero.cooldown(throw.every);
-                        hero.swing = 6;
-                        hero.sword = false;
-                        self.sounds.push("swing");
-                        let (ux, uy) = (hero.aim_x, hero.aim_y);
-                        let out = (throw.range / BLADE_SPEED * HZ as f32).ceil() as u16;
-                        shots.push(Projectile {
-                            x: hero.x + ux * 0.6,
-                            y: hero.y + uy * 0.6,
-                            vx: ux * BLADE_SPEED,
-                            vy: uy * BLADE_SPEED,
-                            hostile: false,
-                            kind: Shot::Blade,
-                            look: hero.shot_look(&self.book),
-                            damage: hero.scaled(throw.damage),
-                            pierce: u8::MAX,
-                            last_hit: None,
-                            empowered: false,
-                            ttl: u32::from(out) * 2 + 3 * HZ,
-                            traits: ShotTraits {
-                                back: 1,
-                                owner: *id as u8,
-                                out,
-                                ..ShotTraits::of(&hero.bonus)
-                            },
-                        });
-                    } else if let Some(bolt) = weapon.bolt {
-                        hero.fire_cooldown = hero.cooldown(bolt.every);
-                        self.sounds.push("shot_bolt");
-                        // (Hero::volley, by field: the forged weapon is borrowed.)
-                        hero.loosed = hero.loosed.wrapping_add(1);
-                        let volley = hero.bonus.volley > 0 && hero.loosed % hero.bonus.volley == 0;
-                        let dressed = hero.shot_look(&self.book);
-                        let count = weapon.shots() + hero.bonus.shots + if volley { 2 } else { 0 };
-                        let traits = ShotTraits {
-                            owner: *id as u8,
-                            ..ShotTraits::of(&hero.bonus)
-                        };
-                        let arc = weapon
-                            .spread
-                            .map_or(0.0, |spread| spread.arc.to_radians())
-                            .max(if volley { VOLLEY_FAN } else { FAN } * (count - 1) as f32);
-                        let angle = hero.aim_y.atan2(hero.aim_x);
-                        // However it was forged, its shots fly fast.
-                        let speed = bolt.speed.max(cards::FORGED_SPEED);
-                        if feel::ledger_on() {
-                            self.feel.ledger.entry(*id).or_default().shots += count;
-                        }
-                        for i in 0..count {
-                            let theta = angle
-                                + if count > 1 {
-                                    arc * (i as f32 / (count - 1) as f32 - 0.5)
-                                } else {
-                                    0.0
-                                };
-                            shots.push(Projectile {
-                                x: hero.x + theta.cos() * 0.6,
-                                y: hero.y + theta.sin() * 0.6,
-                                vx: theta.cos() * speed,
-                                vy: theta.sin() * speed,
-                                hostile: false,
-                                kind: Shot::Bolt,
-                                damage: hero.scaled(bolt.damage),
-                                pierce: hero.bonus.pierce as u8,
-                                last_hit: None,
-                                empowered: false,
-                                ttl: (bolt.range / speed * HZ as f32).ceil() as u32,
-                                look: dressed.clone().or_else(|| {
-                                    Some((weapon.colour.clone(), weapon.shape.clone()))
-                                }),
-                                traits: traits.clone(),
-                            });
+                    } else {
+                        // A forged weapon's throw or bolts (`Hero::loose`).
+                        let rng = mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 48);
+                        let flying = in_flight(&self.projectiles, *id);
+                        match hero.loose(*id, &self.book, false, rng, flying, &mut shots) {
+                            Some(Loosed::Throw) => self.sounds.push("swing"),
+                            Some(Loosed::Bolts(count)) => {
+                                self.sounds.push("shot_bolt");
+                                self.floor_tally.line(*id).shots += count;
+                                if feel::ledger_on() {
+                                    self.feel.ledger.entry(*id).or_default().shots += count;
+                                }
+                            }
+                            Some(Loosed::Arm(..)) | None => {}
                         }
                     }
                 } else {
-                    let arms = hero.weapon.arms();
-                    let temper = hero.temper.min(feel::TEMPER_MAX);
-                    hero.fire_cooldown = hero.cooldown(arms.cooldown);
                     // A Mage's bolt and a Healer's spark sound their own.
                     self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                         Weapon::Fists => unreachable!("fists use the punch branch"),
                         Weapon::Bow => "shot_bow",
+                        Weapon::Notes | Weapon::Stones => "shot_spark",
                         Weapon::Crossbow => "shot_crossbow",
                         Weapon::Handgonne => "shot_handgonne",
                     }));
-                    let volley = hero.volley();
-                    let extra = hero.bonus.shots + if volley { 2 } else { 0 };
-                    // A card's dressing first; else the class's own shot.
-                    let dressed = hero.shot_look(&self.book).or_else(|| classes::shot_look(hero));
-                    let fan = if volley { VOLLEY_FAN } else { FAN };
                     let burning = hero.weapon == Weapon::Bow
                         && self.works.kits.get(id).is_some_and(|k| k.burning > 0);
-                    let base = ShotTraits {
-                        owner: *id as u8,
-                        temper,
-                        fire: burning,
-                        arm: true,
-                        ..ShotTraits::of(&hero.bonus)
+                    let rng = mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 48);
+                    let flying = in_flight(&self.projectiles, *id);
+                    let Some(Loosed::Arm(count, (ax, ay))) = hero.loose(*id, &self.book, burning, rng, flying, &mut shots) else {
+                        unreachable!("a plain arm looses its own shots")
                     };
-                    // A stream strays a little, so it looks alive.
-                    let roll =
-                        mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 48);
-                    let wobble = (roll % 2001) as f32 / 1000.0 - 1.0;
-                    let angle = hero.aim_y.atan2(hero.aim_x) + wobble * arms.jitter;
-                    let (ax, ay) = (angle.cos(), angle.sin());
-                    // Each pull: the arm's own shape, then tempering's.
-                    let mut pull: Vec<(f32, f32, ShotTraits)> = Vec::new();
-                    match hero.weapon {
-                        Weapon::Fists => unreachable!("fists use the punch branch"),
-                        Weapon::Handgonne => {
-                            // Each extra shot a card gives is another fan's worth.
-                            let balls =
-                                (arms.shots + if temper >= 1 { 2 } else { 0 }) * (1 + extra);
-                            let arc = arms.arc.to_radians() + fan * extra as f32;
-                            let traits = ShotTraits {
-                                bounce: base.bounce.max(u8::from(temper >= 2)),
-                                ..base
-                            };
-                            for i in 0..balls {
-                                let k = i as f32 / (balls - 1).max(1) as f32 - 0.5;
-                                pull.push((angle + arc * k, 0.0, traits.clone()));
-                            }
-                        }
-                        Weapon::Bow | Weapon::Crossbow => {
-                            // A tempered bow looses streams side by side.
-                            let lanes: &[f32] = match (hero.weapon, temper) {
-                                (Weapon::Bow, 0) => &[0.0],
-                                (Weapon::Bow, 1) => &[-0.3, 0.3],
-                                (Weapon::Bow, _) => &[-0.55, 0.0, 0.55],
-                                _ => &[0.0],
-                            };
-                            let count = 1 + extra;
-                            for &lane in lanes {
-                                let traits = ShotTraits {
-                                    // The outer streams of a thrice-tempered bow home.
-                                    homing: if temper >= 3 && lane != 0.0 {
-                                        base.homing.max(2)
-                                    } else {
-                                        base.homing
-                                    },
-                                    // A thrice-tempered rail chains.
-                                    chain: if hero.weapon == Weapon::Crossbow && temper >= 3 {
-                                        base.chain.max(2)
-                                    } else {
-                                        base.chain
-                                    },
-                                    ..base.clone()
-                                };
-                                for i in 0..count {
-                                    let theta = angle + fan * (i as f32 - (count - 1) as f32 / 2.0);
-                                    pull.push((theta, lane, traits.clone()));
-                                }
-                            }
-                        }
-                    }
+                    self.floor_tally.line(*id).shots += count;
                     if feel::ledger_on() {
-                        self.feel.ledger.entry(*id).or_default().shots += pull.len() as u32;
-                    }
-                    for (theta, lane, traits) in pull {
-                        let (ux, uy) = (theta.cos(), theta.sin());
-                        shots.push(Projectile {
-                            x: hero.x + ux * 0.6 - ay * lane,
-                            y: hero.y + uy * 0.6 + ax * lane,
-                            vx: ux * arms.speed,
-                            vy: uy * arms.speed,
-                            hostile: false,
-                            kind: match hero.weapon {
-                                Weapon::Fists => unreachable!("fists use the punch branch"),
-                                Weapon::Bow => Shot::Arrow,
-                                Weapon::Crossbow => Shot::Bolt,
-                                Weapon::Handgonne => Shot::Ball,
-                            },
-                            look: dressed.clone(),
-                            damage: hero.scaled(arms.damage),
-                            pierce: arms.pierce.saturating_add(hero.bonus.pierce as u8),
-                            last_hit: None,
-                            empowered: false,
-                            traits,
-                            ttl: arms.ttl,
-                        });
+                        self.feel.ledger.entry(*id).or_default().shots += count;
                     }
                     let muzzle = (hero.x + ax * 0.9, hero.y + ay * 0.9);
                     match hero.weapon {
                         Weapon::Fists => unreachable!("fists use the punch branch"),
-                        Weapon::Bow => {}
+                        Weapon::Bow | Weapon::Notes | Weapon::Stones => {}
                         Weapon::Crossbow => self.feel.puff(muzzle.0, muzzle.1, (ax, ay), false),
                         Weapon::Handgonne => {
                             self.feel.puff(muzzle.0, muzzle.1, (ax, ay), false);
@@ -3106,27 +3807,52 @@ impl Run {
             }
         }
         tune::tune_knights(&mut self.players, &self.tune, &cooled, &mut shots);
+        wishcraft::shape(&mut shots);
         if bombs > 0 {
             // A bomb clears the monsters' shots around the knight who threw
-            // it, not the whole room.
+            // it, not the whole room: each pops where it hung.
+            let feel = &mut self.feel;
             self.projectiles.retain(|p| {
-                !p.hostile
+                let kept = !p.hostile
                     || booms
                         .iter()
-                        .all(|&(x, y)| (p.x - x).hypot(p.y - y) > BOMB_CLEAR)
+                        .all(|&(x, y)| (p.x - x).hypot(p.y - y) > BOMB_CLEAR);
+                if !kept {
+                    feel.impact(p.x, p.y, p.kind, (0.0, 0.0));
+                }
+                kept
             });
         }
         // A bomb or a Thunder Scroll is spent when used and hits for a fixed
         // sum, whatever the knight holds: it still reaches the whole room,
         // outside the area rule (`aoe`).
         let blast = BOMB_DAMAGE * bombs + nova;
+        // On an open map a blast fills what is round it, not the floor.
+        let open_blast: Option<Vec<(f32, f32)>> = self.open_map().then(|| {
+            booms
+                .iter()
+                .copied()
+                .chain(self.players.get(&blast_owner).filter(|_| nova > 0).map(|h| (h.x, h.y)))
+                .collect()
+        });
         if blast > 0 {
             for enemy in &mut self.enemies {
+                if open_blast
+                    .as_ref()
+                    .is_some_and(|at| !at.iter().any(|&(x, y)| (enemy.x - x).hypot(enemy.y - y) <= depths::OPEN_BLAST))
+                {
+                    continue;
+                }
                 let actual = blast.min(enemy.hp);
                 enemy.hp = enemy.hp.saturating_sub(blast);
+                if actual > 0 && enemy.is_boss() {
+                    self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                }
                 if blast_owner > 0 && actual > 0 {
                     enemy.wits.foe = blast_owner;
                     self.feel.credit(blast_owner, enemy.id, actual, self.tick);
+                    // The Gunner's boards: every foe a bomb felled.
+                    self.school.note(blast_owner, "gunner-bombs", 1);
                 }
             }
         }
@@ -3138,7 +3864,7 @@ impl Run {
             .players
             .iter()
             .filter(|(_, hero)| {
-                hero.hp > 0 && !hero.stone && !hero.has_rune(runes::RuneKind::Invisibility)
+                hero.targetable() && !hero.has_rune(runes::RuneKind::Invisibility)
             })
             .map(|(&id, hero)| (id, hero.x, hero.y))
             .collect();
@@ -3159,7 +3885,7 @@ impl Run {
             .players
             .iter()
             .filter(|(_, hero)| {
-                hero.hp > 0 && !hero.stone && !hero.has_rune(runes::RuneKind::Invisibility)
+                hero.targetable() && !hero.has_rune(runes::RuneKind::Invisibility)
             })
             .map(|(id, hero)| {
                 let (x, y) = stood.get(id).copied().unwrap_or((hero.x, hero.y));
@@ -3178,7 +3904,28 @@ impl Run {
             .count();
         let mut paces = Vec::with_capacity(knights.len() + decoys.len());
         let holding = self.holding();
+        // An open map's leashes: each chamber's stone and a little round it.
+        let leashes = self.leashes();
+        // What the room's hostile shots weigh against a guardian's caps.
+        let standing: u32 = self
+            .projectiles
+            .iter()
+            .filter(|p| p.hostile)
+            .map(signatures::weight)
+            .sum();
+        let wanted = self.dungeon.rooms[self.at].kind == RoomKind::Wanted;
+        // The charge-ups still about: a guardian winds up no other until
+        // everything of its last is gone (`signatures::due`).
+        let lingering: Vec<u32> = self
+            .projectiles
+            .iter()
+            .map(|p| p.traits.blow)
+            .chain(self.ravages.iter().map(|r| r.blow))
+            .filter(|&blow| blow != 0)
+            .collect();
         for enemy in &mut self.enemies {
+            enemy.signature.lingering =
+                enemy.signature.blow != 0 && lingering.contains(&enemy.signature.blow);
             if enemy.hp == 0 {
                 continue;
             }
@@ -3187,11 +3934,16 @@ impl Run {
             if holding {
                 continue;
             }
-            if press::held(enemy) {
+            // Waiting in its chamber for a knight to come (`depths`).
+            if enemy.dormant {
+                enemy.age = enemy.age.saturating_add(1);
+                continue;
+            }
+            if enemy.asleep(self.tick) || press::held(enemy) {
                 // Stunned, or held in a Stillhour: nothing moves.
                 continue;
             }
-            press::sights(enemy, &knights, &decoys, &mut living);
+            peasant::sights(self.tick, &self.scarecrows, enemy, &knights, &decoys, &mut living);
             // Lead patterns use the same targets as ordinary attacks, with
             // each selected knight's pace in the matching slot. Decoys stand still.
             paces.clear();
@@ -3228,12 +3980,44 @@ impl Run {
             if self.tune.foe_pace != 1.0 {
                 tune::foe_step(enemy, from, self.tune.foe_pace, &grid);
             }
-            if enemy.fury > 0 && shots.len() > fired {
+            // A guardian in its own room fans nothing out: a party meets
+            // more of it in the room at once (`signatures::hold`), never
+            // thicker volleys.
+            let guardian = enemy.boss.is_some() && !wanted;
+            if enemy.fury > 0 && shots.len() > fired && !guardian {
                 stakes::fan_out(enemy.fury, &mut shots, fired);
             }
             // Its pattern, thickened by its own numbers, never fanned.
             patterns::volley(enemy, &sight, &grid, self.seed, &self.bosses, &mut shots);
+            // A library guardian's shots wear its own bank; a dart, an orb
+            // or a lob keeps the look of what it does (`patterns::Form`),
+            // its landing ring and its girth in sight.
+            if let Some(art) = enemy.boss
+                .and_then(|i| self.bosses.get(usize::from(i)))
+                .and_then(|b| bosses::Art::for_id(&b.id))
+            {
+                for shot in shots[fired..].iter_mut().filter(|s| s.traits.path.form == patterns::Form::Plain) {
+                    shot.look = art.look();
+                }
+            }
+            // A guardian in its own room is held to its stage's caps.
+            if let Some(boss) = enemy.boss.and_then(|b| self.bosses.get(usize::from(b)))
+                && !wanted
+            {
+                let before: u32 = shots[..fired].iter().map(signatures::weight).sum();
+                signatures::hold(
+                    enemy,
+                    boss,
+                    &mut shots,
+                    fired,
+                    &mut deeds.bursts,
+                    standing + before,
+                    heads,
+                );
+            }
+            shots.append(&mut deeds.bursts);
             critters::quicken(enemy, from, &grid);
+            wishcraft::slow(enemy, from, &grid);
             // A barricade stops whatever walks into it.
             skills::shove(enemy, &self.works.barricades);
             if side && !enemy.kind.flies() && !outlaw::own_gravity(enemy, &grid) {
@@ -3241,12 +4025,21 @@ impl Run {
                 enemy.y = rest;
                 ledge::fall(enemy, &grid);
             }
+            // Never farther from home than its leash.
+            if let Some(&(x0, y0, x1, y1)) = enemy.home.and_then(|h| leashes.get(usize::from(h))) {
+                let out = |(x, y): (f32, f32)| (x0 - x).max(0.0) + (x - x1).max(0.0) + (y0 - y).max(0.0) + (y - y1).max(0.0);
+                if out((enemy.x, enemy.y)) > out(from) {
+                    (enemy.x, enemy.y) = from;
+                }
+            }
         }
+        let loosed = self.projectiles.len();
         self.projectiles.extend(
             shots
                 .into_iter()
                 .take(MAX_PROJECTILES.saturating_sub(self.projectiles.len())),
         );
+        self.hostile_shots += hostile_past(&self.projectiles, loosed);
         // Swept segments prevent fast shots tunnelling through small targets.
         let walls: Vec<((f32, f32), (f32, f32), u32)> = self
             .players
@@ -3266,7 +4059,7 @@ impl Run {
         let standing: Vec<(u32, f32, f32)> = self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone)
+            .filter(|(_, h)| h.targetable())
             .map(|(&id, h)| (id, h.x, h.y))
             .collect();
         let mut leaps = 0u32;
@@ -3276,6 +4069,13 @@ impl Run {
             .filter(|(_, h)| h.hp > 0)
             .map(|(&id, h)| (id, h.x, h.y))
             .collect();
+        // What a borrowed shot turns after: the monsters (`bodies`).
+        let foes_at: Vec<(u32, f32, f32)> = self
+            .enemies
+            .iter()
+            .filter(|e| e.hp > 0 && !e.buried())
+            .map(|e| (e.id, e.x, e.y))
+            .collect();
         let spheres = self.spheres.clone();
         let mut overkill = false;
         // What pattern shots burst into this tick.
@@ -3284,7 +4084,8 @@ impl Run {
         // and turned, foes set burning, clouds a ball lit.
         let mut grazes: Vec<u32> = Vec::new();
         let mut splits: Vec<Projectile> = Vec::new();
-        let mut burns: Vec<(u32, u8)> = Vec::new();
+        let mut burns: Vec<(u32, u8, u8)> = Vec::new();
+        let mut poisons: Vec<(u32, u8, u8)> = Vec::new();
         let mut turned: Vec<u8> = Vec::new();
         let mut kegs: Vec<(usize, u8)> = Vec::new();
         let shields: Vec<(f32, f32)> = self.works.flights.iter().map(|f| (f.x, f.y)).collect();
@@ -3308,16 +4109,53 @@ impl Run {
             {
                 continue;
             }
-            // A beam warns, then burns down its line; it never flies.
+            // A beam warns, then burns down its line; it never flies. A
+            // borrowed one burns the monsters (`bodies`).
             if bullet.traits.path.beam.is_some() && bullet.traits.path.wait == 0 {
-                patterns::shine(bullet, &mut self.players, &grid, &mut self.sounds);
+                if bullet.traits.borrowed {
+                    let owner = u32::from(bullet.traits.owner);
+                    for (i, dealt) in patterns::shine_foes(bullet, &mut self.enemies, &grid) {
+                        let enemy = &mut self.enemies[i];
+                        enemy.wits.foe = owner;
+                        credits.push((owner, dealt));
+                        self.feel.impact(enemy.x, enemy.y, bullet.kind, (0.0, 0.0));
+                        self.sounds.push("hit");
+                    }
+                } else {
+                    patterns::shine(bullet, &mut self.players, &grid, &mut self.sounds, &mut self.feel);
+                }
+                continue;
+            }
+            // A lob flies over everything and comes down on its mark; a
+            // borrowed one on the monsters there.
+            if bullet.traits.path.form == patterns::Form::Lob && !bullet.traits.path.waiting() {
+                if bullet.traits.borrowed {
+                    if let Some(struck) = patterns::lob_foes(bullet, &mut self.enemies) {
+                        self.feel.impact(bullet.x, bullet.y, bullet.kind, (0.0, 0.0));
+                        let owner = u32::from(bullet.traits.owner);
+                        for (i, dealt) in struck {
+                            self.enemies[i].wits.foe = owner;
+                            credits.push((owner, dealt));
+                            self.sounds.push("hit");
+                        }
+                    }
+                } else if patterns::lob(bullet, &mut self.players, &mut self.sounds) {
+                    // It bursts where it came down.
+                    self.feel.impact(bullet.x, bullet.y, bullet.kind, (0.0, 0.0));
+                }
                 continue;
             }
             let old_x = bullet.x;
             let old_y = bullet.y;
+            // How near stone and props its body comes (`patterns::body`).
+            let body = patterns::body(bullet);
             // A pattern shot waits, or changes speed, turns, weaves, stops
             // or bursts, before it moves.
-            if patterns::steer(bullet, &standing, &mut pops) == patterns::Steer::Hold {
+            let marks = if bullet.traits.borrowed { &foes_at } else { &standing };
+            if patterns::steer(bullet, marks, &mut pops) == patterns::Steer::Hold {
+                if bullet.ttl == 0 {
+                    self.feel.boss_impact(bullet);
+                }
                 continue;
             }
             // A thrown blade: out for its range, then home to the hand.
@@ -3337,7 +4175,8 @@ impl Run {
                             bullet.ttl = 0;
                             continue;
                         }
-                        (bullet.vx, bullet.vy) = (dx / d * BLADE_SPEED, dy / d * BLADE_SPEED);
+                        let speed = wishcraft::home_speed(bullet, BLADE_SPEED);
+                        (bullet.vx, bullet.vy) = (dx / d * speed, dy / d * speed);
                     }
                     None => bullet.ttl = 0,
                 },
@@ -3363,7 +4202,7 @@ impl Run {
             bullet.x += bullet.vx * DT;
             bullet.y += bullet.vy * DT;
             let stone = if !bullet.hostile && bullet.traits.back != 2 {
-                grid.shot_stop((old_x, old_y), (bullet.x, bullet.y))
+                grid.shot_stop_body((old_x, old_y), (bullet.x, bullet.y), body)
             } else {
                 None
             };
@@ -3451,6 +4290,12 @@ impl Run {
                     bullet.damage = bullet.damage * (100 + empower) / 100;
                 }
             }
+            if bullet.hostile && self.scarecrows.iter().any(|d| d.active(self.tick)
+                && hit_segment(old_x, old_y, bullet.x, bullet.y, d.x, d.y, peasant::DECOY_RADIUS))
+            {
+                bullet.ttl = 0;
+                continue;
+            }
             if bullet.hostile
                 && let Some(phantom) = self.phantoms.iter_mut().find(|p| {
                     p.left > 0 && hit_segment(old_x, old_y, bullet.x, bullet.y, p.x, p.y, 0.6)
@@ -3478,11 +4323,12 @@ impl Run {
                 continue;
             }
             if bullet.hostile {
-                for (&id, hero) in self
-                    .players
-                    .iter_mut()
-                    .filter(|(_, hero)| hero.hp > 0 && !hero.stone)
-                {
+                // The knight it meets first along its step: at a raised
+                // shield's face, or at the body (`shield`). A Peasant
+                // deserting is no one's mark (`peasant`).
+                let (from, to) = ((old_x, old_y), (bullet.x, bullet.y));
+                let mut first: Option<(u32, shield::Meet)> = None;
+                for (&id, hero) in self.players.iter().filter(|(_, h)| h.targetable()) {
                     // Rimeleap never strikes the knight it just left.
                     if bullet.kind == Shot::Frost && bullet.last_hit == Some(id) {
                         continue;
@@ -3492,40 +4338,56 @@ impl Run {
                     } else {
                         0.0
                     };
-                    let hit = hit_segment(
-                        old_x,
-                        old_y,
-                        bullet.x,
-                        bullet.y,
-                        hero.x,
-                        hero.y + crouch,
-                        HERO_RADIUS + 0.16,
-                    );
-                    // A graze: close, and past, once a shot (`feel`).
-                    if !hit
-                        && !bullet.traits.once
-                        && hero.invulnerable == 0
-                        && hit_segment(
-                            old_x,
-                            old_y,
-                            bullet.x,
-                            bullet.y,
-                            hero.x,
-                            hero.y + crouch,
-                            HERO_RADIUS + 0.16 + feel::GRAZE,
-                        )
+                    // A dart strikes close, a heavy orb wide (`patterns::girth`).
+                    let centre = (hero.x, hero.y + crouch);
+                    if let Some(meet) = shield::meets(hero, centre, from, to, HERO_RADIUS + patterns::girth(bullet))
+                        && first.is_none_or(|(_, f)| meet.t < f.t)
+                    {
+                        first = Some((id, meet));
+                    }
+                }
+                // A graze: close, and past, once a shot (`feel`).
+                for (&id, hero) in self.players.iter().filter(|(_, h)| h.targetable()) {
+                    if bullet.traits.once || first.is_some_and(|(met, _)| met == id) {
+                        continue;
+                    }
+                    if bullet.kind == Shot::Frost && bullet.last_hit == Some(id) {
+                        continue;
+                    }
+                    let crouch = if self.works.kits.get(&id).is_some_and(|k| k.duck) {
+                        skills::DUCK_DROP
+                    } else {
+                        0.0
+                    };
+                    let reach = HERO_RADIUS + patterns::girth(bullet);
+                    let (x, y) = (hero.x, hero.y + crouch);
+                    if hero.invulnerable == 0
+                        && !hit_segment(old_x, old_y, bullet.x, bullet.y, x, y, reach)
+                        && hit_segment(old_x, old_y, bullet.x, bullet.y, x, y, reach + feel::GRAZE)
                     {
                         bullet.traits.once = true;
                         grazes.push(id);
                     }
-                    if hit {
-                        bullet.ttl = 0;
-                        // A raised shield turns what comes at its face.
-                        let speed = bullet.vx.hypot(bullet.vy).max(0.001);
-                        let facing = -(bullet.vx * hero.aim_x + bullet.vy * hero.aim_y) / speed;
-                        if hero.shielding && facing >= SHIELD_ARC.to_radians().cos() {
-                            self.sounds.push("shield_block");
-                        } else if hero.invulnerable == 0 && bullet.kind == Shot::Hex {
+                }
+                if let Some((id, meet)) = first {
+                    bullet.ttl = 0;
+                    if meet.shield {
+                        // Stopped at the shield's face, never in the knight.
+                        (bullet.x, bullet.y) = meet.at;
+                    }
+                    // A boss's shot bursts in its own bank where it lands.
+                    self.feel.boss_impact(bullet);
+                    if meet.shield {
+                        let way = unit(bullet.vx, bullet.vy);
+                        let out = self
+                            .players
+                            .get(&id)
+                            .map_or((-way.0, -way.1), |h| (meet.at.0 - h.x, meet.at.1 - h.y));
+                        let weight = shield::weight(bullet);
+                        self.sounds.push("shield_block");
+                        self.feel.block(id, meet.at, out, way, bullet.kind, weight);
+                    } else if let Some(hero) = self.players.get_mut(&id) {
+                        if hero.invulnerable == 0 && bullet.kind == Shot::Hex {
                             hexed.push(id);
                         } else if bullet.kind == Shot::Frost {
                             if hero.invulnerable == 0 {
@@ -3537,7 +4399,7 @@ impl Run {
                             }
                             // Rimeleap leaps on to the nearest other knight.
                             if bullet.pierce > 0
-                                && let Some((next, nx, ny)) =
+                                && let Some((_, nx, ny)) =
                                     lich::next_link(&standing, id, (hero.x, hero.y))
                             {
                                 let speed = bullet.vx.hypot(bullet.vy).max(1.0);
@@ -3547,14 +4409,16 @@ impl Run {
                                 bullet.pierce -= 1;
                                 bullet.last_hit = Some(id);
                                 bullet.ttl = 4 * HZ;
-                                let _ = next;
                                 leaps += 1;
+                            }
+                        } else if bullet.traits.blow != 0 {
+                            if hero.blow(bullet.damage, bullet.traits.blow) {
+                                self.sounds.push("hero_hurt");
                             }
                         } else if hero.invulnerable == 0 {
                             hero.hurt(bullet.damage);
                             self.sounds.push("hero_hurt");
                         }
-                        break;
                     }
                 }
             } else {
@@ -3591,13 +4455,18 @@ impl Run {
                             bullet.y,
                             enemy.x,
                             enemy.y,
-                            enemy.radius() + thick,
+                            enemy.radius() + thick + bullet.reach(),
                         )
                     {
                         if critters::blocks(enemy, bullet.vx, bullet.vy) {
-                            // A tower shield turns it.
+                            // A tower shield turns it, but each shot it
+                            // turns tells: enough and it is knocked aside.
                             bullet.ttl = 0;
-                            self.sounds.push("shield_block");
+                            if critters::guard_struck(enemy, bullet.damage) {
+                                self.sounds.push("clang");
+                            } else {
+                                self.sounds.push("shield_block");
+                            }
                             break;
                         }
                         // A shot that passes through counts the monsters it
@@ -3606,18 +4475,31 @@ impl Run {
                         let dealt = dealt
                             + signatures::rear_bonus(enemy, &self.bosses, (old_x, old_y), dealt);
                         let first_hit = bullet.traits.struck == 0;
+                        // One arrow, two foes: a pierce counts for the
+                        // school's boards the moment it meets its second.
+                        if bullet.traits.struck == 1 && enemy.hp == 0 {
+                            let owner = u32::from(bullet.traits.owner);
+                            self.school.note(owner, "archer-pierce", 1);
+                        }
                         bullet.traits.struck = bullet.traits.struck.saturating_add(1);
                         if rail {
                             bullet.traits.pierced.push(enemy.id);
                         }
                         let actual = dealt.min(enemy.hp);
                         enemy.hp = enemy.hp.saturating_sub(dealt);
+                        if actual > 0 && enemy.is_boss()
+                            && (bullet.empowered || matches!(bullet.kind, Shot::Sacred | Shot::Missile))
+                        {
+                            self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                        }
                         bullet.last_hit = Some(enemy.id);
                         if bullet.traits.owner > 0 {
                             let owner = u32::from(bullet.traits.owner);
                             credits.push((owner, actual));
                             // It turns on whoever hurt it (`press`).
                             enemy.wits.foe = owner;
+                            self.floor_tally.line(owner).hits +=
+                                u32::from(first_hit && (bullet.traits.arm || bullet.look.is_some()));
                             if feel::ledger_on() {
                                 self.feel.wounded.entry(enemy.id).or_insert(tick);
                                 let tally = self.feel.ledger.entry(owner).or_default();
@@ -3632,15 +4514,18 @@ impl Run {
                             enemy.x - ux * enemy.radius(),
                             enemy.y - uy * enemy.radius(),
                             bullet.kind,
+                            (ux, uy),
                         );
-                        let anchored = enemy.is_boss()
+                        let anchored = enemy.asleep(self.tick) || enemy.is_boss()
                             || matches!(enemy.kind, EnemyKind::Dummy | EnemyKind::Ward);
                         if enemy.hp > 0 && !anchored {
                             if enemy.wits.flinch == 0 {
                                 enemy.frozen = enemy.frozen.max(feel::JOLT_HIT);
                                 enemy.wits.flinch = feel::FLINCH;
                             }
-                            let push = feel::knock(bullet.kind);
+                            // A Peasant's stone shoves its own way; else a
+                            // wish's knock (`wishcraft`).
+                            let push = if peasant::stone(bullet) { peasant::STONE_KNOCK } else { wishcraft::knock(bullet) };
                             if push > 0.0 {
                                 let (ux, uy) = unit(bullet.vx, bullet.vy);
                                 let mover = if enemy.kind.flies() {
@@ -3658,8 +4543,17 @@ impl Run {
                         {
                             self.fx.push(Fx::Shake(feel::SHAKE_KILL));
                         }
-                        if bullet.traits.fire {
-                            burns.push((enemy.id, bullet.traits.owner));
+                        // The Gunner's boards: a foe a handgonne ball felled.
+                        if enemy.hp == 0 && bullet.kind == Shot::Ball && bullet.traits.arm {
+                            let owner = u32::from(bullet.traits.owner);
+                            self.school.note(owner, "gunner-ball", 1);
+                        }
+                        if bullet.traits.fire || bullet.traits.burn > 0 {
+                            burns.push((enemy.id, bullet.traits.owner, bullet.traits.burn.max(1)));
+                        }
+                        wishcraft::chill(enemy, bullet);
+                        if bullet.traits.poison > 0 {
+                            poisons.push((enemy.id, bullet.traits.owner, bullet.traits.poison));
                         }
                         // A twice-tempered rail splits on its first kill.
                         if rail && enemy.hp == 0 && bullet.traits.temper >= 2 {
@@ -3723,7 +4617,10 @@ impl Run {
                         if bullet.traits.fart > 0 && bullet.traits.owner > 0 {
                             farts.push((enemy.x, enemy.y, bullet.traits.owner, bullet.traits.fart));
                         }
-                        if bullet.pierce == 0 {
+                        if bullet.pierce == 0 && wishcraft::turn_home(bullet) {
+                            // A boomerang turns home off what it struck.
+                            break;
+                        } else if bullet.pierce == 0 {
                             // Fork: where it stops, two fly on at an angle,
                             // past the one it struck, as new shots.
                             if bullet.traits.fork > 0 && bullet.traits.back == 0 {
@@ -3752,7 +4649,10 @@ impl Run {
                     }
                 }
             }
-            if stone.is_some() || grid.stops_shot(bullet.x, bullet.y) {
+            if stone.is_some()
+                || (bullet.traits.back != 2 && grid.stops_body(bullet.x, bullet.y, body))
+                || grid.stops_shot(bullet.x, bullet.y)
+            {
                 if bullet.traits.back == 1 {
                     // A thrown blade turns home off the stone; coming back
                     // it passes over everything.
@@ -3764,8 +4664,8 @@ impl Run {
                     // Off the stone it came against: across, along, or both
                     // in a corner. It may hit the same monster again. A
                     // monster's bouncing pattern shot comes off the same way.
-                    let across = grid.stops_shot(bullet.x, old_y);
-                    let along = grid.stops_shot(old_x, bullet.y);
+                    let across = grid.stops_body(bullet.x, old_y, body);
+                    let along = grid.stops_body(old_x, bullet.y, body);
                     if across || !along {
                         bullet.vx = -bullet.vx;
                     }
@@ -3783,8 +4683,12 @@ impl Run {
                     {
                         self.feel
                             .stick(bullet.x, bullet.y, (bullet.vx, bullet.vy), bullet.kind);
-                    } else if !bullet.hostile {
-                        self.feel.impact(bullet.x, bullet.y, bullet.kind);
+                    } else if bullet.hostile && bosses::Art::of_shot(bullet).is_some() {
+                        // A library guardian's shot breaks in its own bank.
+                        self.feel.boss_impact(bullet);
+                    } else {
+                        // A monster's shot breaks on stone with a spark too.
+                        self.feel.impact(bullet.x, bullet.y, bullet.kind, (bullet.vx, bullet.vy));
                     }
                     bullet.ttl = 0;
                 }
@@ -3792,13 +4696,34 @@ impl Run {
         }
         self.projectiles.retain(|p| p.ttl > 0);
         let room = MAX_PROJECTILES.saturating_sub(self.projectiles.len());
+        let popped = self.projectiles.len();
         self.projectiles.extend(pops.into_iter().take(room));
+        // A knight's forks and splits, while they have room under
+        // `KNIGHT_CHILDREN` (a fork of a fork of a fork, on every shot of a
+        // stacked volley, is eight a shot).
+        let mut flying = [0usize; 256];
+        for p in self.projectiles.iter().filter(|p| !p.hostile) {
+            flying[usize::from(p.traits.owner)] += 1;
+        }
         self.projectiles.extend(
             splits
                 .into_iter()
+                .filter(|s| {
+                    let owner = usize::from(s.traits.owner);
+                    if s.hostile || owner == 0 {
+                        return true;
+                    }
+                    flying[owner] += 1;
+                    flying[owner] <= KNIGHT_CHILDREN
+                })
                 .take(MAX_PROJECTILES.saturating_sub(self.projectiles.len())),
         );
+        self.hostile_shots += hostile_past(&self.projectiles, popped);
+        // The party's shots keep to their share of the screen (`cover`).
+        let view = cover::view(self.room());
+        cover::hold(&mut self.projectiles, view);
         self.land_synergies(burns, turned, kegs);
+        self.poison_hits(poisons);
         if overkill {
             self.notice("overkill");
         }
@@ -3808,6 +4733,7 @@ impl Run {
             self.call_imps(owner, &card);
         }
         self.tick_ults();
+        self.tick_bard_songs();
         self.charge_ults(&credits);
         self.credit_bats(&credits);
         self.apply_deeds(deeds);
@@ -3828,6 +4754,8 @@ impl Run {
         self.tick_runes();
         self.tick_hexes();
         self.tick_chill();
+        self.tick_grip();
+        self.tick_skulls();
         self.tick_items();
         self.tick_song();
         self.tick_hireling();
@@ -3863,11 +4791,21 @@ impl Run {
         if leaps > 0 {
             self.cues.push("frost_leap".into());
         }
-        if bombs > 0 {
+        if bombs > 0 && self.open_map() {
+            // On an open map only a bomb by the crack brings it down.
+            for &at in &booms {
+                self.blast_wall_open(at);
+            }
+        } else if bombs > 0 {
             // A knight's bomb fills the room: a cracked wall comes down.
             self.blast_wall(None);
         }
-        for mend in mends.into_values() {
+        for mend in mends.into_iter() {
+            let (mender, mend) = mend;
+            // The Healer's boards: mending done, a point at a time.
+            if mend > 0 && mender > 0 {
+                self.school.note(u32::from(mender), "healer-mend", mend);
+            }
             // The most hurt knight standing is mended.
             if let Some(hero) = self
                 .players
@@ -3895,7 +4833,9 @@ impl Run {
                 .filter(|e| {
                     e.hp > 0
                         && e.age >= TELEGRAPH
+                        && !e.dormant
                         && e.frozen == 0
+                        && !e.asleep(self.tick)
                         && e.kind != EnemyKind::Dummy
                         && e.kind != EnemyKind::Goblin
                         && e.hurts_by_touch()
@@ -3906,6 +4846,17 @@ impl Run {
             if let Some(damage) = touch {
                 hero.hurt(damage);
             }
+        }
+        // The school's boards: whoever fell this floor is out of the
+        // nobody-fell missions.
+        let fell: Vec<u32> = self
+            .players
+            .iter()
+            .filter(|(_, h)| h.hp == 0)
+            .map(|(&id, _)| id)
+            .collect();
+        for id in fell {
+            self.school_fell(id);
         }
         // A knight keeping vigil mends the living knights within its reach.
         if self.tick.is_multiple_of(u64::from(VIGIL_MEND_EVERY)) {
@@ -3932,8 +4883,14 @@ impl Run {
             hero.dress();
         }
         self.mark_hits();
-        for ((was, max), hero) in before.into_iter().zip(self.players.values()) {
+        for ((was, max), (&id, hero)) in before.into_iter().zip(self.players.iter()) {
             if hero.hp < was {
+                // The floor's tally: the blow taken, and a fall.
+                if self.dungeon.depth > 0 {
+                    let line = self.floor_tally.line(id);
+                    line.taken = line.taken.saturating_add(was - hero.hp);
+                    line.falls += u32::from(hero.hp == 0);
+                }
                 self.room_hurt = true;
                 if hero.hp == 0 {
                     self.cues.push("knight_down".into());
@@ -3951,6 +4908,13 @@ impl Run {
                 self.cues.push(format!("boss_rage:{}", boss.id));
             }
         }
+        for (id, raged, frozen, phase) in boss_beats {
+            if let Some(e) = self.enemies.iter().find(|e| e.id == id && e.hp > 0)
+                && ((!raged && e.raged) || (frozen == 0 && e.frozen > 0) || self.boss_phase(e) != phase)
+            {
+                self.hitstop.request(&self.tune, hitstop::Impact::Phase);
+            }
+        }
         self.tick_feel(&credits, &grazes);
         self.settle_kills();
         self.gather();
@@ -3960,9 +4924,13 @@ impl Run {
         if self.raid_rout() {
             return;
         }
-        // A party falls when no knight is left to fight and one has fallen:
-        // knights only turned to stone (their player away) never wipe it.
-        if self.players.values().all(|h| h.hp == 0 || h.stone)
+        // A party falls only when every knight someone plays has fallen. A
+        // knight turned to stone because its player is away is still in the
+        // run, waiting for them, and keeps it up: one knight's fall never
+        // ends a run while a friend's knight stands (the fallen one's skull
+        // waits to be carried). Only a seat nobody plays (`absent`, a host
+        // with no knight of their own) is left out.
+        if self.players.values().filter(|h| !h.absent).all(|h| h.hp == 0)
             && self.players.values().any(|h| h.hp == 0)
         {
             self.phase = Phase::Wiped;
@@ -3971,6 +4939,14 @@ impl Run {
             self.cues.push("wipe".into());
             self.bank_all(false, "the party fell");
             for id in self.players.keys().copied().collect::<Vec<_>>() { self.restore_gear(id); }
+            return;
+        }
+        // An open map's fights are its chambers' (`depths`).
+        if self.open_map() {
+            self.tick_open();
+            if self.phase == Phase::Exploring {
+                self.travel();
+            }
             return;
         }
         if !self.foes_left()
@@ -4012,6 +4988,19 @@ impl Run {
             }
             if !self.room_hurt {
                 self.notice("flawless");
+                // The school's boards: a room cleared without a scratch,
+                // by every knight standing.
+                let clean = self
+                    .players
+                    .iter()
+                    .filter(|(_, h)| h.hp > 0 && !h.stone)
+                    .map(|(&id, _)| id)
+                    .collect::<Vec<_>>();
+                for id in clean {
+                    self.school.note(id, "floor-untouched", 1);
+                    self.school.note(id, "healer-unfallen", 1);
+                    self.school.note(id, "shield-unmoved", 1);
+                }
             }
             self.cues.push(
                 if self.room_hurt {
@@ -4022,6 +5011,9 @@ impl Run {
                 .into(),
             );
             self.sounds.push("door_open");
+            // The floor's boss fell here: a wish window, while the floor
+            // has one (`overclass`). Asked before the stairs become a well.
+            let boss = self.floor_boss_here();
             // The first floor's guardian guarded a Sanctuary: every run
             // reaches a reforge before the descent.
             if self.room().kind == RoomKind::Stairs && self.dungeon.depth == 1 {
@@ -4050,6 +5042,11 @@ impl Run {
                 self.stairs_held = true;
                 self.cues.push("the_deep".into());
             }
+            if self.in_mire_kings_hall() {
+                // The Mire King is fallen: the pen opens, and once the
+                // white horse is out, the light leads home.
+                self.mire_king_falls();
+            }
             if self.room().kind == RoomKind::Threshold {
                 // The Unknown met: the Grail, and home.
                 self.phase = Phase::Won;
@@ -4068,7 +5065,12 @@ impl Run {
                 return;
             }
             self.phase = Phase::Exploring;
-            self.open_window();
+            if boss {
+                // The floor's boss fell: a super wish each (`overclass`).
+                self.give_wishes(0, 1);
+                // And the cauldron rises by the stairs (`cauldron`).
+                self.raise_cauldron();
+            }
         }
         if self.phase == Phase::Exploring {
             self.travel();
@@ -4079,8 +5081,10 @@ impl Run {
         // An outlaw felled after the hall's tick is paid before it is reaped.
         self.pay_outlaw();
         let mut camp_deaths = Vec::new();
+        let mut carrier_deaths: Vec<(u8, f32, f32, EnemyKind)> = Vec::new();
         let mut emission_deaths = Vec::new();
         let mut fallen: Vec<(EnemyKind, f32, f32)> = Vec::new();
+        let mut hoards: Vec<(Vec<EnemyKind>, f32, f32)> = Vec::new();
         let mut guardians: Vec<(usize, f32, f32)> = Vec::new();
         let mut mimics = Vec::new();
         let mut foes_fallen = Vec::new();
@@ -4100,6 +5104,7 @@ impl Run {
                 && let Some(slot) = e.camp_slot
             {
                 camp_deaths.push(slot);
+                carrier_deaths.push((slot, e.x, e.y, e.kind));
             }
             let emission_duplicate = !showdown
                 && self.boss_gates.as_ref().is_some_and(|g| {
@@ -4152,14 +5157,38 @@ impl Run {
                     .as_ref()
                     .is_some_and(|g| g.already_defeated(self.at, e.kind, e.boss))
             {
+                if e.wits.foe > 0 && self.players.contains_key(&e.wits.foe) {
+                    self.floor_tally.line(e.wits.foe).kills += 1;
+                }
                 if feel::ledger_on() && e.wits.foe > 0 {
                     let tally = self.feel.ledger.entry(e.wits.foe).or_default();
                     tally.kills += 1;
                     if let Some(first) = self.feel.wounded.remove(&e.id) {
                         tally.ttk += self.tick.saturating_sub(first);
                     }
+                    // The school's boards count what felled it, by class.
+                    self.school.note(e.wits.foe, "sword-duel", 1);
+                    self.school.note(e.wits.foe, "berserk-spin", 1);
+                    self.school.note(e.wits.foe, "mage-staff", 1);
+                    self.school.note(e.wits.foe, "shield-hold", 1);
+                    self.school.note(e.wits.foe, "bard-fell", 1);
+                    self.school.note(e.wits.foe, "peasant-fell", 1);
+                    if e.boss.is_some() {
+                        self.school.note(e.wits.foe, "sword-guardian", 1);
+                        self.school.note(e.wits.foe, "mage-guardian", 1);
+                        self.school.note(e.wits.foe, "bard-guardian", 1);
+                        self.school.note(e.wits.foe, "peasant-guardian", 1);
+                    }
+                }
+                if e.is_boss() {
+                    self.hitstop.request(&self.tune, hitstop::Impact::BossKill);
+                } else if hitstop::elite(e) {
+                    self.hitstop.request(&self.tune, hitstop::Impact::EliteKill);
                 }
                 fallen.push((e.kind, e.x, e.y));
+                if !e.hoard.is_empty() {
+                    hoards.push((e.hoard.clone(), e.x, e.y));
+                }
                 if e.kind == EnemyKind::Boss
                     && let Some(boss) = e.boss
                 {
@@ -4182,12 +5211,15 @@ impl Run {
             .as_ref()
             .is_some_and(boss_gates::Gates::unlocked);
         let mut unsealed = false;
+        let mut carrier_fell = None;
         if let Some(g) = &mut self.boss_gates {
             for &(boss, _, _) in &guardians {
-                let leader = g.leader(self.at).is_some();
-                if g.record(self.at, EnemyKind::Boss, Some(boss as u8)) && leader {
-                    self.cues
-                        .push(format!("leader_fall:{}", self.bosses[boss].name));
+                g.record(self.at, EnemyKind::Boss, Some(boss as u8));
+            }
+            // The chief's camp's elite fell with the Boss Key: its route is won.
+            for &(slot, x, y, kind) in &carrier_deaths {
+                if g.carrier_fell(self.at, slot) {
+                    carrier_fell = Some((x, y, kind));
                 }
             }
             if fallen.iter().any(|&(kind, _, _)| kind == EnemyKind::Dragon) {
@@ -4204,8 +5236,16 @@ impl Run {
                 unsealed = true;
             }
         }
-        // The chief whose fall opened the route drops the Boss Key.
-        if unsealed && let Some(&(_, x, y)) = guardians.last() {
+        // The key carrier whose fall opened the route drops the Boss Key.
+        if let Some((_, _, kind)) = carrier_fell {
+            self.cues
+                .push(format!("leader_fall:{}", keyring::bearer_name(kind)));
+        }
+        if unsealed
+            && let Some((x, y)) = carrier_fell
+                .map(|(x, y, _)| (x, y))
+                .or(guardians.last().map(|&(_, x, y)| (x, y)))
+        {
             self.drop_boss_key(x, y);
         }
         // A mimic coughs up the treasure it was pretending to be.
@@ -4227,7 +5267,7 @@ impl Run {
         self.leave_corpses(&fallen, &guardians);
         // Every death holds a white frame, then bursts (`feel`).
         for &(kind, x, y) in &fallen {
-            self.feel.death(x, y, kind.radius());
+            self.feel.death(x, y, kind);
         }
         // Humphrey falls apart, politely, and starts reassembling.
         if fallen.iter().any(|&(kind, ..)| kind == EnemyKind::Risen) {
@@ -4338,13 +5378,6 @@ impl Run {
         for (x, y, stash, loot) in goblins_fallen {
             self.goblin_bursts(x, y, stash, loot);
         }
-        // The audience counts the fallen too: a little each, more for the
-        // dangerous ones.
-        let watched: u32 = fallen
-            .iter()
-            .map(|(kind, ..)| if kind.elite() { 8 } else { 2 })
-            .sum();
-        self.thrill(watched);
         for &(kind, ..) in &fallen {
             self.mark_kill(kind);
         }
@@ -4380,16 +5413,34 @@ impl Run {
                 self.drop_item(card, x + 0.9, y + 0.5, None);
             }
         }
+        // A boss that stood alone leaves what its company would have.
+        for (hoard, x, y) in hoards {
+            for (n, kind) in hoard.into_iter().enumerate() {
+                let (dx, dy) = ((n % 3) as f32 * 1.4 - 1.4, (n / 3) as f32 * 1.2 + 1.0);
+                if self.rng.chance((loot::drop_chance(kind) * generous).min(100))
+                    && let Some(card) = self.book.roll_drop(&mut self.rng, pack)
+                {
+                    self.drop_item(card, x + dx, y + dy, None);
+                }
+                if self.rng.chance((loot::spoil_chance(kind) * generous).min(100))
+                    && let Some(card) = self.book.roll_spoil(&mut self.rng, pack)
+                {
+                    self.drop_item(card, x + dx + 0.9, y + dy + 0.5, None);
+                }
+            }
+        }
     }
 
     fn drop_item(&mut self, card: String, x: f32, y: f32, held_off: Option<u32>) {
+        let most = if self.open_map() { depths::OPEN_ITEMS } else { MAX_ITEMS };
         let room = &mut self.dungeon.rooms[self.at];
-        if room.items.len() < MAX_ITEMS {
+        if room.items.len() < most {
             room.items.push(Item {
                 card,
                 x,
                 y,
                 held_off,
+                took: Vec::new(),
             });
         }
     }
@@ -4429,7 +5480,7 @@ impl Run {
                     card,
                     x: cx + angle.cos() * 3.0,
                     y: cy + angle.sin() * 2.6,
-                    held_off: None,
+                    held_off: None, took: Vec::new(),
                 });
             }
         }
@@ -4439,6 +5490,10 @@ impl Run {
             .hireling
             .as_ref()
             .is_some_and(|h| h.kind == hireling::AllyKind::Beaumains);
+        // Shared loot: a card lies until every knight here has taken their
+        // own (an absent host's seat, or a knight left as stone, waits for
+        // no share).
+        let party: Vec<u32> = self.players.iter().filter(|(_, h)| !h.absent && !h.stone).map(|(&id, _)| id).collect();
         for (&id, hero) in self
             .players
             .iter_mut()
@@ -4460,8 +5515,10 @@ impl Run {
                         .iter()
                         .enumerate()
                         .filter(|(_, item)| {
-                            book.get(&item.card)
-                                .is_some_and(|c| gear::manual(c) && hero.takes(c))
+                            !item.took.contains(&id)
+                                && book.get(&item.card).is_some_and(|c| {
+                                    gear::manual(c) && hero.takes(c) && !school::locked(&self.home.school, hero, c)
+                                })
                         })
                         .map(|(i, item)| (i, (hero.x - item.x).hypot(hero.y - item.y)))
                         .filter(|&(_, d)| d < TAKE_REACH)
@@ -4474,17 +5531,28 @@ impl Run {
             let Some(index) = wanted.or_else(|| {
                 room.items.iter().position(|item| {
                     item.held_off.is_none()
+                        && !item.took.contains(&id)
                         && (hero.x - item.x).hypot(hero.y - item.y) < PICKUP_REACH
                         && book.get(&item.card).is_some_and(|card| {
                             !gear::manual(card)
                                 && hero.takes(card)
+                                // The school's locks: a card above the
+                                // knight's rank stays where it lies, for
+                                // someone who can.
+                                && !school::locked(&self.home.school, hero, card)
                                 && !(beaumains && card.summon().is_some())
                         })
                 })
             }) else {
                 continue;
             };
-            let item = room.items.swap_remove(index);
+            // Shared loot: the knight takes their own; the card lies on for
+            // the rest until every knight has (`loot::shared`).
+            let lies_on = book.get(&room.items[index].card).is_some_and(loot::shared) && {
+                room.items[index].took.push(id);
+                !party.iter().all(|p| room.items[index].took.contains(p))
+            };
+            let item = if lies_on { room.items[index].clone() } else { room.items.swap_remove(index) };
             let Some(card) = book.get(&item.card) else {
                 continue;
             };
@@ -4518,8 +5586,13 @@ impl Run {
                         hero.temper += 1;
                         took = "tempered";
                         self.cues.push(format!("temper:{}", hero.temper));
+                        if hero.temper == feel::TEMPER_MAX {
+                            self.school.note(id, "sword-temper", 1);
+                        }
                     } else {
-                        dropped.push((item.card.clone(), item.x, item.y, id));
+                        if !lies_on {
+                            dropped.push((item.card.clone(), item.x, item.y, id));
+                        }
                         continue;
                     }
                 }
@@ -4531,9 +5604,6 @@ impl Run {
                 }
                 cards::Kind::Spell => {
                     hero.equip_spell(card);
-                    if self.blasts.len() < 16 {
-                        self.blasts.push((hero.x, hero.y, BLAST_TICKS));
-                    }
                 }
                 cards::Kind::Guard => {
                     if let Some(old) = hero.guard_card.take() {
@@ -4544,6 +5614,13 @@ impl Run {
                 }
             }
             self.found = Some((self.tick, id, if gear::piece(&card.id) { format!("{}: worn", card.name) } else { format!("{took} {}", card.name) }));
+            // A glint rises where it lay, brighter for a rarer find.
+            let tier = match (card.kind, card.rarity) {
+                (_, cards::Rarity::Relic) => 2,
+                (cards::Kind::Spell, _) | (_, cards::Rarity::Rare) => 1,
+                _ => 0,
+            };
+            self.feel.glint(item.x, item.y, tier);
             self.sounds.push(if card.is_spoil() {
                 "spoil_pickup"
             } else {
@@ -4564,11 +5641,16 @@ impl Run {
                 card,
                 x,
                 y,
-                held_off: Some(id),
+                held_off: Some(id), took: Vec::new(),
             });
         }
         if nova > 0 {
+            let open = self.open_map();
+            let knights: Vec<(f32, f32)> = self.players.values().filter(|h| h.hp > 0).map(|h| (h.x, h.y)).collect();
             for enemy in &mut self.enemies {
+                if open && !knights.iter().any(|&(x, y)| (enemy.x - x).hypot(enemy.y - y) <= depths::OPEN_BLAST) {
+                    continue;
+                }
                 enemy.hp = enemy.hp.saturating_sub(nova);
             }
         }
@@ -4597,6 +5679,10 @@ impl Run {
             self.bank_all(true, "home with the dragon's hoard");
             return;
         }
+        // Through a door off an open map into its side room.
+        if self.open_doors() {
+            return;
+        }
         let mut exit = None;
         let mut exit_seat = None;
         let mut stairs_seat = None;
@@ -4606,9 +5692,20 @@ impl Run {
         let mut entrance: Option<&'static world::Entrance> = None;
         let home = self.at_home_now();
         let room = self.room();
+        // The fellowship: who counts, and who stands in which way out. A
+        // doorway or the stairs move the party only when every knight who
+        // counts stands in that same one (`fellowship`).
+        let mut counted = 0;
+        let mut in_door: BTreeMap<u32, usize> = BTreeMap::new();
+        let mut on_stairs: BTreeMap<u32, Option<&'static str>> = BTreeMap::new();
         // An away knight standing in a doorway or on a stair takes the party
         // nowhere, and does not hold the stair for those who come after.
-        for (&id, hero) in self.players.iter().filter(|(id, h)| h.hp > 0 && !h.stone && !self.away(**id)) {
+        for (&id, hero) in self
+            .players
+            .iter()
+            .filter(|(id, h)| h.hp > 0 && !h.stone && !h.absent && !self.away(**id))
+        {
+            counted += 1;
             let dir = if hero.y < 0.6 {
                 Some(0)
             } else if hero.x > room.width() - 0.6 {
@@ -4623,6 +5720,10 @@ impl Run {
             if dir.is_some() {
                 exit = dir;
                 exit_seat = Some(id);
+            }
+            if let Some(dir) = dir {
+                // Out of a side-on hall, any way out is its one doorway back.
+                in_door.insert(id, room.way_back().unwrap_or(dir));
             }
             let col = (hero.x / TILE_UNITS) as i32;
             let row = (hero.y / TILE_UNITS) as i32;
@@ -4642,8 +5743,15 @@ impl Run {
                         stairs_seat = Some(id);
                     }
                     entrance = entrance.or(gate);
+                    on_stairs.insert(id, gate.map(|e| e.id));
                 }
             }
+        }
+        // A Colosseum arena's gate stays shut while its heat runs.
+        if self.arena_heat_on() {
+            stairs = false;
+            entrance = None;
+            exit = None;
         }
         if !stairs {
             self.stairs_held = false;
@@ -4658,14 +5766,29 @@ impl Run {
         }
         // Out of a side-on hall, any way out is its one doorway back.
         let exit = exit.map(|dir| self.room().way_back().unwrap_or(dir));
+        // A way out is open to the party when all of it stands there. A
+        // retreat to the kingdom is a seat's own decision, and waits for no
+        // one (`exits`).
+        let at_stairs = on_stairs.values().filter(|&&g| g == held_for).count() == counted;
+        let retreat = entrance.is_some_and(|e| self.returns_to_kingdom(e.id));
+        let stairs_ready = at_stairs || retreat;
         // At home the Winding Stair is taken on purpose: a knight stands on
-        // it a moment (its ring fills) rather than brushing past it.
+        // it a moment (its ring fills) rather than brushing past it. The ring
+        // fills only while the party is on it.
         let deliberate = if self.at_home_now() && stairs && !self.stairs_held {
-            self.descending += 1;
+            if stairs_ready {
+                self.descending += 1;
+            } else {
+                self.descending = 0;
+            }
             self.descending >= home::DESCEND_HOLD
         } else {
             true
         };
+        // An open floor's stairs wait for its guardian to fall.
+        if stairs && self.open_guarded() {
+            stairs = false;
+        }
         if stairs && self.guardian_locked() {
             // Do not let a stair attempt swallow a simultaneous retreat.
             if self.tick.is_multiple_of(u64::from(HZ)) {
@@ -4673,7 +5796,10 @@ impl Run {
             }
             stairs = false;
         }
-        if stairs && !self.stairs_held && deliberate {
+        if stairs && !self.stairs_held && !stairs_ready {
+            self.fellowship.wait(on_stairs.keys().map(|&id| (id, fellowship::STAIRS)));
+        }
+        if stairs && !self.stairs_held && deliberate && stairs_ready {
             self.descending = 0;
             match entrance {
                 Some(e) if self.returns_to_kingdom(e.id) => {
@@ -4694,6 +5820,7 @@ impl Run {
         {
             // The boss door stays shut until the key is carried to it.
             if self.boss_door_holds(next, dir) {
+                self.fellowship.clear();
                 return;
             }
             let returning = exits::room(self.room().kind)
@@ -4703,15 +5830,36 @@ impl Run {
                 if let Some(id) = exit_seat {
                     self.leave_activity(id);
                 }
-            } else {
+            } else if in_door.values().filter(|&&d| d == dir).count() == counted {
                 self.enter(next, Some((dir + 2) % 4));
+            } else {
+                self.fellowship.wait(in_door.iter().map(|(&id, &d)| (id, d as u8)));
             }
         }
     }
 }
 
+/// The hostile shots past `from` in `projectiles`.
+fn hostile_past(projectiles: &[Projectile], from: usize) -> u64 {
+    projectiles[from.min(projectiles.len())..]
+        .iter()
+        .filter(|p| p.hostile)
+        .count() as u64
+}
+
 #[cfg(any(test, feature = "testing"))]
 impl Run {
+    /// Room `index` with its interior cleared of stone and pits: an open
+    /// floor for fixtures that walk, aim or summon across it.
+    pub fn open_room_for_test(&mut self, index: usize) {
+        let room = &mut self.dungeon.rooms[index];
+        for row in 1..room.rows - 1 {
+            for col in 1..room.cols - 1 {
+                room.set(col, row, Tile::Floor);
+            }
+        }
+    }
+
     pub fn enter_for_test(&mut self, index: usize) {
         // Unrelated combat/wave/art fixtures explicitly exercise the retained
         // legacy encounter path. Policy tests call production `enter` instead.
@@ -4731,7 +5879,7 @@ impl Run {
         let grid = Grid { room: self.room(), barred: false };
         let aim = patterns::Aim {
             from, at: to, pace: (8.0, 0.0), grid: &grid,
-            count: 1, salt: 0x5eed, step: 1, kind, damage: 12,
+            count: 1, salt: 0x5eed, step: 1, kind, damage: 12, guardian: None,
         };
         let mut shots = Vec::new();
         patterns::emit(emitter, &aim, &mut shots);
@@ -4770,6 +5918,35 @@ impl Run {
         }
     }
 
+    /// A ring of harmless shots thrown out from `(x, y)`, one of every kind
+    /// (a gallery of how shots look in flight).
+    pub fn volley_for_test(&mut self, x: f32, y: f32, turn: f32) {
+        const KINDS: [Shot; 17] = [
+            Shot::Blade, Shot::Arrow, Shot::Bolt, Shot::Ball, Shot::Bone, Shot::Orb, Shot::Ember,
+            Shot::Sacred, Shot::Hex, Shot::Frost, Shot::Missile, Shot::Wisp, Shot::Ore, Shot::Flame,
+            Shot::Page, Shot::Spore, Shot::Eye,
+        ];
+        for (i, kind) in KINDS.into_iter().enumerate() {
+            let a = turn + i as f32 / KINDS.len() as f32 * std::f32::consts::TAU;
+            let speed = 6.0 + (i % 3) as f32 * 3.0;
+            self.projectiles.push(Projectile {
+                x,
+                y,
+                vx: a.cos() * speed,
+                vy: a.sin() * speed,
+                hostile: false,
+                kind,
+                look: None,
+                damage: 0,
+                pierce: u8::MAX,
+                last_hit: None,
+                ttl: 3 * HZ,
+                empowered: i % 5 == 0,
+                traits: ShotTraits::default(),
+            });
+        }
+    }
+
     pub fn clear_prerequisites_for_test(&mut self) {
         if let Some(g) = &mut self.boss_gates {
             for i in 0..g.leaders.len() {
@@ -4800,10 +5977,6 @@ impl Run {
         self.floor_plates.clear();
     }
 
-    pub fn thrill_for_test(&mut self, thousands: u32) {
-        self.thrill(thousands);
-    }
-
     pub fn kit_out_for_test(&mut self) {
         self.kit_out();
     }
@@ -4815,6 +5988,13 @@ impl Run {
         self.rocks.clear();
     }
 
+    /// Advance one simulation tick, allowing an existing impact hold to end.
+    /// Timing tests call `step` directly to count transport ticks instead.
+    pub fn step_sim_for_test(&mut self, inputs: &BTreeMap<u32, Input>) {
+        while self.hitstop.left > 0 { self.step(&BTreeMap::new()); }
+        self.step(inputs);
+    }
+
     pub fn clear_for_test(&mut self) {
         self.calm_for_test();
         // Some kinds do not go quietly: a geode splits, a slime divides.
@@ -4823,11 +6003,12 @@ impl Run {
             for enemy in &mut self.enemies {
                 enemy.hp = 0;
             }
-            self.step(&BTreeMap::new());
+            self.step_sim_for_test(&BTreeMap::new());
             if self.enemies.is_empty() {
                 break;
             }
         }
+        while self.hitstop.left > 0 { self.step(&BTreeMap::new()); }
     }
 
     pub fn lair_for_test(&mut self) {
@@ -4871,7 +6052,7 @@ pub mod polish_testing;
 
 #[cfg(test)]
 #[path = "../tests/rules/together_balance_sim__tests.rs"]
-mod balance_sim_tests;
+pub(crate) mod balance_sim_tests;
 
 #[cfg(test)]
 #[path = "../tests/rules/together_stakes__tests.rs"]
@@ -4886,8 +6067,42 @@ mod boss_gate_tests;
 pub mod boss_gate_testing;
 
 #[cfg(test)]
+#[path = "../tests/rules/together_pacing__tests.rs"]
+mod pacing_tests;
+
+#[cfg(test)]
 #[path = "../tests/rules/together_skills__tests.rs"]
 mod skills_tests;
 #[cfg(test)]
 #[path = "../tests/rules/together_spectacle__tests.rs"]
 mod spectacle_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_party_rooms__tests.rs"]
+mod party_rooms_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_cinder__tests.rs"]
+mod cinder_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_latch__tests.rs"]
+mod latch_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_mossbell__tests.rs"]
+mod mossbell_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_brasswake__tests.rs"]
+mod brasswake_tests;
+#[cfg(test)]
+#[path = "../tests/rules/together_rafterwake__tests.rs"]
+mod rafterwake_tests;
+#[cfg(test)]
+#[path = "../tests/rules/together_pennon__tests.rs"]
+mod pennon_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/together_six_seats__tests.rs"]
+mod six_seats_tests;

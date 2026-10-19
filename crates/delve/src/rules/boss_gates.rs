@@ -90,12 +90,8 @@ impl Gates {
             return true;
         }
         if kind == EnemyKind::Boss {
-            self.leaders
-                .iter()
-                .any(|l| l.room == at && Some(l.boss) == boss)
-                || (at == self.guardian
-                    && self.guardian_boss.is_some()
-                    && boss == self.guardian_boss)
+            // A chief's camp is led by an elite (`keyring`), not a boss.
+            at == self.guardian && self.guardian_boss.is_some() && boss == self.guardian_boss
         } else {
             kind == EnemyKind::Dragon && self.depth == super::FLOORS && at == self.guardian
         }
@@ -165,6 +161,11 @@ pub(super) fn reachable(floor: &Floor, sealed: usize) -> Vec<bool> {
 
 impl Run {
     pub(super) fn populate_boss_gates(&mut self) {
+        // Open floors keep no camps yet (docs/OPEN-FLOORS.md, phase B).
+        if self.dungeon.open.is_some() {
+            self.boss_gates = None;
+            return;
+        }
         // Upgrade encounters only when generating a floor, never during save
         // admission. A workspace's complete pack override keeps its choice.
         if self
@@ -242,19 +243,9 @@ impl Run {
                 }
             )
         };
-        let leader = g
-            .leader(self.at)
-            .map(|l| {
-                format!(
-                    " | {} ({})",
-                    self.bosses[usize::from(l.boss)].name,
-                    if l.prerequisite {
-                        "route chief"
-                    } else {
-                        "optional chief"
-                    }
-                )
-            })
+        let leader = self
+            .bearer_here()
+            .map(|who| format!(" | {who} (key carrier)"))
             .unwrap_or_default();
         let key = self
             .key_line()
@@ -285,6 +276,7 @@ impl Run {
             "The stair's guardian may be fought".to_string()
         } else {
             match g.access {
+                _ if n == 1 => "Slay the key's carrier to reach the stair".to_string(),
                 Access::All => format!("{n} chiefs guard the stair: {done} slain"),
                 Access::Any => format!("Slay 1 of {n} chiefs to reach the stair"),
             }
@@ -292,13 +284,8 @@ impl Run {
         if self.guardian_locked() {
             out.push("Sealed: go back for the chiefs".into());
         }
-        if let Some(l) = g.leader(self.at) {
-            let name = &self.bosses[usize::from(l.boss)].name;
-            out.push(if l.prerequisite {
-                format!("Here: {name}, a chief")
-            } else {
-                format!("Here: {name}, need not fall")
-            });
+        if let Some(who) = self.bearer_here() {
+            out.push(format!("Here: {who}, with the Boss Key"));
         }
         out.extend(self.key_line());
         out.extend(g.economy.plain(self.at));
@@ -541,15 +528,9 @@ impl Run {
         {
             return false;
         }
-        let expected = g
-            .leader(self.at)
-            .filter(|l| !l.defeated)
-            .map(|l| l.boss)
-            .or_else(|| {
-                (self.at == g.guardian && g.unlocked() && !g.guardian_defeated)
-                    .then_some(g.guardian_boss)
-                    .flatten()
-            });
+        let expected = (self.at == g.guardian && g.unlocked() && !g.guardian_defeated)
+            .then_some(g.guardian_boss)
+            .flatten();
         let bosses: Vec<_> = self
             .enemies
             .iter()

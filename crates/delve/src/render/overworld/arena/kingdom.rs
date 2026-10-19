@@ -1,12 +1,73 @@
 //! Viewport-only painting for the continuous surface.
 use super::super::{kingdom as map, kit};
 use super::*;
+
+// The run's finds out in the open (declared here, not in `arena`, whose
+// source the arcade cell gate fingerprints).
+#[path = "finds.rs"]
+mod finds;
 use crate::rules::kingdom::Goal;
 
 pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> (Img, Img) {
+    paint(run, focus, legible, modern, None)
+}
+
+/// What a window that stands the kingdom up in 3D (`world3d::kingdom`)
+/// draws with its chunks: what lies on the floor and moves or marks it, as
+/// `layers_with` paints it but for the land and the knights (view pixels);
+/// the screen's own marks (the biome's name in its corner, the goal's
+/// arrow, the boards and the door's footer), which stay put as the floor
+/// tips; and each living knight with its shadow, a figure standing in the
+/// world.
+pub(super) fn layers_3d(run: &Run, focus: Option<u32>) -> (Img, Img, Vec<Figure>) {
+    let mut three = Three { screen: Img::new(NATIVE_W, NATIVE_H), figures: Vec::new() };
+    let (_, over) = paint(run, focus, true, false, Some(&mut three));
+    // The ballot panel lies on the screen, as `arena::layers_with` lays it
+    // over the view.
+    votes::panel(&mut three.screen, run, focus);
+    (over, three.screen, three.figures)
+}
+
+/// Where `paint` puts what a window in 3D draws apart.
+struct Three {
+    screen: Img,
+    figures: Vec<Figure>,
+}
+
+/// A knight as a figure of the kingdom in 3D: its contact shadow and its
+/// sprite where `paint` lays them, on a picture of their own, its feet its
+/// depth.
+fn knight_figure(im: &Img, hero: &crate::rules::Hero) -> Figure {
+    let (hx, hy) = (hero.x * UNIT, hero.y * UNIT);
+    let (fx, fy) = (hx.floor() as i32, hy.floor() as i32);
+    let (sx, sy) = (hx - im.w as f32 / 2.0, hy - im.h as f32 + 1.0);
+    let (left, top) = (sx.floor() as i32, sy.floor() as i32);
+    let (x0, y0) = (left.min(fx - 5), top.min(fy));
+    let (x1, y1) = ((left + im.w + 1).max(fx + 6), (top + im.h + 1).max(fy + 2));
+    let mut img = Img::new(x1 - x0, y1 - y0);
+    knights::shadow(&mut img, fx - x0, fy - y0);
+    img.stamp_sub(im, sx - x0 as f32, sy - y0 as f32);
+    Figure { img, x: x0, y: y0, frac: (0.0, 0.0), depth: hero.y, bodies: Vec::new(), foe: false }
+}
+
+fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: Option<&mut Three>) -> (Img, Img) {
     let origin = camera(run, focus);
-    let scenery = if modern { Img::new(NATIVE_W, NATIVE_H) } else { crop(&map::atlas(&run.kingdom.wishes), origin) };
+    let scenery = if modern || three.is_some() {
+        Img::new(NATIVE_W, NATIVE_H)
+    } else if crate::world3d::enabled() {
+        // The world in 3D, on a page that draws no scenes: each chunk's
+        // plate laid down on its ground (`world3d::kingdom::lay_plates`),
+        // what the run stands on its lots painted over it.
+        let mut scenery = crop(&map::atlas(&run.kingdom.wishes), origin);
+        let lots = crate::world3d::lots::of(run);
+        crate::world3d::kingdom::lay_plates(&mut scenery, origin, lots.as_deref());
+        scenery
+    } else {
+        crop(&map::atlas(&run.kingdom.wishes), origin)
+    };
     let mut over = Img::new(NATIVE_W, NATIVE_H);
+    super::forest_road::kingdom(&mut over, run, origin);
+    super::roundtable::kingdom(&mut over, run, origin);
     let geo = map::geography(&run.kingdom.wishes);
     // Region names are lettered on the ground, under everything that moves.
     let lettered = map::letter_regions(&mut over, origin);
@@ -203,7 +264,9 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
             }
         }
         if hero.hp == 0 {
-            bones::draw(&mut over, hero, id, run.tick, false, x, y);
+            bones::draw(&mut over, hero, id, run.tick, false, x, y, true);
+        } else if let Some(three) = three.as_deref_mut() {
+            three.figures.push(knight_figure(&im, hero));
         } else if !(modern && art_v2::knight_supported(run, hero, id)) {
             knights::shadow(&mut over, x, y);
             over.stamp_sub(
@@ -237,7 +300,21 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
     let mut taken = class_banners(&mut over, run, &geo, origin, focus, tick, legible);
     taken.extend(lettered);
     taken.extend(trinkets(&mut over, run, &geo, origin, focus, legible));
-    taken.extend(super::holdings::herald(&mut over, run, &geo, origin, focus, legible));
+    // In 3D the finds and the herald's posts stand up as blocks
+    // (`world3d::lots`): only who keeps them and their keys are drawn here.
+    let stood = three.is_some();
+    taken.extend(finds::draw(&mut over, run, origin, focus, legible, stood));
+    taken.extend(super::holdings::herald(&mut over, run, &geo, origin, focus, legible, stood));
+    // The screen's own marks: over the view, or apart in 3D.
+    let mut apart = three.as_deref_mut().map(|t| std::mem::replace(&mut t.screen, Img::new(0, 0)));
+    macro_rules! ui {
+        () => {
+            match apart.as_mut() {
+                Some(screen) => screen,
+                None => &mut over,
+            }
+        };
+    }
     // The goal's arrow and name go down first; plaques make way for them.
     let mut goal_layer = Img::new(NATIVE_W, NATIVE_H);
     if let Some(goal) = &goal {
@@ -245,9 +322,15 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
     }
     if legible {
         let hero = run.players.get(&focus.unwrap_or(1)).map(|h| (h.x / TILE_UNITS, h.y / TILE_UNITS));
+        // A fingerpost's arms read as the knight passes it.
+        if let Some(near) = hero {
+            taken.extend(super::super::signs::arms(&mut over, origin, near));
+        }
+        biome_title(ui!(), run, focus.unwrap_or(1), &taken);
         plaques(&mut over, &geo, origin, goal.as_ref(), hero, taken);
     }
-    over.stamp(&goal_layer, 0, 0);
+    ui!().stamp(&goal_layer, 0, 0);
+    school_board(ui!(), run, focus, legible);
     // The ballot covers the view: the door's footer would only peek out
     // under it.
     let ballot = run
@@ -255,52 +338,113 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
         .seats
         .get(&focus.unwrap_or_else(|| run.playtest.local_seat()))
         .is_some_and(|s| s.open);
-    if legible && !ballot {
-        let hero = focus
-            .and_then(|id| run.players.get(&id))
-            .or_else(|| run.players.get(&1))
-            // A host who plays no knight sends none (`Hero::absent`): the
-            // party's first.
-            .or_else(|| run.players.values().next());
-        // By a class banner the key changes class, so the door's sign keeps
-        // quiet unless the door is the nearer of the two.
-        let banner = |h: &crate::rules::Hero| {
-            crate::rules::classes::stones(&geo)
-                .iter()
-                .map(|&(_, p)| p)
-                .chain(crate::rules::trinkets::things(&geo).iter().map(|&(_, p)| p))
-                .map(|(x, y)| {
-                    (h.x - (x as f32 + 0.5) * TILE_UNITS).hypot(h.y - (y as f32 + 0.5) * TILE_UNITS)
-                })
-                .fold(f32::MAX, f32::min)
-        };
-        // Waiting outside while the party plays on: no door opens for this
-        // knight but the one they came out of, so the footer says so.
-        let waiting = run.kingdom.waiting.as_ref().map(|w| {
-            let at_door = hero.is_some_and(|h| (h.x - w.entry.0).hypot(h.y - w.entry.1) < 2.5);
-            kit::waiting_sign(&w.place, at_door)
-        });
-        if let Some(board) = waiting {
-            let top = NATIVE_H - board.h - 3;
-            chrome::band(&mut over, (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
-            over.stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
-        } else if let Some(hero) = hero
-            && let Some(site) = geo.sites.iter().find(|s| {
-                let x = (s.stand.0 as f32 + 0.5) * TILE_UNITS;
-                let y = (s.stand.1 as f32 + 0.7) * TILE_UNITS;
-                let door = (hero.x - x).hypot(hero.y - y);
-                door < 4.5 && door <= banner(hero)
-            })
-        {
-            let board = kit::door_sign(&site.name, true);
-            // Reserve an opaque footer after every world figure and edge
-            // marker. Static plaques in the atlas never share its space.
-            let top = NATIVE_H - board.h - 3;
-            chrome::band(&mut over, (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
-            over.stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
-        }
+    // A seat says it in the HUD's band under its view (`party::hud_band`);
+    // a terminal's frame in an opaque footer over the view's foot (apart in
+    // 3D, with the screen's other marks).
+    if legible
+        && !ballot
+        && !hud_in_band()
+        && let Some(board) = footer_sign(run, &geo, focus)
+    {
+        // Reserve an opaque footer after every world figure and edge
+        // marker. Static plaques in the atlas never share its space.
+        let top = NATIVE_H - board.h - 3;
+        chrome::band(ui!(), (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
+        ui!().stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
+    }
+    if let (Some(three), Some(screen)) = (three, apart) {
+        three.screen = screen;
     }
     (scenery, over)
+}
+
+/// How long a biome's name stays in the corner after a knight comes into
+/// it: two seconds, then a second fading.
+const TITLE_TICKS: u64 = 3 * crate::rules::HZ as u64;
+
+/// The name of the biome knight `id` last came into, small in the top-left
+/// corner of their own view, fading out: never a banner over play.
+fn biome_title(over: &mut Img, run: &Run, id: u32, taken: &[(i32, i32, i32, i32)]) {
+    let Some(&(biome, since)) = run.kingdom.entered.get(&id) else {
+        return;
+    };
+    let age = run.tick.saturating_sub(since);
+    if age >= TITLE_TICKS {
+        return;
+    }
+    let Some(b) = crate::world::biome::Biome::ALL.get(usize::from(biome)) else {
+        return;
+    };
+    let step = TITLE_TICKS / 6;
+    let ink = match age / step {
+        0..=3 => 'h',
+        4 => 'G',
+        _ => 'j',
+    };
+    let text = b.name().to_uppercase();
+    let w = super::super::ink::text_width(&text);
+    // Top left; the top right when the goal's arrow is in that corner.
+    let clear = |x: i32| {
+        !taken.iter().any(|&(tx, ty, tw, th)| x - 2 < tx + tw && tx < x + w + 2 && 4 < ty + th && ty < 18)
+    };
+    let x = if clear(8) { 8 } else { NATIVE_W - 8 - w };
+    over.text(x, 6, &text, ink);
+    over.line(x, 15, x + w.min(24), 15, if ink == 'h' { 'G' } else { 'j' });
+}
+
+/// The kingdom's door sign for the seat's knight: at a door, its name under
+/// ENTER; waiting outside while the party plays on, where they are and how
+/// to go back. `None` elsewhere, or by a class banner nearer than the door.
+pub(super) fn footer_sign(run: &Run, geo: &map::Geography, focus: Option<u32>) -> Option<Img> {
+    let hero = focus
+        .and_then(|id| run.players.get(&id))
+        .or_else(|| run.players.get(&1))
+        // A host who plays no knight sends none (`Hero::absent`): the
+        // party's first.
+        .or_else(|| run.players.values().next());
+    // By a class banner the key changes class, so the door's sign keeps
+    // quiet unless the door is the nearer of the two.
+    let banner = |h: &crate::rules::Hero| {
+        crate::rules::classes::stones(geo)
+            .iter()
+            .map(|&(_, p)| p)
+            .chain(crate::rules::trinkets::things(geo).iter().map(|&(_, p)| p))
+            .map(|(x, y)| {
+                (h.x - (x as f32 + 0.5) * TILE_UNITS).hypot(h.y - (y as f32 + 0.5) * TILE_UNITS)
+            })
+            .fold(f32::MAX, f32::min)
+    };
+    // Waiting outside while the party plays on: no door opens for this
+    // knight but the one they came out of, so the footer says so.
+    if let Some(w) = run.kingdom.waiting.as_ref() {
+        let at_door = hero.is_some_and(|h| (h.x - w.entry.0).hypot(h.y - w.entry.1) < 2.5);
+        return Some(kit::waiting_sign(&w.place, at_door));
+    }
+    let hero = hero?;
+    let site = geo.sites.iter().find(|s| {
+        let x = (s.stand.0 as f32 + 0.5) * TILE_UNITS;
+        let y = (s.stand.1 as f32 + 0.7) * TILE_UNITS;
+        let door = (hero.x - x).hypot(hero.y - y);
+        door < 4.5 && door <= banner(hero)
+    })?;
+    Some(kit::door_sign(&site.name, true))
+}
+
+/// The kingdom's door sign for a seat's HUD band (`footer_sign`), when the
+/// kingdom is on screen and its ballot is shut.
+pub(super) fn band_sign(run: &Run, focus: Option<u32>) -> Option<Img> {
+    if run.room().kind != RoomKind::Kingdom {
+        return None;
+    }
+    let ballot = run
+        .playtest
+        .seats
+        .get(&focus.unwrap_or_else(|| run.playtest.local_seat()))
+        .is_some_and(|s| s.open);
+    if ballot {
+        return None;
+    }
+    footer_sign(run, &map::geography(&run.kingdom.wishes), focus)
 }
 
 fn art(rows: &[&str]) -> Img {
@@ -486,7 +630,7 @@ fn trinkets(
                     let goose = if mad && run.tick / 4 % 2 == 0 { goose.flip_h() } else { goose };
                     over.stamp(&goose, px as i32 - 6, py as i32 - 9);
                     if mad {
-                        chrome::label(over, (px as i32 - 10, py as i32 - 20), "HONK", '6', chrome::Tone::SLATE);
+                        chrome::label(over, (px as i32 - 10, py as i32 - 20), "HONK", 'O', chrome::Tone::SLATE);
                     }
                 }
                 continue;
@@ -522,11 +666,59 @@ fn trinkets(
             let label = format!("E: {verb}");
             let w = super::super::ink::text_width(&label);
             let (lx, ly) = (x - w / 2, y - 24);
-            taken.push(chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY));
+            taken.push(chrome::label(over, (lx, ly), &label, 'O', chrome::Tone::KEY));
         }
         taken.push((x - 8, y - 12, 16, 12));
     }
     taken
+}
+
+/// The school's mission board: while a knight reads a master's board, a
+/// framed scroll over the view with the class's three missions, each in
+/// plain words with its progress, and the master's line beneath.
+fn school_board(over: &mut Img, run: &Run, focus: Option<u32>, legible: bool) {
+    use crate::rules::classes::CLASSES;
+    if run.school.owner.is_none() || !legible {
+        return;
+    }
+    let Some(i) = usize::from(run.school.class).checked_rem(CLASSES.len()) else {
+        return;
+    };
+    let class = &CLASSES[i];
+    let hero = run
+        .school
+        .owner
+        .and_then(|id| run.players.get(&id))
+        .or_else(|| focus.and_then(|id| run.players.get(&id)));
+    let key = hero.map(crate::rules::home::Home::school_key);
+    let standing = key
+        .as_deref()
+        .map(|k| run.home.school.standing(k))
+        .unwrap_or_default();
+    let w = 236;
+    let rows = crate::rules::school::MISSIONS
+        .iter()
+        .filter(|m| m.class == class.name)
+        .map(|m| {
+            let have = standing.count(m);
+            let mark = if have >= m.need { '*' } else { ' ' };
+            format!("{mark} {}: {} ({have}/{})", m.step, m.asks, m.need)
+        })
+        .collect::<Vec<_>>();
+    let lines = std::iter::once(format!("{}'S BOARD", class.name.to_uppercase()))
+        .chain(rows)
+        .chain(std::iter::once(String::from(
+            "E again: the master hands over earned gear",
+        )))
+        .collect::<Vec<_>>();
+    let h = 13 + lines.len() as i32 * 11;
+    let (x, y) = ((NATIVE_W - w) / 2, (NATIVE_H - h) / 2 - 6);
+    over.rect(x + 2, y + 2, w - 4, h - 4, 'K');
+    over.frame(x, y, w, h, class.ink);
+    over.frame(x + 2, y + 2, w - 4, h - 4, 'u');
+    for (i, line) in lines.iter().enumerate() {
+        over.text(x + 8, y + 8 + i as i32 * 11, &line, if i == 0 { 'O' } else { 'i' });
+    }
 }
 
 /// The class halls' banner stones: a pole and a flag in the class's colour
@@ -567,7 +759,7 @@ fn class_banners(
         for (ey, row) in emblem.iter().enumerate() {
             for (ex, c) in row.chars().enumerate() {
                 if c != '.' {
-                    over.put(x + 5 + ex as i32, y - 26 + flap + ey as i32, c);
+                    over.put(x + 5 + ex as i32, y - 26 + flap + ey as i32, chrome::dusk_mark(c));
                 }
             }
         }
@@ -599,7 +791,7 @@ fn class_banners(
         let w = super::super::ink::text_width(&label);
         let (lx, ly) = (x - w / 2, y + 3);
         let tone = if near { chrome::Tone::KEY } else { chrome::Tone::SLATE };
-        taken.push(chrome::label(over, (lx, ly), &label, if near { '6' } else { 'O' }, tone));
+        taken.push(chrome::label(over, (lx, ly), &label, 'O', tone));
         taken.push((x - 4, y - 30, 18, 30));
     }
     taken
@@ -681,7 +873,7 @@ fn plaques(
             for (dy, row) in rows.iter().enumerate() {
                 for (dx, c) in row.chars().enumerate() {
                     if c != '.' {
-                        over.put(x + dx as i32, y + dy as i32, c);
+                        over.put(x + dx as i32, y + dy as i32, chrome::dusk_mark(c));
                     }
                 }
             }
@@ -849,3 +1041,7 @@ pub(super) fn hall(run: &Run) -> Img {
     cv.stamp(&exit, (NATIVE_W - exit.w) / 2, NATIVE_H - 32);
     cv
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/overworld__school_shots.rs"]
+mod school_shots;

@@ -1,0 +1,59 @@
+{
+  "fit": "native tile 16x16, anchor bottom-centre (8,16); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "stone-0"
+      ],
+      "source_pose_count": 1,
+      "state": "stone"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "snow-0"
+      ],
+      "source_pose_count": 1,
+      "state": "snow"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "ledge-0"
+      ],
+      "source_pose_count": 1,
+      "state": "ledge"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "spikes-0"
+      ],
+      "source_pose_count": 1,
+      "state": "spikes"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "hatch-0"
+      ],
+      "source_pose_count": 1,
+      "state": "hatch"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "hatch-open-0",
+        "hatch-open-1"
+      ],
+      "source_pose_count": 2,
+      "state": "hatch-open"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "Each tile is one 16x16 cell; collision is the tile and belongs to the rules (the spike tile hurts only its lower ten rows); art never sets a hitbox.",
+  "id": "bannerpeak.tiles",
+  "role": "prop",
+  "timing": "stone 1 ticks; snow 1 ticks; ledge 1 ticks; spikes 1 ticks; hatch 1 ticks; hatch-open 2x4 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

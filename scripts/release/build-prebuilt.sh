@@ -20,6 +20,12 @@
 # private, so ANGEL_CARTRIDGES points at an empty folder and the binaries are
 # checked for the builder's cartridge path afterwards.
 #
+# Build paths name the builder: the home folder (cargo's registry, the
+# toolchain) and the checkout. Rust and C sources are compiled with those
+# folders mapped to ~ and /angelX, ANGEL_PORTABLE_BUILD=1 leaves the
+# checkout's dev fallbacks out, and a binary that still holds either folder is
+# refused.
+#
 # RUSTY_V8_ARCHIVE may name the pinned rusty_v8 static library listed in
 # release/supply-chain-policy.json; without it the v8 build script downloads it.
 set -euo pipefail
@@ -73,11 +79,27 @@ export ANGEL_BUILD_RESOURCE_SHA256="$resource_sha"
 export ANGEL_BUILD_RUSTC="$("$RUSTC" -vV)"
 export ANGEL_BUILD_PROFILE=release
 
+# Map the builder's folders out of every binary (the last matching map wins,
+# so the checkout comes after the home folder it may sit in).
+case "$HOME$root" in *" "*) echo "build-prebuilt: the home folder and checkout paths must not hold spaces" >&2; exit 1 ;; esac
+maps=("$HOME=~")
+[ -n "${CARGO_HOME:-}" ] && maps+=("$CARGO_HOME=~/.cargo")
+[ -n "${RUSTUP_HOME:-}" ] && maps+=("$RUSTUP_HOME=~/.rustup")
+maps+=("$root=/angelX")
+for map in "${maps[@]}"; do
+  RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }--remap-path-prefix=$map"
+  CFLAGS="${CFLAGS:+$CFLAGS }-ffile-prefix-map=$map"
+  CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-ffile-prefix-map=$map"
+done
+export RUSTFLAGS CFLAGS CXXFLAGS
+export ANGEL_PORTABLE_BUILD=1
+
 empty_cartridges=$(mktemp -d)
 trap 'rm -rf "$empty_cartridges"' EXIT
 export ANGEL_CARTRIDGES="$empty_cartridges"
 
-cargo_args=(--locked --release --no-default-features --bin angel --bin angel-sandbox)
+# The window comes with every prebuilt: on a desktop the launcher opens it.
+cargo_args=(--locked --release --no-default-features --features glass --bin angel --bin angel-sandbox)
 cd "$root/cockpit"
 case "$target" in
   linux-*)
@@ -99,6 +121,14 @@ for name in angel angel-sandbox; do
     echo "build-prebuilt: $name carries a cartridge from $HOME/.angelX/cartridges; refusing to package it" >&2
     exit 1
   fi
+  # Nor the builder's folders: a path into the home folder or the checkout
+  # names whoever built it.
+  for folder in "$HOME" "${CARGO_HOME:-$HOME}" "${RUSTUP_HOME:-$HOME}" "$root"; do
+    if LC_ALL=C grep -aqF "$folder/" "$built/$name"; then
+      echo "build-prebuilt: $name carries the build path $folder; refusing to package it" >&2
+      exit 1
+    fi
+  done
   cp -f "$built/$name" "$out/$name"
 done
 
@@ -139,7 +169,8 @@ json.dump({
     "cockpit_source_sha256": "$source_sha",
     "resources_sha256": "$resource_sha",
     "rustc": """$ANGEL_BUILD_RUSTC""".splitlines()[0],
-    "features": "no default features (no video decoding)",
+    "features": "glass (its own window); no default features (no video decoding)",
+    "glass": True,
     "binaries": {"angel": "$(sha "$out/angel")", "angel-sandbox": "$(sha "$out/angel-sandbox")"},
 }, open(sys.argv[1], "w"), indent=2)
 open(sys.argv[1], "a").write("\n")

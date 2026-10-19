@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    20,
+    16
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Counter timing remains Duel-owned; blade arc is decorative.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "73b0b6acc51cb4b9f923fb022efc4de022336c96641793927602910f5b05fa75",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Shallow birth: slim curved teal blade begins at a fixed copper bead.",
+      "name": "strike-1",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        13.74,
+        115.2
+      ],
+      "source_rect_xywh": [
+        41,
+        261,
+        229,
+        128
+      ],
+      "state": "strike-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Shallow peak: broad hooked teal wedge with a pale teal inner ridge.",
+      "name": "strike-2",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        16.86,
+        165.6
+      ],
+      "source_rect_xywh": [
+        343,
+        205,
+        281,
+        184
+      ],
+      "state": "strike-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Shallow break: wedge splits into several pointed teal fragments with copper flecks.",
+      "name": "strike-3",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        16.62,
+        168.3
+      ],
+      "source_rect_xywh": [
+        660,
+        203,
+        277,
+        187
+      ],
+      "state": "strike-3"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Shallow fade: sparse small fragments around the contact bead.",
+      "name": "strike-4",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        16.8,
+        152.1
+      ],
+      "source_rect_xywh": [
+        963,
+        225,
+        280,
+        169
+      ],
+      "state": "strike-4"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Standard birth: thin wedge on a more upright diagonal.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.0,
+        96.5
+      ],
+      "source_rect_xywh": [
+        44,
+        568,
+        228,
+        193
+      ],
+      "state": "standard-birth"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Standard peak: wide teal crescent-wedge, strongest readable silhouette.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.0,
+        126.5
+      ],
+      "source_rect_xywh": [
+        347,
+        509,
+        274,
+        253
+      ],
+      "state": "standard-peak"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Standard break: separated angular teal shards and small copper sparks.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        135.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        664,
+        507,
+        270,
+        255
+      ],
+      "state": "standard-break"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Standard fade: small fragments tapering away from the registered contact.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        115.5
+      ],
+      "source_rect_xywh": [
+        969,
+        531,
+        251,
+        231
+      ],
+      "state": "standard-fade"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Steep birth: long, narrow upward slash with a stable copper origin.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        101.0,
+        126.0
+      ],
+      "source_rect_xywh": [
+        52,
+        903,
+        202,
+        252
+      ],
+      "state": "steep-birth"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Steep peak: broadest steep wedge with curved inner teal shading.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.5,
+        162.0
+      ],
+      "source_rect_xywh": [
+        351,
+        836,
+        273,
+        324
+      ],
+      "state": "steep-peak"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Steep break: broken wedge fragments and copper specks along the rising path.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        160.0
+      ],
+      "source_rect_xywh": [
+        664,
+        840,
+        243,
+        320
+      ],
+      "state": "steep-break"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Steep fade: connected sparse teal fragments and copper bead, refined to register as one crop.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        143.0
+      ],
+      "source_rect_xywh": [
+        963,
+        874,
+        256,
+        286
+      ],
+      "state": "steep-fade"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732; top-left (contact x-20,130-16), intentionally offset from the other bursts.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "latch.strike",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": 224,
+    "metadata_sha256": "9cd43f372bd28fb9ef7f5cff234e30b6c9fa1aca3f07e5ac70afa50e347f7188",
+    "original_path": "/work/artifacts/art-prod/slots/latch.strike/v01/source-sheet.png",
+    "original_sha256": "c0b7f5734d23f40534f6b3e2d6e7f40bc6c15cc05bd66d0cbf38b143abfa3384",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "4457e2e054b1120ecd1e5b6d9650e0dbbeac6e3fe09b65c6e0589b1dd714d138",
+  "timing": "Four frames over 18 recovery ticks plus local freeze, same index as parry/clash (draw())."
+}

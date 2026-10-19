@@ -1,0 +1,22 @@
+{
+  "fit": "16x32; v2 32x64",
+  "frame_groups": [
+    {
+      "names": [
+        "west-closed",
+        "west-open",
+        "west-locked",
+        "east-closed",
+        "east-open",
+        "east-locked"
+      ],
+      "source_pose_count": 12,
+      "state": "door"
+    }
+  ],
+  "game": "dungeon",
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "id": "dgn.sidedoor-crypt",
+  "role": "prop",
+  "timing": "Static; existing room entry and door state only."
+}

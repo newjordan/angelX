@@ -86,6 +86,11 @@ const IDLE_POLL: Duration = Duration::from_millis(200);
 
 /// Frame interval while the loading bar is on screen (~30fps).
 const TICK: Duration = Duration::from_millis(33);
+/// Redraw cadence while a clip plays in the scryglass. The decode
+/// worker owns the presentation timestamps and publishes to a
+/// mailbox; this only bounds how stale the shown frame can get
+/// (scorecard M7: without a lane, video rode the 83 ms scenery tick).
+const VIDEO_TICK: Duration = Duration::from_micros(16_667);
 /// Frame pacing while a delve is on screen: 60 a second, or the display's
 /// own rate from `ANGEL_DELVE_FPS` (30 to 240). The sim keeps its 30 Hz
 /// step whatever this is; frames between ticks are blended.
@@ -271,7 +276,9 @@ fn apply_terminal_input(
 fn sync_game_keyboard(app: &App, active: &mut bool) -> std::io::Result<()> {
     let next = app.game_keyboard_active();
     if *active != next {
-        crate::ui::term::write_game_keyboard_mode(&mut std::io::stdout(), next)?;
+        if !crate::ui::glass::game_keyboard(next) {
+            crate::ui::term::write_game_keyboard_mode(&mut std::io::stdout(), next)?;
+        }
         *active = next;
     }
     Ok(())
@@ -279,17 +286,21 @@ fn sync_game_keyboard(app: &App, active: &mut bool) -> std::io::Result<()> {
 
 /// Drive the TUI until quit. Returns the staged phoenix exec (new binary +
 /// session id) when `/self reborn` ended the loop, `None` on a normal quit.
-fn run(
-    terminal: &mut AngelTerminal,
+/// `terminal` is the terminal or the GPU window (`ui::glass`); the caller
+/// starts the sole input reader before app initialization so typed-ahead
+/// bursts are queued in order.
+fn run<B>(
+    terminal: &mut Terminal<B>,
+    terminal_input: input::TerminalInput,
     viewer: Viewer,
     launch: interactive_launch::InteractiveLaunch,
     workspace: PathBuf,
     bag: Bag,
     binding: crate::app::launch::BoundRoute,
-) -> std::io::Result<Option<(std::path::PathBuf, String)>> {
-    // Calibration has finished; establish the sole input reader before app
-    // initialization so typed-ahead bursts are queued in order.
-    let terminal_input = input::TerminalInput::start()?;
+) -> std::io::Result<Option<(std::path::PathBuf, String)>>
+where
+    B: ratatui::backend::Backend<Error = std::io::Error>,
+{
     // The Delve's server steps on its own thread; the terminal only reads
     // its snapshots (`ANGEL_DELVE_SIM_THREAD=0` steps it here, as tests do).
     crate::drive::together_sim::set_threaded(
@@ -363,7 +374,9 @@ fn run(
             }
             // Apply a /title override (terminal title is out-of-band, safe mid-TUI).
             if app.title_override != applied_title {
-                if let Some(t) = &app.title_override {
+                if let Some(t) = &app.title_override
+                    && !crate::ui::glass::set_title(t)
+                {
                     let _ = ratatui::crossterm::execute!(
                         std::io::stdout(),
                         ratatui::crossterm::terminal::SetTitle(t)
@@ -376,8 +389,12 @@ fn run(
             // ticks a second. A walk on the map draws one frame per world
             // tick. Both are paced to a deadline, so the time spent drawing
             // comes out of the wait, not on top.
-            let pace = if app.needs_fast_tick() && app.dungeon_view_active() {
+            let pace = if app.setup.scroll_is_moving() {
+                Some(std::time::Duration::from_nanos(16_666_667))
+            } else if app.needs_fast_tick() && app.dungeon_view_active() {
                 Some(game_tick())
+            } else if app.scryglass.video_playing() {
+                Some(VIDEO_TICK)
             } else if app.map_in_motion() {
                 Some(WALK_TICK)
             } else {
@@ -417,7 +434,7 @@ fn run(
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let advance_us = advance_started.map_or(0, |start| start.elapsed().as_micros());
             let settle_started = frame_timing.as_ref().map(|_| Instant::now());
-            if app.take_attention_request() {
+            if app.take_attention_request() && !crate::ui::glass::attention() {
                 let _ = crate::ui::term::write_attention_signal(&mut std::io::stdout());
             }
             app.bag.drain_discovered();
@@ -455,25 +472,33 @@ fn run(
                     next_frame = now + period;
                 }
             }
-            if !paced_wait {
-                if app.take_redraw_request() {
-                    terminal.clear()?;
-                }
-                terminal.draw(|frame| {
-                    let ui_broker = std::sync::Arc::clone(&app.ui_broker);
-                    let prepared =
-                        crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
-                    ui(frame, &mut app);
-                    if let Some(prepared) = prepared {
-                        crate::ui::ui_inspect::capture_after_draw(
-                            &app,
-                            frame,
-                            ui_broker.as_ref(),
-                            prepared,
-                        );
+            crate::ui::frame_lifecycle::draw_if_due::<std::io::Error>(
+                paced_wait,
+                || {
+                    if app.take_redraw_request() {
+                        terminal.clear()?;
                     }
-                })?;
-            }
+                    terminal.draw(|frame| {
+                        let ui_broker = std::sync::Arc::clone(&app.ui_broker);
+                        let prepared =
+                            crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
+                        ui(frame, &mut app);
+                        if let Some(prepared) = prepared {
+                            crate::ui::ui_inspect::capture_after_draw(
+                                &app,
+                                frame,
+                                ui_broker.as_ref(),
+                                prepared,
+                            );
+                        }
+                    })?;
+                    Ok(())
+                },
+                // Only a completed draw may remove groups/stages that
+                // weren't drawn. Input wakes between paced frames must
+                // leave the last displayed game stage intact.
+                crate::ui::glass::frame_done,
+            )?;
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let post_draw_started =
                 if let (Some(timing), Some(start)) = (&mut frame_timing, draw_started) {
@@ -1788,6 +1813,10 @@ fn main() -> std::io::Result<()> {
         || launch.model.is_some()
         || launch.effort.is_some()
         || launch.prompt.is_some();
+    #[cfg(feature = "glass")]
+    if crate::ui::glass::requested() {
+        return run_glass(launch, workspace);
+    }
     let early = if pinned {
         Some(crate::app::launch::prepare(&launch, &workspace)?)
     } else {
@@ -1803,11 +1832,70 @@ fn main() -> std::io::Result<()> {
                 return Err(e);
             }
         };
-    let result = run(&mut terminal, viewer, launch, workspace, bag, binding);
+    let result = input::TerminalInput::start().and_then(|terminal_input| {
+        run(
+            &mut terminal,
+            terminal_input,
+            viewer,
+            launch,
+            workspace,
+            bag,
+            binding,
+        )
+    });
     restore_terminal();
-    // The phoenix step: `/self reborn` staged a freshly-built binary — replace
-    // this process with the new self, resuming the same session. Must happen
-    // after terminal teardown; the new process sets the terminal up again.
+    phoenix(result)
+}
+
+/// The cockpit in angelX's own window: the window owns the main thread and
+/// the cockpit runs on its own, drawing through the glass backend.
+#[cfg(feature = "glass")]
+fn run_glass(
+    launch: interactive_launch::InteractiveLaunch,
+    workspace: PathBuf,
+) -> std::io::Result<()> {
+    let options = angel_glass::Options::from_environment();
+    // Thrown things in the Delve fly in the window, lifted toward the camera,
+    // instead of in the game's picture.
+    crate::stage::world_viz::overworld::arena::draw_lifted_outside(true);
+    // The window draws the Delve's frames from their parts (a stage); only a
+    // terminal is handed the finished picture.
+    crate::stage::world_viz::overworld::arena::draw_parts_outside(true);
+    let result = angel_glass::run(options, move |host| {
+        crate::ui::glass::install(host.clone());
+        // The window is up and drawn: the launcher waiting on it (bin/angelX)
+        // leaves it be instead of running the cockpit in the terminal.
+        if let Some(path) = std::env::var_os("ANGEL_GLASS_READY") {
+            let _ = std::fs::write(path, b"");
+        }
+        // The Orrery floats over the terminal on its own thread when the
+        // launch asked for it; the cockpit's loop never draws it.
+        crate::ui::orrery::launch_if_requested();
+        let mut terminal = Terminal::new(host.backend())?;
+        let viewer = Viewer::glass();
+        let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;
+        let terminal_input = input::TerminalInput::spawn(host.input_reader()?)?;
+        match run(
+            &mut terminal,
+            terminal_input,
+            viewer,
+            launch,
+            workspace,
+            bag,
+            binding,
+        ) {
+            Err(error) if angel_glass::window_closed(&error) => Ok(None),
+            other => other,
+        }
+    })
+    .map_err(std::io::Error::other)?;
+    phoenix(result)
+}
+
+/// The phoenix step: `/self reborn` staged a freshly-built binary — replace
+/// this process with the new self, resuming the same session. Must happen
+/// after terminal teardown; the new process sets the terminal up again.
+fn phoenix(result: std::io::Result<Option<(std::path::PathBuf, String)>>) -> std::io::Result<()> {
     match result {
         Ok(Some((exe, session_id))) => {
             eprintln!("PHOENIX: exec {} --resume {session_id}", exe.display());

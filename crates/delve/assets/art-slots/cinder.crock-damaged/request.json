@@ -1,0 +1,15 @@
+{
+  "fit": "80x80",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damage-action"
+    }
+  ],
+  "game": "cinder",
+  "geometry": "Board cells and cracks own hits; no spatial boss hurtbox. Renderer::landing and draw own the exact slag destination; body art must not suggest a second attack area.",
+  "id": "cinder.crock-damaged",
+  "role": "boss",
+  "timing": "Idle bobs 1 px each half of a 36-tick period. Damage at 12/24/36 cracks; two flinches divide the 8-tick clear at flash>4 / <=4. Two wind-ups divide tuned TELL=27 at windup/2; attacks rest 165/135/105 ticks by cracks phase. Cascades pause tell progression. No separate recovery timer (Board::step, crack_stage; renderer::draw)."
+}

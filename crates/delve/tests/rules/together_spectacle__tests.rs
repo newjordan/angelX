@@ -42,13 +42,15 @@ fn hurt(run: &mut Run, damage: u32) {
 
 fn idle(run: &mut Run, ticks: u32) {
     for _ in 0..ticks {
-        run.step(&BTreeMap::new());
+        run.step_sim_for_test(&BTreeMap::new());
     }
 }
 
 fn frame(run: &Run) -> Img {
     let mut run = run.clone();
     run.window = None;
+    // The room itself, not a fallen run's results over it (`floor_stats`).
+    run.floor_results = None;
     crate::render::overworld::arena::frame(&run, 384, 224)
 }
 
@@ -257,13 +259,13 @@ fn the_dragons_death_raises_a_hell_gate_that_opens_the_first_circle() {
     for enemy in &mut run.enemies {
         enemy.hp = 0;
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(run.light.is_some(), "the way home is still there");
     let gate = run.spectacle.gate.expect("a fiery gate rises");
     assert!(run.sounds.contains(&"hell_gate_rise"));
     // It takes a moment to rise; stepping in before then does nothing.
     stand_at_gate(&mut run);
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 0);
     assert_eq!(run.dungeon.depth, FLOORS);
     // Step away and wait for it to stand.
@@ -272,7 +274,7 @@ fn the_dragons_death_raises_a_hell_gate_that_opens_the_first_circle() {
     assert!(gate.risen(run.tick) >= 1.0);
     stand_at_gate(&mut run);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 1, "through the gate");
     assert_eq!(run.dungeon.depth, 1, "the delve starts over, a circle down");
     assert!(run.spectacle.gate.is_none());
@@ -299,12 +301,12 @@ fn a_new_circle_brings_new_privies_and_their_toll() {
     for enemy in &mut run.enemies {
         enemy.hp = 0;
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().x = 10.0;
     idle(&mut run, GATE_RISE);
     stand_at_gate(&mut run);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 1);
     let hero = &run.players[&1];
     assert_eq!(hero.relieved, None, "floor one's privy is open again");
@@ -320,7 +322,7 @@ fn the_end_of_each_circle_opens_the_next_gate() {
     for enemy in &mut run.enemies {
         enemy.hp = 0;
     }
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert!(
         run.spectacle.gate.is_some(),
         "a gate at the end of the circle too"
@@ -329,7 +331,7 @@ fn the_end_of_each_circle_opens_the_next_gate() {
     idle(&mut run, GATE_RISE);
     stand_at_gate(&mut run);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
-    run.step(&BTreeMap::new());
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 2);
     assert_eq!(run.dungeon.depth, 1);
     assert_eq!(run.circle_card().map(|c| c.0), Some(2));

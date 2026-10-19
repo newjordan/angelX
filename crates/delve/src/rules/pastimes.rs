@@ -13,13 +13,28 @@ mod halfpipe;
 mod chariot;
 mod trencher;
 mod longbow;
+mod powder;
+mod gander;
+mod siege;
 pub use longbow::{Longbow, ARROWS as LONGBOW_ARROWS, FULL_DRAW as LONGBOW_FULL_DRAW, FLIGHT as LONGBOW_FLIGHT};
+pub use gander::{
+    FLAP_KICK as GANDER_FLAP_KICK, GRAVITY as GANDER_GRAVITY, NEED as GANDER_NEED, Gander,
+    GanderRider, GanderEgg, LEDGES as GANDER_LEDGES, TAR_ROW as GANDER_TAR_ROW,
+    HATCH as GANDER_HATCH,
+};
 pub use trencher::{Trencher, FLIGHT as TRENCHER_FLIGHT};
 pub use chariot::{Chariot, LAP, RIVALS, BARRELS};
 pub use halfpipe::{Halfpipe, LIP_OPEN, LIP_CLOSE, FLIGHT_TICKS};
 pub use cart::{CART_AIR, CART_LOGS, CART_RUTS, Cart};
 pub use duckshoot::{DuckShoot, EYE_Z, FOCAL, RAIL_Y, RAIL_Z};
+pub use powder::{Charm, Flame, Keg, Knight, Powder, Scorch, BALES as POWDER_BALES, BLAST, BLAST_CHARM, FIRE, FUSE, KEGS, KEGS_CHARM, POSTS as POWDER_POSTS, SPEED, SPEED_BOOTS, STOCK, STOCK_CHARM, W as POWDER_W, H as POWDER_H, X0 as POWDER_X0, Y0 as POWDER_Y0};
 pub use put::{Put, TARGETS};
+pub use siege::{
+    Ammo, Keep, Shot, Siege, BLOCK_H, BLOCK_W, CASTLE_X, ENGINE_X, EPITAPHS, EVENT_LOSS,
+    EVENT_RASH_LOSS, FIELD_W, GRAVE_NONE, KEEP_COLS, KEEP_ROWS, LEGS, MISSING_CREW_TICKS,
+    NOTICES, NOTICE_FORD_PAID, NOTICE_MARCHES, NOTICE_NONE, GROUND_LINE, SOLDIERS, SPLAT, VOLLEY_HZ,
+    WIND_MAX, WINDS, EVENT_WAIT, MOURN, RETREAT, MOON, POT, RELOAD_TICKS_BASE,
+};
 pub use surf::{CREST_WINDOW, Surf, WAVE_LEANS, WAVE_TICKS};
 pub use volley::{BELL_X, PADDLE_REACH, Volley};
 
@@ -42,10 +57,13 @@ pub enum Game {
     Trencher,
     DuckShoot,
     Longbow,
+    Powder,
+    Gander,
+    Siege,
 }
 
 impl Game {
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 19] = [
         Self::Broadsheet,
         Self::Barrel,
         Self::Turnip,
@@ -62,6 +80,9 @@ impl Game {
         Self::Trencher,
         Self::DuckShoot,
         Self::Longbow,
+        Self::Powder,
+        Self::Gander,
+        Self::Siege,
     ];
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|g| *g == self).unwrap()
@@ -83,6 +104,13 @@ impl Game {
             Self::Trencher => RoomKind::GooseGreen,
             Self::DuckShoot => RoomKind::Fairground,
             Self::Longbow => RoomKind::LongbowGreen,
+            // The arena games are played inside the Colosseum, each in its
+            // own room behind one of its gates (`colosseum`).
+            Self::Powder => RoomKind::KegYard,
+            Self::Gander => RoomKind::GanderHall,
+            // The war-camp pitches on the Flower Fields: engines among
+            // the flowers, the toll of the trail already paid.
+            Self::Siege => RoomKind::Pasture,
         }
     }
     pub fn name(self) -> &'static str {
@@ -103,6 +131,9 @@ impl Game {
             Self::Trencher => "TRENCHER TOSS",
             Self::DuckShoot => "CARNIVAL DUCK RANGE",
             Self::Longbow => "POPINJAY SHOOT",
+            Self::Powder => "POWDER KEG",
+            Self::Gander => "GANDER JOUST",
+            Self::Siege => "SIEGE TRAIL",
         }
     }
     pub fn start(self) -> (f32, f32) {
@@ -123,6 +154,9 @@ impl Game {
             Self::Trencher => (3.0, 9.0),
             Self::DuckShoot => (11.0, 4.0),
             Self::Longbow => (3.0, 9.0),
+            Self::Powder => (3.0, 5.0),
+            Self::Gander => (9.0, 8.0),
+            Self::Siege => (9.0, 10.5),
         }
     }
     pub fn time(self) -> u32 {
@@ -143,6 +177,11 @@ impl Game {
             Self::Trencher => 30 * HZ,
             Self::DuckShoot => 40 * HZ,
             Self::Longbow => 40 * HZ,
+            Self::Powder => 60 * HZ,
+            Self::Gander => 75 * HZ,
+            // Five legs over three castles; the trail's own clocks, not
+            // the round clock, pace the march.
+            Self::Siege => 300 * HZ,
         }
     }
     pub fn need(self) -> u8 {
@@ -162,6 +201,9 @@ impl Game {
             Self::Trencher => 3,
             Self::DuckShoot => 10,
             Self::Longbow => 3,
+            Self::Powder => 8,
+            Self::Gander => 8,
+            Self::Siege => 3,
         }
     }
 }
@@ -175,6 +217,7 @@ pub struct Score {
     pub plays: u32,
 }
 impl Score {
+    fn is_empty(&self) -> bool { *self == Self::default() }
     fn valid(&self) -> bool {
         self.best <= 1000 && self.wins <= self.plays
     }
@@ -207,6 +250,25 @@ pub struct Records {
     pub trencher: Score,
     pub duckshoot: Score,
     pub longbow: Score,
+    #[serde(skip_serializing_if = "Score::is_empty")]
+    pub cinder: Score,
+    #[serde(skip_serializing_if = "Score::is_empty")]
+    pub latch: Score,
+    #[serde(default, skip_serializing_if = "Score::is_empty")]
+    pub brasswake: Score,
+    #[serde(default, skip_serializing_if = "Score::is_empty")]
+    pub rafterwake: Score,
+    #[serde(default, skip_serializing_if = "Score::is_empty")]
+    pub pennon: Score,
+    #[serde(skip_serializing_if = "Score::is_empty")]
+    pub mossbell: Score,
+    /// The Round Table adventures' records, in `roundtable::ADVENTURES`
+    /// order (`Records::roundtable[lanternward::SLOT]`).
+    #[serde(skip_serializing_if = "super::roundtable::unscored")]
+    pub roundtable: [Score; 5],
+    pub powder: Score,
+    pub gander: Score,
+    pub siege: Score,
 }
 impl Records {
     pub fn valid(&self) -> bool {
@@ -224,6 +286,16 @@ impl Records {
             && self.trencher.valid()
             && self.duckshoot.valid()
             && self.longbow.valid()
+            && self.cinder.valid()
+            && self.latch.valid()
+            && self.brasswake.valid()
+            && self.rafterwake.valid()
+            && self.pennon.valid()
+            && self.mossbell.valid()
+            && self.roundtable.iter().all(Score::valid)
+            && self.powder.valid()
+            && self.gander.valid()
+            && self.siege.valid()
     }
     /// Mend records a bad save broke: bests capped, plays at least wins.
     pub fn repair(&mut self) {
@@ -244,9 +316,18 @@ impl Records {
             &mut self.trencher,
             &mut self.duckshoot,
             &mut self.longbow,
+            &mut self.cinder,
+            &mut self.latch,
+            &mut self.brasswake,
+            &mut self.rafterwake,
+            &mut self.pennon,
+            &mut self.mossbell,
+            &mut self.gander,
+            &mut self.siege,
         ] {
             score.repair();
         }
+        self.roundtable.iter_mut().for_each(Score::repair);
     }
     pub fn best_for(&self, game: Game) -> u16 {
         if game == Game::Trencher {
@@ -273,6 +354,12 @@ impl Records {
             self.duckshoot.best
         } else if game == Game::Longbow {
             self.longbow.best
+        } else if game == Game::Powder {
+            self.powder.best
+        } else if game == Game::Gander {
+            self.gander.best
+        } else if game == Game::Siege {
+            self.siege.best
         } else {
             self.best[game.index()]
         }
@@ -302,6 +389,12 @@ impl Records {
             self.duckshoot.plays
         } else if game == Game::Longbow {
             self.longbow.plays
+        } else if game == Game::Powder {
+            self.powder.plays
+        } else if game == Game::Gander {
+            self.gander.plays
+        } else if game == Game::Siege {
+            self.siege.plays
         } else {
             self.plays[game.index()]
         }
@@ -332,6 +425,10 @@ impl Records {
             self.duckshoot.wins
         } else if game == Game::Longbow {
             self.longbow.wins
+        } else if game == Game::Gander {
+            self.gander.wins
+        } else if game == Game::Siege {
+            self.siege.wins
         } else {
             self.wins[game.index()]
         }
@@ -351,11 +448,18 @@ impl Records {
             &self.chariot,
             &self.trencher,
             &self.longbow,
+            &self.cinder,
+            &self.latch,
+            &self.brasswake,
+            &self.rafterwake,
+            &self.pennon,
+            &self.mossbell,
+            &self.gander,
         ]
         .iter()
         .map(|s| s.plays)
         .sum();
-        named + self.plays.iter().copied().sum::<u32>()
+        named + self.roundtable.iter().map(|s| s.plays).sum::<u32>() + self.plays.iter().copied().sum::<u32>()
     }
 
     /// Every round the realm has finished in victory; a festival with no
@@ -373,11 +477,18 @@ impl Records {
             &self.chariot,
             &self.trencher,
             &self.longbow,
+            &self.cinder,
+            &self.latch,
+            &self.brasswake,
+            &self.rafterwake,
+            &self.pennon,
+            &self.mossbell,
+            &self.gander,
         ]
         .iter()
         .map(|s| s.wins)
         .sum();
-        named + self.wins.iter().copied().sum::<u32>()
+        named + self.roundtable.iter().map(|s| s.wins).sum::<u32>() + self.wins.iter().copied().sum::<u32>()
     }
 
     pub fn merge(&mut self, other: &Self) -> bool {
@@ -395,6 +506,15 @@ impl Records {
             self.trencher.merge(&other.trencher);
             self.duckshoot.merge(&other.duckshoot);
             self.longbow.merge(&other.longbow);
+            self.cinder.merge(&other.cinder);
+            self.latch.merge(&other.latch);
+            self.brasswake.merge(&other.brasswake);
+            self.rafterwake.merge(&other.rafterwake);
+            self.pennon.merge(&other.pennon);
+            self.mossbell.merge(&other.mossbell);
+            for (mine, theirs) in self.roundtable.iter_mut().zip(&other.roundtable) {
+                mine.merge(theirs);
+            }
             for i in 0..4 {
                 self.best[i] = self.best[i].max(other.best[i]);
                 self.plays[i] = self.plays[i].max(other.plays[i]);
@@ -459,6 +579,10 @@ pub struct Round {
     pub duckshoot: Option<DuckShoot>,
     #[serde(default)]
     pub longbow: Option<Longbow>,
+    #[serde(default)]
+    pub powder: Option<Powder>,
+    pub gander: Option<Gander>,
+    pub siege: Option<Siege>,
     /// Each rider jumps only for their own key edge, never the party's OR.
     #[serde(default)]
     pub riders: BTreeMap<u32, Rider>,
@@ -603,20 +727,39 @@ impl State {
         // play on.
         if let Some(heat) = &mut self.heat {
             let lead = heat.seats.first() == Some(&id);
-            let gone = if lead {
-                self.round.take()
+            if lead {
+                // The shared courtyard needs a seat to carry it: when the
+                // starter departs, the next knight's round takes the yard
+                // over rather than forfeiting it.
+                if self.round.as_ref().is_some_and(|r| r.game == Game::Powder) {
+                    let yard = self.round.take();
+                    let next_owner = heat
+                        .seats
+                        .iter()
+                        .find(|s| **s != id && !heat.done.contains_key(s))
+                        .copied();
+                    if let (Some(next), Some(mut r)) = (next_owner, yard)
+                        && next != id
+                    {
+                        if let Some(friend) = self.heats.remove(&next) {
+                            r.powder = friend.powder.or(r.powder);
+                        }
+                        r.game = Game::Powder;
+                        heat.seats.retain(|s| *s != id);
+                        heat.seats.insert(0, next);
+                        self.round = Some(r);
+                        heat.done.remove(&id);
+                        return;
+                    }
+                } else {
+                    self.round = None;
+                }
             } else {
-                self.heats.remove(&id)
-            };
-            if let Some(r) = gone {
-                heat.done.insert(
-                    id,
-                    Finish {
-                        progress: r.progress,
-                        points: None,
-                    },
-                );
+                self.heats.remove(&id);
             }
+            // Keep the standing for the board, but a withdrawn score must
+            // never win when every remaining round times out.
+            heat.done.remove(&id);
             return;
         }
         let Some(r) = &mut self.round else {
@@ -673,6 +816,15 @@ impl State {
                 s.owner = next;
             }
         }
+        if let Some(s) = &mut r.gander {
+            // The shared hall keeps every seat; a departing starter's seat
+            // rides on (their tally stays), the seat list never empties.
+        }
+        if let Some(s) = &mut r.siege {
+            if s.owner == id {
+                s.owner = next;
+            }
+        }
     }
 
     pub fn leave(&mut self) {
@@ -683,7 +835,13 @@ impl State {
 }
 
 /// A fresh round of `game` for `owner`, standing at `at` (units).
-fn new_round(game: Game, owner: u32, at: (f32, f32), rotation: usize) -> Round {
+fn new_round(
+    game: Game,
+    owner: u32,
+    at: (f32, f32),
+    rotation: usize,
+    seats: Option<&[u32]>,
+) -> Round {
     let recipients = [0, 2, 3]
         .into_iter()
         .fold(0, |m, i| m | (1 << ((i + rotation) % 5)));
@@ -707,6 +865,23 @@ fn new_round(game: Game, owner: u32, at: (f32, f32), rotation: usize) -> Round {
         trencher: (game == Game::Trencher).then(|| Trencher::new(owner)),
         duckshoot: (game == Game::DuckShoot).then(|| DuckShoot::new(owner)),
         longbow: (game == Game::Longbow).then(|| Longbow::new(owner)),
+        powder: (game == Game::Powder).then(|| {
+            let seed = ((rotation as u32 + owner * 3) % 7) as u8;
+            Powder::new(std::slice::from_ref(&owner), seed)
+        }),
+        gander: (game == Game::Gander).then(|| {
+            // The shared hall: every seat in the room rides together.
+            let mut hall = vec![owner];
+            if let Some(seats) = seats {
+                for &id in seats {
+                    if id != owner {
+                        hall.push(id);
+                    }
+                }
+            }
+            Gander::new(&hall)
+        }),
+        siege: (game == Game::Siege).then(|| Siege::new(owner)),
         riders: if game == Game::Hobbyhorse {
             BTreeMap::from([(
                 owner,
@@ -765,6 +940,21 @@ fn round_valid(r: &Round) -> bool {
                         r.longbow.as_ref().is_some_and(|b| b.valid(r))
                     } else {
                         r.longbow.is_none()
+                    })
+                    && (if r.game == Game::Powder {
+                        r.powder.as_ref().is_some_and(|p| p.valid())
+                    } else {
+                        r.powder.is_none()
+                    })
+                    && (if r.game == Game::Gander {
+                        r.gander.as_ref().is_some_and(|g| g.valid(r))
+                    } else {
+                        r.gander.is_none()
+                    })
+                    && (if r.game == Game::Siege {
+                        r.siege.as_ref().is_some_and(|s| s.valid(r))
+                    } else {
+                        r.siege.is_none()
                     })
                     && (if r.game == Game::Chariot {
                         r.chariot.as_ref().is_some_and(|c| c.valid(r))
@@ -867,7 +1057,7 @@ impl Run {
             self.pastimes.leave();
             return;
         }
-        // There are at most four knights. Keep this per-tick working set on
+        // There are at most `MAX_PLAYERS` knights. Keep this per-tick working set on
         // the stack rather than allocating two vectors and a new held-key tree.
         let mut eligible = [(0u32, 0.0, 0.0); MAX_PLAYERS as usize];
         let mut count = 0;
@@ -948,16 +1138,23 @@ impl Run {
                     record.duckshoot.plays = record.duckshoot.plays.saturating_add(1);
                 } else if game == Game::Longbow {
                     record.longbow.plays = record.longbow.plays.saturating_add(1);
+                } else if game == Game::Powder {
+                    record.powder.plays = record.powder.plays.saturating_add(1);
+                } else if game == Game::Gander {
+                    record.gander.plays = record.gander.plays.saturating_add(1);
+                } else if game == Game::Siege {
+                    record.siege.plays = record.siege.plays.saturating_add(1);
                 } else {
                     record.plays[game.index()] = record.plays[game.index()].saturating_add(1);
                 }
                 // Everyone in the room is in: the starter plays the lead
                 // round, each friend a round of their own.
-                self.pastimes.round = Some(new_round(game, starter, (sx, sy), rotation));
+                let seat_ids: Vec<u32> = eligible.iter().map(|&(id, _, _)| id).collect();
+                self.pastimes.round = Some(new_round(game, starter, (sx, sy), rotation, Some(&seat_ids)));
                 let mut seats = vec![starter];
                 for &(id, x, y) in eligible {
                     if id != starter {
-                        self.pastimes.heats.insert(id, new_round(game, id, (x, y), rotation));
+                        self.pastimes.heats.insert(id, new_round(game, id, (x, y), rotation, Some(&seat_ids)));
                         seats.push(id);
                     }
                 }
@@ -968,6 +1165,26 @@ impl Run {
                     done: BTreeMap::new(),
                     standing: BTreeMap::new(),
                 });
+                // Powder Keg: every knight plays in ONE shared courtyard, so
+                // a keg can trap and soot a friend. Each seat's round
+                // mirrors the same yard.
+                if game == Game::Powder {
+                    let ids = self.pastimes.heat.as_ref().unwrap().seats.clone();
+                    let seed = self
+                        .pastimes
+                        .round
+                        .as_ref()
+                        .and_then(|r| r.powder.as_ref())
+                        .map(|p| p.seed)
+                        .unwrap_or(0);
+                    let yard = Powder::new(&ids, seed);
+                    if let Some(r) = self.pastimes.round.as_mut() {
+                        r.powder = Some(yard.clone());
+                    }
+                    for r in self.pastimes.heats.values_mut() {
+                        r.powder = Some(yard.clone());
+                    }
+                }
                 self.sounds.push("play_card");
                 self.found = Some((
                     self.tick,
@@ -981,6 +1198,39 @@ impl Run {
             }
             return;
         }
+        // The Gander Joust hall is one hall for the whole heat: it ticks
+        // once, every seat riding together, before any seat's own round
+        // is judged.
+        if self.pastimes.round.as_ref().is_some_and(|r| r.game == Game::Gander) {
+            let mut round = self.pastimes.round.take().unwrap();
+            let seats = round.gander.as_ref().map(|g| g.seats.clone()).unwrap_or_default();
+            let going = self.tick_gander(&mut round, inputs, eligible, tapped);
+            // The hall's clock runs for the whole heat.
+            round.left = round.left.saturating_sub(1);
+            if let Some(heat) = self.pastimes.heat.as_mut() {
+                let tally = round.gander.as_ref().map(|g| g.tally.clone());
+                if let Some(tally) = tally {
+                    for (k, &seat) in seats.iter().enumerate() {
+                        let t = tally.get(k).copied().unwrap_or(0);
+                        if let Ok(got) = u8::try_from(t) {
+                            heat.standing.insert(seat, got.min(heat.game.need()));
+                        }
+                    }
+                }
+            }
+            // The heat ends at the clock (or the need, for a single knight):
+            // every seat finishes with its unhorsings in the shared hall.
+            let over = !going
+                || round.left == 0
+                || round.gander.as_ref().is_some_and(|g| {
+                    g.tally.iter().any(|&t| t >= round.game.need())
+                });
+            self.pastimes.round = Some(round);
+            if over {
+                self.finish_gander_heat();
+            }
+            return;
+        }
         // Each seat plays its own round: only its own feet and keys count.
         let seats = self.pastimes.heat.as_ref().map(|h| h.seats.clone()).unwrap_or_default();
         for (n, &id) in seats.iter().enumerate() {
@@ -989,13 +1239,46 @@ impl Run {
             } else {
                 self.pastimes.heats.remove(&id)
             };
-            let Some(round) = round else {
+            let Some(mut round) = round else {
                 continue;
             };
             let mine: Vec<(u32, f32, f32)> =
                 eligible.iter().copied().filter(|&(who, _, _)| who == id).collect();
             let taps: Vec<u32> = tapped.iter().copied().filter(|&who| who == id).collect();
-            let played = if round.game.room() == room {
+            let played = if round.game == Game::Powder && n > 0 {
+                // The shared courtyard advances once, on the starter's
+                // round; every other seat's round mirrors its own knight's
+                // standing in that one yard. Once the starter's round is
+                // gone (they stepped out, or their knight was sooted), the
+                // friend's round carries the yard itself.
+                let lead = self.pastimes.round.as_ref();
+                if let Some(p) = lead.and_then(|r| r.powder.as_ref()) {
+                    let out = !p.alive().contains(&id);
+                    if out || round.left == 0 {
+                        Played::Over(Finish {
+                            progress: round.progress,
+                            points: None,
+                        })
+                    } else {
+                        round.progress = p
+                            .burned
+                            .get(&id)
+                            .copied()
+                            .unwrap_or(0)
+                            .min(round.game.need());
+                        round.left = round.left.saturating_sub(1);
+                        Played::Going(round)
+                    }
+                } else {
+                    let all: Vec<(u32, f32, f32)> = eligible.to_vec();
+                    self.play_round(round, inputs, &all, tapped)
+                }
+            } else if round.game == Game::Powder {
+                // The shared courtyard's lead seat ticks the whole yard:
+                // every knight's feet and taps count in the one yard.
+                let all: Vec<(u32, f32, f32)> = eligible.to_vec();
+                self.play_round(round, inputs, &all, tapped)
+            } else if round.game.room() == room {
                 self.play_round(round, inputs, &mine, &taps)
             } else {
                 Played::Over(Finish {
@@ -1034,6 +1317,60 @@ impl Run {
         {
             self.judge_heat(&heat);
         }
+    }
+
+    /// The shared Gander hall is over (clock, or the need): each seat
+    /// finishes with its unhorsings, the most takes the crown and the
+    /// winner's ride pays the purse.
+    fn finish_gander_heat(&mut self) {
+        let Some(round) = self.pastimes.round.take() else {
+            return;
+        };
+        let Some(heat) = self.pastimes.heat.take() else {
+            self.pastimes.round = Some(round);
+            return;
+        };
+        self.pastimes.heats.clear();
+        let Some(g) = round.gander.as_ref() else {
+            return;
+        };
+        let mut finishes = BTreeMap::new();
+        for (k, &seat) in g.seats.iter().enumerate() {
+            let p = u8::try_from(g.tally.get(k).copied().unwrap_or(0))
+                .unwrap_or(u8::MAX)
+                .min(heat.game.need());
+            finishes.insert(seat, Finish { progress: p, points: None });
+        }
+        let crowned = Heat {
+            game: heat.game,
+            seats: heat.seats.clone(),
+            standing: heat.standing.clone(),
+            done: finishes,
+        };
+        let winner = crowned.winner();
+        if let Some(w) = winner {
+            // The winner's ride pays, as a round-one heat did.
+            let progress = u32::from(crowned.done.get(&w).map(|f| f.progress).unwrap_or(0));
+            let result = (progress * 75 + round.left / HZ * 5)
+                .saturating_sub(u32::from(round.mistakes) * 25)
+                .clamp(25, 1000) as u16;
+            let record = &mut self.home.countryside.games;
+            record.gander.best = record.gander.best.max(result);
+            record.gander.wins = record.gander.wins.saturating_add(1).min(record.gander.plays);
+            self.score = self.score.saturating_add(u32::from(result));
+            self.marks
+                .insert(super::countryside::game_mark(round.game.index()), 1);
+            self.found = Some((
+                self.tick,
+                0,
+                format!("GANDER JOUST complete! +{result}. Best {}.", record.gander.best),
+            ));
+        } else {
+            self.found = Some((self.tick, 0, "GANDER JOUST: time!".into()));
+        }
+        self.sounds.push("play_card");
+        self.cues.push("pastime_won".into());
+        self.judge_heat(&crowned);
     }
 
     /// Stops every round still going, keeping how far each got.
@@ -1281,6 +1618,22 @@ impl Run {
             }
             Game::Longbow => {
                 if !self.tick_longbow(&mut round, inputs, eligible) {
+                    return lost(&round);
+                }
+            }
+            Game::Powder => {
+                // The shared courtyard: every knight's tap counts, not only
+                // this seat's.
+                if !self.tick_kegs(&mut round, inputs, eligible, tapped) {
+                    return lost(&round);
+                }
+            }
+            Game::Gander => {
+                // The shared hall ticks once for the whole heat, before the
+                // per-seat loop (see `tick_pastimes`); nothing to do here.
+            }
+            Game::Siege => {
+                if !self.tick_siege(&mut round, inputs, eligible) {
                     return lost(&round);
                 }
             }
@@ -1534,10 +1887,26 @@ impl Run {
                 }
             }
         }
-        if round.progress >= round.game.need() {
-            let result = (u32::from(round.progress) * 75 + round.left / HZ * 5)
+        if round.game != Game::Gander && round.progress >= round.game.need() {
+            let result = if round.game == Game::Siege {
+                // The trail's purse: damage on the keeps, then a bounty for
+                // every soldier still standing at the end.
+                let damage = round
+                    .siege
+                    .as_ref()
+                    .map(|s| u32::from(s.damage.min(u16::MAX)))
+                    .unwrap_or(0);
+                let men = round
+                    .siege
+                    .as_ref()
+                    .map(|s| u32::from(s.soldiers.min(u8::MAX)))
+                    .unwrap_or(0);
+                (damage * 5 + men * 25).min(1000) as u16
+            } else {
+                (u32::from(round.progress) * 75 + round.left / HZ * 5)
                 .saturating_sub(u32::from(round.mistakes) * 25)
-                .clamp(25, 1000) as u16;
+                .clamp(25, 1000) as u16
+            };
             let record = &mut self.home.countryside.games;
             if round.game == Game::Trencher {
                 record.trencher.best = record.trencher.best.max(result);
@@ -1581,6 +1950,9 @@ impl Run {
                     .wins
                     .saturating_add(1)
                     .min(record.cheese.plays);
+            } else if round.game == Game::Powder {
+                record.powder.best = record.powder.best.max(result);
+                record.powder.wins = record.powder.wins.saturating_add(1).min(record.powder.plays);
             } else if round.game == Game::DuckShoot {
                 record.duckshoot.best = record.duckshoot.best.max(result);
                 record.duckshoot.wins = record
@@ -1591,6 +1963,15 @@ impl Run {
             } else if round.game == Game::Longbow {
                 record.longbow.best = record.longbow.best.max(result);
                 record.longbow.wins = record.longbow.wins.saturating_add(1).min(record.longbow.plays);
+                if let Some(bow) = round.longbow.as_ref() {
+                    self.school.note(bow.owner, "archer-longbow", 1);
+                }
+            } else if round.game == Game::Gander {
+                record.gander.best = record.gander.best.max(result);
+                record.gander.wins = record.gander.wins.saturating_add(1).min(record.gander.plays);
+            } else if round.game == Game::Siege {
+                record.siege.best = record.siege.best.max(result);
+                record.siege.wins = record.siege.wins.saturating_add(1).min(record.siege.plays);
             } else {
                 let i = round.game.index();
                 record.best[i] = record.best[i].max(result);
@@ -1620,5 +2001,17 @@ impl Run {
 }
 
 #[cfg(test)]
+#[path = "../../tests/rules/together_kegs__tests.rs"]
+mod kegs_tests;
+
+#[cfg(test)]
 #[path = "../../tests/rules/together_heats__tests.rs"]
 mod heat_tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_games_order__tests.rs"]
+mod games_order_tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_siege__tests.rs"]
+mod siege_tests;

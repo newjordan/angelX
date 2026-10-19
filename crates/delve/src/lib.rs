@@ -7,6 +7,8 @@
 //! - [`render`]: a run (or the realm's overworld) drawn into an image.
 //! - [`world`]: the kingdom's map and geography the rules walk on, and the
 //!   great houses.
+//! - [`world3d`]: rooms rebuilt as blocks with a painted plate cast on them
+//!   (docs/WORLD-3D.md), behind the host's switch.
 //! - [`realm`]: the plain data the party's realm keeps between runs.
 //! - [`settings`]: what the host sets once, before play.
 //! - [`client`]: the Delve as an engine client: snapshots in, a seat's own
@@ -25,3 +27,4 @@ pub mod rules;
 pub mod settings;
 pub mod wire;
 pub mod world;
+pub mod world3d;

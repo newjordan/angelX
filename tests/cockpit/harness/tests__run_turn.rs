@@ -3647,6 +3647,9 @@ fn repeated_poll_default_stamps_glm_timestamp_treadmill_with_paired_history() {
     }
     let dispatches = Arc::new(AtomicUsize::new(0));
     let mut registry = ToolRegistry::new();
+    // A workspace of its own: in the checkout, any other test's write there
+    // reads as this turn's progress and clears the poll window.
+    registry.set_workspace(scratch("repeated_poll_treadmill"));
     registry.register(Box::new(TimestampPoll(dispatches.clone())));
     let club = AlternatingPoll(AtomicUsize::new(0));
     let mut history = vec![ChatMsg::user("monitor the existing benchmark")];
@@ -6083,7 +6086,7 @@ fn yolo_turn_stamps_consecutive_tool_errors_and_keeps_going() {
         "the advice at the third failed hop and again at the ninth: {history:?}"
     );
     assert_eq!(
-        advisory_turns(&history, "⠼⠊"),
+        advisory_turns(&history, "⠼⠓"),
         1,
         "the cascade at the sixth: {history:?}"
     );
@@ -7888,7 +7891,7 @@ fn r03_changing_unproductive_actions_are_stamped_with_stalled_verifier() {
     // Ten hops of every call failing: the advice at the third, the cascade at
     // the sixth (the count starts again), the advice again at the ninth.
     assert_eq!(advisory_turns(&history, "⠭⠁"), 2);
-    assert_eq!(advisory_turns(&history, "⠼⠊"), 1);
+    assert_eq!(advisory_turns(&history, "⠼⠓"), 1);
     let tools = trajectory::tool_ledger_snapshot();
     assert_eq!(tools.len(), 20);
     assert!(
@@ -9266,6 +9269,129 @@ fn chance_markers_are_read_from_edited_source_not_tests() {
     for path in ["src/lib.rs", "robot_name.cpp", "latest.py", "contest.js"] {
         assert!(!is_test_path(path), "{path}");
     }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// The chance check reads every source file Git sees changed or new, not only
+/// what the file tools wrote: a shell here-doc, `sed -i` or a generator writes
+/// code too. Tests and unchanged files stay out.
+#[test]
+fn chance_markers_are_read_from_any_writer_through_git() {
+    let root = confirm_green_fixture("chance_any_writer", "all:\n\t@true\n");
+    let none = std::collections::BTreeSet::new();
+    assert!(!edits_depend_on_chance(&root, &none), "nothing changed");
+    std::fs::write(root.join("robot_test.cpp"), "srand(time(0));\n").unwrap();
+    assert!(!edits_depend_on_chance(&root, &none), "tests are skipped");
+    std::fs::write(root.join("robot.cpp"), "std::mt19937 rng;\n").unwrap();
+    assert!(edits_depend_on_chance(&root, &none), "a new file");
+    let _ = std::fs::remove_dir_all(root);
+
+    let root = confirm_green_fixture("chance_any_writer_tracked", "all:\n\t@true\n");
+    std::fs::write(root.join("names.py"), "def name():\n    return 'RX837'\n").unwrap();
+    let git = |args: &[&str]| {
+        assert!(
+            Command::new("git")
+                .args(args)
+                .current_dir(&root)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+    };
+    git(&["add", "names.py"]);
+    git(&["commit", "-q", "-m", "stub"]);
+    assert!(!edits_depend_on_chance(&root, &none), "committed stub");
+    std::fs::write(root.join("names.py"), "import random\n").unwrap();
+    assert!(
+        edits_depend_on_chance(&root, &none),
+        "an edited tracked file"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Writes `robot.cpp` and runs `make` in one shell here-doc, answers, runs
+/// `make` again, then answers on every later call: Sonnet 5.5 on polyglot-v1
+/// cpp-robot-name.
+struct HeredocThenMakeClub {
+    calls: AtomicUsize,
+}
+
+impl Club for HeredocThenMakeClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "heredoc-then-make"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        let shell = |id: &str, command: &str| {
+            ClubReply::Calls(vec![ToolCall {
+                id: id.into(),
+                name: "shell".into(),
+                args: json!({"command": command}),
+            }])
+        };
+        Ok(match self.calls.fetch_add(1, Ordering::SeqCst) {
+            0 => shell(
+                "call_write_make",
+                "cat > robot.cpp <<'E'\n#include <random>\nstd::mt19937 rng{std::random_device{}()};\nE\nmake",
+            ),
+            2 => shell("call_make", "make"),
+            _ => ClubReply::Text("All tests pass; the task is complete.".into()),
+        })
+    }
+}
+
+/// The model's green is confirmed even after another fact spent the stop
+/// checkpoint, and a failed re-run gets its one stop. Here the here-doc's
+/// verdict is unreadable, so its answer meets `⠧⠋`; the model's next `make`
+/// passes on luck (its second run), the confirming re-run fails, and `⠧⠑`
+/// reaches the model once before the answer stands.
+#[test]
+fn a_lucky_green_after_a_spent_checkpoint_still_meets_its_flaky_rerun() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    // Passes on its first two runs and fails after.
+    let root = confirm_green_fixture(
+        "chance_heredoc",
+        "all:\n\t@n=$$(cat .runs 2>/dev/null || echo 0); n=$$((n+1)); echo $$n > .runs; \
+         if [ $$n -gt 2 ]; then echo 'REQUIRE( names.count(robot.name()) == 0 ) failed'; exit 1; fi\n",
+    );
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(RootShell(root.clone())));
+    let club = HeredocThenMakeClub {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::user("implement robot names")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(12),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    let checkpoints = history
+        .iter()
+        .filter(|message| {
+            message.role == ChatRole::Harness && book::ledger::is_warpath_message(&message.content)
+        })
+        .map(|message| first_line(&message.content).to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(checkpoints.len(), 2, "{checkpoints:?}");
+    assert!(has_route(&checkpoints[0], "⠧⠋"), "{checkpoints:?}");
+    assert!(has_route(&checkpoints[1], "⠧⠑"), "{checkpoints:?}");
+    assert!(!has_route(&checkpoints[1], "⠧⠋"), "only ⠧⠑ re-opens");
+    assert_eq!(
+        club.calls.load(Ordering::SeqCst),
+        5,
+        "here-doc, ⠧⠋ answer, make, ⠧⠑ answer, the answer that stands"
+    );
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10668,47 +10794,6 @@ fn never_on_a_tail(history: &[ChatMsg], route: &str) {
 }
 
 #[test]
-fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
-    let _guard = crate::tests::env_lock();
-    let _env = root_turn_env();
-    let root = root_fixture("advisory_post_edit");
-    let script = Script::new(vec![
-        write_call("lib.rs", "pub fn sub() { 1 }\n"),
-        write_call("lib.rs", "pub fn sub() { 2 }\n"),
-        Move::Say("done"),
-    ]);
-    let (outcome, history) = run_advisory_turn(&root, &script, 30);
-    outcome.expect("the turn answers");
-    assert_eq!(own_turns(&history, "⠼⠁"), 1, "{history:?}");
-    never_on_a_tail(&history, "⠼⠁");
-    // Guidance, not a warning: bare cells, right after the edit's result.
-    let at = history
-        .iter()
-        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠁")
-        .unwrap();
-    assert_eq!(history[at - 1].role, ChatRole::Tool);
-    // The model reads the advice in its own words at first sight.
-    let english = legend(&history);
-    assert!(
-        english.contains(
-            "⠼⠁ Review the edit logically before testing: trace the state transitions, \
-             invariants, cleanup/empty cases, and error paths implied by the task."
-        ),
-        "{english}"
-    );
-    assert!(
-        english.contains("Do not invent new tests as proof"),
-        "{english}"
-    );
-    // Off by the operator: never.
-    let _off = EnvGuard::set("ANGEL_POST_EDIT_LOGIC_REVIEW", "0");
-    let script = Script::new(vec![write_call("lib.rs", "pub fn sub() { 3 }\n")]);
-    let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠁"), 0);
-    let _ = std::fs::remove_dir_all(root);
-}
-
-#[test]
 fn a_green_verifier_is_told_once_and_again_after_the_code_changed() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
@@ -10724,15 +10809,15 @@ fn a_green_verifier_is_told_once_and_again_after_the_code_changed() {
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
     assert_eq!(
-        own_turns(&history, "⠼⠃"),
+        own_turns(&history, "⠼⠁"),
         2,
         "once for the green, again after an edit stales it: {history:?}"
     );
-    never_on_a_tail(&history, "⠼⠃");
+    never_on_a_tail(&history, "⠼⠁");
     let english = legend(&history);
     assert!(
         english
-            .contains("⠼⠃ GREEN VERIFIER. A full project verifier just passed on this workspace."),
+            .contains("⠼⠁ GREEN VERIFIER. A full project verifier just passed on this workspace."),
         "{english}"
     );
     let _ = std::fs::remove_dir_all(root);
@@ -10755,7 +10840,7 @@ fn a_competition_banks_its_green_and_warns_when_the_candidate_changes() {
     assert_eq!(own_turns(&history, "⡅⠁"), 1, "{history:?}");
     assert_eq!(own_turns(&history, "⡅⠃"), 1, "{history:?}");
     assert_eq!(
-        own_turns(&history, "⠼⠃"),
+        own_turns(&history, "⠼⠁"),
         0,
         "the bank replaces the plain green"
     );
@@ -10795,10 +10880,10 @@ fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
     let script = Script::new(moves);
     let (outcome, history) = run_advisory_turn(&root, &script, 10);
     outcome.expect("the turn answers");
-    assert_eq!(own_turns(&history, "⠼⠉"), 1, "{history:?}");
+    assert_eq!(own_turns(&history, "⠼⠃"), 1, "{history:?}");
     let first = history
         .iter()
-        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠉")
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠃")
         .unwrap();
     // Seven hops in of ten: three remain.
     let hops_before = history[..first]
@@ -10807,14 +10892,14 @@ fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
         .count();
     assert_eq!(hops_before, 7, "{history:?}");
     // A hop of inspection alone while a verifier is owed hears the last sentence.
-    assert!(own_turns(&history, "⠼⠉⠑") >= 1, "{history:?}");
+    assert!(own_turns(&history, "⠼⠃⠑") >= 1, "{history:?}");
     let english = legend(&history);
     assert!(
-        english.contains("⠼⠉ FINAL-MILE BUDGET ACTIVE. The workspace has changed"),
+        english.contains("⠼⠃ FINAL-MILE BUDGET ACTIVE. The workspace has changed"),
         "{english}"
     );
     assert!(
-        english.contains("⠼⠉⠑ Do not spend the remaining calls re-reading known context."),
+        english.contains("⠼⠃⠑ Do not spend the remaining calls re-reading known context."),
         "{english}"
     );
     // An unbounded turn has no horizon: none of it.
@@ -10839,7 +10924,7 @@ fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
         );
         (outcome, history)
     };
-    assert_eq!(own_turns(&history, "⠼⠉"), 0);
+    assert_eq!(own_turns(&history, "⠼⠃"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10857,10 +10942,10 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
     ]);
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
-    assert_eq!(own_turns(&history, "⠼⠙"), 1, "once per turn: {history:?}");
+    assert_eq!(own_turns(&history, "⠼⠉"), 1, "once per turn: {history:?}");
     let at = history
         .iter()
-        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠙")
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠉")
         .unwrap();
     let reads_before = history[..at]
         .iter()
@@ -10869,7 +10954,7 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
     assert_eq!(reads_before, 2, "at the second inspection call");
     assert!(
         legend(&history)
-            .contains("⠼⠙ ACTIONABLE CANDIDATE PROGRESS. Inspection has not yet produced")
+            .contains("⠼⠉ ACTIONABLE CANDIDATE PROGRESS. Inspection has not yet produced")
     );
     // An edit first spends nothing: no advice.
     let script = Script::new(vec![
@@ -10880,7 +10965,7 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
         Move::Say("done"),
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    assert_eq!(own_turns(&history, "⠼⠉"), 0);
     // Unarmed (the default): never.
     let _unarmed = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let script = Script::new(vec![
@@ -10890,7 +10975,7 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
         Move::Say("done"),
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    assert_eq!(own_turns(&history, "⠼⠉"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10907,7 +10992,7 @@ fn a_rapid_competition_hears_its_own_first_write_advice() {
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
     assert_eq!(own_turns(&history, "⡅⠉"), 1, "{history:?}");
-    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    assert_eq!(own_turns(&history, "⠼⠉"), 0);
     assert!(legend(&history).contains("RAPID COMPETITION CANDIDATE PROGRESS."));
     let _ = std::fs::remove_dir_all(root);
 }
@@ -10928,15 +11013,15 @@ fn an_answer_with_no_edit_meets_the_no_edit_advice_at_the_checkpoint_when_armed(
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
     assert_eq!(script.chats(), 2, "one checkpoint, then the answer stands");
-    assert_eq!(checkpoints_with(&history, "⠼⠑"), 1, "{history:?}");
+    assert_eq!(checkpoints_with(&history, "⠼⠙"), 1, "{history:?}");
     assert!(
-        legend(&history).contains("⠼⠑ NO WORKSPACE MUTATION. You claimed progress or completion")
+        legend(&history).contains("⠼⠙ NO WORKSPACE MUTATION. You claimed progress or completion")
     );
     // Without the operator's arming, or after an edit: nothing.
     let _off = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
     let script = Script::new(vec![Move::Say("The bug is already fixed.")]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(checkpoints_with(&history, "⠼⠑"), 0);
+    assert_eq!(checkpoints_with(&history, "⠼⠙"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10955,9 +11040,9 @@ fn a_green_that_ran_only_the_models_own_tests_is_weak_once() {
     ]);
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
-    assert_eq!(own_turns(&history, "⠼⠋"), 1, "{history:?}");
-    never_on_a_tail(&history, "⠼⠋");
-    assert!(legend(&history).contains("⠼⠋ WEAK VERIFICATION. The green check only ran tests"));
+    assert_eq!(own_turns(&history, "⠼⠑"), 1, "{history:?}");
+    never_on_a_tail(&history, "⠼⠑");
+    assert!(legend(&history).contains("⠼⠑ WEAK VERIFICATION. The green check only ran tests"));
     // Unarmed (the default): never.
     let _off = EnvGuard::set("ANGEL_SELF_AUTHORED_VERIFY_GUARD", "0");
     let script = Script::new(vec![
@@ -10967,7 +11052,7 @@ fn a_green_that_ran_only_the_models_own_tests_is_weak_once() {
         Move::Say("done"),
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠋"), 0);
+    assert_eq!(own_turns(&history, "⠼⠑"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10986,11 +11071,11 @@ fn the_same_edit_issued_three_times_is_mutation_thrash_once() {
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
     assert_eq!(
-        own_turns(&history, "⠼⠛"),
+        own_turns(&history, "⠼⠋"),
         1,
         "at the third, once: {history:?}"
     );
-    let warning = format!("{}⠼⠛", book::l_loops::WARNING);
+    let warning = format!("{}⠼⠋", book::l_loops::WARNING);
     assert!(
         history.iter().any(|m| m.content.as_ref() == warning),
         "a warning leads with the sign"
@@ -11004,7 +11089,7 @@ fn the_same_edit_issued_three_times_is_mutation_thrash_once() {
         .filter(|m| m.role == ChatRole::Tool)
         .count();
     assert_eq!(edits_before, 3);
-    assert!(legend(&history).contains("⠼⠛ MUTATION THRASH. You re-issued the same edit signature"));
+    assert!(legend(&history).contains("⠼⠋ MUTATION THRASH. You re-issued the same edit signature"));
     // Three different edits are not thrash.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 1 }\n"),
@@ -11013,7 +11098,7 @@ fn the_same_edit_issued_three_times_is_mutation_thrash_once() {
         Move::Say("done"),
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠛"), 0);
+    assert_eq!(own_turns(&history, "⠼⠋"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -11034,10 +11119,10 @@ fn four_edits_under_docs_and_none_in_the_code_is_peripheral_fan_out_once() {
     ]);
     let (outcome, history) = run_advisory_turn(&root, &script, 30);
     outcome.expect("the turn answers");
-    assert_eq!(own_turns(&history, "⠼⠓"), 1, "{history:?}");
+    assert_eq!(own_turns(&history, "⠼⠛"), 1, "{history:?}");
     let at = history
         .iter()
-        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠓")
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠛")
         .unwrap();
     assert_eq!(
         history[..at]
@@ -11047,7 +11132,7 @@ fn four_edits_under_docs_and_none_in_the_code_is_peripheral_fan_out_once() {
         4,
         "at the fourth"
     );
-    assert!(legend(&history).contains("⠼⠓ PERIPHERAL FAN-OUT. Several edits landed under docs/"));
+    assert!(legend(&history).contains("⠼⠛ PERIPHERAL FAN-OUT. Several edits landed under docs/"));
     // One edit in the code, and the fan-out has its source.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 1 }\n"),
@@ -11058,7 +11143,7 @@ fn four_edits_under_docs_and_none_in_the_code_is_peripheral_fan_out_once() {
         Move::Say("done"),
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
-    assert_eq!(own_turns(&history, "⠼⠓"), 0);
+    assert_eq!(own_turns(&history, "⠼⠛"), 0);
     let _ = std::fs::remove_dir_all(root);
 }
 

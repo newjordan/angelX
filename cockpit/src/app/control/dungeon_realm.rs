@@ -161,12 +161,13 @@ impl App {
             .map(|id| run.book.get(id).map_or(id.clone(), |c| c.name.clone()))
             .collect();
         let depth = run.dungeon.depth;
+        // What the delve counts toward the realm's depth records: the
+        // swamp's floors count for none (`Run::record_floor`).
+        let reach = run.record_floor();
         let landing = run.home.landing;
         let country_games = run.home.countryside.games.clone();
         let wardrobe = run.home.wardrobe.clone();
         let privy_wall = run.home.privy_wall.clone();
-        let audience = run.audience;
-        let show_over = matches!(run.phase, shooter::Phase::Won | shooter::Phase::Wiped);
         let marks = std::mem::take(&mut run.marks);
         let fighting = run.phase == shooter::Phase::Fighting;
         let names: std::collections::BTreeMap<u32, String> = run
@@ -195,15 +196,14 @@ impl App {
                 }
                 match bounty.goal {
                     shooter::bounties::Goal::Reach(floor) => {
-                        pinned.have != u32::from(depth >= floor)
+                        pinned.have != u32::from(reach >= floor)
                     }
-                    shooter::bounties::Goal::Show(_) => audience > pinned.have,
                     _ => false,
                 }
             });
             let bounty_can_be_pinned = realm.home.bounties.len() < shooter::bounties::PINNED
                 && shooter::bounties::BOUNTIES.iter().any(|bounty| {
-                    bounty.from <= depth.max(realm.home.deepest)
+                    bounty.from <= reach.max(realm.home.deepest)
                         && !realm
                             .home
                             .bounties
@@ -224,10 +224,8 @@ impl App {
                 || !marks.is_empty()
                 || wardrobe != realm.home.wardrobe
                 || country_games != realm.home.countryside.games
-                || depth > realm.home.deepest
+                || reach > realm.home.deepest
                 || (depth == 0 && landing != realm.home.landing)
-                || (audience > realm.home.best_show
-                    && (show_over || audience >= realm.home.best_show + 100))
                 || (unsaved && !fighting);
             (may_change
                 || bounty_may_change
@@ -253,19 +251,12 @@ impl App {
         let (college_changed, college_news) =
             shooter::college::settle(&mut realm.home.college, &mut realm.treasury, &marks);
         changed |= college_changed;
-        if depth > realm.home.deepest {
-            realm.home.deepest = depth;
+        if reach > realm.home.deepest {
+            realm.home.deepest = reach;
             changed = true;
         }
         if depth == 0 && landing != realm.home.landing {
             realm.home.landing = landing;
-            changed = true;
-        }
-        // The best show, kept as it grows (a tenth of a million at a time)
-        // and when the show is over.
-        if audience > realm.home.best_show && (show_over || audience >= realm.home.best_show + 100)
-        {
-            realm.home.best_show = audience;
             changed = true;
         }
         let mut said: Vec<(String, String)> = country_news
@@ -277,7 +268,7 @@ impl App {
         // on the spot, and Wren pins the next. Progress is saved between
         // fights, not on every kill.
         let board = realm.home.bounties.clone();
-        let finished = realm.home.work_bounties(&marks, depth, audience);
+        let finished = realm.home.work_bounties(&marks, reach);
         let mut paid = Vec::new();
         for bounty in &finished {
             let reward = bounty.reward();
@@ -653,7 +644,7 @@ impl App {
                 continue;
             }
             if order.station == shooter::home::Station::Coffer {
-                // A box opened before Fortune's audience.
+                // A box opened at the Herald's coffer.
                 if realm.home.boxes.is_empty() {
                     said.push((
                         "cant_afford".into(),
@@ -772,14 +763,14 @@ impl App {
             // with the Herald's line, if not.
             self.dungeon.notice = if built_or_opened {
                 format!(
-                    "{} · Achievement: {} ({})",
+                    "{} · Deed: {} ({})",
                     self.dungeon.notice,
                     feat.name,
                     feat.tier.name()
                 )
             } else {
                 format!(
-                    "NEW ACHIEVEMENT: {}. {} ({} in the Herald's coffer, Fortune's hall)",
+                    "Deed recorded: {}. {} ({} in the Herald's coffer, Fortune's hall)",
                     feat.name,
                     feat.says,
                     feat.tier.name()

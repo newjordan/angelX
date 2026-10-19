@@ -1,0 +1,540 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch",
+    "weak v1 cell silhouette",
+    "weak v2 silhouette"
+  ],
+  "map_sha256": "d77046336d91083d8d2ac2034593ced7571cc00f6313d5eb8a6182a009695a37",
+  "metadata_sha256": "05bcbdc80e9c2c2f7c3e1569ad72ec46d507a7cc02ba698758196f6984e84910",
+  "notes_sha256": "e910f8f79a9bf33fa843076af8d8553861eb03fb1f951dbb77351c336f0df09a",
+  "outputs": {
+    "v1/clear-1.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 84,
+      "piece": 1,
+      "sha256": "ffbb7af8770a22f5d49fe40ee864423553fad2d9a05035026a34d8ac8213a260",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-1"
+    },
+    "v1/clear-2.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 316,
+      "piece": 3,
+      "sha256": "8bf2946cb3b567f15b1650cd96a5cb724fda48a895864b246235814e0075acb3",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-2"
+    },
+    "v1/clear-3.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 75,
+      "piece": 7,
+      "sha256": "859863770904f78237cae14e168172bf2a6e68b92f75dd8e653f1053585e0a85",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-3"
+    },
+    "v1/piece-00.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 30,
+      "piece": 0,
+      "sha256": "4d09a2311646b8bd6333971a31cd4da5798f7fd27affb73eb8047dcc7c166af9",
+      "source_scale": 0.0664819944598338,
+      "state": "tight-ignition-star-with-a-hot-center"
+    },
+    "v1/piece-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 178,
+      "piece": 2,
+      "sha256": "3ff700dec3dc6907fac24e8235cfecfc28ca3b3453ac41a94421c9a2a4abde37",
+      "source_scale": 0.0664819944598338,
+      "state": "larger-radial-burst-with-broad-rays-smoke-lobes-stones-and-cool-"
+    },
+    "v1/piece-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 4,
+      "sha256": "f8727f03aaef235b2a5d8ca3eea5e3baa947865e89eb5f260ddfd092fe791e1e",
+      "source_scale": 0.0664819944598338,
+      "state": "peak-breaking-apart-core-remains-strong-amid-debris-and-smoke"
+    },
+    "v1/piece-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 13,
+      "opaque_pixels": 127,
+      "piece": 5,
+      "sha256": "26e8a91532b282a7f96382ff9cd383de9bb5858b801f34fc46c38b4d5ff25e8f",
+      "source_scale": 0.0664819944598338,
+      "state": "cracked-smaller-core-with-shortening-rays-and-drifting-chunks"
+    },
+    "v1/piece-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 98,
+      "piece": 6,
+      "sha256": "511798bb4e141ffa98e94fb097542ad2a2fa19c66c7eceb4c4d35fff28609d07",
+      "source_scale": 0.0664819944598338,
+      "state": "reduced-ember-core-with-scattered-smoke-and-sparks"
+    },
+    "v1/piece-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 56,
+      "piece": 8,
+      "sha256": "af31e46271a85163a6fbf06641c8ba8b80891b765eab5cbf623f14ac3135d419",
+      "source_scale": 0.0664819944598338,
+      "state": "compact-fading-ember-smoke-cluster"
+    },
+    "v1/piece-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 34,
+      "piece": 9,
+      "sha256": "6c507764212af93562e67318621667fb90d3da9899abc4321d3b584d24c9d52e",
+      "source_scale": 0.0664819944598338,
+      "state": "smaller-connected-ember-cluster-with-sparse-cyan-sparks"
+    },
+    "v1/piece-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 22,
+      "piece": 10,
+      "sha256": "99bebe739fdcedfede2cec7d5dbecb0850222b97a030cd6b05f842a03f096f05",
+      "source_scale": 0.0664819944598338,
+      "state": "few-connected-embers-and-a-small-debris-piece"
+    },
+    "v1/piece-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 10,
+      "piece": 11,
+      "sha256": "8d5f3d3662299019559c67601866b66820d35840de5a3a0735a135be84152f14",
+      "source_scale": 0.0664819944598338,
+      "state": "tiny-final-ember-cluster"
+    },
+    "v2/clear-1.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 84,
+      "piece": 1,
+      "sha256": "ffbb7af8770a22f5d49fe40ee864423553fad2d9a05035026a34d8ac8213a260",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-1"
+    },
+    "v2/clear-2.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 28,
+      "opaque_pixels": 316,
+      "piece": 3,
+      "sha256": "8bf2946cb3b567f15b1650cd96a5cb724fda48a895864b246235814e0075acb3",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-2"
+    },
+    "v2/clear-3.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 75,
+      "piece": 7,
+      "sha256": "859863770904f78237cae14e168172bf2a6e68b92f75dd8e653f1053585e0a85",
+      "source_scale": 0.0664819944598338,
+      "state": "clear-3"
+    },
+    "v2/piece-00.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 30,
+      "piece": 0,
+      "sha256": "4d09a2311646b8bd6333971a31cd4da5798f7fd27affb73eb8047dcc7c166af9",
+      "source_scale": 0.0664819944598338,
+      "state": "tight-ignition-star-with-a-hot-center"
+    },
+    "v2/piece-02.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 178,
+      "piece": 2,
+      "sha256": "3ff700dec3dc6907fac24e8235cfecfc28ca3b3453ac41a94421c9a2a4abde37",
+      "source_scale": 0.0664819944598338,
+      "state": "larger-radial-burst-with-broad-rays-smoke-lobes-stones-and-cool-"
+    },
+    "v2/piece-04.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 4,
+      "sha256": "f8727f03aaef235b2a5d8ca3eea5e3baa947865e89eb5f260ddfd092fe791e1e",
+      "source_scale": 0.0664819944598338,
+      "state": "peak-breaking-apart-core-remains-strong-amid-debris-and-smoke"
+    },
+    "v2/piece-05.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 13,
+      "opaque_pixels": 127,
+      "piece": 5,
+      "sha256": "26e8a91532b282a7f96382ff9cd383de9bb5858b801f34fc46c38b4d5ff25e8f",
+      "source_scale": 0.0664819944598338,
+      "state": "cracked-smaller-core-with-shortening-rays-and-drifting-chunks"
+    },
+    "v2/piece-06.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 9,
+      "opaque_pixels": 98,
+      "piece": 6,
+      "sha256": "511798bb4e141ffa98e94fb097542ad2a2fa19c66c7eceb4c4d35fff28609d07",
+      "source_scale": 0.0664819944598338,
+      "state": "reduced-ember-core-with-scattered-smoke-and-sparks"
+    },
+    "v2/piece-08.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 56,
+      "piece": 8,
+      "sha256": "af31e46271a85163a6fbf06641c8ba8b80891b765eab5cbf623f14ac3135d419",
+      "source_scale": 0.0664819944598338,
+      "state": "compact-fading-ember-smoke-cluster"
+    },
+    "v2/piece-09.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 34,
+      "piece": 9,
+      "sha256": "6c507764212af93562e67318621667fb90d3da9899abc4321d3b584d24c9d52e",
+      "source_scale": 0.0664819944598338,
+      "state": "smaller-connected-ember-cluster-with-sparse-cyan-sparks"
+    },
+    "v2/piece-10.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 22,
+      "piece": 10,
+      "sha256": "99bebe739fdcedfede2cec7d5dbecb0850222b97a030cd6b05f842a03f096f05",
+      "source_scale": 0.0664819944598338,
+      "state": "few-connected-embers-and-a-small-debris-piece"
+    },
+    "v2/piece-11.png": {
+      "anchor_xy": [
+        12,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        24,
+        24
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 0,
+      "opaque_pixels": 10,
+      "piece": 11,
+      "sha256": "8d5f3d3662299019559c67601866b66820d35840de5a3a0735a135be84152f14",
+      "source_scale": 0.0664819944598338,
+      "state": "tiny-final-ember-cluster"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-pivot",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.clear",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.clear/source-sheet.png",
+  "source_sha256": "8392a3e89083e9dc78fef0b9e677f16cbb6c9eec3940469677d1891e3e28ad95",
+  "tool_version": 2
+}

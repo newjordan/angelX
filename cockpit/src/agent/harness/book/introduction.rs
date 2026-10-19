@@ -29,7 +29,7 @@
 //! at its next appearance, so a model swapped in mid-run never meets a bare
 //! stamp.
 
-use super::{DIGITS, Sub, ledger, y_types};
+use super::{DIGITS, Sub, claude_seat, ledger, y_types};
 use crate::agent::club::{ChatMsg, ChatRole};
 
 /// The standing direction, said once with the first introduction.
@@ -295,6 +295,9 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
     if let Some(page) = address.page {
         let index = DIGITS.iter().position(|digit| *digit == page)?;
         let text = sub.pages.get(index)?;
+        if claude_seat::omitted(sub.route, text) {
+            return None;
+        }
         known.note(*address);
         return Some(format!("{cells} {}", unslotted(text)));
     }
@@ -319,11 +322,7 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
         // words. Only the route is known after it: a later page stamp is a
         // new sentence to a model that has already heard the whole.
         known.note(*address);
-        let pages = sub
-            .pages
-            .iter()
-            .map(|page| unslotted(page))
-            .collect::<Vec<_>>();
+        let pages = claude_seat::kept(sub).map(unslotted).collect::<Vec<_>>();
         return Some(format!("{cells} {}", pages.join(" ")));
     }
     known.note(*address);
@@ -340,11 +339,7 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
             <= SHORT_PAGES_CHARS
         && !sub.pages.iter().any(|page| ledger::is_warpath_line(page))
     {
-        let pages = sub
-            .pages
-            .iter()
-            .map(|page| unslotted(page))
-            .collect::<Vec<_>>();
+        let pages = claude_seat::kept(sub).map(unslotted).collect::<Vec<_>>();
         line.push_str(&format!(": {}", pages.join(" ")));
         known.note_full(*address);
     }
@@ -357,12 +352,14 @@ fn pages_of(address: &ledger::Address) -> Option<String> {
     match address.page {
         Some(page) => {
             let index = DIGITS.iter().position(|digit| *digit == page)?;
-            sub.pages.get(index).map(|text| unslotted(text))
+            sub.pages
+                .get(index)
+                .filter(|text| !claude_seat::omitted(sub.route, text))
+                .map(|text| unslotted(text))
         }
         None => Some(
-            sub.pages
-                .iter()
-                .map(|page| unslotted(page))
+            claude_seat::kept(sub)
+                .map(unslotted)
                 .collect::<Vec<_>>()
                 .join(" "),
         ),

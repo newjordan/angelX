@@ -855,6 +855,7 @@ impl App {
                     Ok(card) => {
                         self.media.push(card);
                         let index = self.media.len() - 1;
+                        crate::ui::showcase::open(&self.media[index]);
                         self.scryglass.reveal_media(index, true);
                         let layout_ready = (self
                             .last_root_area
@@ -887,6 +888,7 @@ impl App {
                 return;
             }
             ParsedInput::Hide => {
+                crate::ui::showcase::close();
                 self.observatory.clear_viewport();
                 self.viewer.clear();
                 self.scryglass.return_to_world();
@@ -3175,6 +3177,10 @@ handoff restart queued until the foreground worker drains"),
                 let text = crate::drive::labyrinth::command(self.tools.current_workspace(), arg)
                     .unwrap_or_else(|error| format!("labyrinth · {error}"));
                 self.system_msg(text);
+            }
+            "table" => {
+                let message = self.table_command(arg);
+                self.system_msg(message);
             }
             "dungeon" => {
                 let message = self.dungeon_command(arg);

@@ -56,6 +56,7 @@ struct Knight {
     ballot_open: bool,
     ballot_serial: u64,
     can_leave_activity: bool,
+    can_hold_leave: bool,
     can_reforge: bool,
     can_wish: bool,
     /// The HUD, as the host's own screen draws it.
@@ -72,7 +73,6 @@ struct Hud {
     floors: u32,
     pack: &'static str,
     score: u32,
-    viewers: u32,
     players: Vec<Knight>,
     sanctuary: bool,
     side_on: bool,
@@ -94,7 +94,6 @@ impl Hud {
             floors: DEEPEST,
             pack: run.dungeon.pack.name(),
             score: run.score,
-            viewers: run.audience,
             players: run
                 .players
                 .iter()
@@ -116,6 +115,7 @@ impl Hud {
                     ballot_open: run.playtest.open(id),
                     ballot_serial: run.playtest.seats.get(&id).map_or(0, |s| s.serial),
                     can_leave_activity: run.can_leave_activity(id),
+                    can_hold_leave: run.can_hold_leave(id),
                     can_reforge: run.can_reforge(id),
                     can_wish: run.can_wish(id),
                     hud: run

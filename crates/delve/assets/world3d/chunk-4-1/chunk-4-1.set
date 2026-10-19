@@ -1,0 +1,227 @@
+set chunk-4-1
+# The kingdom, chunk 4,1 in The Highlands: tiles 96..120 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 384
+plate 1536 1024
+
+# ground
+box    grass   at 1600 -4 272 size 128 4 32
+box    rock    at 1704 -4 264 size 80 4 16
+box    grass   at 1832 -4 272 size 176 4 32
+box    grass   at 1704 -4 280 size 80 4 16
+box    grass   at 1568 -4 328 size 64 4 80
+box    rock    at 1728 -4 296 size 256 4 16
+box    grass   at 1888 -4 320 size 64 4 64
+box    rock    at 1656 -4 328 size 112 4 48
+box    grass   at 1728 -4 320 size 32 4 32
+box    rock    at 1800 -4 328 size 112 4 48
+box    grass   at 1720 -4 360 size 16 4 48
+box    path    at 1736 -4 368 size 16 4 64
+box    rock    at 1632 -4 360 size 64 4 16
+box    grass   at 1688 -4 368 size 48 4 32
+box    grass   at 1776 -4 368 size 64 4 32
+box    rock    at 1832 -4 360 size 48 4 16
+box    grass   at 1864 -4 360 size 16 4 16
+box    path    at 1896 -4 384 size 48 4 64
+box    path    at 1568 -4 392 size 64 4 48
+box    rock    at 1624 -4 376 size 48 4 16
+box    grass   at 1656 -4 376 size 16 4 16
+box    grass   at 1816 -4 376 size 16 4 16
+box    rock    at 1840 -4 376 size 32 4 16
+box    path    at 1864 -4 392 size 16 4 48
+box    path    at 1664 -4 392 size 128 4 16
+box    path    at 1800 -4 392 size 112 4 16
+box    rock    at 1624 -4 432 size 48 4 64
+box    grass   at 1656 -4 408 size 16 4 16
+box    path    at 1672 -4 456 size 16 4 112
+box    grass   at 1744 -4 408 size 128 4 16
+box    rock    at 1832 -4 432 size 48 4 64
+box    grass   at 1568 -4 464 size 64 4 96
+box    rock    at 1656 -4 440 size 16 4 48
+box    grass   at 1736 -4 424 size 112 4 16
+box    rock    at 1800 -4 440 size 16 4 48
+box    grass   at 1888 -4 464 size 64 4 96
+box    grass   at 1688 -4 440 size 16 4 16
+box    ground  at 1704 -4 440 size 16 4 16
+box    grass   at 1728 -4 440 size 32 4 16
+box    ground  at 1752 -4 440 size 16 4 16
+box    grass   at 1768 -4 440 size 16 4 16
+box    rock    at 1784 -4 448 size 16 4 32
+box    rock    at 1728 -4 456 size 96 4 16
+box    grass   at 1616 -4 472 size 32 4 16
+box    path    at 1648 -4 488 size 32 4 48
+box    path    at 1688 -4 488 size 16 4 48
+box    grass   at 1776 -4 480 size 160 4 32
+box    grass   at 1608 -4 488 size 16 4 16
+box    path    at 1624 -4 496 size 16 4 32
+box    path    at 1608 -4 504 size 16 4 16
+box    grass   at 1744 -4 504 size 96 4 16
+box    rock    at 1816 -4 504 size 48 4 16
+box    grass   at 1848 -4 504 size 16 4 16
+
+# the mine mouth of The Mines: a timbered mine mouth in the rock at 107,19 2x2
+rock-25 rock    at 1728.37 0 316.66 size 13.89 22 12.5 turn 5 id mine-mouth
+rock-9 rock    at 1728.87 0 318.76 size 10.5 9.9 9.45 turn 81
+rock-1 rock    at 1731.13 0 322.41 size 10.5 19.14 9.45 turn 16
+rock-46 rock    at 1724.75 0 311.54 size 8.17 16.5 7.35 turn 201
+box    rock    at 1728 0 330 size 28 14 8
+box    door    at 1728 0 334.25 size 10 10 1
+box    wood    at 1722 0 334 size 2 12 2
+box    wood    at 1734 0 334 size 2 12 2
+box    wood    at 1728 11 334 size 15 2 2
+
+# rock (at 86% of its height, for the camera)
+box    rock    at 1704 0 264 size 80 3 16
+box    rock    at 1608 0 336 size 16 3 96
+box    rock    at 1624 0 296 size 16 2.5 16
+box    rock    at 1680 0 296 size 96 3 16
+box    rock    at 1744 0 296 size 32 2.5 16
+box    rock    at 1808 0 296 size 96 3 16
+box    rock    at 1656 0 320 size 80 9 32
+box    rock    at 1704 0 328 size 16 3 48
+box    rock    at 1752 0 328 size 16 3 48
+box    rock    at 1800 0 320 size 80 9 32
+box    rock    at 1848 0 344 size 16 3 80
+box    rock    at 1632 0 344 size 32 9 16
+box    rock    at 1672 0 344 size 48 3 16
+box    rock    at 1792 0 344 size 64 3 16
+box    rock    at 1832 0 344 size 16 9 16
+box    rock    at 1624 0 360 size 16 9 16
+box    rock    at 1648 0 360 size 32 3 16
+box    rock    at 1824 0 360 size 32 3 16
+box    rock    at 1632 0 376 size 32 3 16
+box    rock    at 1832 0 376 size 16 3 16
+box    rock    at 1624 0 408 size 48 3 16
+box    rock    at 1824 0 408 size 32 3 16
+box    rock    at 1848 0 408 size 16 2.5 16
+box    rock    at 1608 0 440 size 16 3 48
+box    rock    at 1624 0 432 size 16 9 32
+box    rock    at 1648 0 424 size 32 3 16
+box    rock    at 1808 0 424 size 32 3 16
+box    rock    at 1832 0 432 size 16 9 32
+box    rock    at 1848 0 440 size 16 3 48
+box    rock    at 1640 0 440 size 16 9 16
+box    rock    at 1656 0 448 size 16 3 32
+box    rock    at 1792 0 448 size 32 3 32
+box    rock    at 1816 0 440 size 16 9 16
+box    rock    at 1632 0 456 size 32 3 16
+box    rock    at 1728 0 456 size 96 3 16
+box    rock    at 1824 0 456 size 32 3 16
+box    rock    at 1816 0 504 size 48 3 16
+rock-33 rock    at 1673 1.5 264 size 15 8 13.5
+rock-64 rock    at 1688 1.5 263 size 15 7 13.5 turn 270
+rock-2 rock    at 1703 1.5 264 size 15 8 13.5
+rock-40 rock    at 1720 1.5 265 size 15 10 13.5
+rock-18 rock    at 1735 1.5 263 size 14 7 12.6 turn 180
+rock-6 rock    at 1608 1.5 295 size 15 7 13.5
+rock-19 rock    at 1625 1 295 size 17 8.5 15.3 turn 180
+rock-1 rock    at 1640 1.5 295 size 14 8 12.6
+rock-61 rock    at 1655 1.5 296 size 16 9 14.4 turn 270
+rock-35 rock    at 1672 1.5 295 size 16 8 14.4
+rock-27 rock    at 1688 1.5 295 size 15 8 13.5 turn 270
+rock-55 rock    at 1705 1.5 296 size 17 7 15.3 turn 180
+rock-28 rock    at 1719 1.5 297 size 17 8 15.3 turn 270
+rock-59 rock    at 1736 1 295 size 17 8 15.3 turn 270
+rock-54 rock    at 1752 1 295 size 15 9 13.5 turn 180
+rock-51 rock    at 1769 1.5 295 size 15 7 13.5 turn 180
+rock-60 rock    at 1785 1.5 296 size 14 9 12.6 turn 270
+rock-46 rock    at 1799 1.5 297 size 17 8 15.3 turn 90
+rock-10 rock    at 1817 1.5 296 size 14 10 12.6 turn 90
+rock-38 rock    at 1832 1.5 296 size 14 10 12.6
+rock-41 rock    at 1847 1.5 296 size 16 9 14.4 turn 90
+rock-58 rock    at 1609 1.5 313 size 14 9 12.6 turn 270
+rock-38 rock    at 1623 7.5 311 size 12 9 10.8
+rock-38 rock    at 1639 7.5 311 size 15 7 13.5
+rock-12 rock    at 1656 7.5 311 size 14 6 12.6 turn 90
+rock-45 rock    at 1672 7.5 313 size 15 9 13.5 turn 90
+rock-1 rock    at 1689 7.5 313 size 15 9 13.5
+rock-44 rock    at 1703 1.5 312 size 16 9 14.4 turn 90
+rock-37 rock    at 1751 1.5 311 size 17 10 15.3
+rock-37 rock    at 1768 7.5 312 size 13 9 11.7
+rock-10 rock    at 1784 7.5 311 size 14 8 12.6 turn 90
+rock-52 rock    at 1800 7.5 313 size 14 7 12.6 turn 180
+rock-13 rock    at 1815 7.5 311 size 13 6 11.7 turn 90
+rock-9 rock    at 1832 7.5 311 size 14 8 12.6 turn 90
+rock-3 rock    at 1849 1.5 312 size 16 7 14.4
+rock-27 rock    at 1609 1.5 328 size 17 7 15.3 turn 270
+rock-57 rock    at 1623 7.5 327 size 12 8 10.8 turn 270
+rock-27 rock    at 1640 7.5 327 size 13 7 11.7 turn 270
+rock-21 rock    at 1655 7.5 327 size 12 7 10.8 turn 180
+rock-34 rock    at 1673 7.5 328 size 13 7 11.7
+rock-50 rock    at 1687 7.5 327 size 12 9 10.8 turn 180
+rock-56 rock    at 1704 1.5 328 size 16 8 14.4 turn 180
+rock-43 rock    at 1752 1.5 329 size 14 8 12.6 turn 90
+rock-17 rock    at 1769 7.5 327 size 15 7 13.5 turn 180
+rock-11 rock    at 1783 7.5 327 size 12 9 10.8 turn 90
+rock-9 rock    at 1801 7.5 329 size 14 8 12.6 turn 90
+rock-23 rock    at 1815 7.5 328 size 14 6 12.6 turn 180
+rock-3 rock    at 1832 7.5 327 size 15 6 13.5
+rock-41 rock    at 1848 1.5 327 size 16 10 14.4 turn 90
+rock-63 rock    at 1608 1.5 343 size 17 8 15.3 turn 270
+rock-31 rock    at 1625 7.5 344 size 12 6 10.8 turn 270
+rock-61 rock    at 1640 7.5 345 size 15 6 13.5 turn 270
+rock-61 rock    at 1657 1.5 343 size 16 7 14.4 turn 270
+rock-51 rock    at 1671 1.5 345 size 14 10 12.6 turn 180
+rock-20 rock    at 1687 1.5 344 size 14 9 12.6 turn 180
+rock-29 rock    at 1705 1.5 344 size 16 8 14.4 turn 270
+rock-21 rock    at 1753 1.5 345 size 14 7 12.6 turn 180
+rock-53 rock    at 1769 1.5 345 size 17 7 15.3 turn 180
+rock-21 rock    at 1785 1.5 345 size 17 10 15.3 turn 180
+rock-36 rock    at 1799 1.5 343 size 14 10 12.6
+rock-62 rock    at 1817 1.5 345 size 15 8 13.5 turn 270
+rock-44 rock    at 1833 7.5 345 size 12 9 10.8 turn 90
+rock-20 rock    at 1849 1.5 345 size 15 8 13.5 turn 180
+rock-27 rock    at 1609 1.5 361 size 15 7 13.5 turn 270
+rock-48 rock    at 1623 7.5 359 size 12 9 10.8 turn 90
+rock-13 rock    at 1641 1.5 359 size 15 7 13.5 turn 90
+rock-15 rock    at 1655 1.5 359 size 15 7 13.5 turn 90
+rock-49 rock    at 1817 1.5 360 size 15 8 13.5 turn 180
+rock-27 rock    at 1833 1.5 360 size 16 8 14.4 turn 270
+rock-5 rock    at 1848 1.5 361 size 16 10 14.4
+rock-27 rock    at 1607 1.5 375 size 14 10 12.6 turn 270
+rock-31 rock    at 1624 1.5 375 size 15 8 13.5 turn 270
+rock-35 rock    at 1641 1.5 376 size 16 10 14.4
+rock-51 rock    at 1833 1.5 376 size 16 7 14.4 turn 180
+rock-40 rock    at 1847 1.5 377 size 16 7 14.4
+rock-22 rock    at 1609 1.5 409 size 16 10 14.4 turn 180
+rock-26 rock    at 1623 1.5 407 size 16 10 14.4 turn 270
+rock-18 rock    at 1639 1.5 407 size 15 9 13.5 turn 180
+rock-40 rock    at 1817 1.5 408 size 14 9 12.6
+rock-36 rock    at 1833 1.5 409 size 17 10 15.3
+rock-56 rock    at 1847 1 407 size 16 10 14.4 turn 180
+rock-53 rock    at 1608 1.5 423 size 15 8 13.5 turn 180
+rock-20 rock    at 1625 7.5 423 size 13 7 11.7 turn 180
+rock-57 rock    at 1639 1.5 424 size 15 9 13.5 turn 270
+rock-32 rock    at 1657 1.5 425 size 14 9 12.6 turn 270
+rock-34 rock    at 1801 1.5 424 size 17 9 15.3
+rock-34 rock    at 1817 1.5 425 size 17 9 15.3
+rock-30 rock    at 1831 7.5 423 size 14 8 12.6 turn 270
+rock-57 rock    at 1848 1.5 425 size 14 7 12.6 turn 270
+rock-51 rock    at 1607 1.5 441 size 17 7 15.3 turn 180
+rock-48 rock    at 1625 7.5 440 size 14 9 12.6 turn 90
+rock-23 rock    at 1640 7.5 440 size 15 6 13.5 turn 180
+rock-7 rock    at 1656 1.5 440 size 16 9 14.4
+rock-10 rock    at 1784 1.5 441 size 17 9 15.3 turn 90
+rock-48 rock    at 1800 1.5 441 size 17 10 15.3 turn 90
+rock-56 rock    at 1817 7.5 440 size 14 6 12.6 turn 180
+rock-11 rock    at 1831 7.5 441 size 15 6 13.5 turn 90
+rock-35 rock    at 1848 1.5 441 size 17 9 15.3
+rock-55 rock    at 1608 1.5 455 size 14 10 12.6 turn 180
+rock-54 rock    at 1625 1.5 457 size 14 8 12.6 turn 180
+rock-20 rock    at 1640 1.5 456 size 14 7 12.6 turn 180
+rock-45 rock    at 1655 1.5 455 size 16 9 14.4 turn 90
+rock-48 rock    at 1688 1.5 457 size 14 10 12.6 turn 90
+rock-9 rock    at 1703 1.5 456 size 14 10 12.6 turn 90
+rock-8 rock    at 1721 1.5 455 size 17 8 15.3
+rock-63 rock    at 1737 1.5 456 size 14 8 12.6 turn 270
+rock-35 rock    at 1751 1.5 456 size 17 10 15.3
+rock-48 rock    at 1767 1.5 455 size 17 9 15.3 turn 90
+rock-23 rock    at 1783 1.5 457 size 15 8 13.5 turn 180
+rock-37 rock    at 1801 1.5 456 size 15 9 13.5
+rock-36 rock    at 1816 1.5 457 size 17 7 15.3
+rock-34 rock    at 1832 1.5 456 size 16 10 14.4
+rock-17 rock    at 1848 1.5 457 size 16 7 14.4 turn 180
+rock-35 rock    at 1800 1.5 503 size 14 7 12.6
+rock-8 rock    at 1817 1.5 505 size 15 10 13.5
+rock-37 rock    at 1831 1.5 503 size 14 9 12.6

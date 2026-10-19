@@ -1,0 +1,38 @@
+{
+  "fit": "native tile 16x16, anchor bottom-centre (8,16); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0",
+        "idle-1"
+      ],
+      "source_pose_count": 2,
+      "state": "idle"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "bump-0",
+        "bump-1",
+        "bump-2",
+        "bump-3"
+      ],
+      "source_pose_count": 4,
+      "state": "bump"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "spent-0"
+      ],
+      "source_pose_count": 1,
+      "state": "spent"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "Collision is the tile and belongs to the rules; art never sets a hitbox. bump is the 8-tick lift when struck from below.",
+  "id": "bannerpeak.rune-block",
+  "role": "prop",
+  "timing": "idle 2x30 ticks; bump 4x2 ticks; spent 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

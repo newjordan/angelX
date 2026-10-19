@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    24
+  ],
+  "anchor_xy": [
+    16.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Door 2 tiles wide (32 px v1 / 64 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "2c10382aa1b061c5d9dbfce0d7735e46d957f8b48cc28cbfaa5b40e5a7181253",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door barred: timber-and-iron doorway embedded in ochre rock; the bars read clearly.",
+      "name": "barred",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        161.5,
+        337
+      ],
+      "source_rect_xywh": [
+        37,
+        147,
+        323,
+        337
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door open: dark passage visible, with a small amber light in depth.",
+      "name": "open",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        158.5,
+        337
+      ],
+      "source_rect_xywh": [
+        423,
+        147,
+        317,
+        337
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "North door half-open: a barred gate leaf is shifted to one side while the opening remains partly blocked.",
+      "name": "opening",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        160.0,
+        337
+      ],
+      "source_rect_xywh": [
+        804,
+        147,
+        320,
+        337
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-wall door barred: angled wall face with closed iron bars.",
+      "name": "side-left-barred",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.0,
+        378
+      ],
+      "source_rect_xywh": [
+        1202,
+        143,
+        300,
+        378
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Left-wall door open: matching angled wall face and empty dark passage.",
+      "name": "side-left-open",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        152.5,
+        374
+      ],
+      "source_rect_xywh": [
+        42,
+        588,
+        305,
+        374
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-wall door barred: closed bars on the opposite angled face.",
+      "name": "side-right-barred",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.5,
+        372
+      ],
+      "source_rect_xywh": [
+        435,
+        593,
+        301,
+        372
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Right-wall door open: opposite side opening is unobstructed and lit faintly within.",
+      "name": "side-right-open",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        153.0,
+        380
+      ],
+      "source_rect_xywh": [
+        805,
+        585,
+        306,
+        380
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs down: timber-edged steps descend into a dark mine passage.",
+      "name": "stairs-down",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        160.5,
+        336
+      ],
+      "source_rect_xywh": [
+        1184,
+        628,
+        321,
+        336
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Stairs up: steps rise toward the viewer; it is visually distinct from the down stair.",
+      "name": "stairs-up",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.5,
+        327
+      ],
+      "source_rect_xywh": [
+        44,
+        1082,
+        305,
+        327
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Boss door: larger arched timber-and-iron barred gate with copper and malachite accents.",
+      "name": "boss",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        186.0,
+        353
+      ],
+      "source_rect_xywh": [
+        392,
+        1063,
+        372,
+        353
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Treasure alcove: empty dark rock recess, with no treasure.",
+      "name": "alcove",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        169.0,
+        314
+      ],
+      "source_rect_xywh": [
+        805,
+        1095,
+        338,
+        314
+      ],
+      "state": "gate"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Locked seal marker: round iron-and-stone seal with contained amber-green light.",
+      "name": "seal",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        143.5,
+        312
+      ],
+      "source_rect_xywh": [
+        1202,
+        1104,
+        287,
+        312
+      ],
+      "state": "gate"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32x24",
+  "sizes": {
+    "v1": [
+      32,
+      24
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "dgn.gate.mines",
+  "source_sha256": "68d5b05edd00437b4aa431f7eb73d47d021ad778fe7894b0f25c4bb93d697ad5",
+  "timing": ""
+}

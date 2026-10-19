@@ -243,11 +243,91 @@ fn the_stock_ladders_climb_within_their_caps() {
                     _ => 0,
                 })
                 .sum();
-            let bonus = (cards::Bonus::of([&card]), hp);
-            if let Some(prev) = last {
-                assert_ne!(bonus, prev, "{} tier {} adds nothing", wish.id, tier + 1);
+            // Its knight holds every family (`combos`): the super words count.
+            let kit = cards::check("wish-kit-1", "name Kit\nkind hold\ntext frog bullet storm fire shadow corn gun mail fast\nspeed 5\n").unwrap().card;
+            let bonus = (cards::Bonus::of([&kit, &card]), hp);
+            if let Some(prev) = last
+                && bonus == prev
+            {
+                // Only a tier past a word's wish cap may add nothing more.
+                assert!(
+                    card.effects.iter().any(|e| {
+                        let (word, v) = e.parts();
+                        v > cards::wish_cap(word)
+                    }),
+                    "{} tier {} adds nothing",
+                    wish.id,
+                    tier + 1
+                );
             }
             last = Some(bonus);
         }
+    }
+}
+
+/// A learned wish, drawn as `art`.
+fn learned_wish(art: &str) -> Wish {
+    let text = format!(
+        "{LEARNED}\nwish heavy-hits | Heavy Hits\nsay heavy hits\ntier damage 20; velocity 30 :: Hit harder.\ntier damage 25 :: Harder.\nart\n{art}\n"
+    );
+    let book = read(&text);
+    assert_eq!(book.len(), 1, "{:?}", read_checked(&text).1);
+    book.into_iter().next().unwrap()
+}
+
+const FINE_ART: &str = "....jjjjjj....\n...jJhhhhJj...\n..jJhh44hhJj..\n..jJh4@@4hJj..\n..jJh4@6@4hJ..\n..jJh4@@4hJj..\n..jJhh44hhJj..\n...jJhhhhJj...\n....jjjjjj....";
+const CRUDE_ART: &str = "77777777\n77777777\n77777777\n77777777";
+
+#[test]
+fn a_crude_drawing_grants_a_weaker_wish_than_a_fine_one() {
+    let fine = learned_wish(FINE_ART);
+    let crude = learned_wish(CRUDE_ART);
+    let (fg, _) = fine.grade().unwrap();
+    let (cg, _) = crude.grade().unwrap();
+    assert!(fg > cg, "{fg} over {cg}");
+    assert_eq!(cg, artistry::Grade::Crude);
+    let damage = |w: &Wish| cards::Bonus::of([&w.card(0).unwrap()]).damage;
+    let speed = |w: &Wish| cards::Bonus::of([&w.card(0).unwrap()]).velocity;
+    assert!(damage(&crude) < damage(&fine), "{} {}", damage(&crude), damage(&fine));
+    assert!(speed(&crude) < speed(&fine));
+}
+
+#[test]
+fn the_delve_s_own_wishes_are_given_whole() {
+    for wish in book().iter().filter(|w| !w.learned) {
+        assert!(wish.grade().is_none(), "{}", wish.id);
+    }
+}
+
+#[test]
+fn a_crude_spell_waits_longer_and_calls_fewer() {
+    assert_eq!(graded_line("cooldown 8", artistry::Grade::Crude), "cooldown 14");
+    assert_eq!(graded_line("summon 3 swarm", artistry::Grade::Crude), "summon 2 swarm");
+    assert_eq!(graded_line("cooldown 10", artistry::Grade::Legendary), "cooldown 9");
+    assert_eq!(graded_line("guard shield empower 15", artistry::Grade::Crude), "guard shield empower 15");
+}
+
+#[test]
+fn every_wish_of_the_last_game_checks_at_every_grade_it_earns() {
+    let text = include_str!("fixtures/last_game_phrasebook.txt");
+    let (book, errors) = read_checked(&format!("{LEARNED}\n{text}"));
+    // The one the live game's checker turned away then (a guard's `empower`
+    // on its own line) is still turned away.
+    assert!(errors.iter().all(|e| e.contains("blocking-bullets")), "{errors:?}");
+    assert!(book.len() >= 30, "{}", book.len());
+    for wish in &book {
+        assert!(wish.grade().is_some());
+    }
+}
+
+/// The last game's wishes, graded: score, grade and each picture's marks.
+/// `cargo test -p angel-delve --lib grade_census -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn grade_census() {
+    let text = include_str!("fixtures/last_game_phrasebook.txt");
+    for wish in read(&format!("{LEARNED}\n{text}")) {
+        let (grade, score) = wish.grade().unwrap();
+        println!("GRADE,{},{score},{grade},art {:?}", wish.id, artistry::marks(&wish.art));
     }
 }

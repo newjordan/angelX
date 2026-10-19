@@ -1,0 +1,54 @@
+set vault
+# The Vault: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: the chest at the middle (12,7), eight heaps of gold round it, braziers in the corners.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 10 (at 81% of its height, for the camera)
+box    stone   at 88 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 88 -4 220 size 176 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+
+# the south wall, columns 13 to 23 (at 81% of its height, for the camera)
+box    stone   at 296 -4 212 size 176 10 8  # TODO prims: wedge
+box    stone   at 296 -4 220 size 176 16.5 8
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# the south door, columns 11 to 12
+box    door    at 192 -4 225 size 32 5 2 id door-south
+
+# column at 4,3 1x1 (at 21% of its height, for the camera)
+box    stone   at 72 -4 56 size 12 11 12 id column-1  # TODO prims: cylinder
+box    stone   at 72 7 56 size 14 0.5 14
+
+# column at 19,3 1x1 (at 21% of its height, for the camera)
+box    stone   at 312 -4 56 size 12 11 12 id column-2  # TODO prims: cylinder
+box    stone   at 312 7 56 size 14 0.5 14
+
+# column at 4,10 1x1 (at 26% of its height, for the camera)
+box    stone   at 72 -4 168 size 12 12.5 12 id column-3  # TODO prims: cylinder
+box    stone   at 72 8.5 168 size 14 0.5 14
+
+# column at 19,10 1x1 (at 26% of its height, for the camera)
+box    stone   at 312 -4 168 size 12 12.5 12 id column-4  # TODO prims: cylinder
+box    stone   at 312 8.5 168 size 14 0.5 14

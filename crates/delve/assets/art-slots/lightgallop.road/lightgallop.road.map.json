@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    48
+  ],
+  "anchor_xy": [
+    32,
+    24
+  ],
+  "comments": [
+    "Bound sheet is source-sheet-keyed.png; the raw magenta-key source-sheet.png is kept alongside it in the delivery."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "The delivery was re-run on a flat magenta key; source-sheet-keyed.png (the delivery's own copy with the key at alpha 0) is the bound sheet. The whole 1448x1086 sheet is the single piece, reduced by 0.0442 to exactly 64x48.",
+  "notes_sha256": "e47744e494cc8bf187037f2948b5863dac9e79919fcb270bad825e4e09ba3c00",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: delivered drawing 1 in reading order.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        724,
+        543
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 64x48, a tileable road surface; the lip sits near row 9, grass blades above it in rows 4 to 9; stage 384x224.",
+  "sizes": {
+    "v1": [
+      64,
+      48
+    ],
+    "v2": [
+      64,
+      48
+    ]
+  },
+  "slot": "lightgallop.road",
+  "source_sha256": "5f7af1719d9c720567ed62ef1a46b1b5e8742cf2d5895d90d5c46243dcbf53da",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

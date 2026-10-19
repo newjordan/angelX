@@ -1,0 +1,25 @@
+{
+  "width": 7200,
+  "floor": 184,
+  "run": 544,
+  "jump": 1536,
+  "gravity": 112,
+  "coyote": 4,
+  "buffer": 5,
+  "dodge_ticks": 9,
+  "dodge_rearm": 36,
+  "respawn_ticks": 45,
+  "enemy_hp_per_seat": 180,
+  "wagon_hp_per_seat": 1800,
+  "feller_hp_per_seat": 3600,
+  "gates": [
+    720,
+    1500,
+    2280,
+    3100,
+    3980,
+    4860,
+    5740,
+    6900
+  ]
+}

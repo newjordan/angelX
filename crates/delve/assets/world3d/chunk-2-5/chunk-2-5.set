@@ -1,0 +1,152 @@
+set chunk-2-5
+# The kingdom, chunk 2,5 in Castle Town: tiles 48..72 x 80..96 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 960 1408
+plate 1536 1024
+
+# ground
+box    grass   at 960 -4 1304 size 384 4 48
+box    sand    at 776 -4 1416 size 16 4 176
+box    grass   at 848 -4 1368 size 128 4 80
+box    crop    at 944 -4 1352 size 64 4 48
+box    grass   at 1064 -4 1352 size 176 4 48
+box    grass   at 1000 -4 1384 size 176 4 16
+box    path    at 1120 -4 1400 size 64 4 48
+box    grass   at 920 -4 1400 size 16 4 16
+box    path    at 1008 -4 1400 size 160 4 16
+box    grass   at 824 -4 1448 size 80 4 80
+box    crop    at 896 -4 1424 size 64 4 32
+box    path    at 936 -4 1464 size 16 4 112
+box    grass   at 1016 -4 1416 size 144 4 16
+box    grass   at 960 -4 1456 size 32 4 64
+box    crop    at 1008 -4 1440 size 64 4 32
+box    grass   at 1096 -4 1456 size 112 4 64
+box    grass   at 896 -4 1472 size 64 4 64
+box    grass   at 1008 -4 1472 size 64 4 32
+box    sand    at 792 -4 1496 size 16 4 16
+box    grass   at 832 -4 1496 size 64 4 16
+box    path    at 952 -4 1504 size 16 4 32
+box    grass   at 976 -4 1496 size 32 4 16
+box    sand    at 1024 -4 1496 size 64 4 16
+box    grass   at 1104 -4 1496 size 96 4 16
+box    water   at 784 -4 1512 size 32 1 16
+box    sand    at 824 -4 1512 size 48 4 16
+box    grass   at 880 -4 1512 size 64 4 16
+box    sand    at 920 -4 1512 size 16 4 16
+box    sand    at 976 -4 1512 size 32 4 16
+box    water   at 1024 -4 1512 size 64 1 16
+box    sand    at 1088 -4 1512 size 64 4 16
+box    grass   at 1136 -4 1512 size 32 4 16
+box    grass   at 776 -4 1528 size 16 4 16
+box    water   at 816 -4 1528 size 64 1 16
+box    sand    at 880 -4 1528 size 64 4 16
+box    water   at 960 -4 1528 size 96 1 16
+box    sand    at 1024 -4 1528 size 32 4 16
+box    water   at 1080 -4 1528 size 80 1 16
+box    sand    at 1136 -4 1528 size 32 4 16
+
+# crop furrows
+box    crop    at 944 0 1331.5 size 62 2.5 2
+box    crop    at 944 0 1336.5 size 62 2.5 2
+box    crop    at 944 0 1341.5 size 62 2.5 2
+box    crop    at 944 0 1346.5 size 62 2.5 2
+box    crop    at 944 0 1351.5 size 62 2.5 2
+box    crop    at 944 0 1356.5 size 62 2.5 2
+box    crop    at 944 0 1361.5 size 62 2.5 2
+box    crop    at 944 0 1366.5 size 62 2.5 2
+box    crop    at 944 0 1371.5 size 62 2.5 2
+box    crop    at 896 0 1411.5 size 62 2.5 2
+box    crop    at 896 0 1416.5 size 62 2.5 2
+box    crop    at 896 0 1421.5 size 62 2.5 2
+box    crop    at 896 0 1426.5 size 62 2.5 2
+box    crop    at 896 0 1431.5 size 62 2.5 2
+box    crop    at 896 0 1436.5 size 62 2.5 2
+box    crop    at 1008 0 1427.5 size 62 2.5 2
+box    crop    at 1008 0 1432.5 size 62 2.5 2
+box    crop    at 1008 0 1437.5 size 62 2.5 2
+box    crop    at 1008 0 1442.5 size 62 2.5 2
+box    crop    at 1008 0 1447.5 size 62 2.5 2
+box    crop    at 1008 0 1452.5 size 62 2.5 2
+
+# the Sloptomizer School of Sloptomizer School: a school hall with a spired tower at 61,83 5x4
+box    stone   at 1004.2 0 1374 size 52.4 18 32 id sloptomizer-school
+gable  slate   at 1004.2 18 1374 size 55.4 14 35
+box    stone   at 1016.78 18 1370.8 size 4 14.9 4
+box    door    at 1004.2 0 1390.25 size 7 11 1
+box    window  at 984.55 7.56 1390.25 size 5 5 1
+box    window  at 1023.85 7.56 1390.25 size 5 5 1
+box    stone   at 1045 0 1381 size 16 32 16
+box    stone   at 1039.67 32 1373.75 size 2.93 2.5 1.5
+box    stone   at 1045 32 1373.75 size 2.93 2.5 1.5
+box    stone   at 1050.33 32 1373.75 size 2.93 2.5 1.5
+box    stone   at 1039.67 32 1388.25 size 2.93 2.5 1.5
+box    stone   at 1045 32 1388.25 size 2.93 2.5 1.5
+box    stone   at 1050.33 32 1388.25 size 2.93 2.5 1.5
+cone   slate   at 1045 32 1381 size 14 18 14
+box    window  at 1045 22 1389.25 size 2.5 4 1
+box    window  at 1045 12 1389.25 size 2.5 4 1
+
+# set dressing
+cylinder wood    at 771 0 1432 size 3.5 3 3.5
+cylinder wood    at 776 0 1434 size 3.5 3 3.5
+cylinder wood    at 781 0 1432 size 3.5 3 3.5
+
+# woods (at 30% of its height, for the camera)
+frustum trunk   at 782 0 1311 size 5 10 5
+blob-10 foliage at 782 6.5 1311 size 33 16 31.35 turn 180
+frustum trunk   at 1120 0 1489 size 4.5 6 4.5
+cone   foliage at 1120 3 1489 size 28 25.5 28
+cone   foliage at 1120 18.5 1489 size 20.16 25.5 20.16
+cylinder trunk   at 774 0 1288.5 size 3 4.5 3
+blob-5 foliage at 774 2 1288.5 size 20 6.5 19 turn 270
+frustum trunk   at 792 0 1288 size 3 3.5 3
+blob-40 foliage at 792 2 1288 size 19 6 18.05 turn 90
+frustum trunk   at 808 0 1288 size 3 3.5 3
+blob-33 foliage at 808 1.5 1288 size 19 6.5 18.05 turn 180
+frustum trunk   at 984.5 0 1288.5 size 3 9 3
+blob-26 foliage at 984.5 4 1288.5 size 18 19 17.1 turn 90
+frustum trunk   at 1000 0 1288 size 3 10 3
+blob-60 foliage at 1000 5 1288 size 19 19 18.05
+cylinder trunk   at 1016 0 1288 size 3 10 3
+blob-27 foliage at 1016 5 1288 size 19 14 18.05 turn 270
+frustum trunk   at 1032 0 1288 size 3 10 3
+blob-16 foliage at 1032 5 1288 size 19 16 18.05
+frustum trunk   at 1047 0 1289 size 3 9 3
+blob-39 foliage at 1047 4 1289 size 17 20 16.15 turn 180
+frustum trunk   at 1063 0 1289 size 3 9 3
+blob-17 foliage at 1063 4 1289 size 17 19 16.15 turn 180
+frustum trunk   at 806 0 1303.5 size 3 9.5 3
+blob-46 foliage at 806 5 1303.5 size 18 17.5 17.1 turn 180
+frustum trunk   at 855 0 1337 size 3 5.5 3
+blob-27 foliage at 855 3 1337 size 17 8 16.15 turn 270
+cylinder trunk   at 1064 0 1335.5 size 3 3 3
+blob-11 foliage at 1064 1 1335.5 size 18 7.5 17.1 turn 270
+cylinder trunk   at 856 0 1464 size 3 4 3
+blob-56 foliage at 856 2 1464 size 19 7.5 18.05 turn 270
+frustum trunk   at 1064 0 1464 size 3 4 3
+blob-49 foliage at 1064 2 1464 size 19 7.5 18.05 turn 270
+cylinder trunk   at 1112 0 1464 size 3 4.5 3
+cone   foliage at 1112 2.5 1464 size 19 10 19
+cone   foliage at 1112 8.5 1464 size 13.68 9.5 13.68
+cylinder trunk   at 1128 0 1463.5 size 3 3 3
+cone   foliage at 1128 2 1463.5 size 18 7 18
+cone   foliage at 1128 6 1463.5 size 12.96 7.5 12.96
+cylinder trunk   at 1144 0 1464 size 3 4 3
+cone   foliage at 1144 2.5 1464 size 19 9.5 19
+cone   foliage at 1144 8.5 1464 size 13.68 9 13.68
+cylinder trunk   at 1144 0 1480 size 3 9.5 3
+cone   foliage at 1144 6.5 1480 size 19 19 19
+cone   foliage at 1144 18 1480 size 13.68 19 13.68
+cylinder trunk   at 1143.5 0 1496.5 size 3 7 3
+cone   foliage at 1143.5 4 1496.5 size 18 20.46 18
+cone   foliage at 1143.5 16.54 1496.5 size 12.96 20.46 12.96
+cylinder trunk   at 776 0 1527 size 3 10 3
+blob-15 foliage at 776 5 1527 size 19 14 18.05 turn 90
+box    hedge   at 1064 0 1352 size 15 6 16
+blob-61 hedge   at 1064 3.5 1352 size 15 6 16
+
+# bridges
+box    wood    at 944 -3 1528 size 32 5.5 16
+box    wood    at 927.25 0 1528 size 1.5 6 16
+box    wood    at 960.75 0 1528 size 1.5 6 16

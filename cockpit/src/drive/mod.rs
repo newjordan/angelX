@@ -20,6 +20,7 @@ pub(crate) mod loop_dialog;
 #[allow(dead_code)] // reinforce-loop core; wired to DICE/GEPA in a follow-up
 pub(crate) mod reinforce;
 pub(crate) mod research_workspace;
+pub(crate) mod round_table;
 pub(crate) mod rl_ctl;
 pub(crate) mod science;
 pub(crate) mod self_loop;
@@ -45,12 +46,17 @@ pub(crate) mod together_web;
 
 /// The Delve's settings, read from the environment once (`ANGEL_ART=v2`
 /// draws with the second art kit, `ANGEL_DELVE_FEEL=1` keeps the feel
-/// ledger) and handed to `angel_delve`, which reads no environment itself.
+/// ledger, `ANGEL_DELVE_OPEN=1` lays every delve floor open; the deep floors
+/// stand up in 3D, `ANGEL_WORLD3D=1` every room, `ANGEL_WORLD3D=0` none,
+/// docs/WORLD-3D.md "Deeper floors") and handed to `angel_delve`, which
+/// reads no environment itself.
 pub(crate) fn delve_settings_from_env() {
     angel_delve::settings::set(angel_delve::settings::Settings {
         art_v2: std::env::var_os("ANGEL_ART").is_some_and(|v| v == "v2"),
         feel_ledger: std::env::var("ANGEL_DELVE_FEEL").is_ok_and(|v| v == "1"),
+        open_floors: std::env::var("ANGEL_DELVE_OPEN").is_ok_and(|v| v == "1"),
     });
+    angel_delve::world3d::room::set_mode(angel_delve::world3d::room::Mode::from_env(std::env::var("ANGEL_WORLD3D").ok().as_deref()));
 }
 
 // The Delve's tests that need the cockpit: its realm and its save, its

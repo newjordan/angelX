@@ -56,29 +56,17 @@ fn every_door_stands_on_ground_the_roads_reach_and_the_table_names_each_once() {
 }
 
 #[test]
-fn the_delve_gate_opens_from_the_near_bank_of_its_stream() {
-    // The gate's own stand is in a pocket no road reaches.
+fn the_delve_gate_opens_from_its_own_step_above_the_north_road() {
+    // The gate stands in the open Highlands just above the North Road: the
+    // knight walks up to its own step, and a click on it walks him there.
     let stand = wishes::delve_stand();
     let from = Place::Keep.stand_world();
-    assert_eq!(
-        route(from, stand),
-        vec![stand],
-        "no road: the knight walks straight in"
-    );
-    let &(bank, _) = doors().iter().find(|(_, d)| *d == Door::Delve).unwrap();
-    assert_ne!(bank, stand);
-    assert!(route(from, bank).last() == Some(&bank));
+    assert_eq!(route(from, stand).last(), Some(&stand), "the gate is reached on foot");
+    let &(door, _) = doors().iter().find(|(_, d)| *d == Door::Delve).unwrap();
+    assert_eq!(door, stand);
     let gate = wishes::delve_gate();
-    assert!(
-        (gate.ty..gate.ty + gate.th).contains(&bank.1) && (gate.tx - bank.0) <= 6,
-        "level with the gate, across the stream: {bank:?} for {gate:?}"
-    );
     let (x, y) = ((gate.tx * TILE + 20) as f32, (gate.ty * TILE + 20) as f32);
-    assert_eq!(
-        click_goal(x, y),
-        Some(bank),
-        "a click on the gate walks to the bank"
-    );
+    assert_eq!(click_goal(x, y), Some(stand), "a click on the gate walks to its step");
 }
 
 #[test]

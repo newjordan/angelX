@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Wall tiles 16 px (v1) / 32 px (v2) per cell; the north face is 1.5 tiles tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "678de547e4214bc5efcfc196e3260e01985526bc825fd85765e4aeebb632bc73",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Plain north wall: tall root-and-earth face with broad spotted cap and pale underside.",
+      "name": "face-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.5,
+        298
+      ],
+      "source_rect_xywh": [
+        22,
+        116,
+        281,
+        298
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Cracked north wall: fractured earth face beneath the same cap treatment.",
+      "name": "face-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        141.0,
+        300
+      ],
+      "source_rect_xywh": [
+        333,
+        115,
+        282,
+        300
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Niche wall: recessed fungal alcove with small teal and violet growths.",
+      "name": "face-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.0,
+        299
+      ],
+      "source_rect_xywh": [
+        644,
+        115,
+        280,
+        299
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Lit wall: inset teal lamp-like fungal growth integrated into the face.",
+      "name": "face-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        141.0,
+        300
+      ],
+      "source_rect_xywh": [
+        954,
+        115,
+        282,
+        300
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "NW outer corner: turning mushroom cap and root wall, with clustered side growth.",
+      "name": "outer-nw",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        317
+      ],
+      "source_rect_xywh": [
+        31,
+        482,
+        234,
+        317
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "NE outer corner: opposite turn with a distinct growth arrangement.",
+      "name": "outer-ne",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.5,
+        317
+      ],
+      "source_rect_xywh": [
+        332,
+        482,
+        217,
+        317
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Left side wall: long low horizontal run with cap top, short face, and hard ends.",
+      "name": "side-left",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        150.0,
+        264
+      ],
+      "source_rect_xywh": [
+        582,
+        519,
+        300,
+        264
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Right side wall: matching long low horizontal run with different growth placement.",
+      "name": "side-right",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        146.5,
+        266
+      ],
+      "source_rect_xywh": [
+        933,
+        519,
+        293,
+        266
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Inner corner: left-facing return with joined cap planes and a lit recess.",
+      "name": "inner-nw",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.0,
+        290
+      ],
+      "source_rect_xywh": [
+        22,
+        852,
+        274,
+        290
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Inner corner: opposite return with different growth placement.",
+      "name": "inner-ne",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        138.0,
+        288
+      ],
+      "source_rect_xywh": [
+        336,
+        852,
+        276,
+        288
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "End cap: terminal short wall pillar with a visible cap and root face.",
+      "name": "cap",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        80.0,
+        299
+      ],
+      "source_rect_xywh": [
+        699,
+        855,
+        160,
+        299
+      ],
+      "state": "wall"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.7
+      },
+      "label": "Collapsed wall: broken cap and rubble integrated into the wall mass.",
+      "name": "collapsed",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.5,
+        268
+      ],
+      "source_rect_xywh": [
+        936,
+        877,
+        297,
+        268
+      ],
+      "state": "wall"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.wall.fungal",
+  "source_sha256": "471d0756841be3c9ff6ad2d7b6ec664def31608a0cf3ad8ea00506a19e1f21f9",
+  "timing": ""
+}

@@ -1,0 +1,17 @@
+# Sir Honks-a-Lot Picnic Green: the great goose in stone and plaster beside the north gate, topiary behind the long hedge, the marquee raised into a tall striped pavilion.
+# the goose statue on its plinth: body, tail, neck, head and beak
+box    stone   at 236 0 8 size 34 18 16
+sphere plaster at 236 18 8 size 38 24 15
+wedge  plaster at 216 28 8 size 14 10 10
+cylinder-8 plaster at 248 38 8 size 10 28 10
+sphere plaster at 250 64 8 size 16 12 12
+wedge  wood    at 260 68 8 size 10 4 6 turn -90
+# topiary behind the long hedge
+sphere hedge   at 258 0 8 size 26 56 16
+cone-8 hedge   at 290 0 8 size 24 68 16
+sphere hedge   at 322 0 8 size 26 52 16
+# the marquee: a centre mast, a tall striped roof, a pole and pennant
+box    wood    at 88 0 48 size 3 38 3
+pyramid cloth  at 88 38 48 size 88 22 36
+box    wood    at 88 60 48 size 3 14 3
+wedge  cloth   at 88 66 48 size 16 8 2

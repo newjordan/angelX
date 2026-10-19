@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.flagpole/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP (re-run).",
+  "generation_sha256": "6edf8db80fd58a64df8a6abaa2371da8d95f004d99823b8ad9d1b7207f61d4f0",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "b088ce5871dfbab1aca2c72bdf047e09bb844812e3d5004bafc43ce74326f7e3",
+  "native_contract": "Native canvas wider than the slot, pole foot anchored at (14,100).",
+  "notes_sha256": "870b9dadc89ccabb7fa9998354454e06410f778f1c61d5d66686c27f9e9f8496",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "3577a453a053b66c249696ba44bb89089f8598fb954bbb0dd5dff5dc03be2d5c",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the re-run; v01-first is kept outside the repo and not used)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.flagpole/v01/source-sheet.png",
+  "source_sha256": "50cf3e16f99fb9c1b0667d2d94dda566b8daf5c90edc7e6de0a491974bb2ff04"
+}

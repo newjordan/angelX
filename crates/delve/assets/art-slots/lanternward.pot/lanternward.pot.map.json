@@ -1,0 +1,24 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  5,
+  11
+ ],
+ "pieces": [
+  {
+   "name": "whole-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 12
+  },
+  {
+   "name": "broken-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  }
+ ]
+}

@@ -1,0 +1,141 @@
+set chunk-3-1
+# The kingdom, chunk 3,1 in The Highlands: tiles 72..96 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 384
+plate 1536 1024
+
+# ground
+box    rock    at 1168 -4 264 size 32 4 16
+box    grass   at 1192 -4 288 size 16 4 64
+box    path    at 1208 -4 352 size 16 4 192
+box    grass   at 1288 -4 272 size 144 4 32
+box    path    at 1376 -4 288 size 32 4 64
+box    rock    at 1408 -4 264 size 32 4 16
+box    grass   at 1480 -4 312 size 112 4 112
+box    rock    at 1160 -4 280 size 16 4 16
+box    grass   at 1176 -4 296 size 16 4 48
+box    grass   at 1408 -4 296 size 32 4 48
+box    grass   at 1160 -4 296 size 16 4 16
+box    grass   at 1248 -4 336 size 64 4 96
+box    rock    at 1288 -4 296 size 16 4 16
+box    water   at 1304 -4 312 size 16 1 48
+box    rock    at 1320 -4 296 size 16 4 16
+box    grass   at 1344 -4 312 size 32 4 48
+box    rock    at 1160 -4 328 size 16 4 48
+box    grass   at 1288 -4 352 size 16 4 96
+box    grass   at 1320 -4 312 size 16 4 16
+box    rock    at 1184 -4 336 size 32 4 32
+box    water   at 1320 -4 336 size 16 1 32
+box    grass   at 1368 -4 352 size 16 4 64
+box    path    at 1392 -4 376 size 32 4 112
+box    grass   at 1416 -4 344 size 16 4 48
+box    grass   at 1304 -4 360 size 16 4 48
+box    water   at 1336 -4 344 size 16 1 16
+box    grass   at 1352 -4 360 size 16 4 48
+box    grass   at 1176 -4 360 size 48 4 16
+box    grass   at 1328 -4 368 size 32 4 32
+box    path    at 1168 -4 400 size 32 4 64
+box    grass   at 1192 -4 376 size 16 4 16
+box    path    at 1472 -4 392 size 128 4 48
+box    path    at 1192 -4 416 size 16 4 64
+box    path    at 1224 -4 416 size 16 4 64
+box    grass   at 1256 -4 392 size 48 4 16
+box    path    at 1336 -4 408 size 80 4 48
+box    path    at 1264 -4 424 size 64 4 48
+box    path    at 1416 -4 424 size 16 4 16
+box    grass   at 1480 -4 440 size 112 4 48
+box    grass   at 1168 -4 440 size 32 4 16
+box    path    at 1320 -4 440 size 48 4 16
+box    grass   at 1384 -4 448 size 80 4 32
+box    rock    at 1168 -4 480 size 32 4 64
+box    grass   at 1264 -4 464 size 160 4 32
+box    grass   at 1376 -4 472 size 64 4 16
+box    rock    at 1432 -4 480 size 48 4 32
+box    grass   at 1496 -4 488 size 80 4 48
+box    rock    at 1200 -4 488 size 32 4 16
+box    grass   at 1304 -4 496 size 176 4 32
+box    rock    at 1400 -4 488 size 16 4 16
+box    grass   at 1200 -4 504 size 32 4 16
+box    grass   at 1408 -4 504 size 32 4 16
+box    rock    at 1440 -4 504 size 32 4 16
+
+# fingerposts
+box    wood    at 1160 0 364 size 1.5 19 1.5
+pyramid wood    at 1160 19 364 size 2.2 1.5 2.2
+box    wood    at 1164 16 364 size 6.5 1.8 0.6
+box    wood    at 1156 13.5 364 size 6.5 1.8 0.6
+
+# set dressing
+rock-55 rock    at 1448 0 328 size 8 2.5 7
+rock-35 rock    at 1448 2 328 size 5 2 4.5
+rock-49 rock    at 1500 0 324 size 4 2 3.5
+rock-52 rock    at 1494 0 329 size 4 2 3.5
+rock-48 rock    at 1493 0 328 size 4 2 3.5
+rock-50 rock    at 1500 0 329 size 4 2 3.5
+rock-45 rock    at 1225 0 348 size 4 2 3.5
+rock-8 rock    at 1219 0 341 size 4 2 3.5
+rock-23 rock    at 1219 0 346 size 4 2 3.5
+rock-49 rock    at 1229 0 348 size 4 2 3.5
+rock-3 rock    at 1272 0 344 size 8 2.5 7
+rock-12 rock    at 1272 2 344 size 5 2 4.5
+
+# rock
+box    rock    at 1168 0 264 size 32 3 16
+box    rock    at 1408 0 264 size 32 3 16
+box    rock    at 1160 0 280 size 16 3 16
+box    rock    at 1288 0 296 size 16 3 16
+box    rock    at 1320 0 296 size 16 3 16
+box    rock    at 1160 0 328 size 16 3 48
+box    rock    at 1184 0 336 size 32 3 32
+box    rock    at 1168 0 456 size 32 3 16
+box    rock    at 1160 0 480 size 16 9 32
+box    rock    at 1176 0 488 size 16 3 48
+box    rock    at 1432 0 480 size 48 3 32
+box    rock    at 1200 0 488 size 32 3 16
+box    rock    at 1400 0 488 size 16 3 16
+box    rock    at 1160 0 504 size 16 3 16
+box    rock    at 1440 0 504 size 32 3 16
+rock-18 rock    at 1159 1.5 264 size 17 10 15.3 turn 180
+rock-7 rock    at 1176 1.5 263 size 15 7 13.5
+rock-48 rock    at 1401 1.5 265 size 14 9 12.6 turn 90
+rock-2 rock    at 1416 1.5 265 size 17 8 15.3
+rock-26 rock    at 1159 1.5 279 size 15 8 13.5 turn 270
+rock-17 rock    at 1287 1.5 297 size 17 7 15.3 turn 180
+rock-52 rock    at 1319 1.5 295 size 15 9 13.5 turn 180
+rock-53 rock    at 1161 1.5 312 size 16 8 14.4 turn 180
+rock-28 rock    at 1161 1.5 328 size 17 10 15.3 turn 270
+rock-16 rock    at 1177 1.5 329 size 16 7 14.4 turn 90
+rock-59 rock    at 1193 1.5 328 size 17 7 15.3 turn 270
+rock-13 rock    at 1160 1.5 343 size 16 10 14.4 turn 90
+rock-23 rock    at 1175 1.5 345 size 16 10 14.4 turn 180
+rock-11 rock    at 1192 1.5 345 size 16 10 14.4 turn 90
+rock-8 rock    at 1159 1.5 456 size 16 8 14.4
+rock-57 rock    at 1176 1.5 457 size 17 10 15.3 turn 270
+rock-36 rock    at 1160 7.5 471 size 13 7 11.7
+rock-1 rock    at 1176 1.5 472 size 14 8 12.6
+rock-8 rock    at 1416 1.5 471 size 17 9 15.3
+rock-54 rock    at 1432 1.5 471 size 14 10 12.6 turn 180
+rock-27 rock    at 1448 1.5 471 size 17 8 15.3 turn 270
+rock-45 rock    at 1159 7.5 487 size 15 6 13.5 turn 90
+rock-25 rock    at 1177 1.5 488 size 15 10 13.5 turn 270
+rock-34 rock    at 1191 1.5 488 size 16 9 14.4
+rock-55 rock    at 1207 1.5 487 size 14 7 12.6 turn 180
+rock-24 rock    at 1400 1.5 487 size 16 9 14.4 turn 180
+rock-57 rock    at 1416 1.5 488 size 17 7 15.3 turn 270
+rock-63 rock    at 1433 1.5 489 size 16 10 14.4 turn 270
+rock-49 rock    at 1448 1.5 488 size 17 7 15.3 turn 180
+rock-29 rock    at 1161 1.5 505 size 15 8 13.5 turn 270
+rock-13 rock    at 1176 1.5 503 size 14 9 12.6 turn 90
+rock-12 rock    at 1433 1.5 505 size 17 7 15.3 turn 90
+rock-30 rock    at 1449 1.5 504 size 14 10 12.6 turn 270
+
+# woods (at 35% of its height, for the camera)
+cylinder trunk   at 1256 0 264 size 3 10 3
+blob-45 foliage at 1256 5 264 size 19 18 18.05 turn 180
+cylinder trunk   at 1272 0 263 size 3 10 3
+blob-52 foliage at 1272 5 263 size 19 15 18.05 turn 90
+frustum trunk   at 1336 0 328 size 3 4 3
+blob-31 foliage at 1336 2 328 size 19 7 18.05 turn 270
+frustum trunk   at 1352 0 344 size 3 3.5 3
+blob-49 foliage at 1352 1.5 344 size 19 7.5 18.05 turn 90

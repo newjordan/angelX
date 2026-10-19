@@ -1,0 +1,193 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8,
+    16
+  ],
+  "comments": [
+    "Each tile is its own drawing: stone, snow and the three hatch frames fill the whole 16x16 cell (cover sampling trims at most 0.7 native pixels of the rounded outline); the ledge is the producer's top-aligned plank and the spikes the bottom-aligned row, each at its own natural scale, so the plank is 16x7 at the top of its cell and the spikes 16x9 at the bottom.",
+    "Stone and snow carry a dark outline and rounded corners: one block per tile, not a seamless wrap. The stone is neutral grey for the stage's section tint.",
+    "The hatch-open frames are imported and approved; the rules keep no open-hatch clock, so the stage plays the closed hatch."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "Each tile is one 16x16 cell; collision is the tile and belongs to the rules (the spike tile hurts only its lower ten rows); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the slot order: stone, snow, ledge, spikes, hatch, hatch-open-0, hatch-open-1 (the eighth cell is empty).",
+  "notes_sha256": "c47d947dc0623edb010c710710f722f856e7be0093c56efe6a832dc99703c27a",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**stone-0** \u2014 two courses of neutral grey blocks, staggered joints, three small moss patches and pale upper edge light. The stone contains more mottled shading and visibly thick outlines than the flat, seamless block brief; its joints are also not perfectly flush at the outside edges.",
+      "name": "stone-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        161.5,
+        305
+      ],
+      "source_rect_xywh": [
+        49,
+        158,
+        323,
+        305
+      ],
+      "state": "stone",
+      "ticks": 1,
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**snow-0** \u2014 cool pale snow block with a pale cap and two broad blue-grey body shadows. The cap is more scalloped than the requested gentle edge, and the visible presentation includes a blue halo-like field; per instruction, the viewer's dark/halo alpha display is not treated as a defect.",
+      "name": "snow-0",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        163.0,
+        302
+      ],
+      "source_rect_xywh": [
+        420,
+        161,
+        326,
+        302
+      ],
+      "state": "snow",
+      "ticks": 1,
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**ledge-0** \u2014 single brown plank in the upper part with two round hanging pegs. There are extra wood-like horizontal marks and the plank reads more detailed than the knotless flat-shape target.",
+      "name": "ledge-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        166.0,
+        332.0
+      ],
+      "source_rect_xywh": [
+        790,
+        157,
+        332,
+        135
+      ],
+      "state": "ledge",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**spikes-0** \u2014 four amber-bronze triangular spikes over a dark iron base. The spikes are sharp and distinct; facets contain small painterly variation beyond the flat target.",
+      "name": "spikes-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        176.0,
+        191.0
+      ],
+      "source_rect_xywh": [
+        1148,
+        272,
+        352,
+        191
+      ],
+      "state": "spikes",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**hatch-0** \u2014 framed wooden hatch with three vertical planks, two iron bands and central brass ring handle. Strong read, though framing and wood are busier than the minimal native-size design.",
+      "name": "hatch-0",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        161.5,
+        317
+      ],
+      "source_rect_xywh": [
+        49,
+        566,
+        323,
+        317
+      ],
+      "state": "hatch",
+      "ticks": 1,
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "**hatch-open-0** \u2014 framed dark opening with a left-hinged partly open hatch and visible ring. It reads as open; door perspective and frame details are more elaborate than requested.",
+      "name": "hatch-open-0",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        161.0,
+        335
+      ],
+      "source_rect_xywh": [
+        421,
+        558,
+        322,
+        335
+      ],
+      "state": "hatch-open",
+      "ticks": 4,
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "**hatch-open-1** \u2014 matching frame, dark opening and narrow hatch sliver at left with a pale bottom lip. Consistent with the open state.",
+      "name": "hatch-open-1",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        161.0,
+        317
+      ],
+      "source_rect_xywh": [
+        794,
+        566,
+        322,
+        317
+      ],
+      "state": "hatch-open",
+      "ticks": 4,
+      "trim_alpha_bounds": true
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native tile 16x16, anchor bottom-centre (8,16); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      16,
+      16
+    ]
+  },
+  "slot": "bannerpeak.tiles",
+  "source_sha256": "2030b019a65f1ea1af610ff431310b61ad7e676bd42d49655988ffce2e638844",
+  "timing": "stone 1 ticks; snow 1 ticks; ledge 1 ticks; spikes 1 ticks; hatch 1 ticks; hatch-open 2x4 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

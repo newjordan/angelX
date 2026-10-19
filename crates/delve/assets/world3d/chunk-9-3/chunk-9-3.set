@@ -1,0 +1,99 @@
+set chunk-9-3
+# The kingdom, chunk 9,3 in The Coast: tiles 216..240 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3648 896
+plate 1536 1024
+
+# ground
+box    grass   at 3552 -4 816 size 192 4 96
+box    sand    at 3656 -4 800 size 16 4 64
+box    water   at 3752 -4 800 size 176 1 64
+box    grass   at 3656 -4 856 size 16 4 48
+box    sand    at 3672 -4 856 size 16 4 48
+box    water   at 3760 -4 896 size 160 1 128
+box    path    at 3496 -4 872 size 80 4 16
+box    grass   at 3592 -4 880 size 112 4 32
+box    grass   at 3496 -4 920 size 80 4 80
+box    rock    at 3664 -4 904 size 32 4 48
+box    grass   at 3584 -4 960 size 96 4 128
+box    rock    at 3640 -4 904 size 16 4 16
+box    grass   at 3640 -4 968 size 16 4 112
+box    sand    at 3656 -4 944 size 16 4 32
+box    water   at 3672 -4 944 size 16 1 32
+box    rock    at 3472 -4 976 size 32 4 32
+box    grass   at 3512 -4 992 size 48 4 64
+box    grass   at 3656 -4 992 size 16 4 64
+box    sand    at 3672 -4 968 size 16 4 16
+box    rock    at 3704 -4 968 size 48 4 16
+box    sand    at 3752 -4 968 size 48 4 16
+box    water   at 3808 -4 992 size 64 1 64
+box    grass   at 3672 -4 1000 size 16 4 48
+box    rock    at 3696 -4 984 size 32 4 16
+box    grass   at 3736 -4 1000 size 48 4 48
+box    sand    at 3768 -4 984 size 16 4 16
+box    rock    at 3464 -4 1000 size 16 4 16
+box    grass   at 3480 -4 1008 size 16 4 32
+box    rock    at 3688 -4 1000 size 16 4 16
+box    grass   at 3704 -4 1008 size 16 4 32
+box    grass   at 3768 -4 1000 size 16 4 16
+box    grass   at 3464 -4 1016 size 16 4 16
+box    grass   at 3688 -4 1016 size 16 4 16
+box    sand    at 3768 -4 1016 size 16 4 16
+
+# set dressing
+cylinder wood    at 3571 0 872 size 3.5 3 3.5
+cylinder wood    at 3576 0 874 size 3.5 3 3.5
+cylinder wood    at 3581 0 872 size 3.5 3 3.5
+box    wood    at 3468 0 888 size 1.5 12 1.5
+box    wood    at 3480 0 888 size 1.5 12 1.5
+box    wood    at 3492 0 888 size 1.5 12 1.5
+box    cloth   at 3480 0 890.5 size 26 1 4
+cylinder wood    at 3524 0 902 size 5 4 5
+cylinder wood    at 3531 0 902 size 5 4 5
+cylinder wood    at 3524 0 907 size 5 4 5
+box    wood    at 3644 0 1000 size 1.5 12 1.5
+box    wood    at 3656 0 1000 size 1.5 12 1.5
+box    wood    at 3668 0 1000 size 1.5 12 1.5
+box    cloth   at 3656 0 1002.5 size 26 1 4
+
+# rock
+box    rock    at 3664 0 904 size 32 3 48
+box    rock    at 3640 0 904 size 16 3 16
+box    rock    at 3472 0 976 size 32 3 32
+box    rock    at 3704 0 968 size 48 3 16
+box    rock    at 3696 0 984 size 32 3 16
+box    rock    at 3464 0 1000 size 16 3 16
+box    rock    at 3688 0 1000 size 16 3 16
+rock-37 rock    at 3656 1.5 889 size 17 9 15.3
+rock-11 rock    at 3673 1.5 888 size 17 7 15.3 turn 90
+rock-56 rock    at 3641 1.5 905 size 16 7 14.4 turn 180
+rock-57 rock    at 3655 1.5 905 size 16 8 14.4 turn 270
+rock-41 rock    at 3673 1.5 905 size 14 8 12.6 turn 90
+rock-48 rock    at 3657 1.5 921 size 14 7 12.6 turn 90
+rock-39 rock    at 3671 1.5 920 size 15 7 13.5
+rock-28 rock    at 3465 1.5 968 size 16 9 14.4 turn 270
+rock-51 rock    at 3481 1.5 968 size 17 10 15.3 turn 180
+rock-61 rock    at 3687 1.5 968 size 15 8 13.5 turn 270
+rock-45 rock    at 3705 1.5 968 size 15 9 13.5 turn 90
+rock-60 rock    at 3719 1.5 968 size 15 9 13.5 turn 270
+rock-54 rock    at 3463 1.5 983 size 16 10 14.4 turn 180
+rock-62 rock    at 3479 1.5 983 size 16 8 14.4 turn 270
+rock-17 rock    at 3688 1.5 985 size 16 7 14.4 turn 180
+rock-19 rock    at 3704 1.5 983 size 15 9 13.5 turn 180
+rock-58 rock    at 3465 1.5 999 size 17 7 15.3 turn 270
+rock-44 rock    at 3687 1.5 1000 size 14 10 12.6 turn 90
+
+# woods (at 67% of its height, for the camera)
+cylinder trunk   at 3711 0 1007 size 5 15 5
+blob-62 foliage at 3711 10 1007 size 33 26 31.35 turn 90
+cylinder trunk   at 3743 0 1009 size 5 13 5
+blob-62 foliage at 3743 9 1009 size 33 22.5 31.35
+frustum trunk   at 3718 0 986 size 3 10 3
+blob-22 foliage at 3718 5 986 size 19 15 18.05 turn 270
+cylinder trunk   at 3736 0 986 size 3 6.5 3
+blob-50 foliage at 3736 3 986 size 17 10.5 16.15 turn 270
+cylinder trunk   at 3753 0 985 size 3 6 3
+blob-5 foliage at 3753 2.5 985 size 17 10.5 16.15 turn 180
+box    hedge   at 3768 0 1000 size 16 6 15
+blob-27 hedge   at 3768 4 1000 size 16 5 15

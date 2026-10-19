@@ -7,12 +7,20 @@ fn every_game_names_fields_the_run_has_and_a_name_of_its_own() {
     let Ok(Value::Struct(fields)) = value::to_value(&run) else {
         panic!("a run is a struct");
     };
+    // Optional activity fields may be absent while inactive.
+    let live = value::to_value(&Run::forest_road_for_test()).unwrap();
+    let adventures: Vec<_> = roundtable::ADVENTURES
+        .iter()
+        .map(|a| value::to_value(&Run::roundtable_for_test(a.slug).unwrap()).unwrap())
+        .collect();
     let mut names = std::collections::BTreeSet::new();
     for activity in all() {
         assert!(names.insert(activity.name), "{} twice", activity.name);
         for field in activity.fields {
             assert!(
-                fields.iter().any(|(n, _)| n == field),
+                fields.iter().any(|(n, _)| n == field)
+                    || live.field(field).is_some()
+                    || adventures.iter().any(|run| run.field(field).is_some()),
                 "{}: no Run field {field}",
                 activity.name
             );

@@ -30,7 +30,10 @@ fn together_floor_plates_arrive_after_the_real_descent_and_expire() {
                 run.descend();
             }
         }
-        for _ in 0..DURATION {
+        // The floor behind's results, then the title.
+        let plate = run.floor_plate(Some(1)).unwrap();
+        assert_eq!(plate.length(), crate::rules::floor_stats::SHOWN + DURATION);
+        for _ in 0..plate.length() {
             run.step(&BTreeMap::new());
         }
         assert!(run.floor_plates.is_empty());
@@ -89,8 +92,10 @@ fn together_floor_plates_gate_hold_and_wrens_landing_use_arrival_depth() {
         .find(|e| e.room == RoomKind::Gate && matches!(e.to, world::Dest::Room(RoomKind::Home, _)))
         .unwrap();
     let centre = world::entrance_centre(entrance);
-    let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y) = centre;
+    // The whole party stands on the plate: it moves them all together.
+    for hero in run.players.values_mut() {
+        (hero.x, hero.y) = centre;
+    }
     run.stairs_held = false;
     for _ in 1..home::DESCEND_HOLD {
         run.step(&BTreeMap::new());

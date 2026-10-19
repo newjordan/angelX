@@ -28,7 +28,7 @@ print(json.dumps({'argv':sys.argv[1:],'yolo':os.environ.get('ANGEL_YOLO'),'comp'
     for (const alias of ['--comp', '--lean', '--turbo', '--angelturbo']) {
       const result = spawnSync('bash', [join(source, 'bin/angelX'), '--yolo', alias, ...args], {
         cwd: root, encoding: 'utf8', timeout: 15000,
-        env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1', ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0', ANGEL_RUNNER_ENV_FILE: runner },
+        env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1', ANGEL_VIDEO: '0', ANGEL_RUNNER_ENV_FILE: runner },
       })
       assert.equal(result.status, 0, result.stderr)
       assert.deepEqual(JSON.parse(result.stdout), { argv: args, yolo: '1', comp: '1', turbo: '1' })
@@ -37,7 +37,7 @@ print(json.dumps({'argv':sys.argv[1:],'yolo':os.environ.get('ANGEL_YOLO'),'comp'
   const args = ['--driver', 'openai', '--model', 'exact/slash-ID', '--effort', 'pi:high', '--prompt', '--doctor']
   const result = spawnSync('bash', [join(source, 'bin/angelX'), ...args], {
     cwd: root, encoding: 'utf8', timeout: 15000,
-    env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1', ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0' },
+    env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1', ANGEL_VIDEO: '0' },
   })
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(JSON.parse(result.stdout), { argv: args, yolo: '0', comp: '0', turbo: '0' })

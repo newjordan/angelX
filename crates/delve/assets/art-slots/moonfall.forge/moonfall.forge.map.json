@@ -1,0 +1,130 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    76
+  ],
+  "anchor_xy": [
+    24,
+    76
+  ],
+  "comments": [
+    "Registered as one bank on the footing line: the pivot x is the centre of the footing stones.",
+    "The lit crop has the ajar door six source pixels below the footing line and a taller lit chimney (five source pixels); a reviewed sub-crop ends the crop on the footing line shared with the other two. The taller lit chimney sets the shared scale so that nothing is clipped. Nothing is repainted.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the snap sent the olive-brown flecks (69793e) to a brown (684629) and the dark-green outline ink (182414) to a dark brown (25140b); both are admitted shared inks, no pixel moves or is added."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: day-0, night-0 (shuttered window), lit-0 (amber window, ajar door, amber chimney slit). The crops are tight and separated by empty columns (checked against the sheet's alpha), so none is merged.",
+  "notes_sha256": "3c749351ce7e220c24ad4af410071b6b66074b950669556166c7fdee5e9847b0",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: plain pale blue-grey glass, door shut, lantern dark.",
+      "name": "day-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        243.5,
+        822
+      ],
+      "source_rect_xywh": [
+        16,
+        97,
+        486,
+        822
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: dark indigo glass, ground-floor windows shuttered, door shut, lantern dark.",
+      "name": "night-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        243.5,
+        822
+      ],
+      "source_rect_xywh": [
+        525,
+        97,
+        487,
+        822
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber windows, door ajar with an amber slice, amber lantern.",
+      "name": "lit-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          0,
+          485,
+          827
+        ]
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        241.5,
+        827
+      ],
+      "source_rect_xywh": [
+        1035,
+        92,
+        485,
+        833
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 48x76, anchor bottom-centre (24,76); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "sizes": {
+    "v1": [
+      48,
+      76
+    ],
+    "v2": [
+      48,
+      76
+    ]
+  },
+  "slot": "moonfall.forge",
+  "source_sha256": "48a80f9fce073037ea73e955cf9b7b47bf440457e29523f8933d6a4b292babd0",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

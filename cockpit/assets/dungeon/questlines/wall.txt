@@ -1,0 +1,22 @@
+power skill:wall 3
+teacher Hesper the Hedgewife
+place the hedge maze in the Woods
+room HedgeMaze
+look green to the eyes, bronze secateurs, and a habit of being woven into her own hedge at dusk
+line A wall that fights back is a hedge with opinions.
+hook The maze's heart holds three old targets, one arrow each, decades old.
+step The planting | grow one section of the hedge maze: three cued plantings | hedge_planted 3 | A wall that fights back is a hedge with opinions. | cue plant
+step The maze's heart | win the hedge maze's heart | hedge_heart_won 1 | Let the monsters negotiate with wood. | cue maze
+step The walled hall | clear one hall behind your own walls only, shield never raised | walled_halls 1 | Stand behind it and let the monsters negotiate with wood.
+trial The curved stand | hold one hall's stair mouth with one curved wall alone, a full minute | curved_holds 1 | Woven, not built. There's the difference.
+reward Barrier level III
+title the Woven
+keepsake the Bronze Secateurs, secateurs at the belt that click once when a wall stands its full life
+ties The maze's heart (Triple Volley); the stair-holding shape (Stout Heart); Gil's lit road to the maze (Chain Spark).
+art
+.8.8.8.
+.88888.
+.8W8W8.
+.88888.
+.8.8.8.
+..8.8..

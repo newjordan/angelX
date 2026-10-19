@@ -1,0 +1,334 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "b694f5d573727baa98f41e9ba47c64a1e67e1ea756da0cb401716d9a3b28b214",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Root-and-mushroom standing torch, compact upright teal flame (frame 1).",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        96.0,
+        507
+      ],
+      "source_rect_xywh": [
+        108,
+        103,
+        192,
+        507
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Same torch with a left-leaning, flared teal flame (frame 2).",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        126.0,
+        490
+      ],
+      "source_rect_xywh": [
+        433,
+        120,
+        252,
+        490
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Same torch with a right-curling teal flame (frame 3).",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        102.5,
+        482
+      ],
+      "source_rect_xywh": [
+        853,
+        128,
+        205,
+        482
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Violet mushroom-cup floor lamp with teal root wick.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.0,
+        355
+      ],
+      "source_rect_xywh": [
+        1183,
+        255,
+        294,
+        355
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Root-wood barrel with fungal-cap lid and small moss growths.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.5,
+        340
+      ],
+      "source_rect_xywh": [
+        54,
+        690,
+        295,
+        340
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Pale bone, root, and tiny mushroom rubble pile.",
+      "name": "bones",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        190.5,
+        268
+      ],
+      "source_rect_xywh": [
+        398,
+        766,
+        381,
+        268
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Hanging fungal-thread garland with caps and spore lights.",
+      "name": "web",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        177.5,
+        329
+      ],
+      "source_rect_xywh": [
+        789,
+        686,
+        355,
+        329
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Three shelf mushrooms growing from a root stump.",
+      "name": "prop-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.5,
+        322
+      ],
+      "source_rect_xywh": [
+        1216,
+        719,
+        273,
+        322
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Curled violet-glowing fungal frond on a small earth clod.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        110.5,
+        334
+      ],
+      "source_rect_xywh": [
+        83,
+        1102,
+        221,
+        334
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Straight-edged damp-earth floor tile with branching root crack and teal moss.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        158.0,
+        283
+      ],
+      "source_rect_xywh": [
+        420,
+        1135,
+        316,
+        283
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Straight-edged violet fungal-stain floor tile with mushroom rings and root tracery.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        158.0,
+        285
+      ],
+      "source_rect_xywh": [
+        795,
+        1133,
+        316,
+        285
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.55,
+        "value": 0.62
+      },
+      "label": "Warm radial light pool, contained within an organic earth edge.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        165.0,
+        147.0
+      ],
+      "source_rect_xywh": [
+        1171,
+        1132,
+        330,
+        294
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.fungal",
+  "source_sha256": "3aae995ce6a1516999cb3b6de2d5c4cfe6620c92b566fd30593d74e199dfbdbd",
+  "timing": ""
+}

@@ -1,0 +1,23 @@
+power wish:morningstar 3
+teacher Dame Petronel
+place the Rusty Hippodrome, above the track's silver-railed curve
+room Hippodrome
+look tiny, silver plaits wound with flail-chain, and a body that keeps perfect time with everything, including you
+line Two stars, one orbit, no negotiation.
+hook The level-2 card carries ...and a silver rail's curve, and a dance step under it all.
+step The warm-up circle | dance one full circuit of the track on foot, three cued figures | dance_figures_done 3 | One-two-three, one-two-three — the flail keeps its own time. | cue dance
+step The tilt | ride one full joust and land the tilt at the exact centre of the shield | jousts_finished_seated 1 | Centre. Of course centre. Anything else is percussion. | needs jousts_finished_seated
+step The College's geometry | play one of the College's shared research games with orbit as the theme | college_games_played 1 | An honest ellipse. High praise from a man who owns compasses. | needs college_games_played
+step The race crowd | win one Cabbage and Roll race at the hippodrome | races_placed 1 | Two stars, one orbit, no negotiation — and you're inside it now. | needs races_placed
+trial The orbit hall | every monster falls to the morningstars' orbit alone | orbit_pure_halls 1 | They call it a defensive weapon. Watch my defense remove their argument.
+reward Morningstar tier 3
+title the Whirligig
+keepsake the Silver Plait, a silver chain-plait at the temple that swings once, in time, on every orbit kill
+ties The lists' tilt is Ferris's ground; the race crowd shares Reynard's hippodrome step; the geometry crosses Fenna's circuit.
+art
+..888..
+.8...8.
+..8.8..
+.8...8.
+..888..
+...b...

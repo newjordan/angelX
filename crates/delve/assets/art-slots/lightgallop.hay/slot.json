@@ -1,0 +1,235 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5486
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 9169
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 28152
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 15908
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 10979
+    }
+  ],
+  "flags": [],
+  "map_sha256": "9a05104d8e7dd145f434597f9fabe1e00b58560f8e2009d43b632b0f6ffab409",
+  "metadata_sha256": "0de3c41af163740ca65c71e095846abeeabd3a7483d0a87bcd8497614f8b8993",
+  "notes_sha256": "020c6b239c9403fe4bf8eac1fbdadd277008cde43ab2c2f814ccef8f02287b2e",
+  "outputs": {
+    "v1/rest-0.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 686,
+      "piece": 0,
+      "sha256": "bd17b316fcd955194ac41a46488a8cbd71f0d3f254080203db7c7fb7ea1d8206",
+      "source_scale": 0.08396946564885496,
+      "state": "rest"
+    },
+    "v1/sprung-0.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 34,
+      "opaque_pixels": 549,
+      "piece": 1,
+      "sha256": "ba51036dd6074caa1da822594b42f00aa2b9ec67171d9f2fd1fdf02da26dfed0",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v1/sprung-1.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 37,
+      "opaque_pixels": 530,
+      "piece": 2,
+      "sha256": "76c4728c1138d272eb5582b2f81f7a528f1544bbc117fe779430aa29548844e8",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v1/sprung-2.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 41,
+      "opaque_pixels": 619,
+      "piece": 3,
+      "sha256": "b0fc0f2176f09e431f02db283adc34fff114a7bcfef8a7734af0b14545076046",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v1/sprung-3.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 43,
+      "opaque_pixels": 673,
+      "piece": 4,
+      "sha256": "39d21ef6b4159c5834d3a653bf7b6f6ad6dde2cfed2eb6ec036aee4c79600557",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v2/rest-0.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 42,
+      "opaque_pixels": 686,
+      "piece": 0,
+      "sha256": "bd17b316fcd955194ac41a46488a8cbd71f0d3f254080203db7c7fb7ea1d8206",
+      "source_scale": 0.08396946564885496,
+      "state": "rest"
+    },
+    "v2/sprung-0.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 34,
+      "opaque_pixels": 549,
+      "piece": 1,
+      "sha256": "ba51036dd6074caa1da822594b42f00aa2b9ec67171d9f2fd1fdf02da26dfed0",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v2/sprung-1.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 37,
+      "opaque_pixels": 530,
+      "piece": 2,
+      "sha256": "76c4728c1138d272eb5582b2f81f7a528f1544bbc117fe779430aa29548844e8",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v2/sprung-2.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 41,
+      "opaque_pixels": 619,
+      "piece": 3,
+      "sha256": "b0fc0f2176f09e431f02db283adc34fff114a7bcfef8a7734af0b14545076046",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    },
+    "v2/sprung-3.png": {
+      "anchor_xy": [
+        18,
+        22
+      ],
+      "approved": true,
+      "canvas_wh": [
+        36,
+        22
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 43,
+      "opaque_pixels": 673,
+      "piece": 4,
+      "sha256": "39d21ef6b4159c5834d3a653bf7b6f6ad6dde2cfed2eb6ec036aee4c79600557",
+      "source_scale": 0.08396946564885496,
+      "state": "sprung"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "lightgallop.hay",
+  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.hay/source-sheet.png",
+  "source_sha256": "817431efaf00be291563c8d8f3a9a1f095652a5b7ef55c6149fd291828d1b9e6",
+  "tool_version": 2
+}

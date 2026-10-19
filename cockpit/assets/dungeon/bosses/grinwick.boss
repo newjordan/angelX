@@ -5,7 +5,8 @@ where mines
 hp 900
 size 4.8
 move drift speed=3.8
-phases lead bounce every=36 volleys=2 damage=12 shot=ore
+phases lead bounce every=70 volleys=2 damage=12 shot=ore from=open
+attack burst every=40 damage=12 shot=ore from=rage
 rage 50%
 drops ore 6, gem 3, gold 260
 art

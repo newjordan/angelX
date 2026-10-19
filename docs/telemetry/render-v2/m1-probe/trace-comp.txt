@@ -1,0 +1,6 @@
+GLASS_PARTS build_mean_ms=0.230 build_worst_ms=1.265 acquire_mean_ms=0.017 acquire_worst_ms=0.029 submit_mean_ms=0.193 submit_worst_ms=0.296 present_mean_ms=0.824 present_worst_ms=2.346
+GLASS_KEYHOP n=1 hop_p50_ms=0.567 hop_p95_ms=0.567 total_p50_ms=1.709 total_p95_ms=1.709
+GLASS_PARTS build_mean_ms=0.108 build_worst_ms=0.193 acquire_mean_ms=0.037 acquire_worst_ms=0.085 submit_mean_ms=0.235 submit_worst_ms=0.360 present_mean_ms=1.226 present_worst_ms=4.045
+GLASS_KEYHOP n=16 hop_p50_ms=0.495 hop_p95_ms=0.643 total_p50_ms=1.627 total_p95_ms=4.362
+GLASS_PARTS build_mean_ms=0.091 build_worst_ms=0.164 acquire_mean_ms=0.031 acquire_worst_ms=0.035 submit_mean_ms=0.231 submit_worst_ms=0.328 present_mean_ms=1.123 present_worst_ms=3.592
+GLASS_KEYHOP n=16 hop_p50_ms=0.477 hop_p95_ms=0.601 total_p50_ms=1.565 total_p95_ms=3.497

@@ -1,0 +1,58 @@
+# The Knotty Kitewright: the kite shop under its gable with a loft, a pennant mast, and kites flying on strings above.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the shop and its loft
+box    wood    at 100 0 -6 size 70 34 26 id lm-kite-shop
+gable  roof    at 100 34 -6 size 78 20 32
+box    wood    at 76 48 -8 size 18 14 16 id lm-kite-loft
+pyramid roof    at 76 62 -8 size 22 10 20
+# the pennant mast
+cylinder-8 wood    at 292 0 -4 size 5 72 5 id lm-mast
+box    plaster at 301 63 -4 size 16 6 1
+box    slate   at 299 52 -4 size 12 5 1
+# kites on their strings: a diamond, a tail of bows, and the string slanting down
+gem    plaster at 150 50 -10 size 22 30 3
+box    wood    at 148.43 46.86 -10 size 1.3 4 1.3
+box    wood    at 145.29 44.57 -10 size 1.3 4 1.3
+box    wood    at 142.14 42.29 -10 size 1.3 4 1.3
+box    wood    at 139 40 -10 size 1.3 4 1.3
+box    wood    at 135.86 37.71 -10 size 1.3 4 1.3
+box    wood    at 132.71 35.43 -10 size 1.3 4 1.3
+box    wood    at 129.57 33.14 -10 size 1.3 4 1.3
+box    wood    at 150 36 -10 size 0.8 14 0.8
+box    plaster at 150 41 -10 size 5 3 1
+box    plaster at 150 36 -10 size 5 3 1
+gem    slate   at 214 50 -10 size 20 28 3
+box    wood    at 219.57 47.14 -10 size 1.3 4 1.3
+box    wood    at 230.71 45.43 -10 size 1.3 4 1.3
+box    wood    at 241.86 43.71 -10 size 1.3 4 1.3
+box    wood    at 253 42 -10 size 1.3 4 1.3
+box    wood    at 264.14 40.29 -10 size 1.3 4 1.3
+box    wood    at 275.29 38.57 -10 size 1.3 4 1.3
+box    wood    at 286.43 36.86 -10 size 1.3 4 1.3
+box    wood    at 214 36 -10 size 0.8 14 0.8
+box    slate   at 214 41 -10 size 5 3 1
+box    slate   at 214 36 -10 size 5 3 1
+gem    roof    at 258 44 -10 size 18 26 3
+box    wood    at 260.43 41 -10 size 1.3 4 1.3
+box    wood    at 265.29 39 -10 size 1.3 4 1.3
+box    wood    at 270.14 37 -10 size 1.3 4 1.3
+box    wood    at 275 35 -10 size 1.3 4 1.3
+box    wood    at 279.86 33 -10 size 1.3 4 1.3
+box    wood    at 284.71 31 -10 size 1.3 4 1.3
+box    wood    at 289.57 29 -10 size 1.3 4 1.3
+box    wood    at 258 30 -10 size 0.8 14 0.8
+box    roof    at 258 35 -10 size 5 3 1
+box    roof    at 258 30 -10 size 5 3 1
+gem    thatch  at 340 46 -10 size 20 28 3
+box    wood    at 336.86 43.57 -10 size 1.3 4 1.3
+box    wood    at 330.57 42.71 -10 size 1.3 4 1.3
+box    wood    at 324.29 41.86 -10 size 1.3 4 1.3
+box    wood    at 318 41 -10 size 1.3 4 1.3
+box    wood    at 311.71 40.14 -10 size 1.3 4 1.3
+box    wood    at 305.43 39.29 -10 size 1.3 4 1.3
+box    wood    at 299.14 38.43 -10 size 1.3 4 1.3
+box    wood    at 340 32 -10 size 0.8 14 0.8
+box    thatch  at 340 37 -10 size 5 3 1
+box    thatch  at 340 32 -10 size 5 3 1

@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.the-foreman.projectile/v01/source-sheet.png",
+  "source_sha256": "71d7e0335e6b20f7ba10b8a1cb2f48d7fd379e0453774ca4ebbee325886ac568",
+  "original_sheet_sha256": "71d7e0335e6b20f7ba10b8a1cb2f48d7fd379e0453774ca4ebbee325886ac568",
+  "metadata_sha256": "4617f047d89e7d7dfabfc87fc5e8eb2adaf7936f88d4de81d6c19242bc8ac993",
+  "size": [
+    1448,
+    1086
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        56,
+        178,
+        232,
+        72
+      ],
+      "alpha_area": 6183,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "b6f4476909c3cec76ab87ad20a91c304a1e384807bb8b691b6063c2cccc1a864"
+    },
+    {
+      "source_rect_xywh": [
+        382,
+        160,
+        312,
+        91
+      ],
+      "alpha_area": 6823,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "dd8ee18fbb9f43c07f53352cca816fc6ee8d638820978fd98b4804bb61f082a7"
+    },
+    {
+      "source_rect_xywh": [
+        745,
+        160,
+        323,
+        97
+      ],
+      "alpha_area": 7472,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "11dfc86892a2eb3adc7f4a93dae9716240e62acc293a19bcd93e9d2b1eadd00f"
+    },
+    {
+      "source_rect_xywh": [
+        1120,
+        106,
+        280,
+        180
+      ],
+      "alpha_area": 8004,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "fe5ef29b0838573066c85f4d09c3b72e9794a97673f904aa9a999ba92f28d7cf"
+    },
+    {
+      "source_rect_xywh": [
+        37,
+        431,
+        292,
+        210
+      ],
+      "alpha_area": 9130,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "131eb4005f9a4fdceff13ee446aecbd26e02398ec7afd933335e4813564deb74"
+    },
+    {
+      "source_rect_xywh": [
+        401,
+        427,
+        240,
+        184
+      ],
+      "alpha_area": 8484,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "96e31939c9ae38e5c12861825e9a141c6c9413b514a47af95161b0b896255179"
+    },
+    {
+      "source_rect_xywh": [
+        777,
+        444,
+        214,
+        186
+      ],
+      "alpha_area": 10499,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "7e3d018df5cd83a21110110f8cb865db9ff5ce650299cff3e9f0248cb66c6652"
+    },
+    {
+      "source_rect_xywh": [
+        1112,
+        432,
+        306,
+        184
+      ],
+      "alpha_area": 10904,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "e45d2bdff47166013bebfb3601afba56cef3f02bc9495ed4619b5f9fa6352359"
+    },
+    {
+      "source_rect_xywh": [
+        34,
+        781,
+        304,
+        209
+      ],
+      "alpha_area": 14410,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "70e4f23557ddb5aae94eba5875ac2aaae99f2f576bcb158f334890d322da2780"
+    },
+    {
+      "source_rect_xywh": [
+        393,
+        784,
+        305,
+        173
+      ],
+      "alpha_area": 11732,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "e6929c839a2b86b0babb684a25f95ac033bba988d68bb2cf33ae8af8e17a3f5e"
+    },
+    {
+      "source_rect_xywh": [
+        747,
+        800,
+        315,
+        162
+      ],
+      "alpha_area": 11416,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "6451c1e153a8381e7320b20f97e4a62fd63bed4d8d1384a3ccd96742f0a26175"
+    },
+    {
+      "source_rect_xywh": [
+        1100,
+        821,
+        318,
+        154
+      ],
+      "alpha_area": 10008,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "6cddd60fa498771f4aaf74ff867988253b2f3566329366a14d8c9953f9104352"
+    }
+  ]
+}

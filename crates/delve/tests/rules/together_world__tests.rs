@@ -321,8 +321,10 @@ fn a_moment_on_the_stair_is_needed_and_a_step_off_cancels_it() {
     let mut run = at_the_gate();
     run.step(&BTreeMap::new());
     let (x, y) = entrance_centre(entrance("gate"));
-    let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y) = (x, y);
+    // The whole party stands on the plate: the moment on it begins then.
+    for hero in run.players.values_mut() {
+        (hero.x, hero.y) = (x, y);
+    }
     for _ in 0..DESCEND_HOLD / 2 {
         run.step(&BTreeMap::new());
     }

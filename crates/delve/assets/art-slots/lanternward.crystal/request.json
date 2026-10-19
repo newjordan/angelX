@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 10x16, anchor bottom-centre (5,16); stage 384x224 at 16 px per tile; a knight is 16x16; a crystal switch is a pointed crystal on a stone plinth, one knight tall.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "dormant-0",
+        "dormant-1"
+      ],
+      "source_pose_count": 2,
+      "state": "dormant"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2"
+      ],
+      "source_pose_count": 3,
+      "state": "lit"
+    }
+  ],
+  "game": "lanternward",
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "id": "lanternward.crystal",
+  "role": "prop",
+  "timing": "dormant 2x12 ticks; lit 3x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

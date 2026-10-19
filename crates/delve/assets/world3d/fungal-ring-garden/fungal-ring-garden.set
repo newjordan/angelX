@@ -1,0 +1,440 @@
+set fungal-ring-garden
+# The Ring Garden: 42 x 24 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 672 384
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    ground  at 336 -4 40 size 672 4 80
+box    ground  at 40 -4 232 size 80 4 304
+box    ground  at 176 -4 120 size 96 4 80
+box    ground  at 336 -4 232 size 128 4 304
+box    ground  at 496 -4 120 size 96 4 80
+box    ground  at 632 -4 232 size 80 4 304
+box    ground  at 104 -4 128 size 48 4 64
+box    ground  at 248 -4 128 size 48 4 64
+box    ground  at 424 -4 128 size 48 4 64
+box    ground  at 568 -4 128 size 48 4 64
+box    ground  at 160 -4 224 size 96 4 128
+box    ground  at 256 -4 224 size 32 4 128
+box    ground  at 416 -4 224 size 32 4 128
+box    ground  at 512 -4 224 size 96 4 128
+box    ground  at 96 -4 192 size 32 4 32
+box    ground  at 224 -4 192 size 32 4 32
+box    ground  at 448 -4 192 size 32 4 32
+box    ground  at 576 -4 192 size 32 4 32
+box    ground  at 96 -4 256 size 32 4 64
+box    ground  at 224 -4 256 size 32 4 64
+box    ground  at 448 -4 256 size 32 4 64
+box    ground  at 576 -4 256 size 32 4 64
+box    ground  at 176 -4 336 size 96 4 96
+box    ground  at 496 -4 336 size 96 4 96
+box    ground  at 104 -4 344 size 48 4 80
+box    ground  at 248 -4 344 size 48 4 80
+box    ground  at 424 -4 344 size 48 4 80
+box    ground  at 568 -4 344 size 48 4 80
+
+# the spore pool, 2 below the floor line
+box    mud     at 104 -4 88 size 48 2 16
+box    mud     at 248 -4 88 size 48 2 16
+box    mud     at 424 -4 88 size 48 2 16
+box    mud     at 568 -4 88 size 48 2 16
+box    mud     at 96 -4 168 size 32 2 16
+box    mud     at 224 -4 168 size 32 2 16
+box    mud     at 448 -4 168 size 32 2 16
+box    mud     at 576 -4 168 size 32 2 16
+box    mud     at 96 -4 216 size 32 2 16
+box    mud     at 224 -4 216 size 32 2 16
+box    mud     at 448 -4 216 size 32 2 16
+box    mud     at 576 -4 216 size 32 2 16
+box    mud     at 104 -4 296 size 48 2 16
+box    mud     at 248 -4 296 size 48 2 16
+box    mud     at 424 -4 296 size 48 2 16
+box    mud     at 568 -4 296 size 48 2 16
+
+# the north wall, columns 0 to 19
+box    rock    at 160 -4 8 size 320 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 22 to 41
+box    rock    at 512 -4 8 size 320 52 16
+box    metal   at 664 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 664 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 19 (at 81% of its height, for the camera)
+box    rock    at 160 -4 372 size 320 10 8  # TODO prims: wedge
+box    rock    at 160 -4 380 size 320 16.5 8
+box    metal   at 8 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 380 size 6 6.5 6
+
+# the south wall, columns 22 to 41 (at 81% of its height, for the camera)
+box    rock    at 512 -4 372 size 320 10 8  # TODO prims: wedge
+box    rock    at 512 -4 380 size 320 16.5 8
+box    metal   at 664 12.5 380 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 664 15 380 size 6 6.5 6
+
+# the west wall, rows 1 to 10
+box    rock    at 8 -4 96 size 16 52 160
+
+# the west wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    rock    at 8 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    rock    at 8 -4 312 size 16 52 112
+
+# the east wall, rows 1 to 10
+box    rock    at 664 -4 96 size 16 52 160
+
+# the east wall, rows 13 to 22 (at 12% of its height, for the camera)
+box    rock    at 664 -4 232 size 16 9.5 48  # TODO prims: wedge
+box    rock    at 664 -4 312 size 16 52 112
+
+# the north door, columns 20 to 21
+box    door    at 336 -4 -1 size 32 36 2 id door-north
+box    rock    at 336 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 20 to 21
+box    door    at 336 -4 385 size 32 5 2 id door-south
+
+# the west door, rows 11 to 12
+box    door    at -1 -4 192 size 2 36 32 id door-west
+box    rock    at 8 32 192 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 11 to 12
+box    door    at 673 -4 192 size 2 36 32 id door-east
+box    rock    at 664 32 192 size 16 16 32  # TODO prims: arch
+
+# mushroom at 4,2 2x1
+box    trunk   at 72 0 41 size 4 7 4 id mushroom-1  # TODO prims: cylinder
+sphere foliage at 72 5 41 size 14 7 12  # TODO prims: blob
+box    trunk   at 88 0 41 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 88 5 41 size 14 7 12  # TODO prims: blob
+
+# mushroom at 14,2 2x1 (at 79% of its height, for the camera)
+box    trunk   at 232 0 41 size 4 5.5 4 id mushroom-2  # TODO prims: cylinder
+sphere foliage at 232 3.5 41 size 14 6 12  # TODO prims: blob
+box    trunk   at 248 0 41 size 4 7.5 4  # TODO prims: cylinder
+sphere foliage at 248 6 41 size 14 5.5 12  # TODO prims: blob
+
+# mushroom at 26,2 2x1 (at 79% of its height, for the camera)
+box    trunk   at 424 0 41 size 4 7.5 4 id mushroom-3  # TODO prims: cylinder
+sphere foliage at 424 6 41 size 14 5.5 12  # TODO prims: blob
+box    trunk   at 440 0 41 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 440 3.5 41 size 14 6 12  # TODO prims: blob
+
+# mushroom at 36,2 2x1 (at 99% of its height, for the camera)
+box    trunk   at 584 0 41 size 4 6.5 4 id mushroom-4  # TODO prims: cylinder
+sphere foliage at 584 4.5 41 size 14 7 12  # TODO prims: blob
+box    trunk   at 600 0 41 size 4 7.5 4  # TODO prims: cylinder
+sphere foliage at 600 5.5 41 size 14 7 12  # TODO prims: blob
+
+# mushroom at 3,3 1x2
+box    trunk   at 56 0 57 size 4 7 4 id mushroom-5  # TODO prims: cylinder
+sphere foliage at 56 5 57 size 14 7 12  # TODO prims: blob
+box    trunk   at 56 0 73 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 56 7 73 size 14 7 12  # TODO prims: blob
+
+# mushroom at 8,3 1x1 (at 92% of its height, for the camera)
+box    trunk   at 136 0 57 size 4 7 4 id mushroom-6  # TODO prims: cylinder
+sphere foliage at 136 5.5 57 size 14 6 12  # TODO prims: blob
+
+# mushroom at 13,3 1x1 (at 92% of its height, for the camera)
+box    trunk   at 216 0 57 size 4 7 4 id mushroom-7  # TODO prims: cylinder
+sphere foliage at 216 5.5 57 size 14 6 12  # TODO prims: blob
+
+# mushroom at 18,3 1x2 (at 89% of its height, for the camera)
+box    trunk   at 296 0 57 size 4 8 4 id mushroom-8  # TODO prims: cylinder
+sphere foliage at 296 6 57 size 14 6 12  # TODO prims: blob
+box    trunk   at 296 0 73 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 296 5 73 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 23,3 1x2 (at 83% of its height, for the camera)
+box    trunk   at 376 0 57 size 4 8 4 id mushroom-9  # TODO prims: cylinder
+sphere foliage at 376 6.5 57 size 14 5.5 12  # TODO prims: blob
+box    trunk   at 376 0 73 size 4 6.5 4  # TODO prims: cylinder
+sphere foliage at 376 4.5 73 size 14 6 12  # TODO prims: blob
+
+# mushroom at 28,3 1x1
+box    trunk   at 456 0 57 size 4 7 4 id mushroom-10  # TODO prims: cylinder
+sphere foliage at 456 5 57 size 14 7 12  # TODO prims: blob
+
+# mushroom at 33,3 1x1
+box    trunk   at 536 0 57 size 4 7 4 id mushroom-11  # TODO prims: cylinder
+sphere foliage at 536 5 57 size 14 7 12  # TODO prims: blob
+
+# mushroom at 38,3 1x2
+box    trunk   at 616 0 57 size 4 7 4 id mushroom-12  # TODO prims: cylinder
+sphere foliage at 616 5 57 size 14 7 12  # TODO prims: blob
+box    trunk   at 616 0 73 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 616 6 73 size 14 7 12  # TODO prims: blob
+
+# mushroom at 4,4 2x1 (at 92% of its height, for the camera)
+box    trunk   at 72 0 73 size 4 7 4 id mushroom-13  # TODO prims: cylinder
+sphere foliage at 72 5.5 73 size 14 6.5 12  # TODO prims: blob
+box    trunk   at 88 0 73 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 88 6 73 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 16,4 2x1 (at 83% of its height, for the camera)
+box    trunk   at 264 0 73 size 4 7 4 id mushroom-14  # TODO prims: cylinder
+sphere foliage at 264 5.5 73 size 14 6 12  # TODO prims: blob
+box    trunk   at 280 0 73 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 280 6.5 73 size 14 5.5 12  # TODO prims: blob
+
+# mushroom at 24,4 2x1 (at 83% of its height, for the camera)
+box    trunk   at 392 0 73 size 4 8 4 id mushroom-15  # TODO prims: cylinder
+sphere foliage at 392 6.5 73 size 14 5.5 12  # TODO prims: blob
+box    trunk   at 408 0 73 size 4 6.5 4  # TODO prims: cylinder
+sphere foliage at 408 4.5 73 size 14 6 12  # TODO prims: blob
+
+# mushroom at 36,4 2x1 (at 83% of its height, for the camera)
+box    trunk   at 584 0 73 size 4 8 4 id mushroom-16  # TODO prims: cylinder
+sphere foliage at 584 6.5 73 size 14 5.5 12  # TODO prims: blob
+box    trunk   at 600 0 73 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 600 5.5 73 size 14 6 12  # TODO prims: blob
+
+# mushroom at 7,6 1x1
+box    trunk   at 120 0 105 size 4 8 4 id mushroom-17  # TODO prims: cylinder
+sphere foliage at 120 6 105 size 14 7 12  # TODO prims: blob
+
+# mushroom at 14,6 1x1
+box    trunk   at 232 0 105 size 4 9 4 id mushroom-18  # TODO prims: cylinder
+sphere foliage at 232 7 105 size 14 7 12  # TODO prims: blob
+
+# mushroom at 27,6 1x1
+box    trunk   at 440 0 105 size 4 7 4 id mushroom-19  # TODO prims: cylinder
+sphere foliage at 440 5 105 size 14 7 12  # TODO prims: blob
+
+# mushroom at 34,6 1x1
+box    trunk   at 552 0 105 size 4 10 4 id mushroom-20  # TODO prims: cylinder
+sphere foliage at 552 8 105 size 14 7 12  # TODO prims: blob
+
+# mushroom at 3,7 1x1
+box    trunk   at 56 0 121 size 4 7 4 id mushroom-21  # TODO prims: cylinder
+sphere foliage at 56 5 121 size 14 7 12  # TODO prims: blob
+
+# mushroom at 8,7 1x1 (at 83% of its height, for the camera)
+box    trunk   at 136 0 121 size 4 8 4 id mushroom-22  # TODO prims: cylinder
+sphere foliage at 136 6.5 121 size 14 5.5 12  # TODO prims: blob
+
+# mushroom at 13,7 1x1 (at 89% of its height, for the camera)
+box    trunk   at 216 0 121 size 4 8 4 id mushroom-23  # TODO prims: cylinder
+sphere foliage at 216 6 121 size 14 6 12  # TODO prims: blob
+
+# mushroom at 18,7 1x1 (at 92% of its height, for the camera)
+box    trunk   at 296 0 121 size 4 8 4 id mushroom-24  # TODO prims: cylinder
+sphere foliage at 296 6 121 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 23,7 1x1 (at 86% of its height, for the camera)
+box    trunk   at 376 0 121 size 4 8.5 4 id mushroom-25  # TODO prims: cylinder
+sphere foliage at 376 6.5 121 size 14 6 12  # TODO prims: blob
+
+# mushroom at 28,7 1x1
+box    trunk   at 456 0 121 size 4 7 4 id mushroom-26  # TODO prims: cylinder
+sphere foliage at 456 5 121 size 14 7 12  # TODO prims: blob
+
+# mushroom at 33,7 1x1 (at 83% of its height, for the camera)
+box    trunk   at 536 0 121 size 4 8 4 id mushroom-27  # TODO prims: cylinder
+sphere foliage at 536 6.5 121 size 14 5.5 12  # TODO prims: blob
+
+# mushroom at 38,7 1x1
+box    trunk   at 616 0 121 size 4 7 4 id mushroom-28  # TODO prims: cylinder
+sphere foliage at 616 5 121 size 14 7 12  # TODO prims: blob
+
+# mushroom at 4,8 2x1 (at 96% of its height, for the camera)
+box    trunk   at 72 0 137 size 4 8.5 4 id mushroom-29  # TODO prims: cylinder
+sphere foliage at 72 6.5 137 size 14 6.5 12  # TODO prims: blob
+box    trunk   at 88 0 137 size 4 8.5 4  # TODO prims: cylinder
+sphere foliage at 88 6.5 137 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 14,8 2x1 (at 92% of its height, for the camera)
+box    trunk   at 232 0 137 size 4 7 4 id mushroom-30  # TODO prims: cylinder
+sphere foliage at 232 5.5 137 size 14 6.5 12  # TODO prims: blob
+box    trunk   at 248 0 137 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 248 6 137 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 26,8 2x1 (at 83% of its height, for the camera)
+box    trunk   at 424 0 137 size 4 7 4 id mushroom-31  # TODO prims: cylinder
+sphere foliage at 424 5.5 137 size 14 6 12  # TODO prims: blob
+box    trunk   at 440 0 137 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 440 6.5 137 size 14 5.5 12  # TODO prims: blob
+
+# mushroom at 36,8 2x1 (at 87% of its height, for the camera)
+box    trunk   at 584 0 137 size 4 8.5 4 id mushroom-32  # TODO prims: cylinder
+sphere foliage at 584 6.5 137 size 14 6.5 12  # TODO prims: blob
+box    trunk   at 600 0 137 size 4 6.5 4  # TODO prims: cylinder
+sphere foliage at 600 5 137 size 14 6 12  # TODO prims: blob
+
+# mushroom at 4,15 2x1 (at 96% of its height, for the camera)
+box    trunk   at 72 0 249 size 4 7.5 4 id mushroom-33  # TODO prims: cylinder
+sphere foliage at 72 5.5 249 size 14 7 12  # TODO prims: blob
+box    trunk   at 88 0 249 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 88 7.5 249 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 14,15 2x1 (at 89% of its height, for the camera)
+box    trunk   at 232 0 249 size 4 8.5 4 id mushroom-34  # TODO prims: cylinder
+sphere foliage at 232 7 249 size 14 6 12  # TODO prims: blob
+box    trunk   at 248 0 249 size 4 6 4  # TODO prims: cylinder
+sphere foliage at 248 4 249 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 26,15 2x1
+box    trunk   at 424 0 249 size 4 8 4 id mushroom-35  # TODO prims: cylinder
+sphere foliage at 424 6 249 size 14 7 12  # TODO prims: blob
+box    trunk   at 440 0 249 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 440 6 249 size 14 7 12  # TODO prims: blob
+
+# mushroom at 36,15 2x1
+box    trunk   at 584 0 249 size 4 9 4 id mushroom-36  # TODO prims: cylinder
+sphere foliage at 584 7 249 size 14 7 12  # TODO prims: blob
+box    trunk   at 600 0 249 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 600 6 249 size 14 7 12  # TODO prims: blob
+
+# mushroom at 3,16 1x1
+box    trunk   at 56 0 265 size 4 7 4 id mushroom-37  # TODO prims: cylinder
+sphere foliage at 56 5 265 size 14 7 12  # TODO prims: blob
+
+# mushroom at 8,16 1x1 (at 93% of its height, for the camera)
+box    trunk   at 136 0 265 size 4 9 4 id mushroom-38  # TODO prims: cylinder
+sphere foliage at 136 7 265 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 13,16 1x1 (at 99% of its height, for the camera)
+box    trunk   at 216 0 265 size 4 8.5 4 id mushroom-39  # TODO prims: cylinder
+sphere foliage at 216 6.5 265 size 14 7 12  # TODO prims: blob
+
+# mushroom at 18,16 1x1 (at 96% of its height, for the camera)
+box    trunk   at 296 0 265 size 4 9.5 4 id mushroom-40  # TODO prims: cylinder
+sphere foliage at 296 7.5 265 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 23,16 1x1
+box    trunk   at 376 0 265 size 4 8 4 id mushroom-41  # TODO prims: cylinder
+sphere foliage at 376 6 265 size 14 7 12  # TODO prims: blob
+
+# mushroom at 28,16 1x1 (at 93% of its height, for the camera)
+box    trunk   at 456 0 265 size 4 9 4 id mushroom-42  # TODO prims: cylinder
+sphere foliage at 456 7 265 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 33,16 1x1 (at 93% of its height, for the camera)
+box    trunk   at 536 0 265 size 4 9 4 id mushroom-43  # TODO prims: cylinder
+sphere foliage at 536 7 265 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 38,16 1x1
+box    trunk   at 616 0 265 size 4 7 4 id mushroom-44  # TODO prims: cylinder
+sphere foliage at 616 5 265 size 14 7 12  # TODO prims: blob
+
+# mushroom at 7,17 1x1 (at 96% of its height, for the camera)
+box    trunk   at 120 0 281 size 4 9.5 4 id mushroom-45  # TODO prims: cylinder
+sphere foliage at 120 7.5 281 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 14,17 1x1
+box    trunk   at 232 0 281 size 4 7 4 id mushroom-46  # TODO prims: cylinder
+sphere foliage at 232 5 281 size 14 7 12  # TODO prims: blob
+
+# mushroom at 27,17 1x1 (at 99% of its height, for the camera)
+box    trunk   at 440 0 281 size 4 8.5 4 id mushroom-47  # TODO prims: cylinder
+sphere foliage at 440 6.5 281 size 14 7 12  # TODO prims: blob
+
+# mushroom at 34,17 1x1
+box    trunk   at 552 0 281 size 4 8 4 id mushroom-48  # TODO prims: cylinder
+sphere foliage at 552 6 281 size 14 7 12  # TODO prims: blob
+
+# mushroom at 3,19 3x1 (at 99% of its height, for the camera)
+box    trunk   at 56 0 313 size 4 7.5 4 id mushroom-49  # TODO prims: cylinder
+sphere foliage at 56 5.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 72 0 313 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 72 7.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 88 0 313 size 4 7.5 4  # TODO prims: cylinder
+sphere foliage at 88 5.5 313 size 14 7 12  # TODO prims: blob
+
+# mushroom at 16,19 3x1
+box    trunk   at 264 0 313 size 4 10 4 id mushroom-50  # TODO prims: cylinder
+sphere foliage at 264 8 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 280 0 313 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 280 7 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 296 0 313 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 296 5 313 size 14 7 12  # TODO prims: blob
+
+# mushroom at 23,19 3x1 (at 99% of its height, for the camera)
+box    trunk   at 376 0 313 size 4 9.5 4 id mushroom-51  # TODO prims: cylinder
+sphere foliage at 376 7.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 392 0 313 size 4 8.5 4  # TODO prims: cylinder
+sphere foliage at 392 6.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 408 0 313 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 408 7.5 313 size 14 7 12  # TODO prims: blob
+
+# mushroom at 36,19 3x1 (at 99% of its height, for the camera)
+box    trunk   at 584 0 313 size 4 6.5 4 id mushroom-52  # TODO prims: cylinder
+sphere foliage at 584 4.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 600 0 313 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 600 7.5 313 size 14 7 12  # TODO prims: blob
+box    trunk   at 616 0 313 size 4 6.5 4  # TODO prims: cylinder
+sphere foliage at 616 4.5 313 size 14 7 12  # TODO prims: blob
+
+# mushroom at 3,20 1x1
+box    trunk   at 56 0 329 size 4 7 4 id mushroom-53  # TODO prims: cylinder
+sphere foliage at 56 5 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 8,20 1x1 (at 99% of its height, for the camera)
+box    trunk   at 136 0 329 size 4 9.5 4 id mushroom-54  # TODO prims: cylinder
+sphere foliage at 136 7.5 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 13,20 1x1
+box    trunk   at 216 0 329 size 4 9 4 id mushroom-55  # TODO prims: cylinder
+sphere foliage at 216 7 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 18,20 1x1
+box    trunk   at 296 0 329 size 4 8 4 id mushroom-56  # TODO prims: cylinder
+sphere foliage at 296 6 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 23,20 1x1
+box    trunk   at 376 0 329 size 4 8 4 id mushroom-57  # TODO prims: cylinder
+sphere foliage at 376 6 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 28,20 1x1
+box    trunk   at 456 0 329 size 4 7 4 id mushroom-58  # TODO prims: cylinder
+sphere foliage at 456 5 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 33,20 1x1
+box    trunk   at 536 0 329 size 4 8 4 id mushroom-59  # TODO prims: cylinder
+sphere foliage at 536 6 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 38,20 1x1
+box    trunk   at 616 0 329 size 4 9 4 id mushroom-60  # TODO prims: cylinder
+sphere foliage at 616 7 329 size 14 7 12  # TODO prims: blob
+
+# mushroom at 4,21 2x1
+box    trunk   at 72 0 345 size 4 8 4 id mushroom-61  # TODO prims: cylinder
+sphere foliage at 72 6 345 size 14 7 12  # TODO prims: blob
+box    trunk   at 88 0 345 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 88 5 345 size 14 7 12  # TODO prims: blob
+
+# mushroom at 14,21 2x1 (at 96% of its height, for the camera)
+box    trunk   at 232 0 345 size 4 8.5 4 id mushroom-62  # TODO prims: cylinder
+sphere foliage at 232 6.5 345 size 14 7 12  # TODO prims: blob
+box    trunk   at 248 0 345 size 4 9.5 4  # TODO prims: cylinder
+sphere foliage at 248 7.5 345 size 14 6.5 12  # TODO prims: blob
+
+# mushroom at 26,21 2x1
+box    trunk   at 424 0 345 size 4 7 4 id mushroom-63  # TODO prims: cylinder
+sphere foliage at 424 5 345 size 14 7 12  # TODO prims: blob
+box    trunk   at 440 0 345 size 4 8 4  # TODO prims: cylinder
+sphere foliage at 440 6 345 size 14 7 12  # TODO prims: blob
+
+# mushroom at 36,21 2x1
+box    trunk   at 584 0 345 size 4 10 4 id mushroom-64  # TODO prims: cylinder
+sphere foliage at 584 8 345 size 14 7 12  # TODO prims: blob
+box    trunk   at 600 0 345 size 4 7 4  # TODO prims: cylinder
+sphere foliage at 600 5 345 size 14 7 12  # TODO prims: blob
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 312 18 16 size 3 6 3
+cone   fire    at 312 24 16 size 4 7 4
+box    metal   at 360 18 16 size 3 6 3
+cone   fire    at 360 24 16 size 4 7 4
+box    metal   at 16 18 168 size 3 6 3
+cone   fire    at 16 24 168 size 4 7 4
+box    metal   at 16 4 216 size 3 4.5 3
+cone   fire    at 16 8.5 216 size 4 5.5 4
+box    metal   at 656 18 168 size 3 6 3
+cone   fire    at 656 24 168 size 4 7 4
+box    metal   at 656 4 216 size 3 4.5 3
+cone   fire    at 656 8.5 216 size 4 5.5 4

@@ -759,7 +759,7 @@ fn stall(cv: &mut Img, tick: u32) {
     let (bx, by) = (x + w / 2 - 19, y + 9);
     let tw = super::super::ink::text_width("HELIOS");
     super::super::chrome::inset_panel(cv, (bx, by - 2, tw + 8, 10), super::super::chrome::Tone::NAMEPLATE);
-    cv.text(bx + 4, by, "HELIOS", '6');
+    cv.text(bx + 4, by, "HELIOS", 'O');
     let (rx, ry) = (x + w - 9, y + 20);
     cv.ellipse(rx as f32, ry as f32, 3.5, 3.5, '1');
     cv.ellipse(rx as f32, ry as f32, 1.5, 1.5, '6');
@@ -978,6 +978,10 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             hide.feather = 'T';
             horses.push((at, draft(hide, pose, k, None, false)));
         }
+        // The white horse out of the swamp, at grass with the herd.
+        if let Some(white) = super::swamp::grazing(run) {
+            horses.push(white);
+        }
         let ((hx, hy), east, gait) = r::helios(run.tick);
         if !modern {
             let pose = gait.map_or(Pose::Stand, Pose::Gallop);
@@ -1050,7 +1054,8 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
 #[path = "../../../../tests/render/overworld__ranch_shots.rs"]
 mod tests;
 
-/// The same gambrel barn at kingdom scale.
+/// The same gambrel barn at kingdom scale, at dusk like the map's other
+/// landmarks (`landmarks::landmark`).
 pub fn landmark() -> Img {
     let mut full = Img::new(384, 224);
     barn(&mut full);
@@ -1062,5 +1067,5 @@ pub fn landmark() -> Img {
             }
         }
     }
-    small
+    super::super::light::at_dusk(&small)
 }

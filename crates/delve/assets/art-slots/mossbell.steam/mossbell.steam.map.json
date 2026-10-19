@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    8,
+    14
+  ],
+  "anchor_xy": [
+    4,
+    7
+  ],
+  "comments": [
+    "Review: compact first curl only, moving through the same nine rise offsets in the atmosphere plane; unused curl variants are proposals.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Atmosphere only; braille plane, keep clear of ball and tells.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "adcd31859fb060b776165293a7b1747e08df6afa3e23831537363be1bba568cb",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Compact low twin curl.",
+      "name": "steam",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        109.5,
+        60.5
+      ],
+      "source_rect_xywh": [
+        67,
+        295,
+        219,
+        121
+      ],
+      "state": "steam"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Slightly taller pair, tips opening.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        106.0,
+        92.5
+      ],
+      "source_rect_xywh": [
+        385,
+        231,
+        212,
+        185
+      ],
+      "state": "slightly-taller-pair-tips-opening"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Tall S-shaped twin curl.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.5,
+        131.0
+      ],
+      "source_rect_xywh": [
+        690,
+        153,
+        211,
+        262
+      ],
+      "state": "tall-s-shaped-twin-curl"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Tall pair with inward rolled tips.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        106.0,
+        114.5
+      ],
+      "source_rect_xywh": [
+        1003,
+        187,
+        212,
+        229
+      ],
+      "state": "tall-pair-with-inward-rolled-tips"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Highest crest, asymmetric tall and short curls.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.0,
+        145.5
+      ],
+      "source_rect_xywh": [
+        73,
+        513,
+        230,
+        291
+      ],
+      "state": "highest-crest-asymmetric-tall-and-short-curls"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Tall pair settling, curled tips loosening.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        121.0
+      ],
+      "source_rect_xywh": [
+        386,
+        556,
+        229,
+        242
+      ],
+      "state": "tall-pair-settling-curled-tips-loosening"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Medium low pair curling inward.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        97.0
+      ],
+      "source_rect_xywh": [
+        674,
+        610,
+        234,
+        194
+      ],
+      "state": "medium-low-pair-curling-inward"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Broad, compact twin wave.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        119.5,
+        59.5
+      ],
+      "source_rect_xywh": [
+        976,
+        685,
+        239,
+        119
+      ],
+      "state": "broad-compact-twin-wave"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Compact returning pair.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        110.0,
+        62.0
+      ],
+      "source_rect_xywh": [
+        66,
+        1050,
+        220,
+        124
+      ],
+      "state": "compact-returning-pair"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Medium rising pair.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.0,
+        96.5
+      ],
+      "source_rect_xywh": [
+        376,
+        981,
+        232,
+        193
+      ],
+      "state": "medium-rising-pair"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Broad high crest.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        120.5
+      ],
+      "source_rect_xywh": [
+        690,
+        933,
+        229,
+        241
+      ],
+      "state": "broad-high-crest"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Compact settle for the loop.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.0,
+        60.5
+      ],
+      "source_rect_xywh": [
+        988,
+        1050,
+        222,
+        121
+      ],
+      "state": "compact-settle-for-the-loop"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "Procedural near x=32/351, y=30..43 minus rise; no sprite canvas/pivot yet, unknown.",
+  "sizes": {
+    "v1": [
+      8,
+      14
+    ],
+    "v2": [
+      8,
+      14
+    ]
+  },
+  "slot": "mossbell.steam",
+  "source_sha256": "197d213df5a1e5b370be83e205514843633b256af350624d7cb80737c8f335ba",
+  "timing": "Nine rise offsets, each 3 ticks, from run.tick/3%9; two line curls (draw())."
+}

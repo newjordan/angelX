@@ -1,0 +1,215 @@
+{
+  "id": "red-pick-chief",
+  "source_path": "./cockpit/assets/boss-library/existing/red-pick-chief/v01/source-sheet-refined.png",
+  "source_sha256": "3ee1eae17e36832c10ad34f8867b6cd258c3acf3fca53be6c1a78dffa1247ee7",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Stocky dusty sage-green ORC powder-gang captain with huge round nose, one chipped tusk, red cloth scarf tied under a dented miner cap. Rust-red pickaxe, patched leather powder-bandolier and ONE small oak powder keg strapped to his back. Soot-dark boots, brown gauntlets, faded red patched shoulder plates. Nervous explosive energy, distinct from Iron Tusk's blue iron armor.",
+  "definition_header": "name RED PICK CHIEF\ntext An orc pit captain whose powder gangs contest Iron Tusk seams.\nby angelX\nwhere mines\nhp 580\nsize 1.4\nmove drift speed=1.4\nattack ring shots=6 speed=5 every=95 damage=11 shot=ember\nphases bounce mines every=98 volleys=2 damage=11\nrage 30%\ndrops ore 3, gold 100",
+  "source_definition_sha256": "db96dc3a887ec318b3436bad6474ae838aca1548d01711672a9c06140a1f2cea",
+  "definition_sha256": "60c99a75673833af67ca812cd4fbdebdc04ec6a5c0355d8abaf8d1c92890c8e4",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        53,
+        210,
+        249,
+        260
+      ],
+      "opaque_component_pixels": 40105,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "49db1e973001f47913ded3e510928b3dd003dacdd0a94545f4ca16f078463522"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        385,
+        109,
+        232,
+        355
+      ],
+      "opaque_component_pixels": 45417,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "069459cb6a917e917faa7e139dcbe1acac4827e02c23b9fe3224f51b600bac3c"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        689,
+        224,
+        239,
+        241
+      ],
+      "opaque_component_pixels": 37935,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "e24f2b5efdb0280715298ecbb6167c00e1e0cb106ada2396b1b57a75dcdc5a97"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        1006,
+        128,
+        202,
+        336
+      ],
+      "opaque_component_pixels": 39389,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "3fc446bb8f0fc244a3a7574d915be98a8ea6ffe72fe2666c5294c6ddb835f5d6"
+    },
+    {
+      "id": "overhead/part/powder-harness-body",
+      "source_rect_xywh": [
+        58,
+        607,
+        231,
+        192
+      ],
+      "opaque_component_pixels": 31538,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-powder-harness-body.png",
+      "sha256": "7d42042efc783f515b5dfcc177643643b558bf2772149cdd2ace904b2644270f"
+    },
+    {
+      "id": "overhead/part/red-scarf-head",
+      "source_rect_xywh": [
+        402,
+        622,
+        188,
+        168
+      ],
+      "opaque_component_pixels": 17787,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-red-scarf-head.png",
+      "sha256": "9c12342cd2ac06c21f2561810ba6ffb83dd887249f72dbe0fba791baf971dd3c"
+    },
+    {
+      "id": "overhead/part/pickaxe-arm",
+      "source_rect_xywh": [
+        705,
+        579,
+        236,
+        203
+      ],
+      "opaque_component_pixels": 21013,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-pickaxe-arm.png",
+      "sha256": "51f9ae7e4f17f839972de71b366a875f8b51d7617a52be646b5255eb04b8ad2e"
+    },
+    {
+      "id": "overhead/part/powder-keg",
+      "source_rect_xywh": [
+        1028,
+        577,
+        164,
+        203
+      ],
+      "opaque_component_pixels": 22579,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-powder-keg.png",
+      "sha256": "9cdadfc5c04e47b318e71a909977657c40b69b9db51da35f8c044f74926386e4"
+    },
+    {
+      "id": "side/part/powder-harness-body",
+      "source_rect_xywh": [
+        62,
+        932,
+        223,
+        215
+      ],
+      "opaque_component_pixels": 33885,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-powder-harness-body.png",
+      "sha256": "ca4c8139bd198fcc891094aeeb76f2d91a20eacd23d76cded769824d5854193b"
+    },
+    {
+      "id": "side/part/red-scarf-head",
+      "source_rect_xywh": [
+        407,
+        952,
+        190,
+        159
+      ],
+      "opaque_component_pixels": 15825,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-red-scarf-head.png",
+      "sha256": "be032e2da0d3119b507f1d95225c73a7c9b6b4c223ebab455a80598ab897718b"
+    },
+    {
+      "id": "side/part/pickaxe-arm",
+      "source_rect_xywh": [
+        705,
+        903,
+        232,
+        217
+      ],
+      "opaque_component_pixels": 22346,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-pickaxe-arm.png",
+      "sha256": "5c396b9bffcb3c49b8c9c86acd7314687473f833c0324849522cd974a21f9c09"
+    },
+    {
+      "id": "side/part/powder-keg",
+      "source_rect_xywh": [
+        1038,
+        921,
+        167,
+        205
+      ],
+      "opaque_component_pixels": 23239,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-powder-keg.png",
+      "sha256": "8b16fdb58198d3c9c8d7a3bcc9507ca9fd81f0b7f9d1fd2d784a038766dc9c10"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

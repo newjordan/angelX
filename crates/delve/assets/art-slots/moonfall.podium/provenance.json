@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.podium/v01",
+  "delivery_status": "Accepted by the wave-3 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): timber dais, lectern with a scroll, brass-ball pole; only the pennant changes (limp, then four flapping shapes); drawn corner-on while the buildings are frontal; five drawings on a 3x2 grid, the sixth cell empty.",
+  "generation_sha256": "cd5508b6926eaab6a9db7273cf84c98f2020b439370993d35e001b972fd69878",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "e76bc2c2f90a0f34351ce6f1007486f168a0512e08695419de452efa21b0d381",
+  "native_contract": "Native 26x26, anchor bottom-centre (13,26).",
+  "notes_sha256": "00bad1aed6fda86c4cbd5bf511179040451e86b01698c3efb0deb9f4afae17c9",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "7a03ba3159d36ed4859541f11d8ccebe81bcde0b889a28da98a29995447f0748",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.podium/v01/source-sheet.png",
+  "source_sha256": "f6f4067a61892fce8cec96ae8b801ac7e51cfd52fe8b7b2936c224ec0a24767c"
+}

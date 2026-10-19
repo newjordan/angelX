@@ -7,6 +7,14 @@ use super::*;
 /// How hard a hit lands on a knight, in percent: 200 is a knight with half
 /// the health to lose.
 pub const HIT_SHARE: u32 = 200;
+/// The most of a knight's health one guardian's charge-up takes, in
+/// percent of their most, after every multiplier: three undodged in a row
+/// still leave a knight standing.
+pub const BLOW_MOST: u32 = 30;
+/// The most of a knight's health any one hit takes, in percent: a hit may
+/// leave them on their last sliver, never fell them whole (the operator,
+/// 2026-10-18: "no one shots, but a 90% shot is ok").
+pub const ONE_HIT_MOST: u32 = 90;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hero {
     pub name: String,
@@ -20,6 +28,10 @@ pub struct Hero {
     /// tab hidden, a link gone or an empty seat. Stone while it lasts.
     #[serde(default)]
     pub away: bool,
+    /// A round has begun or its player is just back: stone, unseen and
+    /// unhurt, until its player first moves (`Run::rest_until_moved`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub idle: bool,
     /// No player's at all: the host's own place, kept for a host who plays
     /// no knight (`Run::set_absent`). Away, never drawn, never counted.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -43,6 +55,13 @@ pub struct Hero {
     pub aim_x: f32,
     pub aim_y: f32,
     pub invulnerable: u32,
+    /// Desertion movement ticks, also stepped by client prediction.
+    #[serde(default, skip_serializing_if = "peasant::idle")]
+    pub flee_ticks: u32,
+    /// The last guardian's charge-up that struck this knight
+    /// (`signatures::tag`): each strikes a knight once.
+    #[serde(default, skip_serializing_if = "zero")]
+    pub(super) blown: u32,
     pub dash_cooldown: u32,
     /// Re-arm ticks left after a bomb, so a held key throws only one.
     pub bomb_cooldown: u32,
@@ -226,6 +245,9 @@ pub struct Hero {
     /// Chilled by the Lich's frost: ticks left at a slow walk.
     #[serde(default)]
     pub chilled: u32,
+    /// Held by a bog hand's grip: ticks left at a wade (`horrors::GRIP`).
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub mired: u32,
     /// A Fae Dagger's steps, waiting for the next move; the Pendragon
     /// Sceptre's ticks left; a Censer's mending, waiting to go out.
     #[serde(default)]
@@ -289,6 +311,32 @@ pub struct Hero {
     /// The tick this knight fell, for the bones to scatter from.
     #[serde(default)]
     pub fell: u64,
+    /// Raised by a friend's carried skull into a weak monster's body: the
+    /// monster this knight walks as until the next Sanctuary (`skulls`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub possessed: Option<EnemyKind>,
+    /// Ticks till a borrowed body's spell is ready again (`bodies`).
+    #[serde(default, skip_serializing_if = "no_rearm")]
+    pub body_rearm: u32,
+    /// Wishes this knight holds (`overclass`): three when a delve starts,
+    /// two at each new floor.
+    #[serde(default)]
+    pub wishes: u8,
+    /// Super wishes held: one each time a floor's boss falls. A super wish
+    /// takes two steps of a wish's ladder at once.
+    #[serde(default)]
+    pub great_wishes: u8,
+    /// The floor whose budget holds this knight's wishes (`cards::WISH_BUDGET`):
+    /// the floor they stand on, kept by `Run::step`.
+    #[serde(default, skip_serializing_if = "is_zero_floor")]
+    pub wish_floor: u32,
+    /// The fallen friend whose skull this knight carries (`skulls`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carrying_skull: Option<u32>,
+    /// Fallen: where this knight's skull lies when a carrier dropped it
+    /// away from the bones (`skulls`); none while it lies with them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skull_at: Option<(f32, f32)>,
     /// Ground covered since the last footstep.
     #[serde(default)]
     pub stride: f32,
@@ -296,6 +344,12 @@ pub struct Hero {
     pub(super) dash_ticks: u32,
     pub(super) dash_x: f32,
     pub(super) dash_y: f32,
+    /// The way this knight walks with no aim held, and for how many ticks
+    /// they have kept to it: after [`super::TURN_TO_WALK`] they face it.
+    #[serde(default)]
+    pub(super) walk_dir: (i8, i8),
+    #[serde(default)]
+    pub(super) walk_ticks: u32,
 }
 
 impl Hero {
@@ -306,6 +360,7 @@ impl Hero {
             y,
             camera: None,
             stone: false,
+            idle: false,
             vigil: false,
             vigil_key: false,
             vigil_rearm: 0,
@@ -317,6 +372,8 @@ impl Hero {
             aim_x: 0.0,
             aim_y: -1.0,
             invulnerable: HZ,
+            flee_ticks: 0,
+            blown: 0,
             dash_cooldown: 0,
             bomb_cooldown: 0,
             bombs: 2,
@@ -384,6 +441,7 @@ impl Hero {
             ult: None,
             hexed: 0,
             chilled: 0,
+            mired: 0,
             blink: 0,
             immune: 0,
             censer: 0,
@@ -406,11 +464,20 @@ impl Hero {
             struck_big: false,
             struck_dir: (0, 0),
             fell: 0,
+            possessed: None,
+            body_rearm: 0,
+            wishes: 0,
+            great_wishes: 0,
+            wish_floor: 0,
+            carrying_skull: None,
+            skull_at: None,
             stride: 0.0,
             fire_cooldown: 0,
             dash_ticks: 0,
             dash_x: 0.0,
             dash_y: 0.0,
+            walk_dir: (0, 0),
+            walk_ticks: 0,
         }
     }
 
@@ -421,6 +488,25 @@ impl Hero {
     /// less, as melee does in the games that do it well: they must stand
     /// in it.
     pub(super) fn hurt(&mut self, damage: u32) {
+        self.hurt_most(damage, u32::MAX);
+    }
+
+    /// A guardian's charge-up strikes (`signatures`): a hit like any other,
+    /// but taking at most `BLOW_MOST` of the knight's health, and only once
+    /// for charge-up `tag` — the knights it has struck are those that carry
+    /// its tag. True if it struck. A Peasant deserting takes none of it.
+    pub(super) fn blow(&mut self, damage: u32, tag: u32) -> bool {
+        if self.stone || self.flee_ticks > 0 || self.invulnerable > 0 || self.hp == 0 || self.blown == tag {
+            return false;
+        }
+        self.blown = tag;
+        self.hurt_most(damage, self.max_hp * BLOW_MOST / 100);
+        true
+    }
+
+    /// A hit, taking at most `most` once every multiplier is in.
+    fn hurt_most(&mut self, damage: u32, most: u32) {
+        if self.flee_ticks > 0 { return; }
         // A booby prize from the countryside takes the next blow whole, then
         // flies off: the loser's consolation.
         if !self.stone && self.invulnerable == 0 && self.hp > 0 && self.booby.is_some() {
@@ -442,11 +528,14 @@ impl Hero {
             let damage = damage * HIT_SHARE / 100;
             // A dressed knight takes the hit as it always was; each missing
             // piece lets more through, so found gear is real protection.
-            let exposed = u32::from(!self.owned.body) * gear::BARE_BODY
-                + u32::from(!self.owned.helmet) * gear::BARE_HEAD;
+            let exposed = if self.peasant() { 0 } else {
+                u32::from(!self.owned.body) * gear::BARE_BODY
+                    + u32::from(!self.owned.helmet) * gear::BARE_HEAD
+            };
             let damage = damage * (100 + exposed) / 100;
-            let turned = ARMOR_TURNS[self.armor.min(MAX_ARMOR) as usize];
-            let damage = (damage * (100 - turned) / 100).max(4);
+            let turned = if self.peasant() { 0 } else { ARMOR_TURNS[self.armor.min(MAX_ARMOR) as usize] };
+            let most = most.min(self.max_hp * ONE_HIT_MOST / 100);
+            let damage = (damage * (100 - turned) / 100).max(4).min(most.max(1));
             self.hp = self.hp.saturating_sub(damage);
             self.invulnerable = self.hit_ward;
             // A hit breaks Regeneration's mending.
@@ -457,10 +546,15 @@ impl Hero {
     }
 }
 
-/// After a hit, a knight can't be hurt again for this many ticks (a bit
-/// under a second at 30 Hz): it blinks while it lasts. The panel's
+/// After a hit, a knight can't be hurt again for this many ticks (a whole
+/// second at 30 Hz; the operator, 2026-10-18: "player invuln for one sec
+/// after they are hit"): it blinks while it lasts. The panel's
 /// `hit_ward_s` moves it (`Tune::hit_ward`).
-pub const HIT_WARD: u32 = 24;
+pub const HIT_WARD: u32 = super::HZ;
+
+fn no_rearm(n: &u32) -> bool {
+    *n == 0
+}
 
 fn hit_ward() -> u32 {
     HIT_WARD
@@ -584,8 +678,11 @@ impl Hero {
 
     /// Recount the held cards' bonus after the deck changed.
     pub fn rebonus(&mut self, book: &Book) {
-        self.bonus = cards::Bonus::of(self.deck.iter().filter_map(|id| book.get(id)));
-        self.armor = self.bonus.armor.min(MAX_ARMOR);
+        self.bonus = cards::Bonus::within(
+            self.deck.iter().filter_map(|id| book.get(id)),
+            Some(self.wish_floor),
+        );
+        self.armor = if self.peasant() { 0 } else { self.bonus.armor.min(MAX_ARMOR) };
         self.fit_hp();
     }
 
@@ -639,4 +736,8 @@ impl Hero {
     pub(super) fn cooldown(&self, ticks: u32) -> u32 {
         (ticks * 100 / (100 + self.bonus.rate + self.boon.rate)).max(1)
     }
+}
+
+fn is_zero_floor(n: &u32) -> bool {
+    *n == 0
 }

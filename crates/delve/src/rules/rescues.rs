@@ -78,6 +78,12 @@ impl Run {
     pub(super) fn cage_someone(&mut self) {
         self.captive = None;
         let pack = self.dungeon.pack;
+        // The swamp keeps one captive: the white horse, in the Mire King's
+        // pen on its last floor.
+        if pack == Pack::Swamp {
+            self.pen_the_horse();
+            return;
+        }
         let Some(who) = RESIDENTS
             .iter()
             .find(|r| r.pack == pack && !self.home.residents.contains(r.id))
@@ -113,7 +119,30 @@ impl Run {
         if captive.freed.is_some() {
             return;
         }
+        // The Mire King holds the pen while he stands.
+        if captive.who == swamp::HORSE && !self.dungeon.rooms[self.at].cleared {
+            let trying = self.players.iter().find_map(|(&id, hero)| {
+                (hero.hp > 0
+                    && !hero.stone
+                    && (hero.x - captive.x).hypot(hero.y - captive.y) < CAGE_REACH
+                    && inputs.get(&id).is_some_and(|i| i.valid() && i.interact))
+                .then_some(id)
+            });
+            if let Some(id) = trying
+                && self
+                    .found
+                    .as_ref()
+                    .is_none_or(|f| f.2 != swamp::PEN_HELD || self.tick.saturating_sub(f.0) > u64::from(HZ) * 2)
+            {
+                self.found = Some((self.tick, id, swamp::PEN_HELD.into()));
+            }
+            for hero in self.players.values_mut() {
+                hero.buying = 0;
+            }
+            return;
+        }
         let mut freed = false;
+        let mut by = 0;
         for (&id, hero) in self.players.iter_mut() {
             let near = hero.hp > 0
                 && !hero.stone
@@ -133,6 +162,7 @@ impl Run {
             if hero.buying >= super::home::BUY_HOLD {
                 hero.buying = 0;
                 freed = true;
+                by = id;
             }
         }
         if freed {
@@ -146,7 +176,9 @@ impl Run {
             self.cues.push(format!("rescued:{}", captive.who));
             self.sounds.push("door_open");
             self.notice("rescuer");
-            self.thrill(60);
+            if captive.who == swamp::HORSE {
+                self.horse_freed(by);
+            }
         }
     }
 

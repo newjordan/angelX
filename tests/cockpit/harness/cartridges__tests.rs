@@ -224,3 +224,18 @@ fn the_rea_example_is_a_tool_cartridge() {
     let own = crate::agent::harness::skills::load_skills_from(&folder.join("skills"));
     assert!(own.iter().any(|skill| skill.name == "rea" && skill.body.contains("${ANGEL_CARTRIDGE_DIR}/bin/rea")));
 }
+
+#[test]
+fn the_dig_example_is_a_tool_cartridge() {
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/examples/cartridges/dig");
+    let config = Config::parse(&std::fs::read_to_string(folder.join("cartridge.toml")).unwrap()).unwrap();
+    assert_eq!(config.commands[0].name, "dig");
+    assert_eq!(config.commands[0].skills, ["dig"]);
+    assert_eq!(config.tools[0].name, "dig_search");
+    assert!(config.tools[0].core);
+    assert!(folder.join(&config.tools[0].run).is_file());
+    assert_eq!(config.tools[0].params["required"], serde_json::json!(["query"]));
+    assert!(!Cartridge::new(config, None).competes());
+    let own = crate::agent::harness::skills::load_skills_from(&folder.join("skills"));
+    assert!(own.iter().any(|skill| skill.name == "dig" && skill.body.contains("${ANGEL_CARTRIDGE_DIR}/bin/digup")));
+}

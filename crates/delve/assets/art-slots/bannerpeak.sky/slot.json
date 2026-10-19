@@ -1,0 +1,67 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "f61d75b0f25dfd6fc5ecf762ce04168d70b06506f23f754c9d80067224ecbecd",
+  "metadata_sha256": null,
+  "notes_sha256": "1240fab4b6d7eab6e7c2ce48b70d3b8cc75e185aa71da18dfcaf287632c440d8",
+  "outputs": {
+    "v1/night-0.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 0.9998,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "sha256": "7bc7ec54a31521f892405128783cc98ce444c5f437ae401d15eeef167bc11b88",
+      "source_scale": 0.22966507177033493,
+      "state": "night"
+    },
+    "v2/night-0.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 0.9998,
+      "frame": 0,
+      "half_cell_coverage": 5376,
+      "opaque_pixels": 86016,
+      "piece": 0,
+      "sha256": "7bc7ec54a31521f892405128783cc98ce444c5f437ae401d15eeef167bc11b88",
+      "source_scale": 0.22966507177033493,
+      "state": "night"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "bannerpeak.sky",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.sky/v01/source-sheet.png",
+  "source_sha256": "cc0a3e7222a5510c34f8ad8479976e497779d83927fba129f6069c74ba040125",
+  "tool_version": 2
+}

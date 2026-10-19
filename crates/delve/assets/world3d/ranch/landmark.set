@@ -1,0 +1,18 @@
+# The Horse Ranch: a barn with its hay loft, a grain silo and a windpump behind the paddocks.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the barn: gable roof, hay-loft door and the big doors
+box    wood    at 322 0 0 size 100 36 28 id lm-barn
+gable  slate   at 322 36 0 size 108 24 32
+box    door    at 322 24 14.5 size 12 14 2
+box    wood    at 322 40 15 size 3 9 3
+# the silo
+cylinder-12 metal   at 240 0 -1 size 28 56 28 id lm-silo
+sphere-12 metal   at 240 49 -1 size 28 18 28
+# the windpump on its tower
+frustum-8 wood    at 110 0 -4 size 14 56 14 id lm-windpump
+box    metal   at 110 54 4 size 28 3 1.5
+box    metal   at 110 41 4 size 3 28 1.5
+box    metal   at 110 52 4 size 5 5 4
+box    metal   at 130 52 0 size 18 5 1

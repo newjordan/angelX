@@ -1,0 +1,321 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: static prop/decal grade separates it from the moving foe palette."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "53ec7b73e88ee087618cc91c5a0d07872fa611ca434210391b44a64edb74b112",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Timber-braced ochre rock column with copper and malachite seams.",
+      "name": "pillar-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.5,
+        430
+      ],
+      "source_rect_xywh": [
+        91,
+        102,
+        275,
+        430
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Split malachite-veined stone pillar.",
+      "name": "pillar-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        405
+      ],
+      "source_rect_xywh": [
+        473,
+        115,
+        269,
+        405
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Iron-banded timber pit support with hanging amber lantern.",
+      "name": "pillar-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.0,
+        432
+      ],
+      "source_rect_xywh": [
+        818,
+        96,
+        272,
+        432
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Riveted ore crate holding copper-bearing rock.",
+      "name": "tomb-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.0,
+        317
+      ],
+      "source_rect_xywh": [
+        1186,
+        219,
+        304,
+        317
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Bundled timber beams crossed by mine-cart rails.",
+      "name": "tomb-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        176.5,
+        330
+      ],
+      "source_rect_xywh": [
+        35,
+        607,
+        353,
+        330
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Iron-hooped timber ore bin filled with ore.",
+      "name": "tomb-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        349
+      ],
+      "source_rect_xywh": [
+        445,
+        595,
+        285,
+        349
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Round angular copper-veined boulder.",
+      "name": "boulder-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        167.0,
+        324
+      ],
+      "source_rect_xywh": [
+        792,
+        617,
+        334,
+        324
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Low rubble pile with one upright slab.",
+      "name": "boulder-1",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        172.5,
+        317
+      ],
+      "source_rect_xywh": [
+        1171,
+        622,
+        345,
+        317
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Malachite growth emerging from an ochre rubble base.",
+      "name": "boulder-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        153.5,
+        376
+      ],
+      "source_rect_xywh": [
+        55,
+        1059,
+        307,
+        376
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Broken timber-braced pillar with exposed stone and snapped ends.",
+      "name": "broken-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.5,
+        432
+      ],
+      "source_rect_xywh": [
+        443,
+        1005,
+        297,
+        432
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Fractured malachite/copper stone column with a missing section.",
+      "name": "broken-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.0,
+        411
+      ],
+      "source_rect_xywh": [
+        800,
+        1027,
+        310,
+        411
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.28,
+        "value": 0.6400000000000001
+      },
+      "label": "Snapped iron-banded timber support with a hanging dark lantern.",
+      "name": "broken-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.5,
+        412
+      ],
+      "source_rect_xywh": [
+        1182,
+        1023,
+        309,
+        412
+      ],
+      "state": "block"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.block.mines",
+  "source_sha256": "d26fa7cac77f2827a595fe3b4d0d440f28901a6c5a4a37dab1449f6f278b78e0",
+  "timing": ""
+}

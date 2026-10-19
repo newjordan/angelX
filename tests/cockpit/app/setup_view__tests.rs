@@ -226,3 +226,124 @@ fn the_cockpit_draws_the_menu_over_everything() {
     let shown = text(terminal.backend().buffer());
     assert!(shown.contains("Which company is your key from?"), "{shown}");
 }
+
+#[test]
+fn floating_setup_scroll_preserves_the_workspace_outside_its_paper() {
+    let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.open_setup();
+    let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
+    terminal.draw(|frame| {
+        frame.buffer_mut()[(0, 0)].set_symbol("W");
+        render(frame, frame.area(), &mut app);
+    }).unwrap();
+    assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "W",
+        "a floating menu must not clear the workspace behind it");
+}
+
+#[test]
+#[cfg(feature = "glass")]
+fn native_setup_scroll_keeps_title_choices_and_global_click_targets() {
+    use angel_glass::scroll::{Page as ScrollPage, Pose as ScrollPose};
+    let root = Rect::new(0,0,120,42);
+    let (area,buf,hits) = native_content(root,&page());
+    let shown = text(&buf);
+    assert!(shown.contains("Connect angelX to an AI model"),"{shown}");
+    assert!(shown.contains("Use Ollama on this computer"),"{shown}");
+    assert!(shown.contains("Sign in with ChatGPT"),"{shown}");
+    assert!(hits.iter().any(|(_,hit)| matches!(hit,Hit::Back)));
+    let scroll = ScrollPage::new(area,buf,ScrollPose {open:1.0,sway:0.0}).unwrap();
+    for (rect,hit) in &hits {
+        if matches!(hit,Hit::Item(_)) {
+            assert!(rect.x>=area.x && rect.y>=area.y && rect.right()<=area.right());
+            let mapped = scroll.hit(rect.x+2,rect.y+1);
+            assert!(mapped.is_some(),"visible menu actions need a projected target");
+        }
+    }
+    let (_,short,hits) = native_content(Rect::new(0,0,44,20),&page());
+    assert!(text(&short).contains("Sign in with ChatGPT"));
+    assert!(!hits.is_empty());
+}
+
+#[test]
+#[cfg(feature = "glass")]
+fn native_setup_key_bar_lies_on_the_flat_paper() {
+    // The paper curls under the lower roller past `readable_rows`: a key
+    // bar there is hidden behind it, and its click targets with it.
+    use angel_glass::scroll::{Page as ScrollPage, Pose as ScrollPose, readable_rows};
+    for rows in [20u16, 30, 35, 37, 42, 60] {
+        let root = Rect::new(0, 0, 120, rows);
+        let (area, buf, hits) = native_content(root, &page());
+        let bar = hits.iter().find(|(_, hit)| matches!(hit, Hit::Back)).map(|(rect, _)| *rect).unwrap();
+        assert!(bar.y - area.y < readable_rows(area.height), "rows {rows}: bar at {} of {}", bar.y - area.y, area.height);
+        let scroll = ScrollPage::new(area, buf, ScrollPose { open: 1.0, sway: 0.0 }).unwrap();
+        // Clicking where the bar is drawn lands on the bar's row.
+        let drawn = (bar.y..area.bottom()).find(|&row| scroll.hit(bar.x, row).is_some_and(|(_, r)| r == bar.y));
+        assert!(drawn.is_some(), "rows {rows}: the bar has a visible click target");
+    }
+}
+
+#[test]
+#[cfg(feature = "glass")]
+fn native_setup_scroll_reduced_motion_closes_without_retaining_input() {
+    use crate::ui::viz::lifecycle_viz::MotionMode;
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    for mode in [MotionMode::Reduced, MotionMode::Off] {
+        let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
+        app.visual_motion = mode;
+        app.open_setup();
+        render_scroll(Rect::new(0, 0, 100, 30), &mut app);
+        assert_eq!(app.setup.scroll_motion.pose().open, 1.0);
+        assert!(!app.setup.scroll_motion.moving());
+        assert!(app.setup.scroll_page.as_ref().unwrap().interactive);
+        assert!(!app.setup.hits.is_empty());
+        app.setup_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(!app.setup.open());
+        assert!(app.setup.hits.is_empty(), "closing releases input before the next frame");
+        render_scroll(Rect::new(0, 0, 100, 30), &mut app);
+        assert!(app.setup.scroll_motion.hidden());
+        assert!(!app.setup.scroll_motion.moving());
+        assert!(app.setup.scroll_page.is_none());
+        app.on_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE));
+        assert_eq!(app.input, "x", "closed menu cannot keep composer input");
+    }
+}
+
+#[test]
+#[cfg(feature = "glass")]
+fn native_setup_scroll_suppression_disables_hits_then_restores_them() {
+    use crate::ui::viz::lifecycle_viz::MotionMode;
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.visual_motion = MotionMode::Full;
+    app.open_setup();
+    app.setup.scroll_motion.snap(true, Instant::now());
+    let root = Rect::new(0, 0, 100, 30);
+    render_scroll(root, &mut app);
+    let hits = app.setup.hits.clone();
+    assert!(!hits.is_empty());
+    let (reply, _decision) = std::sync::mpsc::channel();
+    app.pending_approval = Some(crate::app::PendingApproval {
+        prompt: "test-only approval".into(), scope_label: None, reply,
+    });
+    render_scroll(root, &mut app);
+    assert!(app.setup.open(), "suppression is not cancellation");
+    assert!(app.setup.hits.is_empty());
+    let page = app.setup.scroll_page.as_ref().unwrap();
+    assert!(!page.interactive);
+    assert!(page.hit(hits[0].0.x, hits[0].0.y).is_none());
+    app.pending_approval = None;
+    render_scroll(root, &mut app);
+    assert_eq!(app.setup.hits, hits);
+    assert!(app.setup.scroll_page.as_ref().unwrap().interactive);
+    // Exercise the retained page used during a full-motion exit, independently
+    // of a real window host. Input ownership must end before paper disappears.
+    app.setup_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    app.setup.scroll_motion.target(false, Instant::now());
+    render_scroll(root, &mut app);
+    assert!(!app.setup.open());
+    assert!(app.setup.hits.is_empty());
+    assert!(!app.setup.scroll_page.as_ref().unwrap().interactive);
+    app.setup.scroll_motion.snap(false, Instant::now());
+    render_scroll(root, &mut app);
+    assert!(app.setup.scroll_page.is_none());
+}

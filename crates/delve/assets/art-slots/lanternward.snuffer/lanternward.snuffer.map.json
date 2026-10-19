@@ -1,0 +1,174 @@
+{
+ "runtime": false,
+ "embed_kits": [
+  "v1"
+ ],
+ "anchor": [
+  9,
+  20
+ ],
+ "pieces": [
+  {
+   "name": "idle-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "idle-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "drift-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "drift-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "drift-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "drift-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 8
+  },
+  {
+   "name": "tell-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "tell-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "tell-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "tell-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 6
+  },
+  {
+   "name": "lunge-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "lunge-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "recover-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 14
+  },
+  {
+   "name": "recover-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 14
+  },
+  {
+   "name": "hit-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "hit-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 4
+  },
+  {
+   "name": "stagger-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "stagger-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "die-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-2",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-3",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-4",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-5",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "die-6",
+   "runtime": false,
+   "approved": false,
+   "ticks": 2
+  },
+  {
+   "name": "hooded-0",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  },
+  {
+   "name": "hooded-1",
+   "runtime": false,
+   "approved": false,
+   "ticks": 10
+  }
+ ]
+}

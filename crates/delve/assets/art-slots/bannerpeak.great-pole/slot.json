@@ -1,0 +1,63 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 45773
+    }
+  ],
+  "flags": [],
+  "map_sha256": "f0b3b445f9c69321aded5431893ec8e10c68f10ee51398610f13646bd0a8d37c",
+  "metadata_sha256": "964641a87ad9b5f6bb1f73ba05a83cd47a52a6c2643aa791873ad5abcd27082c",
+  "notes_sha256": "f01abbb062abd2a5b700b3c8bfa397a4f5904341864363509f1dad9eabcdcee6",
+  "outputs": {
+    "v1/idle-0.png": {
+      "anchor_xy": [
+        36,
+        136
+      ],
+      "approved": true,
+      "canvas_wh": [
+        72,
+        136
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 195,
+      "opaque_pixels": 2130,
+      "piece": 0,
+      "sha256": "7f6780ace1f140c91bbbf530bfec2be357e842f824cd39e73eaaba87d35acd53",
+      "source_scale": 0.09297520661157026,
+      "state": "idle"
+    },
+    "v2/idle-0.png": {
+      "anchor_xy": [
+        36,
+        136
+      ],
+      "approved": true,
+      "canvas_wh": [
+        72,
+        136
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 195,
+      "opaque_pixels": 2130,
+      "piece": 0,
+      "sha256": "7f6780ace1f140c91bbbf530bfec2be357e842f824cd39e73eaaba87d35acd53",
+      "source_scale": 0.09297520661157026,
+      "state": "idle"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "bannerpeak.great-pole",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
+  "source_sha256": "a9467e8233f4f1568eb877e9273de48368a211224d53f2f884346699dab49662",
+  "tool_version": 2
+}

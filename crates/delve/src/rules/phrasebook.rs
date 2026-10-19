@@ -483,9 +483,42 @@ impl Wish {
         (next < self.tiers.len()).then_some(next)
     }
 
-    /// The card a tier grants, as the card file a player could write.
+    /// How well a learned wish is drawn (`artistry`): its card art and the
+    /// first frame of each look, graded, with the score. The delve's own
+    /// wishes are drawn as they are meant: `None`, and given whole.
+    pub fn grade(&self) -> Option<(artistry::Grade, u32)> {
+        if !self.learned {
+            return None;
+        }
+        let mut pictures: Vec<Vec<String>> = Vec::new();
+        if !self.art.is_empty() {
+            pictures.push(self.art.clone());
+        }
+        for (_, _, block) in &self.looks {
+            let mut lines = block.lines();
+            if !lines.next().unwrap_or("").starts_with("draw") {
+                continue;
+            }
+            let frame: Vec<String> = lines
+                .map(|l| l.split('|').next().unwrap_or("").to_string())
+                .filter(|l| !l.is_empty())
+                .collect();
+            if !frame.is_empty() {
+                pictures.push(frame);
+            }
+        }
+        Some(artistry::grade(pictures.iter().map(Vec::as_slice)))
+    }
+
+    /// The card a tier grants, as the card file a player could write: a
+    /// learned wish's numbers given at its grade.
     pub fn card_text(&self, tier: usize) -> String {
         let (effects, says) = &self.tiers[tier];
+        let graded: Vec<String> = match self.grade() {
+            Some((grade, _)) => effects.iter().map(|e| graded_line(e, grade)).collect(),
+            None => effects.clone(),
+        };
+        let effects = &graded;
         let rarity = match tier {
             0 => "common",
             t if t + 1 < self.tiers.len() => "rare",
@@ -533,6 +566,40 @@ impl Wish {
         cards::check(&self.card_id(tier), &self.card_text(tier))
             .map(|checked| checked.card)
             .map_err(|rejected| rejected.errors.join("; "))
+    }
+}
+
+/// One card line of a learned wish given at `grade`: a held word's number
+/// and a summons' count by its share (`artistry::graded`, kept in the
+/// word's range), a spell's cooldown longer for a crude one and shorter for
+/// a legend; any other line as written.
+fn graded_line(line: &str, grade: artistry::Grade) -> String {
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    match parts.as_slice() {
+        ["cooldown", n] => match n.parse::<u32>() {
+            Ok(v) => {
+                let (lo, hi) = cards::SPELL_COOLDOWN;
+                format!("cooldown {}", (v * 100).div_ceil(grade.power()).clamp(lo, hi))
+            }
+            Err(_) => line.to_string(),
+        },
+        ["summon", n, rest @ ..] => match n.parse::<u32>() {
+            Ok(v) => {
+                let v = artistry::graded(v, grade).min(cards::range("summon").map_or(v, |r| r.1));
+                std::iter::once(format!("summon {v}"))
+                    .chain(rest.iter().map(|w| w.to_string()))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            }
+            Err(_) => line.to_string(),
+        },
+        [word, n] => match (cards::range(word), n.parse::<u32>()) {
+            (Some((lo, hi)), Ok(v)) if hi > 0 => {
+                format!("{word} {}", artistry::graded(v, grade).clamp(lo, hi))
+            }
+            _ => line.to_string(),
+        },
+        _ => line.to_string(),
     }
 }
 

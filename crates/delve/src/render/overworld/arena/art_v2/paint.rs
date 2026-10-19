@@ -13,6 +13,9 @@ pub struct Canvas {
     pub origin: (f32, f32),
     pub fx: Vec<Rgb>,
     pub ground: Vec<Rgb>,
+    /// Samples the screen's own marks hold (`stamp_kept`): the atmosphere
+    /// composited after the raster never dots them. Empty: none.
+    pub kept: Vec<bool>,
 }
 impl Canvas {
     pub fn new(w: usize, h: usize, c: Rgb) -> Self {
@@ -23,6 +26,7 @@ impl Canvas {
             origin: (0.0, 0.0),
             fx: vec![[0, 0, 0]; w * h],
             ground: Vec::new(),
+            kept: Vec::new(),
         }
     }
     pub fn view(&self, origin: (i32, i32)) -> Self {
@@ -375,7 +379,34 @@ impl Canvas {
     }
     pub fn image(&self) -> Img {
         let (base, fx) = self.layers();
-        art::native(&base, &fx)
+        let mut out = art::native(&base, &fx);
+        for (i, _) in self.kept.iter().enumerate().filter(|(_, k)| **k) {
+            out.set((i % self.w) as i32, (i / self.w) as i32, self.px[i]);
+        }
+        out
+    }
+
+    /// `stamp` a signal (the screen's marks), its samples kept from the
+    /// atmosphere (`kept`).
+    pub fn stamp_kept(&mut self, im: &Img) {
+        self.stamp(im, 0.0, 0.0, true);
+        if self.kept.len() != self.px.len() {
+            self.kept = vec![false; self.px.len()];
+        }
+        let o = ((-self.origin.0 * 2.0).round() as i32, (-self.origin.1 * 2.0).round() as i32);
+        for yy in 0..im.h {
+            for xx in 0..im.w {
+                if im.get(xx, yy).is_none() {
+                    continue;
+                }
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let (tx, ty) = (o.0 + xx * 2 + dx, o.1 + yy * 2 + dy);
+                    if tx >= 0 && ty >= 0 && (tx as usize) < self.w && (ty as usize) < self.h {
+                        self.kept[ty as usize * self.w + tx as usize] = true;
+                    }
+                }
+            }
+        }
     }
 }
 

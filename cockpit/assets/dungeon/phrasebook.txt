@@ -13,7 +13,9 @@
 #
 # Effects are the card words (see /dungeon cards new): volley, bounce,
 # homing, chain, mend, pierce, shots, damage, rate, speed, armor, vamp,
-# max_hp, orbit, burst; spells add cast, heal, ward, nova and summon.
+# max_hp, orbit, burst, fork, fart, and the literal ones a wish asks for
+# by name: size (bigger shots), knock, burn, chill, poison, boomerang and
+# velocity; spells add cast, heal, ward, nova and summon.
 # Sprites (worn, shot, orbit, summon, aura) are how a wish shows in play.
 
 wish volley | Triple Volley
@@ -56,6 +58,8 @@ wish twin | Twin Fletch
 say more shots | extra arrow | double shot | two arrows | twin shot | fire two
 tier shots 1 :: One more shot, every shot.
 tier shots 1; damage 10 :: One more shot, every shot, and harder.
+tier shots 2 :: One more shot again, every shot.
+tier shots 2; damage 10 :: One more shot again, every shot, and harder.
 
 wish quick | Quick Hands
 say fire faster | shoot faster | faster attacks | rapid fire | attack speed | machine gun | quicker
@@ -121,6 +125,7 @@ wish fork | Awakened Fork
 say fork my shots | fork | forking shots | split my shots | splitting shots | shots split | awakened fork | split on hit | splitting projectiles
 tier fork 1 :: A shot that stops on a monster forks into two that fly on past it.
 tier fork 2 :: Shots fork, and the forks fork again.
+tier fork 3 :: Shots fork, the forks fork, and the forks' forks fork again.
 
 wish fart | Fart Bombs
 say fart bombs | fart | farts | fart clouds | fart on hit | stink bombs | gas on hit | stinky shots

@@ -1,6 +1,6 @@
 //! Bounded floor economy: terrain-backed support, one deployment per camp and
 //! one succession per real leader death. No timers, world simulation or NPC war.
-use super::{Pack, boss_gates::Leader};
+use super::{MAX_PLAYERS, Pack, boss_gates::Leader};
 use serde::{Deserialize, Serialize};
 
 pub(super) const ENTITY_CAP: usize = 96;
@@ -199,21 +199,9 @@ impl Economy {
                 };
                 self.factions[i].controlled = false;
                 let reserve = std::mem::take(&mut self.factions[i].reserve);
-                // No living controller, no provisioning of future camps. Never touch an active camp.
-                for c in self
-                    .camps
-                    .iter_mut()
-                    .filter(|c| usize::from(c.faction) == i && !c.deployed)
-                {
-                    c.budget = c
-                        .budget
-                        .saturating_sub(if self.profile.structure == Structure::Hive {
-                            6
-                        } else {
-                            2
-                        })
-                        .max(2);
-                }
+                // No living controller, no reserve; the camps still to come
+                // keep the floor's ramp (`pacing`): a fallen chief never
+                // thins the rooms nearer the guardian.
                 if self.profile.structure == Structure::Clans {
                     if let Some(j) = (1..self.factions.len())
                         .map(|n| (i + n) % self.factions.len())
@@ -299,12 +287,13 @@ impl Economy {
             Pack::Archive => &[Skeleton, Wraith, Bat],
             Pack::Crypt => &[Skeleton, Wraith, Bat],
             Pack::Hellforge => &[Imp, Wraith, Demon],
+            Pack::Swamp => &[Leech, Wraith, BogHand],
         };
         let mut roster: Vec<_> = (0..camp.budget)
             .map(|n| pool[(usize::from(n) + usize::from(camp.faction)) % pool.len()])
             .collect();
         // Rival presence is composition, not NPC-on-NPC warfare. Dangerous kinds stay bounded.
-        if self.profile.structure == Structure::Clans {
+        if self.profile.structure == Structure::Clans && camp.budget >= super::pacing::CLAN_HEAD_FROM {
             roster[0] = if camp.faction.is_multiple_of(2) {
                 super::EnemyKind::Sapper
             } else {
@@ -369,13 +358,13 @@ impl Economy {
     /// floor's allowance, and `HEAD_PROVISION` more for each knight past one.
     pub fn can_emit_for(&self, knights: usize) -> bool {
         let share = (self.spawn_allowance
-            + HEAD_PROVISION * knights.clamp(1, 4).saturating_sub(1) as u16)
+            + HEAD_PROVISION * knights.clamp(1, MAX_PLAYERS as usize).saturating_sub(1) as u16)
             .min(SPAWN_CAP);
         self.spawn_spent < share && self.events.len() < EVENT_CAP
     }
     /// The most a floor may ever provision: a full party's share.
     fn ceiling(&self) -> u16 {
-        (self.spawn_allowance + HEAD_PROVISION * 3).min(SPAWN_CAP)
+        (self.spawn_allowance + HEAD_PROVISION * (MAX_PLAYERS as u16 - 1)).min(SPAWN_CAP)
     }
     pub fn emit(&mut self, room: usize, id: u32, kind: super::EnemyKind, stage: u8) {
         let event = Event::Emit {

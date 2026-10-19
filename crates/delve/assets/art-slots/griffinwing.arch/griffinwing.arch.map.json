@@ -1,0 +1,62 @@
+{
+  "anchor_canvas_wh": [
+    192,
+    128
+  ],
+  "anchor_xy": [
+    96,
+    128
+  ],
+  "comments": [
+    "One drawing 1467x995, BOX reduced to 188x128 (anchor bottom-centre); no stretch. The stone is not dimmed here (the lane suggests about 20 percent in the stage).",
+    "Imported, left off: the stage has no hook for it (the rules' arch is a canyon-wide wall with a 4.8 by 3.0 unit rectangular opening; the painting's opening is 78 by 92 dots with a round top and no wall, so a fit needs a 1.6 to 1 stretch the importer does not do). See assets/griffinwing/ART.md."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "A rock arch whose clear opening is where the sim puts it: the rules own the opening (half width, half height) and judge every scrape; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered drawing, 2026-10-19: a ruined stone arch, two piers, a voussoir ring with the upper left broken, tumbled blocks, four chained lanterns, the opening clear alpha.",
+  "notes_sha256": "f18b4342fae6ce2158162e615ebd890fa4f57aacff611fb2b3deb0643cf5cc3f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        733.5,
+        995.0
+      ],
+      "source_rect_xywh": [
+        36,
+        2,
+        1467,
+        995
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "native canvas 192x128, anchor bottom-centre (96,128); stage 384x224.",
+  "sizes": {
+    "v1": [
+      192,
+      128
+    ],
+    "v2": [
+      192,
+      128
+    ]
+  },
+  "slot": "griffinwing.arch",
+  "source_sha256": "974dcd664005a8f476ce753933e113202fcfeae62b88450eef3c13c38aaca498",
+  "timing": "idle 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

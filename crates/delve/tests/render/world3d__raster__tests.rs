@@ -291,3 +291,140 @@ fn fire_glass_keeps_cames_and_exposed_flame_keeps_a_bright_inner_tongue() {
         )
     );
 }
+
+// ─── a scene's own painted surfaces are opt-in ──────────────────────────────
+
+/// A wall of three painted-capable materials side by side, and a floor.
+fn painted_wall() -> Mesh {
+    let mut mesh = Mesh::new();
+    for (k, material) in [mat::ROCK, mat::STONE, mat::BONE].into_iter().enumerate() {
+        let y = -3.0 + k as f32 * 2.0;
+        mesh.push_quad(
+            v3(9.0, y, 0.0),
+            v3(9.0, y + 2.0, 0.0),
+            v3(9.0, y + 2.0, 4.0),
+            v3(9.0, y, 4.0),
+            material,
+        );
+    }
+    mesh.push_quad(
+        v3(2.0, -3.0, 0.0),
+        v3(14.0, -3.0, 0.0),
+        v3(14.0, 3.0, 0.0),
+        v3(2.0, 3.0, 0.0),
+        mat::PATH,
+    );
+    mesh
+}
+
+fn solid(rgb: [u8; 3]) -> Vec<[u8; 3]> {
+    vec![rgb; Painted::SIDE * Painted::SIDE]
+}
+
+#[test]
+fn a_scene_that_paints_nothing_draws_the_shared_table_exactly() {
+    let mesh = painted_wall();
+    let view = proving_view();
+    let shared = render_scene(&mesh, &view, 96, 72);
+    let (none, depth_none) = render_meshes_painted(
+        &[&mesh],
+        &view,
+        96,
+        72,
+        Firelight::STEADY,
+        FOG_DISTANCE,
+        Backdrop::Night,
+        None,
+    );
+    let (empty, depth_empty) = render_meshes_painted(
+        &[&mesh],
+        &view,
+        96,
+        72,
+        Firelight::STEADY,
+        FOG_DISTANCE,
+        Backdrop::Night,
+        Some(&Painted::new()),
+    );
+    let (plain, depth_plain) = render_meshes(
+        &[&mesh],
+        &view,
+        96,
+        72,
+        Firelight::STEADY,
+        FOG_DISTANCE,
+        Backdrop::Night,
+    );
+    assert_eq!(shared.as_raw(), none.as_raw());
+    assert_eq!(shared.as_raw(), empty.as_raw());
+    assert_eq!(shared.as_raw(), plain.as_raw());
+    assert_eq!(depth_none, depth_plain);
+    assert_eq!(depth_empty, depth_plain);
+}
+
+#[test]
+fn a_painted_material_changes_its_own_dots_and_no_others() {
+    let mesh = painted_wall();
+    let view = proving_view();
+    let shared = render_scene(&mesh, &view, 96, 72);
+    let mut painted = Painted::new();
+    painted.set(mat::ROCK, solid([200, 20, 20]));
+    painted.set(mat::PATH, solid([20, 200, 20]));
+    let (frame, _) = render_meshes_painted(
+        &[&mesh],
+        &view,
+        96,
+        72,
+        Firelight::STEADY,
+        FOG_DISTANCE,
+        Backdrop::Night,
+        Some(&painted),
+    );
+    let seen = visible_materials(&mesh, &view, 96, 72);
+    let (mut changed, mut kept) = (0, 0);
+    for (i, material) in seen.iter().enumerate() {
+        let (x, y) = ((i % 96) as u32, (i / 96) as u32);
+        let same = pixel(&shared, x, y) == pixel(&frame, x, y);
+        match *material {
+            m if m == mat::ROCK || m == mat::PATH => {
+                assert!(!same, "a painted dot ({x}, {y}) of material {m} is unchanged");
+                changed += 1;
+            }
+            _ => {
+                assert!(same, "dot ({x}, {y}) of material {material} changed");
+                kept += 1;
+            }
+        }
+    }
+    assert!(changed > 200 && kept > 200, "{changed} painted, {kept} kept");
+    // The painted rock is red, and still lit by the shared lighting: a wall in
+    // shadow is darker than one in the key.
+    let rock = seen.iter().position(|&m| m == mat::ROCK).expect("rock in view");
+    let [r, g, b] = pixel(&frame, (rock % 96) as u32, (rock / 96) as u32);
+    assert!(r > g && r > b, "painted rock is red: {r} {g} {b}");
+}
+
+#[test]
+fn a_painted_surface_reads_a_coarser_copy_far_away() {
+    let mut checker = Vec::new();
+    for y in 0..Painted::SIDE {
+        for x in 0..Painted::SIDE {
+            checker.push(if (x + y) % 2 == 0 { [200, 200, 200] } else { [0, 0, 0] });
+        }
+    }
+    let mut painted = Painted::new();
+    painted.set(mat::STONE, checker);
+    // Near, a texel is the table's own; far, it is the mean of its neighbours.
+    assert_eq!(painted.sample(mat::STONE, 0, 0, 1.0), Some([200, 200, 200]));
+    assert_eq!(painted.sample(mat::STONE, 1, 0, 1.0), Some([0, 0, 0]));
+    assert_eq!(painted.sample(mat::STONE, 0, 0, 100.0), Some([100, 100, 100]));
+    assert_eq!(painted.sample(mat::STONE, 255, 255, 100.0), Some([100, 100, 100]));
+    // What it does not paint it does not answer for.
+    assert_eq!(painted.sample(mat::ROCK, 0, 0, 1.0), None);
+}
+
+#[test]
+#[should_panic(expected = "not a baked table")]
+fn the_moonlight_is_not_a_table_a_scene_can_paint() {
+    Painted::new().set(mat::MOONLIGHT, solid([1, 2, 3]));
+}

@@ -69,6 +69,12 @@ pub(super) fn boss_figure(run: &Run, index: u8) -> Option<Img> {
     let boss = run.bosses.get(usize::from(index))?;
     let art = if boss.id == crate::rules::signatures::RIPPER {
         sprites::ripper()
+    } else if boss.id == crate::rules::swamp::KING {
+        super::swamp_art::mire_king(false, run.tick as u32)
+    } else if boss.id == "mother-of-spores" {
+        super::boss_art::mother_body()
+    } else if let Some(art) = crate::rules::bosses::Art::for_id(&boss.id) {
+        super::boss_art::body(art)
     } else {
         Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>())
     };

@@ -1,0 +1,34 @@
+{
+  "fit": "native canvas 48x72, anchor bottom-centre (24,72); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "day-0"
+      ],
+      "source_pose_count": 1,
+      "state": "day"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "night-0"
+      ],
+      "source_pose_count": 1,
+      "state": "night"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0"
+      ],
+      "source_pose_count": 1,
+      "state": "lit"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "id": "moonfall.cottage",
+  "role": "building",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

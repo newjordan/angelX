@@ -1,0 +1,291 @@
+set chunk-5-0
+# The kingdom, chunk 5,0 in The Highlands: tiles 120..144 x 0..16 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 128
+plate 1536 1024
+
+# ground
+box    rock    at 2112 -4 8 size 384 4 16
+box    rock    at 2072 -4 24 size 304 4 16
+box    grass   at 2248 -4 88 size 48 4 144
+box    rock    at 2288 -4 24 size 32 4 16
+box    grass   at 1976 -4 48 size 112 4 32
+box    rock    at 2064 -4 40 size 64 4 16
+box    grass   at 2136 -4 48 size 80 4 32
+box    rock    at 2184 -4 40 size 16 4 16
+box    grass   at 2208 -4 144 size 32 4 224
+box    grass   at 2288 -4 88 size 32 4 112
+box    grass   at 2064 -4 112 size 64 4 128
+box    grass   at 2184 -4 152 size 16 4 208
+box    rock    at 1928 -4 80 size 16 4 32
+box    grass   at 1984 -4 88 size 96 4 48
+box    grass   at 2112 -4 72 size 32 4 16
+box    rock    at 2136 -4 96 size 16 4 64
+box    grass   at 2160 -4 72 size 32 4 16
+box    grass   at 2104 -4 152 size 16 4 144
+box    rock    at 2120 -4 104 size 16 4 48
+box    rock    at 2152 -4 104 size 16 4 48
+box    grass   at 2168 -4 168 size 16 4 176
+box    grass   at 1928 -4 104 size 16 4 16
+box    rock    at 1960 -4 136 size 80 4 48
+box    grass   at 2016 -4 120 size 32 4 16
+box    rock    at 2008 -4 136 size 16 4 16
+box    grass   at 2024 -4 152 size 16 4 48
+box    grass   at 2120 -4 152 size 16 4 48
+box    ground  at 2136 -4 136 size 16 4 16
+box    grass   at 2152 -4 192 size 16 4 128
+box    grass   at 2008 -4 160 size 16 4 32
+box    grass   at 2136 -4 160 size 16 4 32
+box    path    at 2288 -4 152 size 32 4 16
+box    grass   at 1960 -4 208 size 80 4 96
+box    grass   at 2232 -4 208 size 16 4 96
+box    path    at 2264 -4 168 size 48 4 16
+box    grass   at 2296 -4 208 size 16 4 96
+box    path    at 2040 -4 184 size 80 4 16
+box    grass   at 2088 -4 192 size 16 4 32
+box    path    at 2128 -4 216 size 32 4 80
+box    path    at 2248 -4 216 size 16 4 80
+box    grass   at 2272 -4 216 size 32 4 80
+box    grass   at 2032 -4 224 size 64 4 64
+box    path    at 2072 -4 208 size 16 4 32
+box    path    at 2088 -4 224 size 16 4 32
+box    grass   at 2072 -4 240 size 16 4 32
+box    path    at 2104 -4 232 size 16 4 16
+box    grass   at 2096 -4 248 size 32 4 16
+
+# PIGEON PARLIAMENT: a dovecote and hut at 132,8 4x3
+box    brick   at 2130.6 0 164 size 33.2 11 20 id pigeon-parliament
+hip    thatch  at 2130.6 11 164 size 36.2 8 23
+box    door    at 2123.96 0 174.25 size 7 8 1
+box    wood    at 2156.2 0 167 size 12 26 12
+pyramid roof    at 2156.2 26 167 size 14 14.4 14
+box    door    at 2156.2 12 173.38 size 6 2.5 0.75
+box    door    at 2156.2 18 173.38 size 6 2.5 0.75
+box    wood    at 2168 0 152 size 14 4 8
+box    wood    at 2168 4 152 size 10 3 6
+blob-3 foliage at 2168 0 168 size 13 6 12
+
+# set dressing
+rock-53 rock    at 1960 0 184 size 8 2.5 7
+rock-9 rock    at 1960 2 184 size 5 2 4.5
+rock-31 rock    at 2056 0 200 size 8 2.5 7
+rock-7 rock    at 2056 2 200 size 5 2 4.5
+rock-39 rock    at 2232 0 200 size 8 2.5 7
+rock-15 rock    at 2232 2 200 size 5 2 4.5
+rock-33 rock    at 2013 0 212 size 4 2 3.5
+rock-18 rock    at 2007 0 213 size 4 2 3.5
+rock-9 rock    at 2004 0 215 size 4 2 3.5
+rock-9 rock    at 2003 0 214 size 4 2 3.5
+rock-20 rock    at 2278 0 214 size 4 2 3.5
+rock-7 rock    at 2283 0 215 size 4 2 3.5
+rock-27 rock    at 2283 0 218 size 4 2 3.5
+rock-51 rock    at 2276 0 218 size 4 2 3.5
+
+# rock
+box    rock    at 2064 0 8 size 288 9 16
+box    rock    at 2248 0 8 size 80 3 16
+box    rock    at 2296 0 8 size 16 9 16
+box    rock    at 1984 0 24 size 128 3 16
+box    rock    at 2064 0 24 size 32 9 16
+box    rock    at 2152 0 24 size 144 3 16
+box    rock    at 2288 0 24 size 32 3 16
+box    rock    at 2064 0 40 size 64 3 16
+box    rock    at 2184 0 40 size 16 3 16
+box    rock    at 1928 0 80 size 16 3 32
+box    rock    at 2136 0 80 size 16 3 32
+box    rock    at 2120 0 104 size 16 3 48
+box    rock    at 2152 0 104 size 16 3 48
+box    rock    at 2136 0 104 size 16 9 16
+box    rock    at 1960 0 120 size 80 3 16
+box    rock    at 2136 0 120 size 16 3 16
+box    rock    at 1928 0 144 size 16 3 32
+box    rock    at 1960 0 136 size 48 9 16
+box    rock    at 2000 0 136 size 32 3 16
+box    rock    at 1968 0 152 size 64 3 16
+rock-2 rock    at 1928 7.5 9 size 15 6 13.5
+rock-47 rock    at 1944 7.5 9 size 13 6 11.7 turn 90
+rock-49 rock    at 1960 7.5 8 size 14 9 12.6 turn 180
+rock-63 rock    at 1976 7.5 9 size 12 8 10.8 turn 270
+rock-29 rock    at 1992 7.5 7 size 14 7 12.6 turn 270
+rock-11 rock    at 2008 7.5 7 size 13 9 11.7 turn 90
+rock-1 rock    at 2024 7.5 9 size 14 8 12.6
+rock-44 rock    at 2039 7.5 7 size 15 9 13.5 turn 90
+rock-49 rock    at 2057 7.5 8 size 14 8 12.6 turn 180
+rock-61 rock    at 2072 7.5 8 size 12 8 10.8 turn 270
+rock-1 rock    at 2089 7.5 8 size 14 8 12.6
+rock-61 rock    at 2105 7.5 9 size 13 7 11.7 turn 270
+rock-26 rock    at 2121 7.5 8 size 13 7 11.7 turn 270
+rock-44 rock    at 2137 7.5 9 size 13 7 11.7 turn 90
+rock-55 rock    at 2153 7.5 9 size 13 8 11.7 turn 180
+rock-26 rock    at 2167 7.5 9 size 13 9 11.7 turn 270
+rock-2 rock    at 2185 7.5 8 size 15 9 13.5
+rock-12 rock    at 2199 7.5 9 size 13 6 11.7 turn 90
+rock-52 rock    at 2215 1.5 7 size 15 10 13.5 turn 180
+rock-52 rock    at 2231 1.5 7 size 14 9 12.6 turn 180
+rock-32 rock    at 2247 1.5 7 size 14 8 12.6 turn 270
+rock-35 rock    at 2265 1.5 9 size 16 8 14.4
+rock-63 rock    at 2279 1.5 9 size 14 8 12.6 turn 270
+rock-12 rock    at 2296 7.5 9 size 15 8 13.5 turn 90
+rock-1 rock    at 1927 1.5 24 size 16 10 14.4
+rock-59 rock    at 1943 1.5 25 size 17 8 15.3 turn 270
+rock-1 rock    at 1959 1.5 24 size 14 7 12.6
+rock-48 rock    at 1976 1.5 23 size 17 9 15.3 turn 90
+rock-2 rock    at 1993 1.5 25 size 16 7 14.4
+rock-46 rock    at 2009 1.5 25 size 17 10 15.3 turn 90
+rock-43 rock    at 2023 1.5 24 size 16 10 14.4 turn 90
+rock-60 rock    at 2040 1.5 23 size 17 7 15.3 turn 270
+rock-21 rock    at 2056 7.5 23 size 13 7 11.7 turn 180
+rock-13 rock    at 2072 7.5 24 size 13 7 11.7 turn 90
+rock-58 rock    at 2088 1.5 23 size 16 8 14.4 turn 270
+rock-51 rock    at 2103 1.5 23 size 15 10 13.5 turn 180
+rock-53 rock    at 2120 1.5 25 size 17 8 15.3 turn 180
+rock-59 rock    at 2136 1.5 23 size 16 8 14.4 turn 270
+rock-19 rock    at 2153 1.5 24 size 15 10 13.5 turn 180
+rock-17 rock    at 2169 1.5 23 size 17 10 15.3 turn 180
+rock-8 rock    at 2183 1.5 24 size 14 10 12.6
+rock-2 rock    at 2201 1.5 23 size 17 9 15.3
+rock-28 rock    at 2216 1.5 23 size 14 10 12.6 turn 270
+rock-55 rock    at 2280 1.5 24 size 17 10 15.3 turn 180
+rock-49 rock    at 2296 1.5 24 size 14 7 12.6 turn 180
+rock-51 rock    at 2039 1.5 40 size 15 7 13.5 turn 180
+rock-61 rock    at 2056 1.5 39 size 16 8 14.4 turn 270
+rock-27 rock    at 2073 1.5 39 size 14 10 12.6 turn 270
+rock-27 rock    at 2088 1.5 39 size 15 9 13.5 turn 270
+rock-53 rock    at 2185 1.5 41 size 14 7 12.6 turn 180
+rock-16 rock    at 1928 1.5 71 size 15 9 13.5 turn 90
+rock-59 rock    at 2135 1.5 71 size 14 8 12.6 turn 270
+rock-36 rock    at 1929 1.5 89 size 14 9 12.6
+rock-2 rock    at 2119 1.5 88 size 17 7 15.3
+rock-64 rock    at 2137 1.5 87 size 14 10 12.6 turn 270
+rock-45 rock    at 2153 1.5 88 size 17 7 15.3 turn 90
+rock-33 rock    at 2120 1.5 104 size 14 8 12.6
+rock-56 rock    at 2136 7.5 105 size 15 6 13.5 turn 180
+rock-4 rock    at 2151 1.5 103 size 17 10 15.3
+rock-61 rock    at 1927 1.5 121 size 15 7 13.5 turn 270
+rock-6 rock    at 1944 1.5 120 size 16 8 14.4
+rock-7 rock    at 1961 1.5 120 size 17 8 15.3
+rock-17 rock    at 1976 1.5 121 size 16 8 14.4 turn 180
+rock-43 rock    at 1993 1.5 121 size 16 10 14.4 turn 90
+rock-11 rock    at 2119 1.5 119 size 14 7 12.6 turn 90
+rock-52 rock    at 2137 1.5 119 size 17 7 15.3 turn 180
+rock-12 rock    at 2151 1.5 121 size 16 8 14.4 turn 90
+rock-3 rock    at 1928 1.5 135 size 16 7 14.4
+rock-60 rock    at 1945 7.5 135 size 12 8 10.8 turn 270
+rock-60 rock    at 1960 7.5 135 size 13 6 11.7 turn 270
+rock-21 rock    at 1976 7.5 137 size 14 6 12.6 turn 180
+rock-6 rock    at 1993 1.5 137 size 15 7 13.5
+rock-48 rock    at 2008 1.5 137 size 15 7 13.5 turn 90
+rock-16 rock    at 1927 1.5 153 size 15 9 13.5 turn 90
+rock-58 rock    at 1944 1.5 153 size 16 8 14.4 turn 270
+rock-43 rock    at 1960 1.5 153 size 16 7 14.4 turn 90
+rock-47 rock    at 1976 1.5 151 size 15 8 13.5 turn 90
+rock-3 rock    at 1993 1.5 151 size 16 10 14.4
+
+# woods (at 29% of its height, for the camera)
+frustum trunk   at 1985 0 80 size 4.5 7 4.5
+cone   foliage at 1985 5 80 size 28 21 28
+cone   foliage at 1985 18 80 size 20.16 20.5 20.16
+frustum trunk   at 2049 0 79 size 4.5 7 4.5
+cone   foliage at 2049 4 79 size 28 28.52 28
+cone   foliage at 2049 21.48 79 size 20.16 28.52 20.16
+cylinder trunk   at 2270 0 95 size 5 15 5
+blob-40 foliage at 2270 10 95 size 33 28 31.35
+frustum trunk   at 2273 0 127 size 5 13 5
+blob-36 foliage at 2273 8 127 size 33 28 31.35 turn 90
+frustum trunk   at 1976 0 56 size 3 2 3
+cone   foliage at 1976 1 56 size 19 6 19
+cone   foliage at 1976 4.5 56 size 13.68 6 13.68
+cylinder trunk   at 1992 0 58 size 3 4 3
+cone   foliage at 1992 2.5 58 size 19 10 19
+cone   foliage at 1992 8.5 58 size 13.68 10 13.68
+cylinder trunk   at 2041 0 56 size 3 10 3
+cone   foliage at 2041 7 56 size 19 17.98 19
+cone   foliage at 2041 18.02 56 size 13.68 17.98 13.68
+frustum trunk   at 2054 0 57 size 3 7 3
+cone   foliage at 2054 4 57 size 18 17.98 18
+cone   foliage at 2054 15.02 57 size 12.96 17.98 12.96
+frustum trunk   at 2070 0 57 size 3 9 3
+cone   foliage at 2070 6 57 size 17 19.22 17
+cone   foliage at 2070 17.78 57 size 12.24 19.22 12.24
+cylinder trunk   at 2264 0 58 size 3 4 3
+blob-10 foliage at 2264 2 58 size 19 9 18.05
+cylinder trunk   at 2280 0 56 size 3 4 3
+blob-36 foliage at 2280 2 56 size 19 6.5 18.05 turn 270
+frustum trunk   at 2296.5 0 57 size 3 5 3
+blob-62 foliage at 2296.5 2.5 57 size 18 8 17.1 turn 180
+cylinder trunk   at 2008.5 0 72 size 3 4 3
+cone   foliage at 2008.5 2.5 72 size 18 8.5 18
+cone   foliage at 2008.5 7.5 72 size 12.96 8.5 12.96
+frustum trunk   at 2073 0 73 size 3 7 3
+cone   foliage at 2073 4 73 size 17 17.36 17
+cone   foliage at 2073 14.64 73 size 12.24 17.36 12.24
+frustum trunk   at 2247.5 0 72.5 size 3 4.5 3
+blob-47 foliage at 2247.5 2 72.5 size 18 7.5 17.1 turn 90
+frustum trunk   at 2263.5 0 71.5 size 3 10.5 3
+blob-63 foliage at 2263.5 5.5 71.5 size 18 18 17.1 turn 270
+cylinder trunk   at 2281 0 74 size 3 10 3
+blob-29 foliage at 2281 5 74 size 20 16 19 turn 270
+cylinder trunk   at 2295 0 72.5 size 3 9.5 3
+blob-55 foliage at 2295 4.5 72.5 size 20 19 19 turn 180
+frustum trunk   at 2008 0 88 size 3 8 3
+cone   foliage at 2008 5.5 88 size 19 15 19
+cone   foliage at 2008 14.5 88 size 13.68 15 13.68
+frustum trunk   at 2073 0 87 size 3 9 3
+cone   foliage at 2073 6 87 size 17 17.36 17
+cone   foliage at 2073 16.64 87 size 12.24 17.36 12.24
+frustum trunk   at 2248 0 88 size 3 10 3
+blob-46 foliage at 2248 5 88 size 19 18 18.05
+frustum trunk   at 2297 0 87 size 3 11 3
+blob-7 foliage at 2297 6 87 size 17 15 16.15 turn 90
+frustum trunk   at 1977 0 105 size 3 7 3
+cone   foliage at 1977 4 105 size 17 17.98 17
+cone   foliage at 1977 15.02 105 size 12.24 17.98 12.24
+cylinder trunk   at 1991 0 104 size 3 10 3
+cone   foliage at 1991 7 104 size 19 19.22 19
+cone   foliage at 1991 18.78 104 size 13.68 19.22 13.68
+cylinder trunk   at 2007 0 104 size 3 9 3
+cone   foliage at 2007 6 104 size 19 19 19
+cone   foliage at 2007 18 104 size 13.68 18.5 13.68
+frustum trunk   at 2250 0 104 size 3 10 3
+blob-14 foliage at 2250 5 104 size 19 20 18.05 turn 270
+cylinder trunk   at 2297 0 106 size 3 12 3
+blob-35 foliage at 2297 7 106 size 20 20 19 turn 90
+cylinder trunk   at 2250 0 119 size 3 9 3
+blob-11 foliage at 2250 4 119 size 17 21 16.15 turn 90
+frustum trunk   at 2296.5 0 120.5 size 3 11 3
+blob-24 foliage at 2296.5 6 120.5 size 18 14 17.1 turn 270
+cylinder trunk   at 2295.5 0 136 size 3 11 3
+blob-62 foliage at 2295.5 6 136 size 18 16 17.1 turn 180
+frustum trunk   at 1926 0 166 size 3 9 3
+blob-55 foliage at 1926 4 166 size 18 14 17.1 turn 90
+cylinder trunk   at 1928 0 183 size 3 10 3
+blob-59 foliage at 1928 5 183 size 19 21 18.05 turn 270
+cylinder trunk   at 2199.5 0 185 size 3 5.5 3
+blob-22 foliage at 2199.5 3 185 size 18 8.5 17.1 turn 90
+cylinder trunk   at 2216 0 184 size 3 4 3
+blob-31 foliage at 2216 2 184 size 19 7.5 18.05
+frustum trunk   at 2184 0 200.5 size 3 6 3
+blob-42 foliage at 2184 3 200.5 size 18 8 17.1 turn 90
+frustum trunk   at 2199.5 0 199.5 size 3 11 3
+blob-48 foliage at 2199.5 6 199.5 size 18 18 17.1
+frustum trunk   at 2216.5 0 200 size 3 9 3
+blob-64 foliage at 2216.5 4 200 size 18 21 17.1 turn 180
+frustum trunk   at 2183.5 0 215.5 size 3 9 3
+blob-14 foliage at 2183.5 4 215.5 size 18 19 17.1
+cylinder trunk   at 2200 0 214 size 3 11 3
+blob-27 foliage at 2200 6 214 size 18 21 17.1 turn 180
+cylinder trunk   at 2216.5 0 216.5 size 3 11 3
+blob-28 foliage at 2216.5 6 216.5 size 18 19 17.1 turn 270
+frustum trunk   at 2186 0 231.5 size 3 9 3
+blob-7 foliage at 2186 4 231.5 size 18 14 17.1
+frustum trunk   at 2199.5 0 232.5 size 3 9 3
+blob-14 foliage at 2199.5 4 232.5 size 18 14 17.1 turn 270
+cylinder trunk   at 2216.5 0 232 size 3 11 3
+blob-21 foliage at 2216.5 6 232 size 18 21 17.1 turn 90
+frustum trunk   at 2200.5 0 248.5 size 3 11 3
+blob-32 foliage at 2200.5 6 248.5 size 18 18 17.1 turn 180
+box    hedge   at 2056 0 104 size 15 6 16
+blob-55 hedge   at 2056 3.5 104 size 15 5 16
+box    hedge   at 1944 0 167.75 size 16 7 15.5
+blob-6 hedge   at 1944 4.5 167.75 size 16 5 15.5

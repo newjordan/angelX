@@ -1,0 +1,24 @@
+{
+ "host": "glass",
+ "mode": "blast4",
+ "present": "immediate",
+ "fps": 149.7,
+ "render_p50_ms": 1.015,
+ "render_p95_ms": 2.079,
+ "build_mean_ms": 0.121,
+ "submit_mean_ms": 0.107,
+ "present_mean_ms": 0.908,
+ "upload_ms_per_frame": 0.153,
+ "bench": {
+  "mode": "blast4",
+  "frames": "1650",
+  "cols": "219",
+  "rows": "56",
+  "payload_bytes": "750080",
+  "produce_p50_ms": "0.202",
+  "produce_p95_ms": "0.400"
+ },
+ "cells": 12264,
+ "cells_per_s": 1835921,
+ "series": "glass-blast4-immediate-r2.log.series.json"
+}

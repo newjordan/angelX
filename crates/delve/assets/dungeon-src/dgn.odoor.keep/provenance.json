@@ -1,0 +1,7 @@
+{
+  "crop_basis": "Measured per grid cell after connected-component merging; front states inspected intact.",
+  "delivery": "/work/artifacts/art-prod/slots/dgn.odoor.keep/v01/source-sheet.png",
+  "notes_sha256": "56b42aca9d1106e254722ea75f4ebace6aabc3449701b6413cd017b2e18cece3",
+  "original_metadata_sha256": "650bcbec1ba8eab3250bd6c65b7ba8700d1fa65c606754ad3e7262fb8dd34aed",
+  "source_sha256": "409a196b3e4f11bfad1c32c1cada2abe59b1e0fab12537ff6730c0665b823a03"
+}

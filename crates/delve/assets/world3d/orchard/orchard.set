@@ -1,0 +1,185 @@
+set orchard
+# The orchard of minor disputes (RoomKind::Orchard): 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the scarecrow (14,7), apples in the grass, the lamp post (6,9).
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 64 size 32 4 128
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 48 -4 168 size 64 4 80
+box    path    at 96 -4 144 size 32 4 32
+box    grass   at 240 -4 168 size 256 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    grass   at 96 -4 184 size 32 4 48
+box    ground  at 192 -4 216 size 352 4 16
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10.5 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 10.5 6 8 size 21 17 16
+box    trunk   at 24 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 24 6 8 size 18 16 16
+box    trunk   at 41 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 41 7 8 size 20 18 16
+box    trunk   at 59 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 59 7 8 size 19 19 16
+box    trunk   at 74 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 74 6 8 size 19 19 16
+box    trunk   at 90 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 90 7 8 size 19 19 16
+box    trunk   at 106 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 106 9 8 size 20 18 16
+box    trunk   at 122 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 122 7 8 size 20 19 16
+box    trunk   at 138 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 138 6 8 size 19 16 16
+box    trunk   at 150 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 150 7 8 size 20 18 16
+box    trunk   at 166 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 166 9 8 size 20 18 16
+sphere foliage at 8 0 -9 size 23 30 18
+sphere foliage at 26 0 -9 size 29 37 18
+sphere foliage at 42 0 -9 size 27 33 18
+sphere foliage at 55 0 -9 size 24 34 18
+sphere foliage at 71 0 -9 size 29 37 18
+sphere foliage at 84 0 -9 size 28 36 18
+sphere foliage at 101 0 -9 size 27 35 18
+sphere foliage at 122 0 -9 size 23 36 18
+sphere foliage at 134 0 -9 size 22 35 18
+sphere foliage at 156 0 -9 size 27 34 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 218 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 218 8 8 size 20 17 16
+box    trunk   at 235 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 235 7 8 size 20 19 16
+box    trunk   at 250 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 250 6 8 size 19 17 16
+box    trunk   at 264 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 264 6 8 size 19 17 16
+box    trunk   at 279 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 279 7 8 size 21 17 16
+box    trunk   at 294 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 294 8 8 size 21 17 16
+box    trunk   at 314 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 314 6 8 size 21 18 16
+box    trunk   at 329 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 329 9 8 size 21 19 16
+box    trunk   at 347 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 347 9 8 size 19 17 16
+box    trunk   at 359 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 359 9 8 size 20 16 16
+box    trunk   at 373 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 373 6 8 size 18 16 16
+sphere foliage at 230 0 -9 size 25 36 18
+sphere foliage at 251 0 -9 size 28 31 18
+sphere foliage at 267 0 -9 size 22 34 18
+sphere foliage at 276 0 -9 size 24 31 18
+sphere foliage at 298 0 -9 size 23 33 18
+sphere foliage at 311 0 -9 size 23 36 18
+sphere foliage at 332 0 -9 size 22 32 18
+sphere foliage at 348 0 -9 size 24 31 18
+sphere foliage at 362 0 -9 size 25 37 18
+sphere foliage at 375 0 -9 size 28 36 18
+
+# the south wall, columns 0 to 23
+box    foliage at 192 -4 212 size 384 8 8  # TODO prims: wedge
+box    foliage at 192 -4 220 size 384 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 26 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 26 size 16 18 19
+box    trunk   at 8 0 37 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 8 8 37 size 16 19 21
+box    trunk   at 8 0 58 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 58 size 16 17 19
+box    trunk   at 8 0 71 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 71 size 16 19 18
+box    trunk   at 8 0 87 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 87 size 16 16 18
+
+# the west wall, rows 8 to 12 (at 49% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 137.5 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 8 3.5 137.5 size 16 9 19
+box    trunk   at 8 0 150 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 150 size 16 17 20
+box    trunk   at 8 0 165 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 165 size 16 16 20
+box    trunk   at 8 0 186 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 186 size 16 18 19
+box    trunk   at 8 0 197 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 197 size 16 19 20
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 27 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 27 size 16 17 18
+box    trunk   at 376 0 38 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 38 size 16 18 18
+box    trunk   at 376 0 55 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 55 size 16 18 19
+box    trunk   at 376 0 72 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 72 size 16 17 19
+box    trunk   at 376 0 87 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 87 size 16 17 18
+
+# the east wall, rows 8 to 12 (at 58% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 139 size 4 5 4  # TODO prims: cylinder
+sphere foliage at 376 3.5 139 size 16 9.5 21
+box    trunk   at 376 0 150 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 150 size 16 15 19
+box    trunk   at 376 0 168 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 376 6 168 size 16 16 21
+box    trunk   at 376 0 181 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 181 size 16 16 19
+box    trunk   at 376 0 199 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 199 size 16 17 18
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the west door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 9 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# tree at 4,2 3x3 (at 64% of its height, for the camera)
+box    trunk   at 88 0 75 size 6 8 4  # TODO prims: cylinder
+sphere foliage at 88 5.5 62.6 size 38.4 19 28.8 id tree-1
+
+# tree at 17,2 3x3 (at 64% of its height, for the camera)
+box    trunk   at 296 0 75 size 6 8 4  # TODO prims: cylinder
+sphere foliage at 296 5.5 62.6 size 38.4 19 28.8 id tree-2
+
+# tree at 4,10 3x2 (at 52% of its height, for the camera)
+box    trunk   at 88 0 187 size 6 6.5 4  # TODO prims: cylinder
+sphere foliage at 88 4.5 179.4 size 38.4 15.5 19.2 id tree-3
+
+# tree at 17,10 3x2 (at 52% of its height, for the camera)
+box    trunk   at 296 0 187 size 6 6.5 4  # TODO prims: cylinder
+sphere foliage at 296 4.5 179.4 size 38.4 15.5 19.2 id tree-4
+
+# plate at 19,8 2x1
+box    wood    at 320 0 136 size 30 1.5 14 id plate-1  # TODO prims: stairs
+
+# plate at 8,11 2x1
+box    wood    at 144 0 184 size 30 1.5 14 id plate-2  # TODO prims: stairs

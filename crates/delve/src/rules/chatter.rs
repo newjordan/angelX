@@ -75,7 +75,8 @@ fn mood(cue: &str) -> Option<(&'static str, bool)> {
         "pastime_won" | "goblin_caught" | "dare_kept" | "flawless" | "slay4" => ("hehe", false),
         "card_relic" | "card_rare" | "secret_found" | "key_drop" | "wish_granted"
         | "achievement" | "trophy_new" | "box_opened" | "level_up" => ("ooh", false),
-        "low_hp" | "wave_last" | "collapse_warn" | "trap_spikes" | "trap_rocks" | "trap_fire" => {
+        "low_hp" | "wave_last" | "collapse_warn" | "trap_spikes" | "trap_rocks" | "trap_fire"
+        | "trap_axes" | "trap_hammers" | "trap_boulder" | "trap_saw" | "gorge_fall" => {
             ("uhoh", false)
         }
         "home" | "built" | "rescued" | "hired" | "brannoc_arrives" | "npc" => ("hello", false),

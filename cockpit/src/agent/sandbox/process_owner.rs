@@ -56,6 +56,17 @@ impl KillReceipt {
 
 static SIGNAL: AtomicI32 = AtomicI32::new(0);
 static ACTIVE_GRAPH_RUNS: AtomicUsize = AtomicUsize::new(0);
+/// Where a signal's exit happens. By default the reaper thread exits; the GPU
+/// window (`ui::glass`) must end the process from its own thread, after it has
+/// let go of the driver, so it routes the exit there.
+#[cfg(target_os = "linux")]
+static EXIT_ROUTE: std::sync::OnceLock<fn(i32)> = std::sync::OnceLock::new();
+
+/// Send a signal's exit through `route`, which ends the process with the code.
+#[cfg(target_os = "linux")]
+pub(crate) fn route_exit(route: fn(i32)) {
+    let _ = EXIT_ROUTE.set(route);
+}
 
 /// Keep the exit reaper from discarding an active graph's cancellation receipt.
 /// The graph observes the signal and uses its existing cooperative wind-down;
@@ -363,6 +374,17 @@ pub(crate) fn initialize() -> std::io::Result<()> {
                 loop {
                     let signal = SIGNAL.load(Ordering::Acquire);
                     if signal != 0 && ACTIVE_GRAPH_RUNS.load(Ordering::Acquire) == 0 {
+                        if let Some(route) = EXIT_ROUTE.get() {
+                            route(128 + signal);
+                            // The route exits from its own thread. If that
+                            // thread is stuck, end anyway, but without exit
+                            // handlers: they tear the GPU driver down under
+                            // it. Owned jobs are still reaped first.
+                            std::thread::sleep(Duration::from_secs(2));
+                            cleanup();
+                            // SAFETY: ends the process; nothing runs after.
+                            unsafe { libc::_exit(128 + signal) };
+                        }
                         std::process::exit(128 + signal);
                     }
                     if Instant::now() >= next_reap {

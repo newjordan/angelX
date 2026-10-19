@@ -5,35 +5,36 @@ where mines
 hp 580
 size 1.4
 move chase speed=1.3
-attack aimed shots=3 speed=7 every=65 damage=12 shot=bone
-phases lead gap_wall every=98 volleys=2 damage=12
+attack aimed shots=3 speed=7 every=70 damage=12 shot=bone
+phases darts gap_wall every=105 volleys=2 damage=12
+windup charge every=190 damage=16 speed=32 cry=TUSK!
 rage 30%
 drops ore 4, gold 120
 art
-....h..JJJJJJJJJJ..hJH.
-....h..GGGGJGGGG...hJh.
-.....hGGGGGJGGGGG.h..I.
-......GGGGGJGGGGG...bbb
-......jjjjjJjjjjjj...I.
-.......MNNNNNNNN.....I.
-.......MM7AALN7N.....I.
-.......LAALLLNNN.....I.
-........AHAAAAHA.....I.
-.......yAhAAAAhA.....I.
-..M...yyLLLLLLLLy...MI.
-.yyA..yNNNNNNNNNN..AyI.
-yyyAOoOoOoOoOoOoOoOoyIy
-yyMAorrorrorrorrorroMIy
-yyMAA.pBBMAAAMBBBpAAAAy
-MJJJJ.pBBAAAAABBBpNAAAM
-AALNNBpBBBLLLBBBBpNNLIA
-LLLNNpBBBBLNLBBBBBpNLIL
-NNNNNpBBBBNNNBBBBBpNNIN
-.yyAbbbbbbJJJbbbbbbAyI.
-MMALbbbbbbJJJbbbbbbLAIM
-.LNN.pbbpppppppbb.pNNI.
-......bbpppppppbb....I.
-......bbbb...bbbb....I.
-.....nnnnn...nnnnn...I.
-.....nnnnn...nnnnn...I.
-.....................I.
+....s..HhTTTTThHH..TTT.
+....s..HhTTTTThH...hhh.
+.....TThHTTTTTHhT.T..h.
+......TTHHTTTHHTh...hhh
+......hhhhhhhhhhhh...O.
+.......S@sSS@sSS.....O.
+.......SSSSSSSSS.....O.
+.......HSUUUUUUH.....O.
+........SUUUUUUH.....O.
+.......HhUUUUUhH.....O.
+..S...SSSSSSUSSSS...sO.
+.SSS..SSSUSSSSSSS..ssO.
+UUUSSSSUUUSSSSUUUSSUUOS
+UUUSSSSUUUUSSSUUUSSUUOS
+UUUUS.SUUUSSsSUUUUUUUOS
+UUUUS.SSSSSSsSSUSSUUUOU
+SUUUSSSSSSSSsSSSSSSUUOU
+SSSSSsSSSSSSsSSSSSSSUOS
+SSSSSsSSSSSSSSSSSSSSSOS
+.ssSsOOOOOtttOOOOOSSSO.
+sssssOOOOOtOtOOOOOsSsOO
+.sss.ooOOOOOooooo.sssO.
+......oOOOOOooooo....O.
+......OOOO...oooo....O.
+.....ooooo...ooooo...O.
+.....ooooo...ooooo...O.
+.....................O.

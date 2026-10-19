@@ -76,26 +76,56 @@ impl Tool for LedgerReader {
     }
 }
 
+/// Hops in a row whose every read missed — an address the ledger does not
+/// have, a path off the ledger — before the seat is asked to answer.
+pub(crate) const MISSED_HOPS: usize = 2;
+
+/// Said to a seat whose reader was just taken away. Offered no tools with
+/// failed reads still in its history, a seat writes another call out as text
+/// (36 of 40 treebeard and 32 of 33 Hy-Memory replays); told this, none did.
+pub(crate) const READER_CLOSED: &str = "The ledger reader is closed for this request. Write your answer \
+now, in the format asked for above, from what is already in this conversation. Do not call or write \
+out any tool call.";
+
 /// The connected hop loop over any transport: `hop` makes one call with the
 /// ledger reader offered, every hop, with no cap on how much the seat reads.
-/// Ledger reads are resolved here; the seat's answer comes back, and so does
-/// a call for any tool but the reader, for the caller to refuse its own way.
+/// A seat whose reads miss [`MISSED_HOPS`] hops in a row is guessing, not
+/// reading: it is told [`READER_CLOSED`], its next call offers no tools, and
+/// it answers from what it has.
+/// A read that lands resets the count. Ledger reads are resolved here; the
+/// seat's answer comes back, and so does a call for any tool but the reader,
+/// for the caller to refuse its own way.
 pub(crate) fn converse(
     workspace: &Path,
     messages: &[ChatMsg],
     mut hop: impl FnMut(&[ChatMsg], &[ToolDef]) -> Result<ClubReply, String>,
 ) -> Result<ClubReply, String> {
     let mut history = messages.to_vec();
-    let tools = vec![reader_def()];
+    let reader = vec![reader_def()];
+    let mut missed = 0;
     loop {
-        match hop(&history, &tools)? {
+        let tools: &[ToolDef] = if missed < MISSED_HOPS { &reader } else { &[] };
+        match hop(&history, tools)? {
             ClubReply::Calls(calls)
-                if !calls.is_empty() && calls.iter().all(|call| call.name == "read_file") =>
+                if missed < MISSED_HOPS
+                    && !calls.is_empty()
+                    && calls.iter().all(|call| call.name == "read_file") =>
             {
                 history.push(ChatMsg::assistant_calls_with_reasoning(calls.clone(), None));
+                let mut landed = false;
                 for call in &calls {
-                    let result = read(workspace, &call.args).unwrap_or_else(|error| error);
+                    let result = match read(workspace, &call.args) {
+                        Ok(page) => {
+                            landed = true;
+                            page
+                        }
+                        Err(error) => error,
+                    };
                     history.push(ChatMsg::tool(call.id.clone(), result));
+                }
+                missed = if landed { 0 } else { missed + 1 };
+                if missed == MISSED_HOPS {
+                    history.push(ChatMsg::user(READER_CLOSED));
                 }
             }
             other => return Ok(other),

@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    114,
+    26
+  ],
+  "anchor_xy": [
+    57,
+    13
+  ],
+  "comments": [
+    "Rejected: raised-pair cells omit the resting paddle. Single cutouts have a broad hinge and slope that do not preserve 5px rail contact. Hook expects a registered 114x26 pair with unchanged pivots; rerun required.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "Ball::rail and swept wedge own contact; preserve the 3 px collision rail radius and the exact pivot/tip coordinates.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "e947dd6a4302ee4f9ef79c35d7df04b6e5149c499764959dc9894718ac53e75e",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Resting left/right pair.",
+      "name": "proposal-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.5,
+        63.5
+      ],
+      "source_rect_xywh": [
+        50,
+        240,
+        245,
+        127
+      ],
+      "state": "resting-left-right-pair"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Isolated left raised paddle; resting right is absent.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        66.5,
+        56.5
+      ],
+      "source_rect_xywh": [
+        420,
+        226,
+        133,
+        113
+      ],
+      "state": "left-raised-right-resting"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Isolated right resting paddle; raised left is absent.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        60.5,
+        66.5
+      ],
+      "source_rect_xywh": [
+        687,
+        231,
+        121,
+        133
+      ],
+      "state": "right-raised-left-resting"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Both raised.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        147.5,
+        53.0
+      ],
+      "source_rect_xywh": [
+        919,
+        236,
+        295,
+        106
+      ],
+      "state": "both-raised"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Isolated left resting paddle cutout.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        71.5,
+        74.0
+      ],
+      "source_rect_xywh": [
+        93,
+        578,
+        143,
+        148
+      ],
+      "state": "isolated-left-resting-paddle-cutout"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Isolated right resting paddle cutout.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        72.5,
+        75.5
+      ],
+      "source_rect_xywh": [
+        405,
+        575,
+        145,
+        151
+      ],
+      "state": "isolated-right-resting-paddle-cutout"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Isolated left raised paddle cutout.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        79.5,
+        62.0
+      ],
+      "source_rect_xywh": [
+        699,
+        577,
+        159,
+        124
+      ],
+      "state": "isolated-left-raised-paddle-cutout"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Isolated right raised paddle cutout.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        79.5,
+        62.5
+      ],
+      "source_rect_xywh": [
+        1018,
+        577,
+        159,
+        125
+      ],
+      "state": "isolated-right-raised-paddle-cutout"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Worn resting pair.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.5,
+        62.0
+      ],
+      "source_rect_xywh": [
+        52,
+        967,
+        241,
+        124
+      ],
+      "state": "worn-resting-pair"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Worn isolated left raised paddle; resting right absent.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        68.0,
+        56.0
+      ],
+      "source_rect_xywh": [
+        424,
+        957,
+        136,
+        112
+      ],
+      "state": "worn-left-raised-pair"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Worn isolated right resting paddle; raised left absent.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        61.5,
+        64.5
+      ],
+      "source_rect_xywh": [
+        687,
+        959,
+        123,
+        129
+      ],
+      "state": "worn-right-raised-pair"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Worn both-raised pair.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        148.5,
+        54.5
+      ],
+      "source_rect_xywh": [
+        919,
+        957,
+        297,
+        109
+      ],
+      "state": "worn-both-raised-pair"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-staged",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "Rule pivots (37,119)/(123,119); tips (70,130)/(90,130) resting, y=111 raised; renderer maps x\u00d75/4 and draws 5-px thickness. Pivot local coordinates depend on future crop, unknown.",
+  "sizes": {
+    "v1": [
+      114,
+      26
+    ],
+    "v2": [
+      114,
+      26
+    ]
+  },
+  "slot": "mossbell.flippers",
+  "source_sha256": "5deeb6d2abcd485546667666712f81c13a0a805756f95e9375cc31d1aa13cf36",
+  "timing": "Two endpoints per paddle; held active up to 5 ticks per stroke; swept contacts also handled in Ball::step. Draw has no in-between source frames."
+}

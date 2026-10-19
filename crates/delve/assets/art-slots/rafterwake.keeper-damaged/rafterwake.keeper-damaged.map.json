@@ -1,0 +1,464 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    80
+  ],
+  "anchor_xy": [
+    32,
+    80
+  ],
+  "comments": [
+    "All twelve source cells retained; rejected crops never enter runtime.",
+    "Common padded source canvas fixes bank scale; feet and body centre reviewed. Existing base art remains fallback."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 12,
+  "geometry": "Sweep Danger=(16,TOP\u221219,216,19); drop=(clamp(player x\u221224,8,192),TOP\u2212100,48,100). Danger::contains uses x left-inclusive/right-exclusive and y top-exclusive/bottom-inclusive. Bump requires rising knight y in [TOP\u221260,TOP\u221222], |x\u2212keeper x|<40 and not Tell.",
+  "mapping_basis": "Source figures and feet inspected individually; padded registration canvases retain one scale across the bank.",
+  "notes_sha256": "6c00ab082d175b184d21e72b3ac03bdc08ebf7fda4cb0ff7b3a99a7b07ea6e5f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup A",
+      "name": "stage-1-recover-a",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1,
+        1,
+        372,
+        465
+      ],
+      "state": "stage-1-recover-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate attack A",
+      "name": "stage-1-tell-a",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        373,
+        1,
+        372,
+        465
+      ],
+      "state": "stage-1-tell-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate recovery A",
+      "name": "stage-1-attack-a",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        745,
+        1,
+        372,
+        465
+      ],
+      "state": "stage-1-attack-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup B",
+      "name": "stage-1-tell-b",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1117,
+        1,
+        372,
+        465
+      ],
+      "state": "stage-1-tell-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate attack B",
+      "name": "stage-1-attack-b",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1,
+        466,
+        372,
+        465
+      ],
+      "state": "stage-1-attack-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate recovery B",
+      "name": "stage-1-recover-b",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        373,
+        466,
+        372,
+        465
+      ],
+      "state": "stage-1-recover-b"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe idle",
+      "name": "stage-2-idle",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        745,
+        466,
+        372,
+        465
+      ],
+      "state": "stage-2-idle"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "severe windup A",
+      "name": "stage-2-guard",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1117,
+        466,
+        372,
+        465
+      ],
+      "state": "stage-2-guard"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe attack A",
+      "name": "stage-2-tell-a",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1,
+        931,
+        372,
+        465
+      ],
+      "state": "stage-2-tell-a"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "strong flinch",
+      "name": "strong-flinch",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        373,
+        931,
+        372,
+        465
+      ],
+      "state": "strong-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "collapse first",
+      "name": "defeat-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        745,
+        931,
+        372,
+        465
+      ],
+      "state": "defeat-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "collapse final",
+      "name": "defeat-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        186,
+        465
+      ],
+      "source_rect_xywh": [
+        1117,
+        931,
+        372,
+        465
+      ],
+      "state": "defeat-2"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "64x80",
+  "sizes": {
+    "v1": [
+      64,
+      80
+    ],
+    "v2": [
+      64,
+      80
+    ]
+  },
+  "slot": "rafterwake.keeper-damaged",
+  "source_preparation": {
+    "original_crops": [
+      {
+        "label": "moderate windup A",
+        "name": "stage-1-recover-a",
+        "pivot": [
+          139,
+          286
+        ],
+        "rect": [
+          22,
+          146,
+          290,
+          286
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack A",
+        "name": "stage-1-tell-a",
+        "pivot": [
+          121,
+          352
+        ],
+        "rect": [
+          335,
+          81,
+          292,
+          352
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate recovery A",
+        "name": "stage-1-attack-a",
+        "pivot": [
+          120,
+          261
+        ],
+        "rect": [
+          635,
+          171,
+          297,
+          261
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate windup B",
+        "name": "stage-1-tell-b",
+        "pivot": [
+          125,
+          268
+        ],
+        "rect": [
+          955,
+          164,
+          276,
+          268
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack B",
+        "name": "stage-1-attack-b",
+        "pivot": [
+          146,
+          289
+        ],
+        "rect": [
+          18,
+          514,
+          305,
+          289
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate recovery B",
+        "name": "stage-1-recover-b",
+        "pivot": [
+          130,
+          279
+        ],
+        "rect": [
+          346,
+          524,
+          251,
+          279
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe idle",
+        "name": "stage-2-idle",
+        "pivot": [
+          124,
+          267
+        ],
+        "rect": [
+          654,
+          537,
+          250,
+          267
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe windup A",
+        "name": "stage-2-guard",
+        "pivot": [
+          143,
+          276
+        ],
+        "rect": [
+          963,
+          528,
+          268,
+          276
+        ],
+        "runtime": false
+      },
+      {
+        "label": "severe attack A",
+        "name": "stage-2-tell-a",
+        "pivot": [
+          132,
+          343
+        ],
+        "rect": [
+          24,
+          853,
+          303,
+          343
+        ],
+        "runtime": true
+      },
+      {
+        "label": "strong flinch",
+        "name": "strong-flinch",
+        "pivot": [
+          126,
+          296
+        ],
+        "rect": [
+          328,
+          900,
+          292,
+          296
+        ],
+        "runtime": true
+      },
+      {
+        "label": "collapse first",
+        "name": "defeat-1",
+        "pivot": [
+          180,
+          229
+        ],
+        "rect": [
+          644,
+          969,
+          271,
+          229
+        ],
+        "runtime": true
+      },
+      {
+        "label": "collapse final",
+        "name": "defeat-2",
+        "pivot": [
+          180,
+          152
+        ],
+        "rect": [
+          935,
+          1053,
+          301,
+          152
+        ],
+        "runtime": true
+      }
+    ],
+    "original_metadata_sha256": "dba17901ebdbc23abe8ab4c2abaace8b4688c3eca2e94d44d34ad88d680d1d7c",
+    "original_path": "/work/artifacts/art-prod/slots/rafterwake.keeper-damaged/v01/source-sheet.png",
+    "original_sha256": "e1fc7af3786832b1a9596e136ac7f7c42e113ba9b134fbedffe31a9ab105c44f",
+    "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
+    "source_anchor": [
+      186,
+      465
+    ],
+    "source_canvas": [
+      372,
+      465
+    ],
+    "verification_status": "OK pieces=11"
+  },
+  "source_sha256": "5fc7af1722ed11f959837bf35516e91b061cbb005a07151d56087c08a6849de0",
+  "timing": "Twelve base poses plus four-stage tells per attack; 2 walk frames\u00d77 ticks. Starts Walk=45; tell=33/29/25, action=10, rest=48/40/32 then Walk=30. Recovery pose when rest ticks<12. Flinch=12, player bump cooldown=24; hp stage 6\u20135/4\u20133/2\u20131 (Keeper::step/stage, Lane::step_at, draw())."
+}

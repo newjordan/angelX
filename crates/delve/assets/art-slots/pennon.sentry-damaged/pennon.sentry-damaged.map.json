@@ -1,0 +1,477 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    46
+  ],
+  "comments": [
+    "All twelve source cells retained; rejected crops never enter runtime.",
+    "Common padded source canvas fixes bank scale; feet and body centre reviewed. Existing base art remains fallback.",
+    "Source acts to the right. The whole damaged bank is mirrored toward the knight at left, matching the existing sentry camera; native anchors remain centred."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 12,
+  "geometry": "Shot hurtbox 32\u00d738 at (x\u221216,FLOOR\u221238). On action start emits one Shot::aimed from x\u221216 and FLOOR\u221226 (high) or FLOOR\u221216 (low) toward locked aim=(player x,player y\u221229). Sentry Area is not a damaging rectangle; the aimed bolt is the danger.",
+  "mapping_basis": "Source figures and feet inspected individually; padded registration canvases retain one scale across the bank.",
+  "notes_sha256": "96fdfb556b14c7c26e8a2c51ac0be4c2bdb462010b8a1d8cbeacfab45b5e6007",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup A",
+      "name": "idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1,
+        1,
+        384,
+        384
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "moderate attack A",
+      "name": "idle-shift",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        385,
+        1,
+        384,
+        384
+      ],
+      "state": "idle-shift"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate recovery A",
+      "name": "walk-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        769,
+        1,
+        384,
+        384
+      ],
+      "state": "walk-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate windup B",
+      "name": "walk-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1153,
+        1,
+        384,
+        384
+      ],
+      "state": "walk-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate attack B",
+      "name": "limp-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1,
+        385,
+        384,
+        384
+      ],
+      "state": "limp-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "moderate recovery B",
+      "name": "limp-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        385,
+        385,
+        384,
+        384
+      ],
+      "state": "limp-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe idle",
+      "name": "tell",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        769,
+        385,
+        384,
+        384
+      ],
+      "state": "tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe windup A",
+      "name": "attack",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1153,
+        385,
+        384,
+        384
+      ],
+      "state": "attack"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "severe attack A",
+      "name": "recover",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1,
+        769,
+        384,
+        384
+      ],
+      "state": "recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "strong flinch",
+      "name": "flinch",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        385,
+        769,
+        384,
+        384
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": false,
+      "frame": 0,
+      "label": "collapse first",
+      "name": "stagger",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        769,
+        769,
+        384,
+        384
+      ],
+      "state": "stagger"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "collapse final",
+      "name": "last-stand",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        192,
+        368
+      ],
+      "source_rect_xywh": [
+        1153,
+        769,
+        384,
+        384
+      ],
+      "state": "last-stand"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48x48",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "pennon.sentry-damaged",
+  "source_preparation": {
+    "original_crops": [
+      {
+        "label": "moderate windup A",
+        "mirror": true,
+        "name": "idle",
+        "pivot": [
+          112.0,
+          333
+        ],
+        "rect": [
+          46,
+          89,
+          224,
+          333
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack A",
+        "mirror": true,
+        "name": "idle-shift",
+        "pivot": [
+          114.0,
+          332
+        ],
+        "rect": [
+          361,
+          91,
+          228,
+          332
+        ],
+        "runtime": false
+      },
+      {
+        "label": "moderate recovery A",
+        "mirror": true,
+        "name": "walk-1",
+        "pivot": [
+          116.5,
+          338
+        ],
+        "rect": [
+          669,
+          92,
+          233,
+          338
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate windup B",
+        "mirror": true,
+        "name": "walk-2",
+        "pivot": [
+          109.5,
+          325
+        ],
+        "rect": [
+          1002,
+          101,
+          219,
+          325
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate attack B",
+        "mirror": true,
+        "name": "limp-1",
+        "pivot": [
+          117.5,
+          303
+        ],
+        "rect": [
+          51,
+          504,
+          235,
+          303
+        ],
+        "runtime": true
+      },
+      {
+        "label": "moderate recovery B",
+        "mirror": true,
+        "name": "limp-2",
+        "pivot": [
+          105.0,
+          319
+        ],
+        "rect": [
+          379,
+          491,
+          210,
+          319
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe idle",
+        "mirror": true,
+        "name": "tell",
+        "pivot": [
+          120.5,
+          299
+        ],
+        "rect": [
+          668,
+          511,
+          241,
+          299
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe windup A",
+        "mirror": true,
+        "name": "attack",
+        "pivot": [
+          131.0,
+          294
+        ],
+        "rect": [
+          979,
+          515,
+          262,
+          294
+        ],
+        "runtime": true
+      },
+      {
+        "label": "severe attack A",
+        "mirror": true,
+        "name": "recover",
+        "pivot": [
+          112.5,
+          316
+        ],
+        "rect": [
+          58,
+          881,
+          225,
+          316
+        ],
+        "runtime": true
+      },
+      {
+        "label": "strong flinch",
+        "mirror": true,
+        "name": "flinch",
+        "pivot": [
+          94.5,
+          318
+        ],
+        "rect": [
+          391,
+          875,
+          189,
+          318
+        ],
+        "runtime": true
+      },
+      {
+        "label": "collapse first",
+        "mirror": true,
+        "name": "stagger",
+        "pivot": [
+          151.5,
+          290
+        ],
+        "rect": [
+          659,
+          907,
+          303,
+          290
+        ],
+        "runtime": false
+      },
+      {
+        "label": "collapse final",
+        "mirror": true,
+        "name": "last-stand",
+        "pivot": [
+          117.0,
+          292
+        ],
+        "rect": [
+          986,
+          905,
+          234,
+          292
+        ],
+        "runtime": true
+      }
+    ],
+    "original_metadata_sha256": "2360093e505f6e6ef0e96f06a951feac20860dc4a03ad6ae929f963b2401db9f",
+    "original_path": "/work/artifacts/art-prod/slots/pennon.sentry-damaged/v01/source-sheet.png",
+    "original_sha256": "5387992d1f31736d95571eb759d1f6cb8af8054f0b8a3a36cbf4ffa0f841c778",
+    "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
+    "source_anchor": [
+      192,
+      368
+    ],
+    "source_canvas": [
+      384,
+      384
+    ],
+    "verification_status": "OK"
+  },
+  "source_sha256": "8413f29da0f609f23939236717388e66a9d65de3052034baed62c81f6ba946a1",
+  "timing": "Twelve bodies, walk 2\u00d77; first wait=6, then 45. Tell=33/29/25 at hp 3/2/1, action=10, rest=60/50/40; final <12 rest ticks select recover. Flinch=4. Only captain has four body tell stages; sentry aim line strengthens through four stages (Foe::step, foe_pose())."
+}

@@ -1,0 +1,19 @@
+{
+  "delivery": "lightgallop.crate/v01",
+  "delivery_sheet_path": "/work/artifacts/art-prod-rt/slots/lightgallop.crate/v01/source-sheet.png",
+  "delivery_sheet_sha256": "381e33060d74afbd867ad13fa05379d37b32f2c3c59af5e51688522bd23a07cd",
+  "generation_sha256": "860fd3b2865b2702da4250593656e600047225d36ed37e5204052f7bc645b875",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "measured_pieces": "The delivery has no source-sheet.json. crates/delve/assets/lightgallop/art-import.py measured the pieces from the sheet's alpha and wrote source-sheet.json beside a byte-identical copy of the sheet in the prepared folder; source_path, source_sha256 and metadata_sha256 in slot.json are that copy.",
+  "metadata_sha256": "a1af987051884ca019b80f437c1d71dfa1651544afbf624fcaf60191a6483cbd",
+  "native_contract": "Native 24x24.",
+  "notes_sha256": "e33d13891a4e2e0cdea18401f5144a10f73e2d27c69b83e619c94039922e6516",
+  "producer_note": "PRODUCER-NOTE.md in the delivery (accepted; its cautions are repeated in the map comments)",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "d2c29b2a6efda4844410a190df97941715174627558a10c0842a08bff0d27943",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the first generation; any source-sheet-2.png in the delivery is kept outside the repo and not used)",
+  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.crate/source-sheet.png",
+  "source_sha256": "381e33060d74afbd867ad13fa05379d37b32f2c3c59af5e51688522bd23a07cd"
+}

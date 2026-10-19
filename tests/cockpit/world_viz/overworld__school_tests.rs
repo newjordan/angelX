@@ -14,7 +14,8 @@ fn school_has_a_reachable_front_door_without_relocating_existing_landmarks() {
     assert!(map::walkable(map::Realm::get().at(target.0, target.1)));
     let route = super::live::route(Place::Keep.stand_world(), target);
     assert_eq!(route.last(), Some(&target));
-    assert_eq!(Place::School.screen(), (0, 6));
+    // The School's set piece stands in the market gardens' chunk, (2, 5).
+    assert_eq!(Place::School.screen(), (3, 7));
     assert_eq!(Place::Scriptorium.stand(), (30, 19));
     assert_eq!(Place::Observatory.stand(), (9, 4));
 }

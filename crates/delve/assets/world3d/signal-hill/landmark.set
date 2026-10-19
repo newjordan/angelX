@@ -1,0 +1,14 @@
+# The Hill of Extremely Loud Flags: the signal beacon on a rocky crest, its
+# brazier lit, and a row of tall flag poles with big flags along the back.
+rock-5   rock    at 96 0 -10 size 72 22 44 id signal-crest
+frustum  stone   at 96 16 -6 size 32 44 30 id signal-tower
+cylinder metal   at 96 60 -6 size 24 4 24 id signal-brazier
+cone-6    fire    at 96 64 -6 size 14 16 14 id signal-fire
+cylinder wood    at 236 0 8 size 4 54 4 id signal-pole-1
+box      cloth   at 248 40 8 size 22 13 1.5 id signal-flag-1
+cylinder wood    at 272 0 8 size 4 68 4 id signal-pole-2
+box      cloth   at 284 54 8 size 22 13 1.5 id signal-flag-2
+cylinder wood    at 308 0 8 size 4 58 4 id signal-pole-3
+box      cloth   at 320 44 8 size 22 13 1.5 id signal-flag-3
+cylinder wood    at 344 0 8 size 4 72 4 id signal-pole-4
+box      cloth   at 356 58 8 size 22 13 1.5 id signal-flag-4

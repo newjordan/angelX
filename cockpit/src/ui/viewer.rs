@@ -20,6 +20,93 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
+/// A picture ready to draw: the terminal's protocol for it, or its pixels
+/// held by angelX's own window (glass), shown in `cols` x `rows` cells.
+pub(crate) enum Pic {
+    Term(Protocol),
+    Glass { id: u32, cols: u16, rows: u16 },
+}
+
+impl Pic {
+    /// The cells it takes.
+    fn size(&self) -> ratatui::layout::Size {
+        match self {
+            Pic::Term(protocol) => protocol.size(),
+            Pic::Glass { cols, rows, .. } => ratatui::layout::Size::new(*cols, *rows),
+        }
+    }
+}
+
+/// Draws a [`Pic`] into its cells: the terminal's protocol, or the cells
+/// naming the window's picture.
+struct PicView<'a>(&'a Pic);
+
+impl ratatui::widgets::Widget for PicView<'_> {
+    fn render(self, area: Rect, buffer: &mut ratatui::buffer::Buffer) {
+        match self.0 {
+            Pic::Term(protocol) => Image::new(protocol).render(area, buffer),
+            Pic::Glass { id, cols, rows } => crate::ui::dots::protocol::placeholders(
+                *id,
+                ratatui::layout::Size::new(*cols, *rows),
+                area,
+                buffer,
+            ),
+        }
+    }
+}
+
+/// The ceiling the dot pictures stay below (`dot_image_id`): pane
+/// pictures used to take this band in the window; they now upload
+/// through the mini-viz surface (`ui::present`), whose band sits
+/// past it, so the bound still separates the two.
+const GLASS_PICTURES: std::ops::Range<u32> = 0x00E0_0000..0x00F0_0000;
+
+/// `image` as a picture in at most `area`'s cells, resized as `resize`
+/// says. In angelX's own window the pixels go to it as they are, resized
+/// here once to the cells they cover, with no terminal format in between;
+/// in a terminal the picker makes its protocol.
+fn new_pic(picker: &Picker, image: image::DynamicImage, area: Rect, resize: Resize) -> Result<Pic, String> {
+    if !crate::ui::glass::active() {
+        return picker
+            .new_protocol(image, area.into(), resize)
+            .map(Pic::Term)
+            .map_err(|error| error.to_string());
+    }
+    let font = picker.font_size();
+    let (cw, ch) = (u32::from(font.width.max(1)), u32::from(font.height.max(1)));
+    let (iw, ih) = (image.width().max(1), image.height().max(1));
+    let (aw, ah) = (u32::from(area.width) * cw, u32::from(area.height) * ch);
+    if aw == 0 || ah == 0 {
+        return Err("no room for the picture".into());
+    }
+    let fit = (aw as f32 / iw as f32).min(ah as f32 / ih as f32);
+    let scaled = |k: f32, filter| {
+        let (w, h) = (((iw as f32 * k).round() as u32).max(1), ((ih as f32 * k).round() as u32).max(1));
+        image.resize_exact(w, h, filter).into_rgba8()
+    };
+    let nearest = image::imageops::FilterType::Nearest;
+    let rgba = match resize {
+        // As the terminal would: the picture's own size unless it is too big.
+        Resize::Fit(filter) if fit < 1.0 => scaled(fit, filter.unwrap_or(nearest)),
+        Resize::Fit(_) => image.into_rgba8(),
+        Resize::Scale(filter) => scaled(fit, filter.unwrap_or(nearest)),
+        Resize::Crop(_) => image.crop_imm(0, 0, iw.min(aw), ih.min(ah)).into_rgba8(),
+    };
+    let (w, h) = rgba.dimensions();
+    let cols = w.div_ceil(cw).min(u32::from(area.width)) as u16;
+    let rows = h.div_ceil(ch).min(u32::from(area.height)) as u16;
+    // The mini-viz surface owns pane picture ids and uploads: the
+    // same pixels at the same span are sent once, however often a
+    // still is decoded or the pane resizes back and forth.
+    let raw = rgba.into_raw();
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (w, h, &raw).hash(&mut hasher);
+    let id = crate::ui::present::upload(hasher.finish(), (w, h), (cols, rows), raw)
+        .ok_or("the window refused the picture")?;
+    Ok(Pic::Glass { id, cols, rows })
+}
+
 // Portrait and explicit `/show` previews stay bounded. Scryglass Still inspection
 // bypasses this thumbnail cache and retains only its active decoded source.
 // 120k pixels (~400×300) keeps decode/resize cheap while leaving a ≥2×
@@ -63,7 +150,7 @@ struct PreparedPreview {
     label: String,
     original: (u32, u32),
     preview_size: (u32, u32),
-    protocol: Protocol,
+    protocol: Pic,
 }
 
 struct PendingPreview {
@@ -108,6 +195,9 @@ fn still_pixel_picker(protocol: ProtocolType, reported: Option<(u16, u16)>) -> P
 }
 
 fn terminal_cell_pixels() -> Option<(u16, u16)> {
+    if let Some(cell) = crate::ui::glass::cell_pixels() {
+        return Some(cell);
+    }
     // Existing safe TIOCGWINSZ helper, not an escape query on shared stdin.
     let window = ratatui::crossterm::terminal::window_size().ok();
     window
@@ -191,7 +281,7 @@ fn cell_picker(protocol: ProtocolType, cell: (u16, u16)) -> Picker {
 
 struct PreparedArtifact {
     decoded: Arc<image::DynamicImage>,
-    protocol: Protocol,
+    protocol: Pic,
 }
 
 struct PendingArtifact {
@@ -209,7 +299,7 @@ struct VideoCacheKey {
 struct PendingVideo {
     key: VideoCacheKey,
     sequence: u64,
-    rx: mpsc::Receiver<Result<Protocol, String>>,
+    rx: mpsc::Receiver<Result<Pic, String>>,
 }
 
 #[derive(Clone)]
@@ -235,12 +325,12 @@ struct PortraitCacheKey {
 
 struct PortraitCacheEntry {
     key: PortraitCacheKey,
-    protocol: Protocol,
+    protocol: Pic,
 }
 
 struct PendingPortrait {
     key: PortraitCacheKey,
-    rx: mpsc::Receiver<Result<Protocol, String>>,
+    rx: mpsc::Receiver<Result<Pic, String>>,
     prefetch: bool,
 }
 
@@ -283,12 +373,12 @@ struct PortalCacheKey {
 
 struct PortalCacheEntry {
     key: PortalCacheKey,
-    protocol: Protocol,
+    protocol: Pic,
 }
 
 struct PendingPortal {
     key: PortalCacheKey,
-    rx: mpsc::Receiver<Result<Protocol, String>>,
+    rx: mpsc::Receiver<Result<Pic, String>>,
 }
 
 /// One compose+encode unit of work for the resident room-plate worker.
@@ -298,16 +388,16 @@ type MapEncodeJob = Box<dyn FnOnce() + Send>;
 /// shown image's protocol state.
 pub struct Viewer {
     picker: Picker,
-    artifact: Option<(ArtifactKey, Result<Protocol, String>)>,
+    artifact: Option<(ArtifactKey, Result<Pic, String>)>,
     artifact_pending: Option<PendingArtifact>,
     still_layout_epoch: u64,
     still_protocol: Option<ProtocolType>,
     artifact_identity: Option<(crate::ui::media::MediaSource, u64)>,
     artifact_decoded: Option<Arc<image::DynamicImage>>,
     pub(crate) inspector: crate::ui::still_inspector::Inspector,
-    video: Option<(VideoCacheKey, u64, Result<Protocol, String>)>,
+    video: Option<(VideoCacheKey, u64, Result<Pic, String>)>,
     video_pending: Option<PendingVideo>,
-    current: Option<Protocol>,
+    current: Option<Pic>,
     pending: Option<PendingPreview>,
     /// The `/show`n image; kept so the preview can re-encode when the panel's
     /// real cell geometry becomes known (first paint) or changes (resize).
@@ -328,17 +418,19 @@ pub struct Viewer {
     /// Portraits paint in greys until the session starts (see
     /// `set_portrait_mono`), so the intro keeps its black-paper look.
     portrait_mono: bool,
-    /// The WebGPU portal is deliberately narrower than ordinary image support:
-    /// it paints only through Kitty's in-memory pixel protocol. Other terminals
-    /// retain the terminal-native Agent/Realm visualization.
+    /// The terminal's image protocol (Kitty, sixel or halfblocks) that every
+    /// picture goes out through.
     portal_picker: Picker,
     world_font_size: (u16, u16),
+    /// Kitty only: the Round Table's painted table paints through Kitty's
+    /// in-memory pixel protocol. Other terminals retain the terminal-native
+    /// Agent/Realm visualization.
     portal_enabled: bool,
     portal_current: Option<PortalCacheEntry>,
     portal_pending: Option<PendingPortal>,
     portal_failure: Option<PortalCacheKey>,
-    /// The authored backed Realm map. Same machinery as the portal, its own
-    /// cache slot so a map repaint never evicts an activity frame.
+    /// The authored backed Realm map. Same machinery as the council table, its
+    /// own cache slot so a map repaint never evicts the table.
     map_enabled: bool,
     map_current: Option<PortalCacheEntry>,
     map_pending: Option<PendingPortal>,
@@ -388,7 +480,7 @@ impl Viewer {
     /// probes can leak escape responses into crossterm's input stream. Select a
     /// backend from an explicit override or trustworthy terminal environment
     /// markers, then retain safe half blocks as the fallback.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub fn new() -> Self {
         let picker = protocol_from_env()
             .map(Self::picker_for_protocol)
@@ -456,6 +548,25 @@ impl Viewer {
         Self::from_picker(picker)
     }
 
+    /// The GPU window (`ui::glass`) draws images as half blocks until it has
+    /// its own image layer; nothing here may write a terminal protocol.
+    #[cfg(feature = "glass")]
+    pub fn glass() -> Self {
+        // Every picture goes to the window as its own pixels (`new_pic`, the
+        // dots, the game and map frames); the picker only lends the window's
+        // real cell size. Its protocol says "full pixels" to the checks that
+        // ask, and never encodes anything here.
+        let Some((width, height)) = crate::ui::glass::cell_pixels() else {
+            eprintln!("GRAPHICS: protocol=halfblocks source=glass-window (no cell size)");
+            return Self::from_picker(halfblock_picker());
+        };
+        #[allow(deprecated)]
+        let mut picker = Picker::from_fontsize(ratatui_image::FontSize::new(width, height));
+        picker.set_protocol_type(ProtocolType::Kitty);
+        eprintln!("GRAPHICS: protocol=glass (raw pixels) cell={width}x{height}");
+        Self::from_picker(picker)
+    }
+
     fn from_picker(picker: Picker) -> Self {
         let mut viewer = Self::with_picker(picker);
         viewer.portrait_enabled = true;
@@ -505,7 +616,7 @@ impl Viewer {
         let world_font_size = (picker.font_size().width, picker.font_size().height);
         let portal_enabled = picker.protocol_type() == ProtocolType::Kitty;
         // The map is ordinary pixels, so it works on any real graphics
-        // protocol — unlike the portal, which is Kitty-only by design.
+        // protocol — unlike the council table, which is Kitty-only by design.
         // Halfblocks is excluded deliberately: it caps at one pixel per cell
         // half, so a 512px-wide island would land in ~45 pixels and read as
         // mush. Sixel is capable but the authored plates read as a dead still
@@ -611,7 +722,7 @@ impl Viewer {
         self.promote_pending_preview();
         self.refresh_preview_geometry(area);
         if let Some(proto) = self.current.as_ref() {
-            frame.render_widget(Image::new(proto), fixed_protocol_area(proto, area));
+            frame.render_widget(PicView(proto), fixed_protocol_area(proto, area));
         }
     }
 
@@ -777,7 +888,7 @@ impl Viewer {
         if let Some((ready, Ok(protocol))) = &self.artifact
             && ready.same_scene(&key)
         {
-            frame.render_widget(Image::new(protocol), scene);
+            frame.render_widget(PicView(protocol), scene);
             self.inspector.viewport = Some(scene);
             self.inspector.painted = Some(ready.view);
             self.inspector.loading = ready != &key;
@@ -818,8 +929,7 @@ impl Viewer {
                                 pixel[3] = 255;
                             }
                         }
-                        let protocol = picker
-                            .new_protocol(
+                        let protocol = new_pic(&picker, 
                                 image::DynamicImage::ImageRgba8(image),
                                 Rect::new(0, 0, worker_key.width, worker_key.height).into(),
                                 Resize::Fit(None),
@@ -870,6 +980,35 @@ impl Viewer {
             width: area.width.min(MAX_INLINE_PREVIEW_CELLS.width),
             height: area.height.min(MAX_INLINE_PREVIEW_CELLS.height),
         };
+        if crate::ui::glass::active() {
+            let (w, h) = (pixels.rgba.width(), pixels.rgba.height());
+            if w == 0 || h == 0 {
+                return Err("video frame has no pixels".into());
+            }
+            if u64::from(w) * u64::from(h) > u64::from(MAX_INLINE_PREVIEW_PIXELS) {
+                return Err("video preview exceeds the pixel budget".into());
+            }
+            let source = format!(
+                "{:?}:{}:{}",
+                pixels.identity.source, pixels.identity.request_id, pixels.identity.generation
+            );
+            let target = Rect::new(
+                area.x + (area.width - key.width) / 2,
+                area.y + (area.height - key.height) / 2,
+                key.width,
+                key.height,
+            );
+            if crate::ui::present::video(
+                &source,
+                pixels.sequence,
+                (w, h),
+                target,
+                frame.buffer_mut(),
+                || pixels.rgba.as_raw().clone(),
+            ) {
+                return Ok(true);
+            }
+        }
         if let Some(pending) = &self.video_pending {
             let result = match pending.rx.try_recv() {
                 Ok(result) => Some(result),
@@ -888,7 +1027,7 @@ impl Viewer {
             && ready == &key
         {
             let protocol = result.as_ref().map_err(Clone::clone)?;
-            frame.render_widget(Image::new(protocol), fixed_protocol_area(protocol, area));
+            frame.render_widget(PicView(protocol), fixed_protocol_area(protocol, area));
             painted = true;
             if *sequence == pixels.sequence {
                 return Ok(true);
@@ -920,8 +1059,7 @@ impl Viewer {
                 {
                     Err("video preview exceeds the pixel budget".into())
                 } else {
-                    picker
-                        .new_protocol(
+                    new_pic(&picker, 
                             image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
                             target.into(),
                             Resize::Scale(Some(image::imageops::FilterType::Triangle)),
@@ -963,8 +1101,7 @@ impl Viewer {
             .spawn(move || {
                 let result = cached_bounded_preview(&shown.path).and_then(|(preview, original)| {
                     let preview_size = (preview.width(), preview.height());
-                    let protocol = picker
-                        .new_protocol(
+                    let protocol = new_pic(&picker, 
                             preview,
                             target.into(),
                             Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
@@ -1060,8 +1197,7 @@ impl Viewer {
             } else {
                 image
             };
-            picker
-                .new_protocol(
+            new_pic(&picker, 
                     image,
                     size.into(),
                     // `anchor_portrait_canvas` already produced the exact
@@ -1081,97 +1217,11 @@ impl Viewer {
         self.render_cached_portrait(frame, area, &key)
     }
 
-    pub fn supports_agentviz_portal(&self) -> bool {
-        self.portal_enabled
-    }
-
-    pub fn agentviz_portal_pending(&self) -> bool {
-        self.portal_pending.is_some()
-    }
-
-    /// Encode and paint one validated raw WebGPU frame through Kitty. Encoding
-    /// stays off the draw thread and is keyed by exact sequence/cell geometry,
-    /// so a resize or a newer activity state cannot reuse stale placement data.
-    pub fn render_agentviz_portal(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        portal_frame: &crate::ui::viz::agentviz_portal::PortalFrame,
-    ) -> bool {
-        if !self.portal_enabled || area.width == 0 || area.height == 0 {
-            return false;
-        }
-        self.promote_pending_portal();
-        let key = PortalCacheKey {
-            sequence: portal_frame.sequence,
-            width: area.width,
-            height: area.height,
-        };
-        if let Some(current) = self
-            .portal_current
-            .as_ref()
-            .filter(|entry| entry.key == key)
-        {
-            frame.render_widget(
-                Image::new(&current.protocol),
-                fixed_protocol_area(&current.protocol, area),
-            );
-            return true;
-        }
-        if self.portal_failure.as_ref() == Some(&key) {
-            return false;
-        }
-        // A newer activity sequence is already available to the next draw.
-        // Let the admitted encode settle before taking that latest snapshot;
-        // abandoning its receiver here would spawn one worker per fast frame.
-        if self.portal_pending.is_some() {
-            return false;
-        }
-        let pixels = Arc::clone(&portal_frame.pixels);
-        // Real cells, as the map uses: a fit to guessed cells drew the card short.
-        let picker = self.world_pixel_picker();
-        let size = Rect::new(0, 0, area.width, area.height);
-        let worker_key = key.clone();
-        let (tx, rx) = mpsc::channel();
-        let spawn = std::thread::Builder::new()
-            .name("angel-webgpu-portal-kitty".to_string())
-            .spawn(move || {
-                let result = image::RgbaImage::from_raw(
-                    crate::ui::viz::agentviz_portal::FRAME_WIDTH,
-                    crate::ui::viz::agentviz_portal::FRAME_HEIGHT,
-                    pixels.as_ref().to_vec(),
-                )
-                .ok_or_else(|| "portal frame length did not match RGBA dimensions".to_string())
-                .and_then(|rgba| {
-                    picker
-                        .new_protocol(
-                            image::DynamicImage::ImageRgba8(rgba),
-                            size.into(),
-                            Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
-                        )
-                        .map_err(|error| format!("prepare Kitty portal: {error}"))
-                });
-                let _ = tx.send(result);
-            });
-        match spawn {
-            Ok(_) => {
-                self.portal_pending = Some(PendingPortal {
-                    key: worker_key,
-                    rx,
-                });
-            }
-            Err(_) => {
-                self.portal_failure = Some(key);
-            }
-        }
-        false
-    }
-
     /// The Round Table panel's painted table through Kitty: `compose` builds
     /// the picture (off the draw thread, only for a new `picture`), scaled to
     /// the cells' real pixels with hard edges. While a new picture encodes,
     /// the last one at the same size stays up, so a seat coming back never
-    /// blanks the panel. Shares the portal's slot: one table at a time.
+    /// blanks the panel. One table at a time.
     pub fn render_council_table<F>(
         &mut self,
         frame: &mut Frame,
@@ -1186,16 +1236,14 @@ impl Viewer {
             return false;
         }
         self.promote_pending_portal();
-        // Painted pictures are numbered apart from WebGPU frame sequences.
-        let painted = |sequence: u64| sequence & (1 << 63) != 0;
         let key = PortalCacheKey {
-            sequence: picture | (1 << 63),
+            sequence: picture,
             width: area.width,
             height: area.height,
         };
         let shown = |entry: &PortalCacheEntry, frame: &mut Frame| {
             frame.render_widget(
-                Image::new(&entry.protocol),
+                PicView(&entry.protocol),
                 fixed_protocol_area(&entry.protocol, area),
             );
         };
@@ -1216,8 +1264,7 @@ impl Viewer {
                 .name("angel-council-table-kitty".to_string())
                 .spawn(move || {
                     let table = crate::ui::viz::council_table::fit(&compose(), target);
-                    let result = picker
-                        .new_protocol(
+                    let result = new_pic(&picker, 
                             image::DynamicImage::ImageRgba8(table),
                             size.into(),
                             Resize::Fit(Some(image::imageops::FilterType::Nearest)),
@@ -1237,9 +1284,7 @@ impl Viewer {
         }
         match self.portal_current.as_ref() {
             Some(previous)
-                if painted(previous.key.sequence)
-                    && previous.key.width == area.width
-                    && previous.key.height == area.height =>
+                if previous.key.width == area.width && previous.key.height == area.height =>
             {
                 shown(previous, frame);
                 true
@@ -1517,7 +1562,10 @@ impl Viewer {
         let pipeline = self.game_pipeline.get_or_insert_with(Default::default);
         pipeline.request(
             key,
-            Box::new(move || Some(scaled_png(&compose(), size, cols, rows))),
+            Box::new(move || {
+                let img = compose();
+                Some(scaled_png(&img, size, cols, rows))
+            }),
         );
         // The first picture at a size is waited for; after that the last
         // one stands in while the worker catches up.
@@ -1573,8 +1621,13 @@ impl Viewer {
         if !fresh && self.map_png_pending.is_none() {
             let (pixels, w, h) = compose();
             let (tx, rx) = mpsc::channel();
+            let glass = crate::ui::glass::active();
             let job: MapEncodeJob = Box::new(move || {
                 use image::ImageEncoder;
+                if glass {
+                    let _ = tx.send(Some((glass_frame(pixels.as_ref(), w, h), w, h)));
+                    return;
+                }
                 let mut png = Vec::with_capacity(256 * 1024);
                 // Off the draw thread, but a walk asks for a frame every
                 // 25 ms: the fast deflate keeps the map current (the full one
@@ -1625,13 +1678,8 @@ impl Viewer {
         {
             return false;
         }
-        let (cols, rows) = game_cells(area, (fw, fh));
-        let placed = Rect::new(
-            area.x + (area.width - cols) / 2,
-            area.y + (area.height - rows) / 2,
-            cols,
-            rows,
-        );
+        let placed = game_placement(area, (fw, fh));
+        let (cols, rows) = (placed.width, placed.height);
         let buffer = frame.buffer_mut();
         for y in area.y..area.bottom() {
             for x in area.x..area.right() {
@@ -1651,13 +1699,30 @@ impl Viewer {
                     base
                 };
                 let size = ratatui::layout::Size::new(cols, rows);
-                let upload = encode(cols, rows)
-                    .and_then(|png| crate::ui::dots::protocol::png_upload(&png, size, next));
+                let upload = encode(cols, rows).and_then(|bytes| match read_glass_frame(&bytes) {
+                    // The GPU window takes the pixels directly, through
+                    // the presentation surface's streaming door: one held
+                    // picture for this viewer's stream, overwritten per
+                    // frame. Nothing to embed in the cells.
+                    Some((w, h, rgba)) => crate::ui::present::upload_stream(
+                        u64::from(self.dot_base_id),
+                        (w, h),
+                        (cols, rows),
+                        rgba.to_vec(),
+                    )
+                    .map(|id| (id, String::new()))
+                    .or_else(|| {
+                        crate::ui::dots::protocol::png_upload(&bytes, size, next)
+                            .map(|s| (next, s))
+                    }),
+                    None => crate::ui::dots::protocol::png_upload(&bytes, size, next)
+                        .map(|s| (next, s)),
+                });
                 match upload {
-                    Some(upload) => {
-                        self.game_upload = Some(upload);
-                        self.game_png = Some((sequence, cols, rows, next));
-                        next
+                    Some((id, upload)) => {
+                        self.game_upload = (!upload.is_empty()).then_some(upload);
+                        self.game_png = Some((sequence, cols, rows, id));
+                        id
                     }
                     None => match current {
                         Some((_, c, r, id)) if (c, r) == (cols, rows) => id,
@@ -1733,7 +1798,7 @@ impl Viewer {
         };
         if let Some(current) = self.map_current.as_ref().filter(|entry| entry.key == key) {
             let painted_area = fixed_protocol_area(&current.protocol, area);
-            frame.render_widget(Image::new(&current.protocol), painted_area);
+            frame.render_widget(PicView(&current.protocol), painted_area);
             self.map_area = Some(painted_area);
             return WorldPixelsState::Ready;
         }
@@ -1750,7 +1815,7 @@ impl Viewer {
                 .filter(|entry| entry.key.width == key.width && entry.key.height == key.height)
         {
             let painted_area = fixed_protocol_area(&stale.protocol, area);
-            frame.render_widget(Image::new(&stale.protocol), painted_area);
+            frame.render_widget(PicView(&stale.protocol), painted_area);
             self.map_area = Some(painted_area);
             painted = true;
         }
@@ -1779,8 +1844,7 @@ impl Viewer {
             let result = image::RgbaImage::from_raw(width, height, bytes)
                 .ok_or_else(|| "map frame length did not match RGBA dimensions".to_string())
                 .and_then(|rgba| {
-                    picker
-                        .new_protocol(
+                    new_pic(&picker, 
                             image::DynamicImage::ImageRgba8(rgba),
                             size.into(),
                             // Scale, not Fit. Fit returns early when the
@@ -2011,8 +2075,7 @@ impl Viewer {
                     let pixel = crate::ui::helm::is_pixel_sheet(&path);
                     let image = anchor_portrait_canvas(image, &picker, size, pixel);
                     let image = if mono { mono_portrait(&image) } else { image };
-                    picker
-                        .new_protocol(image, size.into(), Resize::Crop(None))
+                    new_pic(&picker, image, size.into(), Resize::Crop(None))
                         .map_err(|error| error.to_string())
                 });
                 let _ = tx.send(result);
@@ -2054,7 +2117,7 @@ impl Viewer {
         }
     }
 
-    fn insert_portrait_protocol(&mut self, key: PortraitCacheKey, protocol: Protocol) {
+    fn insert_portrait_protocol(&mut self, key: PortraitCacheKey, protocol: Pic) {
         self.portrait_failures.retain(|failed| failed != &key);
         if self.portrait_cache.len() >= PORTRAIT_CACHE_LIMIT {
             self.portrait_cache.pop_front();
@@ -2083,7 +2146,7 @@ impl Viewer {
             return false;
         };
         frame.render_widget(
-            Image::new(&entry.protocol),
+            PicView(&entry.protocol),
             bottom_right_protocol_area(&entry.protocol, area),
         );
         self.portrait_shown = Some(key.clone());
@@ -2123,7 +2186,7 @@ impl Viewer {
 
 /// Whether authored Realm plates can be drawn under this protocol.
 ///
-/// Wider than the WebGPU portal's gate, which is Kitty-only by design — the
+/// Wider than the council table's gate, which is Kitty-only by design — the
 /// map is ordinary pixels and any real graphics protocol carries it. Halfblocks
 /// is excluded on resolution, not capability: it yields one pixel per cell
 /// half, so a 512px-wide island lands in roughly 45 pixels and reads as mush.
@@ -2215,7 +2278,7 @@ fn video_encode_area(picker: &Picker, width: u32, height: u32, available: Rect) 
     )
 }
 
-fn fixed_protocol_area(proto: &Protocol, available: Rect) -> Rect {
+fn fixed_protocol_area(proto: &Pic, available: Rect) -> Rect {
     let image = proto.size();
     let width = image.width.min(available.width);
     let height = image.height.min(available.height);
@@ -2227,7 +2290,7 @@ fn fixed_protocol_area(proto: &Protocol, available: Rect) -> Rect {
     }
 }
 
-fn bottom_right_protocol_area(proto: &Protocol, available: Rect) -> Rect {
+fn bottom_right_protocol_area(proto: &Pic, available: Rect) -> Rect {
     let image = proto.size();
     let width = image.width.min(available.width);
     let height = image.height.min(available.height);
@@ -2253,10 +2316,11 @@ fn scaled_png(
 ) -> Vec<u8> {
     let (cw, ch) = cell_shape();
     let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
-    if size == (768, 448) {
-        // The 2x art tier has its own coverage samples. Fit its RGB
-        // picture to the terminal's actual pixels without a second
-        // whole-multiple upload that wastes the frame budget.
+    if size.0 == crate::stage::world_viz::overworld::arena::art_v2::WIDTH as u32 {
+        // The 2x art tier (whatever height the seat adds, the party band)
+        // has its own coverage samples. Fit its RGB picture to the
+        // terminal's actual pixels without a second whole-multiple upload
+        // that wastes the frame budget.
         return nearest_png(img, tw.round().max(1.0) as u32, th.round().max(1.0) as u32);
     }
     let k = (tw / img.w.max(1) as f32)
@@ -2264,6 +2328,17 @@ fn scaled_png(
         .ceil()
         .clamp(1.0, 3.0) as u32;
     nearest_png(img, img.w.max(1) as u32 * k, img.h.max(1) as u32 * k)
+}
+
+/// Where a `size` game picture is placed in `area`: its cells, centred.
+pub(crate) fn game_placement(area: Rect, size: (u32, u32)) -> Rect {
+    let (cols, rows) = game_cells(area, size);
+    Rect::new(
+        area.x + (area.width - cols) / 2,
+        area.y + (area.height - rows) / 2,
+        cols,
+        rows,
+    )
 }
 
 /// The cells a `size` picture fills in `area`, keeping its shape: a cell is
@@ -2275,6 +2350,31 @@ fn game_cells(area: Rect, (fw, fh): (u32, u32)) -> (u16, u16) {
     let cols = ((fw as f32 * k / cw).round() as u16).clamp(1, area.width.min(256));
     let rows = ((fh as f32 * k / ch).round() as u16).clamp(1, area.height.min(256));
     (cols, rows)
+}
+
+/// In the GPU window a game or map frame travels as its own pixels, marked
+/// so `place_game` hands it to the window: no scaling, no PNG, no base64.
+/// The window scales it on the GPU, nearest pixel, so pixel art stays hard.
+const GLASS_FRAME: &[u8; 4] = b"GLRW";
+
+/// Straight RGBA pixels as a glass frame. The overworld map still travels
+/// this way; a Delve frame does not (the window draws that from parts).
+fn glass_frame(rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
+    let mut out = Vec::with_capacity(12 + rgba.len());
+    out.extend_from_slice(GLASS_FRAME);
+    out.extend_from_slice(&w.to_le_bytes());
+    out.extend_from_slice(&h.to_le_bytes());
+    out.extend_from_slice(rgba);
+    out
+}
+
+/// The size and pixels of a glass frame; `None` for anything else (a PNG).
+fn read_glass_frame(bytes: &[u8]) -> Option<(u32, u32, &[u8])> {
+    let rest = bytes.strip_prefix(GLASS_FRAME)?;
+    let w = u32::from_le_bytes(rest.get(0..4)?.try_into().ok()?);
+    let h = u32::from_le_bytes(rest.get(4..8)?.try_into().ok()?);
+    let rgba = rest.get(8..)?;
+    (w > 0 && h > 0 && rgba.len() == (w as usize) * (h as usize) * 4).then_some((w, h, rgba))
 }
 
 fn nearest_png(img: &crate::stage::world_viz::overworld::Img, w: u32, h: u32) -> Vec<u8> {
@@ -2319,6 +2419,9 @@ fn cell_shape() -> (f32, f32) {
 /// twice the usual, and an image sized for the usual cell covers only a
 /// quarter of its place.
 fn real_cell_size() -> Option<(u16, u16)> {
+    if let Some(cell) = crate::ui::glass::cell_pixels() {
+        return Some(cell);
+    }
     #[cfg(test)]
     {
         None
@@ -2338,7 +2441,8 @@ fn real_cell_size() -> Option<(u16, u16)> {
 fn dot_image_id() -> u32 {
     use std::hash::BuildHasher;
     let hash = std::collections::hash_map::RandomState::new().hash_one(std::process::id());
-    ((hash as u32) & 0x00ff_fffc) | 2
+    // Below the window's own picture ids (`GLASS_PICTURES`).
+    (((hash as u32) % GLASS_PICTURES.start) & 0x00ff_fffc).max(4) | 2
 }
 
 fn dot_pitch(raw: Option<&str>) -> Option<u16> {
@@ -2512,7 +2616,7 @@ fn cached_bounded_preview(path: &Path) -> Result<(image::DynamicImage, (u32, u32
     Ok((preview, original))
 }
 
-fn artifact_preview(source: &crate::ui::media::MediaSource) -> Result<image::DynamicImage, String> {
+pub(crate) fn artifact_preview(source: &crate::ui::media::MediaSource) -> Result<image::DynamicImage, String> {
     let file = source.open()?;
     if file.metadata().map_err(|error| error.to_string())?.len() > 64 * 1024 * 1024 {
         return Err("image preview exceeds the 64 MiB source limit".into());

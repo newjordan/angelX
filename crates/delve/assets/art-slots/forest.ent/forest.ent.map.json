@@ -1,0 +1,144 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    44,
+    108
+  ],
+  "pieces": [
+    {
+      "name": "chained-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "chained-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "chained-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "chained-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "freeing-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "freeing-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "freeing-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "freeing-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "standing-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "standing-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "standing-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "standing-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "standing-4",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "standing-5",
+      "runtime": false,
+      "approved": false,
+      "ticks": 11
+    },
+    {
+      "name": "idle-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "idle-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "idle-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "idle-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 12
+    },
+    {
+      "name": "talk-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "talk-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "talk-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "talk-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# The Bashful Belfry: a tall bell tower standing up behind each of the two bases, bells hung open in a lantern under a slate spire.
+# west tower
+box    stone   at 64 0 8 size 28 40 16
+box    stone   at 64 40 8 size 36 4 22
+box    stone   at 52 44 3 size 5 16 5
+box    stone   at 76 44 3 size 5 16 5
+box    stone   at 52 44 13 size 5 16 5
+box    stone   at 76 44 13 size 5 16 5
+sphere metal   at 64 45 8 size 12 14 12
+pyramid slate  at 64 60 8 size 42 19 28
+box    metal   at 64 79 8 size 1.5 6 1.5
+# east tower
+box    stone   at 320 0 8 size 28 40 16
+box    stone   at 320 40 8 size 36 4 22
+box    stone   at 308 44 3 size 5 16 5
+box    stone   at 332 44 3 size 5 16 5
+box    stone   at 308 44 13 size 5 16 5
+box    stone   at 332 44 13 size 5 16 5
+sphere metal   at 320 45 8 size 12 14 12
+pyramid slate  at 320 60 8 size 42 19 28
+box    metal   at 320 79 8 size 1.5 6 1.5

@@ -1,0 +1,96 @@
+set chunk-5-1
+# The kingdom, chunk 5,1 in The Highlands: tiles 120..144 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 384
+plate 1536 1024
+
+# ground
+box    grass   at 2016 -4 296 size 192 4 80
+box    path    at 2128 -4 328 size 32 4 144
+box    grass   at 2192 -4 272 size 96 4 32
+box    path    at 2248 -4 344 size 16 4 176
+box    grass   at 2264 -4 272 size 16 4 32
+box    rock    at 2288 -4 312 size 32 4 112
+box    water   at 2152 -4 304 size 16 1 32
+box    rock    at 2168 -4 296 size 16 4 16
+box    grass   at 2208 -4 320 size 64 4 64
+box    rock    at 2264 -4 296 size 16 4 16
+box    grass   at 2168 -4 328 size 16 4 48
+box    grass   at 2264 -4 344 size 16 4 80
+box    grass   at 2152 -4 336 size 16 4 32
+box    grass   at 1928 -4 344 size 16 4 16
+box    path    at 2024 -4 360 size 176 4 48
+box    path    at 1928 -4 376 size 16 4 48
+box    path    at 2168 -4 384 size 48 4 64
+box    grass   at 2216 -4 360 size 48 4 16
+box    path    at 2216 -4 392 size 48 4 48
+box    grass   at 2288 -4 376 size 32 4 16
+box    path    at 1960 -4 392 size 48 4 16
+box    grass   at 2000 -4 448 size 32 4 128
+box    path    at 2024 -4 424 size 16 4 80
+box    grass   at 2064 -4 448 size 64 4 128
+box    path    at 2104 -4 392 size 16 4 16
+box    path    at 2280 -4 408 size 48 4 48
+box    grass   at 1928 -4 456 size 16 4 112
+box    path    at 1944 -4 456 size 16 4 112
+box    grass   at 1968 -4 456 size 32 4 112
+box    grass   at 2120 -4 456 size 48 4 112
+box    grass   at 2176 -4 464 size 64 4 96
+box    path    at 2224 -4 424 size 32 4 16
+box    grass   at 2240 -4 464 size 64 4 64
+box    path    at 2288 -4 472 size 32 4 80
+box    grass   at 2024 -4 488 size 16 4 48
+box    grass   at 2232 -4 504 size 48 4 16
+box    path    at 2264 -4 504 size 16 4 16
+
+# set dressing
+rock-53 rock    at 1981 0 442 size 4 2 3.5
+rock-26 rock    at 1979 0 437 size 4 2 3.5
+rock-1 rock    at 1980 0 441 size 4 2 3.5
+rock-25 rock    at 1978 0 441 size 4 2 3.5
+rock-11 rock    at 2152 0 456 size 8 2.5 7
+rock-23 rock    at 2152 2 456 size 5 2 4.5
+box    stone   at 2088 0 467 size 44 4 2
+box    stone   at 2067 0 473 size 2 4 10
+box    stone   at 2109 0 473 size 2 4 10
+box    stone   at 2076 0 477 size 16 3.5 2
+rock-49 rock    at 2185 0 468 size 4 2 3.5
+rock-30 rock    at 2186 0 468 size 4 2 3.5
+rock-57 rock    at 2181 0 473 size 4 2 3.5
+rock-32 rock    at 2181 0 474 size 4 2 3.5
+rock-11 rock    at 1976 0 488 size 8 2.5 7
+rock-47 rock    at 1976 2 488 size 5 2 4.5
+
+# rock (at 95% of its height, for the camera)
+box    rock    at 2280 0 312 size 16 3 112
+box    rock    at 2296 0 264 size 16 2.5 16
+box    rock    at 2296 0 320 size 16 3 96
+box    rock    at 2168 0 296 size 16 3 16
+box    rock    at 2264 0 296 size 16 3 16
+rock-25 rock    at 2280 1.5 265 size 15 9 13.5 turn 270
+rock-14 rock    at 2295 1 265 size 17 9.5 15.3 turn 90
+rock-39 rock    at 2281 1.5 280 size 15 8 13.5
+rock-53 rock    at 2296 1.5 279 size 14 9 12.6 turn 180
+rock-44 rock    at 2168 1.5 295 size 16 8 14.4 turn 90
+rock-61 rock    at 2263 1.5 296 size 15 8 13.5 turn 270
+rock-55 rock    at 2279 1.5 295 size 16 7 14.4 turn 180
+rock-34 rock    at 2297 1.5 295 size 14 10 12.6
+rock-16 rock    at 2280 1.5 311 size 14 9 12.6 turn 90
+rock-5 rock    at 2297 1.5 313 size 17 7 15.3
+rock-61 rock    at 2279 1.5 327 size 15 10 13.5 turn 270
+rock-47 rock    at 2296 1.5 328 size 14 7 12.6 turn 90
+rock-23 rock    at 2279 1.5 344 size 15 8 13.5 turn 180
+rock-41 rock    at 2297 1.5 345 size 14 8 12.6 turn 90
+rock-20 rock    at 2280 1.5 360 size 17 7 15.3 turn 180
+rock-43 rock    at 2295 1.5 359 size 17 7 15.3 turn 90
+
+# woods (at 99% of its height, for the camera)
+cylinder trunk   at 2199 0 471 size 3 9 3
+blob-60 foliage at 2199 4 471 size 17 18 16.15 turn 180
+box    hedge   at 2200 0 456 size 15 5.5 16
+blob-43 hedge   at 2200 3 456 size 15 6 16
+box    hedge   at 2216 0 472 size 16 6 15
+blob-10 hedge   at 2216 3.5 472 size 16 6 15
+box    hedge   at 2232 0 472 size 16 6 15
+blob-23 hedge   at 2232 3.5 472 size 16 5 15

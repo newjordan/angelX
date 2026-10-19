@@ -49,6 +49,7 @@ fn volley(
         step,
         kind: Shot::Wisp,
         damage: 12,
+        guardian: None,
     };
     let mut shots = Vec::new();
     emit(emitter, &aim, &mut shots);
@@ -155,6 +156,7 @@ fn a_gap_ring_leaves_a_gap_a_knight_fits_through() {
                 step,
                 kind: Shot::Wisp,
                 damage: 12,
+                guardian: None,
             };
             let mut angles = gap_ring(&aim);
             angles.sort_by(f32::total_cmp);
@@ -185,7 +187,14 @@ fn a_gap_ring_leaves_a_gap_a_knight_fits_through() {
 
 #[test]
 fn a_wall_leaves_one_gap_a_knight_fits_through_and_the_next_wall_moves_it() {
-    let run = quiet();
+    // On open floor: a wall's slots touching a prop are left out (`wall`).
+    let mut run = quiet();
+    let at = run.at;
+    for row in 1..run.room().rows - 1 {
+        for col in 1..run.room().cols - 1 {
+            run.dungeon.rooms[at].set_for_test(col, row, Tile::Floor);
+        }
+    }
     let shots = volley(&run, Emitter::GapWall, (24.0, 8.0), (24.0, 20.0), 5, 0);
     let first: Vec<f32> = {
         let mut xs: Vec<f32> = shots
@@ -266,15 +275,25 @@ fn hero_still(run: &mut Run) {
 fn a_sweep_turns_across_its_arc_while_it_burns() {
     let run = quiet();
     let mut shots = volley(&run, Emitter::Sweep, (24.0, 8.0), (24.0, 20.0), 0, 0);
-    let start = shots[0].traits.path.beam.unwrap().angle;
+    let first = shots[0].traits.path.beam.unwrap();
+    let start = first.angle;
+    // A sweep tells longer than a plain beam, and burns across a narrow arc.
+    assert_eq!(first.warn, SWEEP_WARN);
+    assert_eq!((SWEEP_WARN, SWEEP_BURN, SWEEP_ARC), (30, 18, 1.1));
+    assert!(SWEEP_WARN > BEAM_WARN);
+    assert_eq!(shots[0].ttl, u32::from(SWEEP_WARN) + u32::from(SWEEP_BURN) + 1);
     let grid = Grid {
         room: &run.dungeon.rooms[run.at],
         barred: false,
     };
     let mut players = BTreeMap::new();
     let mut sounds = Vec::new();
-    for _ in 0..u32::from(BEAM_WARN) {
-        shine(&mut shots[0], &mut players, &grid, &mut sounds);
+    for _ in 0..u32::from(SWEEP_WARN) {
+        assert!(
+            !shots[0].traits.path.beam.unwrap().burning(shots[0].traits.path.age),
+            "it warns the whole {SWEEP_WARN} ticks"
+        );
+        shine(&mut shots[0], &mut players, &grid, &mut sounds, &mut feel::Feel::default());
     }
     assert_eq!(
         shots[0].traits.path.beam.unwrap().angle,
@@ -282,10 +301,45 @@ fn a_sweep_turns_across_its_arc_while_it_burns() {
         "still while it warns"
     );
     for _ in 0..u32::from(SWEEP_BURN) {
-        shine(&mut shots[0], &mut players, &grid, &mut sounds);
+        shine(&mut shots[0], &mut players, &grid, &mut sounds, &mut feel::Feel::default());
     }
     let end = shots[0].traits.path.beam.unwrap().angle;
-    assert!((end - start).abs() > 1.2, "{start} -> {end}");
+    assert!(
+        ((end - start).abs() - SWEEP_ARC).abs() < 1e-3,
+        "{start} -> {end} spans {SWEEP_ARC}"
+    );
+    // A plain beam keeps its shorter tell.
+    let laser = volley(&run, Emitter::Laser, (24.0, 8.0), (24.0, 20.0), 0, 0);
+    assert_eq!(laser[0].traits.path.beam.unwrap().warn, BEAM_WARN);
+}
+
+#[test]
+fn a_beam_strikes_for_its_share_of_the_shots_damage() {
+    assert_eq!(BEAM_SHARE, 60);
+    let mut run = quiet();
+    run.step(&BTreeMap::new());
+    let hero = run.players.get_mut(&1).unwrap();
+    hero.invulnerable = 0;
+    hero.shielding = false;
+    let mut shots = volley(&run, Emitter::Laser, (24.0, 8.0), (24.0, 20.0), 0, 0);
+    shots[0].damage = 100;
+    run.projectiles = shots;
+    for _ in 0..u32::from(BEAM_WARN) {
+        run.step(&BTreeMap::new());
+        hero_still(&mut run);
+    }
+    let before = run.players[&1].clone();
+    assert_eq!(before.invulnerable, 0);
+    for _ in 0..u32::from(BEAM_BURN) + 2 {
+        run.step(&BTreeMap::new());
+        hero_still(&mut run);
+    }
+    let lost = before.hp - run.players[&1].hp;
+    let (mut share, mut whole) = (before.clone(), before.clone());
+    share.hurt(100 * BEAM_SHARE / 100);
+    whole.hurt(100);
+    assert_eq!(lost, before.hp - share.hp, "60% of the shot's damage");
+    assert!(lost < before.hp - whole.hp, "less than the shot whole");
 }
 
 #[test]
@@ -388,7 +442,7 @@ fn shots_stay_slower_than_a_knight() {
                 fly(&mut shots, (24.0, 20.0), 15);
                 for s in &shots {
                     let speed = s.vx.hypot(s.vy);
-                    assert!(speed <= 10.0, "{emitter:?} at {speed}");
+                    assert!(speed <= SHOT_TOP && SHOT_TOP < 13.0, "{emitter:?} at {speed}");
                 }
             }
         }
@@ -488,7 +542,9 @@ fn monsters_fire_their_signatures_in_a_room() {
 fn lead_patterns_follow_spread_aggro_and_the_chosen_knights_pace() {
     let mut run = quiet();
     run.join_seat(2, "Moving");
-    run.dungeon.pack = Pack::Cavern;
+    // An imp outside the Mines and the Keep leads its shots (the Mines'
+    // lobs ore, the Keep's quickens a ring).
+    run.dungeon.pack = Pack::Crypt;
     let at = run.at;
     for row in 1..run.room().rows - 1 {
         for col in 1..run.room().cols - 1 {
@@ -504,7 +560,7 @@ fn lead_patterns_follow_spread_aggro_and_the_chosen_knights_pace() {
     let enemy = run.enemies.last_mut().unwrap();
     enemy.wits.foe = 2;
     // Floor one's pace (`STARTER_PACE`) stretches the wait between volleys.
-    let every = signature(enemy.kind, Pack::Cavern, false).unwrap().every * STARTER_PACE[0] / 100;
+    let every = signature(enemy.kind, Pack::Crypt, false).unwrap().every * STARTER_PACE[0] / 100;
     enemy.age = every * 2 - enemy.id * 13 % every - 1;
     run.step(&BTreeMap::from([(
         2,
@@ -516,7 +572,7 @@ fn lead_patterns_follow_spread_aggro_and_the_chosen_knights_pace() {
     let shots: Vec<_> = run
         .projectiles
         .iter()
-        .filter(|p| p.kind == Shot::Ore)
+        .filter(|p| p.kind == Shot::Ember)
         .collect();
     assert_eq!(shots.len(), 5, "party thickness is kept with spread aggro");
     let hero = &run.players[&2];
@@ -611,7 +667,7 @@ fn a_boss_file_names_patterns_and_chains_phases() {
 fn a_boss_walks_its_phases_in_turn() {
     let art = "art\nkkkk\nkkkk\n";
     let raw = format!(
-        "name Phaser\nwhere crypt\nhp 900\nmove anchor\nattack seeker every=240\nphases gap_ring laser every=30 volleys=1 shot=wisp\n{art}"
+        "name Phaser\nwhere crypt\nhp 900\nmove anchor\nattack seeker every=240\nphases gap_ring laser every=30 volleys=1 shot=wisp from=open\n{art}"
     );
     let (boss, _) = bosses::check("phaser", &raw).unwrap();
     let mut run = quiet();
@@ -623,11 +679,12 @@ fn a_boss_walks_its_phases_in_turn() {
     for _ in 0..200 {
         run.step(&BTreeMap::new());
         let shots = &run.projectiles;
+        // A guardian's gap ring is a guardian's size (`guardian_count`).
         rings |= shots
             .iter()
             .filter(|p| p.kind == Shot::Wisp && p.traits.path.beam.is_none())
             .count()
-            >= 10;
+            >= 6;
         beams |= shots.iter().any(|p| p.traits.path.beam.is_some());
     }
     assert!(rings && beams, "rings {rings} beams {beams}");
@@ -687,6 +744,7 @@ fn every_emitter_respects_the_remaining_shot_capacity() {
         step: MOST_STEP,
         kind: Shot::Eye,
         damage: 12,
+        guardian: None,
     };
     let filler = volley(&run, Emitter::Burst, aim.from, aim.at, 0, 0)[0].clone();
     for emitter in Emitter::ALL {
@@ -713,7 +771,7 @@ fn a_beam_burns_for_exactly_its_duration_and_strikes_each_knight_once() {
         let start_hp = players[&1].hp;
         let mut sounds = Vec::new();
         for _ in 0..beam.warn {
-            shine(&mut shot, &mut players, &grid, &mut sounds);
+            shine(&mut shot, &mut players, &grid, &mut sounds, &mut feel::Feel::default());
             assert_eq!(players[&1].hp, start_hp);
         }
         for tick in 0..beam.burn {
@@ -721,7 +779,7 @@ fn a_beam_burns_for_exactly_its_duration_and_strikes_each_knight_once() {
             let a = beam.angle + beam.sweep * f32::from(tick);
             (hero.x, hero.y) = (shot.x + a.cos() * 6.0, shot.y + a.sin() * 6.0);
             hero.invulnerable = 0;
-            shine(&mut shot, &mut players, &grid, &mut sounds);
+            shine(&mut shot, &mut players, &grid, &mut sounds, &mut feel::Feel::default());
             assert!(shot.traits.path.beam.unwrap().burning(shot.traits.path.age));
         }
         assert_eq!(sounds.iter().filter(|&&s| s == "hero_hurt").count(), 1);
@@ -730,7 +788,7 @@ fn a_beam_burns_for_exactly_its_duration_and_strikes_each_knight_once() {
         fresh.invulnerable = 0;
         let fresh_hp = fresh.hp;
         players.insert(2, fresh);
-        shine(&mut shot, &mut players, &grid, &mut sounds);
+        shine(&mut shot, &mut players, &grid, &mut sounds, &mut feel::Feel::default());
         assert_eq!(shot.ttl, 0);
         assert_eq!(players[&2].hp, fresh_hp);
         assert!(!shot.traits.path.beam.unwrap().burning(shot.traits.path.age));
@@ -871,6 +929,280 @@ fn old_shots_deserialize_with_an_empty_path() {
     raw["traits"].as_object_mut().unwrap().remove("path");
     let restored: Projectile = serde_json::from_value(raw).unwrap();
     assert_eq!(restored.traits.path, Path::default());
+}
+
+/// `quiet`, its floor open but for one tomb (a `Tile::Block`) at tile
+/// (12, 5): x 24 to 26, y 10 to 12. The knight stands well away.
+fn tomb_room() -> Run {
+    let mut run = open_room();
+    let at = run.at;
+    run.dungeon.rooms[at].set_for_test(12, 5, Tile::Block);
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (40.0, 24.0);
+    run
+}
+
+/// `quiet` with nothing on its floor, settled.
+fn open_room() -> Run {
+    let mut run = quiet();
+    let at = run.at;
+    for row in 1..run.room().rows - 1 {
+        for col in 1..run.room().cols - 1 {
+            run.dungeon.rooms[at].set_for_test(col, row, Tile::Floor);
+        }
+    }
+    settle(&mut run);
+    run
+}
+
+/// A few empty ticks, so the knight's health and the room's phase are what
+/// a fight keeps (`quiet`'s great health is cut to the knight's own).
+fn settle(run: &mut Run) {
+    for _ in 0..3 {
+        run.step(&BTreeMap::new());
+    }
+    run.projectiles.clear();
+    for hero in run.players.values_mut() {
+        hero.invulnerable = 0;
+    }
+}
+
+/// A plain shot flying east from `(x, y)` at `speed`, a monster's or a
+/// knight's arrow.
+fn east(x: f32, y: f32, speed: f32, hostile: bool) -> Projectile {
+    Projectile {
+        x,
+        y,
+        vx: speed,
+        vy: 0.0,
+        hostile,
+        kind: if hostile { Shot::Wisp } else { Shot::Arrow },
+        look: None,
+        damage: 10,
+        pierce: 0,
+        last_hit: None,
+        ttl: 4 * HZ,
+        empowered: false,
+        traits: ShotTraits::default(),
+    }
+}
+
+#[test]
+fn darts_are_the_fastest_and_thinnest_shot() {
+    let run = quiet();
+    let darts = volley(&run, Emitter::Darts, (24.0, 8.0), (24.0, 20.0), 0, 0);
+    assert_eq!(darts.len() as u32, DARTS.0);
+    for (i, d) in darts.iter().enumerate() {
+        assert_eq!(d.traits.path.form, Form::Dart);
+        assert_eq!(family(d), Family::Dart);
+        assert!((d.vx.hypot(d.vy) - SHOT_TOP).abs() < 1e-4);
+        // One after another down the line.
+        assert_eq!(u32::from(d.traits.path.wait), i as u32 * u32::from(DART_GAP));
+    }
+    assert!(girth(&darts[0]) < STRIKE);
+    // Past a knight by a body and a plain shot's strike: a plain shot hits,
+    // a dart goes by.
+    let mut run = open_room();
+    let (hx, hy) = (run.players[&1].x, run.players[&1].y);
+    let by = hy - (HERO_RADIUS + STRIKE - 0.02);
+    let mut plain = east(hx - 6.0, by, SHOT_TOP, true);
+    let mut dart = plain.clone();
+    dart.traits.path.form = Form::Dart;
+    plain.damage = 7;
+    dart.damage = 5;
+    for (shot, hit) in [(plain, true), (dart, false)] {
+        let hp = run.players[&1].hp;
+        run.projectiles = vec![shot];
+        for _ in 0..30 {
+            run.step(&BTreeMap::new());
+        }
+        assert_eq!(run.players[&1].hp < hp, hit);
+        run.players.get_mut(&1).unwrap().invulnerable = 0;
+    }
+}
+
+#[test]
+fn heavy_orbs_are_slow_and_wide_and_can_be_walked_round() {
+    let run = quiet();
+    let orbs = volley(&run, Emitter::Orbs, (24.0, 8.0), (24.0, 20.0), 0, 2);
+    assert_eq!(orbs.len() as u32, ORBS.0 + 2 * ORBS.1);
+    for o in &orbs {
+        assert_eq!(family(o), Family::Orb);
+        assert!(o.vx.hypot(o.vy) < 3.0, "a stroll, slower than any other shot");
+        assert!(girth(o) > STRIKE && body(o) > BODY);
+    }
+    // It strikes wider than a plain shot, and a knight a step aside is
+    // clear of it.
+    let mut run = open_room();
+    let (hx, hy) = (run.players[&1].x, run.players[&1].y);
+    let mut near = east(hx - 4.0, hy - (HERO_RADIUS + ORB_STRIKE - 0.05), ORBS.2, true);
+    near.traits.path.form = Form::Orb;
+    let mut far = near.clone();
+    far.y = hy - (HERO_RADIUS + ORB_STRIKE + 0.3);
+    for (shot, hit) in [(far, false), (near, true)] {
+        let hp = run.players[&1].hp;
+        run.projectiles = vec![shot];
+        for _ in 0..3 * HZ {
+            run.step(&BTreeMap::new());
+        }
+        assert_eq!(run.players[&1].hp < hp, hit);
+        run.players.get_mut(&1).unwrap().invulnerable = 0;
+    }
+}
+
+#[test]
+fn a_lob_flies_over_everything_and_lands_on_its_mark() {
+    let mut run = tomb_room();
+    run.join_seat(2, "Under");
+    // The thrower west of the tomb, the knight east of it; a friend stands
+    // under the arc.
+    let from = (22.5, 11.0);
+    let target = (34.0, 11.0);
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = target;
+    let under = run.players.get_mut(&2).unwrap();
+    (under.x, under.y) = (28.5, 11.4);
+    settle(&mut run);
+    let grid = Grid {
+        room: &run.dungeon.rooms[run.at],
+        barred: false,
+    };
+    let aim = Aim {
+        from,
+        at: target,
+        pace: (0.0, 0.0),
+        grid: &grid,
+        count: 0,
+        salt: 1,
+        step: 0,
+        kind: Shot::Ore,
+        damage: 12,
+        guardian: None,
+    };
+    let mut shots = Vec::new();
+    emit(Emitter::Lob, &aim, &mut shots);
+    assert_eq!(shots.len(), 1);
+    let lob = shots[0].clone();
+    assert_eq!(family(&lob), Family::Lob);
+    // Its mark is the knight's spot from the first tick, and it rises.
+    let ((lx, ly), rise) = lob_flight(&lob).unwrap();
+    assert!((lx - target.0).abs() < 1e-3 && (ly - target.1).abs() < 1e-3);
+    assert_eq!(rise, 0.0);
+    assert!((lob.vx.hypot(lob.vy) * DT * f32::from(LOB_FLIGHT) - (target.0 - from.0)).abs() < 1e-3);
+    assert!(lob.vx.hypot(lob.vy) <= SHOT_TOP);
+    run.projectiles = vec![lob];
+    let (hp, under_hp) = (run.players[&1].hp, run.players[&2].hp);
+    let mut high = 0.0f32;
+    for t in 1..=u32::from(LOB_FLIGHT) {
+        if let Some(p) = run.projectiles.first() {
+            high = high.max(lob_flight(p).unwrap().1);
+        }
+        // Over the tomb, the friend and all: nothing until it lands.
+        run.step(&BTreeMap::new());
+        if t < u32::from(LOB_FLIGHT) {
+            assert_eq!(run.players[&1].hp, hp, "tick {t}");
+            assert_eq!(run.projectiles.len(), 1, "over the tomb at tick {t}");
+        }
+    }
+    assert!(high > 2.0, "it arcs: {high}");
+    assert_eq!(run.players[&2].hp, under_hp);
+    assert!(run.players[&1].hp < hp, "it lands on the knight's spot");
+    assert!(run.projectiles.is_empty());
+    assert!(run.feel.impacts.iter().any(|i| (i.x - target.0).abs() < 0.5));
+}
+
+#[test]
+fn drift_slows_in_flight_and_surge_quickens() {
+    let run = quiet();
+    let mut drift = volley(&run, Emitter::Drift, (24.0, 8.0), (24.0, 20.0), 0, 0);
+    assert_eq!(family(&drift[0]), Family::Brake);
+    assert!((drift[0].vx.hypot(drift[0].vy) - DRIFT.2).abs() < 1e-4);
+    let mut speeds = Vec::new();
+    for _ in 0..HZ {
+        fly(&mut drift, (24.0, 20.0), 1);
+        speeds.push(drift[0].vx.hypot(drift[0].vy));
+    }
+    assert!(speeds.windows(2).all(|w| w[1] <= w[0] + 1e-5), "it only slows");
+    assert!((speeds[speeds.len() - 1] - DRIFT_TOP).abs() < 1e-4, "it creeps on at the last");
+    let mut surge = volley(&run, Emitter::Surge, (24.0, 8.0), (24.0, 20.0), 0, 0);
+    assert_eq!(family(&surge[0]), Family::Quicken);
+    let first = surge[0].vx.hypot(surge[0].vy);
+    fly(&mut surge, (24.0, 20.0), HZ / 2);
+    let half = surge[0].vx.hypot(surge[0].vy);
+    assert!(first < 2.0 && half > first + 2.0, "{first} then {half}");
+}
+
+#[test]
+fn a_tomb_stops_a_monsters_shot_and_a_knights_where_their_bodies_touch_it() {
+    for hostile in [true, false] {
+        // Grazing the tomb's south face: its middle passes, its body does not.
+        let mut run = tomb_room();
+        run.projectiles = vec![east(18.0, 12.15, 8.0, hostile)];
+        for _ in 0..HZ {
+            run.step(&BTreeMap::new());
+            if run.projectiles.is_empty() {
+                break;
+            }
+        }
+        assert!(run.projectiles.is_empty(), "hostile {hostile}: stopped");
+        let spark = run.feel.impacts.iter().find(|i| (i.y - 12.15).abs() < 0.1);
+        let stuck = run.feel.stuck.iter().find(|s| (s.y - 12.15).abs() < 0.1);
+        let at = spark.map(|i| i.x).or(stuck.map(|s| s.x)).expect("a spark or a stuck arrow");
+        assert!((23.0..24.5).contains(&at), "hostile {hostile}: stops at the tomb's face, {at}");
+        // Half a unit clear of it, the same shot flies on by.
+        let mut run = tomb_room();
+        run.projectiles = vec![east(18.0, 12.6, 8.0, hostile)];
+        for _ in 0..2 * HZ {
+            run.step(&BTreeMap::new());
+        }
+        assert!(run.projectiles.iter().any(|p| p.x > 27.0), "hostile {hostile}: by");
+    }
+    // Water and pits stay shot-through.
+    let mut run = tomb_room();
+    let at = run.at;
+    run.dungeon.rooms[at].set_for_test(12, 5, Tile::Hazard);
+    run.projectiles = vec![east(18.0, 11.0, 8.0, true)];
+    for _ in 0..2 * HZ {
+        run.step(&BTreeMap::new());
+    }
+    assert!(run.projectiles.iter().any(|p| p.x > 27.0));
+}
+
+#[test]
+fn a_knights_predicted_shot_stops_at_the_same_tomb_as_the_servers() {
+    for y in [11.0, 12.1, 12.6] {
+        let mut run = tomb_room();
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.x, hero.y) = (16.0, y);
+        let mut arrow = east(16.5, y, 24.0, false);
+        arrow.traits.owner = 1;
+        run.projectiles = vec![arrow.clone()];
+        let mut server = None;
+        let mut path = Vec::new();
+        for t in 1..=40u32 {
+            run.step(&BTreeMap::new());
+            match run.projectiles.first() {
+                Some(p) => path.push((t, p.x)),
+                None => {
+                    server = Some(t);
+                    break;
+                }
+            }
+        }
+        let predicted = (1..=40u32).find(|&t| run.flown(1, &arrow, (arrow.x, arrow.y), t as f32).is_none());
+        if y < 12.5 {
+            let (s, p) = (server.expect("the server's stops"), predicted.expect("the ghost stops"));
+            assert!(s == p || s == p + 1, "y {y}: server gone at {s}, ghost at {p}");
+            for t in 1..p {
+                let (x, _) = run.flown(1, &arrow, (arrow.x, arrow.y), t as f32).unwrap();
+                assert!(x < 24.0, "y {y}: the ghost never flies into the tomb ({x} at {t})");
+            }
+        } else {
+            assert!(path.iter().any(|&(_, x)| x > 27.0), "y {y}: the server's flies by");
+            let past = run.flown(1, &arrow, (arrow.x, arrow.y), 20.0).expect("so does the ghost");
+            assert!(past.0 > 27.0);
+        }
+    }
 }
 
 /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pattern_shots -- --ignored`:
@@ -1060,6 +1392,7 @@ fn write_pattern_shots() {
                 step: 1,
                 kind: look,
                 damage: 12,
+                guardian: None,
             };
             let mut shots = Vec::new();
             emit(emitter, &aim, &mut shots);
@@ -1118,3 +1451,115 @@ fn write_pattern_shots() {
     }
 }
 
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_mixed_fight_shots -- --ignored`:
+/// a crypt fight's shots side by side, a few ticks apart: a skeleton's
+/// darts, a necromancer's heavy orb, an imp's lob over a tomb with its
+/// shadow and landing ring, drift slowing, and a wisp breaking on a tomb.
+#[test]
+#[ignore]
+fn write_mixed_fight_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from) else {
+        return;
+    };
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut run = tomb_room();
+    run.dungeon.pack = Pack::Crypt;
+    let at = run.at;
+    for (c, r) in [(6, 9), (17, 3), (18, 9)] {
+        run.dungeon.rooms[at].set_for_test(c, r, Tile::Block);
+    }
+    let knight = (34.0, 15.0);
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = knight;
+    hero.hp = 100_000;
+    hero.max_hp = 100_000;
+    hero.invulnerable = 1_000_000;
+    for (kind, x, y) in [
+        (EnemyKind::Skeleton, 8.0, 24.0),
+        (EnemyKind::Necromancer, 40.0, 5.0),
+        (EnemyKind::Imp, 21.0, 9.0),
+        (EnemyKind::Demon, 10.0, 6.0),
+    ] {
+        run.spawn_at_for_test(kind, x, y);
+    }
+    for e in &mut run.enemies {
+        e.frozen = 1_000_000;
+    }
+    run.phase = Phase::Fighting;
+    let throw = |run: &Run, emitter: Emitter, kind: Shot, from: (f32, f32), to: (f32, f32)| {
+        let grid = Grid {
+            room: &run.dungeon.rooms[run.at],
+            barred: false,
+        };
+        let aim = Aim {
+            from,
+            at: to,
+            pace: (0.0, 0.0),
+            grid: &grid,
+            count: 1,
+            salt: 9,
+            step: 0,
+            kind,
+            damage: 10,
+            guardian: None,
+        };
+        let mut shots = Vec::new();
+        emit(emitter, &aim, &mut shots);
+        shots
+    };
+    let mut shots = Vec::new();
+    shots.extend(throw(&run, Emitter::Darts, Shot::Bone, (8.0, 24.0), knight));
+    shots.extend(throw(&run, Emitter::Darts, Shot::Bone, (8.0, 24.0), (14.0, 17.0)));
+    shots.extend(throw(&run, Emitter::Orbs, Shot::Wisp, (40.0, 5.0), knight));
+    shots.extend(throw(&run, Emitter::Lob, Shot::Ember, (21.0, 9.0), knight));
+    shots.extend(throw(&run, Emitter::Drift, Shot::Ember, (10.0, 6.0), knight));
+    // A wisp flying at the tomb's west face.
+    shots.push(east(19.0, 11.0, 6.0, true));
+    run.projectiles = shots;
+    for t in 1..=24u32 {
+        for e in &mut run.enemies {
+            e.frozen = 1_000_000;
+        }
+        run.step(&BTreeMap::new());
+        if [6, 12, 18, 24].contains(&t) {
+            for (w, h) in [(384, 224), (768, 448)] {
+                let img = crate::render::overworld::arena::frame(&run, w, h);
+                let pic = image::RgbImage::from_raw(img.w as u32, img.h as u32, img.rgb_bytes()).unwrap();
+                pic.save(dir.join(format!("mixed-t{t:02}-{w}.png"))).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party() {
+    // Three knights on the third floor: every other monster's volleys
+    // thicken three steps; a demon's one (`DEMON_STEP`), every three
+    // seconds, twelve a shot (the operator: "the demons in lvl 3 are bad").
+    let mut run = quiet();
+    for id in 2..=3 {
+        run.join_seat(id, &format!("Knight {id}"));
+        let hero = run.players.get_mut(&id).unwrap();
+        (hero.x, hero.y, hero.hp, hero.max_hp) = (20.0 + id as f32 * 3.0, 20.0, 100_000, 100_000);
+    }
+    run.dungeon.depth = 3;
+    run.spawn_at_for_test(EnemyKind::Demon, 24.0, 8.0);
+    let demon = run.enemies.last_mut().unwrap();
+    (demon.age, demon.elite) = (TELEGRAPH, false);
+    let sig = signature(EnemyKind::Demon, Pack::Hellforge, false).unwrap();
+    assert_eq!((sig.every, sig.damage), (90, 12));
+    let (mut volleys, mut most) = (0, 0usize);
+    for _ in 0..6 * HZ {
+        let before = run.projectiles.iter().filter(|p| p.hostile).count();
+        run.step(&BTreeMap::new());
+        let fired = run.projectiles.iter().filter(|p| p.hostile).count().saturating_sub(before);
+        if fired > 0 {
+            volleys += 1;
+            most = most.max(fired);
+        }
+    }
+    assert!(volleys >= 1 && most >= 16, "it fires: {volleys} volleys, {most} at most");
+    assert!(volleys <= 3, "a volley every three seconds or slower: {volleys} in six");
+    assert!(most <= 32, "a twin spiral of 32 at most: {most}");
+}

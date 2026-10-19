@@ -1,0 +1,51 @@
+{
+  "fit": "native canvas 96x96, anchor bottom-centre (48,96); a disc touching all four sides of its box; stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "far-0"
+      ],
+      "source_pose_count": 1,
+      "state": "far"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "near-0"
+      ],
+      "source_pose_count": 1,
+      "state": "near"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "close-0"
+      ],
+      "source_pose_count": 1,
+      "state": "close"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "falling-0",
+        "falling-1"
+      ],
+      "source_pose_count": 2,
+      "state": "falling"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "turned-0"
+      ],
+      "source_pose_count": 1,
+      "state": "turned"
+    }
+  ],
+  "game": "moonfall",
+  "geometry": "Tiles, footprints and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "id": "moonfall.moon",
+  "role": "prop",
+  "timing": "far 12, near 12, close 12, falling 2 frames of 6, turned 12 ticks (30 Hz). Art never sets a hitbox."
+}

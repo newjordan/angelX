@@ -1,0 +1,357 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: preserve original slab contours; remove 3x3 median and raise contrast 15%. Room lighting is a separate cached post-process."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "3052443b4d3e55d218789f1c44f305ba60a7e315efdd7ea57446ea8f52e2f2fa",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Plain damp soil with fine roots, pebbles, and sparse small fungi.",
+      "median_filter": 0,
+      "name": "plain",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        126.0
+      ],
+      "source_rect_xywh": [
+        31,
+        134,
+        252,
+        252
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Worn soil with more exposed branching roots and scattered stones.",
+      "median_filter": 0,
+      "name": "worn",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        126.0
+      ],
+      "source_rect_xywh": [
+        345,
+        134,
+        252,
+        252
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Cracked earth with restrained teal light in the fissures.",
+      "median_filter": 0,
+      "name": "cracked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        125.5
+      ],
+      "source_rect_xywh": [
+        658,
+        134,
+        252,
+        251
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Compacted/patch-repaired earth with embedded roots.",
+      "median_filter": 0,
+      "name": "patched",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        125.5,
+        125.5
+      ],
+      "source_rect_xywh": [
+        972,
+        134,
+        251,
+        251
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Dark damp stained ground with sparse violet spores.",
+      "median_filter": 0,
+      "name": "stained",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        31,
+        508,
+        252,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "inset_fraction": 0.07,
+      "label": "Richer root and mushroom growth; still recognizably the same floor material.",
+      "median_filter": 0,
+      "name": "rich",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        344,
+        508,
+        252,
+        248
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Earthen wall meeting the floor, with a dark upper edge.",
+      "name": "trim-0",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.0,
+        125.5
+      ],
+      "source_rect_xywh": [
+        657,
+        506,
+        254,
+        251
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Root-bound stone wall meeting the floor, with a dark upper edge.",
+      "name": "trim-1",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        126.5,
+        125.5
+      ],
+      "source_rect_xywh": [
+        971,
+        506,
+        253,
+        251
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Branching crack decal.",
+      "name": "crack",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        107.0,
+        140.5
+      ],
+      "source_rect_xywh": [
+        67,
+        875,
+        214,
+        281
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Small dark teal puddle/stain decal.",
+      "name": "puddle",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        120.5,
+        89.5
+      ],
+      "source_rect_xywh": [
+        344,
+        944,
+        241,
+        179
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Scattered stones, soil clods, and root chips.",
+      "name": "debris",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        119.0,
+        115.5
+      ],
+      "source_rect_xywh": [
+        669,
+        913,
+        238,
+        231
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 0.55,
+        "saturation": 0.48,
+        "value": 0.58
+      },
+      "label": "Small mushroom cluster with teal spore motes.",
+      "name": "detail",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        108.0,
+        112.0
+      ],
+      "source_rect_xywh": [
+        986,
+        913,
+        216,
+        224
+      ],
+      "state": "floor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.floor.fungal",
+  "source_sha256": "de4ecb32d3c465b959216f02b9f7fe5177f053152f235c5dd3fae1a089a38f95",
+  "timing": ""
+}

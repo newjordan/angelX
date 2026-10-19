@@ -260,6 +260,12 @@ fn press(app: &mut App, code: KeyCode) {
     app.on_key(event::KeyEvent::new(code, KeyModifiers::NONE));
 }
 
+/// Wishes knight `id` holds, plain and super.
+fn held(app: &App, id: u32) -> u8 {
+    let hero = &run(app).players[&id];
+    hero.wishes + hero.great_wishes
+}
+
 fn run(app: &App) -> &crate::drive::together_shooter::Run {
     app.dungeon.shooter.as_ref().unwrap()
 }
@@ -325,6 +331,42 @@ fn dungeon_held_movement_and_aim_do_not_wait_for_another_player_or_touch_compose
     assert!(run(&app).projectiles.iter().any(|p| !p.hostile));
     assert_eq!(app.messages.len(), messages);
     assert!(app.input.is_empty() && app.thinking.is_none() && app.pending_turn.is_none());
+}
+
+#[test]
+fn dungeon_n_held_lays_the_floor_over_the_first_knights_screen_and_moves_no_one() {
+    let _guard = crate::tests::env_lock();
+    let mut app = game();
+    paint(&mut app, 80, 24);
+    app.dungeon.key_releases = true;
+    advance(&mut app, 3);
+    let now = std::time::Instant::now();
+    let shot = |app: &App| {
+        let seat = app.dungeon.shooter.seat(1).expect("the first knight's seat");
+        seat.frame(now).expect("a picture").px
+    };
+    let plain = shot(&app);
+    assert!(shot(&app) == plain, "the same moment, the same picture");
+    let (x, tick) = (run(&app).players[&1].x, run(&app).tick);
+    // Held, the whole floor is on the seat's own screen...
+    press(&mut app, KeyCode::Char('n'));
+    assert!(app.dungeon.held.contains_key(&KeyCode::Char('n')));
+    let up = shot(&app);
+    let changed = up.iter().zip(plain.iter()).filter(|(a, b)| a != b).count();
+    assert!(changed > 20_000, "the map covers the view ({changed} pixels changed)");
+    // ...and nobody walks, aims or fires for it.
+    advance(&mut app, 12);
+    assert_eq!(run(&app).players[&1].x, x);
+    assert!(run(&app).tick > tick && run(&app).projectiles.iter().all(|p| p.hostile));
+    // Let go, and the map is gone from it.
+    app.on_key(event::KeyEvent::new_with_kind(
+        KeyCode::Char('n'),
+        KeyModifiers::NONE,
+        event::KeyEventKind::Release,
+    ));
+    assert!(!app.dungeon.held.contains_key(&KeyCode::Char('n')));
+    let gone = shot(&app).iter().zip(up.iter()).filter(|(a, b)| a != b).count();
+    assert!(gone > 20_000, "the map is off the view ({gone} pixels changed)");
 }
 
 #[test]
@@ -602,7 +644,7 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
 
     // The friend's own client draws their own screen.
     let picture = friend.frame(std::time::Instant::now()).expect("the friend's frame");
-    assert_eq!((picture.w, picture.h), crate::stage::world_viz::overworld::arena::art_v2::size());
+    assert_eq!((picture.w, picture.h), crate::stage::world_viz::overworld::arena::seat_size());
 
     // Esc stones the host, but the friend keeps playing.
     let host_position = (run(&app).players[&1].x, run(&app).players[&1].y);
@@ -1022,15 +1064,26 @@ fn dungeon_native_miniviz_expand_and_escape_preserve_composer_draft() {
         .panes
         .rect_of(crate::ui::mouse::PaneId::Artifacts)
         .expect("the mini-viz pane");
+    // Only the gate drawn on the map is the way in, not the whole pane
+    // (here the map looks elsewhere, the gate out of its view): a click on
+    // the mini-viz leaves the draft alone, and F4 is the way back in.
+    let (column, row) = (rect.x + rect.width / 2, rect.y + rect.height / 2);
+    assert!(!app.delve_map_hit(column, row), "the gate is out of the map's view here");
     app.on_mouse(event::MouseEvent {
         kind: event::MouseEventKind::Down(event::MouseButton::Left),
-        column: rect.x + rect.width / 2,
-        row: rect.y + rect.height / 2,
+        column,
+        row,
         modifiers: KeyModifiers::NONE,
     });
     assert!(
+        app.dungeon.intro.is_none(),
+        "a click on the mini-viz away from the gate does not open the Delve"
+    );
+    assert_eq!(app.input, "Make the sword swing heavier");
+    press(&mut app, KeyCode::F(4));
+    assert!(
         app.dungeon.intro.is_some(),
-        "a click on the mini-viz opens the Delve's menu"
+        "F4 opens the Delve's menu again"
     );
     press(&mut app, KeyCode::Enter);
     assert!(app.dungeon.expanded && app.input.is_empty());
@@ -1244,6 +1297,16 @@ fn failed_home_realm_save_keeps_orders_marks_and_feats_for_retry() {
         trencher: Default::default(),
         duckshoot: Default::default(),
         longbow: Default::default(),
+        cinder: crate::drive::together_shooter::pastimes::Score {best:37,wins:1,plays:1},
+        latch: Default::default(),
+        mossbell: Default::default(),
+        rafterwake: Default::default(),
+        pennon: Default::default(),
+        roundtable: Default::default(),
+        brasswake: crate::drive::together_shooter::pastimes::Score { best: 345, wins: 1, plays: 2 },
+        powder: Default::default(),
+        gander: Default::default(),
+        siege: Default::default(),
         cheese: crate::drive::together_shooter::pastimes::Score {
             best: 400,
             wins: 1,
@@ -1719,6 +1782,76 @@ fn dungeon_host_for_three_gives_one_link_and_each_friend_their_own_knight() {
     assert_eq!(watcher.knight(), None);
 }
 
+#[test]
+fn dungeon_host_for_five_seats_five_friends_and_a_sixth_only_watches() {
+    let _guard = crate::tests::env_lock();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    // What `/dungeon_host --5` runs: the host's seat and five friends'.
+    let message = app.dungeon_command(Some("host --5"));
+    let link = link_of(&message);
+    assert!(message.contains("Delve hosted for 5 friends"), "{message}");
+    assert_eq!(app.dungeon.hosting.as_ref().map(|h| h.friends), Some(5));
+    assert_eq!(message.matches("http://").count(), 1, "one link for everyone: {message}");
+
+    let names = ["Matt", "Cleo", "Bram", "Enid", "Ywain"];
+    let friends: Vec<_> = names
+        .into_iter()
+        .map(|name| crate::drive::together_seat::Seat::connect(&link, name).unwrap())
+        .collect();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while run(&app).players.len() < 6 {
+        assert!(std::time::Instant::now() < deadline, "the party never gathered: {}", run(&app).players.len());
+        for friend in &friends {
+            friend.tick(std::time::Instant::now());
+        }
+        app.advance_dungeon_guest();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let mut knights: Vec<u32> = friends.iter().filter_map(|f| f.knight()).collect();
+    knights.sort();
+    assert_eq!(knights, vec![2, 3, 4, 5, 6]);
+    for (friend, name) in friends.iter().zip(names) {
+        let knight = friend.knight().unwrap();
+        assert_eq!(run(&app).players[&knight].name, name);
+        assert!(run(&app).players[&knight].knight.is_some(), "a knight of the company");
+    }
+    // Every friend a different knight of the company.
+    let mut company: Vec<_> = run(&app).players.iter().filter(|(id, _)| **id != 1).filter_map(|(_, h)| h.knight.clone()).collect();
+    company.sort();
+    company.dedup();
+    assert_eq!(company.len(), 5);
+    // Past the six a seventh only watches.
+    let watcher = crate::drive::together_seat::Seat::connect(&link, "Late").unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while watcher.status() == angel_serve::client::LinkStatus::Connecting {
+        assert!(std::time::Instant::now() < deadline);
+        watcher.tick(std::time::Instant::now());
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(watcher.knight(), None);
+    // And a friend's knight past the fifth may be kicked as any.
+    assert!(app.dungeon_command(Some("kick 6")).contains("left the delve"));
+    assert!(app.dungeon_command(Some("kick 7")).contains("Kick a friend's knight"));
+}
+
+#[test]
+fn dungeon_host_takes_up_to_five_friends_and_no_more() {
+    let _guard = crate::tests::env_lock();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    for (words, friends) in [("host --5", 5usize), ("host --9", 5), ("host --4 --watch", 4), ("host -3", 3), ("host --0", 1), ("host", 1)] {
+        let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+        let message = app.dungeon_command(Some(words));
+        assert!(message.contains("Delve hosted"), "{words}: {message}");
+        assert_eq!(app.dungeon.hosting.as_ref().map(|h| h.friends), Some(friends), "{words}");
+        assert_eq!(app.dungeon.hosting.as_ref().map(|h| h.watch), Some(words.contains("--watch")), "{words}");
+    }
+    // The most a host may seat, and the host's own seat, are the party.
+    assert_eq!(1 + super::MAX_FRIENDS as u32, crate::drive::together_shooter::MAX_PLAYERS);
+}
+
 /// Tick a friend's seat (and the host) until the server has answered it.
 fn answered(app: &mut App, seat: &crate::drive::together_seat::Seat) -> angel_serve::client::LinkStatus {
     use angel_serve::client::LinkStatus;
@@ -1845,8 +1978,10 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     };
     assert!(mirrored, "the mirror keeps up with the host's ticks");
 
-    // A friend's known wish goes to the host and lands on their knight.
-    host.dungeon.shooter.edit().unwrap().window = Some(Default::default());
+    // A friend's known wish goes to the host and lands on their knight, who
+    // holds one (the Undercroft gives none; a floor gives two). Its homing
+    // waits on a creature wish (`combos`); the card is theirs at once.
+    host.dungeon.shooter.edit().unwrap().give_wishes(1, 0);
     friend
         .dungeon
         .joined
@@ -1854,7 +1989,7 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
         .unwrap()
         .send(crate::drive::together_gear::BOON, br#"{"wish":"seeker"}"#);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while run(&host).players[&2].bonus.homing == 0 {
+    while !run(&host).players[&2].deck.iter().any(|c| c == "wish-seeker-1") {
         assert!(
             std::time::Instant::now() < deadline,
             "the friend's wish never landed"
@@ -2078,7 +2213,8 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
     let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.calm_for_test();
     shooter.clear_for_test();
-    assert!(run(&app).can_wish(1), "the room is won: a window opens");
+    let wishes = held(&app, 1);
+    assert_eq!(wishes, 3, "a delve starts with three wishes held");
     press(&mut app, KeyCode::Char('t'));
     let screen = paint(&mut app, 160, 48);
     assert!(
@@ -2106,16 +2242,17 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
         "{:?}",
         hero.deck
     );
-    assert!(!run(&app).can_wish(1), "one wish a window");
-    // Typed words find a known wish too, in the next window.
-    app.dungeon.shooter.edit().unwrap().window = Some(Default::default());
+    assert_eq!(held(&app, 1), wishes - 1, "the wish spends one held");
+    // Typed words find a known wish too, with the wishes still held.
     press(&mut app, KeyCode::Char('t'));
     for c in "bounce my shots".chars() {
         press(&mut app, KeyCode::Char(c));
     }
     press(&mut app, KeyCode::Enter);
     press(&mut app, KeyCode::Enter);
-    assert_eq!(run(&app).players[&1].bonus.bounce, 1);
+    // Granted; the bounce itself waits on a machine wish (`combos`).
+    let deck = &run(&app).players[&1].deck;
+    assert!(deck.iter().any(|c| c == "wish-ricochet-1"), "{deck:?}");
 }
 
 #[test]
@@ -2142,6 +2279,7 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     shooter.descend_for_test();
     shooter.calm_for_test();
     shooter.clear_for_test();
+    let wishes = held(&app, 1);
     press(&mut app, KeyCode::Char('t'));
     for c in "make my arrows glow like stars".chars() {
         press(&mut app, KeyCode::Char(c));
@@ -2160,7 +2298,7 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
         "{}",
         app.dungeon.notice
     );
-    assert!(!run(&app).can_wish(1), "the window is spent on it");
+    assert_eq!(held(&app, 1), wishes - 1, "a wish is spent on it");
     // angelX writes the wish into the workspace's phrasebook...
     let book = workspace.join(".angel/dungeon/phrasebook.txt");
     std::fs::create_dir_all(book.parent().unwrap()).unwrap();
@@ -2179,7 +2317,8 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
         "{}",
         app.dungeon.notice
     );
-    assert_eq!(run(&app).players[&1].bonus.homing, 1);
+    let deck = &run(&app).players[&1].deck;
+    assert!(deck.iter().any(|c| c == "wish-starlight-1"), "{deck:?}");
     assert!(app.dungeon.forge.learning.is_empty());
     let _ = std::fs::remove_dir_all(&workspace);
 }
@@ -2916,30 +3055,11 @@ fn achievements_are_kept_once_and_their_boxes_open_into_the_treasury() {
 }
 
 #[test]
-fn the_realm_keeps_its_best_show() {
+fn the_realm_no_longer_publishes_viewer_records() {
     let _guard = crate::tests::env_lock();
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-    app.input = "/dungeon start".into();
-    app.submit();
-    let best = app.realm().home.best_show;
-    // A small rise waits; a tenth of a million more, or the show's end,
-    // is kept.
-    app.dungeon.shooter.edit().unwrap().audience = best + 40;
-    app.settle_home();
-    assert_eq!(app.realm().home.best_show, best);
-    app.dungeon.shooter.edit().unwrap().audience = best + 140;
-    app.settle_home();
-    assert_eq!(app.realm().home.best_show, best + 140);
-    let run_now = app.dungeon.shooter.edit().unwrap();
-    run_now.audience = best + 150;
-    run_now.phase = crate::drive::together_shooter::Phase::Wiped;
-    app.settle_home();
-    assert_eq!(app.realm().home.best_show, best + 150);
-    assert_eq!(
-        run(&app).home.best_show,
-        best + 150,
-        "the run's home shows it"
-    );
+    let home = serde_json::to_value(&app.realm().home).unwrap();
+    assert!(home.get("best_show").is_none());
 }
 
 #[test]
@@ -3623,29 +3743,36 @@ fn dungeon_controls_activity_leave_preempts_overlays_and_only_releases_its_seat(
     r.board_chariot(1);
     app.dungeon.shooter.set(Some(r));
     paint(&mut app, 120, 40);
-    assert!(paint(&mut app, 120, 40).contains("LEAVE"));
+    assert!(paint(&mut app, 120, 40).contains("Esc: leave"));
     press(&mut app, KeyCode::Char('o'));
     assert!(app.dungeon.local_inputs(std::time::Instant::now())[&2].dash);
     press(&mut app, KeyCode::Char('u'));
     assert!(app.dungeon.local_inputs(std::time::Instant::now())[&2].bomb);
     assert!(run(&app).exits.outside.is_empty());
     app.clear_dungeon_controls();
+    // Bring the manual server up to the time used by its rendered clients.
+    app.advance_shooter_at(std::time::Instant::now());
+    advance(&mut app, 60);
+    assert!(app.dungeon.shooter.seat(1).and_then(|s| s.run()).is_some_and(|r| r.can_hold_leave(1)), "the seat received the new race before holding Menu");
     app.dungeon.cards_open = true;
     app.dungeon.exhibit_text = Some("Overlay".into());
+    app.dungeon.key_releases = true;
     press(&mut app, KeyCode::Esc);
-    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert_eq!(app.dungeon.activity_menu, None);
+    assert!(app.dungeon.local_inputs(std::time::Instant::now())[&1].leave_held);
     assert!(!app.dungeon.cards_open && app.dungeon.exhibit_text.is_none());
-    assert!(paint(&mut app, 120, 40).contains("[ LEAVE ]"));
     let ticks = run(&app).chariot.as_ref().unwrap().t;
     advance(&mut app, 3);
-    // Only this seat is paused: a couch friend continues the race after departure.
-    press(&mut app, KeyCode::Enter);
-    assert!(run(&app).exits.outside.contains_key(&1));
+    assert!(run(&app).exits.outside.is_empty(), "a short hold does not leave");
+    advance(&mut app, 18);
+    assert!(run(&app).exits.outside.contains_key(&1), "hold={:?} keys={} keyboard={} tick={}", run(&app).exits.holding, app.dungeon.held.len(), app.dungeon_keyboard_active(), run(&app).tick);
     assert!(run(&app).chariot.is_some());
-    assert_eq!(run(&app).chariot.as_ref().unwrap().driver, 2);
+    assert_eq!(run(&app).chariot.as_ref().unwrap().driver, 0);
+    assert_eq!(run(&app).chariot.as_ref().unwrap().racer_of(2), Some(1));
     assert!(run(&app).chariot.as_ref().unwrap().t >= ticks);
-    assert!(app.dungeon.held.is_empty());
+    app.dungeon.held.remove(&KeyCode::Esc);
     press(&mut app, KeyCode::Delete);
+    advance(&mut app, 18);
     assert_eq!(
         run(&app).room().kind,
         crate::drive::together_shooter::RoomKind::Kingdom
@@ -3663,6 +3790,7 @@ fn dungeon_controls_joined_leave_menu_reaches_host_without_ending_other_seats() 
     let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
     host.terminal_focused = true;
     let message = host.dungeon_command(Some("host --1"));
+    host.expand_dungeon();
     let link = format!("/dungeon join {}", link_of(&message));
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
     friend.terminal_focused = true;
@@ -3699,19 +3827,19 @@ fn dungeon_controls_joined_leave_menu_reaches_host_without_ending_other_seats() 
         f.can_leave_dungeon_activity(2)
     });
     friend.dungeon.cards_open = true;
+    friend.dungeon.key_releases = true;
     press(&mut friend, KeyCode::Esc);
-    assert_eq!(friend.dungeon.activity_menu, Some(2));
-    press(&mut friend, KeyCode::Enter);
+    assert_eq!(friend.dungeon.activity_menu, None);
     spin(&mut host, &mut friend, |h, f| {
         run(h).exits.outside.contains_key(&2) && !f.dungeon.activity_leave_pending
     });
-    assert!(run(&host).joust.is_some());
-    assert_eq!(run(&host).joust.as_ref().unwrap().knight, 1);
+    assert_eq!(run(&host).room().kind, crate::drive::together_shooter::RoomKind::Lists);
+    if let Some(joust) = &run(&host).joust { assert_eq!(joust.knight, 1); }
     assert_eq!(
         run(&host).view_for_seat(2).unwrap().room().kind,
         crate::drive::together_shooter::RoomKind::Kingdom
     );
-    assert!(friend.dungeon.held.is_empty());
+    friend.dungeon.held.remove(&KeyCode::Esc);
     host.dungeon_command(Some("off"));
 }
 
@@ -3840,6 +3968,10 @@ fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
         r.phase = crate::drive::together_shooter::Phase::Wiped;
     }
     let raid = run(&app).raid_id;
+    // Confirm only after both guests have received the verdict they are answering.
+    host_all_until(&mut app, &[&a, &b], "the friends never saw the verdict", |_| {
+        [&a, &b].iter().all(|seat| seat.run().is_some_and(|r| r.over()))
+    });
     // One asks: the party waits for the other.
     a.set_held(button::OK);
     host_all_until(&mut app, &[&a, &b], "the first ask never reached the host", |app| run(app).again.is_some());

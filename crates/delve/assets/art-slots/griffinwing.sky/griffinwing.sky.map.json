@@ -1,0 +1,162 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    112
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Each 970-px band is cut to the canvas aspect by a reviewed crop of its TOP rows (the horizon stays on the bottom edge) and BOX reduced once, 2.53 to 1; no squash, the importer never stretches. The lane's suggestion of cropping to 3.2 to 1 and squashing seven percent is not taken.",
+    "All four bands wrap sideways (the second sheet keeps its clouds clear of the side edges). The stage maps azimuth to x and elevation to y and lays the sky behind the 3D canyon; nothing here sets the horizon or the moon."
+  ],
+  "delivered_pieces": 4,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 4,
+  "geometry": "Painted into the sky's dots behind the 3D canyon, never a mesh; the horizon, the camera heading and the stage's own sky states choose which band and where; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered sheet (the run's second image, source-sheet-2.png) and its four bands cut by magenta detection, 2026-10-19. Reading order equals the slot order: dusk (teal moon right of centre, amber band on the bottom edge), smoke (dark banks, ember glow low), dawn (cream-gold horizon, amber-lit streaks) and clouds (five banks on plain dusk, no moon).",
+  "notes_sha256": "adfe8c44ead226187dcb5b30375123e842da24edaaf858a3b1db7eced722a2ba",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "dusk-0",
+      "name": "dusk-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          34,
+          970,
+          283
+        ]
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        485.0,
+        158.5
+      ],
+      "source_rect_xywh": [
+        27,
+        70,
+        970,
+        317
+      ],
+      "state": "dusk",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "smoke-0",
+      "name": "smoke-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          32,
+          970,
+          283
+        ]
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        485.0,
+        157.5
+      ],
+      "source_rect_xywh": [
+        27,
+        417,
+        970,
+        315
+      ],
+      "state": "smoke",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "dawn-0",
+      "name": "dawn-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          51,
+          970,
+          283
+        ]
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        485.0,
+        167.0
+      ],
+      "source_rect_xywh": [
+        27,
+        763,
+        970,
+        334
+      ],
+      "state": "dawn",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "clouds-0",
+      "name": "clouds-0",
+      "piece": 3,
+      "reviewed_processing": {
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          55,
+          970,
+          283
+        ]
+      },
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        485.0,
+        169.0
+      ],
+      "source_rect_xywh": [
+        27,
+        1127,
+        970,
+        338
+      ],
+      "state": "clouds",
+      "ticks": 1
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 384x112 (opaque), one band of the sky; anchor bottom-centre (192,112); stage 384x224.",
+  "sizes": {
+    "v1": [
+      384,
+      112
+    ],
+    "v2": [
+      384,
+      112
+    ]
+  },
+  "slot": "griffinwing.sky",
+  "source_sha256": "755db6485c73b8b87ccfd823802c84f4a539608aca728f1855612a3680023d35",
+  "timing": "dusk 1 ticks; smoke 1 ticks; dawn 1 ticks; clouds 1 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

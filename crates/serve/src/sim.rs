@@ -31,6 +31,8 @@ pub(crate) enum Inbound<C> {
     Left { seat: u32 },
     /// A seat's commands, and the newest tick its client has applied.
     Cmds { seat: u32, conn: u64, applied: u32, cmds: Vec<(u32, C)> },
+    /// Existing writer-side snapshot acknowledgement delay, for this connection.
+    Latency { seat: u32, conn: u64, round_trip: Duration },
     /// A one-off from a connection; `local` is the host's own.
     Action { seat: Option<u32>, conn: u64, local: bool, kind: u32, body: Vec<u8> },
     /// The host set a server knob through its handle (`Server::tune`).
@@ -47,6 +49,7 @@ struct SeatState {
     /// Its client has applied `welcomed`: past loading.
     loaded: bool,
     applied: u32,
+    round_trip: Duration,
     /// The tick its newest command arrived.
     last_cmd: u32,
 }
@@ -290,7 +293,7 @@ impl<G: GameServer> Stepper<G> {
                     self.playing[s] = Some(conn);
                     self.inputs[s].restart();
                     self.inputs[s].set_cushion(if local { 0 } else { angel_net::cmd::CUSHION });
-                    self.seat_state[s] = SeatState { welcomed, local, loaded: local, applied: 0, last_cmd: self.tick };
+                    self.seat_state[s] = SeatState { welcomed, local, loaded: local, applied: 0, round_trip: Duration::ZERO, last_cmd: self.tick };
                     if !resumed || !self.seated[s] {
                         if self.seated[s] {
                             game.leave(seat, &mut events);
@@ -314,6 +317,11 @@ impl<G: GameServer> Stepper<G> {
                     self.playing[s] = None;
                     self.seat_state[s] = SeatState::default();
                     self.inputs[s] = SeatInputs::default();
+                }
+                Inbound::Latency { seat, conn, round_trip } => {
+                    if self.playing[seat as usize] == Some(conn) {
+                        self.seat_state[seat as usize].round_trip = round_trip;
+                    }
                 }
                 Inbound::Cmds { seat, conn, applied, cmds } => {
                     if self.playing[seat as usize] == Some(conn) {
@@ -404,6 +412,12 @@ impl<G: GameServer> Stepper<G> {
                         || (state.loaded && self.tick.wrapping_sub(state.last_cmd) <= AWAY_AFTER_TICKS)),
                 applied: state.applied,
             };
+        }
+        for (seat, state) in self.seat_state.iter().enumerate() {
+            let allowance = angel_net::cmd::sample_allowance(
+                state.round_trip, game.rates().tick_hz, self.every, state.local,
+            );
+            game.input_age(seat as u32, allowance);
         }
         game.presence(self.tick, &self.presence);
         game.step(self.tick, &self.cmds, &mut events);

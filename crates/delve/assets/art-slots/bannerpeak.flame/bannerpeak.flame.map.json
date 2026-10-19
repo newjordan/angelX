@@ -1,0 +1,224 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8,
+    24
+  ],
+  "comments": [
+    "One bank on the lantern's foot (centre of the brass base, not of the crop, so the left handle does not shift it): one scale for all seven frames; the tall flames set it, the handle fits the 16 px canvas.",
+    "A reviewed ink grade keeps the lantern's brass and flame: the palette snap sent a few dark orange pixels to the signal red (a8341f), a stray red fleck at the chimney; the grade maps that one shared ink to the nearest admitted amber-brown (924f1d). No pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "The lantern flame item rises out of its block over 16 ticks then idles; the rules box is 10x14 at the anchor; art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: rise-0..3 (a bead of flame grows to full), idle-0..2 (tall, short left, fat right).",
+  "notes_sha256": "31ff2229536fbb1576a9e7a686c38037ed94d0846347f71ef8b93d7e766f5504",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "rise-0: lantern with a tiny wick bead.",
+      "name": "rise-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.7,
+        388
+      ],
+      "source_rect_xywh": [
+        68,
+        91,
+        260,
+        388
+      ],
+      "state": "rise",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "rise-1: lantern with a small centered flame.",
+      "name": "rise-1",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        143.4,
+        388
+      ],
+      "source_rect_xywh": [
+        444,
+        91,
+        261,
+        388
+      ],
+      "state": "rise",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "rise-2: lantern with a medium flame filling the glass belly and entering the chimney.",
+      "name": "rise-2",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.2,
+        388
+      ],
+      "source_rect_xywh": [
+        812,
+        91,
+        262,
+        388
+      ],
+      "state": "rise",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "rise-3: lantern with a tall centered flame reaching above the open chimney.",
+      "name": "rise-3",
+      "piece": 3,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.8,
+        417
+      ],
+      "source_rect_xywh": [
+        1188,
+        62,
+        262,
+        417
+      ],
+      "state": "rise",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: lantern with a tall centered flame.",
+      "name": "idle-0",
+      "piece": 4,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        142.4,
+        417
+      ],
+      "source_rect_xywh": [
+        68,
+        542,
+        260,
+        417
+      ],
+      "state": "idle",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "idle-1: lantern with a shorter flame leaning left.",
+      "name": "idle-1",
+      "piece": 5,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        143.2,
+        388
+      ],
+      "source_rect_xywh": [
+        444,
+        571,
+        261,
+        388
+      ],
+      "state": "idle",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "idle-2: lantern with a fuller flame leaning right.",
+      "name": "idle-2",
+      "piece": 6,
+      "reviewed_processing": {
+        "grade": {
+          "a8341f": "924f1d"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        144.3,
+        389
+      ],
+      "source_rect_xywh": [
+        812,
+        570,
+        262,
+        389
+      ],
+      "state": "idle",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 16x24, anchor bottom-centre (8,24); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      16,
+      24
+    ]
+  },
+  "slot": "bannerpeak.flame",
+  "source_sha256": "4d78ed6911e5a800a6bf7305a7d250a205ca3ca6f860e3c5f3f3877fd1f15d1b",
+  "timing": "rise 4x4 ticks; idle 3x4 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

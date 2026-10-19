@@ -1,0 +1,189 @@
+{
+  "freezes_per_minute": 5,
+  "frozen_ticks": 20,
+  "longest_frozen_run": 6,
+  "scene": "waxen-warden",
+  "snapshots": [
+    {
+      "save": "ecbad1e00eda9ebb",
+      "step": 60,
+      "tick": 155,
+      "wire": "10f9697fc0e05409"
+    },
+    {
+      "save": "7e001861948553d2",
+      "step": 120,
+      "tick": 213,
+      "wire": "1d11975dd62cf233"
+    },
+    {
+      "save": "eb1548be9c59dd38",
+      "step": 180,
+      "tick": 265,
+      "wire": "52bc6538089bc1c6"
+    },
+    {
+      "save": "32c3a71e015a8498",
+      "step": 240,
+      "tick": 325,
+      "wire": "015bc36e9beb6f74"
+    },
+    {
+      "save": "58be0b9738db1bc5",
+      "step": 300,
+      "tick": 385,
+      "wire": "f37f86a8116559bf"
+    },
+    {
+      "save": "bdb3f1d1e7ea3e1c",
+      "step": 360,
+      "tick": 435,
+      "wire": "58797c75e6ef7be0"
+    },
+    {
+      "save": "95f85942123a0326",
+      "step": 420,
+      "tick": 495,
+      "wire": "330a9d77fb2e96be"
+    },
+    {
+      "save": "6d8e31b91db4cd0f",
+      "step": 480,
+      "tick": 555,
+      "wire": "2565b7751c2e1750"
+    },
+    {
+      "save": "cfb7e176e947c657",
+      "step": 540,
+      "tick": 615,
+      "wire": "7a792b05690ad8a6"
+    },
+    {
+      "save": "628bc193169409be",
+      "step": 600,
+      "tick": 675,
+      "wire": "9d81fe92476e4d32"
+    },
+    {
+      "save": "ab3746e75ae0ffda",
+      "step": 660,
+      "tick": 735,
+      "wire": "aa60dd5f00cbb04c"
+    },
+    {
+      "save": "28bde65bb0ffe3e0",
+      "step": 720,
+      "tick": 795,
+      "wire": "e682478a2dee4183"
+    },
+    {
+      "save": "9283e1f90018619d",
+      "step": 780,
+      "tick": 855,
+      "wire": "6daaea7e7025bbd3"
+    },
+    {
+      "save": "a85843bd16d56d38",
+      "step": 840,
+      "tick": 915,
+      "wire": "03cc8abb54d2bc56"
+    },
+    {
+      "save": "e8a7a1bec1fb5349",
+      "step": 900,
+      "tick": 975,
+      "wire": "197d33c3346957e1"
+    },
+    {
+      "save": "495b8b4165093863",
+      "step": 960,
+      "tick": 1035,
+      "wire": "63c9d5106b09e1d0"
+    },
+    {
+      "save": "1109ae6b8c9f923b",
+      "step": 1020,
+      "tick": 1095,
+      "wire": "0b118773942528c9"
+    },
+    {
+      "save": "121f1e2effccdeaa",
+      "step": 1080,
+      "tick": 1155,
+      "wire": "2034328f927356c3"
+    },
+    {
+      "save": "0651b0bbedb1be7d",
+      "step": 1140,
+      "tick": 1215,
+      "wire": "5e8c9f117efcf9d0"
+    },
+    {
+      "save": "1dcaa41ed06a87d0",
+      "step": 1200,
+      "tick": 1275,
+      "wire": "582661ddcfefc91a"
+    },
+    {
+      "save": "7037f56787b08535",
+      "step": 1260,
+      "tick": 1335,
+      "wire": "7614687250381c9c"
+    },
+    {
+      "save": "24a4ba1705cbcdb4",
+      "step": 1320,
+      "tick": 1395,
+      "wire": "9286a54aa249cc87"
+    },
+    {
+      "save": "f2324cb93d4279f1",
+      "step": 1380,
+      "tick": 1455,
+      "wire": "60030a60f99d34d5"
+    },
+    {
+      "save": "214de0fd7b4c3d40",
+      "step": 1440,
+      "tick": 1515,
+      "wire": "986a62f1e4a55746"
+    },
+    {
+      "save": "53ce37d4188a3abd",
+      "step": 1500,
+      "tick": 1575,
+      "wire": "c7cb8474448791f1"
+    },
+    {
+      "save": "0f9063fb07ae100c",
+      "step": 1560,
+      "tick": 1635,
+      "wire": "3a3966f9040d03e6"
+    },
+    {
+      "save": "b2bc3e9395f30d36",
+      "step": 1620,
+      "tick": 1695,
+      "wire": "5d12f16ba73b4946"
+    },
+    {
+      "save": "049da85f67289dad",
+      "step": 1680,
+      "tick": 1755,
+      "wire": "54366420f77ba2da"
+    },
+    {
+      "save": "b7e8ac75a578b7e1",
+      "step": 1740,
+      "tick": 1815,
+      "wire": "c3f8510b8131ee01"
+    },
+    {
+      "save": "ddeee89a35449e73",
+      "step": 1800,
+      "tick": 1875,
+      "wire": "53ac8ddf8c5239d8"
+    }
+  ],
+  "steps": 1800
+}

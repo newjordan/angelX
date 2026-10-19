@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    96,
+    64
+  ],
+  "anchor_xy": [
+    48,
+    32
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 0,
+  "geometry": "renderer::draw and chrome::panel; counter pips, timing, ranks and purse are live data, not source art.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "bf071ef641d438650868fbcab9236a568627db1379cca0a8d870c9653d8bc400",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Wide rounded title plate, navy center with brass corner and steel edging.",
+      "name": "piece-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        159.5,
+        75.0
+      ],
+      "source_rect_xywh": [
+        27,
+        269,
+        319,
+        150
+      ],
+      "state": "wide-rounded-title-plate-navy-center-with-brass-corner-and-steel"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Shallow clean-chain values strip with blank horizontal fill.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        134.5,
+        32.0
+      ],
+      "source_rect_xywh": [
+        406,
+        334,
+        269,
+        64
+      ],
+      "state": "shallow-clean-chain-values-strip-with-blank-horizontal-fill"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Medium square panel frame with corner gussets.",
+      "name": "panel",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        121.5,
+        83.0
+      ],
+      "source_rect_xywh": [
+        737,
+        259,
+        243,
+        166
+      ],
+      "state": "panel"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Tall narrow panel frame with corner gussets.",
+      "name": "piece-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        69.5,
+        123.5
+      ],
+      "source_rect_xywh": [
+        1059,
+        189,
+        139,
+        247
+      ],
+      "state": "tall-narrow-panel-frame-with-corner-gussets"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Result banner, framed navy field with blue cloth tabs.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        162.0,
+        88.0
+      ],
+      "source_rect_xywh": [
+        27,
+        616,
+        324,
+        176
+      ],
+      "state": "result-banner-framed-navy-field-with-blue-cloth-tabs"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Podium table plate with three empty row bands and wood/steel posts.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        148.0,
+        125.0
+      ],
+      "source_rect_xywh": [
+        389,
+        559,
+        296,
+        250
+      ],
+      "state": "podium-table-plate-with-three-empty-row-bands-and-wood-steel-pos"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Single long podium row plate.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        139.0,
+        30.5
+      ],
+      "source_rect_xywh": [
+        735,
+        668,
+        278,
+        61
+      ],
+      "state": "single-long-podium-row-plate"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Round rank badge with blank navy center and blue tabs.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        81.5,
+        98.0
+      ],
+      "source_rect_xywh": [
+        1059,
+        608,
+        163,
+        196
+      ],
+      "state": "round-rank-badge-with-blank-navy-center-and-blue-tabs"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Shield rank badge with blank navy center.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        88.5,
+        103.5
+      ],
+      "source_rect_xywh": [
+        59,
+        934,
+        177,
+        207
+      ],
+      "state": "shield-rank-badge-with-blank-navy-center"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Small blank key cap.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        73.5,
+        55.5
+      ],
+      "source_rect_xywh": [
+        338,
+        991,
+        147,
+        111
+      ],
+      "state": "small-blank-key-cap"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Wide blank key cap.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        55.5
+      ],
+      "source_rect_xywh": [
+        564,
+        991,
+        256,
+        111
+      ],
+      "state": "wide-blank-key-cap"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Wide panel frame with wood/steel corner posts and plain central field.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        166.0,
+        90.5
+      ],
+      "source_rect_xywh": [
+        887,
+        950,
+        332,
+        181
+      ],
+      "state": "wide-panel-frame-with-wood-steel-corner-posts-and-plain-central-"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224 layout; clean plate height 20, width derived from text. Contact label near y=76/88 must remain separate from bodies.",
+  "sizes": {
+    "v1": [
+      96,
+      64
+    ],
+    "v2": [
+      96,
+      64
+    ]
+  },
+  "slot": "latch.chrome",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "0e8f2e013c1f165a503b22a4c7f95e3f761673fa2dd792fb1db454b27f7db3bc",
+    "original_path": "/work/artifacts/art-prod/slots/latch.chrome/v01/source-sheet.png",
+    "original_sha256": "d637077fefd9daa6e9e5aa154dc7877fcabe61c1f4734773a5e112b691dfdc63",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "acde3a31dd1e06a20152341bf531b34c4b877550fecaacebcd87bd1b2a4a8d14",
+  "timing": "PERFECT/CHAIN during Clean; panel replaces bout on round end; E rematch (draw(), Duel::step_at)."
+}

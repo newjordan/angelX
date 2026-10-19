@@ -57,7 +57,7 @@ pub const DRINKS: [Drink; 3] = [
     Drink {
         id: "reserve",
         name: "The Herald's Reserve",
-        does: "the audience starts warm",
+        does: "300 gold carried by each knight",
         price: 60,
     },
 ];
@@ -114,7 +114,7 @@ pub fn song(id: &str) -> Option<&'static Song> {
     SONGS.iter().find(|s| s.id == id)
 }
 
-/// The stout's edge, and the Reserve's warm start (thousands of viewers).
+/// The stout's edge, and the Reserve's travelling purse.
 pub const STOUT: u32 = 15;
 const RESERVE: u32 = 300;
 
@@ -284,7 +284,6 @@ impl Run {
                 self.cues.push("siege_worthy".into());
                 self.found = Some((self.tick, id, "Found worthy.".into()));
                 self.notice("siege_perilous");
-                self.thrill(50);
                 self.sounds.push("boss_rise");
             } else if let Some(hero) = self.players.get_mut(&id) {
                 // Found wanting: a sting, and off the chair.
@@ -294,7 +293,6 @@ impl Run {
                 self.found = Some((self.tick, id, "Found wanting.".into()));
                 self.sounds.push("spike");
                 self.fx.push(Fx::Shake(8));
-                self.thrill(5);
             }
             if self.blasts.len() < 16 {
                 self.blasts.push((x, y, BLAST_TICKS));
@@ -318,7 +316,11 @@ impl Run {
                     hero.winds = hero.winds.saturating_add(1);
                 }
             }
-            "reserve" => self.thrill(RESERVE),
+            "reserve" => {
+                for hero in self.players.values_mut() {
+                    hero.carried.add(Spoil::Gold, RESERVE);
+                }
+            },
             _ => {}
         }
         let ids: Vec<u32> = self.players.keys().copied().collect();
@@ -414,7 +416,7 @@ impl Run {
                     "RIVAL CLAIMS IN {}; ANY CHIEF OPENS A ROUTE",
                     pack.name().to_uppercase()
                 ),
-                Pack::Fungal | Pack::Unknown => format!(
+                Pack::Fungal | Pack::Unknown | Pack::Swamp => format!(
                     "BROOD SUPPORT IN {}; CORE LEADER HOLDS THE ROUTE",
                     pack.name().to_uppercase()
                 ),

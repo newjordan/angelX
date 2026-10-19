@@ -1,0 +1,105 @@
+{
+  "boss": "crypt-relic-liege",
+  "camera": "overhead",
+  "definition_sha256": "eefaface016d42b166f345cf03fb29badb0574b57982fd020dd918d754e22a41",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 26.53 L*, rest presence 90.01%, edge 93.03%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "royal armor coffer"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "royal armor coffer",
+      "crowned skull",
+      "near gauntlet",
+      "royal mantle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      51,
+      54
+    ],
+    "v2": [
+      92,
+      96
+    ]
+  },
+  "identity_props": [
+    "royal armor coffer",
+    "crowned skull",
+    "near gauntlet",
+    "royal mantle"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 39,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9785759294265911,
+      "opaque_pixels": 1587,
+      "sha256": "aca639a6f93a29d27c5802a9b535ef1677e89649c6e0dbbe8559f3d8418fb76d",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 39,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9810581319399085,
+      "opaque_pixels": 1531,
+      "sha256": "4d7f5c712f916984a33a31b5f07813efdd412cc9254ef8f4b7e4a698df7994de",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 47,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9835494484226824,
+      "opaque_pixels": 5167,
+      "sha256": "a4b6c3f6c1919ee6412bf4e9f0f530386dc7a773ed445bd2ec47a5b43f0ddb4e",
+      "silhouette_iou": 1.0,
+      "size": [
+        92,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9822390740371183,
+      "opaque_pixels": 5011,
+      "sha256": "9c03cb8af2c9806b6d1a544c551837e5d7ab2c173f15256df742fe142e7d2016",
+      "silhouette_iou": 1.0,
+      "size": [
+        92,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

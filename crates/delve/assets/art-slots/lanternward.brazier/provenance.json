@@ -1,0 +1,16 @@
+{
+  "delivery": "lanternward.brazier/v01",
+  "delivery_status": "The delivery's own generation.json says not_accepted: its reviewer saw a dark gradient backdrop on a dark viewer, which was the sub-threshold alpha halo around the flames. On a neutral grey the sheet is truly transparent, and after the importer's alpha >= 128 threshold nothing of the haze remains (measured fully_opaque_fraction 0.0). Accepted by the pilot review on 2026-10-18.",
+  "generation_sha256": "f403b78b6d232bc8077da67405e4ac3e106c66c74c3ff0f0512536b1413c69ec",
+  "generations": 3,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "6b61c9ccc8d0441efed45e3624da635c563dd3ddb2393b4fe65d39edc322696b",
+  "native_contract": "Native 14x20, anchor bottom-centre (7,20).",
+  "notes_sha256": "da8427385bf64c269a0406623011c3bc1c5a52ee81c485653d76a82620275b57",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "239cb84d98f01bb22b038075bddecdddc0fc20b1556c8d737f77a91279889f7e",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1; source-sheet-2.png and source-sheet-3.png are correction passes kept outside the repo and not used)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.brazier/v01/source-sheet.png",
+  "source_sha256": "a136b50af74f9629bc3f01e2de6597f96f974f7bd38e1128e67dec9c4e9005f0"
+}

@@ -251,7 +251,7 @@ bakes are excluded from the live paint path.
 Mini-viz cached layers: **0.962 ms mean**. The complete CSVs also include
 1152×672 delivery and conversion/hash/encoding costs. These are CPU timings.
 
-## Real terminal reproduction
+## Reproduction
 
 The ignored Rust writer derives every pair from the original fixed `Run`
 fixtures. `moments.json` records tick, room/pack, actor positions and attack
@@ -268,25 +268,31 @@ CARGO_TARGET_DIR=/work/build-cache/angelx-artv2 TMPDIR=/work/tmp \
   ANGEL_ART_PREVIOUS=/work/tmp/review-shots/artv2-match \
   cargo test --bin angel write_art_v2_shots -- --ignored --nocapture
 cd ..
-python scripts/art-v2-terminal.py /work/tmp/review-shots/artv2-black
-UV_CACHE_DIR=/work/build-cache/angelx-artv2/uv TMPDIR=/work/tmp \
-  uv run --no-project --with Pillow python scripts/art-v2-black-review.py \
-  /work/tmp/review-shots/artv2-black
 ```
 
-The terminal runner uses an isolated Kitty window on the existing `ANGELCAP`
-Wayland monitor. It shows the serialized ratatui buffers and captures the actual
-surface with `grim`. A temporary rule makes only that review window opaque and
-animation-free; it is disabled when the window closes. User configuration and
-other windows are unchanged. `terminal-capture.json` records font, cell geometry
-and transport. Capture PNGs are not font approximations or RGB-canvas stand-ins.
+To see a scene the way a player does, open it in angelX's own window, which
+saves its own frame. A fight needs no walking: start a dev host on the scene
+and join it from the window.
 
-Outputs: `{scene}-four-way.png` (v1, last v2, new Kitty, new cells in reading
-order), `kingdom-walk-beside-delve.png`, `contact-sheet.png`, `index.html`, native
-and cell screenshots/streams, raw deterministic frames, figure study, manifest
-and timing files. Open every four-way, the kingdom comparison and contact sheet
-after each final capture pass; inspect native/cell images at full size whenever
-the overview exposes a legibility or layering problem.
+```sh
+crates/target/release/delve-dev-host --port 8820 --bundle crates/web/dist/delve \
+  --scene fight --key KEY &
+ANGEL_ART=v2 ANGEL_GLASS_SHOT=/work/tmp/review-shots/artv2-black/fight.png \
+  ANGEL_GLASS_SHOT_DELAY_MS=20000 ANGEL_GLASS_SHOT_CLOSE=1 bin/angelX --glass
+# in the window: /dungeon join http://127.0.0.1:8820/#KEY
+```
+
+`ANGEL_GLASS_SHOT` (`crates/glass/src/window.rs`) waits
+`ANGEL_GLASS_SHOT_DELAY_MS` after the window opens (default 5000), then saves
+the next frame as a PNG drawn offscreen, without the desktop behind it
+(`Host::capture` in `crates/glass/src/lib.rs`). `ANGEL_GLASS_SHOT_CLOSE=1`
+closes the window half a second later. Run it on a seat of its own, a nested
+Hyprland, so it never takes the desktop's pointer, keyboard or focus.
+
+Outputs from the ignored writer: native and cell screenshots/streams, raw
+deterministic frames, figure study, manifest and timing files under
+`ANGEL_ART_SHOTS`. Inspect those images at full size whenever a pass exposes a
+legibility or layering problem.
 
 ## Validation and remaining work
 

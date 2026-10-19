@@ -148,7 +148,7 @@ pub(crate) fn sound_dir() -> Option<PathBuf> {
     let candidates = [
         std::env::var_os("ANGEL_RESOURCE_DIR")
             .map(|d| PathBuf::from(d).join("cockpit/assets/dungeon")),
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/dungeon")),
+        option_env!("ANGEL_SOURCE_COCKPIT_DIR").map(|d| PathBuf::from(d).join("assets/dungeon")),
     ];
     candidates
         .into_iter()
@@ -254,8 +254,8 @@ impl Audio {
     pub(crate) fn music(&mut self, track: Option<&str>) {
         let track = match track {
             None => None,
-            Some(name) => match TRACKS.iter().find(|&&t| t == name) {
-                Some(&t) => Some(t),
+            Some(name) => match TRACKS.iter().copied().find(|&t| t == name).or_else(|| angel_delve::rules::music::known(name)) {
+                Some(t) => Some(t),
                 // An unknown track keeps what is playing.
                 None => return,
             },

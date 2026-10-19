@@ -1,0 +1,139 @@
+set observatory
+# Cuckoo Observatory: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# The ground is snow (plaster-coloured in the capture). Painted on open ground, not blocks: forecast markers, the ropeway plate (19,10).
+
+# the ground: its top is the floor line
+box    ground  at 192 -4 8 size 384 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    plaster at 96 -4 56 size 160 4 80
+box    path    at 192 -4 120 size 32 4 208
+box    plaster at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 56 size 16 4 80
+box    path    at 96 -4 112 size 160 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    plaster at 96 -4 168 size 160 4 80
+box    plaster at 288 -4 168 size 160 4 80
+box    ground  at 376 -4 176 size 16 4 96
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 23
+box    rock    at 192 -4 8 size 384 30 16  # TODO prims: rock
+gem    rock    at 7 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 25 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 40 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 55 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 71 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 87 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 102 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 119 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 135 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 155 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 169 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 186 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 198 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 213 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 234 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 246 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 267 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 279 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 297 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 310 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 330 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 341 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 360 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 373 10 8 size 14 12 14 turn 45  # TODO prims: rock
+
+# the south wall, columns 0 to 10
+box    rock    at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 88 -4 220 size 176 16 8  # TODO prims: rock
+
+# the south wall, columns 13 to 23
+box    rock    at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 296 -4 220 size 176 16 8  # TODO prims: rock
+
+# the west wall, rows 1 to 12
+box    rock    at 8 -4 112 size 16 20 192  # TODO prims: rock
+gem    rock    at 8 10 26 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 37 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 57 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 69 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 91 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 106 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 122 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 133 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 154 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 165 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 185 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 199 size 14 13 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 1 to 5
+box    rock    at 376 -4 56 size 16 20 80  # TODO prims: rock
+gem    rock    at 376 10 23 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 37 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 58 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 72 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 89 size 14 14 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 8 to 12 (at 37% of its height, for the camera)
+box    rock    at 376 -4 136 size 16 9.5 16  # TODO prims: wedge
+box    rock    at 376 -4 176 size 16 20 64  # TODO prims: rock
+gem    rock    at 376 5 135 size 14 9 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 153 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 168 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 185 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 198 size 14 14 14 turn 45  # TODO prims: rock
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# tower at 6,1 4x3
+box    stone   at 128 0 40 size 60 34 44 id tower  # TODO prims: cylinder
+cone   slate   at 128 34 40 size 64 40 48  # TODO prims: pyramid
+box    window  at 128 18.7 62.25 size 4 6 1.5
+
+# cottage at 3,11 5x2 (at 53% of its height, for the camera)
+box    wood    at 88 0 197 size 74 9.5 18 id cottage
+box    slate   at 88 9.5 197 size 76 6 20  # TODO prims: gable
+box    door    at 88 0 206.5 size 8 6 1
+box    window  at 68 3.5 206.5 size 6 2.5 1
+
+# site at 16,2 5x3
+box    wood    at 258 0 38 size 2 7 2
+box    wood    at 333 0 38 size 2 7 2
+box    wood    at 258 0 77 size 2 7 2
+box    wood    at 333 0 77 size 2 7 2
+box    cloth   at 295.5 5 38 size 75 1 1 id site  # TODO prims: fence
+box    cloth   at 295.5 5 77 size 75 1 1  # TODO prims: fence
+box    cloth   at 258 5 57.5 size 1 1 39  # TODO prims: fence
+box    cloth   at 333 5 57.5 size 1 1 39  # TODO prims: fence
+box    wood    at 271 0 71 size 16 3 6
+gem    rock    at 325 0 75 size 5 4 5  # TODO prims: rock
+gem    rock    at 328 0 72 size 5 4 5 turn 30  # TODO prims: rock
+gem    rock    at 331 0 75 size 5 4 5 turn 60  # TODO prims: rock
+
+# plate at 19,10 2x1
+box    wood    at 320 0 168 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# landmark (assets/world3d/observatory/landmark.set, hand-placed)
+# Cuckoo Observatory: a slate dome with its lit slit and the telescope out over
+# the stone tower, a smaller dome tower on the east, snow-capped crags at the back.
+sphere   slate   at 128 30 40 size 56 52 48 id obs-dome
+box      window  at 128 44 62.5 size 7 24 3 id obs-slit
+wedge    metal   at 128 60 80 size 7 14 36 id obs-telescope
+rock-6   rock    at 36 0 -9 size 72 52 50 id obs-crag-w
+pyramid  plaster at 36 38 -9 size 38 18 32 id obs-snow-w
+rock-9   rock    at 366 0 -9 size 56 44 50 id obs-crag-e
+pyramid  plaster at 366 32 -9 size 32 16 30 id obs-snow-e
+cylinder stone   at 314 0 -2 size 32 30 32 id obs-annex
+sphere   slate   at 314 30 -2 size 34 22 34 id obs-annex-dome
+box      window  at 314 34 13.3 size 5 12 1.6 id obs-annex-slit

@@ -1,0 +1,320 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "1 grid cell footprint (16 px v1 / 32 px v2), up to 1.5 cells tall.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "9263c1e48f063914f69b1b9a8d725bb0e366e31ffa6cc99de01294c648616b06",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Square crypt pillar with broken cap and skull niche.",
+      "name": "pillar-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        111.5,
+        426
+      ],
+      "source_rect_xywh": [
+        75,
+        119,
+        223,
+        426
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Round fluted pillar with skull niche.",
+      "name": "pillar-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.0,
+        407
+      ],
+      "source_rect_xywh": [
+        462,
+        131,
+        230,
+        407
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Clustered square pilaster with skull and long bone ornaments.",
+      "name": "pillar-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        114.5,
+        410
+      ],
+      "source_rect_xywh": [
+        818,
+        124,
+        229,
+        410
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Cracked sarcophagus with a recumbent stone effigy.",
+      "name": "tomb-0",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        197.0,
+        358
+      ],
+      "source_rect_xywh": [
+        1118,
+        212,
+        394,
+        358
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Iron-banded ossuary chest packed with skulls and bones.",
+      "name": "tomb-1",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.0,
+        371
+      ],
+      "source_rect_xywh": [
+        48,
+        625,
+        318,
+        371
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Stack of two cracked, iron-ringed burial slabs.",
+      "name": "tomb-2",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.0,
+        344
+      ],
+      "source_rect_xywh": [
+        416,
+        644,
+        312,
+        344
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Mossy angular tombstone boulder with carved cross motif.",
+      "name": "boulder-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.5,
+        360
+      ],
+      "source_rect_xywh": [
+        781,
+        643,
+        305,
+        360
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Cut-stone rubble mound with skull and ribs.",
+      "name": "boulder-1",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        189.5,
+        352
+      ],
+      "source_rect_xywh": [
+        1123,
+        670,
+        379,
+        352
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Thorny root-and-stone mass with a skull.",
+      "name": "boulder-2",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        180.0,
+        420
+      ],
+      "source_rect_xywh": [
+        31,
+        1035,
+        360,
+        420
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Collapsed square pillar rubble.",
+      "name": "broken-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        150.5,
+        411
+      ],
+      "source_rect_xywh": [
+        441,
+        1040,
+        301,
+        411
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Fractured fluted column stump.",
+      "name": "broken-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        158.5,
+        342
+      ],
+      "source_rect_xywh": [
+        772,
+        1112,
+        317,
+        342
+      ],
+      "state": "block"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.8
+      },
+      "label": "Shattered pilaster rubble.",
+      "name": "broken-2",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        173.0,
+        341
+      ],
+      "source_rect_xywh": [
+        1158,
+        1112,
+        346,
+        341
+      ],
+      "state": "block"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.block.crypt",
+  "source_sha256": "1af3e03642139c1d127e480c2b5b91abf140ceb398aef592c1699a17595664af",
+  "timing": ""
+}

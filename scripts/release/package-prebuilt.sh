@@ -100,6 +100,8 @@ prebuilt = {
     },
     "rustc": b["rustc"],
     "features": b["features"],
+    # bin/angelX opens the window only for a binary that carries it.
+    "glass": b.get("glass") is True,
     "binaries": {f"cockpit/target/release/{k}": v for k, v in b["binaries"].items()},
 }
 with open(out, "w") as f:

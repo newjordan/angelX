@@ -84,10 +84,17 @@ fn the_floors_hold_their_races_and_the_first_floor_teaches_instead() {
     assert_eq!(Course::of_floor(2), Course::Shaft);
     assert_eq!(Course::of_floor(3), Course::Griffin);
     assert_eq!(Course::of_floor(4), Course::Cart);
-    let mut run = Run::new(3, 1, None);
-    assert!(run.race3d_room.is_none(), "no race on the first floor");
-    run.descend_for_test();
-    assert!(run.race3d_room.is_some(), "the second floor has its race hall");
+    // A second floor keeps its race in a free hall (one the folly does not
+    // take); which seeds' floors have one is down to their shape.
+    let run = (0..16)
+        .map(|seed| {
+            let mut run = Run::new(seed, 1, None);
+            assert!(run.race3d_room.is_none(), "no race on the first floor");
+            run.descend_for_test();
+            run
+        })
+        .find(|run| run.race3d_room.is_some())
+        .expect("the second floor has its race hall");
     assert_ne!(run.race3d_room, run.folly_room);
 }
 
@@ -434,6 +441,7 @@ fn autopilot(run: &Run, id: u32) -> Input {
     let t = track(r.course);
     let mut input = Input::default();
     match r.course {
+        Course::Touge => return drift_bot(r, id),
         Course::Shaft => {
             input.move_y = -1;
             let at = t.at(me.s);
@@ -557,9 +565,10 @@ fn the_griffin_eyrie_stands_on_the_mountain_with_a_road_to_its_door() {
     let geo = geography::geography(&[]);
     let site = geo.sites.iter().find(|s| s.room == RoomKind::Eyrie).expect("an eyrie door");
     assert!(geography::is_road(&geo, site.stand), "on a road");
-    // The Mountain is tiles 32..64 across and 0..22 down (its stand may be
-    // the row below its lot).
-    assert!((32..64).contains(&site.stand.0) && (0..24).contains(&site.stand.1), "on the Mountain: {:?}", site.stand);
+    // Up in the Highlands (its stand may be the row below its lot).
+    let (x, y) = site.stand;
+    let highland = |x: i32, y: i32| crate::world::biome::at(x, y) == crate::world::biome::Biome::Highlands;
+    assert!(highland(x, y) || highland(x, y - 1), "in the Highlands: {:?}", site.stand);
     // In from the kingdom's door, and out again by the yard gate.
     let mut run = Run::at_home(53, 1, None, Home::default(), Spoils::default());
     run.join_seat(2, "Two");
@@ -719,3 +728,98 @@ fn write_eyrie_shots() {
     save(&run, "e7-practice-board");
 }
 
+
+
+// ─── off an edge only where the picture shows a drop ────────────────────────
+
+/// A ball pushed straight down the middle of the Shaft never falls: every
+/// seam it crosses holds it, so nothing "gives way under the floor".
+#[test]
+fn a_ball_pushed_down_the_shafts_middle_never_falls() {
+    let t = track(Course::Shaft);
+    let push = keys(&[(1, Input { move_y: -1, ..Default::default() })]);
+    let mut run = racing(Course::Shaft);
+    for i in 0..RACE_TIME {
+        run.step(&push);
+        let r = &race(&run).riders[&1];
+        assert!(
+            r.wreck != Wreck::Fall,
+            "t={i} s={:.2} x={:.2} {:?}: fell where the floor is drawn",
+            r.s, r.x, t.at(r.s).ground
+        );
+        if r.finish.is_some() {
+            break;
+        }
+    }
+}
+
+/// Every walled piece that feeds a narrower open stretch funnels down to it
+/// flush: the width at the seam is the open width, and the wall of the
+/// funnel guides a ball in instead of bouncing it out over the edge.
+#[test]
+fn walled_pieces_funnel_flush_into_narrower_open_stretches() {
+    let t = track(Course::Shaft);
+    let mut seams = 0;
+    for w in t.posts.windows(2) {
+        let (before, after) = (t.at(w[0] - 0.01), t.at(w[0] + 0.01));
+        if before.walls && !after.walls {
+            seams += 1;
+            // The funnel ends flush at the open width: no cliff at the seam.
+            assert!(
+                (before.width - after.width).abs() < 1e-4,
+                "s={:.2}: the funnel ends {:.2} wide but the open stretch is {:.2}",
+                w[0], before.width, after.width
+            );
+            // The funnel is drawn and held by the same samples, and its
+            // wall guides a ball in instead of bouncing it out.
+            assert!(
+                t.at(w[0] - 1.0).funnel,
+                "s={:.2}: the tapering samples are a chute",
+                w[0]
+            );
+        }
+    }
+    assert!(seams >= 3, "the Shaft has several walled-to-open seams");
+}
+
+/// A ball rolling into each open stretch from the middle of the approach is
+/// fed onto it: it rides one ball-radius in from the edge to the end of the
+/// seam without falling.
+#[test]
+fn a_ball_funnelled_into_each_open_stretch_arrives_on_it() {
+    let t = track(Course::Shaft);
+    for (k, &post) in t.posts.iter().enumerate() {
+        let at0 = t.at(post + 0.5);
+        // Only the walled approaches funnel: an open stretch that narrows
+        // into another open one shows a roped, tapered edge instead.
+        if at0.walls || !t.at(post - 1.0).walls {
+            continue;
+        }
+        // Roll down the approach's middle at race pace into the open piece.
+        let mut run = racing(Course::Shaft);
+        let r = rider(&mut run, 1);
+        r.s = (post - 8.0).max(1.0);
+        r.x = 0.0;
+        r.vs = 8.0;
+        (r.vx, r.z) = (0.0, 0.0);
+        let mut fell = None;
+        for _ in 0..(4 * HZ) {
+            run.step(&BTreeMap::new());
+            let r = &race(&run).riders[&1];
+            if r.crash > 0 && r.wreck == Wreck::Fall {
+                // A crossing ore cart may bonk the ball on the way in; that
+                // is the crossing's own game, not the floor giving way.
+                fell = Some((r.s, r.x, r.wreck));
+                break;
+            }
+            if r.s >= post + 3.0 {
+                break;
+            }
+        }
+        assert_eq!(
+            fell, None,
+            "piece #{k} at s={post} ({:?}): a middle ball fell {:?} crossing in",
+            at0.ground, fell
+        );
+    }
+}

@@ -1,0 +1,105 @@
+{
+  "boss": "grinwick",
+  "camera": "overhead",
+  "definition_sha256": "ab4482e9da78b9575d47e790493e4ec23c600c6daad1255b1e500d1bf0684118",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: original body retained; grinwick v1 rest ROOM: body floor-contrast coverage. Measured correction in docs/ART-REQUESTS.md.",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "boiler body"
+    ],
+    "class": "chief",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "boiler body",
+      "porcelain faceplate",
+      "jointed spider leg",
+      "funnel whistle"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      57,
+      54
+    ],
+    "v2": [
+      101,
+      96
+    ]
+  },
+  "identity_props": [
+    "boiler body",
+    "porcelain faceplate",
+    "jointed spider leg",
+    "funnel whistle"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 39,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9814932992980216,
+      "opaque_pixels": 1567,
+      "sha256": "91159a7152d4d5a81a5582f535e085c978ffd5eeb04eb2b9277336a14bf4fae0",
+      "silhouette_iou": 1.0,
+      "size": [
+        57,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 41,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9820273184759166,
+      "opaque_pixels": 1391,
+      "sha256": "9db3a24f568b1681e213483fa2159a450945e448f99c81982060d77003b0d947",
+      "silhouette_iou": 1.0,
+      "size": [
+        57,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9835231895850285,
+      "opaque_pixels": 4916,
+      "sha256": "6d003d132b05b948ba4ec933dbc9e07d2ea39615292be90e19503c2c9925607f",
+      "silhouette_iou": 1.0,
+      "size": [
+        101,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 44,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9868301544050863,
+      "opaque_pixels": 4404,
+      "sha256": "a7a4f0c59c6e90d62437de40da8fb2a9522aa9cf5ccb83790afa797c2e3014f3",
+      "silhouette_iou": 1.0,
+      "size": [
+        101,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

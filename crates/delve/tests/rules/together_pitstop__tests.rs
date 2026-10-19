@@ -348,7 +348,17 @@ fn leaving_a_floor_unrelieved_costs_a_quarter_but_never_the_last_point() {
 }
 
 #[test]
-fn the_stairs_take_the_toll_and_a_stop_spares_it() {
+fn the_stairs_take_the_toll_and_one_knights_stop_spares_the_party() {
+    // Nobody went: the stairs mend ten after the toll, and the Sanctuary
+    // two tenths: 60 - 25 + 10 + 20 for each.
+    let mut run = Run::new(0, 1, Some("Matt"));
+    for hero in run.players.values_mut() {
+        hero.hp = 60;
+    }
+    run.descend_for_test();
+    assert_eq!((run.players[&1].hp, run.players[&2].hp), (65, 65));
+    // One knight went: it counts for the party, so nobody is docked:
+    // 60 + 10 + 20 for both.
     let mut run = Run::new(0, 1, Some("Matt"));
     let depth = run.dungeon.depth;
     run.players.get_mut(&2).unwrap().relieved = Some((depth, 0));
@@ -356,11 +366,7 @@ fn the_stairs_take_the_toll_and_a_stop_spares_it() {
         hero.hp = 60;
     }
     run.descend_for_test();
-    // The stairs mend ten after the toll, and the Sanctuary two tenths:
-    // 60 - 25 + 10 + 20 for the one who never went; 60 + 10 + 20 for the
-    // one who did.
-    assert_eq!(run.players[&1].hp, 65);
-    assert_eq!(run.players[&2].hp, 90);
+    assert_eq!((run.players[&1].hp, run.players[&2].hp), (90, 90));
 }
 
 #[test]

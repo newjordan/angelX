@@ -78,6 +78,34 @@ pub(super) fn orb(kind: RuneKind) -> Img {
     im
 }
 
+/// The live pickup's material; menu symbols retain their small authored orb.
+pub(super) fn material(kind: RuneKind) -> [u8; 3] {
+    super::super::ink::ink(inks(kind)[2]).unwrap_or([180, 180, 220])
+}
+
+/// A rune's sign stays legible over its lit 3D body, including Invisibility.
+pub(super) fn glyph(kind: RuneKind) -> Img {
+    let mut im = Img::new(20, 20);
+    for (row, cells) in sign(kind).iter().enumerate() {
+        for (col, cell) in cells.chars().enumerate() {
+            if cell == '#' {
+                im.put(7 + col as i32, 7 + row as i32, inks(kind)[3]);
+            }
+        }
+    }
+    im
+}
+
+/// The rune as a lit solid with its sign over it, for a painted frame.
+pub(super) fn solid_orb(kind: RuneKind, phase: f32) -> Img {
+    let mut im = super::cards::pickup_image(1, material(kind), phase);
+    if kind == RuneKind::Invisibility {
+        im = veiled(&im);
+    }
+    im.stamp(&glyph(kind), 0, 0);
+    im
+}
+
 /// Half there: every other pixel, in a checker.
 pub(super) fn veiled(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
@@ -131,9 +159,26 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
             lit,
         );
     }
-    let bob = if (tick / 10).is_multiple_of(2) { 0 } else { 1 };
     let im = orb(rune.kind);
-    cv.stamp(&im, x - im.w / 2, y - 14 + bob);
+    if super::capturing() && (super::props_meshes_on() || super::pickup_cards_on()) {
+        let (ink, accent) = super::pickup_meshes::sprite_inks(&im, mark, lit);
+        super::with_capture(|capture| {
+            capture.pickups.push(super::pickup_meshes::ScenePickup {
+                x: x as f32,
+                y: y as f32,
+                kind: super::pickup_meshes::PickupKind::Rune(rune.kind),
+                plate: None,
+                ink,
+                accent,
+                shine: true,
+                tick: tick as u32,
+            });
+        });
+    } else {
+        // Its card, turning over the ring.
+        let card = super::pickup_cards::turning_sprite(Some(&im), true, (x as f32, y as f32), tick as u32);
+        cv.stamp(&card, x - card.w / 2, y - 6 - card.h / 2);
+    }
 }
 
 /// A knight's rune: its motes circling their feet, flickering in the last

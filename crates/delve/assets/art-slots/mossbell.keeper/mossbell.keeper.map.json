@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    48
+  ],
+  "anchor_xy": [
+    24,
+    48
+  ],
+  "comments": [
+    "Review: root recovery and walking poses remain proposals. Use delivered cracks, never legacy socket overlays on this design.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Registration correction: centre each complete crop horizontally and keep one shared actor scale/feet baseline; alpha-foot averages were biased by extended boots, splashes and detached specks."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 9,
+  "geometry": "Ball::circle(80\u00d7Q,27\u00d7Q,19\u00d7Q) is Keeper contact radius including ball; do not derive body collision from shell. Root and crown geometry belong to separate slots.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "dcfca4a2b6e7c6850f83309b669e842694e0fca01782601c0be7dfe623a676bb",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle: planted stance, leaf crown upright, amber visor and split mouth visible.",
+      "name": "idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.0,
+        305
+      ],
+      "source_rect_xywh": [
+        39,
+        110,
+        272,
+        305
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Root windup: crouched clamp pose with root hands gathered forward.",
+      "name": "root-tell",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.5,
+        245
+      ],
+      "source_rect_xywh": [
+        358,
+        157,
+        241,
+        245
+      ],
+      "state": "root-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Root attack: thrusts both root arms toward the viewer in a broad clamp.",
+      "name": "root-attack",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        139.5,
+        301
+      ],
+      "source_rect_xywh": [
+        660,
+        111,
+        279,
+        301
+      ],
+      "state": "root-attack"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Root recovery: returns to a lower, forward-leaning stance.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.0,
+        240
+      ],
+      "source_rect_xywh": [
+        981,
+        171,
+        248,
+        240
+      ],
+      "state": "root-recovery"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Crown windup: folds the leafy crown and compresses low.",
+      "name": "crown-tell",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        115.5,
+        243
+      ],
+      "source_rect_xywh": [
+        46,
+        567,
+        231,
+        243
+      ],
+      "state": "crown-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Crown attack: braces with antlers spread and root fists raised.",
+      "name": "crown-attack",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        158.0,
+        341
+      ],
+      "source_rect_xywh": [
+        331,
+        472,
+        316,
+        341
+      ],
+      "state": "crown-attack"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Walk/step 1: steps forward with one root foot lifted.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.5,
+        298
+      ],
+      "source_rect_xywh": [
+        670,
+        513,
+        267,
+        298
+      ],
+      "state": "walk-step-1"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Walk/step 2: follows through with the opposite foot lifted.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.5,
+        319
+      ],
+      "source_rect_xywh": [
+        986,
+        504,
+        245,
+        319
+      ],
+      "state": "walk-step-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Hit flinch: recoils with arms thrown outward.",
+      "name": "flinch",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        144.5,
+        299
+      ],
+      "source_rect_xywh": [
+        32,
+        871,
+        289,
+        299
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 1: first visible shell cracks; visor and lights remain readable.",
+      "name": "damage-1",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.5,
+        265
+      ],
+      "source_rect_xywh": [
+        363,
+        902,
+        269,
+        265
+      ],
+      "state": "damage-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 2: further shell cracks and drooped foliage while still active.",
+      "name": "damage-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        251
+      ],
+      "source_rect_xywh": [
+        664,
+        912,
+        263,
+        251
+      ],
+      "state": "damage-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Defeat: folded low with crown and arms slumped; visor remains dimly visible.",
+      "name": "defeat",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.5,
+        198
+      ],
+      "source_rect_xywh": [
+        971,
+        953,
+        261,
+        198
+      ],
+      "state": "defeat"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d748 at (OX+field_x(80)-24+shake,OY-3)=(190+shake,43); source pivot convention (24,48). Signature sockets in native.json states[].",
+  "sizes": {
+    "v1": [
+      48,
+      48
+    ],
+    "v2": [
+      48,
+      48
+    ]
+  },
+  "slot": "mossbell.keeper",
+  "source_sha256": "80bed242c367548ede24ee92868cbf06b3a828f917f33c64b179ce70d6b595d4",
+  "timing": "Nine poses; starts Idle=120. Tell 36 ticks at hp>2, 30 at hp<=2; action 12; subsequent Idle=90+10\u00d7hp. Flinch=12, hit cooldown=10; damage stages hp 6\u20135/4\u20133/2\u20131. Defeat at hp=0 (Ball::step; draw())."
+}

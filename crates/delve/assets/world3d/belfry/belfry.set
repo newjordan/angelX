@@ -1,0 +1,199 @@
+set belfry
+# The Bashful Belfry: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the rope course on posts (6,18 by 4..10).
+
+# the ground: its top is the floor line
+box    ground  at 192 -4 8 size 384 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 96 -4 56 size 160 4 80
+box    path    at 192 -4 120 size 32 4 208
+box    grass   at 288 -4 56 size 160 4 80
+box    ground  at 376 -4 120 size 16 4 208
+box    path    at 88 -4 112 size 176 4 32
+box    path    at 288 -4 112 size 160 4 32
+box    ground  at 8 -4 176 size 16 4 96
+box    grass   at 96 -4 168 size 160 4 80
+box    grass   at 288 -4 168 size 160 4 80
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 23
+box    foliage at 192 -4 8 size 384 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 10 8 8 size 17.1 31 14.4
+box    trunk   at 21 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 21 7 8 size 18 25 14.4
+box    trunk   at 42 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 42 7 8 size 18 30 14.4
+box    trunk   at 55 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 55 6 8 size 16.2 28 14.4
+box    trunk   at 71 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 71 5 8 size 17.1 24 14.4
+box    trunk   at 87 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 87 6 8 size 18.9 31 14.4
+box    trunk   at 107 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 107 8 8 size 16.2 27 14.4
+box    trunk   at 123 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 123 8 8 size 16.2 28 14.4
+box    trunk   at 135 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 135 8 8 size 16.2 27 14.4
+box    trunk   at 149 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 149 6 8 size 18.9 31 14.4
+box    trunk   at 171 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 171 7 8 size 16.2 24 14.4
+box    trunk   at 183 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 183 5 8 size 17.1 25 14.4
+box    trunk   at 199 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 199 7 8 size 17.1 28 14.4
+box    trunk   at 213 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 213 6 8 size 17.1 30 14.4
+box    trunk   at 235 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 235 5 8 size 16.2 26 14.4
+box    trunk   at 247 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 247 5 8 size 18 29 14.4
+box    trunk   at 263 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 263 7 8 size 18.9 25 14.4
+box    trunk   at 278 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 278 5 8 size 16.2 27 14.4
+box    trunk   at 299 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 299 7 8 size 17.1 29 14.4
+box    trunk   at 311 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 311 6 8 size 18 25 14.4
+box    trunk   at 328 0 8 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 328 5 8 size 17.1 30 14.4
+box    trunk   at 344 0 8 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 344 6 8 size 18.9 28 14.4
+box    trunk   at 363 0 8 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 363 8 8 size 18 24 14.4
+box    trunk   at 373 0 8 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 373 7 8 size 18 26 14.4
+cone   foliage at 10 0 -9 size 19.2 45 18
+cone   foliage at 25 0 -9 size 21.6 38 18
+cone   foliage at 38 0 -9 size 20.8 40 18
+cone   foliage at 53 0 -9 size 23.2 38 18
+cone   foliage at 69 0 -9 size 20.8 41 18
+cone   foliage at 87 0 -9 size 21.6 41 18
+cone   foliage at 106 0 -9 size 18.4 38 18
+cone   foliage at 116 0 -9 size 19.2 38 18
+cone   foliage at 132 0 -9 size 20 41 18
+cone   foliage at 155 0 -9 size 22.4 43 18
+cone   foliage at 165 0 -9 size 22.4 38 18
+cone   foliage at 184 0 -9 size 20.8 40 18
+cone   foliage at 197 0 -9 size 19.2 45 18
+cone   foliage at 213 0 -9 size 17.6 40 18
+cone   foliage at 229 0 -9 size 21.6 45 18
+cone   foliage at 245 0 -9 size 18.4 45 18
+cone   foliage at 262 0 -9 size 20 44 18
+cone   foliage at 278 0 -9 size 19.2 43 18
+cone   foliage at 297 0 -9 size 19.2 39 18
+cone   foliage at 309 0 -9 size 19.2 39 18
+cone   foliage at 326 0 -9 size 18.4 43 18
+cone   foliage at 341 0 -9 size 22.4 41 18
+cone   foliage at 361 0 -9 size 23.2 38 18
+cone   foliage at 380 0 -9 size 19.2 41 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 5
+box    foliage at 8 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 25 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 25 size 14.4 29 16.2
+box    trunk   at 8 0 43 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 43 size 14.4 27 18
+box    trunk   at 8 0 54 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 54 size 14.4 31 16.2
+box    trunk   at 8 0 74 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 8 8 74 size 14.4 27 17.1
+box    trunk   at 8 0 86 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 86 size 14.4 28 17.1
+
+# the west wall, rows 8 to 12 (at 62% of its height, for the camera)
+box    foliage at 8 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 8 0 137.5 size 4 7 4  # TODO prims: cylinder
+cone   foliage at 8 4.5 137.5 size 14.4 16.5 17.1
+box    trunk   at 8 0 152 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 8 5 152 size 14.4 26 16.2
+box    trunk   at 8 0 170 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 8 7 170 size 14.4 27 16.2
+box    trunk   at 8 0 185 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 8 6 185 size 14.4 24 18
+box    trunk   at 8 0 198 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 8 5 198 size 14.4 28 18
+
+# the east wall, rows 1 to 12
+box    foliage at 376 -4 112 size 16 9 192  # TODO prims: blob
+box    trunk   at 376 0 26 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 376 7 26 size 14.4 27 18
+box    trunk   at 376 0 40 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 40 size 14.4 27 18.9
+box    trunk   at 376 0 54 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 376 6 54 size 14.4 28 18.9
+box    trunk   at 376 0 72 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 72 size 14.4 26 17.1
+box    trunk   at 376 0 86 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 376 7 86 size 14.4 24 17.1
+box    trunk   at 376 0 104 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 104 size 14.4 29 18
+box    trunk   at 376 0 119 size 4 11 4  # TODO prims: cylinder
+cone   foliage at 376 7 119 size 14.4 29 18
+box    trunk   at 376 0 134 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 134 size 14.4 31 17.1
+box    trunk   at 376 0 155 size 4 9 4  # TODO prims: cylinder
+cone   foliage at 376 5 155 size 14.4 26 17.1
+box    trunk   at 376 0 168 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 376 6 168 size 14.4 29 18.9
+box    trunk   at 376 0 182 size 4 12 4  # TODO prims: cylinder
+cone   foliage at 376 8 182 size 14.4 30 18.9
+box    trunk   at 376 0 197 size 4 10 4  # TODO prims: cylinder
+cone   foliage at 376 6 197 size 14.4 24 18.9
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 18 3  # TODO prims: fence
+
+# tower at 3,2 2x3 (at 15% of its height, for the camera)
+box    stone   at 64 0 56 size 28 6.5 44 id tower-1  # TODO prims: cylinder
+cone   slate   at 64 6.5 56 size 32 3.5 48  # TODO prims: pyramid
+box    window  at 64 3.5 78.25 size 4 1 1.5
+
+# tower at 19,2 2x3 (at 15% of its height, for the camera)
+box    stone   at 320 0 56 size 28 6.5 44 id tower-2  # TODO prims: cylinder
+cone   slate   at 320 6.5 56 size 32 3.5 48  # TODO prims: pyramid
+box    window  at 320 3.5 78.25 size 4 1 1.5
+
+# landmark (assets/world3d/belfry/landmark.set, hand-placed)
+# The Bashful Belfry: a tall bell tower standing up behind each of the two bases, bells hung open in a lantern under a slate spire.
+# west tower
+box    stone   at 64 0 8 size 28 40 16
+box    stone   at 64 40 8 size 36 4 22
+box    stone   at 52 44 3 size 5 16 5
+box    stone   at 76 44 3 size 5 16 5
+box    stone   at 52 44 13 size 5 16 5
+box    stone   at 76 44 13 size 5 16 5
+sphere metal   at 64 45 8 size 12 14 12
+pyramid slate  at 64 60 8 size 42 19 28
+box    metal   at 64 79 8 size 1.5 6 1.5
+# east tower
+box    stone   at 320 0 8 size 28 40 16
+box    stone   at 320 40 8 size 36 4 22
+box    stone   at 308 44 3 size 5 16 5
+box    stone   at 332 44 3 size 5 16 5
+box    stone   at 308 44 13 size 5 16 5
+box    stone   at 332 44 13 size 5 16 5
+sphere metal   at 320 45 8 size 12 14 12
+pyramid slate  at 320 60 8 size 42 19 28
+box    metal   at 320 79 8 size 1.5 6 1.5

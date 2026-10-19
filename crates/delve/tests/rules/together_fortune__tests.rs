@@ -93,10 +93,11 @@ fn the_wheel_spins_once_a_delve_and_lands_on_an_open_wedge() {
 
 #[test]
 fn fortunes_ladder_opens_the_wild_wedges() {
-    assert_eq!(fortune::open_wedges(0).len(), 4);
-    assert_eq!(fortune::open_wedges(1).len(), 6);
-    assert_eq!(fortune::open_wedges(2).len(), 8);
-    assert_eq!(fortune::open_wedges(3).len(), 11, "the third rung's night");
+    // Open Floors is on the wheel from the first rung.
+    assert_eq!(fortune::open_wedges(0).len(), 5);
+    assert_eq!(fortune::open_wedges(1).len(), 7);
+    assert_eq!(fortune::open_wedges(2).len(), 9);
+    assert_eq!(fortune::open_wedges(3).len(), 12, "the third rung's night");
     assert_eq!(fortune::open_wedges(4).len(), 14, "the fourth rung");
     let landed: std::collections::BTreeSet<Mode> = (0..80)
         .map(|seed| {
@@ -404,12 +405,7 @@ fn hollow_walls_hides_a_vault_on_every_floor() {
 }
 
 #[test]
-fn sponsors_night_doubles_the_audience() {
-    let crowd = |mode: Mode| {
-        let mut run = delve(mode);
-        let before = run.audience;
-        run.thrill_for_test(100);
-        run.audience - before
-    };
-    assert_eq!(crowd(Mode::Sponsors), 2 * crowd(Mode::LongWayDown));
+fn the_wheel_has_no_sponsor_mode() {
+    assert_eq!(Mode::WHEEL.len(), 14, "thirteen modes and Open Floors");
+    assert!(!Mode::WHEEL.iter().any(|m| m.word() == "sponsors"));
 }

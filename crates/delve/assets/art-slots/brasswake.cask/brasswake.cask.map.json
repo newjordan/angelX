@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    24
+  ],
+  "anchor_xy": [
+    12,
+    12
+  ],
+  "comments": [
+    "Review: first intact upright/base prop only. Held, collected, damage and detached components remain proposals.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Incoming Cask::danger is 40\u00d724 at (min(rival x+30,END\u221240),clamp(rival y\u221212,114,150)); Danger::contains owns the landing. Rectangle created in tick_brasswake; pickup check in Lane::step_at. Do not paint a longer roll lane.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "8f447afa90700dc6ccbb12b85dc15683dcf230cdd719e116e27a5a07bfa8f3af",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Upright clean cask, strong side silhouette.",
+      "name": "cask",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.5,
+        134.0
+      ],
+      "source_rect_xywh": [
+        47,
+        191,
+        227,
+        268
+      ],
+      "state": "cask"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Tilted ready/held cask, clear warm wood and broad hoops.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        135.0
+      ],
+      "source_rect_xywh": [
+        350,
+        191,
+        237,
+        270
+      ],
+      "state": "tilted-ready-held-cask-clear-warm-wood-and-broad-hoops"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Right-facing airborne cask with hoops in perspective.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        107.5
+      ],
+      "source_rect_xywh": [
+        658,
+        215,
+        242,
+        215
+      ],
+      "state": "right-facing-airborne-cask-with-hoops-in-perspective"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Compressed impact cask with flying stave chips; reads as impact, though chips sit close to the barrel.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.5,
+        108.5
+      ],
+      "source_rect_xywh": [
+        965,
+        244,
+        259,
+        217
+      ],
+      "state": "compressed-impact-cask-with-flying-stave-chips-reads-as-impact-t"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "End-facing cask, showing the circular stave end and hoop construction.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.0,
+        122.5
+      ],
+      "source_rect_xywh": [
+        39,
+        565,
+        246,
+        245
+      ],
+      "state": "end-facing-cask-showing-the-circular-stave-end-and-hoop-construc"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Sideways contact/roll pose, with the end cap visible.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.0,
+        111.5
+      ],
+      "source_rect_xywh": [
+        339,
+        588,
+        266,
+        223
+      ],
+      "state": "sideways-contact-roll-pose-with-the-end-cap-visible"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Chipped, damaged upright cask.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        120.5,
+        130.5
+      ],
+      "source_rect_xywh": [
+        659,
+        560,
+        241,
+        261
+      ],
+      "state": "chipped-damaged-upright-cask"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "More heavily battered cask with skewed/buckled hoops.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.5,
+        128.5
+      ],
+      "source_rect_xywh": [
+        970,
+        564,
+        243,
+        257
+      ],
+      "state": "more-heavily-battered-cask-with-skewed-buckled-hoops"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Detached wooden cask lid.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        111.0,
+        81.0
+      ],
+      "source_rect_xywh": [
+        47,
+        979,
+        222,
+        162
+      ],
+      "state": "detached-wooden-cask-lid"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Detached metal hoop.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        76.0
+      ],
+      "source_rect_xywh": [
+        346,
+        981,
+        247,
+        152
+      ],
+      "state": "detached-metal-hoop"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Detached throw streak, stylized cream motion sweep with bead-like details.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        67.5
+      ],
+      "source_rect_xywh": [
+        644,
+        1006,
+        265,
+        135
+      ],
+      "state": "detached-throw-streak-stylized-cream-motion-sweep-with-bead-like"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Detached slam crown with wood fragments.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        84.5
+      ],
+      "source_rect_xywh": [
+        966,
+        972,
+        247,
+        169
+      ],
+      "state": "detached-slam-crown-with-wood-fragments"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "24\u00d724; floor top-left (screen x\u221212,py(130)); held top-left (screen knight x\u22124,py(knight y\u221252)); incoming uses danger centre\u221212 and animated lift (draw()).",
+  "sizes": {
+    "v1": [
+      24,
+      24
+    ],
+    "v2": [
+      24,
+      24
+    ]
+  },
+  "slot": "brasswake.cask",
+  "source_sha256": "1cc9b0186eb6dce983d84666bfe4752465f624213bf57673297d3cf764552401",
+  "timing": "Static during pickup/hold; rival incoming tell uses brass_tell=27 then burst=12. Throw pose lasts 12, grab 10; no continuous projectile flight sim (Lane::step_at, Run::tick_brasswake)."
+}

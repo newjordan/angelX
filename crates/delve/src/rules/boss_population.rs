@@ -13,6 +13,7 @@ pub(super) fn profile(floor: &Floor, seed: u64, raid: u64) -> Profile {
         Pack::Unknown => (Structure::Hive, Resource::EchoBrood),
         Pack::Crypt => (Structure::Stronghold, Resource::Relics),
         Pack::Hellforge => (Structure::Stronghold, Resource::Fuel),
+        Pack::Swamp => (Structure::Hive, Resource::Brood),
     };
     let salt = super::mix(seed ^ raid.rotate_left(17) ^ u64::from(floor.depth).rotate_left(33));
     let sites: Vec<_> = floor
@@ -32,6 +33,11 @@ pub(super) fn profile(floor: &Floor, seed: u64, raid: u64) -> Profile {
                         _ => {}
                     }
                 }
+            }
+            // A room grown for the party is reckoned as the room it was laid.
+            if let Some((c, rr)) = r.laid {
+                let scale = |n: u16| (usize::from(n) * c * rr / (r.cols * r.rows).max(1)) as u16;
+                (wet, works, open) = (scale(wet), scale(works), scale(open));
             }
             let yield_bonus = (super::mix(salt ^ room as u64) % 2) as u16;
             let units = match resource {
@@ -117,8 +123,11 @@ fn populate_checked(
     mode: super::fortune::Mode,
 ) -> Option<Gates> {
     use super::fortune::Mode;
+    // The swamp keeps no chiefs: its horrors answer to the Mire King alone,
+    // and he waits in the last floor's hall (`swamp`).
     if !(1..=super::DEEPEST).contains(&floor.depth)
         || matches!(mode, Mode::Gauntlet | Mode::HoldTheStair)
+        || floor.pack == Pack::Swamp
     {
         return None;
     }
@@ -135,31 +144,29 @@ fn populate_checked(
         return None;
     }
     let mean = profile.mean();
-    let (required, optional, access) = match profile.structure {
-        Structure::Hive => (1, usize::from(mean >= 4), Access::All),
-        Structure::Clans => (
-            (3 + usize::from(mean >= 4)).min(sites.len()),
-            0,
-            Access::Any,
-        ),
-        Structure::Stronghold => (
-            (2 + usize::from(mean >= 4)).min(sites.len()),
-            usize::from(mean >= 2),
-            Access::All,
-        ),
+    // One chief a floor, whatever its politics: its camp's elite carries the
+    // Boss Key (`keyring`). The guardian at the stairs is the floor's boss.
+    let access = match profile.structure {
+        Structure::Clans => Access::Any,
+        Structure::Hive | Structure::Stronghold => Access::All,
     };
-    let count = (required + optional).min(sites.len()).min(4);
-    let apex_supported = profile.structure == Structure::Stronghold
-        || (profile.structure == Structure::Hive && mean >= 4 && profile.salt % 4 == 1)
-        || floor.rooms[guardian].kind == RoomKind::Threshold;
+    let (required, count) = (1, 1);
     let mut choices = super::encounter_catalog::leaders(bosses, floor.pack, count)?;
-    let guardian_boss = if floor.rooms[guardian].kind == RoomKind::Lair || !apex_supported {
+    // Every floor's stairs are held by its guardian (the dragon holds the lair):
+    // now and then a pack's signature boss, the rare hive apex or the
+    // engine at a cavern's stairs, since a chief's camp is led by an elite.
+    let signature = match floor.pack {
+        Pack::Fungal if profile.salt % 8 == 1 => Some(super::signatures::RIPPER),
+        Pack::Cavern if profile.salt % 4 == 1 => Some(super::signatures::ENGINE),
+        _ => None,
+    };
+    let guardian_boss = if floor.rooms[guardian].kind == RoomKind::Lair {
         None
     } else {
-        Some(if floor.pack == Pack::Fungal && profile.salt % 8 == 1 {
+        Some(if let Some(id) = signature {
             bosses
                 .iter()
-                .position(|b| b.only_in == Pack::Fungal && b.id == super::signatures::RIPPER)
+                .position(|b| b.only_in == floor.pack && b.id == id)
                 .or_else(|| {
                     super::encounter_catalog::apex(
                         bosses,
@@ -178,10 +185,13 @@ fn populate_checked(
     if choices.len() < count {
         return None;
     }
-    // Leaders command productive sites, with independent seeded ties. No combat RNG.
+    // The chief waits mid-floor: never in the entrance's ring, never beside
+    // the guardian's door or a showdown's, nearest the middle of the floor's
+    // depth, with independent seeded ties. No combat RNG.
+    let steps = floor.steps();
     sites.sort_by_key(|s| {
         (
-            std::cmp::Reverse(s.capacity),
+            floor.chief_rank(s.room, &steps),
             super::mix(profile.salt ^ s.room as u64),
         )
     });
@@ -189,14 +199,6 @@ fn populate_checked(
     let mut available = choices;
     let mut rng = super::Rng::new(profile.salt);
     for i in 0..count {
-        // Clan chiefs spread out among claims rather than cluster round an apex.
-        if profile.structure == Structure::Clans && i > 0 {
-            let previous = floor.rooms[leaders[i - 1].room].cell;
-            sites.sort_by_key(|s| {
-                let c = floor.rooms[s.room].cell;
-                std::cmp::Reverse(i64::from(s.capacity) + distance(c, previous))
-            });
-        }
         let site = sites.remove(0);
         let pick = if i == 0 {
             available
@@ -252,10 +254,13 @@ fn populate_checked(
                         })
                         .unwrap()
                 }) as u8;
-            let rival =
-                (profile.structure == Structure::Clans && s.capacity >= 2 && s.room % 2 == 0)
-                    .then_some((faction + 1) % count as u8);
-            let budget = profile.budget(s.capacity);
+            let rival = (count > 1
+                && profile.structure == Structure::Clans
+                && s.capacity >= 2
+                && s.room % 2 == 0)
+                .then_some((faction + 1) % count as u8);
+            // The ramp: a camp musters by how deep into the floor it lies.
+            let budget = super::pacing::camp_foes(floor.depth, steps[s.room]);
             Camp {
                 room: s.room,
                 faction,
@@ -291,12 +296,8 @@ fn populate_checked(
         .iter()
         .enumerate()
         .map(|(i, _)| {
-            let units: u16 = camps
-                .iter()
-                .filter(|c| usize::from(c.faction) == i)
-                .map(|c| u16::from(c.capacity))
-                .sum();
-            let reserve = units.min(6) as u8;
+            // No reserve: the first camps entered muster no more than the ramp.
+            let reserve = 0;
             Faction {
                 name: match bosses[usize::from(leaders[i].boss)].id.as_str() {
                     "iron-tusk-chief" => "Iron Tusk",

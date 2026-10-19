@@ -25,7 +25,9 @@ pub enum Value {
     F64(f64),
     Char(char),
     Str(Box<str>),
-    Bytes(Box<[u8]>),
+    /// Shared: a big blob (a plate's PNG) is cloned and compared for nothing
+    /// when it is the same blob.
+    Bytes(std::sync::Arc<[u8]>),
     None,
     Some(Box<Value>),
     /// Sequences, tuples and tuple structs.

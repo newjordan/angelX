@@ -1,0 +1,203 @@
+{
+  "anchor_canvas_wh": [
+    14,
+    20
+  ],
+  "anchor_xy": [
+    7,
+    20
+  ],
+  "comments": [
+    "Registered as one bank: the bowl and legs share one scale and one baseline (bottom of the legs); the source pivot x is the bowl centre in each crop, not the crop centre, because a leaning flame widens its crop.",
+    "The tallest flame (lit-0) sets the shared scale so that no frame is clipped; the stage stamps the bottom-centre at the tile foot.",
+    "The shared 75-ink palette has no saturated orange: the flame cores snap to its gold and the outer flame to its red, so lit frames measure below the 0.90 colour-agreement diagnostic against the unquantized sample."
+  ],
+  "delivered_pieces": 8,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 8,
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: the unlit ash bowl is out-0; the four flame shapes (tall, lean left, short and fat, lean right) are lit-0..3; the dying flame (bent tip), the small flame with sparks and the two embers with a smoke curl are gutter-0..2.",
+  "notes_sha256": "da8427385bf64c269a0406623011c3bc1c5a52ee81c485653d76a82620275b57",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "out-0: ash and one dead coal; visually cold.",
+      "name": "out-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        267
+      ],
+      "source_rect_xywh": [
+        58,
+        223,
+        296,
+        267
+      ],
+      "state": "out",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: tall, straight flame.",
+      "name": "lit-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        464
+      ],
+      "source_rect_xywh": [
+        437,
+        26,
+        296,
+        464
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1: flame leaning left.",
+      "name": "lit-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        154.5,
+        410
+      ],
+      "source_rect_xywh": [
+        812,
+        80,
+        303,
+        410
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2: shorter, broader flame.",
+      "name": "lit-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        327
+      ],
+      "source_rect_xywh": [
+        1199,
+        162,
+        296,
+        327
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "lit-3: flame leaning right.",
+      "name": "lit-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        382
+      ],
+      "source_rect_xywh": [
+        58,
+        575,
+        296,
+        382
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "gutter-0: larger low dying flame with bent tip.",
+      "name": "gutter-0",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        332
+      ],
+      "source_rect_xywh": [
+        437,
+        625,
+        296,
+        332
+      ],
+      "state": "gutter",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "gutter-1: small flame with a few nearby sparks.",
+      "name": "gutter-1",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.5,
+        332
+      ],
+      "source_rect_xywh": [
+        818,
+        625,
+        297,
+        332
+      ],
+      "state": "gutter",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "gutter-2: two embers and a smoke curl.",
+      "name": "gutter-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        148.0,
+        343
+      ],
+      "source_rect_xywh": [
+        1199,
+        614,
+        296,
+        343
+      ],
+      "state": "gutter",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 14x20, anchor bottom-centre (7,20); stage 384x224 at 16 px per tile; a knight is 16x16; a brazier is a little shorter than 1.3 knights.",
+  "sizes": {
+    "v1": [
+      14,
+      20
+    ],
+    "v2": [
+      14,
+      20
+    ]
+  },
+  "slot": "lanternward.brazier",
+  "source_sha256": "a136b50af74f9629bc3f01e2de6597f96f974f7bd38e1128e67dec9c4e9005f0",
+  "timing": "out 12 ticks; lit 4x4 ticks; gutter 3x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

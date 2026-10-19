@@ -258,6 +258,7 @@ pub enum Event {
 /// A race at the Hippodrome, as it stands.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Chariot {
+    /// Zero after the starter forfeits; that team then races itself.
     pub driver: u32,
     /// The herd horse the driver brought, by name (its record is settled
     /// under this name; a mount-name means the old three, unrecorded).
@@ -340,6 +341,14 @@ impl Chariot {
         self.friend_held.push((false, false));
     }
 
+    pub(super) fn depart(&mut self, seat: u32) {
+        if self.driver == seat { self.driver = 0; }
+        if let Some(k) = self.friends.iter().position(|&(_, id)| id == seat) {
+            self.friends.remove(k);
+            if k < self.friend_held.len() { self.friend_held.remove(k); }
+        }
+    }
+
     /// The racer seat `seat` drives, if any (0 for the one who boarded).
     pub fn racer_of(&self, seat: u32) -> Option<usize> {
         if seat == self.driver {
@@ -353,6 +362,7 @@ impl Chariot {
     pub fn seats(&self) -> Vec<(u32, usize)> {
         std::iter::once((self.driver, 0))
             .chain(self.friends.iter().map(|&(i, s)| (s, usize::from(i))))
+            .filter(|(id, _)| *id != 0)
             .collect()
     }
 
@@ -429,7 +439,8 @@ impl Chariot {
         let course = self.course();
         // The drivers' hands: steer, whip, and the caltrop bag — the
         // player's on racer 0, then each friend's on their own team.
-        let mut drivers = vec![(0, input, self.held)];
+        let mut drivers = Vec::new();
+        if self.driver != 0 { drivers.push((0, input, self.held)); }
         self.held = (input.dash, input.bomb);
         for (k, &(index, _)) in self.friends.iter().enumerate() {
             let fin = friend_inputs.get(k).copied().unwrap_or_default();
@@ -453,8 +464,8 @@ impl Chariot {
         // drivers (hard while the team has wind, resting it back on the
         // straights), drop iron for a tailgater, and never drive the same
         // race twice (seed, not dice).
-        for i in 1..4 {
-            if self.friends.iter().any(|(f, _)| usize::from(*f) == i) {
+        for i in 0..4 {
+            if (i == 0 && self.driver != 0) || self.friends.iter().any(|(f, _)| usize::from(*f) == i) {
                 continue;
             }
             let (seed, t) = (self.seed, self.t);
@@ -696,7 +707,12 @@ impl Run {
                     && hero.y / TILE_UNITS >= r as f32
                     && hero.y / TILE_UNITS < (r + h) as f32;
                 if on && interact && !hero.buy_spent {
-                    hero.buying = hero.buying.saturating_add(1);
+                    // Space is also a dodge outside the race. Board the
+                    // drift ride immediately so that dodge cannot carry a
+                    // driver off the coach plate during the E hold.
+                    hero.buying = if inputs.get(&id).is_some_and(|i| i.dash) {
+                        super::home::BUY_HOLD
+                    } else { hero.buying.saturating_add(1) };
                     if hero.buying >= super::home::BUY_HOLD {
                         hero.buying = 0;
                         hero.buy_spent = true;
@@ -707,7 +723,8 @@ impl Run {
                 }
             }
             if let Some(id) = driver {
-                self.board_chariot(id);
+                if inputs.get(&id).is_some_and(|i| i.dash) { self.board_drift(); }
+                else { self.board_chariot(id); }
             }
             return;
         }
@@ -749,7 +766,7 @@ impl Run {
                     self.cues.push("chariot_lost".into());
                     self.crown_the_charioteer(&race);
                 }
-                Event::Finished(0, place) => {
+                Event::Finished(0, place) if race.driver != 0 => {
                     let name = race.horse.replace(' ', "_");
                     *self
                         .marks

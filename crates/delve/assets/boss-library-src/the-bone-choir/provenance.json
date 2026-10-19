@@ -1,0 +1,215 @@
+{
+  "id": "the-bone-choir",
+  "source_path": "./cockpit/assets/boss-library/existing/the-bone-choir/v01/source-sheet-refined.png",
+  "source_sha256": "6cc47fa0b28757efc1ea189c76e30182ca386fcbe4136ca4b1300f3ed1c118b5",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Exactly THREE ivory skulls mounted on ONE shared tall crooked spine, broad ribcage and one floating ragged dark maroon choir robe. Center skull proud, left skull flat off-key, right skull perpetually a beat late. Tiny bony conductor hands. No legs, no extra skulls, no separate creatures. Warm bone and cool grey recesses, gold chipped choir brooch.",
+  "definition_header": "name THE BONE CHOIR\ntext Three skulls on one spine, singing in a key that hurts. They have been rehearsing since before the Crypt was dug.\nby angelX\nwhere crypt\nhp 700\nsize 1.4\nmove hover speed=1.4\nattack ring shots=12 speed=4 every=140 damage=10 shot=bone\nattack aimed shots=3 speed=6 every=70 damage=11 shot=orb\nphases gap_ring burst flower every=72 volleys=2 damage=10 shot=bone\nrage 35%\ndrops bone 6, wax 3, gold 190",
+  "source_definition_sha256": "f45aed03dad029f8e533c9cad8b767df3b48c8de91229963398b5652b6f24936",
+  "definition_sha256": "d34bb535d1b35c3cf2473303d92cfe2803e33834775f2789a9451ffba5bee2af",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        54,
+        141,
+        218,
+        239
+      ],
+      "opaque_component_pixels": 32528,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "f2b669d1cf2c78d62e7692cbf6f8c78a9d19d58a9c178f34cb8f26b62f2e2edc"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        372,
+        126,
+        237,
+        261
+      ],
+      "opaque_component_pixels": 35856,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "72be87c302523e0d5085a75dd17c731053cc21d4d3121ef254b6c9945cba3f0b"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        703,
+        137,
+        205,
+        249
+      ],
+      "opaque_component_pixels": 22898,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "40c967e7f367aa907e78986531149df0e63d62253d7b3c80d829295ac0f676fc"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        1011,
+        135,
+        190,
+        254
+      ],
+      "opaque_component_pixels": 28221,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "8a17b726467b56aa9c0a4d0a33294cac4813b34f93f000431136043041a2686f"
+    },
+    {
+      "id": "overhead/part/robe-ribcage-spine",
+      "source_rect_xywh": [
+        60,
+        508,
+        217,
+        235
+      ],
+      "opaque_component_pixels": 28200,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-robe-ribcage-spine.png",
+      "sha256": "a2d5c809a70ad9d1924b93d95a8457c7792bb1cc62cd04241db664e59c5d96ec"
+    },
+    {
+      "id": "overhead/part/three-skull-cluster",
+      "source_rect_xywh": [
+        388,
+        555,
+        182,
+        153
+      ],
+      "opaque_component_pixels": 14540,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-three-skull-cluster.png",
+      "sha256": "4cdf010c9d98216128867cc95cf4b55c51ba3b445c51fff22f7b72fd5013730e"
+    },
+    {
+      "id": "overhead/part/conductor-arm",
+      "source_rect_xywh": [
+        717,
+        560,
+        151,
+        155
+      ],
+      "opaque_component_pixels": 8716,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-conductor-arm.png",
+      "sha256": "ca3bd441e50a0935bc36ea8751fea81fabbf9b8f6f8a7ce1e9803de60999bfaf"
+    },
+    {
+      "id": "overhead/part/bone-note-orb",
+      "source_rect_xywh": [
+        1016,
+        550,
+        157,
+        160
+      ],
+      "opaque_component_pixels": 12113,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-bone-note-orb.png",
+      "sha256": "db879ebb14093c7fb5737f110aecdc316408251d95fe313fa97152c5e8242935"
+    },
+    {
+      "id": "side/part/robe-ribcage-spine",
+      "source_rect_xywh": [
+        61,
+        875,
+        186,
+        253
+      ],
+      "opaque_component_pixels": 27762,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-robe-ribcage-spine.png",
+      "sha256": "e9a3ed51f7374258eb2f22fa88cef4466ed441c2950909c90d4ebf34ac848a2b"
+    },
+    {
+      "id": "side/part/three-skull-cluster",
+      "source_rect_xywh": [
+        401,
+        924,
+        179,
+        174
+      ],
+      "opaque_component_pixels": 16541,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-three-skull-cluster.png",
+      "sha256": "e166c8bd4d409a6484ffdb32f6634a4355aef43b4f754e5730b95ca19c6d201b"
+    },
+    {
+      "id": "side/part/conductor-arm",
+      "source_rect_xywh": [
+        708,
+        946,
+        164,
+        165
+      ],
+      "opaque_component_pixels": 10572,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-conductor-arm.png",
+      "sha256": "fc717a646dc037654da469d44aa63a45531a07dd5d19d515afea27f040f3f933"
+    },
+    {
+      "id": "side/part/bone-note-orb",
+      "source_rect_xywh": [
+        1013,
+        916,
+        171,
+        168
+      ],
+      "opaque_component_pixels": 14063,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-bone-note-orb.png",
+      "sha256": "92019be86e98da524252ec4bb4a95ef58346979c00472466b2b39c78cfc3ed0e"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

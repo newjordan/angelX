@@ -1,0 +1,19 @@
+{
+  "delivery": "dgn.sidedoor.mines.vertical-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "f698c1ba7372dc9a77c2d182528f430641f91678903768ccf9dd1d45a709fd8f",
+  "native_contract": {
+    "v1": [
+      16,
+      32
+    ],
+    "v2": [
+      32,
+      64
+    ]
+  },
+  "prepared_sha256": "b091cec9948a186fa27092fddb4908f53a6833319a2812a8dfaa64a883f01468",
+  "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
+  "source_path": "/work/artifacts/art-prod/slots/dgn.sidedoor.mines.vertical-1/v01/source-sheet.png",
+  "source_sha256": "8ff216f9baf35316019a7a3589644a5c9ad2dc07f2dcf86e58d3d006f41c532b"
+}

@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.fungal-rootwarden.projectile/v01/source-sheet-3.png",
+  "source_sha256": "2b2145bab9cac27c340b324850f5e336b1799947bdcc5e12c47edacf61b89df4",
+  "original_sheet_sha256": "541a805410ba441b06aa9756e340b2700e92b7bdbc8bc42c6570d96e50ac67ad",
+  "metadata_sha256": "f64aac7942d85a0a8743558c86b0423a47dc218e6165217331d1738771f32c1c",
+  "size": [
+    1448,
+    1086
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        73,
+        142,
+        250,
+        138
+      ],
+      "alpha_area": 20148,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "4eeddb5c7c3599ee88357aee68adac69a6050c4d9c867e4cdd2a2dd79f4a31d7"
+    },
+    {
+      "source_rect_xywh": [
+        440,
+        149,
+        247,
+        140
+      ],
+      "alpha_area": 20208,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "dd45e107a89d0aaf14e8689acbaa10adea40abf8c3273390d21e96803f9fab67"
+    },
+    {
+      "source_rect_xywh": [
+        796,
+        154,
+        236,
+        136
+      ],
+      "alpha_area": 19109,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "d3a6173d3dd1c89e1e6ff0952e4b7a1572c30ff3d6920b4ec699a922b22152c3"
+    },
+    {
+      "source_rect_xywh": [
+        1165,
+        157,
+        229,
+        137
+      ],
+      "alpha_area": 19037,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "02e9658805c432d30841483f69464f708af831ae3be41f0bc5af96d2616c52bb"
+    },
+    {
+      "source_rect_xywh": [
+        60,
+        439,
+        287,
+        207
+      ],
+      "alpha_area": 34976,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "ff570b7b19bc13c458614e23326d4658009b4a6a4794d7b9c1290f63ac3efbc5"
+    },
+    {
+      "source_rect_xywh": [
+        458,
+        487,
+        208,
+        118
+      ],
+      "alpha_area": 13716,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "e91578aed1772adcf06de074d4aba150f99a10eb041453ba9242e1dffddac8d3"
+    },
+    {
+      "source_rect_xywh": [
+        785,
+        482,
+        250,
+        147
+      ],
+      "alpha_area": 21708,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "8c52754770fa1d9994f1fe1a6a930a76ce3edc3a46dae872829bb16af3bf0c4a"
+    },
+    {
+      "source_rect_xywh": [
+        1145,
+        460,
+        248,
+        159
+      ],
+      "alpha_area": 22515,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "253f8d1a744a2372957954d766165880f5d16174ca60f5eb0519b845ff6d9276"
+    },
+    {
+      "source_rect_xywh": [
+        81,
+        810,
+        222,
+        115
+      ],
+      "alpha_area": 10674,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "b2eb50490a7cab399c331410a25f1ec43b8ed113053088b8cdad74729995d789"
+    },
+    {
+      "source_rect_xywh": [
+        465,
+        788,
+        211,
+        147
+      ],
+      "alpha_area": 13874,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "94c5b68b42dbd84a84e8293884f4bcbfa0f4de1e42b5946be270018a0835d116"
+    },
+    {
+      "source_rect_xywh": [
+        867,
+        826,
+        91,
+        74
+      ],
+      "alpha_area": 3783,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "7770ba0bd3a78bb624e5d0a3b5912b5972db6e9ffaaf6ca4da32012184b69c78"
+    },
+    {
+      "source_rect_xywh": [
+        1241,
+        840,
+        62,
+        53
+      ],
+      "alpha_area": 1767,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "82669687523f3a9c6a363d8eee75c90ac2cdbb052039454582eba0dde3cd3eb6"
+    }
+  ]
+}

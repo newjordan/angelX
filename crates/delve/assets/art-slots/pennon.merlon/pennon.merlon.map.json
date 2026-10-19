@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    40
+  ],
+  "anchor_xy": [
+    16,
+    20
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Decorative, not a separate solid obstacle. Placement must leave the ramparts() breach edges unambiguous.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "9b555f67686670429af58edc44ba5abb010e2a5bf97849416addfffe77e6a352",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Standard rounded slate merlon with broad riveted iron band and paired curved tie rods.",
+      "name": "merlon",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        117.5,
+        134.5
+      ],
+      "source_rect_xywh": [
+        46,
+        158,
+        235,
+        269
+      ],
+      "state": "merlon"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Taller crown variant.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        154.0
+      ],
+      "source_rect_xywh": [
+        360,
+        123,
+        235,
+        308
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Wider, squat crown variant.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        116.0
+      ],
+      "source_rect_xywh": [
+        658,
+        198,
+        252,
+        232
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Standard merlon with a chipped crown edge.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        114.5,
+        136.0
+      ],
+      "source_rect_xywh": [
+        988,
+        159,
+        229,
+        272
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Cracked / split upper masonry variant.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        147.5
+      ],
+      "source_rect_xywh": [
+        47,
+        506,
+        237,
+        295
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Missing corner variant with intact readable banding.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        145.5
+      ],
+      "source_rect_xywh": [
+        361,
+        511,
+        235,
+        291
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Darker weathered slate and scuffed iron.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.5,
+        148.0
+      ],
+      "source_rect_xywh": [
+        670,
+        508,
+        245,
+        296
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Loosened-looking tie rod variant, still mounted.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        118.5,
+        144.0
+      ],
+      "source_rect_xywh": [
+        987,
+        511,
+        237,
+        288
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Detached curved tie rod with end plates.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        96.5,
+        132.0
+      ],
+      "source_rect_xywh": [
+        72,
+        889,
+        193,
+        264
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Detached broad curved band segment.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.5,
+        87.5
+      ],
+      "source_rect_xywh": [
+        355,
+        917,
+        267,
+        175
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Isolated slate chip cluster.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        95.0,
+        79.0
+      ],
+      "source_rect_xywh": [
+        689,
+        941,
+        190,
+        158
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Broken merlon fragment with irregular rubble and bent band detail.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        145.0
+      ],
+      "source_rect_xywh": [
+        966,
+        872,
+        256,
+        290
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d740 at (world section x+offset,FLOOR+4); baked to world 1200\u00d7144 and camera-cropped.",
+  "sizes": {
+    "v1": [
+      32,
+      40
+    ],
+    "v2": [
+      32,
+      40
+    ]
+  },
+  "slot": "pennon.merlon",
+  "source_sha256": "5e00dc218569dbccd3f58cd243c9696431f3783872954a79a9f266d537c1e0fd",
+  "timing": "Static, placed every 64 px within each rampart section (backdrop())."
+}

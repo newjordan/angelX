@@ -1,0 +1,15 @@
+# The Flower Fields: the old oak towering over the north-west corner and the
+# hay barn across the back with its loft door and cupola.
+frustum  trunk   at 72 0 3 size 22 36 22 id pasture-oak-trunk
+rock-4   rock    at 72 0 4 size 40 5 20 id pasture-oak-roots
+blob-3   foliage at 72 30 0 size 80 36 44 id pasture-oak-crown
+blob-5   foliage at 42 30 2 size 40 24 30 id pasture-oak-crown-w
+blob-7   foliage at 102 30 2 size 40 24 30 id pasture-oak-crown-e
+box      wood    at 300 0 0 size 112 30 28 id pasture-barn
+gable    thatch  at 300 30 0 size 122 22 38 id pasture-barn-roof
+box      door    at 300 0 14.3 size 26 20 1.8 id pasture-barn-doors
+box      window  at 300 21 14.3 size 10 7 1.8 id pasture-barn-loft
+box      wood    at 300 50 0 size 10 12 10 id pasture-cupola
+pyramid  thatch  at 300 62 0 size 14 8 14 id pasture-cupola-roof
+box      metal   at 300 70 0 size 1.5 8 1.5 id pasture-vane
+blob-2   crop    at 226 0 2 size 34 26 26 id pasture-haystack

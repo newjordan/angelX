@@ -14,6 +14,7 @@
 // is ever touched in JS.
 
 /* exported makePresenter */
+/* global makeStage */
 // `want` forces a fallback for testing: 'webgl1' or '2d' (`?present=`).
 function makePresenter(canvas, want) {
   // The backing store in device pixels, kept equal to what the canvas
@@ -74,8 +75,12 @@ function makePresenter(canvas, want) {
     return box;
   }
 
-  const opts = { alpha: false, antialias: false, depth: false, stencil: false,
-    premultipliedAlpha: false, preserveDrawingBuffer: false };
+  // Alpha and premultiplied, like the glass window's surface: a stage
+  // frame (stage.js) is premultiplied colour over transparency, and
+  // the page shows through it. A finished frame stays opaque — its
+  // shader forces alpha — so this costs that path nothing.
+  const opts = { alpha: true, antialias: false, depth: false, stencil: false,
+    premultipliedAlpha: true, preserveDrawingBuffer: false };
   let gl = want === 'webgl1' || want === '2d' ? null : canvas.getContext('webgl2', opts);
   const two = !!gl;
   if (!gl && want !== '2d') gl = canvas.getContext('webgl', opts);
@@ -91,13 +96,17 @@ function glPresenter(canvas, gl, two, fit, screen) {
   const VS2 = '#version 300 es\nin vec2 p;out vec2 uv;' +
     'void main(){uv=vec2(p.x+1.0,1.0-p.y)*0.5;gl_Position=vec4(p,0.0,1.0);}';
   const FS2 = '#version 300 es\nprecision highp float;uniform sampler2D t;in vec2 uv;out vec4 o;' +
-    'void main(){o=texture(t,uv).bgra;}';
+    'void main(){o=vec4(texture(t,uv).bgr,1.0);}';
   const VS1 = 'attribute vec2 p;varying vec2 uv;' +
     'void main(){uv=vec2(p.x+1.0,1.0-p.y)*0.5;gl_Position=vec4(p,0.0,1.0);}';
   const FS1 = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n' +
-    'uniform sampler2D t;varying vec2 uv;void main(){gl_FragColor=texture2D(t,uv).bgra;}';
+    'uniform sampler2D t;varying vec2 uv;void main(){gl_FragColor=vec4(texture2D(t,uv).bgr,1.0);}';
 
-  let tex = null, tw = 0, th = 0, lost = false;
+  let tex = null, tw = 0, th = 0, lost = false, prog = null, quad = null;
+  // WebGL2 can draw a frame from its parts (stage.js); `onreset` hears when
+  // a restored context needs every picture again.
+  const stage = two && typeof makeStage === 'function' ? makeStage(gl, fit, screen) : null;
+  let onreset = null;
   // WebGL1 cannot upload from an offset into a view, so it keeps a view
   // that starts at the frame; remade only when the frame or memory moves.
   let view = null, viewBuf = null, viewPtr = -1, viewLen = 0;
@@ -109,14 +118,15 @@ function glPresenter(canvas, gl, two, fit, screen) {
       gl.compileShader(s);
       return s;
     };
-    const prog = gl.createProgram();
+    prog = gl.createProgram();
     gl.attachShader(prog, shader(gl.VERTEX_SHADER, two ? VS2 : VS1));
     gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, two ? FS2 : FS1));
     gl.bindAttribLocation(prog, 0, 'p');
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('present: ' + gl.getProgramInfoLog(prog));
     gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -127,7 +137,7 @@ function glPresenter(canvas, gl, two, fit, screen) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    gl.clearColor(0, 0, 0, 1);
+    gl.clearColor(0, 0, 0, 0);
     tw = th = 0;
   }
   init();
@@ -135,7 +145,25 @@ function glPresenter(canvas, gl, two, fit, screen) {
   // A lost context (a GPU reset, a phone backgrounding the page) comes back
   // only if the loss is prevented; then everything is made again.
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
-  canvas.addEventListener('webglcontextrestored', () => { lost = false; init(); });
+  canvas.addEventListener('webglcontextrestored', () => {
+    lost = false;
+    init();
+    if (stage) {
+      stage.init();
+      if (onreset) onreset();
+    }
+  });
+
+  // The frame's own program and quad, again: the stage shares the context.
+  function rebind() {
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    if (two) gl.vertexAttribDivisor(0, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+  }
 
   return {
     kind: two ? 'webgl2' : 'webgl1',
@@ -144,6 +172,7 @@ function glPresenter(canvas, gl, two, fit, screen) {
     // words at byte offset `ptr`.
     draw(heap, ptr, w, h) {
       if (lost) return;
+      if (stage) rebind();
       if (w !== tw || h !== th) {
         tw = w;
         th = h;
@@ -173,11 +202,16 @@ function glPresenter(canvas, gl, two, fit, screen) {
       gl.viewport(0, 0, screen.w, screen.h);
       gl.clear(gl.COLOR_BUFFER_BIT);
     },
+    // A frame from its parts (`angel_stage`): false when it was not one.
+    drawStage: stage ? (heap, ptr, len, t) => !lost && stage.draw(heap, ptr, len, t) : null,
+    set onreset(f) {
+      onreset = f;
+    },
   };
 }
 
 function canvasPresenter(canvas, fit, screen) {
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d', { alpha: true });
   const off = document.createElement('canvas');
   const offCtx = off.getContext('2d');
   let image = null, imageBuf = null, imagePtr = -1, iw = 0, ih = 0;
@@ -197,14 +231,12 @@ function canvasPresenter(canvas, fit, screen) {
       }
       offCtx.putImageData(image, 0, 0);
       const b = fit(w, h);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, screen.w, screen.h);
+      ctx.clearRect(0, 0, screen.w, screen.h);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(off, b[0], b[1], b[2], b[3]);
     },
     clear() {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, screen.w, screen.h);
+      ctx.clearRect(0, 0, screen.w, screen.h);
     },
   };
 }

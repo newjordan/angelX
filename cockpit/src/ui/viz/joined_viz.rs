@@ -88,14 +88,11 @@ pub(crate) fn render(
         format!("The Undercroft    {phase}")
     } else {
         format!(
-            "Floor {}/{}  {}    Score {}    Viewers {}    {phase}",
+            "Floor {}/{}  {}    Score {}    {phase}",
             state["floor"].as_u64().unwrap_or(1),
             state["floors"].as_u64().unwrap_or(1),
             state["pack"].as_str().unwrap_or(""),
             state["score"].as_u64().unwrap_or(0),
-            crate::drive::together_shooter::audience::viewers(
-                state["viewers"].as_u64().unwrap_or(0) as u32
-            ),
         )
     };
     line(
@@ -139,13 +136,25 @@ pub(crate) fn render(
     let mut hud_rows: Vec<ratatui::text::Line<'static>> = Vec::new();
     let party = state["players"].as_array().map_or(1, Vec::len);
     let compact = usize::from(side.height) < party * 14;
-    for knight in state["players"].as_array().into_iter().flatten() {
+    let mut knights: Vec<_> = state["players"].as_array().into_iter().flatten().collect();
+    knights.sort_by_key(|knight| {
+        let id = knight["id"].as_u64().unwrap_or(0) as u32;
+        (id != me, id)
+    });
+    for knight in knights {
         let id = knight["id"].as_u64().unwrap_or(0) as u32;
         let color = hero_color(id);
         let you = if id == me { " (you)" } else { "" };
         let who = format!("P{id} {}{you}", knight["name"].as_str().unwrap_or(""));
         // The host's own HUD, the same on every screen.
-        if let Ok(hud) = serde_json::from_value::<crate::drive::together_shooter::hud::Hud>(
+        // The picture carries the party along its top and the skills bar
+        // along its foot; the cells say it only where there is no picture.
+        if native {
+            hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                who,
+                Style::new().fg(color),
+            )));
+        } else if let Ok(hud) = serde_json::from_value::<crate::drive::together_shooter::hud::Hud>(
             knight["hud"].clone(),
         ) {
             hud_rows.extend(super::delve_hud::lines(

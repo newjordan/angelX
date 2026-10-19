@@ -1,0 +1,164 @@
+set chunk-3-2
+# The kingdom, chunk 3,2 in The Highlands: tiles 72..96 x 32..48 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 640
+plate 1536 1024
+
+# ground
+box    grass   at 1288 -4 528 size 272 4 32
+box    rock    at 1440 -4 528 size 32 4 32
+box    grass   at 1496 -4 528 size 80 4 32
+box    rock    at 1160 -4 568 size 16 4 48
+box    grass   at 1328 -4 552 size 320 4 16
+box    path    at 1496 -4 584 size 16 4 80
+box    grass   at 1512 -4 552 size 16 4 16
+box    path    at 1528 -4 576 size 16 4 64
+box    grass   at 1320 -4 568 size 304 4 16
+box    path    at 1480 -4 592 size 16 4 64
+box    path    at 1512 -4 592 size 16 4 64
+box    grass   at 1240 -4 608 size 144 4 64
+box    path    at 1320 -4 640 size 16 4 128
+box    grass   at 1368 -4 584 size 80 4 16
+box    path    at 1440 -4 600 size 64 4 48
+box    grass   at 1160 -4 656 size 16 4 128
+box    path    at 1336 -4 648 size 16 4 112
+box    grass   at 1360 -4 600 size 32 4 16
+box    path    at 1392 -4 624 size 32 4 64
+box    path    at 1360 -4 640 size 32 4 64
+box    grass   at 1528 -4 664 size 16 4 112
+box    path    at 1432 -4 632 size 48 4 16
+box    grass   at 1488 -4 672 size 64 4 96
+box    grass   at 1232 -4 648 size 128 4 16
+box    path    at 1304 -4 680 size 16 4 80
+box    path    at 1416 -4 648 size 16 4 16
+box    grass   at 1440 -4 680 size 32 4 80
+box    grass   at 1216 -4 664 size 96 4 16
+box    path    at 1280 -4 696 size 32 4 80
+box    path    at 1384 -4 664 size 16 4 16
+box    grass   at 1408 -4 688 size 32 4 64
+box    grass   at 1208 -4 688 size 80 4 32
+box    path    at 1256 -4 704 size 16 4 64
+box    path    at 1352 -4 680 size 16 4 16
+box    grass   at 1376 -4 696 size 32 4 48
+box    grass   at 1352 -4 712 size 16 4 48
+box    grass   at 1176 -4 712 size 16 4 16
+box    sand    at 1200 -4 712 size 32 4 16
+box    grass   at 1232 -4 712 size 32 4 16
+box    grass   at 1328 -4 720 size 32 4 32
+box    water   at 1184 -4 736 size 64 1 32
+box    sand    at 1232 -4 728 size 32 4 16
+box    grass   at 1304 -4 728 size 16 4 16
+box    grass   at 1368 -4 728 size 16 4 16
+box    sand    at 1408 -4 728 size 64 4 16
+box    grass   at 1464 -4 728 size 48 4 16
+box    sand    at 1512 -4 728 size 48 4 16
+box    water   at 1240 -4 752 size 48 1 32
+box    wood    at 1280 -4 744 size 32 4 16
+box    sand    at 1336 -4 744 size 80 4 16
+box    water   at 1456 -4 752 size 160 1 32
+box    sand    at 1176 -4 760 size 48 4 16
+box    water   at 1208 -4 760 size 16 1 16
+box    wood    at 1272 -4 760 size 16 4 16
+box    water   at 1328 -4 760 size 96 1 16
+
+# Labyrinth College: a long college hall between towers at 80,32 8x4
+box    stone   at 1344 0 558 size 98 18 32 id labyrinth-college
+gable  slate   at 1344 18 558 size 101 13 35
+box    window  at 1301.13 7.56 574.25 size 5 5 1
+box    window  at 1313.38 7.56 574.25 size 5 5 1
+box    window  at 1325.63 7.56 574.25 size 5 5 1
+box    window  at 1337.88 7.56 574.25 size 5 5 1
+box    window  at 1350.13 7.56 574.25 size 5 5 1
+box    window  at 1362.38 7.56 574.25 size 5 5 1
+box    window  at 1374.63 7.56 574.25 size 5 5 1
+box    window  at 1386.88 7.56 574.25 size 5 5 1
+box    stone   at 1288 0 567 size 14 30 14
+pyramid slate   at 1288 30 567 size 16 16.8 16
+box    window  at 1288 20 574.25 size 2.5 4 1
+box    stone   at 1400 0 567 size 14 30 14
+pyramid slate   at 1400 30 567 size 16 16.8 16
+box    window  at 1400 20 574.25 size 2.5 4 1
+box    stone   at 1344 0 567 size 16 34 16
+box    stone   at 1338.67 34 559.75 size 2.93 2.5 1.5
+box    stone   at 1344 34 559.75 size 2.93 2.5 1.5
+box    stone   at 1349.33 34 559.75 size 2.93 2.5 1.5
+box    stone   at 1338.67 34 574.25 size 2.93 2.5 1.5
+box    stone   at 1344 34 574.25 size 2.93 2.5 1.5
+box    stone   at 1349.33 34 574.25 size 2.93 2.5 1.5
+arch   stone   at 1344 0 574 size 14 16 2
+box    door    at 1344 0 574 size 7.5 12 1
+box    window  at 1344 24 575.25 size 2.5 4 1
+
+# the Delve's gate: the Delve's arch into the rock at 92,31 3x3
+rock-48 rock    at 1492.4 0 522.38 size 8.69 26 7.82 turn 317 id delve-gate
+rock-23 rock    at 1481.3 0 520.46 size 5.55 11.7 5 turn 174
+rock-41 rock    at 1491.59 0 524.3 size 6.61 17.94 5.95 turn 147
+rock-18 rock    at 1504.28 0 516.39 size 5.02 13.26 4.52 turn 101
+box    rock    at 1496 0 535.5 size 46 24 11
+arch   stone   at 1496 0 541 size 22 22 3
+box    door    at 1496 0 541 size 12.2 16.6 1
+box    stone   at 1483 0 541 size 3.5 24 3.5
+pyramid stone   at 1483 24 541 size 4 4 4
+box    stone   at 1509 0 541 size 3.5 24 3.5
+pyramid stone   at 1509 24 541 size 4 4 4
+
+# fingerposts
+box    wood    at 1300 0 748 size 1.5 19 1.5
+pyramid wood    at 1300 19 748 size 2.2 1.5 2.2
+box    wood    at 1300 16 744 size 0.6 1.8 6.5
+box    wood    at 1300 13.5 752 size 0.6 1.8 6.5
+
+# set dressing
+rock-21 rock    at 1432 0 712 size 8 2.5 7
+rock-19 rock    at 1432 2 712 size 5 2 4.5
+rock-6 rock    at 1388 0 730 size 4 2 3.5
+rock-29 rock    at 1380 0 728 size 4 2 3.5
+rock-23 rock    at 1385 0 732 size 4 2 3.5
+rock-59 rock    at 1385 0 724 size 4 2 3.5
+
+# rock
+box    rock    at 1440 0 528 size 32 3 32
+box    rock    at 1160 0 568 size 16 3 48
+rock-54 rock    at 1431 1.5 520 size 17 7 15.3 turn 180
+rock-54 rock    at 1448 1.5 521 size 16 9 14.4 turn 180
+rock-42 rock    at 1433 1.5 536 size 14 10 12.6 turn 90
+rock-46 rock    at 1449 1.5 535 size 15 8 13.5 turn 90
+rock-33 rock    at 1159 1.5 551 size 16 8 14.4
+rock-62 rock    at 1159 1.5 567 size 17 7 15.3 turn 270
+rock-14 rock    at 1161 1.5 583 size 14 8 12.6 turn 90
+
+# woods (at 33% of its height, for the camera)
+frustum trunk   at 1169 0 690 size 4.5 4.5 4.5
+cone   foliage at 1169 2.5 690 size 28 17 28
+cone   foliage at 1169 12.5 690 size 20.16 17 20.16
+frustum trunk   at 1457 0 719 size 5 10 5
+blob-36 foliage at 1457 6 719 size 33 22.5 31.35
+cylinder trunk   at 1528.5 0 682 size 3 5.5 3
+blob-51 foliage at 1528.5 3 682 size 18 10.5 17.1
+frustum trunk   at 1448.5 0 695.5 size 3 4.5 3
+blob-45 foliage at 1448.5 2 695.5 size 18 7.5 17.1 turn 270
+frustum trunk   at 1465 0 695 size 3 5 3
+blob-42 foliage at 1465 2.5 695 size 17 7 16.15 turn 270
+cylinder trunk   at 1512 0 696 size 3 5 3
+blob-53 foliage at 1512 2.5 696 size 19 7 18.05 turn 270
+cylinder trunk   at 1528 0 696 size 3 12 3
+blob-33 foliage at 1528 7 696 size 19 19 18.05 turn 270
+cylinder trunk   at 1159 0 712 size 3 9 3
+cone   foliage at 1159 6 712 size 17 20.46 17
+cone   foliage at 1159 18.54 712 size 12.24 20.46 12.24
+frustum trunk   at 1177 0 713 size 3 9 3
+cone   foliage at 1177 6 713 size 17 19.22 17
+cone   foliage at 1177 17.78 713 size 12.24 19.22 12.24
+frustum trunk   at 1480 0 712 size 3 3.5 3
+blob-20 foliage at 1480 2 712 size 19 5.5 18.05 turn 180
+cylinder trunk   at 1528 0 712 size 3 10 3
+blob-32 foliage at 1528 5 712 size 19 19 18.05 turn 90
+cylinder trunk   at 1478 0 727 size 3 11 3
+blob-43 foliage at 1478 6 727 size 17 15 16.15 turn 90
+
+# bridges
+box    wood    at 1256 -3 752 size 16 5.5 32
+box    wood    at 1288 -3 760 size 16 5.5 16
+box    wood    at 1247.25 0 752 size 1.5 6 32
+box    wood    at 1296.75 0 760 size 1.5 6 16

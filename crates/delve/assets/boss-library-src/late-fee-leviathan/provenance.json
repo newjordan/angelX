@@ -1,0 +1,215 @@
+{
+  "id": "late-fee-leviathan",
+  "source_path": "./cockpit/assets/boss-library/existing/late-fee-leviathan/v01/source-sheet-refined.png",
+  "source_sha256": "996e1a3f714de75e3d08eb7395e689fe253d38f59ae22a93d1cb2f66d9e0dc1d",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Barnacled sea-thing that collects overdue books. Huge squat blue-green squid-crab body, broad drooping fish lips, tiny furious gold eyes under barnacled brow, cream shell plates and dangling short beardlike tentacles. Two enormous fin-claws, stubby gripping tentacle feet. Rusted SHIP ANCHOR in its right claw, a soggy book chained to left. A big kelp belt around rounded belly. Comic grumpy deep-sea debt collector.",
+  "definition_header": "name THE LATE-FEE LEVIATHAN\ntext Everything borrowed from the Archive comes back. Ravage collects the interest.\nby angelX\nwhere archive\nhp 860\nsize 1.7\nmove chase speed=1.1\nattack ravage shots=5 arc=50 speed=8 every=210 damage=16\nattack aimed shots=2 speed=7 every=45 damage=12 shot=orb\nattack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=bone\nphases weave curve laser every=72 volleys=2 damage=12\nrage 35%\ndrops gem 4, bone 4, gold 260",
+  "source_definition_sha256": "aaff7adacbe55bbe40b5bfc89afc6630bdfcb62d4af0a6bb05c4052f7841418d",
+  "definition_sha256": "199b336a7574f132fe05211b9beb443525cf230589bd21501e15b2d0b617a21a",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        41,
+        254,
+        256,
+        229
+      ],
+      "opaque_component_pixels": 37919,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "79cabf40c1cb3d2e1287cae62f6872e409a364bf003ebca9686f1eef59e70360"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        369,
+        159,
+        239,
+        320
+      ],
+      "opaque_component_pixels": 44450,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "d616c7b788c277b59f0f297b6fda7a7a108bd2273ffdcb558eb214d4acba342d"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        676,
+        300,
+        243,
+        190
+      ],
+      "opaque_component_pixels": 30265,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "dae010d56622838b30fac84ad949fb2e0e69883a5de3f8a5b84cb49e182a877f"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        1015,
+        158,
+        221,
+        324
+      ],
+      "opaque_component_pixels": 41983,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "240326bd5e9c9acb444624374f275883496db3d4ed70ffa31b3980d19af814ca"
+    },
+    {
+      "id": "overhead/part/barnacled-body",
+      "source_rect_xywh": [
+        44,
+        588,
+        250,
+        241
+      ],
+      "opaque_component_pixels": 41467,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-barnacled-body.png",
+      "sha256": "dcc3fe03241e856d0a5d53cfea550cb034a36ea55c2b27b27f0dc59a4a8316e7"
+    },
+    {
+      "id": "overhead/part/fish-face-beard",
+      "source_rect_xywh": [
+        410,
+        607,
+        171,
+        189
+      ],
+      "opaque_component_pixels": 19444,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-fish-face-beard.png",
+      "sha256": "3befe5fe015781f1466c27aaa9cad23fc616d3f70f65d73cff23e60684ac5e8f"
+    },
+    {
+      "id": "overhead/part/anchor-claw-arm",
+      "source_rect_xywh": [
+        684,
+        582,
+        224,
+        228
+      ],
+      "opaque_component_pixels": 29068,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-anchor-claw-arm.png",
+      "sha256": "0f680c1a0f67b254b278553c237402cf7be53c5ad90d6d103ef84864be6c8436"
+    },
+    {
+      "id": "overhead/part/soggy-book-claw",
+      "source_rect_xywh": [
+        1011,
+        582,
+        203,
+        223
+      ],
+      "opaque_component_pixels": 23812,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-soggy-book-claw.png",
+      "sha256": "fa3b8a6c0cbf735e7505b7a20d7e94a5526a2f33f584f3fc93796477401bc78d"
+    },
+    {
+      "id": "side/part/barnacled-body",
+      "source_rect_xywh": [
+        47,
+        936,
+        249,
+        224
+      ],
+      "opaque_component_pixels": 39126,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-barnacled-body.png",
+      "sha256": "6dbfc5a3267cd9c4b1dcc89079abb9d0bd386e1eba6c146009e759b559724159"
+    },
+    {
+      "id": "side/part/fish-face-beard",
+      "source_rect_xywh": [
+        408,
+        950,
+        168,
+        186
+      ],
+      "opaque_component_pixels": 18477,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-fish-face-beard.png",
+      "sha256": "ff53bc1bccb915994921fdb7063bf6a84ac8188be90acf72579c64fb2811575d"
+    },
+    {
+      "id": "side/part/anchor-claw-arm",
+      "source_rect_xywh": [
+        683,
+        946,
+        227,
+        195
+      ],
+      "opaque_component_pixels": 25594,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-anchor-claw-arm.png",
+      "sha256": "704ace1d392d2e48904397bb9e3ee3f1eeca827e4e866ef5daa931d8daf83e19"
+    },
+    {
+      "id": "side/part/soggy-book-claw",
+      "source_rect_xywh": [
+        1006,
+        946,
+        210,
+        199
+      ],
+      "opaque_component_pixels": 21830,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-soggy-book-claw.png",
+      "sha256": "c9d7ac5086b78ae5d85c6dca997721a1b92ae856b1cf80ff8038e9534f36d6f7"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

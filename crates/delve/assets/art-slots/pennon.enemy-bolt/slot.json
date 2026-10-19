@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3044
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3956
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 2774
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3453
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 2117
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4344
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7346
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4315
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3299
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 1998
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4224
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6305
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "545cc15ca1584869deb32f51354627ef4f6da9b4ebea305c3a9bb6f148c8a73f",
+  "metadata_sha256": "fec2ac3ca1c96d94c1a64c9f3e1f338a3da571c0cdf31e35fc57e04efe9aec6f",
+  "notes_sha256": "c6e698b246fc4d4766b92ad5bec929c201f6ee94dff381dc30714f694a7d6309",
+  "outputs": {
+    "v1/enemy-bolt.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 57,
+      "piece": 0,
+      "sha256": "527ace7a9a9830fe7600de9b1967e3d15c681faf09af207af595565bcc30887e",
+      "source_scale": 0.05660377358490566,
+      "state": "enemy-bolt"
+    },
+    "v1/proposal-01.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 68,
+      "piece": 1,
+      "sha256": "8bc6d8870a28da1be94148ee525a12b6fa7e2b956e144edc858337f6f5c57a99",
+      "source_scale": 0.06153846153846154,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-02.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 68,
+      "piece": 2,
+      "sha256": "32abfa4b676c81ffa72736ce1473a888f1e1ffb9d0dd9bf4e670e3be3afca560",
+      "source_scale": 0.06153846153846154,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-03.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 59,
+      "piece": 3,
+      "sha256": "11d032f24fa9d177a8f669197295782aa9f055a565f57b8ff285e657275d02b0",
+      "source_scale": 0.05714285714285714,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-04.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 60,
+      "piece": 4,
+      "sha256": "a84b7c75b483eb44893a3830ba6551464e42381c19c9660a98c775f29829c7b7",
+      "source_scale": 0.09022556390977443,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-05.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 58,
+      "piece": 5,
+      "sha256": "6c61dff4f02ef46497f5ccd7a159d0d88141c409fffe352264769b06c92655e4",
+      "source_scale": 0.047619047619047616,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-06.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 28,
+      "piece": 6,
+      "sha256": "14fe99a3b08507c650cf349dea4999ae6b6e38608c342181c8cc441d2ee5fca4",
+      "source_scale": 0.04743083003952569,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 34,
+      "piece": 7,
+      "sha256": "22d6358c86d2bd1d682136c0f4b87eff384d126939ebd65d580d8685c1b3cc95",
+      "source_scale": 0.05106382978723404,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 59,
+      "piece": 8,
+      "sha256": "9a1609a4f835e2203676e9a104eae5d3d1f44328f5029719259c013d067579cb",
+      "source_scale": 0.056338028169014086,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-09.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 53,
+      "piece": 9,
+      "sha256": "72d85065e27154ca73f6e9aac72d29e7156007453d833506aed849a58b104710",
+      "source_scale": 0.08053691275167785,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-10.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 58,
+      "piece": 10,
+      "sha256": "a6267c2c443b0ca4951d6dee589f33c2c842942b3f2ec3fcb2ff9180ecbeff1d",
+      "source_scale": 0.046875,
+      "state": "supplemental-reviewed"
+    },
+    "v1/proposal-11.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 37,
+      "piece": 11,
+      "sha256": "1958b600608341eb8ecfa376aea67aca9c174a4d4052f88c8f4146c8372f4575",
+      "source_scale": 0.06857142857142857,
+      "state": "supplemental-reviewed"
+    },
+    "v2/enemy-bolt.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 57,
+      "piece": 0,
+      "sha256": "527ace7a9a9830fe7600de9b1967e3d15c681faf09af207af595565bcc30887e",
+      "source_scale": 0.05660377358490566,
+      "state": "enemy-bolt"
+    },
+    "v2/proposal-01.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 68,
+      "piece": 1,
+      "sha256": "8bc6d8870a28da1be94148ee525a12b6fa7e2b956e144edc858337f6f5c57a99",
+      "source_scale": 0.06153846153846154,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-02.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 68,
+      "piece": 2,
+      "sha256": "32abfa4b676c81ffa72736ce1473a888f1e1ffb9d0dd9bf4e670e3be3afca560",
+      "source_scale": 0.06153846153846154,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-03.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 3,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 59,
+      "piece": 3,
+      "sha256": "11d032f24fa9d177a8f669197295782aa9f055a565f57b8ff285e657275d02b0",
+      "source_scale": 0.05714285714285714,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-04.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 4,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 60,
+      "piece": 4,
+      "sha256": "a84b7c75b483eb44893a3830ba6551464e42381c19c9660a98c775f29829c7b7",
+      "source_scale": 0.09022556390977443,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-05.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 5,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 58,
+      "piece": 5,
+      "sha256": "6c61dff4f02ef46497f5ccd7a159d0d88141c409fffe352264769b06c92655e4",
+      "source_scale": 0.047619047619047616,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-06.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 6,
+      "half_cell_coverage": 2,
+      "opaque_pixels": 28,
+      "piece": 6,
+      "sha256": "14fe99a3b08507c650cf349dea4999ae6b6e38608c342181c8cc441d2ee5fca4",
+      "source_scale": 0.04743083003952569,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 7,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 34,
+      "piece": 7,
+      "sha256": "22d6358c86d2bd1d682136c0f4b87eff384d126939ebd65d580d8685c1b3cc95",
+      "source_scale": 0.05106382978723404,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 59,
+      "piece": 8,
+      "sha256": "9a1609a4f835e2203676e9a104eae5d3d1f44328f5029719259c013d067579cb",
+      "source_scale": 0.056338028169014086,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-09.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 9,
+      "half_cell_coverage": 4,
+      "opaque_pixels": 53,
+      "piece": 9,
+      "sha256": "72d85065e27154ca73f6e9aac72d29e7156007453d833506aed849a58b104710",
+      "source_scale": 0.08053691275167785,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-10.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 10,
+      "half_cell_coverage": 5,
+      "opaque_pixels": 58,
+      "piece": 10,
+      "sha256": "a6267c2c443b0ca4951d6dee589f33c2c842942b3f2ec3fcb2ff9180ecbeff1d",
+      "source_scale": 0.046875,
+      "state": "supplemental-reviewed"
+    },
+    "v2/proposal-11.png": {
+      "anchor_xy": [
+        6,
+        6
+      ],
+      "approved": true,
+      "canvas_wh": [
+        12,
+        12
+      ],
+      "colour_agreement": 1.0,
+      "frame": 11,
+      "half_cell_coverage": 3,
+      "opaque_pixels": 37,
+      "piece": 11,
+      "sha256": "1958b600608341eb8ecfa376aea67aca9c174a4d4052f88c8f4146c8372f4575",
+      "source_scale": 0.06857142857142857,
+      "state": "supplemental-reviewed"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "pennon.enemy-bolt",
+  "source_path": "/work/artifacts/art-prod/slots/pennon.enemy-bolt/v01/source-sheet.png",
+  "source_sha256": "48f34f4897833ae2c37014db72dd3a5c52edc7e957666e6b164831a49a6896b5",
+  "tool_version": 2
+}

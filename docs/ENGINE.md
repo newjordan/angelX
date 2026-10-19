@@ -658,8 +658,10 @@ same rules, the same pictures; a different way of getting them to people.
     the arrows aim, F fires, E meets the world and takes, Space (or Shift
     with a walk) dashes, Q swings, X bombs, Z drinks, 1–4 cast, G vigil,
     R the ultimate, M , . ; ' the skills, V the ballot (arrows, 1–5, 0, N,
-    Esc in it), Esc pauses a game in a room and Enter or Backspace leaves
-    it; a press during a floor plate skips it. The pad's left trigger is
+    Esc in it), N held outside it the whole floor's map (the seat's own
+    screen only: `DelveClient::map_open`, `arena::MapView`; the run and the
+    wire never hear of it), Esc pauses a game in a room and Enter or
+    Backspace leaves it; a press during a floor plate skips it. The pad's left trigger is
     a held layer (face buttons the skills, the d-pad the spells); the
     right stick aims and fires.
   - The generic float motion (`motion::Motion`) is not used: it costs a
@@ -844,14 +846,33 @@ A game's client crate is a `cdylib` that calls
 
 ### The page (`crates/web/shell/`)
 
-Plain JS in five files, with no framework and no build step:
+Plain JS in a handful of files, with no framework and no build step:
 
 - `boot.js`: the name prompt, the module, the link, the frame loop, life and
-  stats;
-- `present.js`: putting the frame on screen;
+  stats, and which way the frame reaches the screen;
+- `present.js` and `stage.js`: putting the frame on screen with WebGL2 (a
+  finished frame, or a stage frame drawn from its parts), WebGL1 or a 2D
+  canvas;
+- `gpu.js`: the same job through the renderer module (`crates/web/render`),
+  when the bundle carries one the browser can run (below);
 - `input.js`: keyboard and gamepad;
 - `sound.js`: Web Audio;
 - `loopback.js`: test only, for `?offline`.
+
+The renderer module is `angel-gpu`, the core the native window draws with,
+behind the canvas, in a wasm of its own beside the game's (the game's wasm and
+its build are as they were). `crates/web/build.sh` makes it in two builds,
+`render-webgpu.js` + `render-webgpu_bg.wasm` (WebGPU only) and
+`render-webgl.js` + `render-webgl_bg.wasm` (adds wgpu's WebGL2 backend), when
+the wasm-bindgen CLI at the version the crate pins is at hand (`$WASM_BINDGEN`,
+or `wasm-bindgen` on PATH); without it the bundle has none and the page draws
+as before, so no build needs the CLI. The cockpit's build (`cockpit/build.rs`)
+makes the same two builds into the full game's page when the CLI is at hand, and
+warns and ships `{}` when it is not. `boot.js` loads the WebGPU build where `navigator.gpu` is there and the
+WebGL2 one where only WebGL2 is, and keeps `present.js` where neither is in the
+bundle or either fails to start. A lost GPU device sends it back to `present.js`
+for the rest of the session, said once in the console. `?present=` forces a way:
+`gpu`, `webgl`, `legacy`, or (as before) `webgl1` and `2d`.
 
 - **Boot.**
   - The page asks for a name, remembered in `localStorage`, while the wasm

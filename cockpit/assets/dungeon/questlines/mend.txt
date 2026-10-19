@@ -1,0 +1,23 @@
+power wish:mend 3
+teacher Dame Alyce
+place Puddingstone Priory, the little infirmary
+room Priory
+look sleeves rolled, a satchel of plasters, and a laugh the colour of honey
+line Hit them gently, hit them often — I mean the monsters, dear.
+hook The level-2 card reads ...and a plaster's scent of honey and linen.
+step The infirmary hour | serve one infirmary hour: three cued ministrations | infirmary_hours 1 | Gently, often, and write it down. | cue tend
+step The badger's soup | deliver BOOT, HAT, BEARD mushroom soup to the badger cook | soup_delivered 1 | Fed is mended halfway. The broth does the rest. | cue deliver
+step The coffer of worth | pay the Herald's coffer ten gold once at the Undercroft | coffer_paid 1 | Worth keeping costs. Worth mending too. | needs coffer_paid
+step The friend in the pit | rescue one caged friend and bring them home standing | friends_rescued 1 | There. Now it's a rescue and not a retrieval. | needs friends_rescued
+trial The unbroken hall | clear one hall with a friend at your side and not one wound between you | unbroken_halls 1 | Not a scratch. Now that's medicine.
+reward Mending Strike tier 3
+title the Honey Plaster
+keepsake the Satchel Strap, a linen strap that smells faintly of honey
+ties The priory taper belongs to Gil; the rescue shares friends_rescued with Maren; the soup road is Stilt's millpond road.
+art
+..888..
+.8...8.
+.8.7.8.
+.8...8.
+..888..
+...8...

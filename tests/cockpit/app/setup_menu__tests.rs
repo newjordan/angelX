@@ -605,3 +605,35 @@ fn with_a_model_in_hand_the_last_row_closes_instead_of_putting_off() {
     assert!(menu.page(Instant::now()).lines[0].contains("local ▸ qwen3-coder:30b"));
     assert_eq!(choose(&mut menu, "Close"), Effect::Close);
 }
+
+#[test]
+#[cfg(feature = "glass")]
+fn setup_scroll_mouse_maps_displayed_rows_and_ignores_unreleased_paper() {
+    use angel_glass::scroll::{Page as ScrollPage, Pose as ScrollPose, surface};
+    use ratatui::buffer::Buffer;
+    let mut app = App::new(Bag::practice_for_test(), Viewer::new());
+    app.setup.menu = Some(Menu::new(Found::default(), Tools::default(), Instant::now()));
+    let area = Rect::new(10, 5, 80, 30);
+    let target = Rect::new(15, 15, 1, 1);
+    let pose = ScrollPose { open: 1.0, sway: 0.0 };
+    app.setup.hits = vec![(target, Hit::Back)];
+    app.setup.scroll_page = ScrollPage::new(area, Buffer::empty(Rect::new(0, 0, 80, 30)), pose);
+    let mut event = MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left), column: target.x, row: target.y,
+        modifiers: KeyModifiers::NONE,
+    };
+    // A flat-coordinate click must not activate a still-hidden action.
+    app.setup.scroll_page.as_mut().unwrap().pose.open = 0.5;
+    app.setup_mouse(event);
+    assert!(app.setup.open(), "unreleased paper must reject menu clicks");
+    app.setup.scroll_page.as_mut().unwrap().pose = pose;
+    app.setup.scroll_page.as_mut().unwrap().interactive = false;
+    app.setup_mouse(event);
+    assert!(app.setup.open(), "suppressed paper must reject menu clicks");
+    app.setup.scroll_page.as_mut().unwrap().interactive = true;
+    let s = (f32::from(target.y - area.y) + 0.5) / f32::from(area.height);
+    event.row = area.y + (surface(pose, s)[0] * f32::from(area.height)) as u16;
+    assert_ne!(event.row, target.y, "exercise the real projection, not identity");
+    app.setup_mouse(event);
+    assert!(!app.setup.open(), "the projected Back target must close the home page");
+}

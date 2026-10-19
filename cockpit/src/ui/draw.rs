@@ -548,6 +548,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // dialog's unchanged cells, so image panes under a dialog draw in plain
     // cells instead. The model menu keeps last frame's box; it does not move.
     app.image_occluders.clear();
+    crate::ui::views::setup_view::register_image_occlusion(root, app);
     if app.loop_dialog.is_some() {
         app.image_occluders
             .push(crate::drive::loop_dialog::modal_area(root));
@@ -576,6 +577,8 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.scryglass.begin_frame();
     app.panes.clear();
     app.dungeon.controls_visible = false;
+    #[cfg(feature = "glass")]
+    crate::ui::glass::set_scroll(None);
     if root.width == 0 || root.height == 0 {
         app.scryglass_drag = None;
         app.scryglass.finish_frame();
@@ -596,19 +599,11 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // Button hitboxes are frame-local. In particular, a focused game surface
     // must not inherit a stale Scryglass action from the preceding draw.
     app.world_buttons.clear();
+    app.transcript_links.clear();
+    app.object_dock.visible = false;
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
-    // `/setup` has the whole screen: nothing under it paints, so no image
-    // pane can show through its scroll.
-    if app.setup.open() {
-        app.image_occluders.push(root);
-        app.viewer.clear_still();
-        crate::ui::views::setup_view::render(frame, root, app);
-        render_selection_and_approval_overlays(frame, app);
-        app.scryglass.finish_frame();
-        app.settle_walk();
-        return;
-    }
+    // Setup is a foreground object; the ordinary workspace keeps painting.
     if app.dungeon_view_active() {
         let now = Instant::now();
         // The host's delve as its newest tick stands (the words around the
@@ -805,6 +800,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             }
             frame.render_widget(border, inset);
         }
+        crate::ui::views::setup_view::render(frame, root, app);
         render_selection_and_approval_overlays(frame, app);
         if let Some(pending) = app.pending_turn.as_mut() {
             pending.echo_drawn = true;
@@ -1044,6 +1040,8 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         frame.render_widget(Clear, cockpit_area);
         render_moa_deck(frame, app, cockpit_area);
     }
+    crate::ui::object_dock::render_overlay(frame, app);
+    crate::ui::views::setup_view::render(frame, root, app);
     render_selection_and_approval_overlays(frame, app);
     // The frame that carries a just-submitted turn's echo has now been built;
     // `advance` may launch the deferred pre-flight on the next tick.

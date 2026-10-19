@@ -26,10 +26,12 @@ fn northern_adventure_regression(mut run: Run) {
                 2 => (run.room().width()/2.0, run.room().height()-1.9),
                 _ => (1.9, run.room().height()/2.0),
             };
-            let h = run.players.get_mut(&1).unwrap();
-            (h.x, h.y) = (x, y);
+            // A doorway takes the whole party (`fellowship`): all four walk it.
+            for h in run.players.values_mut() {
+                (h.x, h.y) = (x, y);
+            }
             let (mx, my) = DIRS[side];
-            let input = BTreeMap::from([(1, Input { move_x: mx as i8, move_y: my as i8, ..Default::default() })]);
+            let input: BTreeMap<u32, Input> = run.players.keys().map(|&id| (id, Input { move_x: mx as i8, move_y: my as i8, ..Default::default() })).collect();
             for _ in 0..HZ {
                 run.step(&input);
                 if run.at == bi { break; }

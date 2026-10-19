@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-chain-keeper.impact/v01/source-sheet.png",
+  "source_sha256": "d42738ae64dbf275f09550ec263bb87534d3309d6f3625eeecc1b18008e9e41f",
+  "original_sheet_sha256": "d42738ae64dbf275f09550ec263bb87534d3309d6f3625eeecc1b18008e9e41f",
+  "metadata_sha256": "244db7b6ea4d70538933567c3c97f88e1c61908e4a4144e31854f973f8b508e7",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        338,
+        166,
+        266,
+        277
+      ],
+      "alpha_area": 43624,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "0184d7ed3ddd7406b1bd69b3ad626b485cbe28bda0e8e82d579bb46fc791ce0b"
+    },
+    {
+      "source_rect_xywh": [
+        647,
+        158,
+        275,
+        278
+      ],
+      "alpha_area": 36670,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "659e4d0efb8ba2715899d585094ea1c7a19d99c6345461d6e325a3f1bd0d75be"
+    },
+    {
+      "source_rect_xywh": [
+        989,
+        184,
+        217,
+        234
+      ],
+      "alpha_area": 22031,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "d69df0257aad387070384fcd08d71b7317f8fff5e68b026624a065b2797fd4e3"
+    },
+    {
+      "source_rect_xywh": [
+        96,
+        243,
+        161,
+        145
+      ],
+      "alpha_area": 13611,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "73efb427d815eeb4e8d4a8052e8493ecb87b887b4b7e4203dcaddc0bb98cdd7a"
+    },
+    {
+      "source_rect_xywh": [
+        73,
+        599,
+        185,
+        150
+      ],
+      "alpha_area": 18708,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "2479940ad26fc926fef179cab53d393f1eba454a8eb7fb1f323c59b2e18131e2"
+    },
+    {
+      "source_rect_xywh": [
+        371,
+        584,
+        208,
+        174
+      ],
+      "alpha_area": 17819,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "ad72b0aba0eb09fb0a4f2d24ad22be1303ae01eb2411a6cdab7acd7a0d0037c5"
+    },
+    {
+      "source_rect_xywh": [
+        639,
+        537,
+        271,
+        248
+      ],
+      "alpha_area": 46510,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "211dfba3f8627de143d942923a7b7f09550a1707879e5566d9f75ad111b01224"
+    },
+    {
+      "source_rect_xywh": [
+        969,
+        503,
+        265,
+        289
+      ],
+      "alpha_area": 37068,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "1775003b93bbee0547c6db22c42d3d978d56ce37aa9e6c32676bd677fb3afab1"
+    },
+    {
+      "source_rect_xywh": [
+        68,
+        927,
+        195,
+        187
+      ],
+      "alpha_area": 17101,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "a26d97d960b9286c0ef3079c9506eb27d251b4330979947e48a4f2c943fd0fa2"
+    },
+    {
+      "source_rect_xywh": [
+        387,
+        951,
+        168,
+        151
+      ],
+      "alpha_area": 11600,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "cbadfa4fa4cb3640e38b651e838d4185efd96882dd17bf93c12c9a2bdeca9071"
+    },
+    {
+      "source_rect_xywh": [
+        667,
+        907,
+        245,
+        240
+      ],
+      "alpha_area": 29203,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "a79b774a776501c6e11becc5fcb7969e0043c042d1c67a463975977a455db250"
+    },
+    {
+      "source_rect_xywh": [
+        1011,
+        940,
+        174,
+        182
+      ],
+      "alpha_area": 14097,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "18cb69f23e17a44fb8750d550abcc97d3d4450f6af3cd57c87b921927d533e40"
+    }
+  ]
+}

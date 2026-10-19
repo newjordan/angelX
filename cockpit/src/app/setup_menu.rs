@@ -2114,6 +2114,10 @@ pub(crate) fn write_settings(path: &Path, pairs: &[(&str, String)]) -> std::io::
 pub(crate) struct Setup {
     pub(crate) menu: Option<Menu>,
     pub(crate) hits: Vec<(Rect, Hit)>,
+    #[cfg(feature = "glass")]
+    pub(crate) scroll_motion: angel_glass::scroll::Motion,
+    #[cfg(feature = "glass")]
+    pub(crate) scroll_page: Option<angel_glass::scroll::Page>,
     tx: Sender<(u64, Outcome)>,
     rx: Receiver<(u64, Outcome)>,
     rebuild: Option<(Receiver<Bag>, String)>,
@@ -2125,6 +2129,10 @@ impl Default for Setup {
         Self {
             menu: None,
             hits: Vec::new(),
+            #[cfg(feature = "glass")]
+            scroll_motion: angel_glass::scroll::Motion::default(),
+            #[cfg(feature = "glass")]
+            scroll_page: None,
             tx,
             rx,
             rebuild: None,
@@ -2138,7 +2146,14 @@ impl Setup {
     }
 
     pub(crate) fn wants_tick(&self) -> bool {
-        self.menu.is_some() || self.rebuild.is_some()
+        self.menu.is_some() || self.rebuild.is_some() || self.scroll_is_moving()
+    }
+
+    pub(crate) fn scroll_is_moving(&self) -> bool {
+        #[cfg(feature = "glass")]
+        { self.scroll_motion.moving() }
+        #[cfg(not(feature = "glass"))]
+        { false }
     }
 }
 
@@ -2172,10 +2187,25 @@ impl App {
         crate::ui::views::setup_view::warm_plate();
         let effect = menu.scan();
         self.setup.menu = Some(menu);
+        #[cfg(feature = "glass")]
+        if crate::ui::glass::active() {
+            if self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
+                self.setup.scroll_motion.target(true, now);
+            } else { self.setup.scroll_motion.snap(true, now); }
+        }
         self.setup_apply(effect);
     }
 
     fn close_setup(&mut self) {
+        #[cfg(feature = "glass")]
+        if crate::ui::glass::active() {
+            if self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
+                self.setup.scroll_motion.target(false, Instant::now());
+            } else {
+                self.setup.scroll_motion.snap(false, Instant::now());
+                self.setup.scroll_page = None;
+            }
+        }
         if let Some(mut menu) = self.setup.menu.take() {
             menu.cancel();
         }
@@ -2202,6 +2232,17 @@ impl App {
     }
 
     pub(crate) fn setup_mouse(&mut self, ev: MouseEvent) {
+        // The native page bends and travels independently of the cell grid.
+        // Ignore unreleased/suppressed paper rather than activating hidden rows.
+        #[cfg(feature = "glass")]
+        let ev = if let Some(page) = self.setup.scroll_page.as_ref() {
+            let Some((column, row)) = page.hit(ev.column, ev.row) else {
+                return;
+            };
+            MouseEvent { column, row, ..ev }
+        } else {
+            ev
+        };
         let Some(menu) = self.setup.menu.as_mut() else {
             return;
         };

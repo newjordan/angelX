@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 36x22, anchor bottom-centre (18,22); stage 384x224; a round hay bale on its side.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "rest-0"
+      ],
+      "source_pose_count": 1,
+      "state": "rest"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "sprung-0",
+        "sprung-1",
+        "sprung-2",
+        "sprung-3"
+      ],
+      "source_pose_count": 4,
+      "state": "sprung"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.hay",
+  "role": "prop",
+  "timing": "rest 1 ticks; sprung 4x3 ticks (30 Hz). Art never sets a hitbox."
+}

@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    72,
+    136
+  ],
+  "anchor_xy": [
+    36,
+    136
+  ],
+  "comments": [
+    "Scaled by height to 136 px, the drawing is 72 px wide (the slot says 64: about 12 percent too wide). The canvas is 72x136 at its bottom-centre anchor, so nothing is scaled to fit and the slot's box is spilled by four pixels a side (the pole has no hitbox)."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "No hitbox. The hub pole: eight peg slots hold the banners; art fills them, rules decide which are up. The canvas is eight pixels wider than the slot (64x136) so the painted pole is not scaled.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crop, 2026-10-18. One drawing: a timber mast with a brass ball, two iron bands, a stone footing and four levels of mirrored peg arms (the top one the yard).",
+  "notes_sha256": "f01abbb062abd2a5b700b3c8bfa397a4f5904341864363509f1dad9eabcdcee6",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        386.8,
+        1462
+      ],
+      "source_rect_xywh": [
+        125,
+        37,
+        774,
+        1462
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 72x136, anchor bottom-centre (36,136); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "sizes": {
+    "v1": [
+      72,
+      136
+    ],
+    "v2": [
+      72,
+      136
+    ]
+  },
+  "slot": "bannerpeak.great-pole",
+  "source_sha256": "a9467e8233f4f1568eb877e9273de48368a211224d53f2f884346699dab49662",
+  "timing": "idle 1 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

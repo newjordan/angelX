@@ -1,0 +1,89 @@
+[
+ {
+  "metric": "M1-keyframe-steel",
+  "glass_median": 6.7,
+  "kitty_median": 4.7,
+  "glass_p99": 14.2,
+  "kitty_p99": 14.2,
+  "diff_median": 2.0,
+  "ci95": [
+   1.3,
+   2.75
+  ],
+  "n_glass": 126,
+  "n_kitty": 126,
+  "verdict": "kitty"
+ },
+ {
+  "metric": "M3-4K",
+  "glass_median": 1.857,
+  "kitty_median": 20.658,
+  "glass_p99": 44.778,
+  "kitty_p99": 46.408,
+  "diff_median": -18.801,
+  "ci95": [
+   -19.258,
+   -18.285
+  ],
+  "n_glass": 1741,
+  "n_kitty": 180,
+  "verdict": "glass"
+ },
+ {
+  "metric": "M5-text",
+  "glass_median": 0.425,
+  "kitty_median": 1.134,
+  "glass_p99": 0.976,
+  "kitty_p99": 1.75,
+  "diff_median": -0.709,
+  "ci95": [
+   -0.711,
+   -0.707
+  ],
+  "n_glass": 33922,
+  "n_kitty": 900,
+  "verdict": "glass"
+ },
+ {
+  "metric": "M4-placements-scaling",
+  "kitty_n100_median_ms": 0.151,
+  "kitty_n5000_median_ms": 21.582,
+  "glass_placements_median_ms": 1.217,
+  "note": "glass placements run uses stream-bench default count; paired M4-1000 verdict is in v2-1"
+ },
+ {
+  "metric": "M9-resources",
+  "glass-big": {
+   "peak_rss_mib": 1610.4,
+   "cpu_pct": 104.0
+  },
+  "glass-blast4": {
+   "peak_rss_mib": 127.4,
+   "cpu_pct": 6.1
+  },
+  "glass-idle": {
+   "peak_rss_mib": 122.5,
+   "cpu_pct": 0.2
+  },
+  "glass-placements": {
+   "peak_rss_mib": 129.1,
+   "cpu_pct": 13.2
+  },
+  "glass-text": {
+   "peak_rss_mib": 129.4,
+   "cpu_pct": 145.0
+  },
+  "kitty-idle": {
+   "peak_rss_mib": 123.8,
+   "cpu_pct": 0.0
+  }
+ },
+ {
+  "metric": "photon-glass",
+  "stamps": "<360 stamps in photon-glass-stamps.json>"
+ },
+ {
+  "metric": "photon-kitty",
+  "stamps": "<360 stamps in photon-kitty-stamps.json>"
+ }
+]

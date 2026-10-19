@@ -1,0 +1,17 @@
+{
+  "delivery": "griffinwing.hearth-ring/v01",
+  "delivery_status": "Producer note (wave 6): ACCEPTED.",
+  "generation_sha256": "213ff00239d7022cba9a75919f7417c641788622d162de668b0c0949b470d724",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "measured_by": "crates/delve/assets/griffinwing/prepare-art.py (the delivery carries no crop metadata): the importer reads a byte-identical copy of the sheet beside measured crops",
+  "metadata_sha256": "276f085e73118984d5c2c4ae1ca82cbf0918ffbb6f5705eafbf296962d097f68",
+  "native_contract": "Native 64x64, the ring's centre at (32,32).",
+  "notes_sha256": "30f93e6be04e6efdab2ab2ee5f2252519f00763d361481cd063f74c067dcb340",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "1f4022580f46da861e7bff40274f1904d01196a8deb9f17400847d08f15229e0",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png",
+  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.hearth-ring/v01/source-sheet.png",
+  "source_sha256": "7b324f5ea8c9c2e154b15c8b57a9d5865ee43d532b89ba0b64f04a4945b20b49"
+}

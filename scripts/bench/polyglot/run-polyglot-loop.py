@@ -21,7 +21,7 @@ import tempfile
 import time
 
 
-DEFAULT_BENCH = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921")
+DEFAULT_BENCH = Path("~/angel_tests/angelX-bench/polyglot-20260921").expanduser()
 SELECTION_SEED = "angelx-polyglot-speed-v1:"
 LANGUAGES = ("js", "py", "rust", "cpp")
 RESOURCE_DIRECTORIES = ("lib", "cockpit/assets", "cockpit/skills",

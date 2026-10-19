@@ -10,15 +10,23 @@
 // reload, a dropped wifi or a locked screen takes the same seat back.
 // See docs/ENGINE.md, "The browser runtime".
 
-/* global makePresenter, makeInput, makeSound, makeLoopback, makePanel */
+/* global makePresenter, loadRenderer, makeGpuPresenter, makeInput, makeSound, makeLoopback, makePanel */
 (() => {
   const params = new URLSearchParams(location.search);
+  let postWanted = 1;
+  try {
+    const kept = localStorage.getItem('angel.post');
+    if (kept === '0' || kept === '1') postWanted = Number(kept);
+  } catch { /* no storage */ }
+  if (params.has('post')) postWanted = params.get('post') === '0' ? 0 : 1;
   // <key>, or <key>&dev for a link that offers the dev panel (F2).
   const [join, ...flags] = decodeURIComponent(location.hash.slice(1)).split('&');
   const devLink = flags.includes('dev');
   const offline = params.has('offline');
   const $ = id => document.getElementById(id);
-  const canvas = $('screen'), form = $('join'), nameInput = $('name'), playButton = $('play');
+  // The canvas keeps the first kind of context it is given (see `freshCanvas`).
+  let canvas = $('screen');
+  const form = $('join'), nameInput = $('name'), playButton = $('play');
   const statusLine = $('status'), toastLine = $('toast'), fullButton = $('full'), statsBox = $('stats');
   const sayForm = $('say'), sayInput = $('said'), sheetBox = $('sheet');
   const decoder = new TextDecoder(), encoder = new TextEncoder();
@@ -70,7 +78,9 @@
     // The frame count when the last key or button went down: a probe
     // compares it with the frame its character first moved on.
     inputFrame: -1, inputAt: 0,
-    // Probes may set this: (heap, ptr, w, h, frameIndex) after each frame.
+    // Probes may set this: (heap, ptr, w, h, frameIndex, staged, stagePtr,
+    // stageLen) after each frame: the finished frame (BGRA words, or RGBA
+    // bytes for a presenter with `rgba`), and the stage's bytes when it drew one.
     onframe: null,
     // Where the last frame drew the own character, in frame pixels, as
     // the game says (null when it does not say): for probes.
@@ -78,6 +88,12 @@
       if (!x || !x.angel_own_x) return null;
       const at = [x.angel_own_x(), x.angel_own_y()];
       return Number.isNaN(at[0]) ? null : at;
+    },
+    // The game's own counts as its dev panel reads them (the Delve's
+    // corrections, its own shots on the last frame), or null before play.
+    game() {
+      if (!x || !x.angel_stats) return null;
+      try { return JSON.parse(text(x.angel_stats())).game; } catch { return null; }
     },
     stats() {
       A.wasmP50 = percentile(wasmRing, 0.5);
@@ -91,6 +107,7 @@
         memory: x ? x.memory.buffer.byteLength : 0,
         heardAt: lastHeard,
         wasmP50: A.wasmP50, wasmP95: A.wasmP95, presentP50: A.presentP50, presentP95: A.presentP95,
+        post: presenter && presenter.setPost ? postWanted : 0,
       };
     },
     reset() {
@@ -165,7 +182,7 @@
   const slow = () => fetch(wasmUrl).then(r => r.arrayBuffer()).then(b => WebAssembly.instantiate(b, imports));
   // Compiles while it downloads; a server with the wrong MIME type gets the
   // plain way.
-  const loading = (WebAssembly.instantiateStreaming
+  const instantiating = (WebAssembly.instantiateStreaming
     ? WebAssembly.instantiateStreaming(fetch(wasmUrl), imports).catch(slow)
     : slow()
   ).then(r => {
@@ -176,8 +193,101 @@
 
   // ---- the page's parts ----
 
-  const presenter = makePresenter(canvas, params.get('present'));
-  A.presenter = presenter.kind;
+  // How the game reaches the screen. The bundle may carry the renderer
+  // module (render-webgpu.* and render-webgl.*, named in the page's
+  // `renderers` manifest; gpu.js wraps it): `angel-gpu`, the core the native
+  // window draws with, behind this canvas. It is used where the browser can
+  // run it, WebGPU where `navigator.gpu` is there and its WebGL2 backend
+  // where only WebGL2 is. Where the bundle has none, or loading or starting
+  // it throws, present.js draws as it always has (WebGL2, then WebGL1, then
+  // a 2D canvas). `?present=` forces a way, for testing:
+  //   gpu     the WebGPU build         webgl    the WebGL2 build
+  //   legacy  present.js, best first   webgl1 / 2d   present.js, that fallback
+  const want = params.get('present');
+  let renderers = {};
+  try {
+    renderers = JSON.parse($('renderers').textContent || '{}');
+  } catch {
+    renderers = {};
+  }
+
+  // A canvas keeps the first kind of context it was given: one the renderer
+  // touched cannot go back to present.js's. A new canvas takes its place.
+  function freshCanvas() {
+    const fresh = canvas.cloneNode(false);
+    canvas.replaceWith(fresh);
+    canvas = fresh;
+    return fresh;
+  }
+
+  const legacyPresenter = () => makePresenter(canvas, want === 'webgl1' || want === '2d' ? want : null);
+
+  // The presenter to start with. Never rejects: every way of not getting the
+  // renderer ends in present.js's.
+  async function choosePresenter() {
+    let build = null, backend = '';
+    if (want !== 'legacy' && want !== 'webgl1' && want !== '2d') {
+      if (want === 'webgl') {
+        backend = 'webgl';
+      } else if (want === 'gpu' || navigator.gpu) {
+        backend = 'webgpu';
+      } else if (typeof WebGL2RenderingContext === 'function') {
+        backend = 'webgl';
+      }
+      build = backend ? renderers[backend] : null;
+      if (backend && !build && want) console.warn('angelX: this bundle has no ' + backend + ' renderer: drawing with the page\'s own presenter');
+    }
+    if (build) {
+      try {
+        const p = await makeGpuPresenter(canvas, await loadRenderer(build), backend);
+        console.info('angelX: drawing with the ' + p.kind.slice(4) + ' renderer' + (p.adapter ? ' (' + p.adapter + ')' : ''));
+        gpuActive = true;
+        return p;
+      } catch (e) {
+        console.warn('angelX: the renderer did not start (' + (e && e.message || e) + '): drawing with the page\'s own presenter');
+        freshCanvas();
+      }
+    }
+    return legacyPresenter();
+  }
+
+  let presenter = null, useStage = false, gpuActive = false;
+  // The next stage frame carries every picture again (a presenter that lost its pictures).
+  const resetStage = () => {
+    if (x && x.angel_stage_reset) x.angel_stage_reset();
+  };
+  // Whether the game may send a stage's 3D props (`STG3` frames): only to a
+  // presenter that draws them (the renderer module); present.js's stage.js
+  // does not, and the game then keeps its shots as the flat sprites it knew.
+  const declareProps = () => {
+    if (x && x.angel_stage_props) x.angel_stage_props(presenter && presenter.props ? 1 : 0);
+  };
+  function adopt(p) {
+    presenter = p;
+    if (p.setPost) postWanted = p.setPost(postWanted);
+    declareProps();
+    useStage = !!p.drawStage && params.get('stage') !== '0';
+    p.onreset = resetStage;
+    if (gpuActive) {
+      p.onlost = why => {
+        // The module stopped (a lost device, a trap): once, and for the rest
+        // of the session present.js takes over, with the pictures sent again.
+        gpuActive = false;
+        console.warn('angelX: the GPU renderer stopped (' + (why && why.message || why) + '): drawing with the page\'s own presenter from here on');
+        p.dispose();
+        freshCanvas();
+        adopt(legacyPresenter());
+        resetStage();
+      };
+    }
+    A.presenter = p.kind;
+  }
+  const presenting = choosePresenter().then(adopt);
+  // Ready to start: the module compiled, and a way to draw chosen.
+  const loading = Promise.all([instantiating, presenting]).then(([ex]) => {
+    declareProps();
+    return ex;
+  });
   let sound = null;
   let input = null;
   let panel = null;
@@ -239,10 +349,14 @@
     flush();
   });
 
-  // The page's own knobs, for the dev panel: whole-number scaling and a
-  // frame-rate cap (0: the display's own rate).
+  // The page's own knobs, for the dev panel: whole-number scaling, a
+  // frame-rate cap (0: the display's own rate) and the GPU renderer's post
+  // pass (bloom, vignette, grain: crates/gpu/src/post.rs), on unless
+  // `?post=0` or this device turned it off (remembered: a weak device).
   let fpsCap = 0, lastDrawn = 0;
   const pageKnobs = [
+    { name: 'post', group: 'render', label: 'Post pass: 0 off 1 on', constant: 'crates/gpu/src/post.rs',
+      min: 0, max: 1, step: 1, default: 1, value: postWanted, side: 'client' },
     { name: 'scale', group: 'render', label: 'Scale: 0 auto 1 whole 2 fit', constant: 'MIN_FILL (crates/web/shell/present.js)',
       min: 0, max: 2, step: 1, default: 0, value: 0, side: 'client' },
     { name: 'fps_cap', group: 'render', label: 'Frame cap (0 none)', constant: 'the display\'s refresh (crates/web/shell/boot.js)',
@@ -255,6 +369,11 @@
     if (Number.isNaN(v)) return NaN;
     if (name === 'scale') v = presenter.setScale(v);
     if (name === 'fps_cap') fpsCap = v;
+    if (name === 'post') {
+      postWanted = v;
+      if (presenter.setPost) v = presenter.setPost(v);
+      try { localStorage.setItem('angel.post', String(postWanted)); } catch { /* no storage: this page only */ }
+    }
     k.value = v;
     return v;
   }
@@ -521,10 +640,24 @@
       if (sock && sock.pump) sock.pump(t);
       input.poll();
       const t0 = performance.now();
-      const ptr = (presenter.rgba ? x.angel_frame_rgba(t) : x.angel_frame(t)) >>> 0;
+      // A presenter that takes RGBA bytes and draws the stage takes the
+      // frame's words first and turns them into bytes only when the stage
+      // did not draw (a probe watching the finished frame gets bytes, as
+      // ever): turning every frame was a tenth of the page's time.
+      const late = presenter.rgba && useStage && !!x.angel_stage && !!x.angel_frame_rgba_last && !A.onframe;
+      let ptr = (presenter.rgba && !late ? x.angel_frame_rgba(t) : x.angel_frame(t)) >>> 0;
       const t1 = performance.now();
       const w = x.angel_frame_w(), h = x.angel_frame_h();
-      if (w && h) presenter.draw(mem(), ptr, w, h);
+      // The frame from its parts where the page and the game both can
+      // (`?stage=0` keeps finished frames).
+      let staged = false, sp = 0, sl = 0;
+      if (useStage && x.angel_stage) {
+        sp = x.angel_stage(t) >>> 0;
+        sl = x.angel_stage_len() >>> 0;
+        staged = sl > 0 && presenter.drawStage(mem(), sp, sl, t);
+      }
+      if (!staged && late) ptr = x.angel_frame_rgba_last() >>> 0;
+      if (!staged && w && h) presenter.draw(mem(), ptr, w, h);
       const t2 = performance.now();
       wasmRing[ringAt] = t1 - t0;
       presentRing[ringAt] = t2 - t1;
@@ -535,7 +668,7 @@
       flush();
       lines();
       watch();
-      if (A.onframe && w && h) A.onframe(mem(), ptr, w, h, A.frames);
+      if (A.onframe && w && h) A.onframe(mem(), ptr, w, h, A.frames, staged, sp, sl);
     } catch (e) {
       crash(e);
     }

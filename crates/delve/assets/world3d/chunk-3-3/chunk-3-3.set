@@ -1,0 +1,330 @@
+set chunk-3-3
+# The kingdom, chunk 3,3 in Castle Town: tiles 72..96 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1344 896
+plate 1536 1024
+
+# ground
+box    grass   at 1176 -4 808 size 48 4 80
+box    sand    at 1224 -4 776 size 48 4 16
+box    path    at 1264 -4 784 size 32 4 32
+box    water   at 1336 -4 776 size 112 1 16
+box    sand    at 1440 -4 776 size 96 4 16
+box    grass   at 1512 -4 816 size 48 4 96
+box    grass   at 1224 -4 816 size 48 4 64
+box    path    at 1288 -4 832 size 16 4 96
+box    grass   at 1392 -4 824 size 192 4 80
+box    grass   at 1264 -4 832 size 32 4 64
+box    path    at 1184 -4 872 size 64 4 48
+box    grass   at 1232 -4 856 size 32 4 16
+box    path    at 1248 -4 872 size 64 4 16
+box    path    at 1416 -4 872 size 240 4 16
+box    grass   at 1264 -4 904 size 96 4 48
+box    road    at 1336 -4 904 size 48 4 48
+box    grass   at 1416 -4 904 size 112 4 48
+box    path    at 1504 -4 896 size 64 4 32
+box    path    at 1168 -4 904 size 32 4 16
+box    grass   at 1200 -4 960 size 32 4 128
+box    grass   at 1168 -4 968 size 32 4 112
+box    grass   at 1504 -4 968 size 64 4 112
+box    grass   at 1232 -4 976 size 32 4 96
+box    path    at 1352 -4 936 size 208 4 16
+box    grass   at 1464 -4 976 size 16 4 96
+box    grass   at 1288 -4 960 size 80 4 32
+box    path    at 1336 -4 984 size 16 4 80
+box    grass   at 1400 -4 960 size 112 4 32
+box    grass   at 1280 -4 1000 size 64 4 48
+box    path    at 1320 -4 1000 size 16 4 48
+box    path    at 1352 -4 1000 size 16 4 48
+box    grass   at 1408 -4 1000 size 96 4 48
+
+# the Keep of Keep: the great keep at 82,51 3x3
+box    stone   at 1336 0 840.5 size 40 40 41 id keep
+box    stone   at 1318.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1323.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1328.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1333.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1338.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1343.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1348.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1353.5 40 860.25 size 2.75 2.5 1.5
+box    stone   at 1318.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1323.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1328.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1333.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1338.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1343.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1348.5 40 820.75 size 2.75 2.5 1.5
+box    stone   at 1353.5 40 820.75 size 2.75 2.5 1.5
+box    window  at 1323 22 861.25 size 2.5 4 1
+box    window  at 1349 22 861.25 size 2.5 4 1
+box    window  at 1336 30 861.25 size 2.5 4 1
+box    window  at 1323 32 861.25 size 2.5 4 1
+box    window  at 1349 32 861.25 size 2.5 4 1
+cylinder stone   at 1316 0 860 size 7 46 7
+cone   slate   at 1316 46 860 size 9 6 9
+cylinder stone   at 1356 0 860 size 7 46 7
+cone   slate   at 1356 46 860 size 9 6 9
+cylinder stone   at 1316 0 820 size 7 46 7
+cone   slate   at 1316 46 820 size 9 6 9
+cylinder stone   at 1356 0 820 size 7 46 7
+cone   slate   at 1356 46 820 size 9 6 9
+arch   stone   at 1336 0 861.5 size 14 16 3
+box    door    at 1336 0 861.25 size 7.5 12 1
+
+# a keep turret of Keep: a keep turret at 81,51 1x3
+box    stone   at 1304 0 840 size 12 30 44 id keep-turret-1
+box    stone   at 1298.75 30 820.75 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 826.25 size 1.5 2.5 3.02
+box    stone   at 1298.75 30 831.75 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 837.25 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 842.75 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 848.25 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 853.75 size 1.5 2.5 3.03
+box    stone   at 1298.75 30 859.25 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 820.75 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 826.25 size 1.5 2.5 3.02
+box    stone   at 1309.25 30 831.75 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 837.25 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 842.75 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 848.25 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 853.75 size 1.5 2.5 3.03
+box    stone   at 1309.25 30 859.25 size 1.5 2.5 3.03
+box    stone   at 1301 30 861.25 size 3.3 2.5 1.5
+box    stone   at 1307 30 861.25 size 3.3 2.5 1.5
+box    window  at 1304 18 862.25 size 2.5 4 1
+
+# a keep turret of Keep: a keep turret at 85,51 1x3
+box    stone   at 1368 0 840 size 12 30 44 id keep-turret-2
+box    stone   at 1362.75 30 820.75 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 826.25 size 1.5 2.5 3.02
+box    stone   at 1362.75 30 831.75 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 837.25 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 842.75 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 848.25 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 853.75 size 1.5 2.5 3.03
+box    stone   at 1362.75 30 859.25 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 820.75 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 826.25 size 1.5 2.5 3.02
+box    stone   at 1373.25 30 831.75 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 837.25 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 842.75 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 848.25 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 853.75 size 1.5 2.5 3.03
+box    stone   at 1373.25 30 859.25 size 1.5 2.5 3.03
+box    stone   at 1365 30 861.25 size 3.3 2.5 1.5
+box    stone   at 1371 30 861.25 size 3.3 2.5 1.5
+box    window  at 1368 18 862.25 size 2.5 4 1
+
+# the Rookery of Rookery: a tall roost tower at 86,51 1x2
+box    stone   at 1384 0 840 size 12 40 12 id rookery
+pyramid slate   at 1384 40 840 size 14 14.4 14
+box    wood    at 1384 24 845.75 size 15 1.5 1.5
+box    wood    at 1384 32 845.75 size 15 1.5 1.5
+box    door    at 1384 0 846.25 size 5 9 1
+box    window  at 1384 28 846.25 size 2.5 4 1
+
+# the Chapel of Chapel: a chapel with a spire at 88,51 2x2
+box    plaster at 1418.68 0 830 size 17.36 16 24 id chapel
+gable  slate   at 1418.68 16 830 size 26 11 20.36 turn 90
+box    window  at 1427.61 6 826 size 1 6 2.5
+box    window  at 1427.61 6 834 size 1 6 2.5
+arch   window  at 1418.68 7 842.25 size 5 7 1
+box    plaster at 1432.68 0 841.18 size 9.64 26 9.64
+pyramid slate   at 1432.68 26 841.18 size 11.14 20 11.14
+box    door    at 1432.68 0 846.25 size 5 10 1
+box    window  at 1432.68 18 846.25 size 2.5 4 1
+
+# the Round Table of Round Table: the round hall of the Round Table at 77,51 2x2 (at 87% of its height, for the camera)
+cylinder plaster at 1256 0 832 size 12 12 12 id round-table
+cone   roof    at 1256 12 832 size 15 11 15
+box    door    at 1261.75 0 832 size 1 8.5 6
+box    window  at 1260.55 5 835.6 size 1 3.5 3.5
+box    window  at 1260.55 5 828.4 size 1 3.5 3.5
+box    wood    at 1240 0 824 size 14 4 8
+box    wood    at 1240 4 824 size 10 3 6
+box    wood    at 1240 0 840 size 14 4 8
+box    wood    at 1240 4 840 size 10 3 6
+
+# the Smithy of Smithy: a forge with its open bay and stack at 77,56 2x2
+box    brick   at 1242.92 0 920 size 17.84 13 12 id smithy
+hip    roof    at 1242.92 13 920 size 20.84 10 15
+box    door    at 1239.35 0 926.25 size 7 10 1
+box    wood    at 1261 0 925 size 2 11 2
+box    wood    at 1261 0 916 size 2 11 2
+wedge  roof    at 1256.92 11 920.5 size 13 4 11.16 turn 90
+box    brick   at 1248.34 0 918.5 size 5 26 5
+box    stone   at 1257.34 0 922 size 7 5 6
+
+# the Scriptorium of Scriptorium: a hall at 88,56 2x2 (at 87% of its height, for the camera)
+box    brick   at 1424 0 920 size 28 14.5 12 id scriptorium
+gable  slate   at 1424 14.5 920 size 31 10.5 15
+box    stone   at 1430.72 14.5 918.8 size 4 12 4
+box    door    at 1418.4 0 926.25 size 7 9.5 1
+box    window  at 1433.33 6 926.25 size 5 4.5 1
+
+# the well: a well at 85,56 1x1 (at 57% of its height, for the camera)
+cylinder stone   at 1368 0 904 size 12 2.5 12 id well
+cylinder water   at 1368 0 904 size 9 2.5 9
+box    wood    at 1362.5 0 904 size 1.5 7 1.5
+box    wood    at 1373.5 0 904 size 1.5 7 1.5
+gable  thatch  at 1368 7 904 size 15 3 12
+
+# the market stalls: market stalls under dark awnings at 80,56 1x2
+box    wood    at 1284.25 0 924.25 size 4.5 5 3.5 id market-stalls
+box    cloth   at 1284.25 5 924.25 size 2.5 1.5 2.5
+box    wood    at 1282.25 0 915.75 size 1.5 11 1.5
+box    wood    at 1282.25 0 925.75 size 1.5 11 1.5
+box    wood    at 1286.25 0 915.75 size 1.5 11 1.5
+box    wood    at 1286.25 0 925.75 size 1.5 11 1.5
+wedge  cloth   at 1284.25 11 920.75 size 6.5 3.5 12.5
+box    wood    at 1290.75 0 924.25 size 4.5 5 3.5
+box    cloth   at 1290.75 5 924.25 size 2.5 1.5 2.5
+box    wood    at 1288.75 0 915.75 size 1.5 11 1.5
+box    wood    at 1288.75 0 925.75 size 1.5 11 1.5
+box    wood    at 1292.75 0 915.75 size 1.5 11 1.5
+box    wood    at 1292.75 0 925.75 size 1.5 11 1.5
+wedge  cloth   at 1290.75 11 920.75 size 6.5 3.5 12.5
+
+# the garden: planted beds in a low hedge at 86,59 2x1
+box    hedge   at 1392 0 946.75 size 29 5 2.5 id garden
+box    hedge   at 1392 0 957.25 size 29 4 2.5
+box    hedge   at 1378.75 0 952 size 2.5 4.5 8
+box    hedge   at 1405.25 0 952 size 2.5 4.5 8
+box    crop    at 1384 0 952 size 6 2.5 5
+box    crop    at 1392 0 952 size 6 2.5 5
+box    crop    at 1400 0 952 size 6 2.5 5
+
+# hedges (at 64% of its height, for the camera)
+box    hedge   at 1304 0 792 size 18 6 18
+blob-11 hedge   at 1304 3.5 792 size 18 6 18
+box    hedge   at 1320 0 792 size 18 7 18
+blob-57 hedge   at 1320 4.5 792 size 18 6 18
+box    hedge   at 1336 0 792 size 18 7 18
+blob-38 hedge   at 1336 4.5 792 size 18 5 18
+box    hedge   at 1352 0 792 size 18 7 18
+blob-42 hedge   at 1352 4.5 792 size 18 6 18
+box    hedge   at 1368 0 792 size 18 6 18
+blob-26 hedge   at 1368 3.5 792 size 18 6 18
+box    hedge   at 1384 0 792 size 18 7 18
+blob-30 hedge   at 1384 4.5 792 size 18 6 18
+box    hedge   at 1400 0 792 size 18 4 18
+blob-13 hedge   at 1400 2.5 792 size 18 4 18
+box    hedge   at 1416 0 792 size 18 4 18
+blob-38 hedge   at 1416 2.5 792 size 18 3.5 18
+box    hedge   at 1432 0 792 size 18 4 18
+blob-3 hedge   at 1432 2.5 792 size 18 3.5 18
+box    hedge   at 1448 0 792 size 18 4 18
+blob-59 hedge   at 1448 2.5 792 size 18 4.5 18
+box    hedge   at 1464 0 792 size 18 4 18
+blob-56 hedge   at 1464 2.5 792 size 18 3.5 18
+box    hedge   at 1480 0 792 size 18 4 18
+blob-41 hedge   at 1480 2.5 792 size 18 4 18
+box    hedge   at 1496 0 792 size 18 6 18
+blob-43 hedge   at 1496 3.5 792 size 18 6 18
+box    hedge   at 1512 0 792 size 18 6 18
+blob-54 hedge   at 1512 3.5 792 size 18 5 18
+box    hedge   at 1528 0 792 size 18 6 18
+blob-39 hedge   at 1528 3.5 792 size 18 5 18
+box    hedge   at 1304 0 808 size 18 7 18
+blob-28 hedge   at 1304 4.5 808 size 18 6 18
+box    hedge   at 1320 0 808 size 18 7 18
+blob-6 hedge   at 1320 4.5 808 size 18 5 18
+box    hedge   at 1336 0 808 size 18 7 18
+blob-11 hedge   at 1336 4.5 808 size 18 6 18
+box    hedge   at 1352 0 808 size 18 7 18
+blob-60 hedge   at 1352 4.5 808 size 18 6 18
+box    hedge   at 1368 0 808 size 18 6 18
+blob-41 hedge   at 1368 3.5 808 size 18 6 18
+box    hedge   at 1384 0 808 size 18 6 18
+blob-61 hedge   at 1384 3.5 808 size 18 6 18
+box    hedge   at 1400 0 808 size 18 7 18
+blob-16 hedge   at 1400 4.5 808 size 18 6 18
+box    hedge   at 1416 0 808 size 18 6 18
+blob-53 hedge   at 1416 3.5 808 size 18 5 18
+box    hedge   at 1432 0 808 size 18 7 18
+blob-46 hedge   at 1432 4.5 808 size 18 6 18
+box    hedge   at 1448 0 808 size 18 7 18
+blob-41 hedge   at 1448 4.5 808 size 18 6 18
+box    hedge   at 1464 0 808 size 18 7 18
+blob-55 hedge   at 1464 4.5 808 size 18 5 18
+box    hedge   at 1480 0 808 size 18 6 18
+blob-18 hedge   at 1480 3.5 808 size 18 5 18
+box    hedge   at 1496 0 808 size 18 7 18
+blob-41 hedge   at 1496 4.5 808 size 18 6 18
+box    hedge   at 1512 0 808 size 18 7 18
+blob-21 hedge   at 1512 4.5 808 size 18 5 18
+box    hedge   at 1528 0 808 size 18 7 18
+blob-16 hedge   at 1528 4.5 808 size 18 6 18
+box    hedge   at 1400 0 824 size 18 6 18
+blob-21 hedge   at 1400 3.5 824 size 18 5 18
+box    hedge   at 1448 0 824 size 18 6 18
+blob-41 hedge   at 1448 3.5 824 size 18 6 18
+box    hedge   at 1464 0 824 size 18 6 18
+blob-24 hedge   at 1464 3.5 824 size 18 5 18
+box    hedge   at 1480 0 824 size 18 6 18
+blob-2 hedge   at 1480 3.5 824 size 18 5 18
+box    hedge   at 1496 0 824 size 18 7 18
+blob-51 hedge   at 1496 4.5 824 size 18 5 18
+box    hedge   at 1512 0 824 size 18 6 18
+blob-62 hedge   at 1512 3.5 824 size 18 6 18
+box    hedge   at 1528 0 824 size 18 6 18
+blob-60 hedge   at 1528 3.5 824 size 18 6 18
+box    hedge   at 1400 0 840 size 18 6 18
+blob-32 hedge   at 1400 3.5 840 size 18 6 18
+box    hedge   at 1448 0 840 size 18 6 18
+blob-37 hedge   at 1448 3.5 840 size 18 5 18
+box    hedge   at 1464 0 840 size 18 7 18
+blob-41 hedge   at 1464 4.5 840 size 18 6 18
+box    hedge   at 1480 0 840 size 18 7 18
+blob-61 hedge   at 1480 4.5 840 size 18 6 18
+box    hedge   at 1496 0 840 size 18 6 18
+blob-60 hedge   at 1496 3.5 840 size 18 6 18
+box    hedge   at 1512 0 840 size 18 6 18
+blob-45 hedge   at 1512 3.5 840 size 18 6 18
+box    hedge   at 1528 0 840 size 18 7 18
+blob-52 hedge   at 1528 4.5 840 size 18 5 18
+box    hedge   at 1384 0 856 size 18 7 18
+blob-54 hedge   at 1384 4.5 856 size 18 5 18
+box    hedge   at 1400 0 856 size 18 6 18
+blob-63 hedge   at 1400 3.5 856 size 18 6 18
+box    hedge   at 1416 0 856 size 18 6 18
+blob-20 hedge   at 1416 3.5 856 size 18 5 18
+box    hedge   at 1432 0 856 size 18 6 18
+blob-26 hedge   at 1432 3.5 856 size 18 6 18
+box    hedge   at 1448 0 856 size 18 6 18
+blob-33 hedge   at 1448 3.5 856 size 18 5 18
+box    hedge   at 1464 0 856 size 18 6 18
+blob-10 hedge   at 1464 3.5 856 size 18 6 18
+box    hedge   at 1480 0 856 size 18 7 18
+blob-37 hedge   at 1480 4.5 856 size 18 5 18
+box    hedge   at 1496 0 856 size 18 7 18
+blob-37 hedge   at 1496 4.5 856 size 18 5 18
+box    hedge   at 1512 0 856 size 18 6 18
+blob-16 hedge   at 1512 3.5 856 size 18 6 18
+box    hedge   at 1528 0 856 size 18 7 18
+blob-55 hedge   at 1528 4.5 856 size 18 5 18
+
+# woods (at 63% of its height, for the camera)
+frustum trunk   at 1432.5 0 1000.5 size 3 4 3
+cone   foliage at 1432.5 2.5 1000.5 size 18 11 18
+cone   foliage at 1432.5 9.5 1000.5 size 12.96 11 12.96
+box    hedge   at 1496 0 776 size 16 7 16
+blob-53 hedge   at 1496 4.5 776 size 16 5 16
+box    hedge   at 1512 0 776 size 16 7 16
+blob-41 hedge   at 1512 4.5 776 size 16 6 16
+box    hedge   at 1528 0 776 size 16 6 16
+blob-1 hedge   at 1528 3.5 776 size 16 5 16
+box    hedge   at 1192 0 936 size 15 5.5 16
+blob-14 hedge   at 1192 3.5 936 size 15 5 16
+box    hedge   at 1192 0 952 size 15 7 16
+blob-28 hedge   at 1192 4.5 952 size 15 6 16
+box    hedge   at 1416 0 1000 size 16 6.5 15
+blob-23 hedge   at 1416 4 1000 size 16 5 15
+box    hedge   at 1448 0 1000 size 16 6.5 15
+blob-55 hedge   at 1448 4 1000 size 16 5 15
+
+# bridges
+box    wood    at 1288 -3 776 size 16 5.5 16
+box    wood    at 1296.75 0 776 size 1.5 6 16

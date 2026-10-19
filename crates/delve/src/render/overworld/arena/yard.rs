@@ -169,7 +169,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let (x, y) = at(dummy.x, dummy.y);
         let text = dps.to_string();
         let w = text_width(&text);
-        cv.text(x - w / 2, y - 36, &text, '6');
+        cv.text(x - w / 2, y - 36, &text, 'O');
     }
     let _ = QUINTAINS;
 }

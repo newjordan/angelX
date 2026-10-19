@@ -2,7 +2,7 @@
 # path and keeps its own target directory and lockfile.
 [workspace]
 resolver = "3"
-members = ["net", "serve", "muster", "bots", "delve", "delve/smoke", "delve/dev-host", "web", "web/testgame", "web/muster", "web/delve"]
+members = ["net", "stage", "gpu", "glass", "serve", "muster", "bots", "delve", "delve/smoke", "delve/dev-host", "web", "web/render", "web/testgame", "web/muster", "web/delve", "table"]
 
 [workspace.package]
 edition = "2024"

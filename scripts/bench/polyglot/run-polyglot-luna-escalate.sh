@@ -3,8 +3,8 @@
 # high -> xhigh -> max. A task drops out once it scores 1.0.
 set -euo pipefail
 
-RR=/home/frosty40/angel_tests/angelX-bench/polyglot-20260921
-WS=/home/frosty40/angelX
+RR=~/angel_tests/angelX-bench/polyglot-20260921
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 SRC=$RR/tasks-polyglot-v1.json
 RUNNER=$WS/scripts/bench/polyglot/run-polyglot-luna-medium.sh
 TABLE=$WS/scripts/bench/polyglot/polyglot_luna_table.py
@@ -76,9 +76,9 @@ done
 
 echo "===== escalation done ====="
 python3 - "$RR" <<'PY'
-import json
+import json, sys
 from pathlib import Path
-root = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921")
+root = Path(sys.argv[1])
 print("final remaining files:")
 for p in sorted(root.glob("tasks-luna-misses-*-left.json")):
     rows = json.loads(p.read_text())

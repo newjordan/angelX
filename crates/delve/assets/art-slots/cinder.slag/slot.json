@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "bf5d03d6b1c6630c3d1e4dd5d602e7a65978f0c4264f6d0c6e3c29ef14536be2",
+  "metadata_sha256": "f65e87f3e6232adb66becc7b86e194de04099572c00446e803d9d30c12ee87d5",
+  "notes_sha256": "97717785290cc2da8d62f1e98099214f2bc7273d794169041949b73891afb4d5",
+  "outputs": {
+    "v1/piece-01.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9706,
+      "frame": 1,
+      "half_cell_coverage": 11,
+      "opaque_pixels": 102,
+      "piece": 1,
+      "sha256": "8b8e07546838aabd7f673fcaf8650b3278a58795b1df675b808ccd5f795ba830",
+      "source_scale": 0.08856088560885608,
+      "state": "small-narrow-edge-shard-with-seam-partly-visible-detached-tail"
+    },
+    "v1/piece-02.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9683,
+      "frame": 2,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 126,
+      "piece": 2,
+      "sha256": "60a62488061afeb631793b3d8b68e5b9386495b37078fc80d03cac52b479b2eb",
+      "source_scale": 0.08294930875576037,
+      "state": "small-tumble-with-leading-lower-corner-and-diagonal-seam-detache"
+    },
+    "v1/piece-03.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9948,
+      "frame": 3,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 3,
+      "sha256": "797cf63fbd18e36add04d2287d3ca3bca7bd7128990641f3162282b2290af02b",
+      "source_scale": 0.08411214953271028,
+      "state": "small-upright-broad-face-shard-center-seam-detached-tail"
+    },
+    "v1/piece-04.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.995,
+      "frame": 4,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 201,
+      "piece": 4,
+      "sha256": "dd47698a3c24a613989a3f803900ae512411a8117b0bd5eadf97d22dd8ca81f9",
+      "source_scale": 0.0759493670886076,
+      "state": "medium-left-tilted-broad-shard-with-larger-crack-facets-detached"
+    },
+    "v1/piece-05.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9712,
+      "frame": 5,
+      "half_cell_coverage": 11,
+      "opaque_pixels": 139,
+      "piece": 5,
+      "sha256": "ffe3cfefafb5965bc5e174ad695ad685074507dd7566bc0fcf2ca965f0683291",
+      "source_scale": 0.0759493670886076,
+      "state": "medium-steep-nose-down-shard-with-a-diagonal-seam-detached-tail"
+    },
+    "v1/piece-06.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9831,
+      "frame": 6,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 118,
+      "piece": 6,
+      "sha256": "2ffafcb664d2b557aa0bc7b2aff002ad40f9b50887549a17fd89b96df0e5fc8a",
+      "source_scale": 0.08053691275167785,
+      "state": "medium-edge-on-shard-with-a-jagged-profile-and-vertical-seam-det"
+    },
+    "v1/piece-07.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9791,
+      "frame": 7,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 191,
+      "piece": 7,
+      "sha256": "00b9f8bb8486cf815cb042bb6d1ca3617f861a87473e15190ce0f1d0ff11f073",
+      "source_scale": 0.075,
+      "state": "medium-right-tilted-shard-with-chipped-facets-detached-tail"
+    },
+    "v1/piece-08.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.907,
+      "frame": 8,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 86,
+      "piece": 8,
+      "sha256": "6531aafaa62af8b78cf1080cd7ab1afc498485671001efb3d671bc8509685847",
+      "source_scale": 0.16216216216216217,
+      "state": "very-short-hooked-copper-streak"
+    },
+    "v1/piece-09.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9014,
+      "frame": 9,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 71,
+      "piece": 9,
+      "sha256": "d019511faccb996d1d123de56ecd0639ba4e9fd07cc0b7d6f8b9393acdc7b92f",
+      "source_scale": 0.16216216216216217,
+      "state": "short-diagonal-copper-streak"
+    },
+    "v1/piece-10.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9111,
+      "frame": 10,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 45,
+      "piece": 10,
+      "sha256": "eb5a3d27b0829991d0ad87a7ae7609de6d3cb027db903127d3cf9e0c9363fb9a",
+      "source_scale": 0.1005586592178771,
+      "state": "medium-curved-copper-streak-with-flecks"
+    },
+    "v1/piece-11.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9242,
+      "frame": 11,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 66,
+      "piece": 11,
+      "sha256": "108266464b325360db23d9729fd414c956649894712b4db79073eeb9541f1b2e",
+      "source_scale": 0.125,
+      "state": "short-split-flick-streak"
+    },
+    "v1/slag.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9927,
+      "frame": 0,
+      "half_cell_coverage": 12,
+      "opaque_pixels": 137,
+      "piece": 0,
+      "sha256": "fe39a212de6d5a3f4a21101436aacca97615898d7f21c48cce76c801ee104e7c",
+      "source_scale": 0.07377049180327869,
+      "state": "slag"
+    },
+    "v2/piece-01.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9706,
+      "frame": 1,
+      "half_cell_coverage": 11,
+      "opaque_pixels": 102,
+      "piece": 1,
+      "sha256": "8b8e07546838aabd7f673fcaf8650b3278a58795b1df675b808ccd5f795ba830",
+      "source_scale": 0.08856088560885608,
+      "state": "small-narrow-edge-shard-with-seam-partly-visible-detached-tail"
+    },
+    "v2/piece-02.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9683,
+      "frame": 2,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 126,
+      "piece": 2,
+      "sha256": "60a62488061afeb631793b3d8b68e5b9386495b37078fc80d03cac52b479b2eb",
+      "source_scale": 0.08294930875576037,
+      "state": "small-tumble-with-leading-lower-corner-and-diagonal-seam-detache"
+    },
+    "v2/piece-03.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9948,
+      "frame": 3,
+      "half_cell_coverage": 16,
+      "opaque_pixels": 194,
+      "piece": 3,
+      "sha256": "797cf63fbd18e36add04d2287d3ca3bca7bd7128990641f3162282b2290af02b",
+      "source_scale": 0.08411214953271028,
+      "state": "small-upright-broad-face-shard-center-seam-detached-tail"
+    },
+    "v2/piece-04.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.995,
+      "frame": 4,
+      "half_cell_coverage": 15,
+      "opaque_pixels": 201,
+      "piece": 4,
+      "sha256": "dd47698a3c24a613989a3f803900ae512411a8117b0bd5eadf97d22dd8ca81f9",
+      "source_scale": 0.0759493670886076,
+      "state": "medium-left-tilted-broad-shard-with-larger-crack-facets-detached"
+    },
+    "v2/piece-05.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9712,
+      "frame": 5,
+      "half_cell_coverage": 11,
+      "opaque_pixels": 139,
+      "piece": 5,
+      "sha256": "ffe3cfefafb5965bc5e174ad695ad685074507dd7566bc0fcf2ca965f0683291",
+      "source_scale": 0.0759493670886076,
+      "state": "medium-steep-nose-down-shard-with-a-diagonal-seam-detached-tail"
+    },
+    "v2/piece-06.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9831,
+      "frame": 6,
+      "half_cell_coverage": 10,
+      "opaque_pixels": 118,
+      "piece": 6,
+      "sha256": "2ffafcb664d2b557aa0bc7b2aff002ad40f9b50887549a17fd89b96df0e5fc8a",
+      "source_scale": 0.08053691275167785,
+      "state": "medium-edge-on-shard-with-a-jagged-profile-and-vertical-seam-det"
+    },
+    "v2/piece-07.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9791,
+      "frame": 7,
+      "half_cell_coverage": 14,
+      "opaque_pixels": 191,
+      "piece": 7,
+      "sha256": "00b9f8bb8486cf815cb042bb6d1ca3617f861a87473e15190ce0f1d0ff11f073",
+      "source_scale": 0.075,
+      "state": "medium-right-tilted-shard-with-chipped-facets-detached-tail"
+    },
+    "v2/piece-08.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.907,
+      "frame": 8,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 86,
+      "piece": 8,
+      "sha256": "6531aafaa62af8b78cf1080cd7ab1afc498485671001efb3d671bc8509685847",
+      "source_scale": 0.16216216216216217,
+      "state": "very-short-hooked-copper-streak"
+    },
+    "v2/piece-09.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9014,
+      "frame": 9,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 71,
+      "piece": 9,
+      "sha256": "d019511faccb996d1d123de56ecd0639ba4e9fd07cc0b7d6f8b9393acdc7b92f",
+      "source_scale": 0.16216216216216217,
+      "state": "short-diagonal-copper-streak"
+    },
+    "v2/piece-10.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9111,
+      "frame": 10,
+      "half_cell_coverage": 6,
+      "opaque_pixels": 45,
+      "piece": 10,
+      "sha256": "eb5a3d27b0829991d0ad87a7ae7609de6d3cb027db903127d3cf9e0c9363fb9a",
+      "source_scale": 0.1005586592178771,
+      "state": "medium-curved-copper-streak-with-flecks"
+    },
+    "v2/piece-11.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9242,
+      "frame": 11,
+      "half_cell_coverage": 7,
+      "opaque_pixels": 66,
+      "piece": 11,
+      "sha256": "108266464b325360db23d9729fd414c956649894712b4db79073eeb9541f1b2e",
+      "source_scale": 0.125,
+      "state": "short-split-flick-streak"
+    },
+    "v2/slag.png": {
+      "anchor_xy": [
+        9,
+        12
+      ],
+      "approved": true,
+      "canvas_wh": [
+        18,
+        24
+      ],
+      "colour_agreement": 0.9927,
+      "frame": 0,
+      "half_cell_coverage": 12,
+      "opaque_pixels": 137,
+      "piece": 0,
+      "sha256": "fe39a212de6d5a3f4a21101436aacca97615898d7f21c48cce76c801ee104e7c",
+      "source_scale": 0.07377049180327869,
+      "state": "slag"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.slag",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.slag/source-sheet.png",
+  "source_sha256": "cc8819448a7d1ad9346eb77011711fe166d3bccb5bd9e95c828e019715641d1d",
+  "tool_version": 2
+}

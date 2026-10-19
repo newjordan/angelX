@@ -1,0 +1,222 @@
+{
+  "anchor_canvas_wh": [
+    64,
+    64
+  ],
+  "anchor_xy": [
+    32,
+    32
+  ],
+  "comments": [
+    "Pivot is the centre of the clear hole in each drawing (its measured centroid; the bounding box for the broken and spark frames), shared by all nine at one scale, so the hole stays still while the lamps chase. The hole is 102 source px in radius (measured on the native frames: a median of 17.0 dots, from 15 to 17.4): the stage scales the hole to the rules' radius of 2.0 units less a tenth.",
+    "The idle drawings are not always exactly three lit bulbs (the delivery note says so)."
+  ],
+  "delivered_pieces": 9,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 9,
+  "geometry": "A bonus gate flown through: the rules judge it at the sim radius of 2.0 units; art never sets a hitbox (none).",
+  "mapping_basis": "Visual review of the delivered sheet, 2026-10-19: a 3x3 grid in reading order, idle-0..3 (a lit trio of bulbs chasing clockwise round the thick hoop), taken-0 (all lit), taken-1 (thin ring, bulbs lifted off), taken-2 (broken arcs and flecks), taken-3 (twelve diamonds), taken-4 (five tiny sparks).",
+  "notes_sha256": "4fb9bfb0520b4f171041e7e829111cac721584db05a6d5a88854eb5d6800b1d4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        165.1,
+        170.2
+      ],
+      "source_rect_xywh": [
+        56,
+        34,
+        330,
+        332
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "idle-1",
+      "name": "idle-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.9,
+        169.4
+      ],
+      "source_rect_xywh": [
+        461,
+        34,
+        331,
+        331
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "idle-2",
+      "name": "idle-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.7,
+        169.9
+      ],
+      "source_rect_xywh": [
+        869,
+        34,
+        331,
+        333
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "idle-3",
+      "name": "idle-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        165.1,
+        168.2
+      ],
+      "source_rect_xywh": [
+        56,
+        442,
+        330,
+        330
+      ],
+      "state": "idle",
+      "ticks": 8
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "taken-0",
+      "name": "taken-0",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        164.5,
+        168.3
+      ],
+      "source_rect_xywh": [
+        461,
+        442,
+        330,
+        330
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "taken-1",
+      "name": "taken-1",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        185.6,
+        190.0
+      ],
+      "source_rect_xywh": [
+        847,
+        420,
+        373,
+        373
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "taken-2",
+      "name": "taken-2",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        194.5,
+        189.0
+      ],
+      "source_rect_xywh": [
+        29,
+        806,
+        389,
+        378
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "taken-3",
+      "name": "taken-3",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        161.5,
+        168.0
+      ],
+      "source_rect_xywh": [
+        465,
+        832,
+        323,
+        336
+      ],
+      "state": "taken",
+      "ticks": 3
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "taken-4",
+      "name": "taken-4",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        124.5,
+        123.5
+      ],
+      "source_rect_xywh": [
+        921,
+        870,
+        249,
+        247
+      ],
+      "state": "taken",
+      "ticks": 3
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 64x64, anchor centre of the ring (32,32); stage 384x224.",
+  "sizes": {
+    "v1": [
+      64,
+      64
+    ],
+    "v2": [
+      64,
+      64
+    ]
+  },
+  "slot": "griffinwing.gate",
+  "source_sha256": "33e6513e8ae116f201253c89a54da1fa6746f6c44f7c06ef50d644c09815a7ac",
+  "timing": "idle 4x8 ticks; taken 5x3 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

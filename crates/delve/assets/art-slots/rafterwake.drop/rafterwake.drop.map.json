@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24.0,
+    32
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Decorative drop, never replaces the 48\u00d7100 rule Danger or its strengthening marks.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "323d19854806958d4c36526698cd20d69b165a96b99ac46b601320ae3dd5f656",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Contact: low ochre burst, weight still embedded, chain curling up and away.",
+      "name": "fx-drop-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        127.5,
+        194
+      ],
+      "source_rect_xywh": [
+        54,
+        270,
+        255,
+        194
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Peak: larger smoke and debris burst, weight visibly lifting, brightest impact star.",
+      "name": "fx-drop-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        150.5,
+        294
+      ],
+      "source_rect_xywh": [
+        346,
+        180,
+        301,
+        294
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Release: detached weight and chain above the collapsing ochre lobes.",
+      "name": "fx-drop-2",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        113.0,
+        325
+      ],
+      "source_rect_xywh": [
+        691,
+        148,
+        226,
+        325
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Fade: separated cool smoke puffs with a few small debris chips.",
+      "name": "fx-drop-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        106.0,
+        161
+      ],
+      "source_rect_xywh": [
+        1001,
+        312,
+        212,
+        161
+      ],
+      "state": "drop"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Contact variant: low two-sided burst with embedded weight and raised chain.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.0,
+        187
+      ],
+      "source_rect_xywh": [
+        44,
+        643,
+        260,
+        187
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Peak variant: broad compressed smoke and force lobes around the weight.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        147.5,
+        241
+      ],
+      "source_rect_xywh": [
+        352,
+        597,
+        295,
+        241
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Release variant: weight/chain clearly separated above a smaller burst.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.5,
+        314
+      ],
+      "source_rect_xywh": [
+        689,
+        522,
+        215,
+        314
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Fade variant: two cool puffs and sparse chunks.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        98.0,
+        132
+      ],
+      "source_rect_xywh": [
+        1009,
+        706,
+        196,
+        132
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Contact variation: sharper impact star and compact low force lobes.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.5,
+        195
+      ],
+      "source_rect_xywh": [
+        46,
+        1000,
+        265,
+        195
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Peak variation: large ochre core, debris and cool-shadowed smoke.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        152.0,
+        279
+      ],
+      "source_rect_xywh": [
+        357,
+        922,
+        304,
+        279
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Release variation: detached weight/chain above the breaking burst.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.0,
+        302
+      ],
+      "source_rect_xywh": [
+        705,
+        894,
+        216,
+        302
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Final fade: two small cool smoke clusters and a few remaining chips.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        96.5,
+        130
+      ],
+      "source_rect_xywh": [
+        1008,
+        1070,
+        193,
+        130
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732 at (danger screen centre\u221224,py(TOP)\u221232), bottom-centre (24,32).",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "rafterwake.drop",
+  "source_sha256": "4a7161a22f53665b53bd2072b263c715dafbcd2cef8e87402b0ef62d6397d163",
+  "timing": "Four frames over 10 attack ticks via floor((10\u2212ticks)\u00d74/10), clamped (draw())."
+}

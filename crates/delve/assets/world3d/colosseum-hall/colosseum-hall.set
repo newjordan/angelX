@@ -1,0 +1,62 @@
+set colosseum-hall
+# The Colosseum: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: banners on the gates, champions' niches in the arcade, the runner, the gate plates (4,2) (18,2).
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# arcade at 1,1 22x1
+box    slate   at 192 0 24 size 350 32 14 id arcade-1
+box    stone   at 192 3 31.25 size 348 26 0.5
+
+# arcade at 1,2 3x1
+box    slate   at 40 0 40 size 46 32 14 id arcade-2
+box    stone   at 40 3 47.25 size 44 26 0.5
+
+# arcade at 6,2 12x1
+box    slate   at 192 0 40 size 190 32 14 id arcade-3
+box    stone   at 192 3 47.25 size 188 26 0.5
+
+# arcade at 20,2 3x1
+box    slate   at 344 0 40 size 46 32 14 id arcade-4
+box    stone   at 344 3 47.25 size 44 26 0.5
+
+# board at 2,7 7x1 (at 40% of its height, for the camera)
+box    wood    at 88 0 120 size 110 6 14 id board-1
+box    plaster at 88 1 127.25 size 108 4 0.5
+
+# board at 15,7 7x1 (at 40% of its height, for the camera)
+box    wood    at 296 0 120 size 110 6 14 id board-2
+box    plaster at 296 1 127.25 size 108 4 0.5
+
+# plate at 4,2 2x1
+box    stone   at 80 0 40 size 30 1.5 14 id plate-1  # TODO prims: stairs
+
+# plate at 18,2 2x1
+box    stone   at 304 0 40 size 30 1.5 14 id plate-2  # TODO prims: stairs
+
+# plate at 11,12 2x1
+box    stone   at 192 0 200 size 30 1.5 14 id plate-3  # TODO prims: stairs
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    metal   at 112 18 16 size 3 5 3
+cone   fire    at 112 23 16 size 5 7 5
+box    metal   at 272 18 16 size 3 5 3
+cone   fire    at 272 23 16 size 5 7 5

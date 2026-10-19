@@ -1,0 +1,15 @@
+{
+  "game": "torchlight-touge",
+  "status": "mesh-placeholders",
+  "native_view": [384, 224],
+  "coordinates": "race3d s along road, x right, z up; world units are tiles",
+  "vehicle_collision": {"half_width": 0.65, "walls": "road width / 2", "rider_collision": false},
+  "slots": [
+    {"id":"touge-cockpit", "size":[160,64], "anchor":[80,64], "states":{"idle":[1,1],"drive":[4,4],"drift-left":[4,4],"drift-right":[4,4],"spin":[6,4]}, "placement":"screen bottom centre, reins forward; mesh tub until delivery"},
+    {"id":"touge-horses-rear", "size":[64,48], "anchor":[32,48], "world_height":1.55, "world_forward":2.8, "states":{"idle":[1,1],"gallop":[6,3],"slide-left":[4,4],"slide-right":[4,4]}, "placement":"two placeholder boxes, centres x +/-0.55; visual gait only"},
+    {"id":"touge-torch", "size":[12,32], "anchor":[6,32], "states":{"burn":[4,4]}, "placement":"s every16; x +/-4.65; top z2.3; no collision"},
+    {"id":"touge-road", "size":[32,32], "anchor":[0,0], "states":{"dry":[1,1],"tunnel":[1,1],"edge":[1,1],"line":[1,1]}, "placement":"tileable material masks on cached geometry, road width10"},
+    {"id":"touge-mountains", "size":[384,112], "anchor":[192,112], "states":{"night":[1,1]}, "placement":"distant backdrop above road horizon, no collision"},
+    {"id":"touge-boost", "size":[32,24], "anchor":[16,12], "states":{"blue":[4,3],"orange":[4,3],"purple":[4,3]}, "placement":"rear wheel sockets x +/-0.55,z0.2; optional cockpit edge signals; charge18/42/72 ticks; release18/30/45 ticks, no extra hazards"}
+  ]
+}

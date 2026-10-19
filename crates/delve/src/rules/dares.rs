@@ -1,7 +1,7 @@
 //! Fortune's dares. On every floor Dame Fortune dares the party: the dare
 //! is called as the party arrives, shown in the header, and kept or broken before the
 //! stairs. A kept dare pays from Fortune's purse into what each knight
-//! carries (gold, and a gem), and the audience loves it.
+//! carries (gold and a gem). The party leaves a safer road behind them.
 
 use super::*;
 use crate::realm::Spoil;
@@ -16,8 +16,9 @@ pub enum DareKind {
     StandFirm,
     /// The stairs within four minutes of arriving.
     AgainstTheClock,
-    /// 300K more viewers on this floor.
-    ShowOff,
+    /// Clear three rooms on this floor.
+    #[serde(alias = "show_off")]
+    Pathfinder,
     /// The guardian felled within forty-five seconds of rising.
     MakeItQuick,
     /// Four in a breath, twice.
@@ -30,7 +31,7 @@ impl DareKind {
             DareKind::Untouched => "Not a Scratch",
             DareKind::StandFirm => "Stand Firm",
             DareKind::AgainstTheClock => "Against the Clock",
-            DareKind::ShowOff => "Show-Off",
+            DareKind::Pathfinder => "Pathfinder",
             DareKind::MakeItQuick => "Make It Quick",
             DareKind::Unstoppable => "Unstoppable",
         }
@@ -42,7 +43,7 @@ impl DareKind {
             DareKind::Untouched => "two rooms on this floor without a scratch",
             DareKind::StandFirm => "no rolling, the whole floor",
             DareKind::AgainstTheClock => "the stairs within four minutes",
-            DareKind::ShowOff => "300K more viewers on this floor",
+            DareKind::Pathfinder => "clear three rooms on this floor",
             DareKind::MakeItQuick => "fell the guardian within 45 seconds of it rising",
             DareKind::Unstoppable => "four in a breath, twice",
         }
@@ -53,7 +54,7 @@ impl DareKind {
             DareKind::Untouched => "untouched",
             DareKind::StandFirm => "stand_firm",
             DareKind::AgainstTheClock => "clock",
-            DareKind::ShowOff => "show_off",
+            DareKind::Pathfinder => "pathfinder",
             DareKind::MakeItQuick => "quick",
             DareKind::Unstoppable => "unstoppable",
         }
@@ -63,6 +64,7 @@ impl DareKind {
     fn need(self) -> u32 {
         match self {
             DareKind::Untouched | DareKind::Unstoppable => 2,
+            DareKind::Pathfinder => 3,
             _ => 1,
         }
     }
@@ -80,9 +82,6 @@ pub struct Dare {
     pub kept: bool,
     #[serde(default)]
     pub broken: bool,
-    /// The show when the dare was called, for Show-Off.
-    #[serde(default)]
-    pub viewers: u32,
     /// When the guardian rose, for Make It Quick.
     #[serde(default)]
     pub rose: Option<u64>,
@@ -96,8 +95,8 @@ pub const CALLED: u64 = 5 * HZ as u64;
 
 impl Dare {
     /// How the dare stands, short enough for the sidebar: "1 of 2",
-    /// "3:42 left", "kept!", "broken". `audience`: the show now.
-    pub fn standing(&self, tick: u64, audience: u32) -> String {
+    /// "3:42 left", "kept!", "broken".
+    pub fn standing(&self, tick: u64) -> String {
         if self.kept {
             return "kept!".into();
         }
@@ -117,10 +116,7 @@ impl Dare {
                 None => "guardian not met".into(),
             },
             DareKind::StandFirm => "no rolls yet".into(),
-            DareKind::ShowOff => format!(
-                "{} of 300K",
-                super::audience::viewers(audience.saturating_sub(self.viewers))
-            ),
+            DareKind::Pathfinder => format!("{}/3 rooms cleared", self.count),
             kind => format!("{} of {}", self.count, kind.need()),
         }
     }
@@ -140,7 +136,7 @@ impl Run {
             DareKind::Untouched,
             DareKind::StandFirm,
             DareKind::AgainstTheClock,
-            DareKind::ShowOff,
+            DareKind::Pathfinder,
             DareKind::MakeItQuick,
             DareKind::Unstoppable,
         ]
@@ -160,7 +156,6 @@ impl Run {
             count: 0,
             kept: false,
             broken: false,
-            viewers: self.audience,
             rose: None,
         });
         self.cues.push(format!("dare:{}", kind.word()));
@@ -181,10 +176,8 @@ impl Run {
             DareKind::Unstoppable => {
                 dare.count += cues.iter().filter(|c| head(c) == "slay4").count() as u32;
             }
-            DareKind::ShowOff => {
-                if self.audience >= dare.viewers + 300 {
-                    dare.count = 1;
-                }
+            DareKind::Pathfinder => {
+                dare.count += cues.iter().filter(|c| matches!(head(c).as_str(), "room_clear" | "flawless")).count() as u32;
             }
             DareKind::StandFirm => {
                 if self
@@ -242,8 +235,7 @@ impl Run {
         }
     }
 
-    /// Fortune's purse: gold and a gem for every knight standing, and the
-    /// audience's delight.
+    /// Fortune's purse: gold and a gem for every knight standing.
     fn pay_dare(&mut self) {
         let depth = self.dungeon.depth;
         for hero in self.players.values_mut().filter(|h| h.hp > 0) {
@@ -257,7 +249,6 @@ impl Run {
         }
         self.cues.push("dare_kept".into());
         self.sounds.push("wheel_land");
-        self.thrill(100);
     }
 }
 

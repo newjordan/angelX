@@ -1,0 +1,633 @@
+{
+  "boss": "the-big-ripper",
+  "definition_sha256": "90b6eb47d5daf577bee940c0739118014bceadd66ed4d92eaf765343e27a375b",
+  "mapping": {
+    "projectile": [
+      0,
+      1
+    ],
+    "tell": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "impact": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "point_rim": [
+    [
+      75,
+      89,
+      31
+    ],
+    [
+      105,
+      121,
+      62
+    ],
+    [
+      190,
+      145,
+      75
+    ],
+    [
+      246,
+      180,
+      80
+    ]
+  ],
+  "outputs": [
+    {
+      "file": "fx-v1-projectile-0.png",
+      "source_cell": 0,
+      "size": [
+        16,
+        16
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "841f70e3226e2a19f017f75cc32d4e8845d8587f900f70f77500e5cd00e69ca8",
+      "replaced_file": "cinderjaw/projectile.png",
+      "replaced_sha256": "f2a7ad8a12e6c9910250552a58b1873c7db4e62d7cde1c040d5d3465f493fa50",
+      "source_exposure": 1.1,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.20833333333333334,
+        "edge_agreement": 0.13793103448275862,
+        "colours": 10,
+        "opaque_pixels": 72
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 72
+      }
+    },
+    {
+      "file": "fx-v1-projectile-1.png",
+      "source_cell": 1,
+      "size": [
+        16,
+        16
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "cb86babeec275e35ef4c3224ccfd10e4f553717756f30127eb6904d9f6625895",
+      "replaced_file": "cinderjaw/projectile-1.png",
+      "replaced_sha256": "7bb6147f22a28a11e1ac9a1db45debfbe05a30ca0cbbe524c720ed7c828d575e",
+      "source_exposure": 1.1,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.1780821917808219,
+        "edge_agreement": 0.09375,
+        "colours": 10,
+        "opaque_pixels": 73
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 73
+      }
+    },
+    {
+      "file": "fx-v2-projectile-0.png",
+      "source_cell": 0,
+      "size": [
+        30,
+        30
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "1e53c4d811927bb0e278131dc17af47ce433653bdde54e7634242af812f475c2",
+      "replaced_file": "cinderjaw/projectile.png",
+      "replaced_sha256": "f2a7ad8a12e6c9910250552a58b1873c7db4e62d7cde1c040d5d3465f493fa50",
+      "source_exposure": 1.1,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.2,
+        "edge_agreement": 0.0,
+        "colours": 10,
+        "opaque_pixels": 255
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 255
+      }
+    },
+    {
+      "file": "fx-v2-projectile-1.png",
+      "source_cell": 1,
+      "size": [
+        30,
+        30
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "76fb96afe9f1314a3571de52a1287aa34b19a41c2dc0de62e394b348f21f3308",
+      "replaced_file": "cinderjaw/projectile-1.png",
+      "replaced_sha256": "7bb6147f22a28a11e1ac9a1db45debfbe05a30ca0cbbe524c720ed7c828d575e",
+      "source_exposure": 1.1,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.25435540069686413,
+        "edge_agreement": 0.0547945205479452,
+        "colours": 10,
+        "opaque_pixels": 287
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 287
+      }
+    },
+    {
+      "file": "fx-v1-tell-0.png",
+      "source_cell": 0,
+      "size": [
+        25,
+        25
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "012c347b55d09509493ba489da94331aae0b13223658e1b8acb493312f0f85c2",
+      "replaced_file": "cinderjaw/tell.png",
+      "replaced_sha256": "ca44e2440c08e8cf6438fdf4b41fe17cf2cedea892fb7aac69b36cf121b0ba66",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 6,
+        "opaque_pixels": 279
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 6,
+        "opaque_pixels": 279
+      }
+    },
+    {
+      "file": "fx-v1-tell-1.png",
+      "source_cell": 1,
+      "size": [
+        25,
+        25
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "8c1c64c1fefcecc3743533e1fd85c28fded3df3bfd9969c4bb756abc32ed233d",
+      "replaced_file": "cinderjaw/tell-1.png",
+      "replaced_sha256": "615b38802295898eef8933f7017f43d782c99daea18d0fa0c5405517dd879b72",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 405
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 10,
+        "opaque_pixels": 405
+      }
+    },
+    {
+      "file": "fx-v1-tell-2.png",
+      "source_cell": 2,
+      "size": [
+        25,
+        25
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "ce0966eade80925c9d3a94c783dc9fb30fde482ab8c893577233022881216522",
+      "replaced_file": "cinderjaw/tell-2.png",
+      "replaced_sha256": "45d375e1a178767b63638f02ae984fa1035f32d1bae0a272a4a41ea0e88b79f8",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9913793103448276,
+        "edge_agreement": 0.9850746268656716,
+        "colours": 14,
+        "opaque_pixels": 464
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9913793103448276,
+        "edge_agreement": 0.9850746268656716,
+        "colours": 14,
+        "opaque_pixels": 464
+      }
+    },
+    {
+      "file": "fx-v1-tell-3.png",
+      "source_cell": 3,
+      "size": [
+        25,
+        25
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "d7ef8ad06370b9475f381d04e0c689bdb1feadd3376efea544763013f3d4a734",
+      "replaced_file": "cinderjaw/tell-3.png",
+      "replaced_sha256": "c25fde93799755beda15bf540ab18b388f31c270d527695bac4a181fac52c887",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9652351738241309,
+        "edge_agreement": 1.0,
+        "colours": 15,
+        "opaque_pixels": 489
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9652351738241309,
+        "edge_agreement": 1.0,
+        "colours": 15,
+        "opaque_pixels": 489
+      }
+    },
+    {
+      "file": "fx-v1-impact-0.png",
+      "source_cell": 0,
+      "size": [
+        28,
+        28
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "0fe222d24d13913ce792a8fa118b3eb539e3ad040df383b469c136c47a36ff0e",
+      "replaced_file": "cinderjaw/impact.png",
+      "replaced_sha256": "94396a39e9b39b992601090e777ca22b5205208772461a2aba84012c753cc68d",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9923076923076923,
+        "edge_agreement": 1.0,
+        "colours": 19,
+        "opaque_pixels": 130
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9923076923076923,
+        "edge_agreement": 1.0,
+        "colours": 19,
+        "opaque_pixels": 130
+      }
+    },
+    {
+      "file": "fx-v1-impact-1.png",
+      "source_cell": 1,
+      "size": [
+        28,
+        28
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "333b1e0b02881e2d7e7d84d99f0a44f72307cdf588fe84da375ae38307bcd9b9",
+      "replaced_file": "cinderjaw/impact-1.png",
+      "replaced_sha256": "419766a67c7027d8c2ce86b0f05e1fb5df27ef6ec413979cd6e4995b6f063141",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9915492957746479,
+        "edge_agreement": 1.0,
+        "colours": 25,
+        "opaque_pixels": 355
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9915492957746479,
+        "edge_agreement": 1.0,
+        "colours": 25,
+        "opaque_pixels": 355
+      }
+    },
+    {
+      "file": "fx-v1-impact-2.png",
+      "source_cell": 2,
+      "size": [
+        28,
+        28
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "30094b74a645b696ba89f5ebada3f32ab95efe9eebf695b5fcf61bcef9210296",
+      "replaced_file": "cinderjaw/impact-2.png",
+      "replaced_sha256": "d7472900481fdf60441f423f1b5110762745ffca80771040addac8ef0f2f5c7f",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9806201550387597,
+        "edge_agreement": 1.0,
+        "colours": 23,
+        "opaque_pixels": 258
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9806201550387597,
+        "edge_agreement": 1.0,
+        "colours": 23,
+        "opaque_pixels": 258
+      }
+    },
+    {
+      "file": "fx-v1-impact-3.png",
+      "source_cell": 3,
+      "size": [
+        28,
+        28
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "d8156314f747da740ca51f4deb54906221c1b9580f6073ef6fc4692f50c3b436",
+      "replaced_file": "cinderjaw/impact-3.png",
+      "replaced_sha256": "e116a369caf220795156296e3db3bcec4d68eb2bbecff38e72ccd03ff028387b",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9941860465116279,
+        "edge_agreement": 1.0,
+        "colours": 17,
+        "opaque_pixels": 172
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 0.9941860465116279,
+        "edge_agreement": 1.0,
+        "colours": 17,
+        "opaque_pixels": 172
+      }
+    },
+    {
+      "file": "fx-v1-impact-4.png",
+      "source_cell": 4,
+      "size": [
+        28,
+        28
+      ],
+      "socket": [
+        0.5,
+        0.5
+      ],
+      "sha256": "956f65d9b2011366bd9b08085271011ee7bfe84acf7b1a43dbc4bde530355b22",
+      "replaced_file": "cinderjaw/impact-4.png",
+      "replaced_sha256": "9d3dea94940786c26a12090190a21a75017d399d2931c67f61a9968232cc3fb2",
+      "source_exposure": 1.0,
+      "raw_source_fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 16,
+        "opaque_pixels": 124
+      },
+      "fidelity": {
+        "silhouette_iou": 1.0,
+        "key_colour_agreement": 1.0,
+        "edge_agreement": 1.0,
+        "colours": 16,
+        "opaque_pixels": 124
+      }
+    }
+  ],
+  "readability": {
+    "exposure": 1.1,
+    "value_power": 0.65,
+    "core_quantile": 0.85,
+    "quantizer": [
+      0,
+      0
+    ],
+    "signal_saturation_floor": 0.24
+  },
+  "projectile_signal_inks": [
+    [
+      242,
+      231,
+      149
+    ],
+    [
+      242,
+      213,
+      82
+    ]
+  ],
+  "projectile_inks": [
+    [
+      109,
+      69,
+      25
+    ],
+    [
+      110,
+      73,
+      28
+    ],
+    [
+      111,
+      69,
+      30
+    ],
+    [
+      121,
+      80,
+      34
+    ],
+    [
+      128,
+      94,
+      36
+    ],
+    [
+      128,
+      95,
+      28
+    ],
+    [
+      139,
+      93,
+      44
+    ],
+    [
+      140,
+      98,
+      40
+    ],
+    [
+      140,
+      105,
+      37
+    ],
+    [
+      142,
+      112,
+      35
+    ],
+    [
+      147,
+      124,
+      33
+    ],
+    [
+      151,
+      125,
+      34
+    ],
+    [
+      151,
+      129,
+      37
+    ],
+    [
+      157,
+      99,
+      44
+    ],
+    [
+      159,
+      106,
+      44
+    ],
+    [
+      162,
+      130,
+      40
+    ],
+    [
+      164,
+      115,
+      40
+    ],
+    [
+      174,
+      126,
+      39
+    ],
+    [
+      179,
+      121,
+      48
+    ],
+    [
+      181,
+      147,
+      43
+    ],
+    [
+      182,
+      122,
+      46
+    ],
+    [
+      183,
+      139,
+      42
+    ],
+    [
+      184,
+      149,
+      40
+    ],
+    [
+      185,
+      142,
+      41
+    ],
+    [
+      187,
+      136,
+      55
+    ],
+    [
+      187,
+      162,
+      44
+    ],
+    [
+      190,
+      159,
+      42
+    ],
+    [
+      193,
+      159,
+      41
+    ],
+    [
+      202,
+      159,
+      48
+    ],
+    [
+      209,
+      180,
+      49
+    ],
+    [
+      212,
+      177,
+      59
+    ],
+    [
+      212,
+      180,
+      52
+    ],
+    [
+      242,
+      213,
+      82
+    ],
+    [
+      242,
+      231,
+      149
+    ]
+  ],
+  "resample": "BOX; binary alpha 128; local source-derived flight inks, shared 75 tell/impact inks; edge despill; source-centre registration",
+  "tell_geometry": "legacy alpha mask; point clip, lane half-width, ray reach and safe gap remain runtime-owned"
+}

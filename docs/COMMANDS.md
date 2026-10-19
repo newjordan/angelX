@@ -98,7 +98,7 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate the overworld map, Dotmax scenery and room views. |
 | `/world visit school`, `/world visit school-study`, `/world visit school-vault` | Visit the School of Magic, its study, or its underground evidence archive. |
 | `/dungeon [start]` | Walk to the Delve's gate (`start` skips the walk). F4 expands the game; Esc returns to the composer. [The Delve](DELVE.md). |
-| `/dungeon_host --N [--watch]`, `/dungeon join <link>`, `/dungeon leave` | Host up to three friends with one link that plays in a browser, with nothing installed, or in a friend's angelX; join a friend's Delve; or go home. `--watch` hosts without a knight of your own. |
+| `/dungeon_host --N [--watch]`, `/dungeon join <link>`, `/dungeon leave` | Host up to five friends with one link that plays in a browser, with nothing installed, or in a friend's angelX; join a friend's Delve; or go home. `--watch` hosts without a knight of your own. |
 | `/dungeon tune [<knob> <value>]` | List the run's knobs, or set one while it runs; kept across delves in `.angel/dungeon/tune.json`. |
 | `/dungeon settlement`, `/dungeon deposit <name>`, `/dungeon inspect` | Visit the hall your loops built, place a worker's research report there as an exhibit, or read the one beside you. [Release notes](RELEASE_0.2.0.md#loops-leave-a-settlement). |
 | `/world visit stables`, `/world visit lists` | Walk the party into the stables or onto the lists, rooms of the world beside the Delve's gate. `/world visit tournament` is a camera visit on the map. |

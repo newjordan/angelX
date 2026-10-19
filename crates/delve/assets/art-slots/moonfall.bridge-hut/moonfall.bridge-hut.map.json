@@ -1,0 +1,129 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    60
+  ],
+  "anchor_xy": [
+    24,
+    60
+  ],
+  "comments": [
+    "Registered as one bank on the footing line; the pivot x is the centre of the footing stones. The lit crop has the ajar door four source pixels below the footing line; a reviewed sub-crop ends it on the line shared with the other two (the door tip is the only thing cut). Painted 48 of 48 px wide.",
+    "A reviewed ink grade keeps the weathered timber and the contour brown: the palette snap had sent brown-grey flecks (source about 806241) to an olive ink (69793e) and the dark brown outline (source about 221d1b) to a dark green one (182414); the grade maps those two admitted shared inks to the browns 684629 and 25140b; no pixel is moved, added or removed."
+  ],
+  "delivered_pieces": 3,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 3,
+  "geometry": "The footprint, the door tile and every collision are the town map's (rules/moonfall/town.rs); art never sets a hitbox.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: day-0, night-0, lit-0. The crops are tight and separated by the empty columns 503-524 and 1014-1035.",
+  "notes_sha256": "c5ddc4b048c22cf5c34fcabcc4bcae876e1eebc79a024883a0e4fe451a4c15cf",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "day-0: shut door, pale blue-grey gable glass, dark lantern, windlass wheel with a rope coil.",
+      "name": "day-0",
+      "piece": 0,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        245.5,
+        609
+      ],
+      "source_rect_xywh": [
+        12,
+        182,
+        491,
+        609
+      ],
+      "state": "day",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "night-0: deep indigo gable glass, shut door, dark lantern.",
+      "name": "night-0",
+      "piece": 1,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        245.5,
+        610
+      ],
+      "source_rect_xywh": [
+        525,
+        181,
+        489,
+        610
+      ],
+      "state": "night",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0: amber gable glass and lantern, door ajar with an amber slice.",
+      "name": "lit-0",
+      "piece": 2,
+      "reviewed_processing": {
+        "grade": {
+          "182414": "25140b",
+          "69793e": "684629"
+        },
+        "reviewed": true,
+        "source_crop_xywh": [
+          0,
+          0,
+          488,
+          610
+        ]
+      },
+      "runtime": true,
+      "source_pivot_xy": [
+        245,
+        610
+      ],
+      "source_rect_xywh": [
+        1036,
+        181,
+        488,
+        614
+      ],
+      "state": "lit",
+      "ticks": 12
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 48x60, anchor bottom-centre (24,60); the bottom edge is the footprint's south edge; stage 384x224; a knight is 16x24 in this town; buildings may stand taller than their footprint.",
+  "sizes": {
+    "v1": [
+      48,
+      60
+    ],
+    "v2": [
+      48,
+      60
+    ]
+  },
+  "slot": "moonfall.bridge-hut",
+  "source_sha256": "9b27c6835c98da896298146594a4eadb17c97a7617195e46973b0e8018ed81a4",
+  "timing": "day 12, night 12, lit 12 ticks (30 Hz). Art never sets a hitbox."
+}

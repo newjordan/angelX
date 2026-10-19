@@ -20,7 +20,7 @@ pub(super) fn takeover(run: &Run) -> bool {
         || run.chariot.is_some()
         || matches!(
             run.pastimes.round.as_ref().map(|r| r.game),
-            Some(Game::DuckShoot) | Some(Game::Halfpipe)
+            Some(Game::DuckShoot) | Some(Game::Halfpipe) | Some(Game::Siege)
         )
 }
 
@@ -46,6 +46,7 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
     match run.pastimes.round.as_ref().map(|r| r.game) {
         Some(Game::DuckShoot) => duck_stage(&mut scene, &mut over, run, w, h),
         Some(Game::Halfpipe) => pipe_stage(&mut scene, &mut over, run, w, h),
+        Some(Game::Siege) => super::siege_stage::siege_stage(&mut scene, run, w, h),
         _ => {}
     }
     let round = run.pastimes.round.as_ref().unwrap();
@@ -107,12 +108,12 @@ fn duck_stage(scene: &mut Img, over: &mut Img, run: &Run, w: i32, h: i32) {
     // Striped canopy overhead, and the curtains either side.
     for stripe in 0..8 {
         let (x0, x1) = (-9.0 + stripe as f32 * 2.25, -9.0 + (stripe + 1) as f32 * 2.25);
-        // Madder and oak in turn: a carnival's stripes, warm and dim, not
-        // white against brown.
+        // Madder and oak in turn: a carnival's stripes at dusk, warm and
+        // dim, the oak stopping short of gold.
         let ramp: &'static [char] = if stripe % 2 == 0 {
             &['n', 'b', 'B', 'p']
         } else {
-            &['B', 'P', 'o', 'O', 't']
+            &['B', 'P', 'r', 'o']
         };
         push(
             &mut facets,
@@ -158,8 +159,9 @@ fn duck_stage(scene: &mut Img, over: &mut Img, run: &Run, w: i32, h: i32) {
     paint(scene, &cam, &mut facets);
 
     // The barker's promises: prizes shelved high on the painted sea, and
-    // a lit lamp either flank of the counter.
-    billboard(scene, &cam, &sprites::prize_shelf(), [0.0, 33.2, 5.2], 2.6);
+    // a lamp either flank of the counter, lit while the round is on.
+    let prizes = super::super::light::at_dusk(&sprites::prize_shelf());
+    billboard(scene, &cam, &prizes, [0.0, 33.2, 5.2], 2.6);
     billboard(scene, &cam, &sprites::booth_lamp(true), [-8.6, 32.0, 0.0], 3.1);
     billboard(scene, &cam, &sprites::booth_lamp(true), [8.6, 32.0, 0.0], 3.1);
     // The ducks, far rail first so near ones overlap; each pools a shadow
@@ -307,10 +309,11 @@ fn pipe_stage(scene: &mut Img, _over: &mut Img, run: &Run, w: i32, h: i32) {
     ));
     for stripe in 0..14 {
         let (x0, x1) = (-15.4 + stripe as f32 * 2.2, -15.4 + (stripe + 1) as f32 * 2.2);
+        // Bunting at dusk: madder, slate and oak, none of it bright.
         let ramp: &'static [char] = match stripe % 3 {
-            0 => &['b', 'p', 'r', 'R'],
-            1 => &['s', 'S', 'u', 'U'],
-            _ => &['b', 'I', 'P', 'o'],
+            0 => &['b', 'p', 'r'],
+            1 => &['s', 'S', 'u'],
+            _ => &['b', 'I', 'P'],
         };
         facets.push((
             depth(&cam, [(x0 + x1) * 0.5, 7.2, 12.2]),
@@ -417,13 +420,13 @@ fn hud(
     let tw = text_width(title) + 10;
     let tx = (w - tw) / 2;
     super::super::chrome::board(over, (tx, 3, tw, 12), 'B');
-    over.text(tx + 5, 6, title, '5');
+    over.text(tx + 5, 6, title, 'O');
 
     // The clock: a bar under the plaque, gold while it burns.
     let total = game.time();
     let bars = (w - 40) as u32;
     let burned = bars * left / total.max(1);
-    let gold = super::super::ink::ink('4').unwrap_or_default();
+    let gold = super::super::ink::ink('O').unwrap_or_default();
     super::super::chrome::meter(over, (19, 15, bars as i32 + 2, 5), burned as i32, gold);
     // Progress pips: one per objective, filled as they fall.
     let need = game.need() as i32;
@@ -440,7 +443,7 @@ fn hud(
     }
     // The seconds, big enough to read in a panic.
     let secs = format!("{}S", left.div_ceil(HZ));
-    over.text(w - 30 - text_width(&secs), 6, &secs, '9');
+    over.text(w - 30 - text_width(&secs), 6, &secs, 'i');
     // The knights, at the rail watching: the stage hides the room, so the
     // party stands along the bottom bezel where they can see themselves.
     let mut sx = 8;

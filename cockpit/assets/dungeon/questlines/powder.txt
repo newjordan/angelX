@@ -1,0 +1,23 @@
+power wish:powder 3
+teacher Old Fuse
+place Saltspite Works on the Coast
+room Saltworks
+look no eyebrows at all, a trailing smell of matches, and fingers kept wet for counting
+line Measure twice, ignite once, apologize to the crabs later.
+hook The level-2 card carries ...and a smell of matches before the thunder.
+step The measure | measure one charge with Old Fuse: three cued pourings | charges_measured 3 | Measure twice, ignite once, apologize to the crabs later. | cue pour
+step The crab harbour | deliver the beacon's lamp oil to the saltworks' harbour | harbour_deliveries 1 | Weekends off, misunderstood calendar. Fine couriers though. | cue deliver
+step The burst of three | land three killing bursts in one hall | burst_kills 3 | A quarter in the hundred. Ask the wall.
+step The apology to the crabs | tip one capful of the works' finest to the water at the harbour wall | crab_tributes_paid 1 | They negotiated weekends and misunderstood the calendar. The least we owe. | cue pour
+trial The measured hall | every monster in one hall falls to a burst | burst_pure_halls 1 | Every wall in this hall has now been apologized to. Case closed.
+reward Blasting Powder tier 3
+title the Measured Charge
+keepsake the Wet Finger, a finger-band that keeps one finger always damp
+ties The beacon oil is Bess's own errand; the barge ties to the quay and Stilt's wet roads; the burst halls share Doorne's stonework.
+art
+..888..
+.8W8W8.
+.8.8.8.
+.8WWW8.
+..888..
+...8...

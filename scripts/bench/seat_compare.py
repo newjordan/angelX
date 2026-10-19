@@ -15,7 +15,7 @@ from pathlib import Path
 import statistics
 
 
-RR = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921")
+RR = Path("~/angel_tests/angelX-bench/polyglot-20260921").expanduser()
 spec = importlib.util.spec_from_file_location(
     "polyglot_history", Path(__file__).resolve().parent / "polyglot" / "analyze-polyglot-history.py")
 history = importlib.util.module_from_spec(spec)

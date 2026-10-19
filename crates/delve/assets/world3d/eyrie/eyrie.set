@@ -1,0 +1,228 @@
+set eyrie
+# The Griffin Eyrie: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the perch with its nest (12,4), the take-off ring, feathers, the master's brazier.
+
+# the ground: its top is the floor line
+box    ground  at 192 -4 8 size 384 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    grass   at 104 -4 40 size 176 4 48
+box    rock    at 224 -4 24 size 64 4 16
+box    grass   at 312 -4 48 size 112 4 64
+box    ground  at 376 -4 120 size 16 4 208
+box    grass   at 200 -4 56 size 16 4 48
+box    rock    at 232 -4 40 size 48 4 16
+box    grass   at 216 -4 56 size 16 4 16
+box    rock    at 240 -4 64 size 32 4 32
+box    grass   at 40 -4 96 size 48 4 64
+box    rock    at 80 -4 136 size 32 4 144
+box    grass   at 144 -4 72 size 96 4 16
+box    rock    at 216 -4 88 size 16 4 48
+box    rock    at 104 -4 144 size 16 4 128
+box    grass   at 144 -4 96 size 64 4 32
+box    rock    at 192 -4 88 size 32 4 16
+box    grass   at 256 -4 104 size 64 4 48
+box    rock    at 328 -4 88 size 80 4 16
+box    path    at 192 -4 160 size 32 4 128
+box    grass   at 296 -4 120 size 16 4 48
+box    rock    at 336 -4 104 size 64 4 16
+box    rock    at 144 -4 120 size 64 4 16
+box    grass   at 216 -4 120 size 16 4 16
+box    grass   at 336 -4 120 size 64 4 16
+box    rock    at 40 -4 144 size 48 4 32
+box    grass   at 136 -4 144 size 48 4 32
+box    rock    at 168 -4 136 size 16 4 16
+box    rock    at 232 -4 144 size 48 4 32
+box    grass   at 272 -4 136 size 32 4 16
+box    rock    at 320 -4 160 size 32 4 64
+box    grass   at 352 -4 144 size 32 4 32
+box    grass   at 168 -4 176 size 16 4 64
+box    rock    at 264 -4 152 size 16 4 16
+box    grass   at 280 -4 152 size 16 4 16
+box    rock    at 296 -4 176 size 16 4 64
+box    grass   at 32 -4 176 size 32 4 32
+box    rock    at 56 -4 168 size 16 4 16
+box    rock    at 128 -4 176 size 32 4 32
+box    grass   at 152 -4 184 size 16 4 48
+box    grass   at 240 -4 176 size 64 4 32
+box    rock    at 280 -4 184 size 16 4 48
+box    rock    at 352 -4 184 size 32 4 48
+box    grass   at 56 -4 184 size 16 4 16
+box    grass   at 24 -4 200 size 16 4 16
+box    rock    at 48 -4 200 size 32 4 16
+box    grass   at 128 -4 200 size 32 4 16
+box    rock    at 240 -4 200 size 64 4 16
+box    grass   at 320 -4 200 size 32 4 16
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 23
+box    rock    at 192 -4 8 size 384 30 16  # TODO prims: rock
+gem    rock    at 7 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 24 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 41 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 56 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 70 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 88 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 104 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 121 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 137 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 150 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 165 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 185 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 200 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 219 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 229 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 246 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 267 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 277 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 295 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 310 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 328 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 342 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 363 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 377 10 8 size 14 16 14 turn 45  # TODO prims: rock
+
+# the south wall, columns 0 to 10
+box    rock    at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 88 -4 220 size 176 16 8  # TODO prims: rock
+
+# the south wall, columns 13 to 23
+box    rock    at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 296 -4 220 size 176 16 8  # TODO prims: rock
+
+# the west wall, rows 1 to 12
+box    rock    at 8 -4 112 size 16 20 192  # TODO prims: rock
+gem    rock    at 8 10 27 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 43 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 59 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 72 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 91 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 105 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 117 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 135 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 154 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 165 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 187 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 201 size 14 15 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 1 to 12
+box    rock    at 376 -4 112 size 16 20 192  # TODO prims: rock
+gem    rock    at 376 10 25 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 43 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 58 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 72 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 86 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 105 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 123 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 134 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 150 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 168 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 183 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 197 size 14 14 14 turn 45  # TODO prims: rock
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# outcrop at 1,1 7x3
+box    rock    at 72 0 40 size 110 7 46 id outcrop-1  # TODO prims: rock
+gem    rock    at 22 5 26 size 13 19 12 turn 55  # TODO prims: rock
+gem    rock    at 40 5 24 size 13 18 12 turn 37  # TODO prims: rock
+gem    rock    at 54 5 26 size 13 19 12 turn 30  # TODO prims: rock
+gem    rock    at 72 5 23 size 13 21 12 turn 37  # TODO prims: rock
+gem    rock    at 90 5 23 size 13 20 12 turn 4  # TODO prims: rock
+gem    rock    at 103 5 24 size 13 20 12 turn 46  # TODO prims: rock
+gem    rock    at 122 5 23 size 13 15 12 turn 49  # TODO prims: rock
+gem    rock    at 23 5 42 size 13 19 12 turn 26  # TODO prims: rock
+gem    rock    at 41 5 41 size 13 21 12 turn 28  # TODO prims: rock
+gem    rock    at 55 5 39 size 13 18 12 turn 21  # TODO prims: rock
+gem    rock    at 73 5 40 size 13 15 12 turn 33  # TODO prims: rock
+gem    rock    at 88 5 42 size 13 18 12 turn 27  # TODO prims: rock
+gem    rock    at 102 5 41 size 13 21 12 turn 15  # TODO prims: rock
+gem    rock    at 122 5 40 size 13 21 12 turn 39  # TODO prims: rock
+gem    rock    at 23 5 55 size 13 20 12 turn 36  # TODO prims: rock
+gem    rock    at 40 5 55 size 13 20 12 turn 27  # TODO prims: rock
+gem    rock    at 57 5 56 size 13 15 12 turn 43  # TODO prims: rock
+gem    rock    at 74 5 56 size 13 21 12 turn 14  # TODO prims: rock
+gem    rock    at 89 5 56 size 13 20 12 turn 13  # TODO prims: rock
+gem    rock    at 102 5 55 size 13 14 12 turn 10  # TODO prims: rock
+gem    rock    at 121 5 57 size 13 19 12 turn 23  # TODO prims: rock
+
+# outcrop at 16,1 7x3
+box    rock    at 312 0 40 size 110 7 46 id outcrop-2  # TODO prims: rock
+gem    rock    at 266 5 24 size 13 21 12 turn 19  # TODO prims: rock
+gem    rock    at 279 5 23 size 13 16 12 turn 1  # TODO prims: rock
+gem    rock    at 295 5 24 size 13 18 12 turn 11  # TODO prims: rock
+gem    rock    at 311 5 26 size 13 20 12 turn 41  # TODO prims: rock
+gem    rock    at 327 5 24 size 13 15 12 turn 16  # TODO prims: rock
+gem    rock    at 342 5 26 size 13 16 12 turn 35  # TODO prims: rock
+gem    rock    at 359 5 23 size 13 20 12 turn 31  # TODO prims: rock
+gem    rock    at 262 5 40 size 13 18 12 turn 15  # TODO prims: rock
+gem    rock    at 279 5 39 size 13 14 12 turn 56  # TODO prims: rock
+gem    rock    at 297 5 41 size 13 20 12 turn 28  # TODO prims: rock
+gem    rock    at 312 5 42 size 13 18 12 turn 2  # TODO prims: rock
+gem    rock    at 330 5 39 size 13 19 12 turn 19  # TODO prims: rock
+gem    rock    at 342 5 41 size 13 15 12 turn 15  # TODO prims: rock
+gem    rock    at 362 5 39 size 13 15 12 turn 29  # TODO prims: rock
+gem    rock    at 262 5 56 size 13 21 12 turn 35  # TODO prims: rock
+gem    rock    at 282 5 57 size 13 16 12 turn 4  # TODO prims: rock
+gem    rock    at 297 5 55 size 13 18 12 turn 33  # TODO prims: rock
+gem    rock    at 314 5 56 size 13 16 12 turn 44  # TODO prims: rock
+gem    rock    at 328 5 57 size 13 21 12 turn 57  # TODO prims: rock
+gem    rock    at 342 5 56 size 13 17 12 turn 35  # TODO prims: rock
+gem    rock    at 362 5 56 size 13 20 12 turn 39  # TODO prims: rock
+
+# outcrop at 10,1 4x2
+box    rock    at 192 0 32 size 62 7 30 id outcrop-3  # TODO prims: rock
+gem    rock    at 169 5 24 size 13 15 12 turn 58  # TODO prims: rock
+gem    rock    at 184 5 25 size 13 14 12 turn 52  # TODO prims: rock
+gem    rock    at 201 5 23 size 13 15 12 turn 28  # TODO prims: rock
+gem    rock    at 214 5 25 size 13 18 12 turn 40  # TODO prims: rock
+gem    rock    at 167 5 39 size 13 19 12 turn 36  # TODO prims: rock
+gem    rock    at 185 5 40 size 13 16 12 turn 53  # TODO prims: rock
+gem    rock    at 198 5 39 size 13 14 12 turn 40  # TODO prims: rock
+gem    rock    at 214 5 40 size 13 18 12 turn 20  # TODO prims: rock
+
+# outcrop at 2,10 4x3 (at 76% of its height, for the camera)
+box    rock    at 64 0 184 size 62 5 46 id outcrop-4  # TODO prims: rock
+gem    rock    at 42 3.5 168 size 13 11.5 12 turn 9  # TODO prims: rock
+gem    rock    at 56 3.5 167 size 13 12 12 turn 12  # TODO prims: rock
+gem    rock    at 72 3.5 169 size 13 12 12 turn 12  # TODO prims: rock
+gem    rock    at 86 3.5 169 size 13 10.5 12 turn 25  # TODO prims: rock
+gem    rock    at 42 3.5 184 size 13 14 12 turn 34  # TODO prims: rock
+gem    rock    at 54 3.5 185 size 13 16 12  # TODO prims: rock
+gem    rock    at 71 3.5 185 size 13 13 12 turn 1  # TODO prims: rock
+gem    rock    at 87 3.5 184 size 13 10.5 12 turn 31  # TODO prims: rock
+gem    rock    at 39 3.5 199 size 13 14 12 turn 46  # TODO prims: rock
+gem    rock    at 54 3.5 202 size 13 14.5 12 turn 50  # TODO prims: rock
+gem    rock    at 73 3.5 199 size 13 11.5 12 turn 53  # TODO prims: rock
+gem    rock    at 88 3.5 201 size 13 14 12 turn 47  # TODO prims: rock
+
+# landmark (assets/world3d/eyrie/landmark.set, hand-placed)
+# The Griffin Eyrie: tall crag spires either side, the stump crowned with its great nest, the master's brazier.
+# the west crag
+pyramid rock   at 40 0 40 size 40 72 38
+pyramid rock   at 84 0 34 size 44 54 34
+pyramid rock   at 114 0 44 size 24 38 30
+rock-4 rock    at 64 0 56 size 30 16 14
+# the east crag
+pyramid rock   at 344 0 40 size 40 70 38
+pyramid rock   at 300 0 34 size 44 58 34
+pyramid rock   at 270 0 46 size 24 36 28
+rock-7 rock    at 320 0 56 size 30 16 14
+# the perch: a stone stump, its nest of branches with two eggs
+frustum-10 rock at 192 0 32 size 56 40 28
+sphere trunk   at 192 38 32 size 62 14 30
+box    trunk   at 192 44 45 size 56 4 4
+box    trunk   at 192 44 19 size 56 4 4
+box    trunk   at 163 44 32 size 4 4 28
+box    trunk   at 221 44 32 size 4 4 28
+sphere bone    at 184 46 32 size 9 11 9
+sphere bone    at 200 46 33 size 9 11 9
+# the griffin master's brazier on the south-west crag
+cylinder-8 metal at 64 5 176 size 10 4 10
+cone-6 fire    at 64 9 176 size 7 8 7

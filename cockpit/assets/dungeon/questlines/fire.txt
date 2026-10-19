@@ -1,0 +1,22 @@
+power skill:fire 3
+teacher Bess the Beaconwife
+place the beacon on the Coast
+room Lighthouse
+look soot-braided hair, red petticoats, and a long taper carried like a duchess carries a fan
+line Ground burns. It doesn't fly. Fire has manners.
+hook The beacon's lamp is the first thing she ever lit; the pit below it remembers.
+step Light the beacon | light the beacon once, at dusk or any other honest hour | beacon_lights 1 | Fire has manners. | cue lamp
+step The oil errand | deliver the beacon's lamp oil to the saltworks harbour | harbour_deliveries 1 | Ground burns. It doesn't fly. | cue deliver
+step The burning hall | clear one hall with burning-ground kills only | fire_pure_halls 1 | Feed the pit, then feed it a cloud — that's the whole almanac.
+trial The whole cloud | flash one full gas cloud onto a hall's monsters: every monster touched by one flash | full_flash_halls 1 | The whole cloud, spent at once. Table manners.
+reward Fire Pit level III
+title the Table Manners
+keepsake the Long Taper, a taper at the collar that flares once on every flash kill
+ties Old Fuse's oil errand; Fenwick's marsh; the beacon pool Sela watches from.
+art
+..7.7..
+.7.7.7.
+..787..
+.78887.
+..777..
+...7...

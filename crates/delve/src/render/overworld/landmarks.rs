@@ -5,14 +5,17 @@
 //! door left of centre over the knight's stand.
 use super::ink::{Img, hash};
 use super::kit::{self, Heraldry, House, Roof, Top, Trade, Wall};
+use super::light::at_dusk;
 use crate::rules::RoomKind;
 
 const W: i32 = 64;
 const H: i32 = 48;
 
 /// The landmark for a countryside place, or `None` to keep the plain house.
+/// Drawn at dusk: a building on the map is scenery, so it wears no lamp,
+/// heraldry or bright paint that could read as something happening.
 pub fn landmark(kind: RoomKind) -> Option<Img> {
-    Some(match kind {
+    let im = match kind {
         RoomKind::Lighthouse => lighthouse(),
         RoomKind::Sluice => sluice(),
         RoomKind::Aviary => pigeon_loft(),
@@ -51,7 +54,8 @@ pub fn landmark(kind: RoomKind) -> Option<Img> {
         RoomKind::Hippodrome => hippodrome(),
         RoomKind::Eyrie => eyrie(),
         _ => return None,
-    })
+    };
+    Some(at_dusk(&im))
 }
 
 /// Whether a countryside place's landmark has a chimney for smoke to rise

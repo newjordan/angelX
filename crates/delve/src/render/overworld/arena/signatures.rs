@@ -1,6 +1,7 @@
 //! Material-ink guardian poses and the floor marks that make their attacks fair.
 use super::super::ink::{Img, text_width};
 use super::{UNIT, at, enlarge, stature};
+use crate::rules::bosses::Windup;
 use crate::rules::{Boss, Enemy, Run, signatures as fight};
 use std::f32::consts::TAU;
 
@@ -42,7 +43,7 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         return Some(im);
     }
     if boss.id != fight::ENGINE {
-        return None;
+        return winding_figure(run, enemy, boss, tick);
     }
     let mut im = Img::new(80, 64);
     let step = (tick / 4) % 4;
@@ -150,6 +151,54 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         return Some(airborne);
     }
     Some(im)
+}
+
+/// A guardian at one of its file's charge-ups: crouched lower and wider as
+/// it winds up, shaking at the last; up in the air as it leaps.
+fn winding_figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Img> {
+    let up = fight::winding(enemy, boss)?;
+    let index = enemy.boss?;
+    let im = super::stature::boss_figure(run, index)?;
+    match enemy.stage {
+        fight::WIND => {
+            let t = (enemy.timer as f32 / up.wind.max(1) as f32).min(1.0);
+            let im = squash(&im, 1.0 + 0.14 * t, 1.0 - 0.18 * t);
+            if t > 0.6 {
+                let mut shaking = Img::new(im.w + 2, im.h);
+                shaking.stamp(&im, (tick % 2) as i32 * 2, 0);
+                return Some(shaking);
+            }
+            Some(im)
+        }
+        fight::JUMP => {
+            let t = enemy.timer as f32 / fight::FLIGHT as f32;
+            let rise = ((t * std::f32::consts::PI).sin() * 26.0).max(0.0) as i32;
+            let im = squash(&im, 0.92, 1.1);
+            let mut airborne = Img::new(im.w, im.h + rise * 2);
+            airborne.stamp(&im, 0, 0);
+            Some(airborne)
+        }
+        fight::DASH => Some(squash(&im, 1.12, 0.9)),
+        _ => None,
+    }
+}
+
+/// `im` drawn `kx` as wide and `ky` as tall, its feet where they were.
+fn squash(im: &Img, kx: f32, ky: f32) -> Img {
+    let (w, h) = (
+        (im.w as f32 * kx).round().max(1.0) as i32,
+        (im.h as f32 * ky).round().max(1.0) as i32,
+    );
+    let mut out = Img::new(w, im.h.max(h));
+    let top = im.h.max(h) - h;
+    for y in 0..h {
+        for x in 0..w {
+            if let Some(c) = im.get((x as f32 / kx) as i32, (y as f32 / ky) as i32) {
+                out.set(x, top + y, c);
+            }
+        }
+    }
+    out
 }
 
 fn limb(im: &mut Img, a: (i32, i32), b: (i32, i32), side: i32) {
@@ -282,8 +331,176 @@ fn glow(cv: &mut Img, x: i32, y: i32, reach: f32) {
     }
 }
 
+/// Three arms of dashes spiralling in on `(x, y)`: something drawing the
+/// room toward it.
+fn pull_arms(cv: &mut Img, x: i32, y: i32, tick: u64, (bright, dim): (char, char)) {
+    let t = tick as f32 * 0.12;
+    for arm in 0..3 {
+        for n in 0..38 {
+            let r = (fight::PULL_REACH * UNIT) * (1.0 - n as f32 / 40.0);
+            let a = t + arm as f32 * TAU / 3.0 + n as f32 * 0.13;
+            let px = x + (a.cos() * r) as i32;
+            let py = y + (a.sin() * r * 0.65) as i32;
+            cv.line(px, py, px + 2, py - 1, if n % 4 == 0 { bright } else { dim });
+        }
+    }
+}
+
+/// A dotted ring on the floor, `rx` across, flattened to the floor's slant.
+fn floor_ring(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char, dots: u32) {
+    for k in 0..dots {
+        let a = k as f32 / dots as f32 * TAU;
+        cv.put(x + (a.cos() * rx) as i32, y + (a.sin() * rx * 0.55) as i32, ink);
+        cv.put(x + (a.cos() * rx) as i32 + 1, y + (a.sin() * rx * 0.55) as i32, ink);
+    }
+}
+
+/// A target closing in on `(x, y)`: a bold ring `rx` across and four
+/// brackets pointing in.
+fn closing(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char) {
+    for r in [rx, rx + 1.0] {
+        floor_ring(cv, x, y, r, ink, 96);
+    }
+    for q in 0..4 {
+        let a = TAU / 8.0 + q as f32 * TAU / 4.0;
+        let (cx, cy) = (a.cos(), a.sin() * 0.55);
+        let out = (x + (cx * (rx + 9.0)) as i32, y + (cy * (rx + 9.0)) as i32);
+        let tip = (x + (cx * (rx + 3.0)) as i32, y + (cy * (rx + 3.0)) as i32);
+        for d in -1..=1 {
+            cv.line(out.0 + d, out.1, tip.0 + d, tip.1, ink);
+        }
+    }
+}
+
+/// A charge's lane from `a` to `b`, `width` either side: a warm dithered
+/// floor that fills in as the wind-up goes on (`t`), bright marching edges
+/// and chevrons the way it will come.
+fn lane(cv: &mut Img, a: (i32, i32), b: (i32, i32), width: f32, t: f32, tick: u64) {
+    let d = ((b.0 - a.0) as f32).hypot((b.1 - a.1) as f32).max(1.0);
+    let (ux, uy) = ((b.0 - a.0) as f32 / d, (b.1 - a.1) as f32 / d);
+    let (nx, ny) = (-uy, ux);
+    let hot = if tick / 3 % 2 == 0 { '@' } else { '7' };
+    let fill = 0.15 + 0.4 * t;
+    for k in 0..d as i32 {
+        let k = k as f32;
+        for w in -(width as i32)..=width as i32 {
+            let (px, py) = (
+                a.0 + (ux * k + nx * w as f32) as i32,
+                a.1 + (uy * k + ny * w as f32) as i32,
+            );
+            if super::super::ink::bayer(px, py) < fill {
+                cv.put(px, py, if t > 0.66 { 'r' } else { 'P' });
+            }
+        }
+        let march = (tick % 8) as f32;
+        if (k + march) % 8.0 < 5.0 {
+            for side in [-1.0, 1.0] {
+                cv.put(
+                    a.0 + (ux * k + nx * width * side) as i32,
+                    a.1 + (uy * k + ny * width * side) as i32,
+                    hot,
+                );
+            }
+        }
+    }
+    let mut k = 12.0 + (tick % 12) as f32;
+    while k < d - 4.0 {
+        let (cx, cy) = (a.0 + (ux * k) as i32, a.1 + (uy * k) as i32);
+        for s in [-1.0, 1.0] {
+            for o in 0..2 {
+                cv.line(
+                    cx - (ux * o as f32) as i32,
+                    cy - (uy * o as f32) as i32,
+                    cx + ((-ux + nx * s) * (width * 0.7)) as i32,
+                    cy + ((-uy + ny * s) * (width * 0.7)) as i32,
+                    hot,
+                );
+            }
+        }
+        k += 12.0;
+    }
+}
+
+/// The floor under a guardian winding up one of its file's charge-ups:
+/// a ring closing in on it as the blow nears, and where the blow will go —
+/// a charge's lane, a leap's growing shadow, a breath's pull. A slam's
+/// ripples and a beam's line draw themselves (`tide`, `volleys`).
+fn charge_marks(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
+    let Some(up) = fight::winding(e, b) else {
+        return;
+    };
+    let (x, y) = at(e.x, e.y);
+    let pulse = run.tick / 3 % 2 == 0;
+    let hot = if pulse { '@' } else { '7' };
+    let t = (e.timer as f32 / up.wind.max(1) as f32).min(1.0);
+    if e.stage == fight::WIND {
+        // Closing in: wide and dim at first, tight and bright at the blow.
+        let rx = e.radius() * UNIT * (2.4 - 1.2 * t) + 6.0;
+        closing(cv, x, y, rx, if t > 0.66 { hot } else if t > 0.33 { '7' } else { 'o' });
+    }
+    match up.kind {
+        Windup::Charge if matches!(e.stage, fight::WIND | fight::DASH) => {
+            if let Some(r) = e.signature.rails.first() {
+                let width = (e.radius() + crate::rules::HERO_RADIUS) * UNIT;
+                let t = if e.stage == fight::DASH { 1.0 } else { t };
+                lane(cv, at(r.a.0, r.a.1), at(r.b.0, r.b.1), width, t, run.tick);
+            }
+        }
+        Windup::Leap if matches!(e.stage, fight::WIND | fight::JUMP) => {
+            // Where it will land: a warm shadow growing to the blow's full
+            // reach, ringed and crossed.
+            let t = if e.stage == fight::WIND {
+                0.3 + 0.6 * t
+            } else {
+                0.9 + 0.1 * (e.timer as f32 / fight::FLIGHT as f32).min(1.0)
+            };
+            let (mx, my) = at(e.signature.mark.0, e.signature.mark.1);
+            let reach = (fight::LANDING + crate::rules::HERO_RADIUS) * UNIT;
+            glow(cv, mx, my, reach * t * 1.2);
+            closing(cv, mx, my, reach, hot);
+            for d in -1..=1 {
+                cv.line(mx - 6, my + d, mx + 6, my + d, hot);
+                cv.line(mx + d, my - 4, mx + d, my + 4, hot);
+            }
+        }
+        Windup::Inhale if e.stage == fight::WIND => {
+            pull_arms(cv, x, y, run.tick, ('7', 'o'));
+        }
+        Windup::Slam if e.stage == fight::WIND => {
+            // Each shockwave ring where it will burst, warm and brightening,
+            // with its lane left dark.
+            let lane = run
+                .ravages
+                .iter()
+                .find(|r| (r.x - e.x).hypot(r.y - e.y) < 0.5);
+            for k in 0..up.shots.min(8) as u8 {
+                let radius = crate::rules::tide::RING_GAP * f32::from(k + 1);
+                let n = (TAU * radius * UNIT / 2.0) as u32;
+                for i in 0..n {
+                    let a = i as f32 / n as f32 * TAU;
+                    let (ux, uy) = (e.x + a.cos() * radius, e.y + a.sin() * radius);
+                    if lane.is_some_and(|r| r.in_lane(ux, uy)) {
+                        continue;
+                    }
+                    if (i + (run.tick / 2) as u32).is_multiple_of(3) && t < 0.66 {
+                        continue;
+                    }
+                    let (px, py) = at(ux, uy);
+                    cv.put(px, py, if t > 0.66 { hot } else { 'o' });
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
     for e in run.enemies.iter().filter(|e| e.hp > 0) {
+        if let Some(b) = e.boss.and_then(|i| run.bosses.get(i as usize))
+            && !fight::special(b)
+        {
+            charge_marks(cv, run, e, b);
+        }
         if e.kind == crate::rules::EnemyKind::Spiderling && e.stage == fight::TENDER {
             let (x, y) = at(e.x, e.y);
             glow(cv, x, y + 5, 18.0);
@@ -360,16 +577,7 @@ pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
             }
         } else if b.id == fight::RIPPER {
             if e.stage == fight::INHALE {
-                let t = run.tick as f32 * 0.12;
-                for arm in 0..3 {
-                    for n in 0..38 {
-                        let r = (fight::PULL_REACH * UNIT) * (1.0 - n as f32 / 40.0);
-                        let a = t + arm as f32 * TAU / 3.0 + n as f32 * 0.13;
-                        let px = x + (a.cos() * r) as i32;
-                        let py = y + (a.sin() * r * 0.65) as i32;
-                        cv.line(px, py, px + 2, py - 1, if n % 4 == 0 { 'Y' } else { 'y' });
-                    }
-                }
+                pull_arms(cv, x, y, run.tick, ('Y', 'y'));
             }
             if e.stage == fight::TELL {
                 let end = at(e.x + e.dir.0 * 9.0, e.y + e.dir.1 * 9.0);
@@ -435,6 +643,21 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             }
         } else if b.id == fight::ENGINE && e.stage == fight::TELL {
             cv.text(x + 45, y - 18, "SKREEEE", 'T');
+        } else if let Some(up) = fight::winding(e, b).filter(|_| e.stage == fight::WIND) {
+            // Its cry beside it, in a box, lit at the last.
+            let word = up.cry.as_str();
+            let half = (e.radius() * UNIT * 1.6) as i32 + 6;
+            let right = super::camera(run, None).0 + super::NATIVE_W;
+            let w = text_width(word);
+            let px = if x + half + w + 4 < right {
+                x + half
+            } else {
+                x - half - w
+            };
+            let late = e.timer * 3 > up.wind * 2;
+            cv.rect(px - 2, y - 6, w + 4, 10, 'k');
+            cv.frame(px - 2, y - 6, w + 4, 10, if late { '@' } else { '7' });
+            cv.text(px, y - 4, word, if late { 'Y' } else { 'T' });
         }
     }
 }

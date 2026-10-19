@@ -1,0 +1,21 @@
+{
+  "compact_hud": true,
+  "hint_seconds": 5,
+  "keeper_scale": [
+    8,
+    5
+  ],
+  "pennon_scale": [
+    4,
+    3
+  ],
+  "pennon_sky_crop": 24,
+  "cell_backdrop_percent": 25,
+  "danger_ramp": [
+    "s",
+    "0",
+    "q",
+    "2"
+  ],
+  "boss_rim": "U"
+}

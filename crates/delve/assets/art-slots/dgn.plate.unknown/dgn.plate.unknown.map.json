@@ -1,0 +1,63 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Original delivered art only. No rotation, mirroring or perspective warp.",
+    "Plate and square tile sampling crops to canvas aspect then BOX reduces."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "Shown at 768x448 (v2) / 384x224 (v1) with the title bar over the bottom 20%.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "56934ba5cf287792ee820022d553c455e412388d1c290f5f91c0967a69afa0ec",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "No delivered reading-order label",
+      "name": "plate",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "plate"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Reviewed source and measured reading order",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384x224 canvas; 768x448 v2",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "slot": "dgn.plate.unknown",
+  "source_sha256": "69e38bffc52905f21c95faa1f1b2c8911fc46ccd936f084b892def9500db1a40",
+  "timing": ""
+}

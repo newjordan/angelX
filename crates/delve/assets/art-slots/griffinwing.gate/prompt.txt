@@ -1,0 +1,23 @@
+ART DIRECTION (verbatim): medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES: ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white. Original designs only.
+
+LAYOUT: Create exactly one 3-column by 3-row prop sheet with nine equal square cells, reading left to right then top to bottom. Exactly one drawing in each cell, no other art. Each gate is a square drawing about 330x330 pixels centered in its cell; ring center is identical in position and scale across all nine; keep at least 60 px transparent space around each drawing and never touch cell edges or neighbors. Transparent real alpha everywhere outside the subject and through the entire ring center. No sheet labels or dividers.
+
+IDENTITY / BRIEF: Griffinwing Bonus Gate, an original plain bold gate prop: a perfect upright frontal circle, thick round hoop of polished warm gold-brass, outer diameter about 94% of drawing width, band about 11% of diameter thick, center opening about 76% of diameter and fully transparent. Hoop bottom touches bottom of drawing. Gold/amber only. Use three flat gold-brass tone masses: lighter outer rim, mid body, darker inner edge, and one thick unbroken dark warm-brown outline. Twelve round lamp bulbs evenly positioned at clock positions on the hoop; each bulb is at least 1/16 of drawing width, with a small brass bezel and round amber glass. Four small brass clasp blocks at 12, 3, 6 and 9 o'clock between bulbs, slightly larger than a bulb bezel. Keep broad flat shapes and painterly hand-clustered detail, no texture noise, no fine rivets. Lamp light is a hard-edged flat shape inside each bulb, no glow, no rays, no bloom, no shadows. Hottest highlight pale cream but never pure white. All unchanged hoop, clasps, bezels, outline, scale and position must be identical in all cells.
+
+POSES / STATES IN READING ORDER:
+Cell 1 idle-0: exactly three neighbouring bulbs bright amber-gold with pale-cream cores at 12, 1 and 2 o'clock; other nine dull dim amber-brown.
+Cell 2 idle-1: identical gate; exactly three neighbouring bright bulbs at 3, 4 and 5 o'clock; other nine dull.
+Cell 3 idle-2: identical gate; exactly three neighbouring bright bulbs at 6, 7 and 8 o'clock; other nine dull.
+Cell 4 idle-3: identical gate; exactly three neighbouring bright bulbs at 9, 10 and 11 o'clock; other nine dull.
+Cell 5 taken-0: same scale hoop; all twelve bulbs bright at once.
+Cell 6 taken-1: hoop swells to full width of drawing and thins to about half its thickness; twelve bright bulbs lift slightly off it as separate round flecks.
+Cell 7 taken-2: thin pale-gold ring at full width breaking into 8-10 gold arcs; twelve bright flecks drift outward.
+Cell 8 taken-3: hoop gone; only about twelve small flat gold diamond-shaped sparks scattered on a wide ring.
+Cell 9 taken-4: only about six tiny gold sparks remain, almost gone.
+For taken cells, keep the same center point and overall square drawing bounds; no object except this gate and its burst parts. Every spark is a hard-edged flat shape with a dark outline. No aqua, teal, white-blue, red, purple or pink; no halo, dust, floor, or backdrop.
+
+CAMERA: exact face-on frontal elevation, object square to viewer, upright like a sprite, symmetrical, no more than 10 degrees downward pitch; no side view, top-down, isometric, perspective, floor, ground plane, cast shadow, sky or background. The viewer rides behind and slightly above a griffin looking down a canyon.
+
+REFERENCE IMAGES: input image 1 is layout and quality reference only; input image 2 is knight anatomy reference only; input image 3 is props/VFX style reference only. All three are STYLE AND MATERIAL anchors only. Do not copy their characters, costumes, heraldry, props, or designs.

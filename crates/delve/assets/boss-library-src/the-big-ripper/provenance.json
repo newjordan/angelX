@@ -1,0 +1,215 @@
+{
+  "id": "the-big-ripper",
+  "source_path": "./cockpit/assets/boss-library/existing/the-big-ripper/v01/source-sheet-refined.png",
+  "source_sha256": "233dede341e8f36725cf33863ff95588224490ab0e378b0d5463e7658d2c88de",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "THE BIG RIPPER: enormous swollen olive-green bog lord, almost spherical pot belly, tiny stubby legs and arms, comically small eyes under heavy green brow, broad little toothy mouth, tiny crooked gold crown and round gold belly medallion. Warty mossy hide and darker green-brown lower belly. No weapon, no armor, no pants. Use existing tiny green boss reference for anatomy, keep childish self-important grin.",
+  "definition_header": "name THE BIG RIPPER\ntext Three deep breaths. A royal apology. Neither helps the curtains.\nby Jordan Newman\nwhere fungal\nhp 900\nsize 1.6\nmove drift speed=0\nphases flower weave every=38 volleys=1 damage=10 shot=spore\nrage 40%\ndrops ore 6, gem 4, gold 280",
+  "source_definition_sha256": "90b6eb47d5daf577bee940c0739118014bceadd66ed4d92eaf765343e27a375b",
+  "definition_sha256": "90b6eb47d5daf577bee940c0739118014bceadd66ed4d92eaf765343e27a375b",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        36,
+        164,
+        252,
+        262
+      ],
+      "opaque_component_pixels": 43354,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "2763afd2de2520f064bc06cb0b4a211386deb52f3cc33a2c99dc476034463c21"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        370,
+        166,
+        268,
+        265
+      ],
+      "opaque_component_pixels": 46586,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "ba6d0b31020c01e2a9a6d96523fae6589a6494f1a01aa29292b8b6990baa31d2"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        698,
+        196,
+        228,
+        235
+      ],
+      "opaque_component_pixels": 34629,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "432d81a5f8075d2c27d8c35e3d65918d19302eb244207fa0666761308e17b17e"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        991,
+        170,
+        223,
+        258
+      ],
+      "opaque_component_pixels": 37403,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "43a35ab84211b7d64a5ae6d648269b30bc17bca9f7b08b825e54cd4d9b9f2fd0"
+    },
+    {
+      "id": "overhead/part/round-bog-body",
+      "source_rect_xywh": [
+        56,
+        557,
+        239,
+        216
+      ],
+      "opaque_component_pixels": 37548,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-round-bog-body.png",
+      "sha256": "b940cdbea63c6c086afbdd2955d728c9bdae4a00d4bc2b6b36e7591acb79b267"
+    },
+    {
+      "id": "overhead/part/brow-mouth-face",
+      "source_rect_xywh": [
+        422,
+        594,
+        178,
+        147
+      ],
+      "opaque_component_pixels": 18487,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-brow-mouth-face.png",
+      "sha256": "9897d8bf19084946bb95c0f3aa84f02a5ddedebeab9219fa15e79b5e897d14a5"
+    },
+    {
+      "id": "overhead/part/stubby-arm",
+      "source_rect_xywh": [
+        750,
+        597,
+        124,
+        143
+      ],
+      "opaque_component_pixels": 11459,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-stubby-arm.png",
+      "sha256": "083210ebcb7f7f60248a6ed1b39140d02540750c3377d0338a3b7ed8b69eb613"
+    },
+    {
+      "id": "overhead/part/gold-crown-medallion",
+      "source_rect_xywh": [
+        1026,
+        534,
+        142,
+        225
+      ],
+      "opaque_component_pixels": 15254,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-gold-crown-medallion.png",
+      "sha256": "219509a4a76e5770e2b5a6d5ea814b4fcdb64ad4ed081f70057860a2f81b29a1"
+    },
+    {
+      "id": "side/part/round-bog-body",
+      "source_rect_xywh": [
+        53,
+        904,
+        243,
+        226
+      ],
+      "opaque_component_pixels": 40580,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-round-bog-body.png",
+      "sha256": "4e25fb4da55ad79360b34cade5c87d50344ddbccb6e6a7e9fc9969cd1bdaf43a"
+    },
+    {
+      "id": "side/part/brow-mouth-face",
+      "source_rect_xywh": [
+        430,
+        951,
+        182,
+        142
+      ],
+      "opaque_component_pixels": 18676,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-brow-mouth-face.png",
+      "sha256": "a442b2a8023a55516fdf5a1d9e451efebc236eb4f8fee6ac70b33580cca9a132"
+    },
+    {
+      "id": "side/part/stubby-arm",
+      "source_rect_xywh": [
+        770,
+        957,
+        125,
+        134
+      ],
+      "opaque_component_pixels": 10475,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-stubby-arm.png",
+      "sha256": "d596630b9728ae48e45ca733defa789108c9049b92f93b33e77a4ca7b5ab8ce1"
+    },
+    {
+      "id": "side/part/gold-crown-medallion",
+      "source_rect_xywh": [
+        1038,
+        898,
+        145,
+        224
+      ],
+      "opaque_component_pixels": 12386,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-gold-crown-medallion.png",
+      "sha256": "53deacaabd5422d33ddf4728b614beeca277f186b4989e0cd461c7216e28cce0"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during existing signature INHALE/TELL or ring/arms warning",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

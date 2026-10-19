@@ -1,0 +1,150 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    52,
+    76
+  ],
+  "pieces": [
+    {
+      "name": "idle-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "idle-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "tell-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "tell-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "tell-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "tell-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "attack-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "attack-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "attack-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "attack-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "recover-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "recover-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "recover-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 15
+    },
+    {
+      "name": "hit-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "hit-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 3
+    },
+    {
+      "name": "defeat-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "defeat-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "defeat-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "defeat-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "defeat-4",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    },
+    {
+      "name": "defeat-5",
+      "runtime": false,
+      "approved": false,
+      "ticks": 6
+    }
+  ]
+}

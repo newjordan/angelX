@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5169
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5158
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4401
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5517
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4734
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5655
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4542
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3481
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3804
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 3109
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4708
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 4857
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "76f3ad4ed0772d67e8ed1a643d55288b75d92a5b7a4bc8011a4cc7235136a3d5",
+  "metadata_sha256": "2c3ef6a15992df330007b97b39e1e689ec027e3b2841badc31df8439d61064e3",
+  "notes_sha256": "8e1602582042dbd002187070b9b4430b11c218e0b051e1bfee0bc665f6db0a3c",
+  "outputs": {
+    "v1/porter-defeat.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 674,
+      "piece": 9,
+      "sha256": "8d4bf12e8cefc3d7d8817572cb79337b2afdc6bc9788aed767035aff147e1256",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-defeat"
+    },
+    "v1/porter-flinch.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 64,
+      "opaque_pixels": 906,
+      "piece": 6,
+      "sha256": "637723fdc9de1c811829dad52f6e51438cd6b92b734ff9e398f2024b738543b5",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-flinch"
+    },
+    "v1/porter-idle.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 75,
+      "opaque_pixels": 1084,
+      "piece": 0,
+      "sha256": "a98539e7b197e27a8396cb2f6fff10653ce1fc8725ace918ca499cc1f0c0eed1",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-idle"
+    },
+    "v1/porter-recover.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 76,
+      "opaque_pixels": 1065,
+      "piece": 5,
+      "sha256": "334ab3ecb0542aa9de4afd4a4296a0e1c330b834a6cb074fd5ae6ec965116d1b",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-recover"
+    },
+    "v1/porter-rush-tell.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 65,
+      "opaque_pixels": 927,
+      "piece": 10,
+      "sha256": "f55e558e6419b6b691fb27a06d86dbeb87468a4bcc542ccfbbaa4d1c790ebdd0",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-rush-tell"
+    },
+    "v1/porter-rush.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 964,
+      "piece": 11,
+      "sha256": "22ba542248ae63261fc4fd537045fdd47922a4557f30fce010460b679d7f416e",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-rush"
+    },
+    "v1/porter-slam-tell.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 85,
+      "opaque_pixels": 1228,
+      "piece": 3,
+      "sha256": "2fa49a0ce48204ce8fc5e1c9530643683d8d77ba282c3842577ba376ee253143",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-slam-tell"
+    },
+    "v1/porter-slam.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 79,
+      "opaque_pixels": 1133,
+      "piece": 4,
+      "sha256": "2f7f91ae42d21969e4aa2da73ecc6c6163a5a8b5bcc521bb26135cdf00ff65ac",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-slam"
+    },
+    "v1/porter-walk-1.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 76,
+      "opaque_pixels": 1041,
+      "piece": 1,
+      "sha256": "91ed9e97008a1cbe794c9e1f2cdce61a75a9a89566f9815b67a18ed0e4d34328",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-walk-1"
+    },
+    "v1/porter-walk-2.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 996,
+      "piece": 2,
+      "sha256": "cea29b7ce7f7ebc7bb16db80499607b431cb964a1f738a5fb21ba733712ea3d7",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-walk-2"
+    },
+    "v1/proposal-07.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 7,
+      "half_cell_coverage": 55,
+      "opaque_pixels": 776,
+      "piece": 7,
+      "sha256": "00e6d77449bb62c40f75bb5b8792323dad2377a7b9ebca9420a3dfbf14aa6179",
+      "source_scale": 0.15141955835962145,
+      "state": "knockdown-heavy-damage"
+    },
+    "v1/proposal-08.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 60,
+      "opaque_pixels": 821,
+      "piece": 8,
+      "sha256": "5bad7b2f229efa26276eb2fdf122400c0ff4d24a3ce407a43582443f4c3f41c5",
+      "source_scale": 0.15141955835962145,
+      "state": "defeat-1"
+    },
+    "v2/porter-defeat.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 49,
+      "opaque_pixels": 674,
+      "piece": 9,
+      "sha256": "8d4bf12e8cefc3d7d8817572cb79337b2afdc6bc9788aed767035aff147e1256",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-defeat"
+    },
+    "v2/porter-flinch.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 64,
+      "opaque_pixels": 906,
+      "piece": 6,
+      "sha256": "637723fdc9de1c811829dad52f6e51438cd6b92b734ff9e398f2024b738543b5",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-flinch"
+    },
+    "v2/porter-idle.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 75,
+      "opaque_pixels": 1084,
+      "piece": 0,
+      "sha256": "a98539e7b197e27a8396cb2f6fff10653ce1fc8725ace918ca499cc1f0c0eed1",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-idle"
+    },
+    "v2/porter-recover.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 76,
+      "opaque_pixels": 1065,
+      "piece": 5,
+      "sha256": "334ab3ecb0542aa9de4afd4a4296a0e1c330b834a6cb074fd5ae6ec965116d1b",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-recover"
+    },
+    "v2/porter-rush-tell.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 65,
+      "opaque_pixels": 927,
+      "piece": 10,
+      "sha256": "f55e558e6419b6b691fb27a06d86dbeb87468a4bcc542ccfbbaa4d1c790ebdd0",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-rush-tell"
+    },
+    "v2/porter-rush.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 964,
+      "piece": 11,
+      "sha256": "22ba542248ae63261fc4fd537045fdd47922a4557f30fce010460b679d7f416e",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-rush"
+    },
+    "v2/porter-slam-tell.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 85,
+      "opaque_pixels": 1228,
+      "piece": 3,
+      "sha256": "2fa49a0ce48204ce8fc5e1c9530643683d8d77ba282c3842577ba376ee253143",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-slam-tell"
+    },
+    "v2/porter-slam.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 79,
+      "opaque_pixels": 1133,
+      "piece": 4,
+      "sha256": "2f7f91ae42d21969e4aa2da73ecc6c6163a5a8b5bcc521bb26135cdf00ff65ac",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-slam"
+    },
+    "v2/porter-walk-1.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 76,
+      "opaque_pixels": 1041,
+      "piece": 1,
+      "sha256": "91ed9e97008a1cbe794c9e1f2cdce61a75a9a89566f9815b67a18ed0e4d34328",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-walk-1"
+    },
+    "v2/porter-walk-2.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 69,
+      "opaque_pixels": 996,
+      "piece": 2,
+      "sha256": "cea29b7ce7f7ebc7bb16db80499607b431cb964a1f738a5fb21ba733712ea3d7",
+      "source_scale": 0.15141955835962145,
+      "state": "porter-walk-2"
+    },
+    "v2/proposal-07.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 0.9987,
+      "frame": 7,
+      "half_cell_coverage": 55,
+      "opaque_pixels": 776,
+      "piece": 7,
+      "sha256": "00e6d77449bb62c40f75bb5b8792323dad2377a7b9ebca9420a3dfbf14aa6179",
+      "source_scale": 0.15141955835962145,
+      "state": "knockdown-heavy-damage"
+    },
+    "v2/proposal-08.png": {
+      "anchor_xy": [
+        24,
+        48
+      ],
+      "approved": true,
+      "canvas_wh": [
+        48,
+        48
+      ],
+      "colour_agreement": 1.0,
+      "frame": 8,
+      "half_cell_coverage": 60,
+      "opaque_pixels": 821,
+      "piece": 8,
+      "sha256": "5bad7b2f229efa26276eb2fdf122400c0ff4d24a3ce407a43582443f4c3f41c5",
+      "source_scale": 0.15141955835962145,
+      "state": "defeat-1"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "brasswake.porter",
+  "source_path": "/work/artifacts/art-prod/slots/brasswake.porter/v01/source-sheet.png",
+  "source_sha256": "c7c33ed3cb6537597f8daa961cb0649ac6925f265f4ff115fba8b685929ef46d",
+  "tool_version": 2
+}

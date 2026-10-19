@@ -1,0 +1,215 @@
+{
+  "id": "hellforge-fuel-reeve",
+  "source_path": "./cockpit/assets/boss-library/existing/hellforge-fuel-reeve/v01/source-sheet-refined.png",
+  "source_sha256": "21b46a41fee995974e34ed51e2378715e8be528ee19cac5152d78d64af542cc3",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Rotund forge fuel officer in soot-black riveted armor, broad brass coal-bucket helmet with a narrow orange visor, thick leather apron, stubby iron boots. Oversized coal shovel in one gauntlet, a squat iron fuel hopper strapped to its back, a dangling red inspection cloth. Barrel belly and tiny legs, fussy overworked accountant silhouette rather than a furnace golem.",
+  "definition_header": "name FUEL REEVE\ntext The stronghold's fuel officer: slag basins feed the future apex escort.\nby angelX\nwhere hellforge\nhp 580\nsize 1.4\nmove drift speed=1.1\nattack fan shots=4 arc=60 speed=6 every=80 damage=12 shot=ember\nphases rain reaim every=91 volleys=2 damage=12\nrage 30%\ndrops gold 110, ore 3",
+  "source_definition_sha256": "a5f8e4855c3faccba4b27b21df5d5644f324b4c47d58be062a5503a364d7a017",
+  "definition_sha256": "a5f8e4855c3faccba4b27b21df5d5644f324b4c47d58be062a5503a364d7a017",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        68,
+        186,
+        196,
+        247
+      ],
+      "opaque_component_pixels": 31581,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "063c20fa948bb39bac8aa817d9f9b79e847591dabb8bb3416269b3282ffa1278"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        378,
+        114,
+        224,
+        296
+      ],
+      "opaque_component_pixels": 35618,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "9e75f9fc45dc2d3e59acc4e5e2694714aa1e89ca176b564aa1115b6c223b8363"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        696,
+        210,
+        188,
+        213
+      ],
+      "opaque_component_pixels": 25442,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "5d2d7c9d51ec1d8061d2c33c273864d6b2d5d1d490d88036486562c5cb812e68"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        1023,
+        122,
+        186,
+        295
+      ],
+      "opaque_component_pixels": 28823,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "3e049b0f01bea86397b7489f4b67342e95941909e14e95cf1d343aa41f1034ab"
+    },
+    {
+      "id": "overhead/part/apron-armor-body",
+      "source_rect_xywh": [
+        56,
+        569,
+        226,
+        199
+      ],
+      "opaque_component_pixels": 33435,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-apron-armor-body.png",
+      "sha256": "1fbd8dca97ed821d22f724cbbaa0c0ba67a8f30c4a36ac6151335c6b4d552fcc"
+    },
+    {
+      "id": "overhead/part/coal-bucket-helm",
+      "source_rect_xywh": [
+        420,
+        597,
+        144,
+        120
+      ],
+      "opaque_component_pixels": 11473,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-coal-bucket-helm.png",
+      "sha256": "813601b41ad2c0a59c72c5e669e2f62336d7ad67a6ac63a5dd3fe7a2c604e2a2"
+    },
+    {
+      "id": "overhead/part/shovel-arm",
+      "source_rect_xywh": [
+        700,
+        558,
+        224,
+        217
+      ],
+      "opaque_component_pixels": 19128,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-shovel-arm.png",
+      "sha256": "3ccdd676ee22e4f81ade958cd8c0f107bcaed93280214ea8d439ecfe03e0d930"
+    },
+    {
+      "id": "overhead/part/fuel-hopper",
+      "source_rect_xywh": [
+        1021,
+        548,
+        183,
+        212
+      ],
+      "opaque_component_pixels": 22039,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-fuel-hopper.png",
+      "sha256": "2ab3e1cf06f41ee67e7f2911406a9175b02934b6997f2f0d8ff6729801085dd5"
+    },
+    {
+      "id": "side/part/apron-armor-body",
+      "source_rect_xywh": [
+        68,
+        923,
+        194,
+        206
+      ],
+      "opaque_component_pixels": 29263,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-apron-armor-body.png",
+      "sha256": "272ed538a084d38c43e763a76c3bd07065270e78de6a5f79ed78f7e18fea6405"
+    },
+    {
+      "id": "side/part/coal-bucket-helm",
+      "source_rect_xywh": [
+        430,
+        962,
+        134,
+        109
+      ],
+      "opaque_component_pixels": 10029,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-coal-bucket-helm.png",
+      "sha256": "6c26ce4558d6754f8e1f85adb7ed583da81b419e56081b4a920d855be8af9510"
+    },
+    {
+      "id": "side/part/shovel-arm",
+      "source_rect_xywh": [
+        696,
+        950,
+        239,
+        182
+      ],
+      "opaque_component_pixels": 18693,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-shovel-arm.png",
+      "sha256": "2110a193f0471360f374144f1e21a1564f502553330e437d46a6419b57109afb"
+    },
+    {
+      "id": "side/part/fuel-hopper",
+      "source_rect_xywh": [
+        1032,
+        912,
+        169,
+        219
+      ],
+      "opaque_component_pixels": 23124,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-fuel-hopper.png",
+      "sha256": "754ba1a0f8bfef44b2da91f598c9187084ec03e9ce5a0a9944c6d83f878057b4"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Review: selected complete four-frame subset; extra cycles/components remain unwired. Bumper burst remains retained-unused, as in existing renderer.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Retained-unused bank has a loader hook but no live stamp; do not invent an effect event."
+  ],
+  "delivered_pieces": 15,
+  "expected_existing_pieces": 0,
+  "geometry": "No gameplay effect; must not be confused with BUMPERS collision bodies.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "ed0b44d219609fd895ce828f6f006cd29dff2b87d4c58f38ba35eccccff31c48",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Closed small copper ring.",
+      "name": "bumper-0",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        90.0,
+        78.5
+      ],
+      "source_rect_xywh": [
+        80,
+        230,
+        180,
+        157
+      ],
+      "state": "bumper-0"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Ring starts opening.",
+      "name": "bumper-1",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.5,
+        87.0
+      ],
+      "source_rect_xywh": [
+        360,
+        222,
+        219,
+        174
+      ],
+      "state": "bumper-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Broad open arc.",
+      "name": "bumper-2",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.5,
+        94.0
+      ],
+      "source_rect_xywh": [
+        634,
+        220,
+        259,
+        188
+      ],
+      "state": "bumper-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Widest arc.",
+      "name": "bumper-3",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.0,
+        100.5
+      ],
+      "source_rect_xywh": [
+        932,
+        207,
+        290,
+        201
+      ],
+      "state": "bumper-3"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Large separated opposing arc sections.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        132.0,
+        93.0
+      ],
+      "source_rect_xywh": [
+        39,
+        556,
+        264,
+        186
+      ],
+      "state": "large-separated-opposing-arc-sections"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Receding arc fragments.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        43.5,
+        70.0
+      ],
+      "source_rect_xywh": [
+        364,
+        579,
+        87,
+        140
+      ],
+      "state": "receding-arc-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Shorter arc fragments.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        45.0,
+        71.0
+      ],
+      "source_rect_xywh": [
+        507,
+        623,
+        90,
+        142
+      ],
+      "state": "shorter-arc-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Small partial arc.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        43.0,
+        56.0
+      ],
+      "source_rect_xywh": [
+        675,
+        595,
+        86,
+        112
+      ],
+      "state": "small-partial-arc"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Two separated ring chunks.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        40.0,
+        60.0
+      ],
+      "source_rect_xywh": [
+        822,
+        644,
+        80,
+        120
+      ],
+      "state": "two-separated-ring-chunks"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Smaller ring chunks.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        101.0,
+        60.0
+      ],
+      "source_rect_xywh": [
+        1002,
+        623,
+        202,
+        120
+      ],
+      "state": "smaller-ring-chunks"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Tiny curved remnant.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        40.5,
+        51.5
+      ],
+      "source_rect_xywh": [
+        90,
+        952,
+        81,
+        103
+      ],
+      "state": "tiny-curved-remnant"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Smallest curved remnant.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        37.0,
+        37.5
+      ],
+      "source_rect_xywh": [
+        413,
+        984,
+        74,
+        75
+      ],
+      "state": "smallest-curved-remnant"
+    },
+    {
+      "approved": true,
+      "frame": 12,
+      "label": "No delivered reading-order label",
+      "name": "proposal-12",
+      "piece": 12,
+      "runtime": false,
+      "source_pivot_xy": [
+        36.5,
+        35.5
+      ],
+      "source_rect_xywh": [
+        486,
+        1045,
+        73,
+        71
+      ],
+      "state": "unmapped"
+    },
+    {
+      "approved": true,
+      "frame": 13,
+      "label": "No delivered reading-order label",
+      "name": "proposal-13",
+      "piece": 13,
+      "runtime": false,
+      "source_pivot_xy": [
+        33.5,
+        31.0
+      ],
+      "source_rect_xywh": [
+        759,
+        1007,
+        67,
+        62
+      ],
+      "state": "unmapped"
+    },
+    {
+      "approved": true,
+      "frame": 14,
+      "label": "No delivered reading-order label",
+      "name": "proposal-14",
+      "piece": 14,
+      "runtime": false,
+      "source_pivot_xy": [
+        24.5,
+        25.0
+      ],
+      "source_rect_xywh": [
+        1073,
+        1019,
+        49,
+        50
+      ],
+      "state": "unmapped"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-staged",
+  "runtime": false,
+  "schema_version": 1,
+  "size_basis": "32\u00d732 source canvases; no active stamp/anchor. Proposed centre anchor (16,16) is an integration convention, not current placement.",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "mossbell.bumper-burst",
+  "source_sha256": "2fe28f1606df30fc8378e23859a2b36c2ef248bf5c8b0d4a23fd3e9cf1808a79",
+  "timing": "Four loaded frames in effects[0], **not selected by draw()**. Real bumpers use procedural contour flashes; no current playback duration."
+}

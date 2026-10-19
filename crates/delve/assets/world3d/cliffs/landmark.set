@@ -1,0 +1,27 @@
+# Gullible Cliffs: the counterweight goat lift's timber derrick on its plot, a hilltop chapel with its bell-cote on the north-east wall.
+# the derrick: four legs, braces, a top frame with two pulleys, a counterweight and a basket on their ropes, a jib out over the road
+box    wood    at 102 0 22 size 6 56 6
+box    wood    at 138 0 22 size 6 56 6
+box    wood    at 102 0 58 size 6 56 6
+box    wood    at 138 0 58 size 6 56 6
+box    wood    at 120 26 22 size 42 3 3
+box    wood    at 120 26 58 size 42 3 3
+box    wood    at 102 26 40 size 3 3 40
+box    wood    at 138 26 40 size 3 3 40
+box    wood    at 120 56 40 size 48 5 44
+sphere metal   at 108 58 40 size 14 14 4
+sphere metal   at 132 58 40 size 14 14 4
+box    wood    at 108 20 40 size 1.5 38 1.5
+box    wood    at 132 20 40 size 1.5 38 1.5
+box    stone   at 108 6 40 size 14 14 14
+box    wood    at 132 0 40 size 14 10 14
+box    wood    at 152 56 40 size 34 4 6
+# the chapel on the north-east wall: nave, steep roof, bell-cote with its bell
+box    stone   at 316 0 8 size 56 32 16
+gable  slate   at 316 32 8 size 62 16 22
+box    stone   at 316 44 8 size 12 14 10
+pyramid slate  at 316 58 8 size 16 10 12
+sphere metal   at 316 46 8 size 5 6 5
+box    door    at 316 0 15.8 size 12 18 1.3
+box    window  at 298 14 15.8 size 5 10 1.3
+box    window  at 334 14 15.8 size 5 10 1.3

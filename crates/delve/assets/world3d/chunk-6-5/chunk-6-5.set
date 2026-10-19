@@ -1,0 +1,91 @@
+set chunk-6-5
+# The kingdom, chunk 6,5 in The Tilt-Yards: tiles 144..168 x 80..96 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2496 1408
+plate 1536 1024
+
+# ground
+box    grass   at 2392 -4 1288 size 176 4 16
+box    path    at 2504 -4 1312 size 48 4 64
+box    grass   at 2608 -4 1328 size 160 4 96
+box    grass   at 2384 -4 1336 size 160 4 80
+box    path    at 2472 -4 1360 size 16 4 128
+box    path    at 2496 -4 1384 size 32 4 80
+box    grass   at 2520 -4 1360 size 16 4 32
+box    path    at 2384 -4 1400 size 160 4 48
+box    path    at 2600 -4 1400 size 176 4 48
+box    grass   at 2496 -4 1480 size 384 4 112
+
+# fingerposts
+box    wood    at 2516 0 1372 size 1.5 19 1.5
+pyramid wood    at 2516 19 1372 size 2.2 1.5 2.2
+box    wood    at 2520 16 1372 size 6.5 1.8 0.6
+box    wood    at 2516 13.5 1368 size 0.6 1.8 6.5
+box    wood    at 2512 11 1372 size 6.5 1.8 0.6
+
+# set dressing
+box    wood    at 2664 0 1464 size 10 3 3
+box    wood    at 2661 0 1464 size 1.5 13 1.5
+box    wood    at 2666 0 1464 size 1.5 9 1.5
+box    wood    at 2424 0 1480 size 10 3 3
+box    wood    at 2421 0 1480 size 1.5 13 1.5
+box    wood    at 2426 0 1480 size 1.5 9 1.5
+box    wood    at 2452 0 1480 size 1.5 4 1.5
+box    wood    at 2492 0 1480 size 1.5 4 1.5
+box    wood    at 2472 2.75 1480 size 42 1.25 1.2
+box    wood    at 2596 0 1480 size 1.5 4 1.5
+box    wood    at 2636 0 1480 size 1.5 4 1.5
+box    wood    at 2616 2.75 1480 size 42 1.25 1.2
+
+# woods (at 33% of its height, for the camera)
+cylinder trunk   at 2351 0 1311 size 5 4 5
+blob-39 foliage at 2351 2.5 1311 size 33 7 31.35
+cylinder trunk   at 2360.5 0 1289 size 3 4 3
+blob-51 foliage at 2360.5 2 1289 size 18 7.5 17.1 turn 90
+cylinder trunk   at 2376 0 1304 size 3 3.5 3
+blob-27 foliage at 2376 1.5 1304 size 19 6.5 18.05 turn 270
+frustum trunk   at 2376 0 1320 size 3 11 3
+blob-4 foliage at 2376 6 1320 size 18 14 17.1
+cylinder trunk   at 2343.5 0 1335.5 size 3 9 3
+blob-22 foliage at 2343.5 4 1335.5 size 18 14 17.1 turn 90
+frustum trunk   at 2359 0 1337 size 3 11 3
+blob-53 foliage at 2359 6 1337 size 17 17 16.15 turn 90
+cylinder trunk   at 2376 0 1336 size 3 11 3
+blob-57 foliage at 2376 6 1336 size 18 19 17.1
+frustum trunk   at 2456 0 1464 size 3 4 3
+blob-51 foliage at 2456 2 1464 size 19 7.5 18.05 turn 270
+frustum trunk   at 2472 0 1464 size 3 5 3
+blob-26 foliage at 2472 3 1464 size 19 6.5 18.05 turn 90
+frustum trunk   at 2360 0 1528 size 3 4 3
+blob-48 foliage at 2360 2 1528 size 19 8.5 18.05 turn 270
+frustum trunk   at 2568.5 0 1528.5 size 3 5.5 3
+blob-39 foliage at 2568.5 2.5 1528.5 size 18 9 17.1 turn 270
+frustum trunk   at 2649 0 1528 size 3 5.5 3
+blob-32 foliage at 2649 2 1528 size 17 11 16.15 turn 270
+cylinder trunk   at 2665 0 1527 size 3 5.5 3
+blob-30 foliage at 2665 2 1527 size 17 10 16.15 turn 270
+frustum trunk   at 2680 0 1528 size 3 5 3
+blob-21 foliage at 2680 2.5 1528 size 19 8 18.05 turn 90
+box    hedge   at 2424 0 1320 size 15 5 16
+blob-30 hedge   at 2424 3.5 1320 size 15 4.5 16
+box    hedge   at 2424 0 1336 size 15 6 16
+blob-35 hedge   at 2424 3.5 1336 size 15 5 16
+box    hedge   at 2488 0 1464 size 16 6 15
+blob-55 hedge   at 2488 4 1464 size 16 4.5 15
+box    hedge   at 2440 0 1528 size 16 6.5 15
+blob-5 hedge   at 2440 4 1528 size 16 5 15
+box    hedge   at 2456 0 1528 size 16 6.5 15
+blob-52 hedge   at 2456 4 1528 size 16 5 15
+box    hedge   at 2472 0 1528 size 16 6 15
+blob-32 hedge   at 2472 3.5 1528 size 16 6 15
+box    hedge   at 2488 0 1528 size 16 6 15
+blob-18 hedge   at 2488 3.5 1528 size 16 5 15
+box    hedge   at 2504 0 1528 size 16 6.5 15
+blob-43 hedge   at 2504 4 1528 size 16 6 15
+box    hedge   at 2520 0 1528 size 16 6.5 15
+blob-15 hedge   at 2520 4 1528 size 16 6 15
+box    hedge   at 2536 0 1528 size 16 6.5 15
+blob-44 hedge   at 2536 4 1528 size 16 6 15
+box    hedge   at 2552 0 1528 size 16 6 15
+blob-24 hedge   at 2552 3.5 1528 size 16 5 15

@@ -64,7 +64,7 @@ fn wetland_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     );
     arena::countryside::boards(&mut instructions, &quest);
     let before_tray = instructions.clone();
-    arena::tray::corner(&mut instructions, &quest, None);
+    arena::tray::corner(&mut instructions, &quest, None, false);
     for y in 0..instructions.h {
         for x in 0..instructions.w {
             if before_tray.get(x, y).is_some() {

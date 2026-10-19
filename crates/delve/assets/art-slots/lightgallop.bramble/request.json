@@ -1,0 +1,26 @@
+{
+  "fit": "native canvas 32x22, anchor bottom-centre (16,22); stage 384x224; a low thorn tangle (a), and a taller one (b).",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "a-0"
+      ],
+      "source_pose_count": 1,
+      "state": "a"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "b-0"
+      ],
+      "source_pose_count": 1,
+      "state": "b"
+    }
+  ],
+  "game": "lightgallop",
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "id": "lightgallop.bramble",
+  "role": "prop",
+  "timing": "a 1 ticks; b 1 ticks (30 Hz). Art never sets a hitbox."
+}

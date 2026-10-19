@@ -1,0 +1,103 @@
+set market
+# Haggler's Square, the town's market hall (RoomKind::Market): 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: the bunting across the hall, crates and barrels by the south wall.
+# Magda, the chandler and Soup Ned are sprites behind their counters.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 5
+box    stone   at 8 -4 56 size 16 52 80
+
+# the west wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 8 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 192 size 16 52 32
+
+# the east wall, rows 1 to 5
+box    stone   at 376 -4 56 size 16 52 80
+
+# the east wall, rows 8 to 12 (at 12% of its height, for the camera)
+box    stone   at 376 -4 152 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 376 -4 192 size 16 52 32
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# the west door, rows 6 to 7
+box    door    at -1 -4 112 size 2 36 32 id door-west
+box    stone   at 8 32 112 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 6 to 7
+box    door    at 385 -4 112 size 2 36 32 id door-east
+box    stone   at 376 32 112 size 16 16 32  # TODO prims: arch
+
+# stall at 3,2 4x2 (at 66% of its height, for the camera)
+box    wood    at 80 0 57 size 60 7.5 10 id stall-1
+box    rock    at 56 7.5 57 size 6 2 6
+box    rock    at 68 7.5 57 size 6 2 6
+box    rock    at 80 7.5 57 size 6 2 6
+box    rock    at 92 7.5 57 size 6 2 6
+box    rock    at 104 7.5 57 size 6 2 6
+box    wood    at 50 0 47 size 2 14.5 2
+box    wood    at 110 0 47 size 2 14.5 2
+box    wood    at 50 0 62 size 2 14.5 2
+box    wood    at 110 0 62 size 2 14.5 2
+box    cloth   at 80 14.5 54.5 size 62 1 17  # TODO prims: wedge
+
+# stall at 17,2 4x2 (at 66% of its height, for the camera)
+box    wood    at 304 0 57 size 60 7.5 10 id stall-2
+box    plaster at 280 7.5 57 size 6 2 6
+box    plaster at 292 7.5 57 size 6 2 6
+box    plaster at 304 7.5 57 size 6 2 6
+box    plaster at 316 7.5 57 size 6 2 6
+box    plaster at 328 7.5 57 size 6 2 6
+box    wood    at 274 0 47 size 2 14.5 2
+box    wood    at 334 0 47 size 2 14.5 2
+box    wood    at 274 0 62 size 2 14.5 2
+box    wood    at 334 0 62 size 2 14.5 2
+box    cloth   at 304 14.5 54.5 size 62 1 17  # TODO prims: wedge
+
+# stall at 16,10 4x2 (at 77% of its height, for the camera)
+box    wood    at 288 0 170 size 60 9 8 id stall-3
+box    metal   at 264 9 170 size 6 2.5 4
+box    metal   at 276 9 170 size 6 2.5 4
+box    metal   at 288 9 170 size 6 2.5 4
+box    metal   at 300 9 170 size 6 2.5 4
+box    metal   at 312 9 170 size 6 2.5 4
+box    wood    at 258 0 175 size 2 16.5 2
+box    wood    at 318 0 175 size 2 16.5 2
+box    wood    at 258 0 190 size 2 16.5 2
+box    wood    at 318 0 190 size 2 16.5 2
+box    cloth   at 288 16.5 182.5 size 62 1.5 17  # TODO prims: wedge
+
+# cross at 4,10 2x2 (at 85% of its height, for the camera)
+box    stone   at 80 0 177 size 30 4 28 id cross  # TODO prims: stairs
+box    stone   at 80 4 178.5 size 22 2.5 17
+box    stone   at 80 6.5 181 size 4 20.5 4
+box    stone   at 80 19.5 181 size 16 3.5 4
+
+# hay at 9,2 2x1
+sphere crop    at 160 0 40 size 26 3.5 10 id hay  # TODO prims: blob

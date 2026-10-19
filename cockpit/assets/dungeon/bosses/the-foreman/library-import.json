@@ -1,0 +1,105 @@
+{
+  "boss": "the-foreman",
+  "camera": "overhead",
+  "definition_sha256": "1c1b11d8190584ff3b551f9cd9391428267abd020f8400900e5e1e9e54845f3a",
+  "display_policy": {
+    "activation_note": "BOSS-ROLL-2: both poses, kits and production painters pass local graded-floor contrast; minimum median delta 31.25 L*, rest presence 86.98%, edge 91.09%. Four-seat native/cell evidence retained; collision and timing unchanged.",
+    "active": true,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "harness torso boots"
+    ],
+    "class": "chief",
+    "grade": {
+      "v1": [
+        352,
+        384
+      ],
+      "v2": [
+        352,
+        384
+      ]
+    },
+    "props": [
+      "harness torso boots",
+      "goblin lamp head",
+      "left whip arm",
+      "right whip arm"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      50,
+      54
+    ],
+    "v2": [
+      88,
+      96
+    ]
+  },
+  "identity_props": [
+    "harness torso boots",
+    "goblin lamp head",
+    "left whip arm",
+    "right whip arm"
+  ],
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9842767295597484,
+      "opaque_pixels": 1590,
+      "sha256": "d955f9aef279b6dc923280cdef66af80f3178965f33bb605a57f0cfb9a13a11d",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 42,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9801718440185063,
+      "opaque_pixels": 1513,
+      "sha256": "51491cfccff79f3a2065ff780572310b57c639b4c4062e4cb8678a4f19485fa1",
+      "silhouette_iou": 1.0,
+      "size": [
+        50,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 48,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9862068965517241,
+      "opaque_pixels": 4930,
+      "sha256": "6993525cdf30c00cf8c7c779833cf3b5bb945ec4b1a7352dd8bed6e0a1a01ee9",
+      "silhouette_iou": 1.0,
+      "size": [
+        88,
+        96
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 49,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 0.9863160145392346,
+      "opaque_pixels": 4677,
+      "sha256": "44e5fefd7771c1577cfeb5e379f067ab4eb6c0d453fa4a2f71f141e0e5468b3d",
+      "silhouette_iou": 1.0,
+      "size": [
+        88,
+        96
+      ]
+    }
+  },
+  "resample": "box",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

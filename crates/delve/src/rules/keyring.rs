@@ -1,10 +1,12 @@
-//! The Boss Key. Each floor's route chiefs (the mini-bosses `boss_gates`
-//! already places, each in a room of its own with a name and a health bar)
-//! hold the key to the boss door. The chief whose fall opens the route drops
-//! it where it dies; a knight walks over it to carry it; a knight who falls
-//! (turns to stone, or leaves) lets it drop where they stood. The boss room's door, in the
-//! room beside it, is shut and chained until the knight carrying the key
-//! stands at it, and the key is spent opening it.
+//! The Boss Key. Each floor's chief (the one `boss_gates` places mid-floor)
+//! is no boss: its camp is led by its toughest, an elite who carries the
+//! key, marked so a party can find it, with an elite's gold bar and no boss
+//! bar or phases. The floor's one boss is its guardian at the stairs. The
+//! carrier whose fall opens the route drops the key where it dies; a knight
+//! walks over it to carry it; a knight who falls (turns to stone, or leaves)
+//! lets it drop where they stood. The boss room's door, in the room beside
+//! it, is shut and chained until the knight carrying the key stands at it,
+//! and the key is spent opening it.
 //!
 //! The sealed room behind (`boss_gates`) stays as it was: the key is the
 //! door's lock, not a second rule for the route.
@@ -82,7 +84,77 @@ fn settle(room: &Room, x: f32, y: f32) -> (f32, f32) {
     (room.width() / 2.0, room.height() / 2.0)
 }
 
+/// A carrier of the key by its kind, as the gate's lines name it.
+pub fn bearer_name(kind: EnemyKind) -> String {
+    let name = bestiary::ENTRIES
+        .iter()
+        .find(|e| e.kind == kind)
+        .map_or("monster", |e| e.name);
+    format!("the elite {name}")
+}
+
+impl boss_gates::Gates {
+    /// The camp slot in room `at` that carries the Boss Key: the toughest
+    /// of a standing chief's camp (its first of the hardiest kind, of the
+    /// camp's own faction), once the camp has mustered.
+    pub fn key_carrier(&self, at: usize) -> Option<u8> {
+        self.leader(at).filter(|l| !l.defeated)?;
+        let camp = self.economy.camp(at).filter(|c| c.deployed)?;
+        camp.roster
+            .iter()
+            .enumerate()
+            .filter(|&(slot, _)| self.economy.slot_faction(at, slot as u8) == Some(camp.faction))
+            .max_by_key(|&(slot, kind)| (kind.hp(), std::cmp::Reverse(slot)))
+            .map(|(slot, _)| slot as u8)
+    }
+
+    /// The kind of room `at`'s key carrier, if its camp has mustered.
+    pub fn carrier_kind(&self, at: usize) -> Option<EnemyKind> {
+        let slot = self.key_carrier(at)?;
+        self.economy
+            .camp(at)?
+            .roster
+            .get(usize::from(slot))
+            .copied()
+    }
+
+    /// Camp slot `slot` of room `at` fell: if it carried the key, its chief's
+    /// route is won (the leader's loss, once). Actual corpse settlement is
+    /// the only caller.
+    pub(super) fn carrier_fell(&mut self, at: usize, slot: u8) -> bool {
+        if self.key_carrier(at) != Some(slot) {
+            return false;
+        }
+        let Some(i) = self.leaders.iter().position(|l| l.room == at) else {
+            return false;
+        };
+        self.leaders[i].defeated = true;
+        self.economy.lose(i as u8);
+        true
+    }
+}
+
 impl Run {
+    /// Whether `enemy` carries the Boss Key: the elite at the head of the
+    /// chief's camp here, alive, the key not yet fallen.
+    pub fn carries_key(&self, enemy: &Enemy) -> bool {
+        enemy.hp > 0
+            && self.works.key.hold == Hold::Kept
+            && enemy.camp_slot.is_some()
+            && self
+                .boss_gates
+                .as_ref()
+                .is_some_and(|g| g.key_carrier(self.at) == enemy.camp_slot)
+    }
+
+    /// The key carrier in the room the party stands in, by name.
+    pub fn bearer_here(&self) -> Option<String> {
+        self.boss_gates
+            .as_ref()?
+            .carrier_kind(self.at)
+            .map(bearer_name)
+    }
+
     /// Whether this floor's boss door is shut for want of the key.
     pub fn boss_door_shut(&self) -> bool {
         self.boss_gates.is_some() && self.works.key.door == Door::Locked
@@ -111,7 +183,8 @@ impl Run {
         }
     }
 
-    /// The route chiefs still standing between the party and the key.
+    /// Who still stands between the party and the key: each standing
+    /// chief's elite, by kind once its camp has mustered, else by camp.
     pub fn key_keepers(&self) -> Vec<String> {
         let Some(g) = self.boss_gates.as_ref() else {
             return Vec::new();
@@ -119,23 +192,17 @@ impl Run {
         g.leaders
             .iter()
             .filter(|l| l.prerequisite && !l.defeated)
-            .filter_map(|l| self.bosses.get(usize::from(l.boss)))
-            .map(|b| b.name.clone())
-            .collect()
-    }
-
-    /// The boss indices of the route chiefs still standing.
-    pub fn route_chiefs(&self) -> Vec<u8> {
-        self.boss_gates
-            .as_ref()
-            .map(|g| {
-                g.leaders
-                    .iter()
-                    .filter(|l| l.prerequisite && !l.defeated)
-                    .map(|l| l.boss)
-                    .collect()
+            .map(|l| match g.carrier_kind(l.room) {
+                Some(kind) => bearer_name(kind),
+                None => g
+                    .economy
+                    .factions
+                    .get(usize::from(l.faction))
+                    .map_or("the camp's elite".to_string(), |f| {
+                        format!("the elite of {}", f.name)
+                    }),
             })
-            .unwrap_or_default()
+            .collect()
     }
 
     /// Whether the room the party stands in is its floor's guardian's, so
@@ -159,7 +226,7 @@ impl Run {
         Some(match self.works.key.hold {
             Hold::Kept => match self.key_keepers().first() {
                 Some(name) => format!("Boss Key: slay {name}"),
-                None => "Boss Key: slay the chiefs".to_string(),
+                None => "Boss Key: slay its elite".to_string(),
             },
             Hold::Lying { .. } => "Boss Key: take it to the door".to_string(),
             Hold::Carried { knight, .. } => {
@@ -173,8 +240,8 @@ impl Run {
         })
     }
 
-    /// The chief whose fall opened the route fell at `(x, y)`: it drops the
-    /// key there.
+    /// The carrier whose fall opened the route fell at `(x, y)`: it drops
+    /// the key there.
     pub(super) fn drop_boss_key(&mut self, x: f32, y: f32) {
         if self.boss_gates.is_none()
             || self.works.key.door == Door::Open
@@ -200,7 +267,7 @@ impl Run {
             return;
         }
         // The route is open but no key was made (a save from before, or a
-        // chief that fell out of sight): it lies at the first knight's feet.
+        // carrier that fell out of sight): it lies at the first knight's feet.
         if self.works.key.hold == Hold::Kept
             && self.boss_gates.as_ref().is_some_and(|g| g.unlocked())
             && let Some((x, y)) = self

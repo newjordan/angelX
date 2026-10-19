@@ -632,9 +632,15 @@ fn world_stage_visible(screen: &str) -> bool {
         .chars()
         .any(|c| matches!(c, '▀' | '▄') || ('\u{2801}'..='\u{28ff}').contains(&c))
         && screen.lines().any(|line| {
-            (line.contains("[Map]") || line.contains("[Explore]"))
-                && line.contains("[Back]")
+            ((line.contains("[Map]") || line.contains("[Explore]")) && line.contains("[Back]"))
+                // A wide enough pane floats the world's actions from its
+                // dock: its handle sits at the pane's foot.
+                || world_dock_handle(line)
         })
+}
+
+fn world_dock_handle(line: &str) -> bool {
+    line.contains("│ ▸ ") || line.contains("│ ◂ ")
 }
 
 fn has_visual_footer(screen: &str) -> bool {
@@ -679,7 +685,7 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     cockpit.wait_for("focused Realm overworld", |screen| {
         screen.contains("smoke-draft")
             && world_stage_visible(screen)
-            && screen.contains("[Explore]")
+            && (screen.contains("[Explore]") || screen.lines().any(world_dock_handle))
     })?;
 
     cockpit.send(b"\x1b")?;

@@ -1,0 +1,31 @@
+{
+  "fit": "native canvas 16x24, anchor bottom-centre (8,24); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "rise-0",
+        "rise-1",
+        "rise-2",
+        "rise-3"
+      ],
+      "source_pose_count": 4,
+      "state": "rise"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "idle-0",
+        "idle-1",
+        "idle-2"
+      ],
+      "source_pose_count": 3,
+      "state": "idle"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "The lantern flame item rises out of its block over 16 ticks then idles; the rules box is 10x14 at the anchor; art never sets a hitbox.",
+  "id": "bannerpeak.flame",
+  "role": "prop",
+  "timing": "rise 4x4 ticks; idle 3x4 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

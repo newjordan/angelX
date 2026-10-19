@@ -127,11 +127,6 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/skills/write-skill/SKILL.md',
   'cockpit/fixtures/sheets/golden-devils.png',
   'cockpit/fixtures/sheets/spiked-pavise.png',
-  'cockpit/fixtures/agentviz-portal/empty-v2.json',
-  'cockpit/fixtures/agentviz-portal/invalid-v2.json',
-  'cockpit/fixtures/agentviz-portal/normal-v2.json',
-  'cockpit/fixtures/agentviz-portal/oversized-v2.json',
-  'cockpit/fixtures/agentviz-portal/stale-v2.json',
   'cockpit/fixtures/observatory/manifest-v2.json',
   // Painted crawl textures and sprites are compiled into the game renderer.
   'cockpit/assets/crawl/ceiling.ink',
@@ -179,6 +174,7 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/realm/ambient/smithy-mountain.png',
   'cockpit/assets/realm/inhabitants/archivist.png',
   'cockpit/assets/realm/inhabitants/courier.png',
+  'cockpit/assets/realm/inscriptions/accelerando-spoken-here.json',
   'cockpit/assets/realm/palette.json',
   'cockpit/assets/realm/v2/interiors/station-round-table.png',
   // The Delve's built-in cards, bosses, phrasebook, chorus and realm wishes.
@@ -300,6 +296,41 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/dungeon/wish-art/stout.art',
   'cockpit/assets/dungeon/wish-art/twin.art',
   'cockpit/assets/dungeon/wish-art/volley.art',
+  'cockpit/assets/dungeon/art-v2/knight-back.png',
+  'cockpit/assets/dungeon/art-v2/knight-red.png',
+  'cockpit/assets/dungeon/art-v2/knight-run.png',
+  'cockpit/assets/dungeon/bosses/the-mire-king.boss',
+  'cockpit/assets/dungeon/cards/note-stream.card',
+  'cockpit/assets/dungeon/cards/thrown-stones.card',
+  'cockpit/assets/dungeon/learned-20261014.txt',
+  'cockpit/assets/dungeon/questlines/armor.txt',
+  'cockpit/assets/dungeon/questlines/bounce.txt',
+  'cockpit/assets/dungeon/questlines/chain.txt',
+  'cockpit/assets/dungeon/questlines/fart.txt',
+  'cockpit/assets/dungeon/questlines/fire.txt',
+  'cockpit/assets/dungeon/questlines/fork.txt',
+  'cockpit/assets/dungeon/questlines/gas.txt',
+  'cockpit/assets/dungeon/questlines/heavy.txt',
+  'cockpit/assets/dungeon/questlines/homing.txt',
+  'cockpit/assets/dungeon/questlines/mend.txt',
+  'cockpit/assets/dungeon/questlines/mine.txt',
+  'cockpit/assets/dungeon/questlines/orbit.txt',
+  'cockpit/assets/dungeon/questlines/pierce.txt',
+  'cockpit/assets/dungeon/questlines/powder.txt',
+  'cockpit/assets/dungeon/questlines/quick.txt',
+  'cockpit/assets/dungeon/questlines/shield.txt',
+  'cockpit/assets/dungeon/questlines/shots.txt',
+  'cockpit/assets/dungeon/questlines/speed.txt',
+  'cockpit/assets/dungeon/questlines/stout.txt',
+  'cockpit/assets/dungeon/questlines/vamp.txt',
+  'cockpit/assets/dungeon/questlines/volley.txt',
+  'cockpit/assets/dungeon/questlines/wall.txt',
+  'cockpit/assets/onboarding/setup/trellis/roller-basecolor.png',
+  'cockpit/assets/onboarding/setup/trellis/roller.axsm',
+  'cockpit/fixtures/anthropic/sonnet-5-5-tool-stream.sse',
+  'docs/WORLD-3D.md',
+  'scripts/boss-effect-slots.json',
+  'scripts/boss-library-registry.json',
 ])
 
 export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
@@ -333,9 +364,24 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
 ])
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
+  'docs/SLOT-ART-IMPORT.md',
+  'docs/examples/cartridges/dig/.gitignore',
+  'docs/examples/cartridges/dig/bin/digup',
+  'docs/examples/cartridges/dig/bin/dig-search',
+  'docs/examples/cartridges/dig/cartridge.toml',
+  'docs/examples/cartridges/dig/install.sh',
+  'docs/examples/cartridges/dig/skills/dig/SKILL.md',
+  'docs/images/realm/accelerando-hall.png',
   'docs/FEATURES.md',
   'docs/RELEASE_0.2.4.md',
   'docs/images/release-0.2.4.png',
+  'docs/RELEASE_0.2.5.md',
+  'docs/images/release-0.2.5.png',
+  'docs/images/delve/black-dungeon.png',
+  'docs/SHOWCASE.md',
+  'docs/images/showcase/wizard-chart.png',
+  'docs/images/showcase/forge-model.png',
+  'docs/images/showcase/squire-name.png',
   'docs/RELEASE_0.2.3.md',
   'docs/ENGINE.md',
   'docs/images/engine/seats.png',
@@ -453,6 +499,28 @@ export const RELEASE_PATHS = Object.freeze([
   'scripts/runtime/angel-setup.sh',
   'scripts/release/build-prebuilt.sh',
   'scripts/release/package-prebuilt.sh',
+  // The /setup scroll's 3D roller exporter, named by its asset README.
+  'scripts/scroll/export_trellis_roller.py',
+  // The Delve's art scripts, named by the art notes beside each asset set.
+  'scripts/arcade-art.py',
+  'scripts/arcade-fx-polish.py',
+  'scripts/arcade-knight.py',
+  'scripts/brasswake-art.py',
+  'scripts/brasswake-review.py',
+  'scripts/cinder-art.py',
+  'scripts/cinder-review.py',
+  'scripts/latch-art.py',
+  'scripts/mossbell-art.py',
+  'scripts/mossbell-compose.py',
+  'scripts/mossbell-fit-evidence.py',
+  'scripts/test-mossbell-compose.py',
+  'scripts/pennon-art.py',
+  'scripts/pennon-review.py',
+  'scripts/rafterwake-art.py',
+  'scripts/rafterwake-clean.py',
+  'scripts/rafterwake-review.py',
+  'scripts/slot-art-import.py',
+  'scripts/slot-art-quality.py',
   'tests/scripts/install.test.mjs',
   'scripts/check/angel-club-policy.sh',
   'tests/scripts/angel-club-policy.test.mjs',
@@ -461,6 +529,7 @@ export const RELEASE_PATHS = Object.freeze([
   'cockpit/README.md',
   'cockpit/Cargo.lock',
   'cockpit/src',
+  'cockpit/examples',
   // The engine's crates: the cockpit's path dependencies (the Delve, its net
   // and server) and the browser client build.rs compiles and embeds.
   'crates',
@@ -478,9 +547,6 @@ export const RELEASE_PATHS = Object.freeze([
   'cockpit/docs/COMPETITION_RUNNER.md',
   'cockpit/docs/ENV.md',
   'cockpit/docs/JEV.md',
-  'cockpit/portal-renderer/Cargo.toml',
-  'cockpit/portal-renderer/Cargo.lock',
-  'cockpit/portal-renderer/src',
   'scripts/check/cockpit-source-digest.sh',
   'scripts/check/check-cockpit-fast.sh',
   'scripts/check/copy-cockpit-test-image.py',
@@ -560,9 +626,6 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'cockpit/docs/COMPETITION_RUNNER.md',
   'cockpit/docs/ENV.md',
   'cockpit/docs/JEV.md',
-  'cockpit/portal-renderer/Cargo.toml',
-  'cockpit/portal-renderer/Cargo.lock',
-  'cockpit/portal-renderer/src/main.rs',
   'scripts/check/cockpit-source-digest.sh',
   'scripts/check/check-cockpit-fast.sh',
   'scripts/check/copy-cockpit-test-image.py',
@@ -846,11 +909,6 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
           'cockpit/docs/ENV.md',
           'cockpit/docs/JEV.md',
         ].includes(path)) ||
-      (path.startsWith('cockpit/portal-renderer/') &&
-        !['cockpit/portal-renderer/Cargo.toml', 'cockpit/portal-renderer/Cargo.lock'].includes(
-          path,
-        ) &&
-        !path.startsWith('cockpit/portal-renderer/src/')) ||
       (path.startsWith('cockpit/fixtures/') && !embedded.has(path)) ||
       (path.startsWith('cockpit/modules/') && !embedded.has(path)) ||
       (path.startsWith('cockpit/research/') &&
@@ -1215,7 +1273,6 @@ function inspectSupplyChainPolicy(repoRoot, metadata, toolchain, releaseEntries)
   const advisory = policy.advisory_policy
   const expectedLockfiles = new Map([
     ['cockpit/Cargo.lock', 'crates.io'],
-    ['cockpit/portal-renderer/Cargo.lock', 'crates.io'],
     ['crates/Cargo.lock', 'crates.io'],
     ['package-lock.json', 'npm'],
   ])

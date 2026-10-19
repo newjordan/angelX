@@ -1,0 +1,15 @@
+{
+  "fit": "48x48",
+  "frame_groups": [
+    {
+      "names": [],
+      "source_pose_count": 12,
+      "state": "damage-action"
+    }
+  ],
+  "game": "mossbell",
+  "geometry": "Ball::circle(80\u00d7Q,27\u00d7Q,19\u00d7Q) is Keeper contact radius including ball; do not derive body collision from shell. Root and crown geometry belong to separate slots.",
+  "id": "mossbell.keeper-damaged",
+  "role": "boss",
+  "timing": "Nine poses; starts Idle=120. Tell 36 ticks at hp>2, 30 at hp<=2; action 12; subsequent Idle=90+10\u00d7hp. Flinch=12, hit cooldown=10; damage stages hp 6\u20135/4\u20133/2\u20131. Defeat at hp=0 (Ball::step; draw())."
+}

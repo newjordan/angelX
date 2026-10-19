@@ -23,11 +23,12 @@ fn hurt_on(depth: u32) -> Run {
 
 #[test]
 fn the_first_two_floors_mend_and_hit_as_they_always_did() {
-    for depth in [1, 2] {
+    // Floor 1 is as ever; floor 2 starts the steady climb (`DEPTH_HIT`).
+    for (depth, incoming) in [(1, 100), (2, 115)] {
         let run = hurt_on(depth);
         assert_eq!(run.players[&1].stakes, Stakes::Early);
         assert_eq!(run.toughness(), 100);
-        assert_eq!(run.players[&1].incoming, 100);
+        assert_eq!(run.players[&1].incoming, incoming);
         assert_eq!(landed(40, Mend::Potion, Stakes::Early), 40);
     }
 }
@@ -116,7 +117,9 @@ fn deeper_floors_make_monsters_tougher_and_hit_harder_and_a_stronger_party_tough
     let deep = hurt_on(6);
     assert!(deep.toughness() > weak.toughness());
     assert!(deep.players[&1].incoming > weak.players[&1].incoming);
-    assert!(weak.players[&1].incoming > 100);
+    // A steady climb down the deep floors, no jump.
+    let hit = |depth: u32| hurt_on(depth).players[&1].incoming;
+    assert!(hit(3) < hit(4) && hit(4) < hit(5) && hit(5) < hit(6));
 }
 
 #[test]

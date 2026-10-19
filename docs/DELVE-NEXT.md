@@ -263,6 +263,19 @@ four temperaments, our own spirits). Holy water turns them pale and fleeing,
 and wraiths eaten bank bone. Every knight munches at once, and the pellets
 are shared, so you race your friends for the corridors.
 
+As built (`rules/folly.rs`): the hall grows with the party as a fight room
+does (one screen alone, four for a full table) into a maze of one-tile
+lanes, the same left and right, with no dead ends and the wraiths' crypt in
+the middle. Knights glide the lanes Pac-Man style: a turn pressed early is
+taken at the next opening, one pressed a moment late is still taken, and
+fresh wax slows the eater a little. The wraiths keep to their corners and
+hunt by turns, quicken as the candle burns, never walk into one another,
+and a caught one's eyes race home to the crypt. A touch spills wax and
+sends the knight back to the door they came in by, left alone two seconds.
+While the maze runs the skills bar is tucked away and the standings are a
+strip along the top. `wax_maze_sim` in `tests/rules/together_folly_sim__tests.rs`
+plays whole mazes for one to four knights and prints what happened.
+
 The rest follow the same pattern. Bomberman and Bubble Bobble are the two
 best four-player games on this list; Shelving ties into Part 3, because
 cleared rows mend a held floor's walls.

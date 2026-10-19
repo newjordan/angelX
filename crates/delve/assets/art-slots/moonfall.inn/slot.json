@@ -1,0 +1,149 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7544
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 5917
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7359
+    }
+  ],
+  "flags": [],
+  "map_sha256": "8fdc86fa2b0cbcba7938fa208c2b24fbf2bc5a83c73f25e1f28c1aa9ab80eec9",
+  "metadata_sha256": "2b70013ce6b2a45135bed1dfabd2696c813c49b498353a5a2286654dce4c3de2",
+  "notes_sha256": "58d5b7dfa5cd79f2529425c334af5a8225deacabea79c3618027f72972d111f7",
+  "outputs": {
+    "v1/day-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 317,
+      "opaque_pixels": 4937,
+      "piece": 0,
+      "sha256": "715456ef5eca2acb876aeb792ce054543a9c367a76186e069a968b0fde4fc177",
+      "source_scale": 0.13753581661891118,
+      "state": "day"
+    },
+    "v1/lit-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 0.9788,
+      "frame": 0,
+      "half_cell_coverage": 318,
+      "opaque_pixels": 4943,
+      "piece": 2,
+      "sha256": "385b6f33c9b915a048cd960932b0e98ff2cab2ad85405375ede073400f53df01",
+      "source_scale": 0.13753581661891118,
+      "state": "lit"
+    },
+    "v1/night-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 317,
+      "opaque_pixels": 4938,
+      "piece": 1,
+      "sha256": "91dc9d39f0cee40a6bd9d9e17259cebf7f07c9947c140713d1e11d8c46c5e6e5",
+      "source_scale": 0.13753581661891118,
+      "state": "night"
+    },
+    "v2/day-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 317,
+      "opaque_pixels": 4937,
+      "piece": 0,
+      "sha256": "715456ef5eca2acb876aeb792ce054543a9c367a76186e069a968b0fde4fc177",
+      "source_scale": 0.13753581661891118,
+      "state": "day"
+    },
+    "v2/lit-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 0.9788,
+      "frame": 0,
+      "half_cell_coverage": 318,
+      "opaque_pixels": 4943,
+      "piece": 2,
+      "sha256": "385b6f33c9b915a048cd960932b0e98ff2cab2ad85405375ede073400f53df01",
+      "source_scale": 0.13753581661891118,
+      "state": "lit"
+    },
+    "v2/night-0.png": {
+      "anchor_xy": [
+        72,
+        60
+      ],
+      "approved": true,
+      "canvas_wh": [
+        144,
+        60
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 317,
+      "opaque_pixels": 4938,
+      "piece": 1,
+      "sha256": "91dc9d39f0cee40a6bd9d9e17259cebf7f07c9947c140713d1e11d8c46c5e6e5",
+      "source_scale": 0.13753581661891118,
+      "state": "night"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "moonfall.inn",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.inn/v01/source-sheet.png",
+  "source_sha256": "d37799d3f393b5fa257332ce71bff54f6f5af8594035cbb49eba39fed2a7375f",
+  "tool_version": 2
+}

@@ -18,6 +18,47 @@ use serde::{Deserialize, Serialize};
 pub struct Tune {
     /// A knight's walking pace, units a second (`HERO_SPEED`).
     pub hero_speed: f32,
+    /// Shared room hit-stop: enabled, durations and cooldown in transport ticks.
+    pub hitstop: u32,
+    pub hitstop_boss_kill: u32,
+    pub hitstop_elite_kill: u32,
+    pub hitstop_phase: u32,
+    pub hitstop_heavy: u32,
+    pub hitstop_cooldown: u32,
+    pub cinder_fall: u32,
+    pub cinder_slide: u32,
+    pub cinder_lock: u32,
+    pub cinder_tell: u32,
+    pub cinder_attack: u32,
+    pub pennon_gravity: u32,
+    pub pennon_jump: u32,
+    pub pennon_run: u32,
+    pub pennon_coyote: u32,
+    pub pennon_buffer: u32,
+    pub rafter_gravity: u32,
+    pub rafter_jump: u32,
+    pub rafter_run: u32,
+    pub rafter_coyote: u32,
+    pub rafter_buffer: u32,
+    pub brass_stride: u32,
+    pub brass_combo: u32,
+    pub brass_tell: u32,
+    pub brass_shove: u32,
+    pub brass_stop: u32,
+    pub latch_tell: u32,
+    pub latch_window: u32,
+    pub latch_rest: u32,
+    pub latch_recover: u32,
+    pub latch_stop: u32,
+    pub moss_launch: u32,
+    pub moss_nudge: u32,
+    pub moss_bounce: u32,
+    pub moss_gravity: u32,
+    pub moss_flipper: u32,
+    /// The Round Table adventures' five numbers each, in
+    /// `roundtable::ADVENTURES` order (their own modules name and bound them).
+    pub roundtable: [[u32; 5]; 5],
+
     /// The kingdom's roads multiply it (`kingdom::ROAD_PACE`).
     pub road_pace: f32,
     /// A roll's speed out of the tuck (`ROLL_SPEED`).
@@ -50,6 +91,43 @@ impl Default for Tune {
     fn default() -> Tune {
         Tune {
             hero_speed: HERO_SPEED,
+            hitstop: 1,
+            hitstop_boss_kill: 6,
+            hitstop_elite_kill: 3,
+            hitstop_phase: 4,
+            hitstop_heavy: 2,
+            hitstop_cooldown: 14,
+            cinder_fall: super::cinder::FALL,
+            cinder_slide: super::cinder::SLIDE,
+            cinder_lock: super::cinder::LOCK,
+            cinder_tell: super::cinder::TELL,
+            cinder_attack: super::cinder::ATTACK,
+            pennon_gravity: super::pennon::GRAVITY,
+            pennon_jump: super::pennon::JUMP,
+            pennon_run: super::pennon::RUN,
+            pennon_coyote: super::pennon::COYOTE,
+            pennon_buffer: super::pennon::BUFFER,
+            rafter_gravity: super::rafterwake::GRAVITY,
+            rafter_jump: super::rafterwake::JUMP,
+            rafter_run: super::rafterwake::RUN,
+            rafter_coyote: super::rafterwake::COYOTE,
+            rafter_buffer: super::rafterwake::BUFFER,
+            brass_stride: super::brasswake::STRIDE,
+            brass_combo: super::brasswake::COMBO,
+            brass_tell: super::brasswake::TELL,
+            brass_shove: super::brasswake::SHOVE,
+            brass_stop: super::brasswake::STOP,
+            latch_tell: super::latch::TELL,
+            latch_window: super::latch::WINDOW,
+            latch_rest: super::latch::REST,
+            latch_recover: super::latch::RECOVER,
+            latch_stop: super::latch::STOP,
+            moss_launch: super::mossbell::LAUNCH,
+            moss_nudge: super::mossbell::NUDGE,
+            moss_bounce: super::mossbell::BOUNCE,
+            moss_gravity: super::mossbell::GRAVITY,
+            moss_flipper: super::mossbell::FLIPPER,
+            roundtable: super::roundtable::starts(),
             road_pace: ROAD_PACE,
             roll_speed: ROLL_SPEED,
             fire_rate: 100,
@@ -78,7 +156,7 @@ impl Tune {
     pub fn knobs(&self) -> Vec<Knob> {
         let d = Tune::default();
         let server = |name, group, label, constant| Knob::new(name, group, label, constant, Side::Server);
-        vec![
+        let mut knobs = vec![
             server("hero_speed", "knight", "Walk pace (units/s)", "HERO_SPEED (crates/delve/src/rules.rs)")
                 .range(4.0, 30.0, 0.5)
                 .default(shown(d.hero_speed))
@@ -123,7 +201,45 @@ impl Tune {
                 .range(0.0, 1.0, 0.05)
                 .default(shown(d.hit_ward))
                 .at(shown(self.hit_ward)),
-        ]
+            server("cinder_fall", "Cinder Stack", "Fall (ticks/cell)", "cinder::FALL").range(6.0, 60.0, 1.0).default(d.cinder_fall as f64).at(self.cinder_fall as f64),
+            server("cinder_slide", "Cinder Stack", "Slide repeat (ticks)", "cinder::SLIDE").range(2.0, 15.0, 1.0).default(d.cinder_slide as f64).at(self.cinder_slide as f64),
+            server("cinder_lock", "Cinder Stack", "Grounded lock (ticks)", "cinder::LOCK").range(3.0, 30.0, 1.0).default(d.cinder_lock as f64).at(self.cinder_lock as f64),
+            server("cinder_tell", "Cinder Stack", "Slag wind-up (ticks)", "cinder::TELL").range(23.0, 60.0, 1.0).default(d.cinder_tell as f64).at(self.cinder_tell as f64),
+            server("cinder_attack", "Cinder Stack", "Slag rest (ticks)", "cinder::ATTACK").range(90.0, 300.0, 1.0).default(d.cinder_attack as f64).at(self.cinder_attack as f64),
+            server("pennon_gravity", "Pennon Rush", "Gravity", "pennon::GRAVITY").range(80.0, 160.0, 1.0).default(d.pennon_gravity as f64).at(self.pennon_gravity as f64),
+            server("pennon_jump", "Pennon Rush", "Jump impulse", "pennon::JUMP").range(1280.0, 1900.0, 1.0).default(d.pennon_jump as f64).at(self.pennon_jump as f64),
+            server("pennon_run", "Pennon Rush", "Run speed", "pennon::RUN").range(384.0, 896.0, 1.0).default(d.pennon_run as f64).at(self.pennon_run as f64),
+            server("pennon_coyote", "Pennon Rush", "Coyote ticks", "pennon::COYOTE").range(0.0, 8.0, 1.0).default(d.pennon_coyote as f64).at(self.pennon_coyote as f64),
+            server("pennon_buffer", "Pennon Rush", "Jump buffer ticks", "pennon::BUFFER").range(1.0, 10.0, 1.0).default(d.pennon_buffer as f64).at(self.pennon_buffer as f64),
+            server("rafter_gravity", "Rafterwake", "Gravity", "rafterwake::GRAVITY").range(80.0, 160.0, 1.0).default(d.rafter_gravity as f64).at(self.rafter_gravity as f64),
+            server("rafter_jump", "Rafterwake", "Jump impulse", "rafterwake::JUMP").range(1280.0, 1900.0, 1.0).default(d.rafter_jump as f64).at(self.rafter_jump as f64),
+            server("rafter_run", "Rafterwake", "Run speed", "rafterwake::RUN").range(384.0, 896.0, 1.0).default(d.rafter_run as f64).at(self.rafter_run as f64),
+            server("rafter_coyote", "Rafterwake", "Coyote ticks", "rafterwake::COYOTE").range(0.0, 8.0, 1.0).default(d.rafter_coyote as f64).at(self.rafter_coyote as f64),
+            server("rafter_buffer", "Rafterwake", "Jump buffer ticks", "rafterwake::BUFFER").range(1.0, 10.0, 1.0).default(d.rafter_buffer as f64).at(self.rafter_buffer as f64),
+            server("brass_stride", "Brasswake", "Walking pixels", "brasswake::STRIDE").range(1.0, 4.0, 1.0).default(d.brass_stride as f64).at(self.brass_stride as f64),
+            server("brass_combo", "Brasswake", "Punch spacing (ticks)", "brasswake::COMBO").range(10.0, 30.0, 1.0).default(d.brass_combo as f64).at(self.brass_combo as f64),
+            server("brass_tell", "Brasswake", "Danger tell (ticks)", "brasswake::TELL").range(23.0, 60.0, 1.0).default(d.brass_tell as f64).at(self.brass_tell as f64),
+            server("brass_shove", "Brasswake", "Hit shove (pixels)", "brasswake::SHOVE").range(4.0, 18.0, 1.0).default(d.brass_shove as f64).at(self.brass_shove as f64),
+            server("brass_stop", "Brasswake", "Contact freeze (ticks)", "brasswake::STOP").range(2.0, 8.0, 1.0).default(d.brass_stop as f64).at(self.brass_stop as f64),
+            server("latch_tell", "Latch Duel", "Wind-up (ticks)", "latch::TELL").range(23.0, 60.0, 1.0).default(d.latch_tell as f64).at(self.latch_tell as f64),
+            server("latch_window", "Latch Duel", "Counter window (ticks)", "latch::WINDOW").range(2.0, 15.0, 1.0).default(d.latch_window as f64).at(self.latch_window as f64),
+            server("latch_rest", "Latch Duel", "Breath (ticks)", "latch::REST").range(12.0, 60.0, 1.0).default(d.latch_rest as f64).at(self.latch_rest as f64),
+            server("latch_recover", "Latch Duel", "Recovery (ticks)", "latch::RECOVER").range(9.0, 27.0, 1.0).default(d.latch_recover as f64).at(self.latch_recover as f64),
+            server("latch_stop", "Latch Duel", "Hit freeze (ticks)", "latch::STOP").range(2.0, 8.0, 1.0).default(d.latch_stop as f64).at(self.latch_stop as f64),
+            server("moss_flipper", "Mossbell", "Paddle lift", "mossbell::FLIPPER").range(800.0, 1800.0, 1.0).default(d.moss_flipper as f64).at(self.moss_flipper as f64),
+            server("moss_gravity", "Mossbell", "Gravity", "mossbell::GRAVITY").range(16.0, 48.0, 1.0).default(d.moss_gravity as f64).at(self.moss_gravity as f64),
+            server("moss_bounce", "Mossbell", "Bounce percent", "mossbell::BOUNCE").range(60.0, 95.0, 1.0).default(d.moss_bounce as f64).at(self.moss_bounce as f64),
+            server("moss_nudge", "Mossbell", "Nudge", "mossbell::NUDGE").range(80.0, 320.0, 1.0).default(d.moss_nudge as f64).at(self.moss_nudge as f64),
+            server("moss_launch", "Mossbell", "Launch", "mossbell::LAUNCH").range(1000.0, 1800.0, 1.0).default(d.moss_launch as f64).at(self.moss_launch as f64),
+            server("hitstop", "hit-stop", "Room hit-stop on", "rules::hitstop").range(0.0, 1.0, 1.0).default(d.hitstop as f64).at(self.hitstop as f64),
+            server("hitstop_boss_kill", "hit-stop", "Boss kill (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_boss_kill as f64).at(self.hitstop_boss_kill as f64),
+            server("hitstop_elite_kill", "hit-stop", "Large monster kill (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_elite_kill as f64).at(self.hitstop_elite_kill as f64),
+            server("hitstop_phase", "hit-stop", "Boss phase or stagger (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_phase as f64).at(self.hitstop_phase as f64),
+            server("hitstop_heavy", "hit-stop", "Heavy boss hit (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_heavy as f64).at(self.hitstop_heavy as f64),
+            server("hitstop_cooldown", "hit-stop", "Impact cooldown (ticks)", "rules::hitstop").range(0.0, 60.0, 1.0).default(d.hitstop_cooldown as f64).at(self.hitstop_cooldown as f64),
+        ];
+        knobs.extend(super::roundtable::knobs(self));
+        knobs
     }
 
     /// Set one knob (already held to its bounds and step): whether it is one.
@@ -131,7 +247,44 @@ impl Tune {
         let f = value as f32;
         let pct = value.round().max(0.0) as u32;
         match name {
+            "hitstop" => self.hitstop = pct.min(1),
+            "hitstop_boss_kill" => self.hitstop_boss_kill = pct.min(12),
+            "hitstop_elite_kill" => self.hitstop_elite_kill = pct.min(12),
+            "hitstop_phase" => self.hitstop_phase = pct.min(12),
+            "hitstop_heavy" => self.hitstop_heavy = pct.min(12),
+            "hitstop_cooldown" => self.hitstop_cooldown = pct.min(60),
+            "moss_launch" => self.moss_launch = pct.clamp(1000, 1800),
+            "moss_nudge" => self.moss_nudge = pct.clamp(80, 320),
+            "moss_bounce" => self.moss_bounce = pct.clamp(60, 95),
+            "moss_gravity" => self.moss_gravity = pct.clamp(16, 48),
+            "moss_flipper" => self.moss_flipper = pct.clamp(800, 1800),
+            "rafter_gravity" => self.rafter_gravity = pct.clamp(80, 160),
+            "pennon_gravity" => self.pennon_gravity = pct.clamp(80, 160),
+            "rafter_jump" => self.rafter_jump = pct.clamp(1280, 1900),
+            "pennon_jump" => self.pennon_jump = pct.clamp(1280, 1900),
+            "rafter_run" => self.rafter_run = pct.clamp(384, 896),
+            "pennon_run" => self.pennon_run = pct.clamp(384, 896),
+            "rafter_coyote" => self.rafter_coyote = pct.clamp(0, 8),
+            "pennon_coyote" => self.pennon_coyote = pct.clamp(0, 8),
+            "rafter_buffer" => self.rafter_buffer = pct.clamp(1, 10),
+            "pennon_buffer" => self.pennon_buffer = pct.clamp(1, 10),
+            "brass_stride" => self.brass_stride = pct.clamp(1, 4),
+            "brass_combo" => self.brass_combo = pct.clamp(10, 30),
+            "brass_tell" => self.brass_tell = pct.clamp(23, 60),
+            "brass_shove" => self.brass_shove = pct.clamp(4, 18),
+            "brass_stop" => self.brass_stop = pct.clamp(2, 8),
+            "latch_tell" => self.latch_tell = pct.clamp(23, 60),
+            "latch_window" => self.latch_window = pct.clamp(2, 15),
+            "latch_rest" => self.latch_rest = pct.clamp(12, 60),
+            "latch_recover" => self.latch_recover = pct.clamp(9, 27),
+            "latch_stop" => self.latch_stop = pct.clamp(2, 8),
+
             "hero_speed" => self.hero_speed = f,
+            "cinder_fall" => self.cinder_fall = pct.clamp(6, 60),
+            "cinder_slide" => self.cinder_slide = pct.clamp(2, 15),
+            "cinder_lock" => self.cinder_lock = pct.clamp(3, 30),
+            "cinder_tell" => self.cinder_tell = pct.clamp(23, 60),
+            "cinder_attack" => self.cinder_attack = pct.clamp(90, 300),
             "road_pace" => self.road_pace = f,
             "roll_speed" => self.roll_speed = f,
             "fire_rate" => self.fire_rate = pct.max(1),
@@ -142,7 +295,7 @@ impl Tune {
             "foe_count" => self.foe_count = pct.max(100),
             "camera_follow" => self.camera_follow = f,
             "hit_ward_s" => self.hit_ward = f.max(0.0),
-            _ => return false,
+            _ => return super::roundtable::set(self, name, pct),
         }
         true
     }
@@ -172,6 +325,40 @@ impl Tune {
         [self.hero_speed, self.road_pace, self.roll_speed, self.shot_speed, self.foe_pace, self.camera_follow]
             .iter()
             .all(|v| v.is_finite() && *v > 0.0 && *v <= 100.0)
+            && self.hitstop <= 1
+            && [self.hitstop_boss_kill, self.hitstop_elite_kill, self.hitstop_phase, self.hitstop_heavy].iter().all(|&n| n <= 12)
+            && self.hitstop_cooldown <= 60
+            && (800..=1800).contains(&self.moss_flipper)
+            && (16..=48).contains(&self.moss_gravity)
+            && (60..=95).contains(&self.moss_bounce)
+            && (80..=320).contains(&self.moss_nudge)
+            && (1000..=1800).contains(&self.moss_launch)
+            && (80..=160).contains(&self.pennon_gravity)
+            && (1280..=1900).contains(&self.pennon_jump)
+            && (384..=896).contains(&self.pennon_run)
+            && (0..=8).contains(&self.pennon_coyote)
+            && (1..=10).contains(&self.pennon_buffer)
+            && (80..=160).contains(&self.rafter_gravity)
+            && (1280..=1900).contains(&self.rafter_jump)
+            && (384..=896).contains(&self.rafter_run)
+            && (0..=8).contains(&self.rafter_coyote)
+            && (1..=10).contains(&self.rafter_buffer)
+            && (1..=4).contains(&self.brass_stride)
+            && (10..=30).contains(&self.brass_combo)
+            && (23..=60).contains(&self.brass_tell)
+            && (4..=18).contains(&self.brass_shove)
+            && (2..=8).contains(&self.brass_stop)
+            && (23..=60).contains(&self.latch_tell)
+            && (2..=15).contains(&self.latch_window)
+            && (12..=60).contains(&self.latch_rest)
+            && (9..=27).contains(&self.latch_recover)
+            && (2..=8).contains(&self.latch_stop)
+            && (6..=60).contains(&self.cinder_fall)
+            && (2..=15).contains(&self.cinder_slide)
+            && (3..=30).contains(&self.cinder_lock)
+            && (23..=60).contains(&self.cinder_tell)
+            && (90..=300).contains(&self.cinder_attack)
+            && super::roundtable::numbers_valid(self)
             && self.fire_rate > 0
             && self.foe_health >= 100
             && self.foe_count >= 100

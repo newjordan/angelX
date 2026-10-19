@@ -470,7 +470,8 @@ fn clerk(tick: u32) -> Img {
 }
 
 /// The Court of Deeds on the kingdom's map: a dressed-stone counting house,
-/// its sign a sealed deed, the realm's banner on the gable.
+/// its sign a sealed deed, the realm's banner on the gable, at dusk like
+/// the map's other landmarks.
 pub fn land_office_building() -> Img {
     let base = kit::house(&House {
         w: 48,
@@ -497,7 +498,7 @@ pub fn land_office_building() -> Img {
         "TTTTTTTTTT",
     ]);
     im.stamp(&sign, base.w - 6, 26);
-    im
+    super::super::light::at_dusk(&im)
 }
 
 /// A plate's mark, 5 wide.
@@ -684,7 +685,7 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
     let count = format!("{at}/{}", all.len());
     cv.text(x0, by + 4, &count, 'G');
     let name = deed.name().to_uppercase();
-    cv.text(x0 + text_width(&count) + 8, by + 4, &name, '9');
+    cv.text(x0 + text_width(&count) + 8, by + 4, &name, 'i');
     let stars = held.map_or(0, |w| w.stars);
     for k in 0..5u8 {
         cv.stamp(&star(k < stars), bx + bw - 6 - (5 - i32::from(k)) * 9, by + 4);
@@ -692,16 +693,16 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
     // The King's favour, left of the stars: his crown and the number.
     let favour = format!("{:+}", h.favour);
     let fx = bx + bw - 6 - 5 * 9 - 10 - text_width(&favour);
-    let crown = Img::from_rows(&["6.6.6", "66666", "66666", ".....", "66666"]);
+    let crown = chrome::dusk_icon(&Img::from_rows(&["6.6.6", "66666", "66666", ".....", "66666"]));
     cv.stamp(&crown, fx - 8, by + 5);
-    let ink = if h.favour >= holdings::ROYAL { '6' } else if h.favour <= -holdings::ROYAL { '7' } else { 'h' };
+    let ink = if h.favour >= holdings::ROYAL { 'O' } else if h.favour <= -holdings::ROYAL { '7' } else { 'h' };
     cv.text(fx, by + 4, &favour, ink);
     // The second line: pictures and numbers.
     let y = by + 15;
     let mut x = x0;
     let mut item = |cv: &mut Img, icon: &Img, text: &str, ink: char| {
         cv.stamp(icon, x, y);
-        cv.text(x + icon.w + 3, y, text, ink);
+        cv.text(x + icon.w + 3, y, text, chrome::dusk_mark(ink));
         x += icon.w + 3 + text_width(text) + 10;
     };
     match held {
@@ -713,7 +714,7 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
             let wall = Img::from_rows(&["JJJJJJJ", "JhJhJhJ", "JJJJJJJ", "JhJhJhJ", "JJJJJJJ", ".......", "......."]);
             let walls = format!("{}/{WALLS}", w.walls);
             item(cv, &wall, &walls, if w.walls == 0 { '7' } else { 'i' });
-            let coin = Img::from_rows(&[".666...", "6aaa6..", "6a6a6..", "6aaa6..", ".666...", ".......", "......."]);
+            let coin = chrome::dusk_icon(&Img::from_rows(&[".666...", "6aaa6..", "6a6a6..", "6aaa6..", ".666...", ".......", "......."]));
             item(cv, &coin, &format!("{}G", w.coffer), '6');
             let rooms = Img::from_rows(&["rrrrrr.", "r.r..r.", "rrrrrr.", "r..r.r.", "rrrrrr.", ".......", "......."]);
             item(cv, &rooms, &format!("{}/{SLOTS}", w.standing()), 'i');
@@ -725,7 +726,7 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
                 None => item(cv, &Img::new(0, 7), "NO STEWARD", 'G'),
             }
             if w.fief {
-                let crown = Img::from_rows(&["6.6.6..", "66666..", "66666..", ".......", ".......", ".......", "......."]);
+                let crown = chrome::dusk_icon(&Img::from_rows(&["6.6.6..", "66666..", "66666..", ".......", ".......", ".......", "......."]));
                 item(cv, &crown, "FIEF", 'h');
             }
         }
@@ -733,14 +734,14 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
             Ok(()) => {
                 let seal = Img::from_rows(&[".777...", "77777..", "77.77..", "77777..", ".777...", ".......", "......."]);
                 item(cv, &seal, &format!("CLAIM {}G", deed.price(false)), '6');
-                let crown = Img::from_rows(&["6.6.6..", "66666..", "66666..", ".......", "66666..", ".......", "......."]);
+                let crown = chrome::dusk_icon(&Img::from_rows(&["6.6.6..", "66666..", "66666..", ".......", "66666..", ".......", "......."]));
                 item(cv, &crown, &format!("FIEF {}G", deed.price(true)), 'O');
             }
             Err(why) => item(cv, &Img::new(0, 7), why, 'G'),
         },
     }
     if let Some(word) = crate::rules::crown::favour_word(h) {
-        cv.text(bx + bw - 6 - text_width(word), y, word, if h.favour > 0 { '6' } else { '7' });
+        cv.text(bx + bw - 6 - text_width(word), y, word, if h.favour > 0 { 'O' } else { '7' });
     }
     cross_section(cv, x0 - 2, by + 26, deed, held, tick_of(run));
 }
@@ -830,7 +831,7 @@ fn ledger(cv: &mut Img, h: &holdings::Holdings) {
         let hot = op == Op::Errors && value >= holdings::RESTLESS;
         cv.text(lx + 12, y, op.word(), if hot { '7' } else { 'O' });
         let n = value.to_string();
-        cv.text(lx + lw - 3 - text_width(&n), y, &n, if hot { '7' } else { '9' });
+        cv.text(lx + lw - 3 - text_width(&n), y, &n, if hot { '7' } else { 'i' });
         cv.text(lx + 12, y + 8, op.source(), 'G');
     }
 }
@@ -1223,6 +1224,7 @@ pub(super) fn herald(
     origin: (i32, i32),
     focus: Option<u32>,
     legible: bool,
+    stood: bool,
 ) -> Vec<(i32, i32, i32, i32)> {
     use crate::rules::crown::{self, CARDS};
     let mut taken = Vec::new();
@@ -1246,7 +1248,10 @@ pub(super) fn herald(
         let (px, py) = feet(p);
         let lit = on == Some(pick);
         let im = post_art(pick, lit);
-        over.stamp(&im, px - im.w / 2, py - im.h);
+        // In 3D the posts stand up as blocks (`world3d::lots`).
+        if !stood {
+            over.stamp(&im, px - im.w / 2, py - im.h);
+        }
         taken.push((px - im.w / 2, py - im.h, im.w, im.h));
     }
     let im = herald_art(tick);
@@ -1272,7 +1277,7 @@ pub(super) fn herald(
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let bh = lines.len() as i32 * 9 + 6;
     let (cx, cy) = ((x - w / 2).clamp(2, NATIVE_W - w - 2), y - im.h - bh - 4);
-    chrome::panel(over, (cx, cy, w, bh), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
+    chrome::panel(over, (cx, cy, w, bh), chrome::Tone::FRAMED);
     for (i, (text, ink)) in lines.iter().enumerate() {
         over.text(cx + (w - text_width(text)) / 2, cy + 4 + i as i32 * 9, text, *ink);
     }
@@ -1297,7 +1302,7 @@ pub(super) fn herald(
         let lx = lx.clamp(2, NATIVE_W - lw - 2);
         chrome::chip(over, (lx, py + 2, lw, lh));
         for (i, (text, ink)) in rows.iter().enumerate() {
-            over.text(lx + 2, py + 3 + i as i32 * 9, text, *ink);
+            over.text(lx + 2, py + 3 + i as i32 * 9, text, chrome::dusk_mark(*ink));
         }
         taken.push((lx, py + 2, lw, lh));
     }

@@ -4019,7 +4019,7 @@ fn prober_step_corrects_unproven_seed_but_holds_confirmed() {
 
 #[test]
 fn retryable_statuses_are_transient_only() {
-    for code in [408, 425, 429, 500, 502, 503, 504] {
+    for code in [408, 425, 429, 500, 502, 503, 504, 529] {
         assert!(is_retryable_status(code), "{code} should retry");
     }
     for code in [200, 400, 401, 403, 404, 409, 422, 501] {

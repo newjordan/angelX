@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.hellforge-fuel-reeve.projectile/v01/source-sheet.png",
+  "source_sha256": "7f1ae4172c5ca5a7ee3a828034ed1c4bbf18e861abe13c785181590e6a385cef",
+  "original_sheet_sha256": "7f1ae4172c5ca5a7ee3a828034ed1c4bbf18e861abe13c785181590e6a385cef",
+  "metadata_sha256": "0bc6c5218f1d5fd57dbc6d4ad9adfc0ea1a3d60a65c112a0541de7b918c26031",
+  "size": [
+    1447,
+    1087
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        53,
+        134,
+        286,
+        165
+      ],
+      "alpha_area": 27597,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "cbb70dbbfcd68d978b9a13767cc314313a9194e0f28efed0a3546c160a952a4f"
+    },
+    {
+      "source_rect_xywh": [
+        418,
+        105,
+        269,
+        198
+      ],
+      "alpha_area": 29023,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "01662efee1ac842dbad0d49aabcc4c62f8525f9c092e7b037595df2bf3b3a86f"
+    },
+    {
+      "source_rect_xywh": [
+        764,
+        125,
+        285,
+        183
+      ],
+      "alpha_area": 29060,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "87ce8402d46370670e6bc4aac86e7b050b4c1dadaaa8c0d2e03291d46f27fa1d"
+    },
+    {
+      "source_rect_xywh": [
+        1115,
+        125,
+        287,
+        178
+      ],
+      "alpha_area": 27685,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "2733cc038b256367cdd828d0e7459ecc7f785cc790a393e35c7f4d122ca44dc7"
+    },
+    {
+      "source_rect_xywh": [
+        76,
+        496,
+        207,
+        117
+      ],
+      "alpha_area": 13529,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "ebfcd50f8a1d7ae881663851d8fe12bd61ccead020d8b5d828f912f8ab111387"
+    },
+    {
+      "source_rect_xywh": [
+        418,
+        454,
+        250,
+        183
+      ],
+      "alpha_area": 27222,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "830ba9b52874eb61471165d7471dbd16758821e8210c1ff43b82a4133c4531f4"
+    },
+    {
+      "source_rect_xywh": [
+        768,
+        436,
+        285,
+        221
+      ],
+      "alpha_area": 40348,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "174bf95cbcc6a43a401879360f1bb7fe8b58d5eda7a561c27443120443111cd5"
+    },
+    {
+      "source_rect_xywh": [
+        1152,
+        468,
+        242,
+        159
+      ],
+      "alpha_area": 18466,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "64b20d3f3a00653cf19826653a0d6fca036bd883f618c3e350e0248e69be73e6"
+    },
+    {
+      "source_rect_xywh": [
+        46,
+        818,
+        293,
+        140
+      ],
+      "alpha_area": 22754,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "41844f69d65777fac870d6e08d4714f806e28fd10647c264684bc51b233208af"
+    },
+    {
+      "source_rect_xywh": [
+        403,
+        821,
+        288,
+        148
+      ],
+      "alpha_area": 22615,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "6d958a929409ae48f8ab869d0ed4c4f4a584b61eb2cc69e473824b762e89eed9"
+    },
+    {
+      "source_rect_xywh": [
+        772,
+        821,
+        263,
+        157
+      ],
+      "alpha_area": 19690,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "d8d11fadc1b6ee76932929eb2d0ce20a8c98cc7a75e32847090521d1555397fe"
+    },
+    {
+      "source_rect_xywh": [
+        1173,
+        836,
+        201,
+        109
+      ],
+      "alpha_area": 4212,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "ccbf5566947ebe0a92601804c5d257c2a323f5fa7ec77577b90e128862fa5d26"
+    }
+  ]
+}

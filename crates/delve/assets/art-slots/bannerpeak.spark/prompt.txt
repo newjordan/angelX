@@ -1,0 +1,23 @@
+ART DIRECTION (verbatim from the Codex art team's boss-library prompts; keep it in every image prompt):
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+
+SHEET RULES (verbatim):
+ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+
+Create the game asset sheet for Gold Spark, one original friendly collectible prop, in hand-clustered painterly pixel-art style. Sheet is exactly 1536x1024 with real transparent background. Grid 4 columns x 2 rows, cell size 384x512. Reading order: top row cells 1-4, then bottom row cells 5-7; bottom-right cell 8 completely empty and transparent. Exactly seven separate drawings, one centered drawing per used cell, same approximately 280x280 square drawing box, same scale and center in every cell, with ample transparent margins. Nothing else on sheet.
+
+Identity and shape: a chunky, friendly EIGHT-POINTED STAR, four long rounded points up/down/left/right and four shorter diagonal points, small round center. Warm gold-amber body, about 60-75% value; pale cream-amber core is brightest at about 85% value, never pure white. Darker amber facet on lower-right side of each point. Thick continuous dark warm-brown outline about 1/12 of star height, bold enough to survive as one native pixel. Big flat clean shapes, six or fewer color masses per drawing, no texture, no fine detail. No glow, halo, rays, extra sparkle dots, cast shadow, floor, ground, sky, background, or soft fringe. Design for reduction to 12x12 pixels. No words or lettering.
+
+Seven different frames of the SAME star asset, in this exact reading order:
+1 bob-0: upright star, long points straight.
+2 bob-1: star turned 12 degrees clockwise; long points slightly longer, breathing out; center core slightly larger.
+3 bob-2: upright again; points slightly shorter, overall star about 90% size; core smaller.
+4 bob-3: turned 12 degrees anticlockwise; long points slightly longer, breathing out; core slightly larger.
+5 take-0: star flared to fill its picture box; bigger cream core and slimmer sharper points, a brief flash, still no external rays/glow.
+6 take-1: exactly eight small chunky outlined amber diamond shards in a ring around an empty center, placed up, up-right, right, down-right, down, down-left, left, up-left; ring about 100% of box, each shard about 1/6 box.
+7 take-2: same eight shards in same ring pattern, smaller (about 1/9 box), slightly farther out, dim amber-brown, no cream core.
+Only the star or shards change as specified; consistent outline, palette and style.
+
+Camera: pure side-view profile elevation, level with object, at most 5 degrees downward pitch; object faces right where relevant. No perspective, three-quarter, top-down or isometric view.
+
+Reference use: input image 1 is layout and quality reference; input image 2 is knight anatomy reference; input image 3 is props/VFX reference. These three are STYLE ONLY; do not copy their characters, costumes, heraldry or props. Input image 4 supplies star identity and color only; redraw flat-shaded, outlined with no glow, halo or dots. Input image 5 supplies the accepted lantern sheet's chunky outline/material treatment only. Do not reproduce its lantern.

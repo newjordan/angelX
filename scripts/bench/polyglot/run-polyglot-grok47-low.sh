@@ -6,8 +6,8 @@
 # The agent itself only sees the proxy secret, on the grok-api HTTP seat.
 set -euo pipefail
 
-RR=/home/frosty40/angel_tests/angelX-bench/polyglot-20260921
-WS=/home/frosty40/angelX
+RR=~/angel_tests/angelX-bench/polyglot-20260921
+WS=$(cd "$(dirname "$0")/../../.." && pwd)
 CFG=$RR/configs/grok-4.7-low.toml
 KEY_VAR=XAI_API_KEY
 ANGEL_ROUTE=grok-direct
@@ -194,12 +194,12 @@ printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/grok-angelx-current-run.txt"
 
 echo "cell model=grok-4.7 effort=low harness=angelx seed=$SEED n=$N wall=${WALL_SECS}s bin=$ANGEL_BIN out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=/home/frosty40 USER=frosty40 LOGNAME=frosty40 LANG=C.UTF-8 TERM=dumb \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb \
   PATH="$AGENT_PATH" \
   "$KEY_VAR=$KEY_VALUE" \
   PRIME_AGENT_ISOLATION=fresh-home \
   PRIME_AGENT_PATH="$AGENT_PATH" \
-  PRIME_REAL_HOME=/home/frosty40 \
+  PRIME_REAL_HOME=~ \
   PRIME_AGENT_WALL_SECS=$WALL_SECS \
   PRIME_AGENT_GRADE_ANY_EXIT=1 \
   "$RR/prime_v1/.venv/bin/eval" angel-action-v1 @ "$CFG" \

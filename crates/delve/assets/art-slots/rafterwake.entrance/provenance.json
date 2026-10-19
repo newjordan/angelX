@@ -1,0 +1,19 @@
+{
+  "delivery": "rafterwake.entrance.room-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "347c5d6cbab767d6989295fc5a2e5e5e4edf5beaffb876e9d84246eb1de332df",
+  "native_contract": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "prepared_sha256": "25d2aa582fb1f9ac10ef79de05280fdd1f47ab6e3737f4061d41c9c60d061a68",
+  "recipe_sha256": "34a18f3cf0cff8feb39074e11b0ca483070be7834e57a341d067866964054bb5",
+  "source_path": "/work/artifacts/art-prod/slots/rafterwake.entrance.room-1/v01/source-sheet.png",
+  "source_sha256": "981cb5da1120afbe27f2ae6fbc383ca5d6c3411f3beff2644a25574d4741a5bf"
+}

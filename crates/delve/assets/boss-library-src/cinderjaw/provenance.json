@@ -1,0 +1,78 @@
+{
+  "id": "cinderjaw",
+  "source_path": "./cockpit/assets/boss-library/existing/cinderjaw/v01/source-sheet-refined.png",
+  "source_sha256": "eebe52afd898f8a3f8ee0d358f74bc0cef1726503b14a448892e228b806f58ab",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "A timber-and-iron furnace GOLEM, not a locomotive. Thick splintered oak beam torso held by dark iron straps, huge hinged iron lower jaw chewing orange coals, broad iron brow with tiny amber slit eyes, short stacked log legs in iron boots, giant blocky smith mitts. Central furnace fire behind a belly grate, soot and brass rivets. Squat top-heavy grumpy working-machine appeal.",
+  "definition_header": "name CINDERJAW\ntext A timber-and-iron golem still chewing the first furnace fire.\nby Muse\nwhere mines\nhp 750\nsize 1.6\nmove chase speed=1.1\nattack fan shots=5 arc=55 speed=5 every=95 damage=12 shot=ember\nattack spiral shots=2 speed=4 every=20 damage=8 shot=ember\nphases lead bounce mines every=91 volleys=2 damage=12\nrage 30%\ndrops ore 5, gem 3, gold 210",
+  "definition_sha256": "d6ec0fcc0a67f9f9a5d93425112b637f37fe78dc5c14465addd01214c5adac81",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        47,
+        167,
+        260,
+        250
+      ],
+      "opaque_component_pixels": 42557,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "8788321f709c4f1fcccd8bb325f0a6c2d745c732237d26046a791ca6e5ebd123"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        368,
+        166,
+        243,
+        249
+      ],
+      "opaque_component_pixels": 38988,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "98dc13260e422f6a43f90e73f088c90e741775baa3ed071bdc5049e6d405ac90"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        683,
+        181,
+        204,
+        245
+      ],
+      "opaque_component_pixels": 35687,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "35b79b049af74f8eb7c23474d931eca4e55956925db755dc0c9787d1e9d5ae21"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        981,
+        182,
+        244,
+        244
+      ],
+      "opaque_component_pixels": 37967,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "466250a7c672e57fc19fca45e9fb58a2df0d3d97896d019fc2212d474dfc7408"
+    }
+  ]
+}

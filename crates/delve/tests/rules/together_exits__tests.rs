@@ -136,7 +136,7 @@ fn together_exits_every_surface_and_home_mode_before_and_during_combat() {
 fn together_exits_all_fifteen_pastimes_including_every_3d_stage() {
     for game in pastimes::Game::ALL {
         for seat in 1..=MAX_PLAYERS {
-            let mut r = surface(4);
+            let mut r = surface(MAX_PLAYERS);
             visit(&mut r, game.room());
             let start = game.start();
             for (&id, h) in &mut r.players {
@@ -159,8 +159,15 @@ fn together_exits_all_fifteen_pastimes_including_every_3d_stage() {
             leave(&mut r, seat);
             assert!(r.exits.outside.contains_key(&seat), "{game:?} seat {seat}");
             assert!(clock(&r).unwrap() < left, "friends continue {game:?}");
+            // Out of a Colosseum arena is its entrance hall; out of any
+            // other game's place is the kingdom.
+            let out = if crate::rules::colosseum::is_arena(game.room()) {
+                RoomKind::ColosseumHall
+            } else {
+                RoomKind::Kingdom
+            };
             let view = r.view_for_seat(seat).unwrap();
-            assert_eq!(view.room().kind, RoomKind::Kingdom);
+            assert_eq!(view.room().kind, out);
             clean(&view);
             let hp = r.players[&seat].hp;
             for _ in 0..15 {
@@ -174,7 +181,7 @@ fn together_exits_all_fifteen_pastimes_including_every_3d_stage() {
                     leave(&mut r, other);
                 }
             }
-            assert_eq!(r.room().kind, RoomKind::Kingdom);
+            assert_eq!(r.room().kind, out);
             clean(&r);
             visit(&mut r, game.room());
             assert!(r.pastimes.round.is_none(), "clean re-entry {game:?}");
@@ -650,4 +657,25 @@ fn together_exits_physical_surface_door_leaves_only_the_knight_who_crosses_it() 
     leave(&mut r, 2);
     assert_eq!(r.room().kind, RoomKind::Kingdom);
     clean(&r);
+}
+
+#[path = "escape_hold__tests.rs"]
+mod escape_hold;
+
+#[test]
+fn a_knight_past_the_rooms_edge_still_leaves_a_valid_way_back() {
+    // On the play box a race's track left knights at a negative x; the way
+    // back recorded from there made every snapshot invalid, so every page
+    // refused the run and the save did not come back.
+    let mut r = surface(3);
+    let n = r.dungeon.rooms.len();
+    let next = (0..n).find(|&i| i != r.at).unwrap();
+    r.race3d_room = Some(next);
+    r.players.get_mut(&2).unwrap().x = -0.74;
+    r.players.get_mut(&3).unwrap().y = 9999.0;
+    r.remember_activity_entry(next);
+    let entry = r.exits.entry.clone().expect("the way back is kept");
+    assert!(entry.party.values().all(|&(x, y)| x >= 0.0 && y >= 0.0 && x.is_finite() && y.is_finite()), "{entry:?}");
+    assert!(r.exits.valid(n));
+    assert!(crate::wire::drawable(&r), "a page can draw it");
 }

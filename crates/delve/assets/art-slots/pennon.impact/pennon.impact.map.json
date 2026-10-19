@@ -1,0 +1,268 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    32
+  ],
+  "anchor_xy": [
+    24,
+    16
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer.",
+    "Shared source scale preserves growth/fade; ground effects share the original stamp bottom, impact stays centred. Attack decoration is clipped to rule danger."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Decorative output of swept contacts; adds no splash damage. Solid effect stamps mask braille details behind them.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "093d3a67b58dc052620cc8e0ee26485052704279c390f72bfc995909ead4fc5f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Standard impact \u2014 compact growing amber burst.",
+      "name": "fx-impact-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        83.5,
+        82.5
+      ],
+      "source_rect_xywh": [
+        80,
+        189,
+        167,
+        165
+      ],
+      "state": "impact"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Standard impact \u2014 largest peak star.",
+      "name": "fx-impact-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        340,
+        129,
+        264,
+        259
+      ],
+      "state": "impact"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Standard impact \u2014 fragments flare outward.",
+      "name": "fx-impact-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        118.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        668,
+        134,
+        237,
+        263
+      ],
+      "state": "impact"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Standard impact \u2014 scattered, fading sparks.",
+      "name": "fx-impact-3",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        106.5,
+        100.0
+      ],
+      "source_rect_xywh": [
+        994,
+        175,
+        213,
+        200
+      ],
+      "state": "impact"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Ward-break \u2014 angular fragments begin around a compact burst.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        82.5,
+        78.5
+      ],
+      "source_rect_xywh": [
+        75,
+        566,
+        165,
+        157
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Ward-break \u2014 largest cracked burst.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        137.5,
+        134.5
+      ],
+      "source_rect_xywh": [
+        339,
+        499,
+        275,
+        269
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Ward-break \u2014 fragments spread from the center.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        136.0
+      ],
+      "source_rect_xywh": [
+        668,
+        502,
+        251,
+        272
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Ward-break \u2014 sparse fading debris and glow points.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        88.5,
+        90.5
+      ],
+      "source_rect_xywh": [
+        1016,
+        555,
+        177,
+        181
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Pickup contact \u2014 initial burst with a small glint.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        75.5,
+        78.5
+      ],
+      "source_rect_xywh": [
+        97,
+        928,
+        151,
+        157
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Pickup contact \u2014 largest burst and glint.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.0,
+        114.0
+      ],
+      "source_rect_xywh": [
+        353,
+        882,
+        250,
+        228
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Pickup contact \u2014 burst breaks into scattered glints.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.5,
+        124.5
+      ],
+      "source_rect_xywh": [
+        679,
+        875,
+        245,
+        249
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Pickup contact \u2014 sparse final glint and debris.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        80.5,
+        93.0
+      ],
+      "source_rect_xywh": [
+        1031,
+        918,
+        161,
+        186
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "48\u00d732, centre (24,16) at effect position; actor hits store contact at (foe x,FLOOR\u221230).",
+  "sizes": {
+    "v1": [
+      48,
+      32
+    ],
+    "v2": [
+      48,
+      32
+    ]
+  },
+  "slot": "pennon.impact",
+  "source_sha256": "be660a469a9c923a7b212d28eec52f920d37bd6088d87e4ce907ae04fd547e76",
+  "timing": "Four frames, 3 ticks each over effect=12; freeze=2 can hold. Used when effect_y<FLOOR (Lane::burst, draw())."
+}

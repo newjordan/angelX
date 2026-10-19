@@ -33,6 +33,13 @@ pub fn fight_with(hired: bool, hand: &[&str]) -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
+    // An open room: whatever stone or pits the floor gave it, cleared.
+    let open = &mut run.dungeon.rooms[room];
+    for row in 1..open.rows - 1 {
+        for col in 1..open.cols - 1 {
+            open.set(col, row, Tile::Floor);
+        }
+    }
     run.enter_for_test(room);
     run.calm_for_test();
     run.enemies.clear();

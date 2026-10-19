@@ -1,0 +1,21 @@
+# The Old Watch: the broken watchtower stump on the back edge with its dark
+# doorway and a tattered flag, ruined curtain wall running east and a
+# broken turret.
+cylinder stone   at 128 0 -9 size 50 48 50 id ruins-tower
+box      stone   at 108 48 8 size 12 12 10 id ruins-crenel-1
+box      stone   at 128 48 11 size 14 4 8 id ruins-crenel-2
+box      stone   at 150 48 6 size 12 18 12 id ruins-crenel-3
+box      stone   at 132 48 -20 size 22 12 10 id ruins-crenel-4
+arch-6   stone   at 128 0 12 size 22 26 8 id ruins-doorway
+box      door    at 128 0 15.7 size 12 17 1.4 id ruins-door
+blob-4   foliage at 148 14 5 size 20 24 14 id ruins-ivy
+cylinder wood    at 108 48 -8 size 2.5 22 2.5 id ruins-flagpole
+box      cloth   at 116 62 -8 size 14 8 1 id ruins-flag
+box      stone   at 238 0 13 size 46 30 6 id ruins-wall-1
+box      stone   at 270 30 13 size 12 8 6 id ruins-wall-1-top
+box      stone   at 286 0 13 size 20 44 6 id ruins-wall-2
+box      stone   at 280 44 13 size 8 8 6 id ruins-wall-2-top
+cylinder stone   at 336 0 0 size 36 40 32 id ruins-turret
+box      stone   at 326 40 6 size 12 8 8 id ruins-turret-crenel
+box      stone   at 348 40 0 size 10 16 12 id ruins-turret-crenel-2
+box      stone   at 316 0 13 size 14 20 6 id ruins-wall-3

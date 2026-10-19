@@ -5,7 +5,8 @@ where fungal
 hp 900
 size 1.6
 move drift speed=0
-phases flower weave every=38 volleys=1 damage=10 shot=spore
+phases flower weave every=60 volleys=1 damage=10 shot=spore from=open
+attack burst every=45 damage=10 shot=spore from=rage
 rage 40%
 drops ore 6, gem 4, gold 280
 art

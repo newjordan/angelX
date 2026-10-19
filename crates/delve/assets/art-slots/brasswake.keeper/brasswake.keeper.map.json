@@ -1,0 +1,840 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    80
+  ],
+  "anchor_xy": [
+    40,
+    80
+  ],
+  "comments": [
+    "Review: row 1 is idle/slam tell/slam/recover; row 2 rush tell/rush/walk1/walk2; row3 flinch/damage1/damage2/defeat. Native cleanup removes detached steam/specks and puddles; original legacy face sockets are not painted onto this design.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained.",
+    "Registration correction: centre each complete crop horizontally and keep one shared actor scale/feet baseline; alpha-foot averages were biased by extended boots, splashes and detached specks."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 11,
+  "geometry": "Foe::danger: rush 96\u00d720 spanning x to x+dir\u00d796,y\u221210; slam 48\u00d728 at (x+dir\u00d728\u221224,y\u221214). Lane::step_at clips to wave boundaries. Hits test knight feet; art must not enlarge these marks.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "5baabb007b130c2a9c9ab99b69efda8229061a9ade79a17b3151e9c6898fb0f3",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle, upright brewer with relaxed twin ladles.",
+      "name": "keeper-idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.0,
+        267
+      ],
+      "source_rect_xywh": [
+        32,
+        148,
+        264,
+        267
+      ],
+      "state": "keeper-idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Slam windup, one ladle raised overhead.",
+      "name": "keeper-slam-tell",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        326
+      ],
+      "source_rect_xywh": [
+        359,
+        92,
+        225,
+        326
+      ],
+      "state": "keeper-slam-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Slam action, low planted swing with steam/splash at impact.",
+      "name": "keeper-slam",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        147.5,
+        247
+      ],
+      "source_rect_xywh": [
+        653,
+        177,
+        295,
+        247
+      ],
+      "state": "keeper-slam"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Slam recovery, upright settling stance with small low steam.",
+      "name": "keeper-recover",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        125.5,
+        240
+      ],
+      "source_rect_xywh": [
+        977,
+        178,
+        251,
+        240
+      ],
+      "state": "keeper-recover"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Rush windup, leaning forward with both ladles swept back.",
+      "name": "keeper-rush-tell",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.5,
+        217
+      ],
+      "source_rect_xywh": [
+        28,
+        572,
+        267,
+        217
+      ],
+      "state": "keeper-rush-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Rush action, low forward lunge with ground-level steam.",
+      "name": "keeper-rush",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        140.0,
+        218
+      ],
+      "source_rect_xywh": [
+        335,
+        571,
+        280,
+        218
+      ],
+      "state": "keeper-rush"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Walk/step 1, compact rightward step.",
+      "name": "keeper-walk-1",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        136.0,
+        256
+      ],
+      "source_rect_xywh": [
+        665,
+        535,
+        272,
+        256
+      ],
+      "state": "keeper-walk-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Walk/step 2, opposite leg lifted in the next step.",
+      "name": "keeper-walk-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.5,
+        238
+      ],
+      "source_rect_xywh": [
+        972,
+        559,
+        265,
+        238
+      ],
+      "state": "keeper-walk-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Hit flinch, recoiling with raised ladle and startled lens effects.",
+      "name": "keeper-flinch",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.5,
+        267
+      ],
+      "source_rect_xywh": [
+        43,
+        888,
+        261,
+        267
+      ],
+      "state": "keeper-flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 1, leaking/steaming seam while retaining the same build.",
+      "name": "keeper-damage-1",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.5,
+        252
+      ],
+      "source_rect_xywh": [
+        371,
+        899,
+        241,
+        252
+      ],
+      "state": "keeper-damage-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 2, staggered body with a visibly cracked teal lens.",
+      "name": "keeper-damage-2",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        125.5,
+        231
+      ],
+      "source_rect_xywh": [
+        659,
+        920,
+        251,
+        231
+      ],
+      "state": "keeper-damage-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Defeat, toppled on its side and inert.",
+      "name": "keeper-defeat",
+      "piece": 11,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        217
+      ],
+      "source_rect_xywh": [
+        953,
+        953,
+        271,
+        217
+      ],
+      "state": "keeper-defeat"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "runtime_cleanup": {
+    "keeper-damage-1": {
+      "erase_runs": []
+    },
+    "keeper-damage-2": {
+      "erase_runs": []
+    },
+    "keeper-defeat": {
+      "erase_runs": [
+        [
+          70,
+          46,
+          1
+        ],
+        [
+          71,
+          45,
+          1
+        ]
+      ]
+    },
+    "keeper-flinch": {
+      "erase_runs": []
+    },
+    "keeper-idle": {
+      "erase_runs": []
+    },
+    "keeper-recover": {
+      "erase_runs": [
+        [
+          73,
+          53,
+          2
+        ],
+        [
+          74,
+          52,
+          5
+        ],
+        [
+          75,
+          51,
+          6
+        ],
+        [
+          75,
+          60,
+          4
+        ],
+        [
+          76,
+          51,
+          4
+        ],
+        [
+          76,
+          56,
+          2
+        ],
+        [
+          76,
+          59,
+          4
+        ],
+        [
+          77,
+          50,
+          5
+        ],
+        [
+          77,
+          56,
+          3
+        ],
+        [
+          77,
+          60,
+          4
+        ],
+        [
+          78,
+          51,
+          7
+        ],
+        [
+          78,
+          59,
+          4
+        ]
+      ]
+    },
+    "keeper-rush": {
+      "erase_runs": [
+        [
+          69,
+          8,
+          5
+        ],
+        [
+          69,
+          18,
+          3
+        ],
+        [
+          69,
+          22,
+          2
+        ],
+        [
+          70,
+          8,
+          5
+        ],
+        [
+          70,
+          16,
+          8
+        ],
+        [
+          70,
+          35,
+          1
+        ],
+        [
+          70,
+          37,
+          1
+        ],
+        [
+          71,
+          8,
+          2
+        ],
+        [
+          71,
+          11,
+          2
+        ],
+        [
+          71,
+          17,
+          1
+        ],
+        [
+          71,
+          20,
+          7
+        ],
+        [
+          71,
+          34,
+          5
+        ],
+        [
+          71,
+          41,
+          1
+        ],
+        [
+          71,
+          43,
+          1
+        ],
+        [
+          72,
+          8,
+          5
+        ],
+        [
+          72,
+          17,
+          1
+        ],
+        [
+          72,
+          20,
+          8
+        ],
+        [
+          72,
+          33,
+          7
+        ],
+        [
+          72,
+          41,
+          3
+        ],
+        [
+          73,
+          9,
+          1
+        ],
+        [
+          73,
+          11,
+          4
+        ],
+        [
+          73,
+          18,
+          10
+        ],
+        [
+          73,
+          33,
+          6
+        ],
+        [
+          73,
+          40,
+          5
+        ],
+        [
+          73,
+          47,
+          3
+        ],
+        [
+          74,
+          12,
+          1
+        ],
+        [
+          74,
+          14,
+          2
+        ],
+        [
+          74,
+          17,
+          11
+        ],
+        [
+          74,
+          32,
+          3
+        ],
+        [
+          74,
+          36,
+          9
+        ],
+        [
+          74,
+          48,
+          1
+        ],
+        [
+          75,
+          12,
+          1
+        ],
+        [
+          75,
+          14,
+          2
+        ],
+        [
+          75,
+          17,
+          12
+        ],
+        [
+          75,
+          33,
+          2
+        ],
+        [
+          75,
+          36,
+          4
+        ],
+        [
+          75,
+          41,
+          6
+        ],
+        [
+          75,
+          49,
+          4
+        ],
+        [
+          76,
+          10,
+          1
+        ],
+        [
+          76,
+          12,
+          5
+        ],
+        [
+          76,
+          18,
+          13
+        ],
+        [
+          76,
+          33,
+          5
+        ],
+        [
+          76,
+          39,
+          9
+        ],
+        [
+          76,
+          49,
+          5
+        ],
+        [
+          77,
+          10,
+          6
+        ],
+        [
+          77,
+          18,
+          1
+        ],
+        [
+          77,
+          21,
+          2
+        ],
+        [
+          77,
+          24,
+          4
+        ],
+        [
+          77,
+          29,
+          3
+        ],
+        [
+          77,
+          33,
+          3
+        ],
+        [
+          77,
+          39,
+          4
+        ],
+        [
+          77,
+          45,
+          6
+        ],
+        [
+          77,
+          52,
+          4
+        ],
+        [
+          78,
+          22,
+          3
+        ],
+        [
+          78,
+          26,
+          5
+        ],
+        [
+          78,
+          36,
+          4
+        ],
+        [
+          78,
+          41,
+          3
+        ],
+        [
+          78,
+          45,
+          10
+        ],
+        [
+          78,
+          56,
+          1
+        ],
+        [
+          79,
+          43,
+          3
+        ]
+      ]
+    },
+    "keeper-rush-tell": {
+      "erase_runs": []
+    },
+    "keeper-slam": {
+      "erase_runs": [
+        [
+          69,
+          71,
+          3
+        ],
+        [
+          70,
+          49,
+          1
+        ],
+        [
+          70,
+          70,
+          1
+        ],
+        [
+          70,
+          72,
+          2
+        ],
+        [
+          71,
+          70,
+          4
+        ],
+        [
+          72,
+          49,
+          2
+        ],
+        [
+          72,
+          62,
+          3
+        ],
+        [
+          72,
+          70,
+          2
+        ],
+        [
+          73,
+          48,
+          5
+        ],
+        [
+          73,
+          60,
+          6
+        ],
+        [
+          73,
+          69,
+          2
+        ],
+        [
+          73,
+          72,
+          1
+        ],
+        [
+          74,
+          49,
+          4
+        ],
+        [
+          74,
+          60,
+          6
+        ],
+        [
+          74,
+          69,
+          4
+        ],
+        [
+          75,
+          47,
+          7
+        ],
+        [
+          75,
+          58,
+          3
+        ],
+        [
+          75,
+          63,
+          3
+        ],
+        [
+          75,
+          69,
+          3
+        ],
+        [
+          76,
+          48,
+          7
+        ],
+        [
+          76,
+          57,
+          5
+        ],
+        [
+          76,
+          63,
+          4
+        ],
+        [
+          76,
+          69,
+          4
+        ],
+        [
+          77,
+          49,
+          2
+        ],
+        [
+          77,
+          52,
+          3
+        ],
+        [
+          77,
+          57,
+          1
+        ],
+        [
+          77,
+          60,
+          5
+        ],
+        [
+          77,
+          66,
+          1
+        ],
+        [
+          77,
+          69,
+          3
+        ],
+        [
+          78,
+          56,
+          3
+        ],
+        [
+          78,
+          62,
+          2
+        ],
+        [
+          78,
+          66,
+          1
+        ]
+      ]
+    },
+    "keeper-slam-tell": {
+      "erase_runs": []
+    },
+    "keeper-walk-1": {
+      "erase_runs": []
+    },
+    "keeper-walk-2": {
+      "erase_runs": []
+    }
+  },
+  "schema_version": 1,
+  "size_basis": "80\u00d780; canvas foot pivot (40,80), top-left (screen x\u221240,screen y\u221280). Report occupied height 74 px; do not substitute the older ART.md 64 px cell. Per-pose face anchors in anchors.json keeper[].",
+  "sizes": {
+    "v1": [
+      80,
+      80
+    ],
+    "v2": [
+      80,
+      80
+    ]
+  },
+  "slot": "brasswake.keeper",
+  "source_sha256": "b0e49e978858d38f3fde2eaf0ebdde558891a8094eefcb1ca28bd2aad359beb1",
+  "timing": "Twelve source poses; walk 2 frames at 7 ticks each. Tell=max(brass_tell\u22123\u00d7stage,23)=27/24/23; action=9; rest=42/35/28. Flinch=10 after punch. Stage thresholds hp<=21 and <=10 from full 32. Recover file loaded but Rest selects idle/damage, not recover (Foe::stage/step, draw())."
+}

@@ -1,0 +1,538 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "piece-count mismatch"
+  ],
+  "map_sha256": "e37d3cdfe7e6b623edefe6e9841d0662909583174b2a7497351aa263757a689c",
+  "metadata_sha256": "72cf607b5f0c8f3d40c27e99aac96ddbe125e3e43c08066ec3ebee24ac5806c0",
+  "notes_sha256": "14874419473027be0a808fcc21768103392803f6f8a04f623f2257dda2d919df",
+  "outputs": {
+    "v1/cough-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9882,
+      "frame": 2,
+      "half_cell_coverage": 114,
+      "opaque_pixels": 1528,
+      "piece": 2,
+      "sha256": "9132a170f82b8ca88504c6621c6aa960726cc71ba9f55c9b4445dac24546fd76",
+      "source_scale": 0.182648401826484,
+      "state": "cough-1"
+    },
+    "v1/cough-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9895,
+      "frame": 5,
+      "half_cell_coverage": 141,
+      "opaque_pixels": 1913,
+      "piece": 5,
+      "sha256": "b52e13c99cf5a2e0f4601d82c328cb2c274d1987299a363be8d311c2101529c7",
+      "source_scale": 0.182648401826484,
+      "state": "cough-2"
+    },
+    "v1/crock-crack-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9721,
+      "frame": 9,
+      "half_cell_coverage": 113,
+      "opaque_pixels": 1614,
+      "piece": 9,
+      "sha256": "82807631cf03076ee848af6c56ad5bc6000a08d708265fe155fbea931f94cb3d",
+      "source_scale": 0.182648401826484,
+      "state": "crock-crack-1"
+    },
+    "v1/crock-crack-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9791,
+      "frame": 10,
+      "half_cell_coverage": 113,
+      "opaque_pixels": 1531,
+      "piece": 10,
+      "sha256": "9e552d6eae62b5df903ba5cb5e48fa2e1eb678e50f099845c6db1cde71de7b90",
+      "source_scale": 0.182648401826484,
+      "state": "crock-crack-2"
+    },
+    "v1/crock.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.973,
+      "frame": 0,
+      "half_cell_coverage": 98,
+      "opaque_pixels": 1372,
+      "piece": 0,
+      "sha256": "c4dec05748eb85480ea15feb0551093c9caac6cd9560ca1132e4ed088d515aed",
+      "source_scale": 0.182648401826484,
+      "state": "crock"
+    },
+    "v1/defeat.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9793,
+      "frame": 11,
+      "half_cell_coverage": 88,
+      "opaque_pixels": 1205,
+      "piece": 11,
+      "sha256": "012886e964d952ee9c458cfc3114ec250a5aa936ea967f6e28cac359d35b3dd2",
+      "source_scale": 0.182648401826484,
+      "state": "defeat"
+    },
+    "v1/flinch-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9856,
+      "frame": 8,
+      "half_cell_coverage": 106,
+      "opaque_pixels": 1457,
+      "piece": 8,
+      "sha256": "85371420b43fc73de3d3a836005ed6a73eb0e3063c3443c4b1e3afe832ed9853",
+      "source_scale": 0.182648401826484,
+      "state": "flinch-1"
+    },
+    "v1/recovery.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.988,
+      "frame": 3,
+      "half_cell_coverage": 79,
+      "opaque_pixels": 1079,
+      "piece": 3,
+      "sha256": "5fabac02fbc4d520fbb29dfb7747f1cf4c116686482192adfb5b51033a16c02c",
+      "source_scale": 0.182648401826484,
+      "state": "recovery"
+    },
+    "v1/step-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9832,
+      "frame": 6,
+      "half_cell_coverage": 102,
+      "opaque_pixels": 1371,
+      "piece": 6,
+      "sha256": "4787bb30bd965731e5031274d3fc090ad3dd00546348975e416c3aaa843566bc",
+      "source_scale": 0.182648401826484,
+      "state": "step-1"
+    },
+    "v1/step-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9795,
+      "frame": 7,
+      "half_cell_coverage": 84,
+      "opaque_pixels": 1222,
+      "piece": 7,
+      "sha256": "91362650b8c738e390ce9e35889266cec406fe33a3920085653d43e6f809579c",
+      "source_scale": 0.182648401826484,
+      "state": "step-2"
+    },
+    "v1/windup-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9685,
+      "frame": 1,
+      "half_cell_coverage": 103,
+      "opaque_pixels": 1461,
+      "piece": 1,
+      "sha256": "522d207cb22a109cd367a8bef6bf95ad0092abbf6f4bd68efc0ab5e8d1badc94",
+      "source_scale": 0.182648401826484,
+      "state": "windup-1"
+    },
+    "v1/windup-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9718,
+      "frame": 4,
+      "half_cell_coverage": 129,
+      "opaque_pixels": 1843,
+      "piece": 4,
+      "sha256": "b96e8b2fcd885be513d26825e983f5e452803e7dc8a0681444a9867c9e9b82c1",
+      "source_scale": 0.182648401826484,
+      "state": "windup-2"
+    },
+    "v2/cough-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9882,
+      "frame": 2,
+      "half_cell_coverage": 114,
+      "opaque_pixels": 1528,
+      "piece": 2,
+      "sha256": "9132a170f82b8ca88504c6621c6aa960726cc71ba9f55c9b4445dac24546fd76",
+      "source_scale": 0.182648401826484,
+      "state": "cough-1"
+    },
+    "v2/cough-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9895,
+      "frame": 5,
+      "half_cell_coverage": 141,
+      "opaque_pixels": 1913,
+      "piece": 5,
+      "sha256": "b52e13c99cf5a2e0f4601d82c328cb2c274d1987299a363be8d311c2101529c7",
+      "source_scale": 0.182648401826484,
+      "state": "cough-2"
+    },
+    "v2/crock-crack-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9721,
+      "frame": 9,
+      "half_cell_coverage": 113,
+      "opaque_pixels": 1614,
+      "piece": 9,
+      "sha256": "82807631cf03076ee848af6c56ad5bc6000a08d708265fe155fbea931f94cb3d",
+      "source_scale": 0.182648401826484,
+      "state": "crock-crack-1"
+    },
+    "v2/crock-crack-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9791,
+      "frame": 10,
+      "half_cell_coverage": 113,
+      "opaque_pixels": 1531,
+      "piece": 10,
+      "sha256": "9e552d6eae62b5df903ba5cb5e48fa2e1eb678e50f099845c6db1cde71de7b90",
+      "source_scale": 0.182648401826484,
+      "state": "crock-crack-2"
+    },
+    "v2/crock.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.973,
+      "frame": 0,
+      "half_cell_coverage": 98,
+      "opaque_pixels": 1372,
+      "piece": 0,
+      "sha256": "c4dec05748eb85480ea15feb0551093c9caac6cd9560ca1132e4ed088d515aed",
+      "source_scale": 0.182648401826484,
+      "state": "crock"
+    },
+    "v2/defeat.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9793,
+      "frame": 11,
+      "half_cell_coverage": 88,
+      "opaque_pixels": 1205,
+      "piece": 11,
+      "sha256": "012886e964d952ee9c458cfc3114ec250a5aa936ea967f6e28cac359d35b3dd2",
+      "source_scale": 0.182648401826484,
+      "state": "defeat"
+    },
+    "v2/flinch-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9856,
+      "frame": 8,
+      "half_cell_coverage": 106,
+      "opaque_pixels": 1457,
+      "piece": 8,
+      "sha256": "85371420b43fc73de3d3a836005ed6a73eb0e3063c3443c4b1e3afe832ed9853",
+      "source_scale": 0.182648401826484,
+      "state": "flinch-1"
+    },
+    "v2/recovery.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.988,
+      "frame": 3,
+      "half_cell_coverage": 79,
+      "opaque_pixels": 1079,
+      "piece": 3,
+      "sha256": "5fabac02fbc4d520fbb29dfb7747f1cf4c116686482192adfb5b51033a16c02c",
+      "source_scale": 0.182648401826484,
+      "state": "recovery"
+    },
+    "v2/step-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9832,
+      "frame": 6,
+      "half_cell_coverage": 102,
+      "opaque_pixels": 1371,
+      "piece": 6,
+      "sha256": "4787bb30bd965731e5031274d3fc090ad3dd00546348975e416c3aaa843566bc",
+      "source_scale": 0.182648401826484,
+      "state": "step-1"
+    },
+    "v2/step-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9795,
+      "frame": 7,
+      "half_cell_coverage": 84,
+      "opaque_pixels": 1222,
+      "piece": 7,
+      "sha256": "91362650b8c738e390ce9e35889266cec406fe33a3920085653d43e6f809579c",
+      "source_scale": 0.182648401826484,
+      "state": "step-2"
+    },
+    "v2/windup-1.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9685,
+      "frame": 1,
+      "half_cell_coverage": 103,
+      "opaque_pixels": 1461,
+      "piece": 1,
+      "sha256": "522d207cb22a109cd367a8bef6bf95ad0092abbf6f4bd68efc0ab5e8d1badc94",
+      "source_scale": 0.182648401826484,
+      "state": "windup-1"
+    },
+    "v2/windup-2.png": {
+      "anchor_xy": [
+        40,
+        80
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        80
+      ],
+      "colour_agreement": 0.9718,
+      "frame": 4,
+      "half_cell_coverage": 129,
+      "opaque_pixels": 1843,
+      "piece": 4,
+      "sha256": "b96e8b2fcd885be513d26825e983f5e452803e7dc8a0681444a9867c9e9b82c1",
+      "source_scale": 0.182648401826484,
+      "state": "windup-2"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-manual-map",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.crock",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.crock/source-sheet.png",
+  "source_sha256": "3f9418f9ea96436cff487c6545b0fc1e6c7f11ae59f46f627d1815bae9a31ff7",
+  "tool_version": 2
+}

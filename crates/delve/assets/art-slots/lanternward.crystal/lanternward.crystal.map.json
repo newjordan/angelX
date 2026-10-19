@@ -1,0 +1,138 @@
+{
+  "anchor_canvas_wh": [
+    10,
+    16
+  ],
+  "anchor_xy": [
+    5,
+    16
+  ],
+  "comments": [
+    "Registered as one bank on the plinth base: the source pivot x is the centre of the plinth in each crop, not the crop centre."
+  ],
+  "delivered_pieces": 5,
+  "expected_existing_pieces": 5,
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "mapping_basis": "Visual review of the delivered sheet (second generation, the file bound by SHA) and its measured crops, 2026-10-18. Reading order equals the request order: two dormant slate crystals with the glint left and right (dormant-0, dormant-1), three lit aqua crystals (lit-0..2).",
+  "notes_sha256": "f3991fe89eaee8d0216e9d56be592e52f23e347ad7c03062f07eaadde7bc5334",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "dormant-0 \u2014 cloudy slate-teal twin-spike quartz on a pale hexagonal plinth; pale glint at left.",
+      "name": "dormant-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        379
+      ],
+      "source_rect_xywh": [
+        150,
+        81,
+        269,
+        379
+      ],
+      "state": "dormant",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "dormant-1 \u2014 same dormant crystal and plinth; glint is on the right, lower.",
+      "name": "dormant-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        379
+      ],
+      "source_rect_xywh": [
+        654,
+        81,
+        266,
+        379
+      ],
+      "state": "dormant",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "lit-0 \u2014 bright aqua crystal, left facets brightest.",
+      "name": "lit-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        129.0,
+        379
+      ],
+      "source_rect_xywh": [
+        1158,
+        81,
+        262,
+        379
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "lit-1 \u2014 peak aqua state, taller pale core.",
+      "name": "lit-1",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        132.5,
+        381
+      ],
+      "source_rect_xywh": [
+        149,
+        561,
+        269,
+        381
+      ],
+      "state": "lit",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "lit-2 \u2014 bright aqua with right facets brightest.",
+      "name": "lit-2",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.5,
+        381
+      ],
+      "source_rect_xywh": [
+        654,
+        561,
+        266,
+        381
+      ],
+      "state": "lit",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 10x16, anchor bottom-centre (5,16); stage 384x224 at 16 px per tile; a knight is 16x16; a crystal switch is a pointed crystal on a stone plinth, one knight tall.",
+  "sizes": {
+    "v1": [
+      10,
+      16
+    ],
+    "v2": [
+      10,
+      16
+    ]
+  },
+  "slot": "lanternward.crystal",
+  "source_sha256": "facce1627165f33b8527bca8d694c96a1d33dc0001df5392856471284515cf5c",
+  "timing": "dormant 2x12 ticks; lit 3x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

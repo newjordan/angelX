@@ -1,0 +1,23 @@
+{
+  "fit": "native canvas 96x96, anchor centre (48,48); stage 384x224 at 16 px per tile; a knight is 12x20.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "turn-0",
+        "turn-1",
+        "turn-2",
+        "turn-3",
+        "turn-4",
+        "turn-5"
+      ],
+      "source_pose_count": 6,
+      "state": "turn"
+    }
+  ],
+  "game": "bannerpeak",
+  "geometry": "The rules own six 28 px bucket platforms at radius 40, one turn in 270 ticks, clockwise; art never moves a bucket or sets a hitbox.",
+  "id": "bannerpeak.wheel",
+  "role": "prop",
+  "timing": "turn 6x45 ticks (30 Hz). Durations are the rules' and live in assets/bannerpeak/slots.json."
+}

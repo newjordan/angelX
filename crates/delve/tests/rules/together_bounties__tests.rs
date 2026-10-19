@@ -55,13 +55,12 @@ fn kills_and_moments_count_toward_the_board() {
     let done = home.work_bounties(
         &marks(&[(&slay_mark(EnemyKind::Skeleton), 3), ("cue:flawless", 1)]),
         1,
-        0,
     );
     assert!(done.is_empty());
     let have: Vec<u32> = home.bounties.iter().map(|p| p.have).collect();
     assert_eq!(have, [23, 1, 0]);
     // The last two skeletons: paid, and off the board.
-    let done = home.work_bounties(&marks(&[(&slay_mark(EnemyKind::Skeleton), 5)]), 1, 0);
+    let done = home.work_bounties(&marks(&[(&slay_mark(EnemyKind::Skeleton), 5)]), 1);
     assert_eq!(done.len(), 1);
     assert_eq!(done[0].id, "bones");
     assert_eq!(home.bounties.len(), 2);
@@ -73,7 +72,7 @@ fn kills_and_moments_count_toward_the_board() {
 }
 
 #[test]
-fn floors_and_shows_count_when_they_happen() {
+fn floors_and_cleared_rooms_count_when_they_happen() {
     let mut home = Home {
         deepest: 3,
         ..Default::default()
@@ -84,16 +83,16 @@ fn floors_and_shows_count_when_they_happen() {
             have: 0,
         },
         Pinned {
-            id: "ratings".into(),
-            have: 900,
+            id: "safe_passage".into(),
+            have: 1,
         },
     ];
-    // A smaller show keeps the best so far.
-    assert!(home.work_bounties(&BTreeMap::new(), 3, 400).is_empty());
-    assert_eq!(home.bounties[1].have, 900);
-    let done = home.work_bounties(&BTreeMap::new(), 4, 1600);
+    // Exploration jobs carry ordinary progress across delves.
+    assert!(home.work_bounties(&BTreeMap::new(), 3).is_empty());
+    assert_eq!(home.bounties[1].have, 1);
+    let done = home.work_bounties(&marks(&[("cue:flawless", 2)]), 4);
     let ids: Vec<&str> = done.iter().map(|b| b.id).collect();
-    assert_eq!(ids, ["deep", "ratings"]);
+    assert_eq!(ids, ["deep", "safe_passage"]);
     assert!(home.bounties.is_empty());
 }
 
@@ -112,7 +111,7 @@ fn the_board_grows_with_the_floors_reached() {
             }
             // Finish the oldest on the board, as a delve would.
             let first = bounty(&home.bounties[0].id).unwrap();
-            let (mut did, mut depth, mut show) = (BTreeMap::new(), 0, 0);
+            let (mut did, mut depth) = (BTreeMap::new(), 0);
             match first.goal {
                 Goal::Slay(kind) => {
                     did.insert(slay_mark(kind), first.need);
@@ -121,9 +120,8 @@ fn the_board_grows_with_the_floors_reached() {
                     did.insert(moment_mark(cue), first.need);
                 }
                 Goal::Reach(floor) => depth = floor,
-                Goal::Show(need) => show = need,
             }
-            let done = home.work_bounties(&did, depth, show);
+            let done = home.work_bounties(&did, depth);
             assert!(done.iter().any(|b| b.id == first.id), "{}", first.id);
         }
         seen
@@ -147,7 +145,7 @@ fn a_bounty_this_build_does_not_know_comes_down() {
         }],
         ..Home::default()
     };
-    home.work_bounties(&BTreeMap::new(), 0, 0);
+    home.work_bounties(&BTreeMap::new(), 0);
     assert!(home.bounties.is_empty());
 }
 
@@ -175,8 +173,8 @@ fn a_delve_marks_its_kills_and_the_moments_called() {
 
 #[test]
 fn progress_reads_like_the_board() {
-    let ratings = bounty("ratings").unwrap();
-    assert_eq!(progress(ratings, 1200), "1.20M/1.50M");
+    let passage = bounty("safe_passage").unwrap();
+    assert_eq!(progress(passage, 2), "2/3");
     assert_eq!(progress(bounty("bones").unwrap(), 7), "7/25");
     assert_eq!(progress(bounty("keep").unwrap(), 0), "floor 3");
 }
@@ -207,7 +205,7 @@ fn tonights_moments_pay_on_wrens_board() {
         *run_marks.entry(moment_mark(cue)).or_default() += 1;
     }
     let done: Vec<&str> = home
-        .work_bounties(&run_marks, 1, 0)
+        .work_bounties(&run_marks, 1)
         .iter()
         .map(|b| b.id)
         .collect();
@@ -217,6 +215,6 @@ fn tonights_moments_pay_on_wrens_board() {
         id: "witches".into(),
         have: 4,
     }];
-    let done = home.work_bounties(&marks(&[(&slay_mark(EnemyKind::Hexer), 1)]), 2, 0);
+    let done = home.work_bounties(&marks(&[(&slay_mark(EnemyKind::Hexer), 1)]), 2);
     assert_eq!(done.iter().map(|b| b.id).collect::<Vec<_>>(), ["witches"]);
 }

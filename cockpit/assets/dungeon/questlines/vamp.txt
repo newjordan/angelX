@@ -1,0 +1,24 @@
+power wish:vamp 3
+teacher Maren of the Deepwater
+place the Drowned Archive, a dry study the water has agreed to respect
+room Archive
+look a dry robe in a wet place, spectacles, and a ledger bound in counted pages
+line I borrow. I always return. Check the ledger — it's a good ledger.
+hook The level-2 card reads ...and a page torn from a ledger, still balancing. Her door opens only to a knight who has finished two other Fellowship questlines.
+step The ledger's first page | read the ledger's first page aloud at her study door | ledger_pages_read 3 | Good. You read it like a promise, not a boast. | cue read
+step The borrowing | mend from monsters only for one full floor, and finish above half | vamp_only_floors 1 | Borrow, return, record. Now the page is yours.
+step The rescue tithe | rescue one friend from the cages and escort them home unhurt | friends_rescued 1 | Deposits, knight. The ledger likes deposits. | needs friends_rescued
+step The audit | play one shared research game at the College and present its record | college_games_played 1 | Audited and signed. Now we're both accountable. | needs college_games_played
+step The deep company | hold one full hall with the deep's hunters pressing, a friend standing | deep_line_held 1 | You held. The deep noticed, and the deep remembers manners. | cue stand
+trial The balanced hall | every point of health you mend in one hall comes from monsters falling | balanced_halls 1 | Balanced. Closed. Signed.
+reward Blood Drinker tier 3
+title the Clean Ledger
+keepsake the Ledger-Page, a page that fills with small red tallies as monsters fall
+ties The rescue tithe is Alyce's own rescue step; the audit crosses Bartosz's table with Carom's and Fenna's; the wet lamp is Gil's.
+art
+...8...
+..888..
+.8z8z8.
+.88888.
+.8...8.
+...8...

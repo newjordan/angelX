@@ -1,0 +1,375 @@
+{
+  "contracts": {
+    "current": {
+      "crown_origin_table_xy": [
+        96,
+        20
+      ],
+      "crown_wh": [
+        65,
+        24
+      ],
+      "paddle_wh": [
+        53,
+        5
+      ],
+      "pair_origin_table_xy": [
+        56,
+        108
+      ],
+      "pair_pivots_xy": [
+        [
+          3,
+          11
+        ],
+        [
+          140,
+          11
+        ]
+      ],
+      "pair_tip_x": [
+        56,
+        87
+      ],
+      "pair_tip_y": {
+        "raised": 3,
+        "resting": 22
+      },
+      "pair_wh": [
+        144,
+        26
+      ],
+      "root_origin_table_xy": [
+        11,
+        72
+      ],
+      "root_wh": [
+        229,
+        11
+      ]
+    },
+    "legacy": {
+      "crown_origin_table_xy": [
+        75,
+        20
+      ],
+      "crown_wh": [
+        51,
+        24
+      ],
+      "paddle_wh": [
+        42,
+        5
+      ],
+      "pair_origin_table_xy": [
+        43,
+        108
+      ],
+      "pair_pivots_xy": [
+        [
+          3,
+          11
+        ],
+        [
+          110,
+          11
+        ]
+      ],
+      "pair_tip_x": [
+        44,
+        69
+      ],
+      "pair_tip_y": {
+        "raised": 3,
+        "resting": 22
+      },
+      "pair_wh": [
+        114,
+        26
+      ],
+      "root_origin_table_xy": [
+        8,
+        72
+      ],
+      "root_wh": [
+        179,
+        11
+      ]
+    }
+  },
+  "method": "native fixed caps + repeated straight middle; rule-mask clipping for crown",
+  "outputs": {
+    "current-crown-0.png": {
+      "sha256": "48507b2421e0d07b5aa626051885b362c47a6c9f7a6ab2b140343641a2f77d8f",
+      "wh": [
+        65,
+        24
+      ]
+    },
+    "current-crown-1.png": {
+      "sha256": "d0f586f6132d75b427263798262f9a2070622783ba64700d238ced5996d530f6",
+      "wh": [
+        65,
+        24
+      ]
+    },
+    "current-crown-2.png": {
+      "sha256": "89660a4bddb755db9a1665e0410daacb77be97e1827637070066c896ac64f326",
+      "wh": [
+        65,
+        24
+      ]
+    },
+    "current-crown-3.png": {
+      "sha256": "ba202436423725800b0e813e1d1d828674189be78e51f7dfed1009ef71d31f62",
+      "wh": [
+        65,
+        24
+      ]
+    },
+    "current-flippers-0.png": {
+      "sha256": "17949320e8a56a584a5d6257f06ec914077d9232857a394f1504dde7131ba9e6",
+      "wh": [
+        144,
+        26
+      ]
+    },
+    "current-flippers-1.png": {
+      "sha256": "c4fef49a7cce919cfb358bf953bac6b5cb05c7c31dcbf3d96be4c8ab4d805317",
+      "wh": [
+        144,
+        26
+      ]
+    },
+    "current-flippers-2.png": {
+      "sha256": "a77c0014a31bba47d467cf4bb3908e6f453836abc633eb77609fd32707194a6b",
+      "wh": [
+        144,
+        26
+      ]
+    },
+    "current-flippers-3.png": {
+      "sha256": "4a6ca8493dcdc074335eb9fbc0ded03e6ad7fc10dc4d5cf95db2ec3ce6d52aee",
+      "wh": [
+        144,
+        26
+      ]
+    },
+    "current-paddle.png": {
+      "sha256": "44f19ab7281430a64894ed271d6df41fe7bebb49b6b3bf239bf7aa13d2a949c3",
+      "wh": [
+        53,
+        5
+      ]
+    },
+    "current-root-0.png": {
+      "sha256": "6aa8ed67bf7ec200da9f9ae9445cb5d0c19c22d42ba92c427cd653656a10578c",
+      "wh": [
+        229,
+        11
+      ]
+    },
+    "current-root-1.png": {
+      "sha256": "698951966b8364c632851d4d8480c3097cd68016ff63a788c0bcc0d27b6c1b77",
+      "wh": [
+        229,
+        11
+      ]
+    },
+    "current-root-2.png": {
+      "sha256": "b0c936aa02cecb900e886c2a21be3677e8a75b4ccac81b6dedc2003146bc13ff",
+      "wh": [
+        229,
+        11
+      ]
+    },
+    "current-root-3.png": {
+      "sha256": "a5a495d9a35630d3021d739c738047559dd4cdf935fb174a7a8b3d3bd7989323",
+      "wh": [
+        229,
+        11
+      ]
+    },
+    "legacy-crown-0.png": {
+      "sha256": "69bec5418b1c358775a153b4d4adc504ed507101d777a6daabde11093d0f8315",
+      "wh": [
+        51,
+        24
+      ]
+    },
+    "legacy-crown-1.png": {
+      "sha256": "b3b5db74cd7fa7b62a184825b8aeb4a08efd524d69589ed5bf2c868068c5c94e",
+      "wh": [
+        51,
+        24
+      ]
+    },
+    "legacy-crown-2.png": {
+      "sha256": "7091958180d7f4a850ef7b037716993dc6136059b1f6f3d227b6fd8f87826d57",
+      "wh": [
+        51,
+        24
+      ]
+    },
+    "legacy-crown-3.png": {
+      "sha256": "2600baf4fa6c0fc453244316bf3aab647aa63843d30d204d941c8951259a70c1",
+      "wh": [
+        51,
+        24
+      ]
+    },
+    "legacy-flippers-0.png": {
+      "sha256": "6f150858b5b54cdee079824e9129056c5e3ef6a496ad9d95420b2af48b33b087",
+      "wh": [
+        114,
+        26
+      ]
+    },
+    "legacy-flippers-1.png": {
+      "sha256": "8422a4bd94ba2339b60ceb234d6070e1522dad10a9b102a54b0f762769df924c",
+      "wh": [
+        114,
+        26
+      ]
+    },
+    "legacy-flippers-2.png": {
+      "sha256": "ad03079f1510491666f71f2af2775639c4fbb25504e06e19ccc125276f451791",
+      "wh": [
+        114,
+        26
+      ]
+    },
+    "legacy-flippers-3.png": {
+      "sha256": "2a61d81272d82cdf1a354602664134f02a4ad0336f97f3e5a5a41414e00a539d",
+      "wh": [
+        114,
+        26
+      ]
+    },
+    "legacy-paddle.png": {
+      "sha256": "31559c8767b8319543c7124716378b0dec7913c4b547f160fcdd00777fd7bb38",
+      "wh": [
+        42,
+        5
+      ]
+    },
+    "legacy-root-0.png": {
+      "sha256": "82d77330b7c7fe426e42bcde35bcacf2880774e56bba8b6a2fd8b14c27152c19",
+      "wh": [
+        179,
+        11
+      ]
+    },
+    "legacy-root-1.png": {
+      "sha256": "31666bae1b339a4c4125575730736b187c38aa3f9bcc007e2db9bd337647f970",
+      "wh": [
+        179,
+        11
+      ]
+    },
+    "legacy-root-2.png": {
+      "sha256": "2d9a04873c2c52edc6bc2f6370daa4ed03c2a49266068db20fa476101184d881",
+      "wh": [
+        179,
+        11
+      ]
+    },
+    "legacy-root-3.png": {
+      "sha256": "37b3fda9bbc8a431ce41d8da59b84765ed3256f30cf30fb052b776d56b2f7608",
+      "wh": [
+        179,
+        11
+      ]
+    },
+    "native-crown.png": {
+      "sha256": "519971a524ea68c56117a05dcfd7d16a49e32e7424757071ea29cd868d16125f",
+      "wh": [
+        14,
+        6
+      ]
+    },
+    "native-flippers.png": {
+      "sha256": "0943a8e9093415ef330a1591b380781e9fc33177f8a3c5c57d2718e5a7e83d46",
+      "wh": [
+        15,
+        5
+      ]
+    },
+    "native-root.png": {
+      "sha256": "bfd4db5fc5b80643ab0c9a323ccc4627d1bd3a5ae856ff81cb3b6e11706a06b3",
+      "wh": [
+        133,
+        11
+      ]
+    },
+    "source-crown.png": {
+      "sha256": "48f74daeee96185f80cad95bd7c7e938af4c6bc13d2e5f7c0f13735fc3315a47",
+      "wh": [
+        215,
+        95
+      ]
+    },
+    "source-flippers.png": {
+      "sha256": "2cc5db489c36202693fb0ca017d074c653642a3be77f2703bd70747207fae483",
+      "wh": [
+        382,
+        124
+      ]
+    },
+    "source-root.png": {
+      "sha256": "8edb7d7cbd9ee8eac64a842fca33afc0f610ce83faeb617f731d8bf937a564cc",
+      "wh": [
+        434,
+        36
+      ]
+    }
+  },
+  "physics": "unchanged; x8/5 presentation; original art fallback",
+  "schema": 1,
+  "sources": {
+    "crown": {
+      "crop_sha256": "48f74daeee96185f80cad95bd7c7e938af4c6bc13d2e5f7c0f13735fc3315a47",
+      "path": "/work/artifacts/art-prod/slots/mossbell.crown.geometry-1/v01/source-sheet.png",
+      "rect_xywh": [
+        42,
+        107,
+        215,
+        95
+      ],
+      "sha256": "5376ec999aa49452e4f511ba5e2c81287e5e86745bdc5f6c308437b6eed4ca30"
+    },
+    "flippers": {
+      "crop_sha256": "2cc5db489c36202693fb0ca017d074c653642a3be77f2703bd70747207fae483",
+      "path": "/work/artifacts/art-prod/slots/mossbell.flippers.geometry-1/v01/source-sheet.png",
+      "rect_xywh": [
+        67,
+        117,
+        382,
+        124
+      ],
+      "sha256": "cfbcc7fea38d0b889e10c0627f7403fce326b851999ee4d8a43c48015f5e26d4"
+    },
+    "root": {
+      "crop_sha256": "8edb7d7cbd9ee8eac64a842fca33afc0f610ce83faeb617f731d8bf937a564cc",
+      "path": "/work/artifacts/art-prod/slots/mossbell.root.geometry-1/v01/source-sheet.png",
+      "rect_xywh": [
+        39,
+        191,
+        434,
+        36
+      ],
+      "sha256": "af4eb0d1e2cd6cb8cc22c7202f1ec8b8e596524ecfb11062a45c95de061359b3"
+    }
+  },
+  "states": {
+    "crown": "four growing tell frames; attack holds frame 3; old art retained in cells",
+    "flippers": [
+      "resting-pair",
+      "left-raised",
+      "right-raised",
+      "both-raised"
+    ],
+    "root": "four growing tell frames; attack holds frame 3; renderer mirrors for left sweep"
+  },
+  "timing": "existing 36/30-tick tell selection and attack timing in rules/mossbell.rs; no changes"
+}

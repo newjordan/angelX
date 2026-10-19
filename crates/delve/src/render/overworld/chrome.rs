@@ -161,11 +161,11 @@ impl Tone {
         rim: [OAK, WALNUT, BARK],
         hairline: None,
     };
-    /// A brass nameplate: dark brass in a gold rim.
+    /// A brass nameplate: dark brass in a brass rim.
     pub const NAMEPLATE: Tone = Tone {
         lip: None,
         fill: &[BRASS_DARK],
-        rim: GOLD_RIM,
+        rim: BRASS_RIM,
         hairline: None,
     };
     /// A scrying glass's mat: ink black under a steel rim and a slate line.
@@ -175,11 +175,12 @@ impl Tone {
         rim: [rgb(0x6e8a8e), STEEL, TEAL],
         hairline: Some(TEAL),
     };
-    /// A progress pip, filled: teal lit along its top.
+    /// A progress pip, filled: stone teal lit along its top, nothing
+    /// brighter than the realm's cool greys.
     pub const PIP: Tone = Tone {
-        lip: Some(rgb(0x8fe8dc)),
-        fill: &[rgb(0x50c6b3)],
-        rim: [rgb(0x50c6b3), rgb(0x50c6b3), rgb(0x12414f)],
+        lip: Some(rgb(0x8fa3a8)),
+        fill: &[rgb(0x6e8a8e)],
+        rim: [rgb(0x6e8a8e), rgb(0x6e8a8e), rgb(0x2f4a52)],
         hairline: None,
     };
     /// A chalkboard: dark green slate in a brass frame.
@@ -212,8 +213,30 @@ impl Tone {
 
 /// A brass rim, lit (`Tone::rimmed`).
 pub const BRASS_RIM: [Rgb; 3] = [BRASS_LIT, BRASS, BRASS_DIM];
-/// A gold rim for what is ready to fire and matters most.
+/// A gold rim for what is ready to fire and matters most (the tray's
+/// ultimate; nothing over the world wears it).
 pub const GOLD_RIM: [Rgb; 3] = [rgb(0xf7ca58), rgb(0xecb64a), rgb(0xa97639)];
+/// What lettering and little pictures over the world wear at dusk: the
+/// bright golds, cream and white of the signal bank and the timber's pale
+/// top step come down to the brass `O` (5:1 on a board's slate) and the
+/// quiet grey `i` (7:1), so a board reads without glaring. The parchment
+/// `$`, the bronzes and every other ink are left as they are.
+pub const fn dusk_mark(ch: char) -> char {
+    match ch {
+        '4' | '5' | '6' | '@' | 'T' | 't' => 'O',
+        '9' | 'c' | 'w' | 'H' | 'W' => 'i',
+        other => other,
+    }
+}
+
+/// A little picture (a coin, a crown) with its inks stepped by [`dusk_mark`].
+pub fn dusk_icon(icon: &Img) -> Img {
+    icon.recolor(&[
+        ('4', 'O'), ('5', 'O'), ('6', 'O'), ('@', 'O'), ('T', 'O'), ('t', 'O'),
+        ('9', 'i'), ('c', 'i'), ('w', 'i'), ('H', 'i'), ('W', 'i'),
+    ])
+}
+
 /// A rim gone cold: stone grey, for what is not ready.
 pub const COLD_RIM: [Rgb; 3] = [rgb(0x515349), ASH, rgb(0x322b2b)];
 
@@ -479,7 +502,7 @@ pub fn label_rect((x, y): (i32, i32), text: &str) -> (i32, i32, i32, i32) {
 pub fn label(im: &mut Img, at: (i32, i32), text: &str, ch: char, tone: Tone) -> (i32, i32, i32, i32) {
     let rect = label_rect(at, text);
     tag(im, rect, tone);
-    im.text(at.0, at.1, text, ch);
+    im.text(at.0, at.1, text, dusk_mark(ch));
     rect
 }
 

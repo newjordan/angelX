@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    40,
+    24
+  ],
+  "anchor_xy": [
+    20,
+    12
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "Board::column/impact_row select the cell; splash is not additional danger.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "b43ecfb6ffa6c160dbeb39791cc2f3f4ff820830bfa77d71c9a44a318984d569",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Compact initial low molten contact splash with attached shards.",
+      "name": "impact-1",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.5,
+        66.0
+      ],
+      "source_rect_xywh": [
+        34,
+        295,
+        241,
+        132
+      ],
+      "state": "impact-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Spreading low core with brighter hot cracks.",
+      "name": "impact-2",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        135.5,
+        62.5
+      ],
+      "source_rect_xywh": [
+        333,
+        299,
+        271,
+        125
+      ],
+      "state": "impact-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Peak splash with upward shard forms and sparks.",
+      "name": "impact-3",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        137.5,
+        96.5
+      ],
+      "source_rect_xywh": [
+        648,
+        231,
+        275,
+        193
+      ],
+      "state": "impact-3"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Cooled, collapsed core fragments.",
+      "name": "impact-4",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        60.5
+      ],
+      "source_rect_xywh": [
+        966,
+        310,
+        262,
+        121
+      ],
+      "state": "impact-4"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "First separated broad shards.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        108.5
+      ],
+      "source_rect_xywh": [
+        38,
+        547,
+        251,
+        217
+      ],
+      "state": "first-separated-broad-shards"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Shards fanning outward.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        129.5,
+        106.5
+      ],
+      "source_rect_xywh": [
+        342,
+        554,
+        259,
+        213
+      ],
+      "state": "shards-fanning-outward"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Descending darkened shards and chips.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        133.0,
+        80.0
+      ],
+      "source_rect_xywh": [
+        653,
+        600,
+        266,
+        160
+      ],
+      "state": "descending-darkened-shards-and-chips"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Small cooled fragment group.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        44.0
+      ],
+      "source_rect_xywh": [
+        981,
+        701,
+        247,
+        88
+      ],
+      "state": "small-cooled-fragment-group"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Compact smoke puff with embers.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        113.0,
+        77.0
+      ],
+      "source_rect_xywh": [
+        44,
+        976,
+        226,
+        154
+      ],
+      "state": "compact-smoke-puff-with-embers"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Expanded two-curl smoke and embers.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        97.5
+      ],
+      "source_rect_xywh": [
+        342,
+        932,
+        252,
+        195
+      ],
+      "state": "expanded-two-curl-smoke-and-embers"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Separated smoke curls and sparks.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.0,
+        86.5
+      ],
+      "source_rect_xywh": [
+        674,
+        965,
+        246,
+        173
+      ],
+      "state": "separated-smoke-curls-and-sparks"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Final small wisps and dim embers.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        99.5,
+        61.5
+      ],
+      "source_rect_xywh": [
+        1007,
+        1007,
+        199,
+        123
+      ],
+      "state": "final-small-wisps-and-dim-embers"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "Active 40\u00d724 at (cell x-8,cell y-2); legacy 32\u00d718 is not an active target.",
+  "sizes": {
+    "v1": [
+      40,
+      24
+    ],
+    "v2": [
+      40,
+      24
+    ]
+  },
+  "slot": "cinder.impact",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": 224,
+    "metadata_sha256": "47ac7a14f1e39ec5d838d001443c0ead181399365b84a6c2c7799ee7d09e7fe0",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.impact/v01/source-sheet.png",
+    "original_sha256": "6f8eb0b2fb7649498dad4c12c5d9043ac8cf53795f59c00965b135f9a307613a",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "6e41ab1944e9acb9f21a3bac47ed589586b394ec3bdfb2d19f0cfeef1ef393fb",
+  "timing": "Four active frames, 3 ticks each, Board::impact=12. Unnumbered impact.png is retained but not loaded (art()/draw())."
+}

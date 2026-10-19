@@ -1,0 +1,245 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 8661
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 9236
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6392
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 6871
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 7568
+    }
+  ],
+  "flags": [],
+  "map_sha256": "be1b27d542f0c7cbee4b8e9ae92abb81c36dc5b3272bf84a687c95f98b9bef4e",
+  "metadata_sha256": "5496fbdd9586318b4cf1759a962b173eadece7bc0e35ee3ae080f9051e3ac03b",
+  "notes_sha256": "c1e658fa30644d907d5c924cb2a7765df3187851dc22e76a7d13e4dfe486445b",
+  "outputs": {
+    "v1/down-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 83,
+      "opaque_pixels": 1197,
+      "piece": 0,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "e8f0e9f3e63d559b004d538e1878ae2879863e9d76840b2f8003d714f7f664b1",
+      "source_scale": 0.10434782608695652,
+      "state": "down"
+    },
+    "v1/rising-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 88,
+      "opaque_pixels": 1248,
+      "piece": 1,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "8cbb9fbce856d505c88e1f5d2150ecb8ad7ba784cbed04e674a4d246364a25a0",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v1/rising-1.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 89,
+      "opaque_pixels": 1292,
+      "piece": 2,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "8b135e66c588bc03d73d4111e306eecdfb40df5cc54d2106a1af988d6e7742a2",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v1/rising-2.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 86,
+      "opaque_pixels": 1198,
+      "piece": 3,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "4e215a1f01b65e47603a6000d16bbd6304783a5c830c4b3d7a14ba7db55d2d99",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v1/up-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9983,
+      "frame": 0,
+      "half_cell_coverage": 84,
+      "opaque_pixels": 1206,
+      "piece": 4,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "31871f95d93c4008935e8175d661c6cab635dd566bca7cfc75fc86657b2d62f4",
+      "source_scale": 0.10434782608695652,
+      "state": "up"
+    },
+    "v2/down-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 83,
+      "opaque_pixels": 1197,
+      "piece": 0,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "e8f0e9f3e63d559b004d538e1878ae2879863e9d76840b2f8003d714f7f664b1",
+      "source_scale": 0.10434782608695652,
+      "state": "down"
+    },
+    "v2/rising-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9992,
+      "frame": 0,
+      "half_cell_coverage": 88,
+      "opaque_pixels": 1248,
+      "piece": 1,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "8cbb9fbce856d505c88e1f5d2150ecb8ad7ba784cbed04e674a4d246364a25a0",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v2/rising-1.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 1.0,
+      "frame": 1,
+      "half_cell_coverage": 89,
+      "opaque_pixels": 1292,
+      "piece": 2,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "8b135e66c588bc03d73d4111e306eecdfb40df5cc54d2106a1af988d6e7742a2",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v2/rising-2.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 1.0,
+      "frame": 2,
+      "half_cell_coverage": 86,
+      "opaque_pixels": 1198,
+      "piece": 3,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "4e215a1f01b65e47603a6000d16bbd6304783a5c830c4b3d7a14ba7db55d2d99",
+      "source_scale": 0.10434782608695652,
+      "state": "rising"
+    },
+    "v2/up-0.png": {
+      "anchor_xy": [
+        28,
+        36
+      ],
+      "approved": true,
+      "canvas_wh": [
+        56,
+        36
+      ],
+      "colour_agreement": 0.9983,
+      "frame": 0,
+      "half_cell_coverage": 84,
+      "opaque_pixels": 1206,
+      "piece": 4,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "31871f95d93c4008935e8175d661c6cab635dd566bca7cfc75fc86657b2d62f4",
+      "source_scale": 0.10434782608695652,
+      "state": "up"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "moonfall.bridge",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bridge/v01/source-sheet.png",
+  "source_sha256": "297603081f0237f4d36b888e43e447cdfa69dbf905fef4701ae48e8278c2a2c8",
+  "tool_version": 2
+}

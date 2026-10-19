@@ -1,0 +1,61 @@
+{
+  "anchor_canvas_wh": [
+    192,
+    96
+  ],
+  "anchor_xy": [
+    96,
+    48
+  ],
+  "comments": [
+    "One piece, the whole sheet. The stage, not the import, dims it (no exposure change is imported)."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "The first generation (source-sheet.png) is the kept strip: 1774x887 RGBA with real alpha above the fence. The whole sheet is the single piece, reduced by 0.10823 to exactly 192x96. notes.md describes the second generation, which is not used. It is the loudest layer; the stage dims it at draw time.",
+  "notes_sha256": "dadcd424c311a7722fc410027da62dbb706af4e8f632dbb75fae668a686e7ab4",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "idle-0: delivered drawing 1 in reading order.",
+      "name": "idle-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        887,
+        443.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1774,
+        887
+      ],
+      "state": "idle",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 192x96, one frame, repeating horizontally; real alpha above the fence; scrolled fastest; stage 384x224.",
+  "sizes": {
+    "v1": [
+      192,
+      96
+    ],
+    "v2": [
+      192,
+      96
+    ]
+  },
+  "slot": "lightgallop.layer-near",
+  "source_sha256": "509483a9712ca408f6c10d9860f543354d3c856e3da292e419a21f352a422b9e",
+  "timing": "idle 1 ticks (30 Hz). Art never sets a hitbox."
+}

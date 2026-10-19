@@ -22,7 +22,7 @@ TOKEN_FIELDS = {"input_tokens": "input", "cached_tokens": "cached_input",
 
 
 def newest() -> Path:
-    root = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/runs/luna/angelx")
+    root = Path("~/angel_tests/angelX-bench/polyglot-20260921/runs/luna/angelx").expanduser()
     runs = [p for p in root.glob("seed0-*") if (p / "traces.jsonl").is_file()]
     if not runs:
         raise SystemExit(f"no luna runs under {root}")

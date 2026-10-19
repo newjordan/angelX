@@ -8,7 +8,7 @@ AngelX session; preparing it does not start a background campaign.
 Open AngelX against this checkout. Enter these commands separately:
 
 ```text
-/cd /home/frosty40/angelX/cockpit
+/cd ./cockpit
 /self Read ../docs/SPEED_LOOP.md and execute its improvement cycle. Start with the message and routing inventory, then implement and measure one narrowly scoped candidate. Preserve correctness and capability discovery. Record evidence and the next experiment before integration.
 ```
 
@@ -65,7 +65,7 @@ and label it partial. Muse recorded different model IDs. Luna has no matched
 peer cohort in this collection. There is no established across-the-board win.
 
 Local historical inputs are under
-`/home/frosty40/angel_tests/angelX-bench/polyglot-20260921`; keep them immutable.
+`~/angel_tests/angelX-bench/polyglot-20260921`; keep them immutable.
 New evidence belongs in a unique `artifacts/speed-loop/<experiment>/` directory.
 Artifacts are locally retained and generally not tracked by Git; commit concise
 body-free findings and reproduction commands under `docs/telemetry/`.

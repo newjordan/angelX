@@ -1,0 +1,152 @@
+set archive-sunken-reading-room
+# The Sunken Reading Room: 34 x 20 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 544 320
+plate 1536 1024
+# Torches flank every doorway; bars close them while the fight lasts (sprites).
+
+# the ground: its top is the floor line
+box    floor   at 272 -4 40 size 544 4 80
+box    floor   at 56 -4 88 size 112 4 16
+box    floor   at 272 -4 200 size 160 4 240
+box    floor   at 488 -4 88 size 112 4 16
+box    floor   at 48 -4 208 size 96 4 224
+box    floor   at 496 -4 208 size 96 4 224
+box    floor   at 144 -4 160 size 96 4 96
+box    floor   at 400 -4 160 size 96 4 96
+box    floor   at 104 -4 272 size 16 4 96
+box    floor   at 440 -4 272 size 16 4 96
+box    floor   at 152 -4 280 size 80 4 80
+box    floor   at 392 -4 280 size 80 4 80
+
+# water, 3 below the floor line
+box    water   at 152 -4 96 size 80 1 32
+box    water   at 392 -4 96 size 80 1 32
+box    water   at 104 -4 104 size 16 1 16
+box    water   at 440 -4 104 size 16 1 16
+box    water   at 144 -4 216 size 96 1 16
+box    water   at 400 -4 216 size 96 1 16
+box    water   at 152 -4 232 size 80 1 16
+box    water   at 392 -4 232 size 80 1 16
+
+# the north wall, columns 0 to 15
+box    stone   at 128 -4 8 size 256 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+
+# the north wall, columns 18 to 33
+box    stone   at 416 -4 8 size 256 52 16
+box    metal   at 536 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 536 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 15 (at 81% of its height, for the camera)
+box    stone   at 128 -4 308 size 256 10 8  # TODO prims: wedge
+box    stone   at 128 -4 316 size 256 16.5 8
+box    metal   at 8 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 316 size 6 6.5 6
+
+# the south wall, columns 18 to 33 (at 81% of its height, for the camera)
+box    stone   at 416 -4 308 size 256 10 8  # TODO prims: wedge
+box    stone   at 416 -4 316 size 256 16.5 8
+box    metal   at 536 12.5 316 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 536 15 316 size 6 6.5 6
+
+# the west wall, rows 1 to 8
+box    stone   at 8 -4 80 size 16 52 128
+
+# the west wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 8 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 8 -4 264 size 16 52 80
+
+# the east wall, rows 1 to 8
+box    stone   at 536 -4 80 size 16 52 128
+
+# the east wall, rows 11 to 18 (at 12% of its height, for the camera)
+box    stone   at 536 -4 200 size 16 9.5 48  # TODO prims: wedge
+box    stone   at 536 -4 264 size 16 52 80
+
+# the north door, columns 16 to 17
+box    door    at 272 -4 -1 size 32 36 2 id door-north
+box    stone   at 272 32 8 size 32 16 16  # TODO prims: arch
+
+# the south door, columns 16 to 17
+box    door    at 272 -4 321 size 32 5 2 id door-south
+
+# the west door, rows 9 to 10
+box    door    at -1 -4 160 size 2 36 32 id door-west
+box    stone   at 8 32 160 size 16 16 32  # TODO prims: arch
+
+# the east door, rows 9 to 10
+box    door    at 545 -4 160 size 2 36 32 id door-east
+box    stone   at 536 32 160 size 16 16 32  # TODO prims: arch
+
+# shelf at 2,2 4x2 (at 19% of its height, for the camera)
+box    wood    at 40 0 40 size 15 5 15 id shelf-1
+box    wood    at 56 0 40 size 15 5 15
+box    wood    at 72 0 40 size 15 5 15
+box    wood    at 88 0 40 size 15 4.5 15
+box    wood    at 40 0 56 size 15 5 15
+box    wood    at 56 0 56 size 15 5 15
+box    wood    at 72 0 56 size 15 5 15
+box    wood    at 88 0 56 size 15 5 15
+
+# shelf at 28,2 4x2 (at 21% of its height, for the camera)
+box    wood    at 456 0 40 size 15 5 15 id shelf-2
+box    wood    at 472 0 40 size 15 5 15
+box    wood    at 488 0 40 size 15 5 15
+box    wood    at 504 0 40 size 15 5 15
+box    wood    at 456 0 56 size 15 5 15
+box    wood    at 472 0 56 size 15 5 15
+box    wood    at 488 0 56 size 15 5 15
+box    wood    at 504 0 56 size 15 5 15
+
+# shelf at 13,3 2x1 (at 19% of its height, for the camera)
+box    wood    at 216 0 56 size 15 5 15 id shelf-3
+box    wood    at 232 0 56 size 15 4.5 15
+
+# shelf at 19,3 2x1 (at 21% of its height, for the camera)
+box    wood    at 312 0 56 size 15 5 15 id shelf-4
+box    wood    at 328 0 56 size 15 5 15
+
+# shelf at 2,16 4x2 (at 24% of its height, for the camera)
+box    wood    at 40 0 264 size 15 5.5 15 id shelf-5
+box    wood    at 56 0 264 size 15 5.5 15
+box    wood    at 72 0 264 size 15 6 15
+box    wood    at 88 0 264 size 15 6 15
+box    wood    at 40 0 280 size 15 6 15
+box    wood    at 56 0 280 size 15 6 15
+box    wood    at 72 0 280 size 15 5.5 15
+box    wood    at 88 0 280 size 15 6 15
+
+# shelf at 13,16 2x1 (at 24% of its height, for the camera)
+box    wood    at 216 0 264 size 15 6 15 id shelf-6
+box    wood    at 232 0 264 size 15 6 15
+
+# shelf at 19,16 2x1 (at 23% of its height, for the camera)
+box    wood    at 312 0 264 size 15 5.5 15 id shelf-7
+box    wood    at 328 0 264 size 15 6 15
+
+# shelf at 28,16 4x2 (at 24% of its height, for the camera)
+box    wood    at 456 0 264 size 15 5.5 15 id shelf-8
+box    wood    at 472 0 264 size 15 6 15
+box    wood    at 488 0 264 size 15 5.5 15
+box    wood    at 504 0 264 size 15 6 15
+box    wood    at 456 0 280 size 15 6 15
+box    wood    at 472 0 280 size 15 6.5 15
+box    wood    at 488 0 280 size 15 5.5 15
+box    wood    at 504 0 280 size 15 6 15
+
+# torches by the doors (at 78% of its height, for the camera)
+box    metal   at 248 18 16 size 3 6 3
+cone   fire    at 248 24 16 size 4 7 4
+box    metal   at 296 18 16 size 3 6 3
+cone   fire    at 296 24 16 size 4 7 4
+box    metal   at 16 18 136 size 3 6 3
+cone   fire    at 16 24 136 size 4 7 4
+box    metal   at 16 4 184 size 3 5 3
+cone   fire    at 16 9 184 size 4 5 4
+box    metal   at 528 18 136 size 3 6 3
+cone   fire    at 528 24 136 size 4 7 4
+box    metal   at 528 4 184 size 3 5 3
+cone   fire    at 528 9 184 size 4 5 4

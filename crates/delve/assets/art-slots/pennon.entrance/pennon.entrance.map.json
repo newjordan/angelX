@@ -1,0 +1,67 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192.0,
+    112.0
+  ],
+  "comments": [
+    "Exact native BOX conversion; binary alpha 128; existing shared palette.",
+    "Original master interior retained; actual exits, collision furniture and complete title plaques preserved by the room painter."
+  ],
+  "delivered_pieces": 1,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 1,
+  "geometry": "Original collision tiles, exits and world anchors remain authoritative.",
+  "mapping_basis": "ART-18 accepted source; measured reading order reviewed against notes",
+  "notes_sha256": "a8c5f269845886a4b670105ea69ed3ef7ad99fbdb79c8e6269d46913c6012f88",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.55
+      },
+      "label": "room",
+      "name": "room",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        821.5,
+        478.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1643,
+        957
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384x224; v2 768x448",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "slot": "pennon.entrance",
+  "source_sha256": "17a4234b7e50167c4a86dbe844e526b1c03fa152edfd8923eac96e06589b4c3b",
+  "timing": "Static; existing room entry and door state only."
+}

@@ -1,0 +1,182 @@
+{
+  "anchor_canvas_wh": [
+    48,
+    72
+  ],
+  "anchor_xy": [
+    24,
+    72
+  ],
+  "comments": [
+    "The yoke is the same drawing in every cell: the pivot is the centre of its outer post edges (measured on the top 60 rows) and its foot, so the yoke registers to one pixel grid in all seven frames.",
+    "One shared scale from all seven frames: the sparkles of ring-2 reach 24 source px past the right post, so the bell is drawn at 0.133 (yoke 41 px wide, 52 px tall in the 48x72 canvas)."
+  ],
+  "delivered_pieces": 7,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 7,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "Seven drawings in a 4x2 grid (cell 8 empty), measured by alpha because the cell pitch is about 370 px, not 384. Reading order is the delivered one: rest, then ring-0..ring-5 (right 10, 22 and 25 degrees with four sparkles at the peak, then 2 sparkles, left 12 degrees, then centred with one sparkle).",
+  "notes_sha256": "e178397097e7f1c5539a20c8ace06888ac8ec9455a93c9a8ef3ea994dc96edd8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "rest-0: delivered drawing 1 in reading order.",
+      "name": "rest-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.5,
+        390
+      ],
+      "source_rect_xywh": [
+        55,
+        82,
+        311,
+        390
+      ],
+      "state": "rest",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "ring-0: delivered drawing 2 in reading order.",
+      "name": "ring-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.0,
+        388
+      ],
+      "source_rect_xywh": [
+        429,
+        82,
+        309,
+        388
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "ring-1: delivered drawing 3 in reading order.",
+      "name": "ring-1",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.5,
+        388
+      ],
+      "source_rect_xywh": [
+        797,
+        82,
+        311,
+        388
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "ring-2: delivered drawing 4 in reading order.",
+      "name": "ring-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.0,
+        387
+      ],
+      "source_rect_xywh": [
+        1167,
+        82,
+        335,
+        387
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "ring-3: delivered drawing 5 in reading order.",
+      "name": "ring-3",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.5,
+        387
+      ],
+      "source_rect_xywh": [
+        54,
+        556,
+        313,
+        387
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "ring-4: delivered drawing 6 in reading order.",
+      "name": "ring-4",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.0,
+        388
+      ],
+      "source_rect_xywh": [
+        427,
+        556,
+        310,
+        388
+      ],
+      "state": "ring",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "ring-5: delivered drawing 7 in reading order.",
+      "name": "ring-5",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.0,
+        387
+      ],
+      "source_rect_xywh": [
+        796,
+        556,
+        311,
+        387
+      ],
+      "state": "ring",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 48x72, anchor bottom-centre (24,72); stage 384x224; the bronze bell on its timber yoke.",
+  "sizes": {
+    "v1": [
+      48,
+      72
+    ],
+    "v2": [
+      48,
+      72
+    ]
+  },
+  "slot": "lightgallop.bell",
+  "source_sha256": "5004e81c9658a2ad14f768eee10439bc6cdc054232eb79fc1dc3a4b4b82fc3f5",
+  "timing": "rest 1 ticks; ring 6x4 ticks (30 Hz). Art never sets a hitbox."
+}

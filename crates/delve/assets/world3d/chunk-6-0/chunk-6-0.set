@@ -1,0 +1,302 @@
+set chunk-6-0
+# The kingdom, chunk 6,0 in The Highlands: tiles 144..168 x 0..16 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2496 128
+plate 1536 1024
+
+# ground
+box    rock    at 2496 -4 8 size 384 4 16
+box    rock    at 2448 -4 24 size 288 4 16
+box    grass   at 2624 -4 24 size 64 4 16
+box    rock    at 2672 -4 64 size 32 4 96
+box    grass   at 2344 -4 40 size 80 4 16
+box    rock    at 2456 -4 40 size 144 4 16
+box    grass   at 2576 -4 40 size 96 4 16
+box    rock    at 2640 -4 72 size 32 4 80
+box    grass   at 2328 -4 64 size 48 4 32
+box    path    at 2360 -4 72 size 16 4 48
+box    grass   at 2384 -4 64 size 32 4 32
+box    water   at 2408 -4 72 size 16 1 48
+box    grass   at 2512 -4 104 size 192 4 112
+box    rock    at 2616 -4 72 size 16 4 48
+box    grass   at 2320 -4 112 size 32 4 64
+box    path    at 2344 -4 120 size 16 4 80
+box    grass   at 2376 -4 136 size 16 4 112
+box    water   at 2392 -4 104 size 16 1 48
+box    grass   at 2360 -4 168 size 16 4 144
+box    grass   at 2408 -4 104 size 16 4 16
+box    grass   at 2616 -4 168 size 16 4 144
+box    water   at 2408 -4 168 size 16 1 112
+box    grass   at 2648 -4 152 size 48 4 80
+box    rock    at 2680 -4 184 size 16 4 144
+box    grass   at 2392 -4 144 size 16 4 32
+box    path    at 2320 -4 152 size 32 4 16
+box    grass   at 2328 -4 192 size 48 4 64
+box    water   at 2392 -4 192 size 16 1 64
+box    sand    at 2424 -4 168 size 16 4 16
+box    grass   at 2520 -4 168 size 176 4 16
+box    water   at 2424 -4 200 size 16 1 48
+box    sand    at 2440 -4 184 size 16 4 16
+box    grass   at 2480 -4 184 size 64 4 16
+box    path    at 2520 -4 216 size 16 4 80
+box    grass   at 2568 -4 184 size 80 4 16
+box    water   at 2376 -4 200 size 16 1 16
+box    water   at 2440 -4 200 size 16 1 16
+box    sand    at 2456 -4 200 size 16 4 16
+box    grass   at 2488 -4 208 size 48 4 32
+box    path    at 2536 -4 200 size 16 4 16
+box    grass   at 2576 -4 208 size 64 4 32
+box    grass   at 2640 -4 216 size 32 4 48
+box    rock    at 2664 -4 208 size 16 4 32
+box    grass   at 2376 -4 224 size 16 4 32
+box    sand    at 2440 -4 216 size 16 4 16
+box    grass   at 2456 -4 224 size 16 4 32
+box    grass   at 2536 -4 216 size 16 4 16
+box    rock    at 2312 -4 240 size 16 4 32
+box    grass   at 2328 -4 232 size 16 4 16
+box    rock    at 2344 -4 240 size 16 4 32
+box    sand    at 2408 -4 232 size 48 4 16
+box    rock    at 2440 -4 240 size 16 4 32
+box    grass   at 2472 -4 232 size 16 4 16
+box    rock    at 2488 -4 240 size 16 4 32
+box    grass   at 2504 -4 232 size 16 4 16
+box    rock    at 2544 -4 240 size 32 4 32
+box    grass   at 2584 -4 232 size 48 4 16
+box    grass   at 2664 -4 232 size 16 4 16
+box    rock    at 2328 -4 248 size 16 4 16
+box    rock    at 2392 -4 248 size 80 4 16
+box    rock    at 2464 -4 248 size 32 4 16
+box    rock    at 2504 -4 248 size 16 4 16
+box    rock    at 2616 -4 248 size 112 4 16
+
+# BASHFUL BELFRY: a bell tower at 156,8 4x3 (at 51% of its height, for the camera)
+box    brick   at 2528 0 165 size 16 24 16 id bashful-belfry
+box    brick   at 2521 24 158 size 2 7 2
+box    brick   at 2535 24 158 size 2 7 2
+box    brick   at 2521 24 172 size 2 7 2
+box    brick   at 2535 24 172 size 2 7 2
+sphere metal   at 2528 24.5 165 size 6 6 6
+pyramid slate   at 2528 31 165 size 18 9.5 18
+box    door    at 2528 0 173.25 size 6 8 1
+box    plaster at 2507.5 0 166 size 19 10 16
+hip    slate   at 2507.5 10 166 size 22 7 19
+box    door    at 2503.7 0 174.25 size 7 7 1
+frustum trunk   at 2504 0 136 size 3 6 3
+blob-19 foliage at 2504 3.5 136 size 14 10.5 13.3 turn 90
+blob-33 foliage at 2552 0 136 size 13 9 12
+cylinder trunk   at 2552 0 152 size 3 11.5 3
+blob-64 foliage at 2552 6.5 152 size 14 21 13.3
+blob-44 foliage at 2552 0 168 size 13 6 12
+
+# set dressing
+box    wood    at 2312 0 56 size 10 3.5 6
+sphere wood    at 2306 0 56 size 1.2 4 4
+rock-47 rock    at 2391 0 74 size 4 2 3.5
+rock-36 rock    at 2388 0 71 size 4 2 3.5
+rock-12 rock    at 2392 0 68 size 4 2 3.5
+rock-1 rock    at 2390 0 75 size 4 2 3.5
+box    bone    at 2614 0 216 size 7 1 1.5 turn -25
+box    bone    at 2618 0 218 size 5 1 1.2 turn 40
+sphere bone    at 2612 0 214 size 3 2.5 3
+
+# rock (at 91% of its height, for the camera)
+box    rock    at 2360 0 8 size 112 9 16
+box    rock    at 2456 0 8 size 80 15 16
+box    rock    at 2536 0 8 size 80 9 16
+box    rock    at 2624 0 8 size 96 3 16
+box    rock    at 2680 0 48 size 16 9 96
+box    rock    at 2352 0 24 size 96 3 16
+box    rock    at 2456 0 24 size 112 9 16
+box    rock    at 2552 0 24 size 80 3 16
+box    rock    at 2664 0 32 size 16 3 32
+box    rock    at 2456 0 40 size 144 3 16
+box    rock    at 2640 0 40 size 32 3 16
+box    rock    at 2616 0 56 size 16 2.5 16
+box    rock    at 2632 0 56 size 16 3 16
+box    rock    at 2656 0 56 size 32 9 16
+box    rock    at 2616 0 80 size 16 3 32
+box    rock    at 2640 0 72 size 32 9 16
+box    rock    at 2664 0 72 size 16 15 16
+box    rock    at 2632 0 96 size 16 3 32
+box    rock    at 2656 0 88 size 32 9 16
+box    rock    at 2664 0 104 size 48 3 16
+box    rock    at 2680 0 184 size 16 3 144
+box    rock    at 2664 0 208 size 16 3 32
+box    rock    at 2312 0 240 size 16 3 32
+box    rock    at 2344 0 240 size 16 3 32
+box    rock    at 2440 0 240 size 16 3 32
+box    rock    at 2488 0 240 size 16 3 32
+box    rock    at 2544 0 240 size 32 3 32
+box    rock    at 2328 0 248 size 16 3 16
+box    rock    at 2392 0 248 size 80 3 16
+box    rock    at 2464 0 248 size 32 3 16
+box    rock    at 2504 0 248 size 16 3 16
+box    rock    at 2616 0 248 size 112 3 16
+rock-28 rock    at 2312 7.5 8 size 13 8 11.7 turn 270
+rock-58 rock    at 2327 7.5 8 size 15 9 13.5 turn 270
+rock-11 rock    at 2345 7.5 7 size 13 8 11.7 turn 90
+rock-24 rock    at 2361 7.5 8 size 13 6 11.7 turn 180
+rock-18 rock    at 2376 7.5 9 size 12 7 10.8 turn 180
+rock-34 rock    at 2391 7.5 7 size 12 9 10.8
+rock-6 rock    at 2409 7.5 7 size 15 8 13.5
+rock-9 rock    at 2424 13.5 7 size 15 6 13.5 turn 90
+rock-17 rock    at 2440 13.5 9 size 15 7 13.5 turn 180
+rock-15 rock    at 2457 13.5 9 size 14 8 12.6 turn 90
+rock-63 rock    at 2472 13.5 9 size 12 8 10.8 turn 270
+rock-42 rock    at 2488 13.5 9 size 14 7 12.6 turn 90
+rock-32 rock    at 2505 7.5 8 size 15 9 13.5 turn 270
+rock-6 rock    at 2521 7.5 8 size 13 9 11.7
+rock-40 rock    at 2535 7.5 8 size 13 9 11.7
+rock-62 rock    at 2552 7.5 9 size 13 6 11.7 turn 270
+rock-34 rock    at 2568 7.5 9 size 14 8 12.6
+rock-31 rock    at 2583 1.5 8 size 16 8 14.4 turn 270
+rock-26 rock    at 2600 1.5 7 size 16 10 14.4 turn 270
+rock-33 rock    at 2616 1.5 9 size 15 7 13.5
+rock-60 rock    at 2632 1.5 7 size 15 9 13.5 turn 270
+rock-19 rock    at 2649 1.5 7 size 15 7 13.5 turn 180
+rock-11 rock    at 2663 1.5 8 size 14 9 12.6 turn 90
+rock-46 rock    at 2680 7.5 8 size 12 8 10.8 turn 90
+rock-18 rock    at 2311 1.5 24 size 14 8 12.6 turn 180
+rock-39 rock    at 2328 1.5 23 size 15 9 13.5
+rock-60 rock    at 2345 1.5 23 size 16 8 14.4 turn 270
+rock-36 rock    at 2360 1.5 25 size 14 7 12.6
+rock-29 rock    at 2375 1.5 24 size 14 10 12.6 turn 270
+rock-16 rock    at 2392 1.5 24 size 14 7 12.6 turn 90
+rock-11 rock    at 2409 7.5 25 size 14 8 12.6 turn 90
+rock-22 rock    at 2424 7.5 25 size 14 8 12.6 turn 180
+rock-36 rock    at 2440 7.5 25 size 13 8 11.7
+rock-38 rock    at 2457 7.5 24 size 14 9 12.6
+rock-41 rock    at 2472 7.5 25 size 15 9 13.5 turn 90
+rock-62 rock    at 2487 7.5 25 size 14 7 12.6 turn 270
+rock-4 rock    at 2503 7.5 24 size 12 7 10.8
+rock-52 rock    at 2521 1.5 25 size 16 9 14.4 turn 180
+rock-45 rock    at 2536 1.5 23 size 17 8 15.3 turn 90
+rock-57 rock    at 2553 1.5 24 size 16 9 14.4 turn 270
+rock-17 rock    at 2568 1.5 25 size 14 10 12.6 turn 180
+rock-11 rock    at 2584 1.5 23 size 14 8 12.6 turn 90
+rock-46 rock    at 2663 1.5 24 size 14 7 12.6 turn 90
+rock-12 rock    at 2679 7.5 25 size 12 7 10.8 turn 90
+rock-28 rock    at 2393 1.5 39 size 14 7 12.6 turn 270
+rock-49 rock    at 2408 1.5 41 size 14 7 12.6 turn 180
+rock-40 rock    at 2423 1.5 40 size 14 10 12.6
+rock-30 rock    at 2440 1.5 39 size 16 7 14.4 turn 270
+rock-60 rock    at 2457 1.5 40 size 15 9 13.5 turn 270
+rock-19 rock    at 2471 1.5 39 size 17 8 15.3 turn 180
+rock-31 rock    at 2489 1.5 41 size 14 8 12.6 turn 270
+rock-43 rock    at 2503 1.5 39 size 14 7 12.6 turn 90
+rock-47 rock    at 2519 1.5 40 size 15 9 13.5 turn 90
+rock-20 rock    at 2632 1.5 40 size 14 7 12.6 turn 180
+rock-40 rock    at 2649 1.5 40 size 14 7 12.6
+rock-64 rock    at 2663 1.5 40 size 17 10 15.3 turn 270
+rock-22 rock    at 2679 7.5 39 size 12 8 10.8 turn 180
+rock-61 rock    at 2617 1 55 size 17 9 15.3 turn 270
+rock-61 rock    at 2633 1.5 56 size 16 9 14.4 turn 270
+rock-48 rock    at 2647 7.5 56 size 13 9 11.7 turn 90
+rock-31 rock    at 2665 7.5 57 size 15 6 13.5 turn 270
+rock-21 rock    at 2679 7.5 56 size 12 9 10.8 turn 180
+rock-34 rock    at 2615 1.5 73 size 17 8 15.3
+rock-56 rock    at 2632 7.5 71 size 13 6 11.7 turn 180
+rock-60 rock    at 2647 7.5 71 size 12 8 10.8 turn 270
+rock-1 rock    at 2665 13.5 72 size 15 8 13.5
+rock-5 rock    at 2679 7.5 71 size 13 8 11.7
+rock-21 rock    at 2617 1.5 88 size 16 10 14.4 turn 180
+rock-22 rock    at 2631 1.5 87 size 17 7 15.3 turn 180
+rock-13 rock    at 2649 7.5 87 size 15 9 13.5 turn 90
+rock-22 rock    at 2664 7.5 88 size 14 6 12.6 turn 180
+rock-48 rock    at 2681 7.5 88 size 14 7 12.6 turn 90
+rock-43 rock    at 2633 1.5 104 size 17 8 15.3 turn 90
+rock-24 rock    at 2648 1.5 103 size 15 7 13.5 turn 180
+rock-17 rock    at 2663 1.5 104 size 17 7 15.3 turn 180
+rock-43 rock    at 2681 1.5 104 size 17 10 15.3 turn 90
+rock-57 rock    at 2680 1.5 119 size 14 7 12.6 turn 270
+rock-39 rock    at 2680 1.5 135 size 15 8 13.5
+rock-53 rock    at 2679 1.5 151 size 16 10 14.4 turn 180
+rock-60 rock    at 2680 1.5 167 size 15 9 13.5 turn 270
+rock-49 rock    at 2681 1.5 183 size 16 9 14.4 turn 180
+rock-12 rock    at 2665 1.5 201 size 14 7 12.6 turn 90
+rock-51 rock    at 2681 1.5 201 size 15 7 13.5 turn 180
+rock-52 rock    at 2665 1.5 215 size 17 8 15.3 turn 180
+rock-11 rock    at 2679 1.5 215 size 17 7 15.3 turn 90
+rock-62 rock    at 2311 1.5 232 size 14 7 12.6 turn 270
+rock-4 rock    at 2343 1.5 231 size 14 7 12.6
+rock-8 rock    at 2440 1.5 231 size 17 9 15.3
+rock-49 rock    at 2489 1.5 233 size 17 7 15.3 turn 180
+rock-20 rock    at 2535 1.5 231 size 14 7 12.6 turn 180
+rock-56 rock    at 2552 1.5 232 size 17 9 15.3 turn 180
+rock-30 rock    at 2680 1.5 231 size 15 10 13.5 turn 270
+rock-33 rock    at 2311 1.5 249 size 17 9 15.3
+rock-42 rock    at 2327 1.5 248 size 17 8 15.3 turn 90
+rock-36 rock    at 2343 1.5 248 size 16 7 14.4
+rock-53 rock    at 2360 1.5 249 size 15 9 13.5 turn 180
+rock-62 rock    at 2375 1.5 247 size 16 9 14.4 turn 270
+rock-44 rock    at 2391 1.5 247 size 15 10 13.5 turn 90
+rock-23 rock    at 2409 1.5 249 size 16 7 14.4 turn 180
+rock-47 rock    at 2425 1.5 249 size 14 8 12.6 turn 90
+rock-2 rock    at 2439 1.5 249 size 14 9 12.6
+rock-32 rock    at 2455 1.5 247 size 17 8 15.3 turn 270
+rock-54 rock    at 2472 1.5 247 size 16 8 14.4 turn 180
+rock-36 rock    at 2489 1.5 247 size 15 9 13.5
+rock-42 rock    at 2505 1.5 249 size 15 9 13.5 turn 90
+rock-48 rock    at 2535 1.5 248 size 15 10 13.5 turn 90
+rock-45 rock    at 2552 1.5 249 size 15 9 13.5 turn 90
+rock-17 rock    at 2568 1.5 247 size 17 7 15.3 turn 180
+rock-19 rock    at 2584 1.5 248 size 15 9 13.5 turn 180
+rock-30 rock    at 2599 1.5 248 size 17 7 15.3 turn 270
+rock-56 rock    at 2617 1.5 247 size 15 7 13.5 turn 180
+rock-44 rock    at 2631 1.5 249 size 16 8 14.4 turn 90
+rock-64 rock    at 2647 1.5 249 size 16 8 14.4 turn 270
+rock-53 rock    at 2665 1.5 247 size 17 10 15.3 turn 180
+rock-44 rock    at 2681 1.5 249 size 15 9 13.5 turn 90
+
+# woods (at 43% of its height, for the camera)
+cylinder trunk   at 2422 0 54 size 3 11 3
+blob-29 foliage at 2422 6 54 size 17 18 16.15
+frustum trunk   at 2438 0 56 size 3 12 3
+blob-41 foliage at 2438 7 56 size 19 15 18.05 turn 90
+frustum trunk   at 2311 0 72 size 3 5 3
+blob-33 foliage at 2311 2.5 72 size 17 8.5 16.15 turn 180
+cylinder trunk   at 2424 0 70 size 3 9 3
+cone   foliage at 2424 6 70 size 17 19.84 17
+cone   foliage at 2424 18.16 70 size 12.24 19.84 12.24
+frustum trunk   at 2439 0 72 size 3 9 3
+cone   foliage at 2439 6 72 size 17 16.74 17
+cone   foliage at 2439 16.26 72 size 12.24 16.74 12.24
+cylinder trunk   at 2312 0 88 size 3 12 3
+blob-53 foliage at 2312 7 88 size 19 16 18.05 turn 270
+cylinder trunk   at 2310 0 104 size 3 10 3
+blob-44 foliage at 2310 5 104 size 19 15 18.05 turn 180
+frustum trunk   at 2312 0 120.5 size 3 11 3
+blob-60 foliage at 2312 6 120.5 size 18 17 17.1
+cylinder trunk   at 2344 0 168 size 3 4 3
+cone   foliage at 2344 3 168 size 19 9 19
+cone   foliage at 2344 8.5 168 size 13.68 8.5 13.68
+frustum trunk   at 2359 0 169 size 3 4 3
+cone   foliage at 2359 2 169 size 17 12 17
+cone   foliage at 2359 9.5 169 size 12.24 11.5 12.24
+cylinder trunk   at 2376 0 170 size 3 5 3
+cone   foliage at 2376 3 170 size 19 11 19
+cone   foliage at 2376 9.5 170 size 13.68 11 13.68
+cylinder trunk   at 2344 0 184 size 3 8 3
+cone   foliage at 2344 5.5 184 size 19 16.5 19
+cone   foliage at 2344 15.5 184 size 13.68 16 13.68
+cylinder trunk   at 2360 0 182 size 3 7.5 3
+cone   foliage at 2360 4.5 182 size 20 19 20
+cone   foliage at 2360 16 182 size 14.4 18.5 14.4
+frustum trunk   at 2378 0 182 size 3 7 3
+cone   foliage at 2378 4 182 size 17 18.6 17
+cone   foliage at 2378 15.4 182 size 12.24 18.6 12.24
+frustum trunk   at 2344 0 200 size 3 10 3
+cone   foliage at 2344 7 200 size 19 16.12 19
+cone   foliage at 2344 16.88 200 size 13.68 16.12 13.68
+cylinder trunk   at 2359 0 200 size 3 7 3
+cone   foliage at 2359 4 200 size 17 19.22 17
+cone   foliage at 2359 15.78 200 size 12.24 19.22 12.24
+cylinder trunk   at 2359.5 0 214 size 3 7 3
+cone   foliage at 2359.5 4 214 size 18 20.46 18
+cone   foliage at 2359.5 16.54 214 size 12.96 20.46 12.96
+frustum trunk   at 2376.5 0 216 size 3 7 3
+cone   foliage at 2376.5 4 216 size 18 19.84 18
+cone   foliage at 2376.5 16.16 216 size 12.96 19.84 12.96
+box    hedge   at 2456 0 55.75 size 16 6 15.5
+blob-8 hedge   at 2456 3.5 55.75 size 16 5 15.5

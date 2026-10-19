@@ -1,0 +1,57 @@
+set trophy-hall
+# The Trophy Hall: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: the realm's red runner, Sir Kay by the door (8.6,2.6), the Grail's candles; the west wall's doorway is rubble until the wing is dug.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 10
+box    stone   at 88 -4 8 size 176 52 16
+
+# the north wall, columns 13 to 23
+box    stone   at 296 -4 8 size 176 52 16
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# the north door, columns 11 to 12
+box    door    at 192 -4 -1 size 32 36 2 id door-north
+box    stone   at 192 32 8 size 32 16 16  # TODO prims: arch
+
+# plinth at 4,3 2x1 (at 59% of its height, for the camera)
+box    stone   at 80 0 56 size 30 5.5 14 id plinth-1
+
+# plinth at 18,3 2x1 (at 59% of its height, for the camera)
+box    stone   at 304 0 56 size 30 5.5 14 id plinth-2
+
+# plinth at 10,5 4x2 (at 64% of its height, for the camera)
+box    stone   at 192 0 96 size 62 6 30 id plinth-3
+
+# plinth at 18,6 2x1 (at 64% of its height, for the camera)
+box    stone   at 304 0 104 size 30 6 14 id plinth-4
+
+# plinth at 4,8 2x1 (at 64% of its height, for the camera)
+box    stone   at 80 0 136 size 30 6 14 id plinth-5
+
+# plinth at 18,8 2x1 (at 64% of its height, for the camera)
+box    stone   at 304 0 136 size 30 6 14 id plinth-6
+
+# plinth at 11,10 2x1 (at 69% of its height, for the camera)
+box    stone   at 192 0 168 size 30 6.5 14 id plinth-7
+
+# plinth at 4,11 2x1 (at 69% of its height, for the camera)
+box    stone   at 80 0 184 size 30 6.5 14 id plinth-8
+
+# plinth at 18,11 2x1 (at 69% of its height, for the camera)
+box    stone   at 304 0 184 size 30 6.5 14 id plinth-9

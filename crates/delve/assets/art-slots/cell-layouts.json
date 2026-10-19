@@ -1,0 +1,15 @@
+{
+  "cinder": {"moves": [], "hint_rows": [197], "hide_hints_after_ticks": null},
+  "latch": {
+    "moves": [
+      {"from": [180, 76], "to": [102, 70], "align": "center"},
+      {"from": [164, 88], "to": [102, 82], "align": "center"},
+      {"from": [160, 64], "to": [192, 56], "align": "center"}
+    ],
+    "hint_rows": [202], "hide_hints_after_ticks": null
+  },
+  "mossbell": {"moves": [], "hint_rows": [208], "hide_hints_after_ticks": null},
+  "brasswake": {"moves": [], "hint_rows": [194], "hide_hints_after_ticks": null},
+  "rafterwake": {"moves": [], "hint_rows": [], "hide_hints_after_ticks": null},
+  "pennon": {"moves": [], "hint_rows": [], "hide_hints_after_ticks": null}
+}

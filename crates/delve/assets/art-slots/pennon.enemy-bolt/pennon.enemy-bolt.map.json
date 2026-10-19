@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    12,
+    12
+  ],
+  "anchor_xy": [
+    6,
+    6
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "segment_hits vs 16\u00d737 or duck 16\u00d719 player box; tell line ends at locked sample aim, projectile continues on that vector. No radius from sprite bounds.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "c6e698b246fc4d4766b92ad5bec929c201f6ee94dff381dc30714f694a7d6309",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Standard right-facing seed bolt.",
+      "name": "enemy-bolt",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        106.0,
+        58.0
+      ],
+      "source_rect_xywh": [
+        66,
+        293,
+        212,
+        116
+      ],
+      "state": "enemy-bolt"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Up-right aimed bolt.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        97.5,
+        78.5
+      ],
+      "source_rect_xywh": [
+        382,
+        266,
+        195,
+        157
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Down-right aimed bolt.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        97.5,
+        71.0
+      ],
+      "source_rect_xywh": [
+        681,
+        278,
+        195,
+        142
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Left-facing mirrored bolt.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.0,
+        58.0
+      ],
+      "source_rect_xywh": [
+        976,
+        293,
+        210,
+        116
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Small right-facing bolt.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        66.5,
+        38.0
+      ],
+      "source_rect_xywh": [
+        96,
+        606,
+        133,
+        76
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Large right-facing bolt.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.0,
+        73.5
+      ],
+      "source_rect_xywh": [
+        350,
+        569,
+        252,
+        147
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Right-facing bolt with detached earthy flecks trailing behind.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        126.5,
+        53.5
+      ],
+      "source_rect_xywh": [
+        656,
+        596,
+        253,
+        107
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Right-facing bolt with a short warm streak.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        47.0
+      ],
+      "source_rect_xywh": [
+        967,
+        599,
+        235,
+        94
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Standard left-facing bolt.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        106.5,
+        58.0
+      ],
+      "source_rect_xywh": [
+        58,
+        908,
+        213,
+        116
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Small left-facing bolt.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        74.5,
+        38.5
+      ],
+      "source_rect_xywh": [
+        392,
+        926,
+        149,
+        77
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Large left-facing bolt.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        128.0,
+        73.0
+      ],
+      "source_rect_xywh": [
+        644,
+        893,
+        256,
+        146
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Detached slate/earth impact chips.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        87.5,
+        67.0
+      ],
+      "source_rect_xywh": [
+        1014,
+        899,
+        175,
+        134
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "12\u00d712 centred on shot position, anchor (6,6).",
+  "sizes": {
+    "v1": [
+      12,
+      12
+    ],
+    "v2": [
+      12,
+      12
+    ]
+  },
+  "slot": "pennon.enemy-bolt",
+  "source_sha256": "48f34f4897833ae2c37014db72dd3a5c52edc7e957666e6b164831a49a6896b5",
+  "timing": "One source, life=180; Shot::aimed uses max-axis normalisation and max component 512 fixed units/tick. One bolt per sentry action, not a volley."
+}

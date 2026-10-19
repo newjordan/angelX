@@ -1,0 +1,23 @@
+power wish:speed 3
+teacher Reynard the Post
+place the Compliment Toll Bridge booth in the Tilt-Yards
+room TollBridge
+look a coat of sewn shoe-leather, letters in his hatband, and a way of standing while sitting
+line The goose is faster than you, and it knows it. Insulting, isn't it?
+hook The level-2 card reads ...and a coat of sewn shoe-leather, somewhere on a road.
+step The paperwork | cross the bridge once and pay the toll in full: three compliments, sincerely | compliments_paid 1 | Sincerity is the only coin the bridge stamps. | cue toll
+step The cabbage circuit | walk mine-head, caravan, hippodrome and wheelwright in one walk | circuits_walked 1 | The road knows your name now. Say it back. | cue walk
+step The race | finish one Cabbage and Roll race in the top two | races_placed 1 | Arrive. That was the whole trick, and you did it. | needs races_placed
+step The late letter | carry one letter from the Pigeon Parliament to the Rookery on foot | letters_outrun 1 | You outwalked the mail. Don't tell the pigeons it was close. | cue carry
+trial The unhurried mile | clear one hall without stopping: the idle meter never crosses two seconds | unhurried_halls 1 | Arrived. Whole. Unhurried. Pick two — no, you got all three.
+reward Fleet Foot tier 3
+title the Arrived
+keepsake the Shoe-Leather Band, a band of sewn shoe-leather
+ties The circuit passes Petronel's hippodrome and the caravan; the letter race crosses Fenna's rookery roads; the bridge sits on the lists' road with Sir Ferris.
+art
+...8...
+..888..
+..8.8..
+.8.8.8.
+.8...8.
+..8.8..

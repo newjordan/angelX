@@ -1,0 +1,16 @@
+{
+  "delivery": "moonfall.forge/v01",
+  "delivery_status": "Accepted by the wave-2 producer review on 2026-10-18 (judged on neutral grey and on the simulated native strip): narrow smithy, lit chimney slit and door, grey on grey at night; transparent background, three separated drawings.",
+  "generation_sha256": "8573f7043f0abf60274dc9805b8de5682861b2d2e85e532661702392572ccae2",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "7c8892edb73c44be81400e7893dbf121554313e37f925cff8ee8e9e1c32b44b5",
+  "native_contract": "Native 48x76, anchor bottom-centre (24,76).",
+  "notes_sha256": "3c749351ce7e220c24ad4af410071b6b66074b950669556166c7fdee5e9847b0",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "a17d24531076c4b4992964356ed9505b5e0c712eda196260d433aaa7afcfbb7b",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (generation 1)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.forge/v01/source-sheet.png",
+  "source_sha256": "48a80f9fce073037ea73e955cf9b7b47bf440457e29523f8933d6a4b292babd0"
+}

@@ -249,3 +249,110 @@ fn once_met_the_dwarf_king_sends_the_knights_to_his_mines() {
     r.home.barony.done.push("workings".into());
     assert!(!r.open_errands().iter().any(|(room, _)| *room == RoomKind::MineHead));
 }
+
+#[test]
+fn a_find_out_in_the_open_pays_once_mends_tells_and_hums() {
+    use crate::world::finds::{CACHE, Kind};
+    let mut r = kingdom();
+    r.players.retain(|&id, _| id == 1);
+    let all = r.standing_finds();
+    let spot = |k: Kind| all.iter().find(|(_, f)| f.kind == k).map(|(i, f)| (*i, f.at));
+    // A ruin's cache, once a run.
+    let (i, ruin) = spot(Kind::Ruin).expect("a ruin");
+    stand_at(&mut r, 1, ruin);
+    let before = r.score;
+    r.step(&press(1));
+    assert_eq!(r.score, before + CACHE);
+    assert!(r.kingdom.found & (1 << i) != 0);
+    r.step(&BTreeMap::new());
+    r.step(&press(1));
+    assert_eq!(r.score, before + CACHE, "a cache pays once");
+    assert_eq!(r.found.as_ref().unwrap().2, "ONLY OLD STONES NOW");
+    r.step(&BTreeMap::new());
+    // A shrine mends.
+    let (_, shrine) = spot(Kind::Shrine).expect("a shrine");
+    stand_at(&mut r, 1, shrine);
+    r.players.get_mut(&1).unwrap().hp = 1;
+    r.step(&press(1));
+    assert_eq!(r.players[&1].hp, r.players[&1].max_hp);
+    r.step(&BTreeMap::new());
+    // A wanderer tells of a find nobody has made, by its biome.
+    let (_, fire) = spot(Kind::Campfire).expect("a campfire");
+    stand_at(&mut r, 1, fire);
+    r.step(&press(1));
+    let said = r.found.as_ref().unwrap().2.clone();
+    assert!(said.starts_with("A WANDERER: "), "{said}");
+    assert!(crate::world::biome::Biome::ALL.iter().any(|b| said.ends_with(&b.name().to_uppercase())), "{said}");
+    r.step(&BTreeMap::new());
+    // Stones hum.
+    let (k, stones) = spot(Kind::Stones).expect("standing stones");
+    stand_at(&mut r, 1, stones);
+    r.step(&press(1));
+    assert_eq!(r.kingdom.woke.map(|w| w.0), Some(k as u8));
+    // Saved and loaded, the finds remember.
+    let loaded: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
+    assert!(loaded.valid_snapshot());
+    assert_eq!(loaded.kingdom.found, r.kingdom.found);
+}
+
+#[test]
+fn a_lost_pack_a_hermit_and_a_well_give_once_and_only_what_can_be_used() {
+    use crate::world::finds::{COIN, Kind};
+    let mut r = kingdom();
+    r.players.retain(|&id, _| id == 1);
+    let all = r.standing_finds();
+    let spot = |k: Kind| all.iter().find(|(_, f)| f.kind == k).map(|(i, f)| (*i, f.at));
+    // A lost pack holds a card or a consumable, once.
+    let (i, pack) = spot(Kind::LostPack).expect("a lost pack");
+    stand_at(&mut r, 1, pack);
+    r.players.get_mut(&1).unwrap().hand.clear();
+    let bombs = r.players[&1].bombs;
+    r.step(&press(1));
+    let said = r.found.as_ref().unwrap().2.clone();
+    assert!(said.starts_with("A LOST PACK: "), "{said}");
+    let h = &r.players[&1];
+    assert!(h.hand.len() == 1 || h.bombs == bombs + 1 || r.score > 0, "{said}");
+    assert!(r.kingdom.found & (1 << i) != 0);
+    r.step(&BTreeMap::new());
+    r.step(&press(1));
+    assert_eq!(r.found.as_ref().unwrap().2, "THE PACK IS EMPTY NOW");
+    r.step(&BTreeMap::new());
+    // A hermit trades a thunder scroll for a potion: nothing taken, and
+    // nothing marked, from a knight with none.
+    let (i, hermit) = spot(Kind::Hermit).expect("a hermit");
+    stand_at(&mut r, 1, hermit);
+    r.players.get_mut(&1).unwrap().hand.clear();
+    r.step(&press(1));
+    assert!(r.found.as_ref().unwrap().2.contains("WANTS A POTION"));
+    assert!(r.kingdom.found & (1 << i) == 0, "a trade not made is not a find");
+    r.step(&BTreeMap::new());
+    r.players.get_mut(&1).unwrap().hand = vec!["potion".into()];
+    r.step(&press(1));
+    assert_eq!(r.players[&1].hand, vec!["thunder-scroll".to_string()]);
+    assert!(r.kingdom.found & (1 << i) != 0);
+    r.step(&BTreeMap::new());
+    r.step(&press(1));
+    assert_eq!(r.players[&1].hand, vec!["thunder-scroll".to_string()], "he trades once");
+    r.step(&BTreeMap::new());
+    // A well takes a coin of renown for a boon the knight can use; short of
+    // the coin, or with nothing to give, none is taken.
+    let (i, well) = spot(Kind::Well).expect("a well");
+    stand_at(&mut r, 1, well);
+    r.score = COIN - 1;
+    r.players.get_mut(&1).unwrap().hp = 1;
+    r.step(&press(1));
+    assert_eq!(r.score, COIN - 1, "no coin, no wish");
+    assert!(r.kingdom.found & (1 << i) == 0);
+    r.step(&BTreeMap::new());
+    r.score = COIN + 3;
+    r.step(&press(1));
+    assert_eq!(r.score, 3, "a coin down the well");
+    assert!(r.found.as_ref().unwrap().2.starts_with("A COIN DOWN THE WELL: "));
+    assert!(r.kingdom.found & (1 << i) != 0);
+    r.step(&BTreeMap::new());
+    r.step(&press(1));
+    assert_eq!(r.score, 3, "a well grants once");
+    let loaded: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
+    assert!(loaded.valid_snapshot());
+    assert_eq!(loaded.kingdom.found, r.kingdom.found);
+}

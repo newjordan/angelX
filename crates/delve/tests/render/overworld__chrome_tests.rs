@@ -122,15 +122,54 @@ fn a_label_keeps_its_old_place_and_words() {
     let mut im = Img::new(80, 20);
     let rect = label(&mut im, (10, 5), "E: TALK", '6', Tone::KEY);
     assert_eq!(rect, (7, 3, text_width("E: TALK") + 6, 11));
+    // The words are the 5x7 hand's, in the brass a prompt wears at dusk
+    // (a bright gold letter steps down to it, `dusk_mark`).
     let mut words = Img::new(80, 20);
     words.text(10, 5, "E: TALK", '6');
     for y in 0..20 {
         for x in 0..80 {
             if words.get(x, y).is_some() {
-                assert_eq!(im.get(x, y), ink('6'), "the letters at {x},{y}");
+                assert_eq!(im.get(x, y), ink('O'), "the letters at {x},{y}");
             }
         }
     }
+}
+
+#[test]
+fn lettering_over_the_world_never_wears_a_bright_gold_or_white() {
+    // Gold goes to brass and cream or white to grey; the quiet inks stay.
+    for ch in ['4', '5', '6', '@', 'T', 't'] {
+        assert_eq!(dusk_mark(ch), 'O', "{ch}");
+    }
+    for ch in ['9', 'c', 'w', 'H', 'W'] {
+        assert_eq!(dusk_mark(ch), 'i', "{ch}");
+    }
+    for ch in ['O', 'o', 'i', 'h', 'J', '$', '7', 'r'] {
+        assert_eq!(dusk_mark(ch), ch, "{ch}");
+    }
+    // Whatever it answers is no brighter than brass or the quiet grey.
+    let top = |c: char| {
+        let [r, g, b] = ink(c).unwrap();
+        0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b)
+    };
+    for ch in ['4', '5', '6', '@', 'T', 't', '9', 'c', 'w', 'H', 'W'] {
+        assert!(top(dusk_mark(ch)) <= top('i') + 0.5, "{ch}");
+    }
+    // A label's letters wear it too.
+    let mut im = Img::new(80, 20);
+    label(&mut im, (10, 5), "E: TALK", '9', Tone::KEY);
+    assert!(im.pixels().all(|p| p != ink('9').unwrap()));
+}
+
+#[test]
+fn a_pictures_inks_step_down_with_its_lettering() {
+    let icon = Img::from_rows(&["6.9", "4T."]);
+    let at_dusk = dusk_icon(&icon);
+    assert_eq!(at_dusk.get(0, 0), ink('O'));
+    assert_eq!(at_dusk.get(2, 0), ink('i'));
+    assert_eq!(at_dusk.get(0, 1), ink('O'));
+    assert_eq!(at_dusk.get(1, 1), ink('O'));
+    assert_eq!(at_dusk.get(1, 0), None);
 }
 
 #[test]

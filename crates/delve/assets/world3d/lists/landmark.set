@@ -1,0 +1,21 @@
+# Jousting Lists: a striped canopy over each stand, the pavilion's peak and the
+# heralds' standards either side of the north gate.
+box      wood  at 52 0 21 size 3 40 3 id lists-post-w1
+box      wood  at 140 0 21 size 3 40 3 id lists-post-w2
+box      wood  at 52 0 45 size 3 40 3 id lists-post-w3
+box      wood  at 140 0 45 size 3 40 3 id lists-post-w4
+gable    cloth at 96 40 33 size 106 13 38 id lists-canopy-w
+box      cloth at 96 53 33 size 14 6 1 id lists-pennant-w
+box      wood  at 244 0 21 size 3 40 3 id lists-post-e1
+box      wood  at 332 0 21 size 3 40 3 id lists-post-e2
+box      wood  at 244 0 45 size 3 40 3 id lists-post-e3
+box      wood  at 332 0 45 size 3 40 3 id lists-post-e4
+gable    cloth at 288 40 33 size 100 13 38 id lists-canopy-e
+box      cloth at 288 53 33 size 14 6 1 id lists-pennant-e
+pyramid  cloth at 352 9 32 size 32 34 32 id lists-pavilion-peak
+box      wood  at 352 43 32 size 2 16 2 id lists-pavilion-pole
+box      cloth at 359 52 32 size 12 6 1 id lists-pavilion-pennant
+cylinder wood  at 166 0 8 size 4 62 4 id lists-standard-w
+cylinder wood  at 218 0 8 size 4 62 4 id lists-standard-e
+box      cloth at 178 46 8 size 20 13 1.5 id lists-banner-realm
+box      cloth at 206 46 8 size 20 13 1.5 id lists-banner-rival

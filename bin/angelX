@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # angelX — boot the Angel cockpit: the terminal-first TUI shell.
 #
+# On a desktop the cockpit opens in angelX's own window (glass), from an app
+# launcher or typed in a terminal; from a terminal the window goes off on its
+# own and the prompt comes back. `--term` keeps the cockpit in the terminal, as
+# does tmux, SSH, or no display.
+#
 # Type `angelX` inside a project, or `angelX /path/to/project`, to load the cockpit —
 # a Rust/ratatui agent harness: chat with model agents (Tab to switch), ^G for a
 # full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
@@ -37,9 +42,6 @@
 #                     Empty or none: OAuth and local models only.
 #   ANGEL_DEV=1       run an unoptimized debug build instead of release (faster
 #                     compile, slower runtime — handy mid-edit)
-#   ANGEL_WEBGPU_PORTAL=1
-#                     build and use the WebGPU activity portal in place of the
-#                     painted Round Table (Kitty only)
 #   ANGEL_YOLO=1      unrestricted operator profile: no approvals, sandbox,
 #                     subprocess/HTTP/formation deadlines, descendant cleanup,
 #                     credential scrubbing, or automatic agent-loop stops
@@ -134,6 +136,12 @@ while [ $# -gt 0 ]; do
     --comp | --lean | --turbo | --angelturbo)
       [ "$LAUNCH_COMP" = 0 ] || _launch_invalid 'duplicate global option'
       LAUNCH_COMP=1; shift ;;
+    # The cockpit in angelX's own GPU window (docs/RENDER_FOUNDATION.md), or
+    # in the terminal it was typed in.
+    --glass)
+      export ANGEL_GLASS=1; shift ;;
+    --term)
+      export ANGEL_GLASS=0; shift ;;
     *) break ;;
   esac
 done
@@ -156,6 +164,26 @@ case "${1:-}" in
     HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
   update | reset-terminal | setup) FORWARD_ARGS=("$@"); set -- ;;
 esac
+# A prebuilt says in PREBUILT.json whether its binary carries the window
+# ("glass": true, or glass among its "features"). One built without it (0.2.4
+# and older) has nowhere to open a window, and a detached terminal cockpit
+# would vanish, so it stays here.
+GLASS_REFUSED=0
+if [ "$HEADLESS_MODE" = 0 ] && [ "$ANGEL_PREBUILT" = 1 ] && [ "${ANGEL_NO_BUILD:-}" = 1 ] \
+  && ! grep -qE '"glass": *true|"features":[[:space:]]*"[^"]*glass' "$ANGEL_DIR/PREBUILT.json"; then
+  [ "${ANGEL_GLASS:-}" = 1 ] && echo "angelX: this build has no window of its own; staying in the terminal" >&2
+  export ANGEL_GLASS=0
+  GLASS_REFUSED=1
+fi
+# On a desktop the cockpit opens in its own window: angelX needs no terminal
+# emulator. It stays in the terminal when asked (--term, ANGEL_GLASS=0), inside
+# tmux (a session meant to outlive the desktop), over SSH, or with no display.
+# A prebuilt without the window was set to the terminal just above.
+if [ -z "${ANGEL_GLASS:-}" ] && [ "$HEADLESS_MODE" = 0 ] \
+  && [ -z "${TMUX:-}" ] && [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ] \
+  && { [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ] || [ "$(uname -s)" = Darwin ]; }; then
+  export ANGEL_GLASS=1
+fi
 DRAFT_SEEN=0
 RESUME_SEEN=0
 DRIVER_SEEN=0
@@ -188,6 +216,16 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || _launch_invalid 'launch selector requires a value'
       _launch_text selector "$2" || _launch_invalid 'launch selector requires nonblank UTF-8 within 1024 bytes, without surrounding whitespace'
       FORWARD_ARGS+=("$1" "$2"); shift 2 ;;
+    # The window or the terminal, given after the workspace or other options.
+    --term)
+      export ANGEL_GLASS=0; shift ;;
+    --glass)
+      if [ "$GLASS_REFUSED" = 1 ]; then
+        echo "angelX: this build has no window of its own; staying in the terminal" >&2
+      else
+        export ANGEL_GLASS=1
+      fi
+      shift ;;
     *) _launch_invalid 'unknown or trailing interactive argument' ;;
   esac
 done
@@ -264,7 +302,12 @@ trap 'exit 143' TERM
 _die() {
   echo "angelX: $*" >&2
   [ -t 0 ] && read -rsn1 -p "press any key to close…" _ && echo
+  # With no terminal at all (a launcher opening the window), say it on the desktop.
+  [ -t 2 ] || _desktop_note "$*"
   exit 1
+}
+_desktop_note() {
+  command -v notify-send >/dev/null 2>&1 && notify-send -a angelX angelX "$1" 2>/dev/null || true
 }
 
 [ -d "$COCKPIT_DIR" ] || _die "cannot find cockpit at $COCKPIT_DIR"
@@ -440,6 +483,9 @@ fi
 if [ "$SKIP_DEFAULT_FEATURES" = "1" ]; then
   CARGO_BUILD_ARGS+=(--no-default-features)
 fi
+# One binary for the window and the terminal: every interactive build carries
+# the window, so moving between the two never rebuilds. Machine modes stay lean.
+[ "$HEADLESS_MODE" != "1" ] && CARGO_BUILD_ARGS+=(--features glass)
 BIN="$COCKPIT_DIR/target/$PROFILE/angel"
 if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
   [ "${ANGEL_NO_BUILD:-}" = "1" ] || _die "ANGEL_LAUNCH_BINARY requires ANGEL_NO_BUILD=1"
@@ -449,16 +495,6 @@ if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
   selected_sha=$(_angel_image_sha256 "$BIN") || _die "cannot verify selected launch binary"
   [ "$selected_sha" = "$ANGEL_LAUNCH_BINARY_SHA256" ] || _die "selected launch binary SHA-256 differs"
 fi
-PORTAL_MANIFEST="$COCKPIT_DIR/portal-renderer/Cargo.toml"
-PORTAL_BIN="$COCKPIT_DIR/target/$PROFILE/angel-portal-renderer"
-# The Round Table panel paints its station table in the cockpit itself; the
-# WebGPU portal renderer is built only when the operator asks for it.
-PORTAL_BUILD=0
-case "${ANGEL_WEBGPU_PORTAL:-}" in
-  0 | off | OFF | false | FALSE | no | NO) PORTAL_BUILD=0 ;;
-  1 | on | ON | true | TRUE | yes | YES) PORTAL_BUILD=1 ;;
-esac
-[ "$HEADLESS_MODE" = "1" ] && PORTAL_BUILD=0
 
 # Rebuild so cockpit/ edits are live. Skippable with ANGEL_NO_BUILD=1.
 # A failed rebuild must not boot a stale binary — that is how stale images
@@ -565,19 +601,13 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
     fi
   fi
   echo "angelX: building cockpit ($PROFILE) with $CARGO … source $SOURCE_BIND" >&2
+  [ -t 2 ] || [ "${ANGEL_GLASS:-}" != "1" ] || _desktop_note "building the cockpit…"
   echo "$(date +%T)   cargo $CARGO  git=$(git -C "$ANGEL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')  source=$SOURCE_BIND" >&9
   mkdir -p "$HOME/.angelX"
   cargo_log="$HOME/.angelX/cargo.log"
   echo "=== $(date '+%F %T') $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
   if ! (cd "$COCKPIT_DIR" && "$CARGO" build "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
     _die "cockpit build failed; refusing to run a stale binary (cargo=$CARGO). See $cargo_log"
-  fi
-  if [ "$PORTAL_BUILD" = "1" ] && [ -f "$PORTAL_MANIFEST" ]; then
-    echo "angelX: building WebGPU portal renderer ($PROFILE)…" >&2
-    echo "=== $(date '+%F %T') portal $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
-    if ! (cd "$COCKPIT_DIR" && CARGO_TARGET_DIR="$COCKPIT_DIR/target" "$CARGO" build --manifest-path "$PORTAL_MANIFEST" "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
-      echo "angelX: WebGPU portal build failed — terminal-native visualization remains active" >&2
-    fi
   fi
 fi
 
@@ -613,10 +643,8 @@ done
 pgrep -f "$COCKPIT_DIR/target/(release|debug)/angel( |\$)" >/dev/null 2>&1 && OTHER_LIVE=1
 ERR_FILE="$HOME/.angelX/cockpit.err"
 [ "$OTHER_LIVE" = "1" ] && ERR_FILE="$HOME/.angelX/cockpit-$$.err"
+export ANGEL_ERR_FILE="$ERR_FILE"
 
-if [ -z "${ANGEL_PORTAL_RENDERER:-}" ] && [ -x "$PORTAL_BIN" ]; then
-  export ANGEL_PORTAL_RENDERER="$PORTAL_BIN"
-fi
 cd "$WORKSPACE_DIR" || _die "cannot cd to workspace directory $WORKSPACE_DIR"
 echo "$(date +%T)   run $RUN_BIN  workspace=$WORKSPACE_DIR  err=$ERR_FILE" >&9
 # --- temporary: capture stderr + exit code (rc>128 => killed by signal rc-128) ---
@@ -632,15 +660,16 @@ if [ "$HEADLESS_MODE" != "1" ]; then
   fi
   echo "=== $(date '+%F %T') cockpit stderr ===" >>"$ERR_FILE"
 fi
-if [ "$HEADLESS_MODE" = "1" ]; then
-  # stdout and stderr are runner protocol surfaces. Do not hide diagnostics in a
-  # private log and do not append terminal-reset escape bytes to JSON stdout.
-  if "$RUN_BIN" "$@"; then
-    cockpit_rc=0
-  else
-    cockpit_rc=$?
-  fi
-else
+# Whether the desktop swallows a window started from a terminal (Hyprland's
+# misc:enable_swallow, with a misc:swallow_regex naming the terminals): then
+# the glass window can take the terminal's place.
+_swallows() {
+  [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1 \
+    && hyprctl getoption misc:enable_swallow 2>/dev/null | grep -qE '^(bool: true|int: 1)' \
+    && hyprctl getoption misc:swallow_regex 2>/dev/null | grep -qE '^str: .*[^[:space:]]'
+}
+# The cockpit in the terminal it was typed in.
+_run_here() {
   ANGEL_TERMINAL_ARMED=1
   if "$RUN_BIN" "$@" 2>>"$ERR_FILE"; then
     cockpit_rc=0
@@ -649,6 +678,73 @@ else
   fi
   _restore_terminal
   ANGEL_TERMINAL_ARMED=0
+}
+# The cockpit marks ANGEL_GLASS_READY once its window is up. One that ends
+# without it never had a window (no GPU adapter, no display it can use), so the
+# terminal it was typed in runs it instead, and says why.
+_window_failed() {
+  echo "angelX: no window could open here (see $ERR_FILE); running in the terminal" >&2
+  echo "$(date +%T)   window failed; running in the terminal" >&9
+  export ANGEL_GLASS=0
+}
+if [ "$HEADLESS_MODE" = "1" ]; then
+  # stdout and stderr are runner protocol surfaces. Do not hide diagnostics in a
+  # private log and do not append terminal-reset escape bytes to JSON stdout.
+  if "$RUN_BIN" "$@"; then
+    cockpit_rc=0
+  else
+    cockpit_rc=$?
+  fi
+elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ] && _swallows; then
+  # The window was asked for from a terminal whose compositor swallows: it
+  # stays attached, so the window opens in the terminal's place and the
+  # terminal comes back when it closes. Its input is the window's own.
+  export ANGEL_GLASS_READY="$RUN_BIN.ready"
+  rm -f -- "$ANGEL_GLASS_READY"
+  if "$RUN_BIN" "$@" </dev/null 2>>"$ERR_FILE"; then
+    cockpit_rc=0
+  else
+    cockpit_rc=$?
+  fi
+  if [ -e "$ANGEL_GLASS_READY" ]; then
+    rm -f -- "$ANGEL_GLASS_READY"
+  else
+    _window_failed
+    _run_here "$@"
+  fi
+elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ]; then
+  # The window was asked for from a terminal: it goes off on its own, so the
+  # prompt comes back and closing the terminal leaves the window open. The
+  # launcher waits for the window to be up; a cockpit that ends first runs
+  # here instead. The window removes its own launch image when it closes.
+  export ANGEL_GLASS_READY="$RUN_BIN.ready"
+  rm -f -- "$ANGEL_GLASS_READY" "$ANGEL_GLASS_READY.exit" "$ANGEL_GLASS_READY.left"
+  detached='"$0" "$@" 2>>"$ANGEL_ERR_FILE"; r=$ANGEL_GLASS_READY
+    if [ -e "$r" ] || [ -e "$r.left" ]; then rm -f -- "$0" "$r" "$r.left"; else : >"$r.exit"; fi'
+  if command -v setsid >/dev/null 2>&1; then
+    setsid -f sh -c "$detached" "$RUN_BIN" "$@" </dev/null >/dev/null 2>&1
+  else
+    nohup sh -c "$detached" "$RUN_BIN" "$@" </dev/null >/dev/null 2>&1 &
+  fi
+  waited=0
+  while [ ! -e "$ANGEL_GLASS_READY" ] && [ ! -e "$ANGEL_GLASS_READY.exit" ] && [ "$waited" -lt 300 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  if [ -e "$ANGEL_GLASS_READY.exit" ]; then
+    rm -f -- "$ANGEL_GLASS_READY.exit"
+    _window_failed
+    _run_here "$@"
+  else
+    # Still starting after half a minute: it cleans up after itself.
+    [ -e "$ANGEL_GLASS_READY" ] || : >"$ANGEL_GLASS_READY.left"
+    echo "angelX: opened in its own window (--term keeps it here)" >&2
+    echo "$(date +%T)   window detached from the terminal" >&9
+    RUN_BIN=""
+    exit 0
+  fi
+else
+  _run_here "$@"
 fi
 echo "$(date +%T)   cockpit rc=$cockpit_rc  (>128 = signal; 129=SIGHUP 130=SIGINT 137=SIGKILL 143=SIGTERM)" >&9
 exit "$cockpit_rc"

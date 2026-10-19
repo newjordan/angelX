@@ -85,8 +85,13 @@ fn residents_are_plain_visible_sprites_and_motion_preferences_hold() {
 
 #[test]
 fn residents_stay_in_town_and_outside_distant_views() {
-    let town = View::screen(2, 2);
-    let distant = View::screen(0, 0);
+    // The Keep's set piece, and the Observatory's far off to the north-west.
+    let piece = |ax: i32, ay: i32| {
+        let (x, y) = map::screen_origin(ax, ay);
+        View { x: x * map::TILE, y: y * map::TILE, w: map::SCREEN_W * map::TILE, h: map::SCREEN_H * map::TILE }
+    };
+    let town = piece(1, 1);
+    let distant = piece(0, 0);
     for tick in 0..192 {
         for prop in stage(tick, Motion::Full) {
             let (x, y) = map::place_px(prop.x + prop.img.w / 2, prop.base - 1);

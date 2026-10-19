@@ -1,0 +1,11 @@
+{
+  "comment": "Glass medians from scorecard v2 (2026-10-17, nested seat wayland-2, RTX 3090; raw series in docs/telemetry/render-v2/). M3-stream tracks the 4K big mode in v2-2 (1080p v2-1 median 1.526). M1 is production mailbox; immediate present measured separately in the scorecard. Update only with a fresh full v2 run and a note in docs/RENDER_SCORECARD.md.",
+  "glass_median_ms": {
+    "M1-keyframe": 6.7,
+    "M2-blast4": 0.968,
+    "M3-stream": 1.857,
+    "M4-placements": 0.873,
+    "M5-text": 0.425,
+    "M6-churn": 1.369
+  }
+}

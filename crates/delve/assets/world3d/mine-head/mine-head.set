@@ -1,0 +1,230 @@
+set mine-head
+# Mine-Head: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: the adit's mouth and its rails, the shaft (11,3), the ore cart.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 24 size 32 4 48
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 56 size 16 4 80
+box    grass   at 80 -4 40 size 128 4 48
+box    path    at 160 -4 32 size 32 4 32
+box    path    at 224 -4 32 size 32 4 32
+box    rock    at 248 -4 48 size 16 4 64
+box    grass   at 312 -4 48 size 112 4 64
+box    ground  at 376 -4 56 size 16 4 80
+box    grass   at 184 -4 56 size 80 4 16
+box    rock    at 232 -4 64 size 16 4 32
+box    grass   at 40 -4 80 size 48 4 32
+box    rock    at 80 -4 80 size 32 4 32
+box    grass   at 136 -4 72 size 80 4 16
+box    path    at 192 -4 144 size 32 4 160
+box    rock    at 216 -4 88 size 16 4 48
+box    rock    at 104 -4 88 size 16 4 16
+box    grass   at 144 -4 88 size 64 4 16
+box    grass   at 256 -4 104 size 64 4 48
+box    rock    at 328 -4 88 size 80 4 16
+box    path    at 88 -4 112 size 176 4 32
+box    grass   at 296 -4 120 size 16 4 48
+box    rock    at 336 -4 104 size 64 4 16
+box    grass   at 376 -4 112 size 16 4 32
+box    grass   at 216 -4 120 size 16 4 16
+box    grass   at 336 -4 120 size 64 4 16
+box    ground  at 8 -4 176 size 16 4 96
+box    rock    at 64 -4 144 size 96 4 32
+box    grass   at 136 -4 144 size 48 4 32
+box    rock    at 168 -4 136 size 16 4 16
+box    rock    at 232 -4 136 size 48 4 16
+box    grass   at 272 -4 136 size 32 4 16
+box    rock    at 320 -4 136 size 32 4 16
+box    grass   at 352 -4 144 size 32 4 32
+box    ground  at 376 -4 176 size 16 4 96
+box    grass   at 168 -4 176 size 16 4 64
+box    path    at 272 -4 160 size 128 4 32
+box    grass   at 32 -4 176 size 32 4 32
+box    rock    at 96 -4 168 size 96 4 16
+box    grass   at 152 -4 184 size 16 4 48
+box    rock    at 352 -4 184 size 32 4 48
+box    grass   at 56 -4 184 size 16 4 16
+box    rock    at 104 -4 184 size 80 4 16
+box    grass   at 240 -4 184 size 64 4 16
+box    rock    at 304 -4 184 size 64 4 16
+box    grass   at 24 -4 200 size 16 4 16
+box    rock    at 72 -4 200 size 80 4 16
+box    grass   at 128 -4 200 size 32 4 16
+box    rock    at 256 -4 200 size 96 4 16
+box    grass   at 320 -4 200 size 32 4 16
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# the north wall, columns 0 to 10
+box    rock    at 88 -4 8 size 176 30 16  # TODO prims: rock
+gem    rock    at 11 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 27 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 38 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 58 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 69 10 8 size 14 15 14 turn 45  # TODO prims: rock
+gem    rock    at 89 10 8 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 101 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 119 10 8 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 139 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 153 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 169 10 8 size 14 18 14 turn 45  # TODO prims: rock
+
+# the north wall, columns 13 to 23
+box    rock    at 296 -4 8 size 176 30 16  # TODO prims: rock
+gem    rock    at 218 10 8 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 235 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 249 10 8 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 263 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 278 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 296 10 8 size 14 13 14 turn 45  # TODO prims: rock
+gem    rock    at 312 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 327 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 344 10 8 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 359 10 8 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 377 10 8 size 14 17 14 turn 45  # TODO prims: rock
+
+# the south wall, columns 0 to 10
+box    rock    at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 88 -4 220 size 176 16 8  # TODO prims: rock
+
+# the south wall, columns 13 to 23
+box    rock    at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    rock    at 296 -4 220 size 176 16 8  # TODO prims: rock
+
+# the west wall, rows 1 to 5
+box    rock    at 8 -4 56 size 16 20 80  # TODO prims: rock
+gem    rock    at 8 10 23 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 40 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 59 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 71 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 89 size 14 17 14 turn 45  # TODO prims: rock
+
+# the west wall, rows 8 to 12 (at 37% of its height, for the camera)
+box    rock    at 8 -4 136 size 16 9.5 16  # TODO prims: wedge
+box    rock    at 8 -4 176 size 16 20 64  # TODO prims: rock
+gem    rock    at 8 5.5 135 size 14 8 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 155 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 170 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 186 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 8 10 199 size 14 12 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 1 to 5
+box    rock    at 376 -4 56 size 16 20 80  # TODO prims: rock
+gem    rock    at 376 10 23 size 14 17 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 39 size 14 16 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 54 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 73 size 14 14 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 87 size 14 17 14 turn 45  # TODO prims: rock
+
+# the east wall, rows 8 to 12 (at 37% of its height, for the camera)
+box    rock    at 376 -4 136 size 16 9.5 16  # TODO prims: wedge
+box    rock    at 376 -4 176 size 16 20 64  # TODO prims: rock
+gem    rock    at 376 6 137 size 14 9.5 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 149 size 14 18 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 165 size 14 12 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 181 size 14 19 14 turn 45  # TODO prims: rock
+gem    rock    at 376 10 199 size 14 13 14 turn 45  # TODO prims: rock
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the west door, rows 6 to 7
+box    wood    at 2.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 2.5 0 131 size 3 18 3  # TODO prims: fence
+
+# the east door, rows 6 to 7
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 18 3  # TODO prims: fence
+
+# ruin at 2,2 7x4 (at 46% of its height, for the camera)
+box    stone   at 88 0 64.5 size 110 6.5 61 id ruin-1
+box    stone   at 36 6.5 93.5 size 4 2.5 3
+box    stone   at 48 6.5 93.5 size 4 2.5 3
+box    stone   at 54 6.5 93.5 size 4 2.5 3
+box    stone   at 60 6.5 93.5 size 4 2.5 3
+box    stone   at 66 6.5 93.5 size 4 2.5 3
+box    stone   at 78 6.5 93.5 size 4 2.5 3
+box    stone   at 84 6.5 93.5 size 4 2.5 3
+box    stone   at 96 6.5 93.5 size 4 2.5 3
+box    stone   at 108 6.5 93.5 size 4 2.5 3
+box    stone   at 114 6.5 93.5 size 4 2.5 3
+box    stone   at 132 6.5 93.5 size 4 2.5 3
+box    foliage at 88 6.5 36.5 size 106 0.5 3
+box    door    at 88 0 95 size 6 4 1
+
+# ruin at 9,4 1x3 (at 46% of its height, for the camera)
+box    stone   at 152 0 88.5 size 14 6.5 45 id ruin-2
+box    foliage at 152 6.5 68.5 size 10 0.5 3
+box    door    at 152 0 111 size 6 4 1
+
+# ruin at 2,6 3x1
+box    stone   at 56 0 104.5 size 46 15 13 id ruin-3
+box    stone   at 54 15 109.5 size 4 5 3
+box    stone   at 66 15 109.5 size 4 5 3
+box    stone   at 72 15 109.5 size 4 5 3
+box    foliage at 56 15 100.5 size 42 1 3
+box    door    at 56 0 111 size 6 9 1
+
+# ruin at 7,6 2x1
+box    stone   at 128 0 104.5 size 30 15 13 id ruin-4
+box    stone   at 116 15 109.5 size 4 5 3
+box    stone   at 122 15 109.5 size 4 5 3
+box    stone   at 134 15 109.5 size 4 5 3
+box    foliage at 128 15 100.5 size 26 1 3
+box    door    at 128 0 111 size 6 9 1
+
+# boulder at 17,2 4x2 (at 85% of its height, for the camera)
+sphere rock    at 280.5 0 40 size 13 11 11 id boulder  # TODO prims: rock
+sphere rock    at 294.5 0 40 size 14 9 12  # TODO prims: rock
+sphere rock    at 310.5 0 40 size 15 11.5 13  # TODO prims: rock
+sphere rock    at 327.5 0 40 size 13 11.5 11  # TODO prims: rock
+sphere rock    at 281.5 0 56 size 15 10 13  # TODO prims: rock
+sphere rock    at 295.5 0 56 size 13 11.5 11  # TODO prims: rock
+sphere rock    at 312.5 0 56 size 14 11.5 12  # TODO prims: rock
+sphere rock    at 327.5 0 56 size 14 9 12  # TODO prims: rock
+
+# plate at 11,3 2x1
+box    wood    at 192 0 56 size 30 1.5 14 id plate-1  # TODO prims: stairs
+
+# plate at 5,6 2x1
+box    wood    at 96 0 104 size 30 1.5 14 id plate-2  # TODO prims: stairs
+
+# plate at 19,10 2x1
+box    wood    at 320 0 168 size 30 1.5 14 id plate-3  # TODO prims: stairs
+
+# landmark (assets/world3d/mine-head/landmark.set, hand-placed)
+# The adit's timber headframe over the north door, the gate-hall of Caer Dwfn rising out of its ruin, spoil heaps.
+# the headframe: two legs either side of the door, the adit lintel, the cross-beam, the sheave wheel and its rope
+box    wood    at 167 0 8 size 11 66 11
+box    wood    at 217 0 8 size 11 66 11
+box    wood    at 192 32 8 size 58 6 12
+box    wood    at 192 54 8 size 66 6 10
+sphere metal   at 192 56 8 size 22 22 4
+box    metal   at 192 32 8 size 2 22 2
+box    wood    at 192 66 8 size 74 5 12
+# the gate-hall: two pillars either side of the stair, a keystone arch over it, two broken tower stubs
+box    stone   at 72 0 104 size 14 34 14
+box    stone   at 120 0 104 size 14 34 14
+arch-8 stone   at 96 34 104 size 62 16 12
+cylinder-10 stone at 48 0 90 size 28 26 24
+wedge  stone   at 48 26 90 size 28 7 24
+frustum-8 stone at 131 0 88 size 18 26 16
+# the ore tipple and a spoil heap against the north wall, east of the adit
+box    wood    at 262 0 8 size 7 34 9
+box    wood    at 302 0 8 size 7 34 9
+box    wood    at 282 34 8 size 54 18 14
+wedge  wood    at 282 52 8 size 54 8 14
+rock-3 rock    at 330 0 8 size 70 48 16
+rock-9 rock    at 296 0 8 size 36 30 16
+rock-5 rock    at 362 0 8 size 28 30 16

@@ -1,0 +1,123 @@
+set chunk-8-9
+# The kingdom, chunk 8,9 in The March: tiles 192..216 x 144..160 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 2432
+plate 1536 1024
+
+# ground
+box    path    at 3112 -4 2312 size 80 4 16
+box    sand    at 3200 -4 2312 size 96 4 16
+box    grass   at 3312 -4 2352 size 128 4 96
+box    path    at 3408 -4 2320 size 64 4 32
+box    grass   at 3448 -4 2360 size 16 4 112
+box    rock    at 3080 -4 2336 size 16 4 32
+box    path    at 3120 -4 2336 size 64 4 32
+box    grass   at 3200 -4 2336 size 96 4 32
+box    grass   at 3384 -4 2416 size 16 4 160
+box    path    at 3416 -4 2400 size 48 4 128
+box    grass   at 3088 -4 2376 size 32 4 48
+box    path    at 3136 -4 2376 size 64 4 48
+box    grass   at 3208 -4 2376 size 80 4 48
+box    crop    at 3080 -4 2416 size 16 4 32
+box    grass   at 3104 -4 2440 size 32 4 80
+box    path    at 3152 -4 2424 size 64 4 48
+box    grass   at 3232 -4 2432 size 96 4 64
+box    path    at 3288 -4 2472 size 16 4 144
+box    grass   at 3336 -4 2440 size 80 4 80
+box    path    at 3448 -4 2488 size 16 4 144
+box    grass   at 3080 -4 2456 size 16 4 48
+box    grass   at 3128 -4 2464 size 16 4 32
+box    path    at 3160 -4 2488 size 48 4 80
+box    path    at 3192 -4 2496 size 16 4 64
+box    grass   at 3240 -4 2472 size 80 4 16
+box    grass   at 3400 -4 2480 size 16 4 32
+box    path    at 3424 -4 2504 size 32 4 80
+box    path    at 3104 -4 2504 size 64 4 48
+box    path    at 3240 -4 2504 size 80 4 48
+box    path    at 3312 -4 2512 size 32 4 64
+box    grass   at 3352 -4 2488 size 48 4 16
+box    path    at 3368 -4 2520 size 80 4 48
+box    grass   at 3176 -4 2536 size 208 4 16
+box    rock    at 3224 -4 2552 size 304 4 16
+box    grass   at 3400 -4 2552 size 48 4 16
+box    path    at 3432 -4 2552 size 16 4 16
+
+# crop furrows
+box    crop    at 3080 0 2403.5 size 14 2.5 2
+box    crop    at 3080 0 2408.5 size 14 2.5 2
+box    crop    at 3080 0 2413.5 size 14 2.5 2
+box    crop    at 3080 0 2418.5 size 14 2.5 2
+box    crop    at 3080 0 2423.5 size 14 2.5 2
+box    crop    at 3080 0 2428.5 size 14 2.5 2
+
+# fingerposts
+box    wood    at 3084 0 2356 size 1.5 19 1.5
+pyramid wood    at 3084 19 2356 size 2.2 1.5 2.2
+box    wood    at 3084 16 2352 size 0.6 1.8 6.5
+box    wood    at 3084 13.5 2360 size 0.6 1.8 6.5
+box    wood    at 3372 0 2312 size 1.5 19 1.5
+pyramid wood    at 3372 19 2312 size 2.2 1.5 2.2
+box    wood    at 3372 16 2308 size 0.6 1.8 6.5
+box    wood    at 3372 13.5 2316 size 0.6 1.8 6.5
+box    wood    at 3204 0 2476 size 1.5 19 1.5
+pyramid wood    at 3204 19 2476 size 2.2 1.5 2.2
+box    wood    at 3204 16 2472 size 0.6 1.8 6.5
+box    wood    at 3200 13.5 2476 size 6.5 1.8 0.6
+
+# set dressing
+box    wood    at 3288 0 2376 size 13 2 7
+box    trunk   at 3288 2 2376 size 11 2 6
+box    wood    at 3316 0 2392 size 1.5 4 1.5
+box    wood    at 3356 0 2392 size 1.5 4 1.5
+box    wood    at 3336 2.75 2392 size 42 1.25 1.2
+cylinder rock    at 3240 0 2424 size 10 1.5 9
+cylinder ground  at 3240 0 2424 size 7 1.75 6
+
+# rock
+box    rock    at 3080 0 2336 size 16 3 32
+box    rock    at 3224 0 2552 size 304 3 16
+rock-12 rock    at 3081 1.5 2328 size 16 9 14.4 turn 90
+rock-4 rock    at 3081 1.5 2344 size 17 9 15.3
+rock-50 rock    at 3080 1.5 2553 size 15 7 13.5 turn 180
+rock-7 rock    at 3095 1.5 2552 size 16 9 14.4
+rock-25 rock    at 3112 1.5 2551 size 17 8 15.3 turn 270
+rock-56 rock    at 3128 1.5 2552 size 15 10 13.5 turn 180
+rock-61 rock    at 3145 1.5 2551 size 14 10 12.6 turn 270
+rock-34 rock    at 3159 1.5 2552 size 14 10 12.6
+rock-2 rock    at 3175 1.5 2552 size 16 10 14.4
+rock-22 rock    at 3192 1.5 2551 size 14 10 12.6 turn 180
+rock-17 rock    at 3209 1.5 2552 size 17 10 15.3 turn 180
+rock-26 rock    at 3224 1.5 2552 size 17 7 15.3 turn 270
+rock-8 rock    at 3241 1.5 2551 size 15 10 13.5
+rock-6 rock    at 3256 1.5 2551 size 17 10 15.3
+rock-24 rock    at 3273 1.5 2552 size 14 10 12.6 turn 180
+rock-51 rock    at 3289 1.5 2551 size 15 9 13.5 turn 180
+rock-3 rock    at 3305 1.5 2552 size 17 8 15.3
+rock-59 rock    at 3320 1.5 2553 size 15 7 13.5 turn 270
+rock-48 rock    at 3337 1.5 2551 size 14 8 12.6 turn 90
+rock-41 rock    at 3351 1.5 2551 size 16 10 14.4 turn 90
+rock-32 rock    at 3369 1.5 2552 size 17 9 15.3 turn 270
+
+# woods (at 35% of its height, for the camera)
+frustum trunk   at 3344 0 2432 size 4.5 6 4.5
+cone   foliage at 3344 3 2432 size 28 24 28
+cone   foliage at 3344 18 2432 size 20.16 23.5 20.16
+frustum trunk   at 3335 0 2407 size 3 3 3
+cone   foliage at 3335 1.5 2407 size 17 10 17
+cone   foliage at 3335 7.5 2407 size 12.24 9.5 12.24
+frustum trunk   at 3351.5 0 2408 size 3 2 3
+cone   foliage at 3351.5 1 2408 size 18 7 18
+cone   foliage at 3351.5 5 2408 size 12.96 7 12.96
+cylinder trunk   at 3320 0 2424 size 3 3.5 3
+cone   foliage at 3320 2 2424 size 19 9.5 19
+cone   foliage at 3320 7.5 2424 size 13.68 9.5 13.68
+frustum trunk   at 3319.5 0 2440.5 size 3 7 3
+cone   foliage at 3319.5 4 2440.5 size 18 17.36 18
+cone   foliage at 3319.5 14.64 2440.5 size 12.96 17.36 12.96
+cylinder trunk   at 3337 0 2454 size 3 7 3
+cone   foliage at 3337 4 2454 size 17 19.22 17
+cone   foliage at 3337 15.78 2454 size 12.24 19.22 12.24
+cylinder trunk   at 3352.5 0 2456.5 size 3 7 3
+cone   foliage at 3352.5 4 2456.5 size 18 18.6 18
+cone   foliage at 3352.5 15.4 2456.5 size 12.96 18.6 12.96

@@ -1,0 +1,20 @@
+# The wizard's tower standing up behind the east wall; the school's clock tower and wings.
+# the wizard's tower: a shaft in the wall, a round drum standing out of it, a gallery, a lantern chamber, a slate spire
+cylinder-16 stone at 312 0 8 size 44 52 16
+cylinder-16 stone at 312 48 9 size 44 20 34
+box    window  at 312 54 25.8 size 5 10 2
+box    window  at 312 61 25.8 size 5 6 2
+cylinder-16 stone at 312 68 9 size 50 4 42
+cylinder-12 stone at 312 72 9 size 32 8 26
+cone-12 slate  at 312 80 9 size 38 8 32
+# the school: a clock tower in the middle of the long front, a pavilion at each end, two chimneys
+box    stone   at 136 0 28 size 30 46 20
+box    window  at 136 30 38.5 size 6 8 1.5
+pyramid slate  at 136 46 28 size 36 20 28
+box    stone   at 88 0 32 size 14 34 26
+pyramid slate  at 88 34 32 size 18 12 30
+box    stone   at 184 0 32 size 14 34 26
+pyramid slate  at 184 34 32 size 18 12 30
+box    brick   at 104 26 26 size 6 12 6
+box    brick   at 168 26 26 size 6 12 6
+arch-8 stone   at 136 0 44 size 18 22 8

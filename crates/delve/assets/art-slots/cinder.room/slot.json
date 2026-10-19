@@ -1,0 +1,67 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "foreign/duplicate suspicion",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "6c5569cc62813bc6ee9c92c8287e50fe3e788473bfd558fbd875532eca505133",
+  "metadata_sha256": "eca106f28f7f71ffd7f3bebca5c511837e050b04a52676e279cb4924dd42d4f1",
+  "notes_sha256": "ba195a1bf54237b6e17f0790790d6f1db108965fc66b5e626ff4c0d30b5c1cf9",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "bae9d3d2e0e669524b366ce01ca88ea1f4f3f5bb56753bb151ce1f563ea90cba",
+      "source_scale": 0.25,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "bae9d3d2e0e669524b366ce01ca88ea1f4f3f5bb56753bb151ce1f563ea90cba",
+      "source_scale": 0.25,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "cinder.room",
+  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.room/source-sheet.png",
+  "source_sha256": "03cc6229035ad87197516e4e74d011c5fd1c9a46b4dfe4942b6cacd5bbc37543",
+  "tool_version": 2
+}

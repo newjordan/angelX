@@ -1,0 +1,127 @@
+set chunk-2-4
+# The kingdom, chunk 2,4 in Castle Town: tiles 48..72 x 64..80 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 960 1152
+plate 1536 1024
+
+# ground
+box    sand    at 776 -4 1032 size 16 4 16
+box    grass   at 904 -4 1064 size 240 4 80
+box    crop    at 1080 -4 1048 size 112 4 48
+box    grass   at 1144 -4 1152 size 16 4 256
+box    grass   at 776 -4 1048 size 16 4 16
+box    sand    at 776 -4 1080 size 16 4 48
+box    grass   at 1080 -4 1176 size 112 4 208
+box    water   at 776 -4 1128 size 16 1 48
+box    sand    at 792 -4 1120 size 16 4 32
+box    grass   at 912 -4 1120 size 224 4 32
+box    water   at 792 -4 1168 size 16 1 64
+box    sand    at 808 -4 1168 size 16 4 64
+box    grass   at 920 -4 1208 size 208 4 144
+box    sand    at 776 -4 1168 size 16 4 32
+box    water   at 776 -4 1216 size 16 1 64
+box    sand    at 792 -4 1224 size 16 4 48
+box    grass   at 808 -4 1240 size 16 4 80
+box    sand    at 776 -4 1264 size 16 4 32
+box    grass   at 792 -4 1264 size 16 4 32
+
+# crop furrows
+box    crop    at 1080 0 1027.5 size 110 2.5 2
+box    crop    at 1080 0 1032.5 size 110 2.5 2
+box    crop    at 1080 0 1037.5 size 110 2.5 2
+box    crop    at 1080 0 1042.5 size 110 2.5 2
+box    crop    at 1080 0 1047.5 size 110 2.5 2
+box    crop    at 1080 0 1052.5 size 110 2.5 2
+box    crop    at 1080 0 1057.5 size 110 2.5 2
+box    crop    at 1080 0 1062.5 size 110 2.5 2
+box    crop    at 1080 0 1067.5 size 110 2.5 2
+
+# set dressing
+box    wood    at 920 0 1080 size 12 3.5 5
+box    water   at 920 0 1080 size 10 3.75 3
+box    wood    at 852 0 1096 size 1.5 4 1.5
+box    wood    at 892 0 1096 size 1.5 4 1.5
+box    wood    at 872 2.75 1096 size 42 1.25 1.2
+box    wood    at 808 0 1243 size 12 4 4
+box    wood    at 802 0 1236 size 1.5 12 1.5
+box    wood    at 814 0 1236 size 1.5 12 1.5
+box    wood    at 776 0 1256 size 10 3.5 6
+sphere wood    at 782 0 1256 size 1.2 4 4
+sphere cloth   at 852 0 1256 size 4 4 3.5
+sphere cloth   at 856 0 1258 size 4 4 3.5
+sphere cloth   at 860 0 1256 size 4 4 3.5
+
+# woods (at 35% of its height, for the camera)
+cylinder trunk   at 833 0 1070 size 5 16 5
+blob-58 foliage at 833 11 1070 size 33 25 31.35 turn 180
+frustum trunk   at 1089 0 1103 size 5 10 5
+blob-56 foliage at 1089 6 1103 size 33 18.5 31.35 turn 270
+cylinder trunk   at 993 0 1265 size 5 7 5
+blob-13 foliage at 993 4.5 1265 size 33 9.5 31.35
+frustum trunk   at 793 0 1032 size 3 9.5 3
+blob-58 foliage at 793 4.5 1032 size 19 18 18.05 turn 90
+frustum trunk   at 809 0 1031.5 size 3 9 3
+blob-7 foliage at 809 5 1031.5 size 20 16 19
+frustum trunk   at 822 0 1033 size 3 10 3
+blob-56 foliage at 822 5 1033 size 19 16 18.05
+blob-52 foliage at 842 0 1031 size 15 11 15
+frustum trunk   at 856 0 1032 size 3 10 3
+blob-45 foliage at 856 5 1032 size 19 17 18.05 turn 270
+cylinder trunk   at 810 0 1047.5 size 3 12 3
+blob-9 foliage at 810 7 1047.5 size 20 17 19 turn 90
+frustum trunk   at 824 0 1048 size 3 11 3
+blob-19 foliage at 824 6 1048 size 17 14 16.15 turn 90
+cylinder trunk   at 838 0 1047 size 3 10 3
+blob-64 foliage at 838 5 1047 size 19 19 18.05 turn 180
+frustum trunk   at 856 0 1048 size 3 10 3
+blob-39 foliage at 856 5 1048 size 19 20 18.05 turn 90
+cylinder trunk   at 857 0 1065 size 3 11 3
+blob-6 foliage at 857 6 1065 size 17 18 16.15 turn 90
+cylinder trunk   at 856.5 0 1080.5 size 3 11 3
+blob-15 foliage at 856.5 6 1080.5 size 18 18 17.1 turn 270
+frustum trunk   at 1064 0 1079 size 3 4 3
+blob-18 foliage at 1064 1.5 1079 size 17 7 16.15 turn 180
+cylinder trunk   at 1080 0 1080 size 3 3.5 3
+blob-18 foliage at 1080 1.5 1080 size 19 7 18.05
+cylinder trunk   at 1095.5 0 1079.5 size 3 3.5 3
+blob-20 foliage at 1095.5 2 1079.5 size 18 6.5 17.1
+frustum trunk   at 1063 0 1097 size 3 9 3
+blob-42 foliage at 1063 4 1097 size 17 16 16.15
+cylinder trunk   at 1064 0 1112 size 3 12 3
+blob-35 foliage at 1064 7 1112 size 19 14 18.05 turn 180
+frustum trunk   at 999.5 0 1192 size 3 4 3
+blob-21 foliage at 999.5 1.5 1192 size 18 9 17.1 turn 90
+frustum trunk   at 1016 0 1192 size 3 3.5 3
+blob-17 foliage at 1016 1.5 1192 size 18 9 17.1
+cylinder trunk   at 1033 0 1191 size 3 4 3
+blob-25 foliage at 1033 2 1191 size 17 8 16.15 turn 270
+frustum trunk   at 1001 0 1208 size 3 9 3
+blob-44 foliage at 1001 4 1208 size 17 18 16.15 turn 90
+frustum trunk   at 1016 0 1208 size 3 9 3
+blob-63 foliage at 1016 4 1208 size 18 20 17.1 turn 90
+cylinder trunk   at 1032 0 1208 size 3 11.5 3
+blob-25 foliage at 1032 6.5 1208 size 19 20 18.05 turn 270
+frustum trunk   at 1017 0 1222 size 3 9 3
+cone   foliage at 1017 6 1222 size 17 19.22 17
+cone   foliage at 1017 17.78 1222 size 12.24 19.22 12.24
+frustum trunk   at 1032 0 1224 size 3 10 3
+blob-56 foliage at 1032 5 1224 size 19 16 18.05 turn 180
+cylinder trunk   at 1016.5 0 1258 size 3 5.5 3
+cone   foliage at 1016.5 3.5 1258 size 18 11.5 18
+cone   foliage at 1016.5 11 1258 size 12.96 11 12.96
+cylinder trunk   at 1033 0 1255 size 3 5.5 3
+blob-33 foliage at 1033 2 1255 size 17 9 16.15
+cylinder trunk   at 1048 0 1256 size 3 5 3
+blob-23 foliage at 1048 2.5 1256 size 19 7.5 18.05 turn 90
+cylinder trunk   at 1064.5 0 1255.5 size 3 4 3
+blob-5 foliage at 1064.5 1.5 1255.5 size 18 9.5 17.1
+frustum trunk   at 1015 0 1272 size 3 10 3
+cone   foliage at 1015 7 1272 size 19 16.74 19
+cone   foliage at 1015 17.26 1272 size 13.68 16.74 13.68
+frustum trunk   at 1034 0 1270 size 3 11.5 3
+blob-3 foliage at 1034 6.5 1270 size 19 19.5 18.05 turn 270
+cylinder trunk   at 1047 0 1272 size 3 11 3
+blob-62 foliage at 1047 6 1272 size 18 15 17.1
+cylinder trunk   at 1064 0 1272 size 3 10 3
+blob-52 foliage at 1064 5 1272 size 19 18 18.05 turn 270

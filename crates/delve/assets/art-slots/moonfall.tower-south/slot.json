@@ -1,0 +1,155 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 16138
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 16246
+    },
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 15864
+    }
+  ],
+  "flags": [],
+  "map_sha256": "84a467b2a78e5117fe0a4f1ddcf6b0487292c364b79b561393fc35d80eb16c4e",
+  "metadata_sha256": "bbe30376308d39244f71aa353a8b64a6028c11e929e97e4450ebea89403cbd63",
+  "notes_sha256": "e788f2d1b706cabdf70252e9acb92c0848ad80d0f3ccf05c641cd80d498a7e04",
+  "outputs": {
+    "v1/day-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4172,
+      "piece": 0,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "399c7d407ed2c1ff9296780fa22b7f99f1e8e8d0f9f3491fcc2db79a1307bff1",
+      "source_scale": 0.12387096774193548,
+      "state": "day"
+    },
+    "v1/lit-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 0.9995,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4180,
+      "piece": 2,
+      "reviewed_processing_sha256": "a00e5457ef6894cd4baa91516a2d7772f04f38ca5c9775f4d049b726fa481c29",
+      "sha256": "0f9d7ee6c536c4fe92e858ae0beaf98eb0c1bcc81851b9ef1d510d4db7607d82",
+      "source_scale": 0.12387096774193548,
+      "state": "lit"
+    },
+    "v1/night-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4173,
+      "piece": 1,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "3df76163d84d0c5e05ee59617ffe83b5e968776d816cf5def654713d32d4b0be",
+      "source_scale": 0.12387096774193548,
+      "state": "night"
+    },
+    "v2/day-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4172,
+      "piece": 0,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "399c7d407ed2c1ff9296780fa22b7f99f1e8e8d0f9f3491fcc2db79a1307bff1",
+      "source_scale": 0.12387096774193548,
+      "state": "day"
+    },
+    "v2/lit-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 0.9995,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4180,
+      "piece": 2,
+      "reviewed_processing_sha256": "a00e5457ef6894cd4baa91516a2d7772f04f38ca5c9775f4d049b726fa481c29",
+      "sha256": "0f9d7ee6c536c4fe92e858ae0beaf98eb0c1bcc81851b9ef1d510d4db7607d82",
+      "source_scale": 0.12387096774193548,
+      "state": "lit"
+    },
+    "v2/night-0.png": {
+      "anchor_xy": [
+        40,
+        96
+      ],
+      "approved": true,
+      "canvas_wh": [
+        80,
+        96
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 287,
+      "opaque_pixels": 4173,
+      "piece": 1,
+      "reviewed_processing_sha256": "2bb9bd634b0a82d6f8c3afc834bb9c39bf48214d6c6937b5b3411da421dd21d4",
+      "sha256": "3df76163d84d0c5e05ee59617ffe83b5e968776d816cf5def654713d32d4b0be",
+      "source_scale": 0.12387096774193548,
+      "state": "night"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "OK",
+  "registration": "shared-feet",
+  "resample": "BOX premultiplied alpha",
+  "runtime": false,
+  "slot": "moonfall.tower-south",
+  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.tower-south/v01/source-sheet.png",
+  "source_sha256": "ac014fe0591a6b85cdf2b61a889b622a75d73d626d803ca283fc182ae724e803",
+  "tool_version": 2
+}

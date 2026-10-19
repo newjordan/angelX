@@ -1,0 +1,139 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8,
+    16
+  ],
+  "comments": [
+    "Registered as one bank on the arch base; the source pivot x is the centre of the arch.",
+    "The stage plays closed and open; the opening frames are imported and approved but the rules keep no opening clock to play them with."
+  ],
+  "delivered_pieces": 5,
+  "expected_existing_pieces": 5,
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame centred on the tile centre.",
+  "mapping_basis": "Visual review of the delivered sheet and its measured crops, 2026-10-18. Reading order equals the request order: bars fully down (closed-0), four bar tips under the arch (open-0), bars raised a quarter, a half and three quarters (opening-0..2).",
+  "notes_sha256": "05027c8fe612b983a906b5657455d870dbb418fa075594c3414941a6421c1ada",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "closed-0: bars fully down.",
+      "name": "closed-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        207.5,
+        406
+      ],
+      "source_rect_xywh": [
+        49,
+        55,
+        414,
+        406
+      ],
+      "state": "closed",
+      "ticks": 12
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "open-0: four bar tips peek below arch.",
+      "name": "open-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        207.5,
+        406
+      ],
+      "source_rect_xywh": [
+        561,
+        55,
+        414,
+        406
+      ],
+      "state": "open",
+      "ticks": 6
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "opening-0: bars raised about one quarter.",
+      "name": "opening-0",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        207.5,
+        406
+      ],
+      "source_rect_xywh": [
+        1073,
+        55,
+        414,
+        406
+      ],
+      "state": "opening",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "opening-1: bars raised about half.",
+      "name": "opening-1",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        207.5,
+        406
+      ],
+      "source_rect_xywh": [
+        49,
+        566,
+        414,
+        406
+      ],
+      "state": "opening",
+      "ticks": 4
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "opening-2: bars raised about three quarters.",
+      "name": "opening-2",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        207.5,
+        406
+      ],
+      "source_rect_xywh": [
+        561,
+        566,
+        414,
+        406
+      ],
+      "state": "opening",
+      "ticks": 4
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 16x16, anchor bottom-centre (8,16); stage 384x224 at 16 px per tile; a knight is 16x16; a gate is one tile.",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      16,
+      16
+    ]
+  },
+  "slot": "lanternward.gate",
+  "source_sha256": "ec02e83e1b28cfd733c3d44d174d8b7c97b3e2e84953b1cea51d3cf81f1f247d",
+  "timing": "closed 12 ticks; open 6 ticks; opening 3x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

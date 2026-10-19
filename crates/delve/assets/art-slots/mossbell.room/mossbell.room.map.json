@@ -1,0 +1,58 @@
+{
+  "anchor_canvas_wh": [
+    384,
+    224
+  ],
+  "anchor_xy": [
+    192,
+    112
+  ],
+  "comments": [
+    "Reviewed continuous backdrop. Its edge is the intended full scene, not a clipped actor. Original field, rails, gutters and labels stay above it. Cached dimming uses existing shared inks.",
+    "Only existing states are wired. All source rectangles and SHA-256 are retained."
+  ],
+  "delivered_pieces": 1,
+  "expected_existing_pieces": 0,
+  "geometry": "Ball::rail/walls/flippers/BUMPERS own table edges; room() glazing and plants are decorative. Never cover drain or launch lane.",
+  "mapping_basis": "Visual review of source sheet and measured components, 2026-10-15; supplemental poses retained separately.",
+  "notes_sha256": "46c6e737a29c58b21b1352b91b751e11b595a502436884d7e160eff180192d75",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Far conservatory glass and dark stone recess, with copper framing and warm wall lanterns.",
+      "name": "room",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        836.0,
+        470.5
+      ],
+      "source_rect_xywh": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "state": "room"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-runtime-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "384\u00d7224; preserve 200\u00d7140 displayed field at (114,46), plunger lane, drain and operator at y=195.",
+  "sizes": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      384,
+      224
+    ]
+  },
+  "slot": "mossbell.room",
+  "source_sha256": "f62a4be78c4f957c69f01754aeef3780dfc775a775a4a8fcdeaec3f32146f0fc",
+  "timing": "Static cached room (room())."
+}

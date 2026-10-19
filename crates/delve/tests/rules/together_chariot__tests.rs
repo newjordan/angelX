@@ -664,6 +664,12 @@ fn the_coach_uses_selection_and_never_races_helios_or_a_growing_foal() {
 /// A race boarded by knight 1 with friend 2, named "Two", standing in the
 /// Hippodrome at the off.
 fn boarded_pair() -> Run {
+    boarded_table(2)
+}
+
+/// A race boarded by knight 1 with friends 2 to `seats`, standing in the
+/// Hippodrome at the off.
+fn boarded_table(seats: u32) -> Run {
     use crate::rules::home::{BUY_HOLD, Home};
     use crate::rules::world;
     let mut stable = Stable::default();
@@ -671,13 +677,22 @@ fn boarded_pair() -> Run {
     let home = Home { stable, ..Home::default() };
     let mut run = Run::at_home(7, 1, None, home, Default::default());
     run.join_seat(2, "Two");
+    for id in 3..=seats {
+        run.join_seat(id, &format!("Seat {id}"));
+    }
     let hip = world::room_of(&run.dungeon, RoomKind::Hippodrome).unwrap();
     run.arrive(hip, (20.0, 10.5));
-    {
-        let friend = run.players.get_mut(&2).unwrap();
+    for id in 2..=seats {
+        let friend = run.players.get_mut(&id).unwrap();
         (friend.x, friend.y) = (12.0 * TILE_UNITS, 10.5 * TILE_UNITS);
     }
     run.step(&BTreeMap::new());
+    if seats > 2 {
+        // A crowd jostles the first knight off the coach plate: back on it.
+        let (c, r, w, h) = crate::rules::hippodrome::COACH;
+        let first = run.players.get_mut(&1).unwrap();
+        (first.x, first.y) = ((c as f32 + w as f32 / 2.0) * TILE_UNITS, (r as f32 + h as f32 / 2.0) * TILE_UNITS);
+    }
     let interact = BTreeMap::from([(1, Input { interact: true, ..Input::default() })]);
     for _ in 0..BUY_HOLD + 2 {
         run.step(&interact);
@@ -713,6 +728,29 @@ fn friends_in_the_room_drive_the_rival_teams_and_the_best_is_crowned() {
     let crowned = run.players.values().filter(|h| h.laurel).count();
     let cabbaged = run.players.values().filter(|h| h.booby.is_some()).count();
     assert_eq!((crowned, cabbaged), (1, 1));
+    assert!(run.valid_snapshot());
+}
+
+#[test]
+fn six_knights_at_the_reins_four_teams_race_and_the_rest_watch() {
+    let mut run = boarded_table(MAX_PLAYERS);
+    let race = run.chariot.as_ref().expect("boarded");
+    assert_eq!(race.friends, vec![(1, 2), (2, 3), (3, 4)], "the first three friends take the rival teams");
+    assert_eq!((race.racer_of(5), race.racer_of(6)), (None, None), "the fifth and sixth watch");
+    // Every seat sees the race, the watchers too (a seat in the run's own room
+    // sees the run itself).
+    for id in 1..=MAX_PLAYERS {
+        let view = run.view_for_seat(id).unwrap_or_else(|| run.clone());
+        assert!(view.chariot.is_some(), "seat {id} sees the race");
+    }
+    for _ in 0..HZ * 200 {
+        run.step(&BTreeMap::new());
+        if run.chariot.is_none() {
+            break;
+        }
+    }
+    assert!(run.chariot.is_none(), "the race is run");
+    assert_eq!(run.players.len(), MAX_PLAYERS as usize);
     assert!(run.valid_snapshot());
 }
 

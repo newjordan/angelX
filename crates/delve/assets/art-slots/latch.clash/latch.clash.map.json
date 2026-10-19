@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    32
+  ],
+  "anchor_xy": [
+    16,
+    16
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 4,
+  "geometry": "No damage beyond timing judgement; do not obscure the high/low lane.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "220084adfe8bd75eb71079424d810ca31a428d58e057dd864c14ef8189628f41",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Small amber contact nucleus with two copper petals.",
+      "name": "clash-1",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        51.5,
+        43.0
+      ],
+      "source_rect_xywh": [
+        103,
+        225,
+        103,
+        86
+      ],
+      "state": "clash-1"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Expanding nucleus with more petals.",
+      "name": "piece-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        82.0,
+        66.5
+      ],
+      "source_rect_xywh": [
+        395,
+        198,
+        164,
+        133
+      ],
+      "state": "expanding-nucleus-with-more-petals"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Larger centered burst with separated chunks.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        104.5,
+        94.5
+      ],
+      "source_rect_xywh": [
+        677,
+        179,
+        209,
+        189
+      ],
+      "state": "larger-centered-burst-with-separated-chunks"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Maximum outward petal spread.",
+      "name": "clash-2",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        131.0,
+        128.5
+      ],
+      "source_rect_xywh": [
+        971,
+        129,
+        262,
+        257
+      ],
+      "state": "clash-2"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Smoke enters around the bright impact center.",
+      "name": "piece-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        126.5
+      ],
+      "source_rect_xywh": [
+        47,
+        510,
+        261,
+        253
+      ],
+      "state": "smoke-enters-around-the-bright-impact-center"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Smoke and petals continue dispersing.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        136.0,
+        140.5
+      ],
+      "source_rect_xywh": [
+        352,
+        493,
+        272,
+        281
+      ],
+      "state": "smoke-and-petals-continue-dispersing"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Smaller core with debris and smoke.",
+      "name": "clash-3",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.5,
+        114.5
+      ],
+      "source_rect_xywh": [
+        678,
+        539,
+        245,
+        229
+      ],
+      "state": "clash-3"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Further broken smoke and fragments.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        109.5,
+        110.0
+      ],
+      "source_rect_xywh": [
+        993,
+        554,
+        219,
+        220
+      ],
+      "state": "further-broken-smoke-and-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Compact fading burst with a few remnants.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        101.5,
+        82.0
+      ],
+      "source_rect_xywh": [
+        77,
+        941,
+        203,
+        164
+      ],
+      "state": "compact-fading-burst-with-a-few-remnants"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Reduced amber fragments.",
+      "name": "clash-4",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        83.0,
+        72.0
+      ],
+      "source_rect_xywh": [
+        403,
+        959,
+        166,
+        144
+      ],
+      "state": "clash-4"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Tiny sparks/fragments.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        42.0,
+        39.5
+      ],
+      "source_rect_xywh": [
+        758,
+        986,
+        84,
+        79
+      ],
+      "state": "tiny-sparks-fragments"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Final sparse fragments.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        20.0,
+        26.0
+      ],
+      "source_rect_xywh": [
+        1057,
+        988,
+        40,
+        52
+      ],
+      "state": "final-sparse-fragments"
+    }
+  ],
+  "registration": "shared-pivot",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "32\u00d732; clean contact\u2212(16,16); miss top-left (147,contact_y-16).",
+  "sizes": {
+    "v1": [
+      32,
+      32
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "latch.clash",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": 224,
+    "metadata_sha256": "db52d30ab0ec8d4ccd1ef2fee8fd8f6b78b65c337906ef2731504bcb65652b10",
+    "original_path": "/work/artifacts/art-prod/slots/latch.clash/v01/source-sheet.png",
+    "original_sha256": "1323c063963787750c74ca0b8389b6e8494dfc5f186d7356ba591434d17c2aa9",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "a9a982d1b937ce3bfef42d1d3ed7ad34bf7bc8c5bfa5c909c9b62672cdfd1508",
+  "timing": "Four frames over 18 recovery ticks plus freeze as above. Miss uses only clash-4 at the guard contact height for the miss beat (draw())."
+}

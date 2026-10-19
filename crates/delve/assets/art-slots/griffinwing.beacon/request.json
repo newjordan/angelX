@@ -1,0 +1,29 @@
+{
+  "fit": "native canvas 64x160, anchor bottom-centre (32,160); stage 384x224.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "unlit-0"
+      ],
+      "source_pose_count": 1,
+      "state": "unlit"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    }
+  ],
+  "game": "griffinwing",
+  "geometry": "The last beacon, dark until the Wyrm falls and lit for the way home; a set piece far down the rail, never judged; art never sets a hitbox (none).",
+  "id": "griffinwing.beacon",
+  "role": "prop",
+  "timing": "unlit 1 ticks; lit 4x8 ticks (30 Hz). Durations are the rules' and live in assets/griffinwing/slots.json."
+}

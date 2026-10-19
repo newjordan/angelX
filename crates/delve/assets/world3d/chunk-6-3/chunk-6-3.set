@@ -1,0 +1,79 @@
+set chunk-6-3
+# The kingdom, chunk 6,3 in The Tilt-Yards: tiles 144..168 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2496 896
+plate 1536 1024
+
+# ground
+box    sand    at 2328 -4 776 size 48 4 16
+box    grass   at 2432 -4 808 size 160 4 80
+box    sand    at 2544 -4 776 size 64 4 16
+box    water   at 2632 -4 776 size 112 1 16
+box    grass   at 2328 -4 816 size 48 4 64
+box    grass   at 2544 -4 848 size 64 4 128
+box    sand    at 2632 -4 792 size 112 4 16
+box    grass   at 2632 -4 848 size 112 4 96
+box    path    at 2336 -4 872 size 64 4 48
+box    grass   at 2440 -4 856 size 144 4 16
+box    path    at 2392 -4 872 size 48 4 16
+box    grass   at 2464 -4 888 size 96 4 48
+box    grass   at 2384 -4 952 size 32 4 144
+box    path    at 2408 -4 904 size 16 4 48
+box    grass   at 2336 -4 960 size 64 4 128
+box    grass   at 2600 -4 904 size 48 4 16
+box    path    at 2656 -4 920 size 64 4 48
+box    path    at 2520 -4 920 size 208 4 16
+box    grass   at 2408 -4 976 size 16 4 96
+box    path    at 2424 -4 936 size 16 4 16
+box    grass   at 2456 -4 952 size 48 4 48
+box    path    at 2488 -4 976 size 16 4 96
+box    grass   at 2560 -4 952 size 128 4 48
+box    grass   at 2424 -4 984 size 16 4 80
+box    grass   at 2656 -4 984 size 64 4 80
+box    grass   at 2448 -4 1000 size 32 4 48
+box    path    at 2472 -4 1000 size 16 4 48
+box    path    at 2504 -4 1000 size 16 4 48
+box    grass   at 2568 -4 1000 size 112 4 48
+
+# the quintain: a quintain post at 152,58 1x1
+cylinder wood    at 2440 0 936 size 2.5 22 2.5 id quintain
+box    wood    at 2440 19 936 size 12 1.5 1.5
+box    metal   at 2435 14 936 size 4 5 2
+sphere cloth   at 2445 13 936 size 3.5 5 3.5
+
+# the standings board: the standings board at 157,58 3x1 (at 52% of its height, for the camera)
+box    wood    at 2515 0 936 size 2 11.5 2 id standings-board
+box    wood    at 2557 0 936 size 2 11.5 2
+box    wood    at 2536 4 936 size 44 6.5 2
+gable  slate   at 2536 10.5 936 size 46 2 4
+
+# set dressing
+box    wood    at 2660 0 856 size 1.5 4 1.5
+box    wood    at 2700 0 856 size 1.5 4 1.5
+box    wood    at 2680 2.75 856 size 42 1.25 1.2
+box    wood    at 2616 0 1016 size 10 3 3
+box    wood    at 2613 0 1016 size 1.5 13 1.5
+box    wood    at 2618 0 1016 size 1.5 9 1.5
+
+# woods (at 57% of its height, for the camera)
+cylinder trunk   at 2353 0 1010 size 4.5 4.5 4.5
+cone   foliage at 2353 2.5 1010 size 28 18 28
+cone   foliage at 2353 13.5 1010 size 20.16 17.5 20.16
+cylinder trunk   at 2360 0 776 size 3 12 3
+blob-30 foliage at 2360 7 776 size 19 21 18.05 turn 270
+frustum trunk   at 2377 0 1015 size 3 5 3
+cone   foliage at 2377 3 1015 size 17 10 17
+cone   foliage at 2377 9 1015 size 12.24 10 12.24
+box    hedge   at 2376 0 775.75 size 16 6 15.5
+blob-36 hedge   at 2376 3.5 775.75 size 16 5 15.5
+box    hedge   at 2392 0 775.75 size 16 7 15.5
+blob-25 hedge   at 2392 4.5 775.75 size 16 6 15.5
+box    hedge   at 2408 0 776 size 16 6 15
+blob-15 hedge   at 2408 3.5 776 size 16 6 15
+box    hedge   at 2424 0 776 size 16 5 15
+blob-63 hedge   at 2424 3 776 size 16 5.5 15
+box    hedge   at 2488 0 776 size 16 5 15
+blob-41 hedge   at 2488 3 776 size 16 5.5 15
+box    hedge   at 2504 0 776 size 16 5 15
+blob-4 hedge   at 2504 3.5 776 size 16 3.5 15

@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    24
+  ],
+  "anchor_xy": [
+    12,
+    12
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "Collect when |player x\u2212pickup x|<16 and player feet y>FLOOR\u221228. Ward absorbs next fail, then hurt=30; no new shield hitbox.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "72f5c6252ef4856a939c1b0991dd01f623d71114e900bc0947deabbf4e8f940f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Idle bob high, teal shield.",
+      "name": "repair",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        123.0,
+        110.5
+      ],
+      "source_rect_xywh": [
+        46,
+        167,
+        246,
+        221
+      ],
+      "state": "repair"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Idle bob mid, matching shield.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.0,
+        110.0
+      ],
+      "source_rect_xywh": [
+        354,
+        187,
+        248,
+        220
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Idle bob low, matching shield.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        122.0,
+        106.0
+      ],
+      "source_rect_xywh": [
+        654,
+        225,
+        244,
+        212
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Idle bob mid with a small upper-right glint.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        120.0
+      ],
+      "source_rect_xywh": [
+        956,
+        171,
+        242,
+        240
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Collection start, shield with attached motes.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.5,
+        126.5
+      ],
+      "source_rect_xywh": [
+        46,
+        523,
+        249,
+        253
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Collection bloom, fuller cluster of sparkles around the shield.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        130.5,
+        133.5
+      ],
+      "source_rect_xywh": [
+        351,
+        524,
+        261,
+        267
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Collection finish, reduced attached glints.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        113.0
+      ],
+      "source_rect_xywh": [
+        652,
+        562,
+        251,
+        226
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Last collection frame, shield with a single small glint.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.5,
+        115.0
+      ],
+      "source_rect_xywh": [
+        963,
+        561,
+        235,
+        230
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Variant A: deeper teal enamel and square ochre patch.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        123.5,
+        107.0
+      ],
+      "source_rect_xywh": [
+        45,
+        901,
+        247,
+        214
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Variant B: muted wine-red enamel and diamond patch.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        107.5
+      ],
+      "source_rect_xywh": [
+        354,
+        901,
+        251,
+        215
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Variant C: dark blue enamel and pale round patch.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        124.0,
+        108.5
+      ],
+      "source_rect_xywh": [
+        653,
+        903,
+        248,
+        217
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Variant D: olive enamel and two ochre stitched bars.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        125.5,
+        108.5
+      ],
+      "source_rect_xywh": [
+        957,
+        903,
+        251,
+        217
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "24\u00d724, bottom-centre anchor (12,24); at (screen x\u221212,py(FLOOR)\u221224).",
+  "sizes": {
+    "v1": [
+      24,
+      24
+    ],
+    "v2": [
+      24,
+      24
+    ]
+  },
+  "slot": "pennon.repair",
+  "source_sha256": "4b9251fb67c88cfd83e57bcb00d23eef987cd9c4912dcdc9a184339ee2b2b54f",
+  "timing": "Two placements at world x=340/848, static until collected; grants ward=1, collection burst=12 (Lane::step_at)."
+}

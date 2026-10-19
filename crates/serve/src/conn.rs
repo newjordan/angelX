@@ -862,6 +862,9 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
         {
             applied_seen = applied;
             pace.applied(applied, at);
+            if let (Some(seat), Some(round_trip)) = (conn.seat, pace.round_trip()) {
+                let _ = hub.inbound.send(Inbound::Latency { seat, conn: conn.id, round_trip });
+            }
         }
         // A writer holding back only looks at the newest tick's number, so
         // it never touches the tick ring the sim publishes into.

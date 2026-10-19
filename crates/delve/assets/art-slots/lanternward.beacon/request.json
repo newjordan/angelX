@@ -1,0 +1,38 @@
+{
+  "fit": "native canvas 24x36, anchor bottom-centre (12,36); stage 384x224 at 16 px per tile; a knight is 16x16; the beacon is a tower and iron bowl more than two knights tall.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "cold-0"
+      ],
+      "source_pose_count": 1,
+      "state": "cold"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "kindling-0",
+        "kindling-1"
+      ],
+      "source_pose_count": 2,
+      "state": "kindling"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    }
+  ],
+  "game": "lanternward",
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "id": "lanternward.beacon",
+  "role": "prop",
+  "timing": "cold 12 ticks; kindling 2x6 ticks; lit 4x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

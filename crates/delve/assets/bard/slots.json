@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "status": "temporary placeholders; replace through these slots after art delivery",
+  "style": "Original bard knight; 1990s arcade run-and-gun painted/inked forms, dark colours. Artist owns design.",
+  "knight": {
+    "asset_id": "bard-knight",
+    "native_canvas_wh": [
+      20,
+      16
+    ],
+    "anchor_xy": [
+      10,
+      16
+    ],
+    "hit_radius_world": 0.42,
+    "facings": [
+      "front",
+      "right (mirror left)",
+      "back"
+    ],
+    "states": {
+      "idle": {
+        "frames": 1,
+        "ticks_per_frame": 1
+      },
+      "walk": {
+        "frames": 4,
+        "timing": "stride / 0.85 world units, existing class gait"
+      },
+      "attack": {
+        "frames": 1,
+        "duration_ticks": 4
+      },
+      "song": {
+        "frames": 1,
+        "duration_ticks": 60
+      },
+      "hit": {
+        "frames": 1,
+        "timing": "existing struck/ward ticks"
+      },
+      "defeat": {
+        "frames": 1,
+        "timing": "existing hp=0 state"
+      }
+    },
+    "views": [
+      {
+        "body": [
+          "................",
+          "................",
+          "....87777778....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4u44uuu4....",
+          "....4u4u4uu4....",
+          "....4u44uuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....875..578....",
+          "....888..888...."
+        ],
+        "item": {
+          "at": [
+            11,
+            9
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            8
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        }
+      },
+      {
+        "body": [
+          "................",
+          "................",
+          "....87777778....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uu4uuu4....",
+          "....4uuu4uu4....",
+          "....4uu4uuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....875..578....",
+          "....888..888...."
+        ],
+        "item": {
+          "at": [
+            11,
+            9
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            8
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        }
+      },
+      {
+        "body": [
+          "................",
+          "................",
+          "....87777778....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uu4uuu4....",
+          "....4u444uu4....",
+          "....4uu4uuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....4uuuuuu4....",
+          "....875..578....",
+          "....888..888...."
+        ],
+        "item": {
+          "at": [
+            11,
+            9
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        },
+        "strike": {
+          "at": [
+            13,
+            8
+          ],
+          "rows": [
+            "444",
+            "4.4",
+            "444"
+          ]
+        }
+      }
+    ]
+  },
+  "note": {
+    "asset_id": "bard-note",
+    "native_canvas_wh": [
+      5,
+      7
+    ],
+    "anchor_xy": [
+      2,
+      3
+    ],
+    "frames": 1,
+    "duration_ticks": 10,
+    "hit_radius": "existing friendly Arrow sweep; no sprite-based collision",
+    "rows": [
+      "..44.",
+      "..4.4",
+      "..4..",
+      "..4..",
+      "444..",
+      "444..",
+      "....."
+    ]
+  },
+  "sleep": {
+    "asset_id": "bard-sleep",
+    "native_canvas_wh": [
+      11,
+      7
+    ],
+    "anchor_xy": [
+      5,
+      7
+    ],
+    "frames": 1,
+    "duration_ticks": 60,
+    "boss_duration_ticks": 15,
+    "collision": "none",
+    "label": "Zz"
+  },
+  "song": {
+    "asset_id": "bard-song-ring",
+    "native_canvas_wh": [
+      113,
+      113
+    ],
+    "anchor_xy": [
+      56,
+      56
+    ],
+    "frames": 1,
+    "duration_ticks": 60,
+    "radius_world": 7,
+    "collision": "sound reaches enemy centres in the current room, through scenery"
+  },
+  "sounds": {
+    "stream": "shot_spark",
+    "ultimate": "boss_rise",
+    "needed": [
+      "muted plucked-note stream loop with release tail",
+      "two-second lullaby phrase with soft onset and ending"
+    ]
+  }
+}

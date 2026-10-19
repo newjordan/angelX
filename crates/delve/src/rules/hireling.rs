@@ -542,7 +542,7 @@ impl Run {
         hire.cooldown = hire.cooldown.saturating_sub(1);
         let beaumains = hire.kind == AllyKind::Beaumains;
         if hire.down() {
-            if !self.foes_left() {
+            if !self.fight_on() {
                 // The fight is over: up again, sore.
                 hire.hp = hire.max_hp / 2;
                 hire.invulnerable = 20;
@@ -568,7 +568,9 @@ impl Run {
                     beam.struck |= 16;
                     hire.hurt(shot.damage);
                 }
-            } else if (shot.x - hire.x).hypot(shot.y - hire.y) < HERO_RADIUS + 0.16 {
+            } else if shot.traits.path.form != super::patterns::Form::Lob
+                && (shot.x - hire.x).hypot(shot.y - hire.y) < HERO_RADIUS + super::patterns::girth(shot)
+            {
                 shot.ttl = 0;
                 if shot.kind != Shot::Hex {
                     hire.hurt(shot.damage);
@@ -579,6 +581,7 @@ impl Run {
             e.hp > 0
                 && e.age >= TELEGRAPH
                 && e.frozen == 0
+                && !e.asleep(self.tick)
                 && e.kind != EnemyKind::Dummy
                 && (hire.x - e.x).hypot(hire.y - e.y) < e.radius() + 0.5
         }) {

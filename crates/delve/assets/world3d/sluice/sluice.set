@@ -1,0 +1,231 @@
+set sluice
+# The Sluice of Excuses: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open ground, not blocks: three valves on stone footings, a sign.
+
+# the ground: its top is the floor line
+box    ground  at 88 -4 8 size 176 4 16
+box    path    at 192 -4 112 size 32 4 224
+box    ground  at 296 -4 8 size 176 4 16
+box    ground  at 8 -4 120 size 16 4 208
+box    mud     at 32 -4 24 size 32 4 16
+box    grass   at 64 -4 24 size 32 4 16
+box    mud     at 128 -4 24 size 96 4 16
+box    grass   at 216 -4 40 size 16 4 48
+box    mud     at 240 -4 24 size 32 4 16
+box    grass   at 288 -4 24 size 64 4 16
+box    mud     at 344 -4 24 size 48 4 16
+box    ground  at 376 -4 56 size 16 4 80
+box    grass   at 32 -4 64 size 32 4 64
+box    mud     at 160 -4 40 size 32 4 16
+box    grass   at 232 -4 48 size 16 4 32
+box    mud     at 344 -4 40 size 16 4 16
+box    grass   at 360 -4 64 size 16 4 64
+box    grass   at 160 -4 56 size 32 4 16
+box    grass   at 344 -4 56 size 16 4 16
+box    grass   at 80 -4 80 size 64 4 32
+box    mud     at 136 -4 80 size 48 4 32
+box    grass   at 168 -4 80 size 16 4 32
+box    mud     at 232 -4 80 size 48 4 32
+box    grass   at 288 -4 80 size 64 4 32
+box    mud     at 336 -4 80 size 32 4 32
+box    path    at 96 -4 112 size 160 4 32
+box    path    at 296 -4 112 size 176 4 32
+box    mud     at 32 -4 144 size 32 4 32
+box    grass   at 64 -4 152 size 32 4 48
+box    mud     at 120 -4 144 size 80 4 32
+box    grass   at 168 -4 136 size 16 4 16
+box    grass   at 272 -4 136 size 128 4 16
+box    mud     at 352 -4 136 size 32 4 16
+box    ground  at 376 -4 176 size 16 4 96
+box    mud     at 168 -4 152 size 16 4 16
+box    grass   at 216 -4 176 size 16 4 64
+box    mud     at 264 -4 160 size 80 4 32
+box    grass   at 328 -4 152 size 48 4 16
+box    mud     at 360 -4 176 size 16 4 64
+box    grass   at 24 -4 184 size 16 4 48
+box    mud     at 40 -4 168 size 16 4 16
+box    grass   at 88 -4 168 size 16 4 16
+box    mud     at 128 -4 168 size 64 4 16
+box    grass   at 168 -4 184 size 16 4 48
+box    mud     at 312 -4 168 size 16 4 16
+box    grass   at 336 -4 168 size 32 4 16
+box    grass   at 40 -4 192 size 16 4 32
+box    grass   at 152 -4 184 size 16 4 16
+box    grass   at 232 -4 184 size 16 4 16
+box    mud     at 344 -4 184 size 16 4 16
+box    mud     at 152 -4 200 size 16 4 16
+box    mud     at 232 -4 200 size 16 4 16
+box    grass   at 344 -4 200 size 16 4 16
+box    ground  at 96 -4 216 size 160 4 16
+box    ground  at 288 -4 216 size 160 4 16
+
+# water, 3 below the floor line
+box    water   at 96 -4 48 size 96 1 32
+box    water   at 288 -4 48 size 96 1 32
+box    water   at 96 -4 192 size 96 1 32
+box    water   at 288 -4 192 size 96 1 32
+
+# the north wall, columns 0 to 10
+box    foliage at 88 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 10 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 10 7 8 size 19 19 16
+box    trunk   at 26 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 26 7 8 size 21 18 16
+box    trunk   at 41 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 41 9 8 size 21 16 16
+box    trunk   at 55 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 55 7 8 size 18 17 16
+box    trunk   at 69 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 69 6 8 size 18 18 16
+box    trunk   at 87 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 87 6 8 size 21 18 16
+box    trunk   at 106 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 106 9 8 size 20 16 16
+box    trunk   at 123 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 123 7 8 size 18 17 16
+box    trunk   at 138 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 138 8 8 size 20 16 16
+box    trunk   at 153 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 153 8 8 size 21 17 16
+box    trunk   at 167 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 167 8 8 size 18 16 16
+sphere foliage at 4 0 -9 size 24 33 18
+sphere foliage at 21 0 -9 size 22 37 18
+sphere foliage at 43 0 -9 size 23 34 18
+sphere foliage at 58 0 -9 size 23 35 18
+sphere foliage at 75 0 -9 size 28 32 18
+sphere foliage at 89 0 -9 size 29 36 18
+sphere foliage at 101 0 -9 size 24 31 18
+sphere foliage at 116 0 -9 size 27 34 18
+sphere foliage at 139 0 -9 size 22 37 18
+sphere foliage at 156 0 -9 size 26 35 18
+
+# the north wall, columns 13 to 23
+box    foliage at 296 -4 8 size 176 9 16  # TODO prims: blob
+box    trunk   at 217.5 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 217.5 7 8 size 19 17 16
+box    trunk   at 231 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 231 6 8 size 18 19 16
+box    trunk   at 249 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 249 6 8 size 18 16 16
+box    trunk   at 262 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 262 9 8 size 18 18 16
+box    trunk   at 282 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 282 9 8 size 21 17 16
+box    trunk   at 296 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 296 6 8 size 18 17 16
+box    trunk   at 313 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 313 7 8 size 20 19 16
+box    trunk   at 328 0 8 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 328 6 8 size 20 18 16
+box    trunk   at 346 0 8 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 346 8 8 size 19 19 16
+box    trunk   at 362 0 8 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 362 9 8 size 18 16 16
+box    trunk   at 374 0 8 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 374 7 8 size 18 18 16
+sphere foliage at 231 0 -9 size 29 36 18
+sphere foliage at 251 0 -9 size 24 33 18
+sphere foliage at 264 0 -9 size 29 34 18
+sphere foliage at 284 0 -9 size 23 31 18
+sphere foliage at 298 0 -9 size 23 30 18
+sphere foliage at 314 0 -9 size 24 31 18
+sphere foliage at 332 0 -9 size 27 37 18
+sphere foliage at 341 0 -9 size 28 31 18
+sphere foliage at 357 0 -9 size 24 37 18
+sphere foliage at 373 0 -9 size 25 30 18
+
+# the south wall, columns 0 to 10
+box    foliage at 88 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 88 -4 220 size 176 16 8  # TODO prims: blob
+
+# the south wall, columns 13 to 23
+box    foliage at 296 -4 212 size 176 8 8  # TODO prims: wedge
+box    foliage at 296 -4 220 size 176 16 8  # TODO prims: blob
+
+# the west wall, rows 1 to 12
+box    foliage at 8 -4 112 size 16 9 192  # TODO prims: blob
+box    trunk   at 8 0 25.5 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 25.5 size 16 19 19
+box    trunk   at 8 0 43 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 43 size 16 17 19
+box    trunk   at 8 0 59 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 59 size 16 17 20
+box    trunk   at 8 0 73 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 73 size 16 18 20
+box    trunk   at 8 0 89 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 89 size 16 18 20
+box    trunk   at 8 0 107 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 107 size 16 16 21
+box    trunk   at 8 0 120 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 120 size 16 19 18
+box    trunk   at 8 0 134 size 4 9 4  # TODO prims: cylinder
+sphere foliage at 8 6 134 size 16 19 21
+box    trunk   at 8 0 150 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 150 size 16 18 20
+box    trunk   at 8 0 170 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 170 size 16 16 19
+box    trunk   at 8 0 182 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 8 9 182 size 16 19 20
+box    trunk   at 8 0 197.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 8 7 197.5 size 16 16 21
+
+# the east wall, rows 1 to 5
+box    foliage at 376 -4 56 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 25 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 25 size 16 16 18
+box    trunk   at 376 0 39 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 39 size 16 18 20
+box    trunk   at 376 0 59 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 59 size 16 17 21
+box    trunk   at 376 0 74 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 74 size 16 19 18
+box    trunk   at 376 0 86 size 4 12 4  # TODO prims: cylinder
+sphere foliage at 376 9 86 size 16 16 20
+
+# the east wall, rows 8 to 12 (at 54% of its height, for the camera)
+box    foliage at 376 -4 168 size 16 9 80  # TODO prims: blob
+box    trunk   at 376 0 138 size 4 5.5 4  # TODO prims: cylinder
+sphere foliage at 376 4 138 size 16 8.5 20
+box    trunk   at 376 0 152 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 152 size 16 17.5 20
+box    trunk   at 376 0 167 size 4 11 4  # TODO prims: cylinder
+sphere foliage at 376 8 167 size 16 16 21
+box    trunk   at 376 0 181 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 181 size 16 16 20
+box    trunk   at 376 0 197.5 size 4 10 4  # TODO prims: cylinder
+sphere foliage at 376 7 197.5 size 16 16 21
+
+# the north door, columns 11 to 12
+box    wood    at 173 0 2.5 size 3 18 3  # TODO prims: fence
+box    wood    at 211 0 2.5 size 3 18 3  # TODO prims: fence
+
+# the south door, columns 11 to 12
+box    wood    at 173 0 221.5 size 3 12 3  # TODO prims: fence
+box    wood    at 211 0 221.5 size 3 12 3  # TODO prims: fence
+
+# the east door, rows 6 to 7 (at 52% of its height, for the camera)
+box    wood    at 381.5 0 93 size 3 18 3  # TODO prims: fence
+box    wood    at 381.5 0 131 size 3 9 3  # TODO prims: fence
+
+# landmark (assets/world3d/sluice/landmark.set, hand-placed)
+# The Sluice of Excuses: two stone piers with the wooden gate raised between them, the beam over it and the valve wheel.
+# Hand-placed by the landmark pass on the room's blocked back band and what lies behind it,
+# so it never stands on a tile a knight walks or hides the floor from the camera.
+
+# the piers either side of the north door gap
+box    stone   at 160 0 -2 size 24 56 28 id lm-pier-west
+box    stone   at 224 0 -2 size 24 56 28 id lm-pier-east
+# the gate, raised a hand, and the race under it
+box    wood    at 192 6 -9 size 40 44 5 id lm-sluice-gate
+box    water   at 192 0 -11.5 size 40 4 23
+# the beam across the piers, with the valve wheel on its stem
+box    wood    at 192 56 -8 size 76 6 12 id lm-beam
+cylinder-8 metal   at 192 62 -8 size 4 10 4
+cylinder-12 metal   at 192 70 -8 size 16 2 16 id lm-valve-wheel
+cylinder-8 metal   at 178 44 -9 size 2.5 14 2.5
+cylinder-8 metal   at 206 44 -9 size 2.5 14 2.5

@@ -81,7 +81,7 @@ fn held_of(hero: &Hero) -> (Held, bool) {
         Held::Sword
     } else {
         match hero.weapon {
-            Weapon::Fists => Held::Nothing,
+            Weapon::Fists | Weapon::Notes | Weapon::Stones => Held::Nothing,
             Weapon::Bow => Held::Bow,
             Weapon::Crossbow => Held::Crossbow,
             Weapon::Handgonne => Held::Handgonne,
@@ -190,20 +190,41 @@ fn shield_far() -> Img {
     ])
 }
 
+/// A raised shield just struck (`rules::shield`): how far the blow knocks
+/// it back on the screen, in pixels, as the figure is drawn facing right,
+/// and how bright its rim flashes (0 none, 2 the tick it lands).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Struck {
+    pub dx: i32,
+    pub dy: i32,
+    pub flash: u8,
+}
+
+/// A shield's rim in its flash: gold or steel lit a step or two up its
+/// ramp. The field keeps its seat's colours.
+fn flashed(shield: &Img, flash: u8) -> Img {
+    match flash {
+        0 => shield.clone(),
+        1 => shield.recolor(&[('6', 'c'), ('4', '6'), ('a', 'o'), ('W', '9'), ('v', 'W'), ('u', 'v')]),
+        _ => shield.recolor(&[('6', '9'), ('4', 'c'), ('a', '6'), ('W', '9'), ('v', '9'), ('u', 'W')]),
+    }
+}
+
 /// The shield up toward `facing`, over `body`, a figure drawn without its
-/// shield at rest.
-pub(super) fn raised(body: &Img, facing: Facing) -> Img {
+/// shield at rest; knocked and flashing when it was just `struck`.
+pub(super) fn raised(body: &Img, facing: Facing, struck: Struck) -> Img {
     let mut im = body.clone();
+    let (dx, dy) = (struck.dx, struck.dy);
     match facing {
         Facing::Down => {
-            im.stamp(&shield_front(), 4, 8);
+            im.stamp(&flashed(&shield_front(), struck.flash), 4 + dx, 8 + dy);
         }
         Facing::Side => {
-            im.stamp(&shield_side(), 9, 6);
+            im.stamp(&flashed(&shield_side(), struck.flash), 9 + dx, 6 + dy);
         }
         Facing::Up => {
             let mut out = Img::new(im.w, im.h);
-            out.stamp(&shield_far(), 2, 3);
+            out.stamp(&flashed(&shield_far(), struck.flash), 2 + dx, 3 + dy);
             out.stamp(&im, 0, 0);
             im = out;
         }
@@ -211,14 +232,36 @@ pub(super) fn raised(body: &Img, facing: Facing) -> Img {
     im
 }
 
-/// Colours a seat's knight wears when the company gave none.
+/// Colours a seat's knight wears when the company gave none: red, blue,
+/// green, gold, sea-green and ivory, a seat each (six, `MAX_PLAYERS`).
 pub(super) fn seat_colours(id: u32) -> &'static [(char, char)] {
     match id {
         1 => &[],
         2 => &[('7', '1'), ('8', '0'), ('5', '9')],
         3 => &[('7', 'A'), ('8', 'l'), ('5', '6')],
-        _ => &[('7', '4'), ('8', 'a'), ('5', 'c')],
+        4 => &[('7', '4'), ('8', 'a'), ('5', 'c')],
+        5 => &[('7', '2'), ('8', 'S'), ('5', '3')],
+        _ => &[('7', 'c'), ('8', 'P'), ('5', 'o')],
     }
+}
+
+/// The ink a seat is marked in, as its knight's cloth: a notch on a card, a
+/// pip on a scoreboard, a tag over a rider.
+pub(super) fn seat_cloth(id: u32) -> char {
+    match id {
+        1 => '7',
+        2 => '1',
+        3 => 'A',
+        4 => '4',
+        5 => '2',
+        _ => 'c',
+    }
+}
+
+/// A seat's pip on a board or the map: the cloth's ink, but for the first
+/// seat, whose pip is gold.
+pub(super) fn seat_mark(id: u32) -> char {
+    if id == 1 { '5' } else { seat_cloth(id) }
 }
 
 /// The seat's colours on the realm's knight. The gold seat's field is the
@@ -226,8 +269,8 @@ pub(super) fn seat_colours(id: u32) -> &'static [(char, char)] {
 /// to bronze first: the shield's field stands off its rim and stays gold.
 pub(super) fn realm_colours(id: u32) -> &'static [(char, char)] {
     match id {
-        1..=3 => seat_colours(id),
-        _ => &[('4', 'a'), ('7', '4'), ('8', 'a'), ('5', 'c')],
+        4 => &[('4', 'a'), ('7', '4'), ('8', 'a'), ('5', 'c')],
+        _ => seat_colours(id),
     }
 }
 
@@ -267,8 +310,14 @@ pub fn figure(hero: &Hero, id: u32) -> Img {
 /// As `figure`, with the shield thrown (`thrown`): the arm is bare and
 /// nothing can be raised.
 pub fn figure_with(hero: &Hero, id: u32, thrown: bool) -> Img {
+    figure_struck(hero, id, thrown, Struck::default())
+}
+
+/// As `figure_with`, a raised shield knocked and flashing when it was just
+/// `struck`.
+pub fn figure_struck(hero: &Hero, id: u32, thrown: bool, struck: Struck) -> Img {
     if let Some(look) = Look::of(hero) {
-        return hatted(class_figure(hero, id, thrown, look), hero);
+        return hatted(class_figure(hero, id, thrown, look, struck), hero);
     }
     let raising = hero.shielding && !thrown && hero.owned.shield;
     let im = if hero.knight.as_deref() == Some(DWARF) {
@@ -285,10 +334,10 @@ pub fn figure_with(hero: &Hero, id: u32, thrown: bool) -> Img {
                 }
             }
         }
-        if raising { raised(&im, facing(hero.aim_x, hero.aim_y)) } else { im }
+        if raising { raised(&im, facing(hero.aim_x, hero.aim_y), struck) } else { im }
     } else {
         let im = realm_body(hero, thrown);
-        let im = if raising { raised(&im, facing(hero.aim_x, hero.aim_y)) } else { im };
+        let im = if raising { raised(&im, facing(hero.aim_x, hero.aim_y), struck) } else { im };
         if hero.colours().is_empty() {
             im.recolor(realm_colours(id))
         } else {
@@ -302,13 +351,13 @@ pub fn figure_with(hero: &Hero, id: u32, thrown: bool) -> Img {
 /// in their strike, in the seat's trim. A class keeps its look as health
 /// fails (the knight's helmet and tabard stay the knight's); the health bar
 /// says how they fare.
-fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look) -> Img {
+fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look, struck: Struck) -> Img {
     let face = facing(hero.aim_x, hero.aim_y);
     let raising = look.shielded() && hero.shielding && !thrown && hero.owned.shield;
     let held = if look.shielded() {
         !thrown && hero.owned.shield && !raising
     } else {
-        !hero.unarmed() && !(look == Look::Berserker && hero.spin > 0)
+        hero.flee_ticks == 0 && !hero.unarmed() && !(look == Look::Berserker && hero.spin > 0)
     };
     let pose = if raising { Pose::Stand } else { class_looks::pose(hero) };
     let mut im = class_looks::figure(look, face, pose, held);
@@ -316,12 +365,14 @@ fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look) -> Img {
         // Her kite shield, brought round to the aim: steel-rimmed like the
         // one on her arm.
         let off = (class_looks::W - 16) / 2;
+        let (dx, dy) = (struck.dx, struck.dy);
+        let steel = |shield: Img| flashed(&shield.recolor(STEEL_RIM), struck.flash);
         match face {
-            Facing::Down => im.stamp(&shield_front().recolor(STEEL_RIM), off + 4, 8),
-            Facing::Side => im.stamp(&shield_side().recolor(STEEL_RIM), off + 10, 6),
+            Facing::Down => im.stamp(&steel(shield_front()), off + 4 + dx, 8 + dy),
+            Facing::Side => im.stamp(&steel(shield_side()), off + 10 + dx, 6 + dy),
             Facing::Up => {
                 let mut out = Img::new(im.w, im.h);
-                out.stamp(&shield_far().recolor(STEEL_RIM), off + 2, 4);
+                out.stamp(&steel(shield_far()), off + 2 + dx, 4 + dy);
                 out.stamp(&im, 0, 0);
                 im = out;
             }
@@ -379,6 +430,13 @@ fn hat(hero: &Hero) -> Option<Img> {
             "....@778....",
             "roo777778otT",
             "....7788....",
+        ]),
+        // A war-goose rearing, wings out; a knight's helm above the bill.
+        Game::Gander => rows(&[
+            ".....99.....",
+            "..59h9hO....",
+            ".9hhhhh.p...",
+            "..hhhhh.O...",
         ]),
         Game::Surf | Game::Washtub => rows(&[
             "..m.m..l....",
@@ -445,6 +503,12 @@ pub fn dress(body: &Img, worn: &[&Sprite], tick: u64) -> Img {
 /// sixteen pixels, with the shield brought round when it is raised (the
 /// picture carries no shield of its own to take off).
 pub fn avatar_figure(hero: &Hero, pixels: &[[u8; 4]], thrown: bool) -> Img {
+    avatar_struck(hero, pixels, thrown, Struck::default())
+}
+
+/// As `avatar_figure`, a raised shield knocked and flashing when it was
+/// just `struck`.
+pub fn avatar_struck(hero: &Hero, pixels: &[[u8; 4]], thrown: bool, struck: Struck) -> Img {
     let mut im = Img::new(16, 16);
     for y in 0..16 {
         for x in 0..16 {
@@ -456,7 +520,7 @@ pub fn avatar_figure(hero: &Hero, pixels: &[[u8; 4]], thrown: bool) -> Img {
         }
     }
     if hero.shielding && !thrown {
-        im = raised(&im, facing(hero.aim_x, hero.aim_y));
+        im = raised(&im, facing(hero.aim_x, hero.aim_y), struck);
     }
     im
 }

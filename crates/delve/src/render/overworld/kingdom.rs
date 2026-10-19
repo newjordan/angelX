@@ -84,7 +84,9 @@ fn draw_building(site: &Site, i: usize) -> Img {
         match site.room {
             RoomKind::Ranch => super::arena::ranch::landmark(),
             RoomKind::LandOffice => super::arena::holdings::land_office_building(),
-            _ => kit::house(&House {
+            // A countryside place with no landmark of its own: a house,
+            // at dusk like the landmarks round it.
+            _ => super::light::at_dusk(&kit::house(&House {
                 w: 48,
                 h: 40,
                 roof_h: 17,
@@ -94,7 +96,7 @@ fn draw_building(site: &Site, i: usize) -> Img {
                 windows: 2,
                 lit: false,
                 chimney: true,
-            }),
+            })),
         }
     };
     let k = ((building.w + 63) / 64).max((building.h + 47) / 48).max(1);

@@ -632,6 +632,20 @@ impl VideoSurface {
             .and_then(|active| active.mailbox.lock().ok().map(|state| state.clone()))
             .unwrap_or_default()
     }
+
+    /// A visible clip is publishing frames on its own clock: the
+    /// event loop must wake for them instead of idling between its
+    /// ambient lanes (scorecard M7).
+    fn playing(&self) -> bool {
+        let Some(active) = self.active.as_ref() else {
+            return false;
+        };
+        if !active.visible {
+            return false;
+        }
+        let snapshot = self.snapshot();
+        !snapshot.paused && !snapshot.ended && snapshot.error.is_none()
+    }
 }
 
 #[cfg(feature = "scryglass-video")]
@@ -813,6 +827,20 @@ impl VideoPlayback {
 #[cfg(feature = "scryglass-video")]
 fn video_sample_every(source_fps: f64, fps_cap: u8) -> usize {
     (source_fps / f64::from(fps_cap.max(1))).ceil().max(1.0) as usize
+}
+
+/// How much of a clip's own frame rate playback may show. A clip the
+/// operator asked to watch is media, not ambient motion: Full plays
+/// at source rate (to a 60 fps ceiling), Reduced samples it down,
+/// Off holds a poster frame. (Full was 12 until scorecard v2's M7
+/// measured the result against mpv.)
+pub(crate) fn video_fps_cap(mode: crate::ui::viz::lifecycle_viz::MotionMode) -> u8 {
+    use crate::ui::viz::lifecycle_viz::MotionMode;
+    match mode {
+        MotionMode::Full => 60,
+        MotionMode::Reduced => 12,
+        MotionMode::Off => 1,
+    }
 }
 
 #[cfg(feature = "scryglass-video")]
@@ -1209,6 +1237,9 @@ struct VideoSurface;
 impl VideoSurface {
     fn stop(&mut self) {}
     fn set_visible(&mut self, _visible: bool) {}
+    fn playing(&self) -> bool {
+        false
+    }
 }
 
 pub(crate) struct Scryglass {
@@ -2077,6 +2108,12 @@ impl Scryglass {
             self.reset_video_control_reveal();
             self.video.command(VideoCommand::Restart(0));
         }
+    }
+
+    /// The stage is showing a clip that is playing right now: the
+    /// event loop paces redraws to it (scorecard M7).
+    pub(crate) fn video_playing(&self) -> bool {
+        matches!(self.surface, StageSurface::Video(_)) && self.video.playing()
     }
 
     pub(crate) fn video_status(&self) -> (Duration, Option<Duration>, bool, bool) {

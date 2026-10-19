@@ -1,0 +1,166 @@
+set chunk-5-2
+# The kingdom, chunk 5,2 in The Highlands: tiles 120..144 x 32..48 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 2112 640
+plate 1536 1024
+
+# ground
+box    grass   at 1928 -4 560 size 16 4 96
+box    path    at 1944 -4 552 size 16 4 80
+box    grass   at 1968 -4 520 size 32 4 16
+box    rock    at 2016 -4 520 size 64 4 16
+box    grass   at 2152 -4 528 size 208 4 32
+box    path    at 2280 -4 552 size 48 4 80
+box    rock    at 1992 -4 552 size 80 4 48
+box    grass   at 2040 -4 544 size 16 4 32
+box    grass   at 2144 -4 568 size 192 4 48
+box    path    at 2248 -4 640 size 16 4 192
+box    rock    at 2040 -4 576 size 16 4 32
+box    path    at 1960 -4 592 size 16 4 32
+box    grass   at 1976 -4 584 size 16 4 16
+box    rock    at 2008 -4 584 size 48 4 16
+box    sand    at 1944 -4 600 size 16 4 16
+box    path    at 1984 -4 600 size 32 4 16
+box    grass   at 2112 -4 616 size 224 4 48
+box    path    at 2232 -4 672 size 16 4 160
+box    path    at 2272 -4 616 size 32 4 48
+box    grass   at 2296 -4 616 size 16 4 48
+box    sand    at 1928 -4 632 size 16 4 48
+box    water   at 1960 -4 632 size 48 1 48
+box    path    at 1992 -4 648 size 16 4 80
+box    grass   at 2104 -4 664 size 208 4 48
+box    path    at 2216 -4 696 size 16 4 112
+box    path    at 2264 -4 664 size 16 4 48
+box    grass   at 2280 -4 680 size 16 4 80
+box    rock    at 2296 -4 656 size 16 4 32
+box    grass   at 1928 -4 696 size 16 4 80
+box    sand    at 1960 -4 664 size 48 4 16
+box    grass   at 1960 -4 696 size 48 4 48
+box    grass   at 2296 -4 696 size 16 4 48
+box    grass   at 2040 -4 704 size 112 4 32
+box    path    at 2152 -4 696 size 112 4 16
+box    grass   at 2264 -4 704 size 16 4 32
+box    grass   at 2104 -4 712 size 16 4 16
+box    path    at 2160 -4 712 size 96 4 16
+box    grass   at 1944 -4 728 size 16 4 16
+box    sand    at 2032 -4 728 size 160 4 16
+box    grass   at 2160 -4 728 size 96 4 16
+box    sand    at 2264 -4 728 size 16 4 16
+box    rock    at 2288 -4 728 size 32 4 16
+box    sand    at 1936 -4 744 size 32 4 16
+box    water   at 2032 -4 752 size 160 1 32
+box    sand    at 2160 -4 744 size 96 4 16
+box    water   at 2272 -4 752 size 64 1 32
+box    water   at 1936 -4 760 size 32 1 16
+box    water   at 2168 -4 760 size 112 1 16
+box    wood    at 2232 -4 760 size 16 4 16
+
+# PUDDINGSTONE PRIORY: a priory: chapel and cloister at 130,40 4x3 (at 81% of its height, for the camera)
+box    plaster at 2092 0 669 size 20 13 26 id puddingstone-priory
+gable  slate   at 2092 13 669 size 28 8.5 23 turn 90
+box    window  at 2102.25 4.5 664.67 size 1 5 2.5
+box    window  at 2102.25 4.5 673.33 size 1 5 2.5
+arch   window  at 2092 5.5 682.25 size 5 5.5 1
+box    plaster at 2108.5 0 680 size 12 21 12
+pyramid slate   at 2108.5 21 680 size 13.5 16 13.5
+box    door    at 2108.5 0 686.25 size 5 8 1
+box    window  at 2108.5 14.5 686.25 size 2.5 3 1
+box    stone   at 2129.6 0 663.5 size 24.8 8 3
+box    stone   at 2140.5 0 674 size 3 8 24
+gable  slate   at 2129.6 8 663.5 size 25.8 3 5
+arch   stone   at 2121.33 0 684.5 size 7.27 7 2.5
+arch   stone   at 2129.6 0 684.5 size 7.27 7 2.5
+arch   stone   at 2137.87 0 684.5 size 7.27 7 2.5
+box    grass   at 2128.1 0 674 size 21.8 0.5 18
+
+# set dressing
+rock-20 rock    at 2168 0 584 size 8 2.5 7
+rock-61 rock    at 2168 2 584 size 5 2 4.5
+cylinder stone   at 2024 0 664 size 12 4 12
+rock-20 stone   at 2031 0 668 size 4 2 3
+rock-57 rock    at 1960 0 680 size 8 2.5 7
+rock-54 rock    at 1960 2 680 size 5 2 4.5
+rock-35 rock    at 1963 0 714 size 4 2 3.5
+rock-10 rock    at 1965 0 713 size 4 2 3.5
+rock-11 rock    at 1963 0 709 size 4 2 3.5
+rock-3 rock    at 1965 0 712 size 4 2 3.5
+
+# rock (at 95% of its height, for the camera)
+box    rock    at 1992 0 520 size 16 2.5 16
+box    rock    at 2016 0 520 size 32 3 16
+box    rock    at 2040 0 520 size 16 2.5 16
+box    rock    at 1960 0 536 size 16 2.5 16
+box    rock    at 1984 0 536 size 32 3 16
+box    rock    at 2008 0 552 size 16 9 48
+box    rock    at 2024 0 560 size 16 3 64
+box    rock    at 1960 0 560 size 16 3 32
+box    rock    at 1984 0 552 size 32 9 16
+box    rock    at 1984 0 568 size 32 3 16
+box    rock    at 2040 0 576 size 16 3 32
+box    rock    at 2000 0 584 size 32 3 16
+box    rock    at 2296 0 656 size 16 3 32
+box    rock    at 2288 0 728 size 32 3 16
+rock-7 rock    at 1992 1 519 size 17 8 15.3
+rock-28 rock    at 2007 1.5 520 size 15 8 13.5 turn 270
+rock-48 rock    at 2025 1.5 520 size 15 10 13.5 turn 90
+rock-31 rock    at 2040 1 520 size 16 9.5 14.4 turn 270
+rock-22 rock    at 1959 1 535 size 16 9.5 14.4 turn 180
+rock-50 rock    at 1977 1.5 535 size 16 8 14.4 turn 180
+rock-51 rock    at 1992 1.5 535 size 15 10 13.5 turn 180
+rock-17 rock    at 2009 7.5 536 size 12 9 10.8 turn 180
+rock-8 rock    at 2025 1.5 536 size 16 7 14.4
+rock-51 rock    at 1959 1.5 551 size 16 9 14.4 turn 180
+rock-16 rock    at 1976 7.5 553 size 12 6 10.8 turn 90
+rock-16 rock    at 1991 7.5 553 size 12 9 10.8 turn 90
+rock-30 rock    at 2007 7.5 553 size 12 9 10.8 turn 270
+rock-17 rock    at 2023 1.5 552 size 16 9 14.4 turn 180
+rock-35 rock    at 1961 1.5 569 size 14 10 12.6
+rock-17 rock    at 1977 1.5 567 size 17 9 15.3 turn 180
+rock-12 rock    at 1992 1.5 569 size 15 10 13.5 turn 90
+rock-7 rock    at 2008 7.5 569 size 12 7 10.8
+rock-22 rock    at 2025 1.5 568 size 15 10 13.5 turn 180
+rock-24 rock    at 2039 1.5 569 size 15 9 13.5 turn 180
+rock-15 rock    at 1993 1.5 584 size 15 10 13.5 turn 90
+rock-58 rock    at 2009 1.5 583 size 17 7 15.3 turn 270
+rock-48 rock    at 2025 1.5 584 size 15 10 13.5 turn 90
+rock-16 rock    at 2039 1.5 584 size 14 10 12.6 turn 90
+rock-19 rock    at 2297 1.5 649 size 17 7 15.3 turn 180
+rock-12 rock    at 2297 1.5 665 size 15 7 13.5 turn 90
+rock-12 rock    at 2279 1.5 728 size 17 10 15.3 turn 90
+rock-2 rock    at 2295 1.5 727 size 16 7 14.4
+
+# woods (at 27% of its height, for the camera)
+frustum trunk   at 2046 0 543 size 5 5.5 5
+blob-30 foliage at 2046 3.5 543 size 33 9.5 31.35 turn 90
+cylinder trunk   at 2079 0 543 size 5 4.5 5
+blob-4 foliage at 2079 2.5 543 size 33 7 31.35
+cylinder trunk   at 2113 0 559 size 5 4 5
+blob-58 foliage at 2113 2.5 559 size 33 7.5 31.35 turn 90
+cylinder trunk   at 2111 0 593 size 5 13 5
+blob-23 foliage at 2111 8 593 size 33 22 31.35 turn 90
+cylinder trunk   at 2056.5 0 568.5 size 3 9 3
+blob-24 foliage at 2056.5 4 568.5 size 18 17 17.1 turn 180
+frustum trunk   at 2073 0 566 size 3 11 3
+blob-8 foliage at 2073 6 566 size 17 17 16.15
+frustum trunk   at 2087.5 0 567 size 3 9 3
+blob-17 foliage at 2087.5 4 567 size 18 17 17.1 turn 90
+frustum trunk   at 2137 0 567 size 3 4 3
+blob-53 foliage at 2137 1.5 567 size 17 7 16.15 turn 90
+frustum trunk   at 2136 0 584 size 3 11 3
+blob-46 foliage at 2136 6.5 584 size 19 16.5 18.05 turn 270
+frustum trunk   at 2135 0 600 size 3 12 3
+blob-26 foliage at 2135 7 600 size 19 14 18.05 turn 90
+cylinder trunk   at 2104.5 0 615.5 size 3 9 3
+blob-21 foliage at 2104.5 4 615.5 size 18 21 17.1
+frustum trunk   at 2120 0 616 size 3 10 3
+blob-31 foliage at 2120 5 616 size 19 18 18.05 turn 180
+cylinder trunk   at 2136.5 0 616.5 size 3 9 3
+blob-9 foliage at 2136.5 4 616.5 size 18 14 17.1
+
+# bridges
+box    wood    at 2248 -3 752 size 16 5.5 32
+box    wood    at 2216 -3 760 size 16 5.5 16
+box    wood    at 2256.75 0 744 size 1.5 6 16
+box    wood    at 2207.25 0 760 size 1.5 6 16
+box    wood    at 2256.75 0 760 size 1.5 6 16

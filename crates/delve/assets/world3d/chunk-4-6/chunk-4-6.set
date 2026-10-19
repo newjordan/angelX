@@ -1,0 +1,77 @@
+set chunk-4-6
+# The kingdom, chunk 4,6 in Wind Country: tiles 96..120 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 1728 1664
+plate 1536 1024
+
+# ground
+box    grass   at 1616 -4 1584 size 160 4 96
+box    path    at 1720 -4 1616 size 48 4 160
+box    grass   at 1832 -4 1592 size 176 4 112
+box    grass   at 1576 -4 1712 size 80 4 160
+box    path    at 1656 -4 1640 size 80 4 16
+box    grass   at 1656 -4 1704 size 80 4 112
+box    path    at 1752 -4 1720 size 16 4 144
+box    grass   at 1840 -4 1664 size 160 4 32
+box    path    at 1776 -4 1688 size 32 4 16
+box    grass   at 1856 -4 1728 size 128 4 96
+box    grass   at 1704 -4 1744 size 16 4 96
+box    path    at 1728 -4 1728 size 32 4 64
+box    path    at 1768 -4 1744 size 16 4 96
+box    grass   at 1784 -4 1720 size 16 4 48
+box    path    at 1784 -4 1768 size 16 4 48
+box    grass   at 1640 -4 1776 size 48 4 32
+box    crop    at 1680 -4 1776 size 32 4 32
+box    grass   at 1720 -4 1776 size 16 4 32
+box    path    at 1736 -4 1776 size 16 4 32
+box    path    at 1800 -4 1784 size 16 4 16
+box    grass   at 1832 -4 1784 size 48 4 16
+box    crop    at 1888 -4 1784 size 64 4 16
+
+# crop furrows
+box    crop    at 1680 0 1763.5 size 30 2.5 2
+box    crop    at 1680 0 1768.5 size 30 2.5 2
+box    crop    at 1680 0 1773.5 size 30 2.5 2
+box    crop    at 1680 0 1778.5 size 30 2.5 2
+box    crop    at 1680 0 1783.5 size 30 2.5 2
+box    crop    at 1680 0 1788.5 size 30 2.5 2
+box    crop    at 1888 0 1779.5 size 62 2.5 2
+box    crop    at 1888 0 1784.5 size 62 2.5 2
+box    crop    at 1888 0 1789.5 size 62 2.5 2
+
+# Picnic Green: a penned green and pond at 110,102 4x3 (at 59% of its height, for the camera)
+box    water   at 1804.4 -1 1646 size 31.2 1.5 20 id picnic-green
+fence-8 wood    at 1792 0 1677.5 size 60 5 2
+fence-8 wood    at 1792 0 1634.5 size 60 5 2
+fence-5 wood    at 1762.5 0 1656 size 43 5 2 turn 90
+fence-5 wood    at 1821.5 0 1656 size 43 5 2 turn 90
+box    wood    at 1772.5 0 1668.5 size 15 7 13
+gable  thatch  at 1772.5 7 1668.5 size 18 5 16
+box    door    at 1772.5 0 1675.25 size 6 4 1
+box    wood    at 1799 3 1669 size 14 1.5 6
+box    wood    at 1793.5 0 1669 size 1.5 3 1.5
+box    wood    at 1804.5 0 1669 size 1.5 3 1.5
+blob-29 foliage at 1768 0 1640 size 13 8 12
+frustum trunk   at 1784 0 1640 size 3 5 3
+blob-37 foliage at 1784 2 1640 size 14 10.5 13.3
+box    wood    at 1800 0 1640 size 14 4 8
+box    wood    at 1800 4 1640 size 10 3 6
+cylinder trunk   at 1784 0 1656 size 3 11 3
+blob-11 foliage at 1784 6 1656 size 14 19 13.3 turn 90
+blob-49 foliage at 1800 0 1656 size 13 9 12
+cylinder trunk   at 1816 0 1656 size 3 11 3
+blob-6 foliage at 1816 6 1656 size 14 19 13.3 turn 270
+
+# fingerposts
+box    wood    at 1748 0 1544 size 1.5 19 1.5
+pyramid wood    at 1748 19 1544 size 2.2 1.5 2.2
+box    wood    at 1748 16 1540 size 0.6 1.8 6.5
+box    wood    at 1748 13.5 1548 size 0.6 1.8 6.5
+
+# set dressing
+box    stone   at 1576 0 1640 size 9 4 3
+box    stone   at 1576 0 1642.5 size 6 2 2
+cone   thatch  at 1571 0 1670.5 size 4.5 4 4.5
+cone   thatch  at 1576 0 1673.5 size 4.5 4 4.5
+cone   thatch  at 1581 0 1670.5 size 4.5 4 4.5

@@ -1,0 +1,33 @@
+[package]
+name = "angel-web-render"
+version = "0.1.0"
+description = "The browser seat's renderer: angel-gpu, the core the native window draws with, behind a canvas, as a small wasm module beside the game's (docs/GLASS_CORE.md)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+# Two builds, which `crates/web/build.sh` makes and the page picks between
+# (`shell/boot.js`):
+#   webgpu  wgpu's browser WebGPU only. The browser compiles the WGSL, so no
+#           shader translator is linked: about 32 KB brotli.
+#   webgl   WebGPU and wgpu's own WebGL2 backend: for a browser without
+#           `navigator.gpu`. It carries wgpu-core and naga: about 724 KB brotli.
+# Neither: the crate builds on the host with only its pure part (the box a
+# frame is shown in), which is what the host's tests and clippy see.
+[features]
+webgpu = ["angel-gpu/web"]
+webgl = ["webgpu", "wgpu/webgl"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+angel-stage = { path = "../../stage" }
+angel-gpu = { path = "../../gpu" }
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
+# The wasm-bindgen CLI that makes the glue must be this exact version
+# (`crates/web/build.sh` uses $WASM_BINDGEN, or `wasm-bindgen` on PATH).
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "=0.4.79"
+web-sys = { version = "=0.3.106", features = ["HtmlCanvasElement", "console"] }

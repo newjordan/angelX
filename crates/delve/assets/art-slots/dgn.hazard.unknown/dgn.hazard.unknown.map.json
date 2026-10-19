@@ -1,0 +1,332 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "37b5c3a7b18b68774a7c2e5aa3131a59a4704749fb5cfd5d6555bdd73ab748f8",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0.035,
+      "label": "**cell1:** Seamless void-liquid fill, shimmer frame 1; broad violet pools with teal ripples and eye-like bubbles.",
+      "name": "fill-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        124.0
+      ],
+      "source_rect_xywh": [
+        64,
+        132,
+        256,
+        248
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0.035,
+      "label": "**cell2:** Seamless fill, frame 2; shifted ripples and scattered glints.",
+      "name": "fill-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.5,
+        124.5
+      ],
+      "source_rect_xywh": [
+        448,
+        131,
+        255,
+        249
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0.035,
+      "label": "**cell3:** Seamless fill, frame 3; larger central pool and changed vein-flow highlights.",
+      "name": "fill-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        124.5
+      ],
+      "source_rect_xywh": [
+        832,
+        131,
+        256,
+        249
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0.035,
+      "label": "**cell4:** Seamless fill, frame 4; shifted pool shapes and glints. The four fills are distinct, though their tile-to-tile seamlessness should be checked in-engine.",
+      "name": "fill-3",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        124.5
+      ],
+      "source_rect_xywh": [
+        1216,
+        131,
+        256,
+        249
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell5:** Top rim with centered cyclopean eye and liquid beneath.",
+      "name": "edge-n",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        129.0
+      ],
+      "source_rect_xywh": [
+        64,
+        639,
+        256,
+        258
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell6:** Bottom rim of chunky fractured masonry.",
+      "name": "edge-s",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.5,
+        129.5
+      ],
+      "source_rect_xywh": [
+        448,
+        638,
+        255,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell7:** Left rim with eye aperture and liquid to its right.",
+      "name": "edge-w",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        832,
+        638,
+        256,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell8:** Right rim of broken masonry with liquid to its left.",
+      "name": "edge-e",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        129.5
+      ],
+      "source_rect_xywh": [
+        1216,
+        638,
+        256,
+        259
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell9:** Top-left outer corner, liquid toward lower-right, eye set near the corner.",
+      "name": "outer-nw",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        127.5
+      ],
+      "source_rect_xywh": [
+        64,
+        1152,
+        256,
+        255
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell10:** Bottom-right outer corner, liquid toward upper-left.",
+      "name": "outer-se",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.5,
+        127.5
+      ],
+      "source_rect_xywh": [
+        448,
+        1152,
+        255,
+        255
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell11:** Top-right inner corner with curved vein and liquid in the concave interior.",
+      "name": "inner-nw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        128.0,
+        128.0
+      ],
+      "source_rect_xywh": [
+        832,
+        1152,
+        256,
+        256
+      ],
+      "state": "hazard"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "value": 0.9
+      },
+      "inset_fraction": 0,
+      "label": "**cell12:** Bottom-left inner corner with eye aperture and liquid in the concave interior.",
+      "name": "inner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        127.5,
+        128.0
+      ],
+      "source_rect_xywh": [
+        1216,
+        1152,
+        255,
+        256
+      ],
+      "state": "hazard"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.hazard.unknown",
+  "source_sha256": "87c6cf18d49937ed251a402ac8b750e2881d3a2357f5bf3cd0cb2cf922217209",
+  "timing": ""
+}

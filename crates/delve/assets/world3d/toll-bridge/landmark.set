@@ -1,0 +1,13 @@
+# The Toll Bridge to Nowhere: a great stone arch carrying a bridge deck across
+# the road's end between the two toll houses, a toll board and lamps on it.
+arch-12  stone   at 192 0 2 size 96 52 24 id toll-arch
+box      stone   at 192 52 2 size 118 5 26 id toll-deck
+box      stone   at 192 57 13 size 118 5 3 id toll-parapet-front
+box      stone   at 192 57 -9 size 118 5 3 id toll-parapet-back
+box      stone   at 136 52 6 size 12 8 14 id toll-broken-w
+box      stone   at 250 52 -2 size 12 12 14 id toll-broken-e
+box      wood    at 176 57 6 size 3 20 3 id toll-board-post-1
+box      wood    at 208 57 6 size 3 20 3 id toll-board-post-2
+box      wood    at 192 68 6 size 44 10 2 id toll-board
+box      fire    at 134 62 12 size 4 5 4 id toll-lamp-w
+box      fire    at 250 62 12 size 4 5 4 id toll-lamp-e

@@ -1,0 +1,215 @@
+{
+  "id": "salvage-claimant",
+  "source_path": "./cockpit/assets/boss-library/existing/salvage-claimant/v01/source-sheet-refined.png",
+  "source_sha256": "8855819a1dfbb5c01c55e31220c08a3cd8c5286b8781800972f3a052b900667a",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Drowned brass stack-chief, squat patched antique dredger armor with huge round brass diving helmet and small dark green glass face window. Seaweed scarf, salvage tags with blank marks, asymmetrical dredging-claw gauntlet, oversized rubberized lead boots. A basket of recovered brass fittings on its back and a short hooked boat pole in other hand. Muddled earnest maritime foreman.",
+  "definition_header": "name SALVAGE CLAIMANT\ntext A drowned stack-chief: recovered brass hires independent dredger camps.\nby angelX\nwhere archive\nhp 580\nsize 1.4\nmove hover speed=1.1\nattack fan shots=4 arc=60 speed=6 every=80 damage=10 shot=bone\nphases bounce split every=104 volleys=2 damage=10\nrage 30%\ndrops gold 100, gem 1",
+  "source_definition_sha256": "8e94e536717691c0831bb33f8130d23ecfbd3da1c1265f0b981b68939d50d580",
+  "definition_sha256": "8e94e536717691c0831bb33f8130d23ecfbd3da1c1265f0b981b68939d50d580",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        58,
+        121,
+        222,
+        262
+      ],
+      "opaque_component_pixels": 36894,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "9a90c900fc403b38c93ff4bfbbcbd2399f2a7850e4e31ee84a1ddcee8a946c0c"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        354,
+        123,
+        244,
+        257
+      ],
+      "opaque_component_pixels": 35434,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "7d850446942f4a167a24fc9c4ee1f0d5f550250f2653526f22fb69e2c4cf0a88"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        689,
+        162,
+        199,
+        219
+      ],
+      "opaque_component_pixels": 30163,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "a23bad31625ad44235d8d77070466dc47950dd38f503933f514506526db25200"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        976,
+        160,
+        238,
+        223
+      ],
+      "opaque_component_pixels": 31963,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "cfe4da85a77b52fce606d8210ac230e3b92dcdda41136a1129f8129acf06f498"
+    },
+    {
+      "id": "overhead/part/dredger-armor-body",
+      "source_rect_xywh": [
+        76,
+        522,
+        217,
+        233
+      ],
+      "opaque_component_pixels": 32345,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-dredger-armor-body.png",
+      "sha256": "b5d83c596cccf8f3b3756a144918f48e53004cfc05383d5face3f91e7fe76cb8"
+    },
+    {
+      "id": "overhead/part/brass-diving-head",
+      "source_rect_xywh": [
+        413,
+        570,
+        166,
+        186
+      ],
+      "opaque_component_pixels": 18348,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-brass-diving-head.png",
+      "sha256": "041efd2fb27f75c1012dc3498a1c53d87775adf03bc0c1c4c01e912f5cdb0012"
+    },
+    {
+      "id": "overhead/part/dredger-claw-arm",
+      "source_rect_xywh": [
+        695,
+        556,
+        194,
+        192
+      ],
+      "opaque_component_pixels": 19429,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-dredger-claw-arm.png",
+      "sha256": "f6f3f4caad53df73bd13db1351cbe795d4aa81ecdf80b1449d52ebcd69191fd0"
+    },
+    {
+      "id": "overhead/part/boat-pole-arm",
+      "source_rect_xywh": [
+        1043,
+        503,
+        146,
+        266
+      ],
+      "opaque_component_pixels": 13945,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-boat-pole-arm.png",
+      "sha256": "96be704a8d9025acb6c34bc8484cd2569a51e9f901bab90b3be25d4ed49cb17c"
+    },
+    {
+      "id": "side/part/dredger-armor-body",
+      "source_rect_xywh": [
+        78,
+        900,
+        215,
+        230
+      ],
+      "opaque_component_pixels": 33679,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-dredger-armor-body.png",
+      "sha256": "c0371580c6ff7597785b83e6b8049d3c2ed4aaa0fe90b38172e5c00f3f04f05b"
+    },
+    {
+      "id": "side/part/brass-diving-head",
+      "source_rect_xywh": [
+        410,
+        934,
+        148,
+        177
+      ],
+      "opaque_component_pixels": 15404,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-brass-diving-head.png",
+      "sha256": "584cf5c4546c01ecbf215602107c5a0290350f7abe4e34307d6c9da0cbee84bd"
+    },
+    {
+      "id": "side/part/dredger-claw-arm",
+      "source_rect_xywh": [
+        684,
+        962,
+        214,
+        139
+      ],
+      "opaque_component_pixels": 17969,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-dredger-claw-arm.png",
+      "sha256": "36067b47048e28de36dfe6786f14488d5bad80e4dcd11acd362fdd76644251d0"
+    },
+    {
+      "id": "side/part/boat-pole-arm",
+      "source_rect_xywh": [
+        1026,
+        884,
+        141,
+        247
+      ],
+      "opaque_component_pixels": 13646,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-boat-pole-arm.png",
+      "sha256": "d4fc7d3ca33cf1cdcb9c1b8e6127a4bee7eb292ea4ae183e3aeb045a9dc7af13"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

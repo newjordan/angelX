@@ -210,7 +210,7 @@ fn wedge_ink(mode: Mode) -> (char, char) {
         Mode::AllRandom => ('r', 'o'),
         Mode::Ironman => ('g', 'J'),
         Mode::HollowWalls => ('P', 'o'),
-        Mode::Sponsors => ('a', '4'),
+        Mode::OpenFloors => ('D', 'F'),
     }
 }
 
@@ -256,8 +256,9 @@ fn icon(mode: Mode) -> Img {
         Mode::HollowWalls => &[
             "HHH.HHH", "H.J.H.H", "HHJHHHH", "H.HJ..H", "HHH.JHH", "H.H.H.H", "HHHHHHH",
         ],
-        Mode::Sponsors => &[
-            "..666..", ".6...6.", "6.....6", ".6.5.6.", "..555..", "..5H5..", "..555..",
+        // Chambers, and the open ways between them.
+        Mode::OpenFloors => &[
+            "HHH.HHH", "H.H.H.H", "HH...HH", ".......", "HH...HH", "H.H.H.H", "HHH.HHH",
         ],
     })
 }
@@ -529,7 +530,7 @@ fn pedestal(cv: &mut Img) {
 }
 
 /// A loot box of a grade: timber, steel, gold, or something that glows.
-fn loot_box(tier: Tier) -> Img {
+pub(super) fn loot_box(tier: Tier) -> Img {
     let (body, band, lid) = match tier {
         Tier::Bronze => ('r', 'o', 'R'),
         Tier::Silver => ('u', 'V', 'v'),

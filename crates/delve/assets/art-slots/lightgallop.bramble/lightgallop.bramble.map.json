@@ -1,0 +1,82 @@
+{
+  "anchor_canvas_wh": [
+    32,
+    22
+  ],
+  "anchor_xy": [
+    16,
+    22
+  ],
+  "comments": [
+    "One shared scale from both tangles (0.0298): the low one is 25 wide and 14 tall, the size of its 24x14 hitbox, and the tall one fits the 22 px canvas whole.",
+    "The stems are tan, not the near-black the brief asked for; no pixel is repainted."
+  ],
+  "delivered_pieces": 2,
+  "embed_kits": [
+    "v1"
+  ],
+  "expected_existing_pieces": 2,
+  "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain. The stage reads durations from assets/lightgallop/slots.json.",
+  "mapping_basis": "Two drawings: a, the low tangle, and b, the taller one. Reading order is the delivered one.",
+  "notes_sha256": "715daef47b25df34d4254c5b2bafd4646a79882b58f7642736cec4dad60f4fa0",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "a-0: delivered drawing 1 in reading order.",
+      "name": "a-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        414.0,
+        457
+      ],
+      "source_rect_xywh": [
+        41,
+        383,
+        828,
+        457
+      ],
+      "state": "a",
+      "ticks": 1
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "b-0: delivered drawing 2 in reading order.",
+      "name": "b-0",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        412.0,
+        739
+      ],
+      "source_rect_xywh": [
+        933,
+        101,
+        815,
+        739
+      ],
+      "state": "b",
+      "ticks": 1
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "native canvas 32x22, anchor bottom-centre (16,22); stage 384x224; a low thorn tangle (a), and a taller one (b).",
+  "sizes": {
+    "v1": [
+      32,
+      22
+    ],
+    "v2": [
+      32,
+      22
+    ]
+  },
+  "slot": "lightgallop.bramble",
+  "source_sha256": "b8ac178fdcc16142bb74b86c1ae38e63277c649dcd0a3fd89d668cb14a75b85a",
+  "timing": "a 1 ticks; b 1 ticks (30 Hz). Art never sets a hitbox."
+}

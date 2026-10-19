@@ -1,0 +1,349 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    16
+  ],
+  "anchor_xy": [
+    8.0,
+    8.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched.",
+    "INT-2: preserve original slab contours; remove 3x3 median and raise contrast 15%. Room lighting is a separate cached post-process."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Tile 16 px (v1) / 32 px (v2) per grid cell; rooms are 24x14 tiles.",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "3eee597c2e3417d57ce07d46a16ee5d182e6ed8595e6b6507fc035c85d25e543",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Plain floor tile: black-violet irregular masonry with sparse veins.",
+      "median_filter": 0,
+      "name": "plain",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        137.0
+      ],
+      "source_rect_xywh": [
+        39,
+        154,
+        266,
+        274
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Worn floor tile: same masonry with pale surface abrasion.",
+      "median_filter": 0,
+      "name": "worn",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        137.0
+      ],
+      "source_rect_xywh": [
+        343,
+        154,
+        266,
+        274
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Cracked floor tile: fractured slab pattern.",
+      "median_filter": 0,
+      "name": "cracked",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        137.0
+      ],
+      "source_rect_xywh": [
+        646,
+        154,
+        266,
+        274
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Patched floor tile: one differently colored repaired slab.",
+      "median_filter": 0,
+      "name": "patched",
+      "piece": 3,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        137.0
+      ],
+      "source_rect_xywh": [
+        949,
+        154,
+        267,
+        274
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Stained floor tile: wet dark stain across the stones.",
+      "median_filter": 0,
+      "name": "stained",
+      "piece": 4,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        135.0
+      ],
+      "source_rect_xywh": [
+        39,
+        497,
+        266,
+        270
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "inset_fraction": 0.045,
+      "label": "Rich floor tile: denser vein/eye details and more texture.",
+      "median_filter": 0,
+      "name": "rich",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        136.0
+      ],
+      "source_rect_xywh": [
+        343,
+        495,
+        266,
+        272
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "label": "Wall-edge tile: raised wall course with dark top edge and wet drips.",
+      "name": "trim-0",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.0,
+        136.5
+      ],
+      "source_rect_xywh": [
+        646,
+        494,
+        266,
+        273
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "contrast": 0.805,
+        "value": 0.8
+      },
+      "label": "Alternate wall-edge tile: wall course centered around a cyclopean eye.",
+      "name": "trim-1",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        133.5,
+        136.5
+      ],
+      "source_rect_xywh": [
+        949,
+        494,
+        267,
+        273
+      ],
+      "state": "floor",
+      "trim_alpha_bounds": true
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Crack decal: branching dark-violet fracture with loose chips.",
+      "name": "crack",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        119.0,
+        139.5
+      ],
+      "source_rect_xywh": [
+        42,
+        856,
+        238,
+        279
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Puddle decal: cold dark glossy puddle and droplets.",
+      "name": "puddle",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        128.5,
+        131.5
+      ],
+      "source_rect_xywh": [
+        346,
+        865,
+        257,
+        263
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Debris decal: scattered angular stone fragments.",
+      "name": "debris",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        134.0,
+        128.5
+      ],
+      "source_rect_xywh": [
+        650,
+        866,
+        268,
+        257
+      ],
+      "state": "floor"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "contrast": 1.15
+      },
+      "label": "Biome detail decal: rounded cyclopean eye inset.",
+      "name": "detail",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "contain",
+      "source_pivot_xy": [
+        121.5,
+        120.0
+      ],
+      "source_rect_xywh": [
+        973,
+        878,
+        243,
+        240
+      ],
+      "state": "floor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x16",
+  "sizes": {
+    "v1": [
+      16,
+      16
+    ],
+    "v2": [
+      32,
+      32
+    ]
+  },
+  "slot": "dgn.floor.unknown",
+  "source_sha256": "a2a2d97e56c7b32cbe81fa7d2685a63cdb0887f8bdbe38263a3f027685daf0fd",
+  "timing": ""
+}

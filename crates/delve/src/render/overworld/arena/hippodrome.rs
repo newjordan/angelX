@@ -74,7 +74,7 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
             for (i,dy) in [-14,-7,0,7,14].iter().enumerate() {
                 cv.rect(21*TILE-2,7*TILE+dy,4,3,if i%2==0{'9'}else{'K'});
             }
-            cv.text(9*TILE,6*TILE,"RUSTY HIPPODROME",'T');
+            cv.text(9*TILE,6*TILE,"RUSTY HIPPODROME",'O');
             // Race day: bunting in the houses' inks and a crowd on its feet.
             if run.chariot.is_some() {
                 const FLAGS:[char;5]=['5','z','A','1','9'];
@@ -129,7 +129,7 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
         _=>{}
     }
     let stair=match run.room().kind {RoomKind::Hippodrome=>Some(h::COACH_GATE),RoomKind::Stables=>Some(h::STABLE_COACH),_=>None};
-    if let Some((c,r,width,height))=stair {m::boards(cv,(c*TILE,r*TILE,width*TILE,height*TILE),false,245);cv.text(c*TILE+3,r*TILE+4,"C",'9');}
+    if let Some((c,r,width,height))=stair {m::boards(cv,(c*TILE,r*TILE,width*TILE,height*TILE),false,245);cv.text(c*TILE+3,r*TILE+4,"C",'i');}
 }
 fn wagon(cv:&mut Img,x:i32,y:i32,ink:char) {
     cv.rect(x-5,y-3,10,6,ink);cv.rect(x-4,y+3,2,2,'r');cv.rect(x+2,y+3,2,2,'r');cv.text(x+6,y-3,"g",'h');
@@ -242,7 +242,8 @@ pub(super) fn boards(cv:&mut Img,run:&Run) {
             (format!("BACKING {}",RIVALS[usize::from(race.pick)]),'O')];
     } else if run.room().kind==RoomKind::Hippodrome && near(run,(h::COACH.0 as f32+1.0,h::COACH.1 as f32+0.5),2.0) {
         lines=vec![("HORSE RACE".into(),'9'),
-            ("HOLD E: BOARD".into(),'O')];
+            ("HOLD E: BOARD".into(),'O'),
+            ("SPACE + E: DRIFT".into(),'O')];
     } else if run.room().kind==RoomKind::Hippodrome && near(run,h::BOOTH,4.0) {
         let next=w::next(&run.home.countryside);
         let ticket=next.map_or(0,|i|run.home.countryside.wager_tickets[i]);
@@ -467,7 +468,7 @@ pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32) {
         let heading=cr::heading_on(course,drawn);
         let mut im=chariot_sprite(frame,heading).recolor(house_banner(&racer.house));
         // A seated knight drives in their class's headgear.
-        if let Some((seat,look))=(1..=4).find(|&s|race.racer_of(s)==Some(i))
+        if let Some((seat,look))=(1..=crate::rules::MAX_PLAYERS).find(|&s|race.racer_of(s)==Some(i))
             .and_then(|s|run.players.get(&s).and_then(super::class_looks::Look::of).map(|l|(s,l))) {
             use crate::rules::chariot::Heading;
             let (at,facing)=match heading {
@@ -494,7 +495,7 @@ pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32) {
             let bob=((run.tick/8)%2) as i32;
             scene.rect(sx-3,top-13+bob,7,1,'9');scene.rect(sx-2,top-12+bob,5,1,'9');scene.rect(sx-1,top-11+bob,3,1,'9');
         }
-        scene.text(sx-2,top-9,&place.to_string(),if i==0{'9'}else{'h'});
+        scene.text(sx-2,top-9,&place.to_string(),if i==0{'i'}else{'h'});
         if racer.wrecked>0 {
             scene.text(sx-4,top-18,"x",'7');
             for (dx,dy) in [(-7,-4),(7,-4),(-7,3),(7,3)] {scene.put(sx+dx,top+dy,'4');}

@@ -23,6 +23,18 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
     if enemy.hurt > 0 {
         return pale(im, false, false);
     }
+    // Winding up a charge-up, it glows, quicker as the blow nears.
+    if let Some(boss) = enemy.boss.and_then(|i| run.bosses.get(usize::from(i)))
+        && enemy.stage == crate::rules::signatures::WIND
+        && let Some(up) = crate::rules::signatures::winding(enemy, boss)
+    {
+        let left = up.wind.saturating_sub(enemy.timer);
+        let every = if left < 8 { 1 } else if left < 16 { 2 } else { 4 };
+        if (run.tick / every).is_multiple_of(2) {
+            return heat(im);
+        }
+        return im.clone();
+    }
     if enemy.flashing(run.tick) {
         return heat(im);
     }
@@ -149,7 +161,7 @@ fn hit_rgb_toward(c: [u8; 3], peak: [u8; 3], strong: bool) -> [u8; 3] {
 
 /// A boss's picture heated: its shadows to blood, its body to ember, only
 /// its highlights to amber, so the shape stays readable while it burns.
-fn heat(im: &Img) -> Img {
+pub(super) fn heat(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
         for x in 0..im.w {
@@ -174,15 +186,26 @@ fn heat(im: &Img) -> Img {
 /// A bar of `w` by `h` with its left edge at `(x, y)`: a dark track, the
 /// fill by `share` in `ink`, in a grey rim lit along its top and its corner
 /// pixels cut (`chrome::Tone::HEALTH`), so it reads round on any floor.
-fn bar(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, share: f32, fill: char) {
+#[allow(clippy::too_many_arguments)]
+pub(super) fn bar(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, share: f32, fill: char, delivered: bool) {
     super::super::chrome::shaped(cv, (x - 1, y - 1, w + 2, h + 2), &[1], super::super::chrome::Tone::HEALTH, false);
+    if delivered {super::hud_art::plate(cv,"health",(x-1,y-1,w+2,h+2));}
     let lit = (share.clamp(0.0, 1.0) * w as f32).ceil() as i32;
     cv.rect(x, y, lit, h, fill);
 }
 
 /// A monster's health, over its head: always on a boss, and on any other
 /// that has taken a hit. `(x, y)` is its feet and `im` its picture.
-pub(super) fn enemy_bar(cv: &mut Img, enemy: &Enemy, x: i32, y: i32, im: &Img) {
+pub(super) fn enemy_top(run: &Run, enemy: &Enemy, feet: i32, height: i32, view: (i32,i32)) -> i32 {
+    let top = feet - height.max(super::boss_art::ring_clearance(run,enemy));
+    let library = enemy.boss.and_then(|i| run.bosses.get(i as usize))
+        .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
+        .is_some_and(super::boss_art::library_registered);
+    // Reserve the existing name panel and bar stack when tall art leaves view.
+    if library { top.max(view.1 + 22) } else { top }
+}
+
+pub(super) fn enemy_bar(cv: &mut Img, run: &Run, enemy: &Enemy, x: i32, y: i32, im: &Img, view: (i32,i32)) {
     if enemy.hp == 0 || enemy.max_hp == 0 || enemy.kind == EnemyKind::Dummy {
         return;
     }
@@ -191,11 +214,15 @@ pub(super) fn enemy_bar(cv: &mut Img, enemy: &Enemy, x: i32, y: i32, im: &Img) {
         return;
     }
     let share = enemy.hp as f32 / enemy.max_hp as f32;
-    let top = y - im.h;
+    let top = enemy_top(run,enemy,y,im.h,view);
     if boss {
         let w = im.w.clamp(24, 40);
         let fill = if enemy.desperation() > 0.0 { '@' } else { '7' };
-        bar(cv, x - w / 2, top - 6, w, 3, share, fill);
+        bar(cv, x - w / 2, top - 6, w, 3, share, fill, super::hud_art::enabled(run));
+        if super::hud_art::enabled(run) {
+            super::hud_art::plate(cv,"boss",(x-w/2-3,top-9,w+6,9));
+            cv.rect(x-w/2,top-6,(share.clamp(0.0,1.0)*w as f32).ceil() as i32,3,fill);
+        }
         // Where it turns desperate: a notch on the bar.
         let notch = x - w / 2 + (desperate::FROM * w as f32) as i32;
         cv.put(notch, top - 8, 'J');
@@ -210,13 +237,32 @@ pub(super) fn enemy_bar(cv: &mut Img, enemy: &Enemy, x: i32, y: i32, im: &Img) {
             3,
             share,
             if enemy.elite { '4' } else { '7' },
+            super::hud_art::enabled(run),
         );
+    }
+}
+
+/// The Boss Key over its carrier's gold bar, `(x, y)` its feet and `im`
+/// its picture: a key on a small slate plate, a glint running along it,
+/// so a party can pick the carrier out of its camp.
+pub(super) fn key_mark(cv: &mut Img, x: i32, y: i32, im: &Img, tick: u32) {
+    const ROWS: [&str; 4] = [".444.....", "4...44444", "4...4.4.4", ".444....."];
+    let key = Img::from_rows(&ROWS);
+    let (x0, y0) = (x - key.w / 2, y - im.h - 13);
+    super::super::chrome::panel(cv, (x0 - 2, y0 - 2, key.w + 4, key.h + 4), super::super::chrome::Tone::SLATE);
+    cv.stamp(&key, x0, y0);
+    // The glint walks the key once a second, and rests between.
+    let along = (tick % 40) as usize;
+    for (row, line) in ROWS.iter().enumerate() {
+        if line.as_bytes().get(along).is_some_and(|&b| b != b'.') {
+            cv.put(x0 + along as i32, y0 + row as i32, '$');
+        }
     }
 }
 
 /// A knight's health under their feet, so the player's own is always in
 /// sight. Teal while well, gold once the helmet is off, red in smallclothes.
-pub(super) fn hero_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32) {
+pub(super) fn hero_bar(cv: &mut Img, run: &Run, hero: &Hero, x: i32, y: i32) {
     if hero.hp == 0 || hero.max_hp == 0 {
         return;
     }
@@ -233,6 +279,7 @@ pub(super) fn hero_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32) {
         2,
         hero.hp as f32 / hero.max_hp as f32,
         fill,
+        super::hud_art::enabled(run),
     );
 }
 
@@ -241,7 +288,7 @@ pub(super) fn hero_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32) {
 pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
     let (x, y) = at(enemy.x, enemy.y);
     let r = (enemy.radius() * UNIT) as i32 + 4;
-    if let Some(t) = enemy.ring_warning() {
+    if let Some(t) = enemy.ring_warning().filter(|_| !super::boss_art::ring_warning(cv, run, enemy)) {
         let nearest = run
             .players
             .values()
@@ -337,7 +384,7 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i
         let py = (y - 34).max(0);
         super::super::chrome::panel(cv, (px, py, w, 21), super::super::chrome::Tone::KEY);
         cv.text(px + (w - text_width(&name)) / 2, py + 3, &name, 'i');
-        cv.text(px + (w - text_width(key)) / 2, py + 12, key, '6');
+        cv.text(px + (w - text_width(key)) / 2, py + 12, key, 'O');
         // The swap is yours to make: it points at the card.
         cv.put(x, py + 21, '6');
         cv.put(x - 1, py + 21, '6');

@@ -1,0 +1,278 @@
+{
+  "anchor_canvas_wh": [
+    56,
+    36
+  ],
+  "anchor_xy": [
+    28,
+    18
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 2,
+  "geometry": "Decorative breath only. Exact column lines and destination frame are simulation-driven in renderer::draw, not in this image.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "d66824d49049229528bf04460d9f59ba0deee3027a634994af917597b28287ba",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Thin inward curl; establishes the cool teal smoke identity.",
+      "name": "piece-00",
+      "piece": 0,
+      "runtime": false,
+      "source_pivot_xy": [
+        58.0,
+        78.5
+      ],
+      "source_rect_xywh": [
+        120,
+        230,
+        116,
+        157
+      ],
+      "state": "thin-inward-curl-establishes-the-cool-teal-smoke-identity"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Paired hooked inhale curls joined by a smoke bridge.",
+      "name": "piece-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        80.0,
+        100.0
+      ],
+      "source_rect_xywh": [
+        410,
+        196,
+        160,
+        200
+      ],
+      "state": "paired-hooked-inhale-curls-joined-by-a-smoke-bridge"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Tight dark-centered coil gathering pressure.",
+      "name": "piece-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        105.5,
+        106.0
+      ],
+      "source_rect_xywh": [
+        675,
+        188,
+        211,
+        212
+      ],
+      "state": "tight-dark-centered-coil-gathering-pressure"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Small released puff with bright teal core and leftward curl.",
+      "name": "piece-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        107.5,
+        90.5
+      ],
+      "source_rect_xywh": [
+        973,
+        212,
+        215,
+        181
+      ],
+      "state": "small-released-puff-with-bright-teal-core-and-leftward-curl"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Open cough curl with dark interior and compact lobes.",
+      "name": "tell",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.5,
+        102.5
+      ],
+      "source_rect_xywh": [
+        46,
+        552,
+        225,
+        205
+      ],
+      "state": "tell"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Larger double curl, building the exhale.",
+      "name": "piece-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        131.5,
+        123.0
+      ],
+      "source_rect_xywh": [
+        342,
+        532,
+        263,
+        246
+      ],
+      "state": "larger-double-curl-building-the-exhale"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Broadest, brightest open cough cloud; peak silhouette.",
+      "name": "piece-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.5,
+        137.0
+      ],
+      "source_rect_xywh": [
+        649,
+        511,
+        291,
+        274
+      ],
+      "state": "broadest-brightest-open-cough-cloud-peak-silhouette"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Curl breaks into a smaller paired lobe, still connected.",
+      "name": "piece-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        121.0,
+        112.5
+      ],
+      "source_rect_xywh": [
+        976,
+        553,
+        242,
+        225
+      ],
+      "state": "curl-breaks-into-a-smaller-paired-lobe-still-connected"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Two separated-looking but bridged wisps begin to drift apart.",
+      "name": "piece-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        108.0,
+        125.0
+      ],
+      "source_rect_xywh": [
+        87,
+        894,
+        216,
+        250
+      ],
+      "state": "two-separated-looking-but-bridged-wisps-begin-to-drift-apart"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Smaller single fading wisp.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        85.0,
+        111.5
+      ],
+      "source_rect_xywh": [
+        431,
+        908,
+        170,
+        223
+      ],
+      "state": "smaller-single-fading-wisp"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Small final curl with a dim teal core.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        48.5,
+        92.0
+      ],
+      "source_rect_xywh": [
+        752,
+        927,
+        97,
+        184
+      ],
+      "state": "small-final-curl-with-a-dim-teal-core"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Narrow last fading curl.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        55.5,
+        78.5
+      ],
+      "source_rect_xywh": [
+        1059,
+        953,
+        111,
+        157
+      ],
+      "state": "narrow-last-fading-curl"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "56\u00d736; top-left (282,140), behind the 80\u00d780 boss.",
+  "sizes": {
+    "v1": [
+      56,
+      36
+    ],
+    "v2": [
+      56,
+      36
+    ]
+  },
+  "slot": "cinder.tell",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "3d1b217896c25b8287e4771e7f3083c1bd4037f76f0dc66f718e9b6a3b2a1dd1",
+    "original_path": "/work/artifacts/art-prod/slots/cinder.tell/v01/source-sheet.png",
+    "original_sha256": "ddc5716ea625cd5d5a34421030cee20825e54b94925b5c845e5a3da6784d343f",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "a09bf56840e33cfca2aa6357f918ffa136d84693cbc7b6385c1994a59386745b",
+  "timing": "Visible throughout Board::tell>0 (default 27 ticks); no source frame cycling."
+}

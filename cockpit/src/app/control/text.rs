@@ -343,7 +343,15 @@ pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
 
     // OSC-52 is best effort. Cap the actual base64 payload, and write between
     // draws so it cannot race the ratatui backend's own stdout.
-    let transport = if !crate::ui::mouse::osc52_payload_fits(text) {
+    let transport = if let Some(copied) = crate::ui::glass::copy(text) {
+        // The GPU window has no terminal to ask; the desktop's clipboard tool
+        // takes the text instead.
+        if copied {
+            ClipboardTransport::RequestSent
+        } else {
+            ClipboardTransport::WriteFailed
+        }
+    } else if !crate::ui::mouse::osc52_payload_fits(text) {
         ClipboardTransport::PayloadTooLarge {
             encoded_bytes: crate::ui::mouse::base64_clipboard_len(text).unwrap_or(usize::MAX),
         }

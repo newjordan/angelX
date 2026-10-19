@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "cefb01f44b0f5876e1c61a1665ec79facc9243d99c3a0126740412f022a21281",
+  "metadata_sha256": null,
+  "notes_sha256": "18d712c69c3ae22bdc5c78dbb50a1c878c17005d97919daf6f8aa62664ebb75e",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        127,
+        73
+      ],
+      "approved": true,
+      "canvas_wh": [
+        254,
+        146
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 2268,
+      "opaque_pixels": 36322,
+      "piece": 0,
+      "sha256": "621f71abcc0a952a907711e6b299c66c8115e28587b798327afa9a63242844a4",
+      "source_scale": 0.1519138755980861,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        127,
+        73
+      ],
+      "approved": true,
+      "canvas_wh": [
+        254,
+        146
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 2268,
+      "opaque_pixels": 36322,
+      "piece": 0,
+      "sha256": "621f71abcc0a952a907711e6b299c66c8115e28587b798327afa9a63242844a4",
+      "source_scale": 0.1519138755980861,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "brasswake.room",
+  "source_path": "/work/artifacts/art-prod/slots/brasswake.room/v01/source-sheet.png",
+  "source_sha256": "7f8ee6ab1963921ee110160b0702876a184a01fc1e24b06fa8e5367cea8ef0d5",
+  "tool_version": 2
+}

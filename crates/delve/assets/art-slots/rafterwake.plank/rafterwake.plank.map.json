@@ -1,0 +1,267 @@
+{
+  "anchor_canvas_wh": [
+    24,
+    10
+  ],
+  "anchor_xy": [
+    12,
+    5
+  ],
+  "comments": [
+    "Reviewed source composition, source-foot pivots and cell order. Supplemental poses are reviewed proposals, not added animation states.",
+    "Exact canvas, stamp and rule timings retained. Native cleanup and plate slicing bake once in the renderer."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 1,
+  "geometry": "planks(), supports(), landing(); 13 supports including endpoints. Only selected interior decks lift. Surface stays at p.y irrespective of illustrated thickness.",
+  "mapping_basis": "Visual review of source sheets and cleanup notes, 2026-10-15",
+  "notes_sha256": "153591366842a574e3fff5da063a74baade1065bcecc28b43b5b4596fc375828",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Visual cell 1; Pristine straight deck tile with safe squared ends and iron underside braces.",
+      "name": "plank",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        112.0,
+        70.5
+      ],
+      "source_rect_xywh": [
+        45,
+        230,
+        224,
+        141
+      ],
+      "state": "plank"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "label": "Visual cell 2; Warm-grained tile with two top cross braces.",
+      "name": "proposal-01",
+      "piece": 1,
+      "runtime": false,
+      "source_pivot_xy": [
+        117.0,
+        72.0
+      ],
+      "source_rect_xywh": [
+        359,
+        227,
+        234,
+        144
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "label": "Visual cell 3; Scuffed tile with chipped timber but intact ends.",
+      "name": "proposal-02",
+      "piece": 2,
+      "runtime": false,
+      "source_pivot_xy": [
+        115.0,
+        72.0
+      ],
+      "source_rect_xywh": [
+        661,
+        227,
+        230,
+        144
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "label": "Visual cell 4; Heavily used tile with repair boards and a riveted brace.",
+      "name": "proposal-03",
+      "piece": 3,
+      "runtime": false,
+      "source_pivot_xy": [
+        116.5,
+        72.0
+      ],
+      "source_rect_xywh": [
+        976,
+        227,
+        233,
+        144
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "label": "Visual cell 5; Detachable iron endcap/collision edge.",
+      "name": "proposal-04",
+      "piece": 4,
+      "runtime": false,
+      "source_pivot_xy": [
+        44.0,
+        78.0
+      ],
+      "source_rect_xywh": [
+        116,
+        586,
+        88,
+        156
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "label": "Visual cell 6; Separate underside brace assembly.",
+      "name": "proposal-05",
+      "piece": 5,
+      "runtime": false,
+      "source_pivot_xy": [
+        104.0,
+        63.5
+      ],
+      "source_rect_xywh": [
+        366,
+        613,
+        208,
+        127
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "label": "Visual cell 7; Plain iron lift trim with no painted underside stripe.",
+      "name": "proposal-06",
+      "piece": 6,
+      "runtime": false,
+      "source_pivot_xy": [
+        110.5,
+        42.5
+      ],
+      "source_rect_xywh": [
+        682,
+        634,
+        221,
+        85
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "label": "Visual cell 8; Chain, pulley and hook rigging piece.",
+      "name": "proposal-07",
+      "piece": 7,
+      "runtime": false,
+      "source_pivot_xy": [
+        47.5,
+        147.5
+      ],
+      "source_rect_xywh": [
+        1052,
+        500,
+        95,
+        295
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "label": "Visual cell 9; Short deck segment with a squared endcap.",
+      "name": "proposal-08",
+      "piece": 8,
+      "runtime": false,
+      "source_pivot_xy": [
+        98.0,
+        65.5
+      ],
+      "source_rect_xywh": [
+        56,
+        971,
+        196,
+        131
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Visual cell 10; Two flush adjoining deck tiles with no visible overhang.",
+      "name": "proposal-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        147.5,
+        64.5
+      ],
+      "source_rect_xywh": [
+        338,
+        969,
+        295,
+        129
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Visual cell 11; Worn but structurally intact split-grain segment.",
+      "name": "proposal-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        113.5,
+        70.5
+      ],
+      "source_rect_xywh": [
+        688,
+        966,
+        227,
+        141
+      ],
+      "state": "supplemental-reviewed"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Visual cell 12; Spare brace and fastener cluster.",
+      "name": "proposal-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        78.0,
+        81.5
+      ],
+      "source_rect_xywh": [
+        1020,
+        965,
+        156,
+        163
+      ],
+      "state": "supplemental-reviewed"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "reviewed-subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "24\u00d710 tile, top-left at plank (x,y); repeated every 24 px. Rule widths 232 (bottom/top), 72 (lifts), 140 (fixed), 36 px deck spacing. Final tile currently can overhang rule width; do not treat it as support.",
+  "sizes": {
+    "v1": [
+      24,
+      10
+    ],
+    "v2": [
+      24,
+      10
+    ]
+  },
+  "slot": "rafterwake.plank",
+  "source_sha256": "0fef9452412ca0bdac1b7c8f7229f1baf8952951fc0b4d1bc7ed4461568ec4e6",
+  "timing": "One tile; lift triangular track uses phase=(elapsed/2+seed%80+deck\u00d711)%80, 160-tick phase cycle (planks())."
+}

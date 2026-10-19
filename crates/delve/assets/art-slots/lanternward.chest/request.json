@@ -1,0 +1,34 @@
+{
+  "fit": "native canvas 16x12, anchor bottom-centre (8,12); stage 384x224 at 16 px per tile; a knight is 16x16; a chest is under a knight tall.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "closed-0"
+      ],
+      "source_pose_count": 1,
+      "state": "closed"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "open-0"
+      ],
+      "source_pose_count": 1,
+      "state": "open"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "hidden-0"
+      ],
+      "source_pose_count": 1,
+      "state": "hidden"
+    }
+  ],
+  "game": "lanternward",
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "id": "lanternward.chest",
+  "role": "prop",
+  "timing": "closed, open and hidden 12 ticks each (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

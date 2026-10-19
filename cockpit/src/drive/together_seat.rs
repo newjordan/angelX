@@ -88,6 +88,12 @@ struct Core {
     outbox: Mutex<VecDeque<(u32, Vec<u8>)>>,
     sent: Mutex<Option<Instant>>,
     epoch: Instant,
+    /// Thrown things in the air on the newest frame, for the GPU window to
+    /// lift (`ui::glass::lifted`); empty in a terminal.
+    lifted: Mutex<Arc<Vec<crate::stage::world_viz::overworld::arena::Lifted>>>,
+    /// The newest frame in parts, for the GPU window to draw
+    /// (`ui::glass::stage`); `None` in a terminal.
+    scene: Mutex<Option<Arc<crate::stage::world_viz::overworld::arena::RoomScene>>>,
 }
 
 /// One seat, shared by the terminal's thread and the render workers.
@@ -119,6 +125,8 @@ impl Seat {
                 outbox: Mutex::new(VecDeque::new()),
                 sent: Mutex::new(None),
                 epoch: Instant::now(),
+                lifted: Mutex::new(Arc::new(Vec::new())),
+                scene: Mutex::new(None),
             }),
             worker: Arc::new(std::sync::OnceLock::new()),
         }
@@ -213,6 +221,40 @@ impl Seat {
         );
     }
 
+    /// The newest frame in parts (the GPU window's), drawn at `now` on the
+    /// seat's own render worker, waiting at most `budget` for it; the one
+    /// before stands in while the worker catches up.
+    pub(crate) fn draw_scene(
+        &self,
+        now: Instant,
+        budget: std::time::Duration,
+    ) -> Option<Arc<crate::stage::world_viz::overworld::arena::RoomScene>> {
+        let worker = self
+            .worker
+            .get_or_init(crate::ui::game_pipeline::Pipeline::new);
+        let core = Arc::clone(&self.core);
+        let key = now.saturating_duration_since(self.core.epoch).as_micros() as u64;
+        worker.request(
+            key,
+            Box::new(move || {
+                core.frame(now);
+                Some(Vec::new())
+            }),
+        );
+        let _ = worker.wait(key, budget);
+        lock(&self.core.scene).clone()
+    }
+
+    /// Whether a frame in parts has been drawn yet.
+    pub(crate) fn has_scene(&self) -> bool {
+        lock(&self.core.scene).is_some()
+    }
+
+    /// Thrown things in the air on the newest frame drawn, in its pixels.
+    pub(crate) fn lifted(&self) -> Arc<Vec<crate::stage::world_viz::overworld::arena::Lifted>> {
+        Arc::clone(&lock(&self.core.lifted))
+    }
+
     /// The seat's next frame as the renderer's image, for the terminal's
     /// picture path to make on its own worker.
     pub(crate) fn drawer(
@@ -220,7 +262,7 @@ impl Seat {
     ) -> impl FnOnce(Instant) -> crate::stage::world_viz::overworld::Img + Send + 'static {
         let core = Arc::clone(&self.core);
         move |now| {
-            let (w, h) = crate::stage::world_viz::overworld::arena::art_v2::size();
+            let (w, h) = crate::stage::world_viz::overworld::arena::seat_size();
             core.frame(now).map_or_else(
                 || crate::stage::world_viz::overworld::Img::black(w as i32, h as i32),
                 |p| p.img(),
@@ -359,7 +401,18 @@ impl Core {
         let mut inner = lock(&self.inner);
         self.feed(&mut inner, now);
         let now_ms = self.now_ms(now);
-        let frame = inner.link.draw(now_ms);
+        inner.link.draw(now_ms);
+        let lifted = inner
+            .link
+            .runtime()
+            .game()
+            .map(|client| client.lifted().to_vec())
+            .unwrap_or_default();
+        *lock(&self.lifted) = Arc::new(lifted);
+        if let Some(scene) = inner.link.runtime().game().and_then(|client| client.scene()) {
+            *lock(&self.scene) = Some(scene);
+        }
+        let frame = inner.link.runtime().last_frame();
         let picture = (frame.w > 0 && frame.h > 0).then(|| Picture {
             w: frame.w,
             h: frame.h,
@@ -466,6 +519,7 @@ pub(crate) fn bits(input: &Input) -> u32 {
     on(input.aim_x > 0, button::AIM_RIGHT);
     on(input.aim_y < 0, button::AIM_UP);
     on(input.aim_y > 0, button::AIM_DOWN);
+    on(input.leave_held, button::MENU);
     on(input.fire, button::FIRE);
     on(input.dash, button::JUMP);
     // E meets the world and takes gear alike, as the client reads USE.

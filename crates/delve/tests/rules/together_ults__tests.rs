@@ -11,6 +11,7 @@ fn arena(knight: &str, foes: &[(EnemyKind, f32, f32)]) -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight && !r.great())
         .unwrap();
+    run.open_room_for_test(fight);
     run.enter_for_test(fight);
     run.calm_for_test();
     run.enemies.clear();

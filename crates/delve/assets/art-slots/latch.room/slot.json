@@ -1,0 +1,68 @@
+{
+  "binary_alpha_threshold": 128,
+  "despill": [
+    {
+      "fringe_after_boundary": 0,
+      "fringe_before": 0,
+      "recoloured": 0
+    }
+  ],
+  "flags": [
+    "delivery crop warnings",
+    "inferred backdrop bounds; missing metadata",
+    "piece-count mismatch",
+    "sheet-edge contact"
+  ],
+  "map_sha256": "4b53763107a2c2a4ea7d467fd8ef38c4b97c50a293a6fdafdce6a2ba27cdadb4",
+  "metadata_sha256": null,
+  "notes_sha256": "b7d7317d9f1be8b685e372eb7babf41a99fa4777342c4b49edbd6b60ca1490b6",
+  "outputs": {
+    "v1/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "dc2ca50d1be59efb011dd1c183b8022a63e80e38064dac0d34199d836597433a",
+      "source_scale": 0.22966507177033493,
+      "state": "room"
+    },
+    "v2/room.png": {
+      "anchor_xy": [
+        192,
+        112
+      ],
+      "approved": true,
+      "canvas_wh": [
+        384,
+        224
+      ],
+      "colour_agreement": 1.0,
+      "frame": 0,
+      "half_cell_coverage": 5184,
+      "opaque_pixels": 82944,
+      "piece": 0,
+      "sha256": "dc2ca50d1be59efb011dd1c183b8022a63e80e38064dac0d34199d836597433a",
+      "source_scale": 0.22966507177033493,
+      "state": "room"
+    }
+  },
+  "palette": "shared 75 inks; black/signal ivory excluded",
+  "quality": "needs-rerun",
+  "registration": "own-bounds",
+  "resample": "BOX premultiplied alpha",
+  "runtime": true,
+  "slot": "latch.room",
+  "source_path": "/work/artifacts/boss-art-20261015/polish-a/prepared/latch.room/source-sheet.png",
+  "source_sha256": "604bd19482a30f6b3a6855e13bebd2188e36994ea80a8f35f8c41f009f86d4c5",
+  "tool_version": 2
+}

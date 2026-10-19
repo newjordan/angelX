@@ -1,0 +1,17 @@
+#!/bin/sh
+# DigUp's CLI on this cartridge's model and index: `digup search …`, `digup index
+# <folder>…`, `digup status`. An explicit --index wins.
+set -eu
+here=$(cd "$(dirname "$0")/.." && pwd -P)
+DIGUP_MODELS="$here/models"
+export DIGUP_MODELS
+digup="$here/runtime/helper/digup"
+case "${1:-}" in
+estimate | index | search | status | speed | eval)
+	for arg in "$@"; do
+		[ "$arg" = --index ] && exec "$digup" "$@"
+	done
+	exec "$digup" "$@" --index "$here/index"
+	;;
+esac
+exec "$digup" "$@"

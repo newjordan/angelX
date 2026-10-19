@@ -1307,8 +1307,9 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
     assert!(crate::tests::contains_dotmax(&standard));
     assert!(
-        standard.contains("[Library]") && standard.contains("[Back]"),
-        "default still paints navigation controls\n{standard}"
+        app.object_dock.offers(crate::app::WorldButton::ScryglassLibrary)
+            && app.object_dock.offers(crate::app::WorldButton::Back),
+        "default still carries navigation controls (floated from the dock)\n{standard}"
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
@@ -1948,8 +1949,8 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
     assert_eq!(app.world.quest().region().label(), "The Swamp");
     assert!(app.world.quest_owns_pane());
     assert!(
-        screen.contains("[Back]"),
-        "world action rail remains available"
+        app.object_dock.offers(crate::app::WorldButton::Back),
+        "world action rail remains available (floated from the dock)"
     );
     assert!(
         !screen.contains("≈ The Swamp"),
@@ -2049,8 +2050,8 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         "no town establishing shot over a Mines plate\n{screen}"
     );
     assert!(
-        screen.contains("[Back]"),
-        "the quiet world keeps its controls\n{screen}"
+        app.object_dock.offers(crate::app::WorldButton::Back),
+        "the quiet world keeps its controls (floated from the dock)\n{screen}"
     );
 
     // Home again: the loop finishes, the Homecoming walk expires, and the

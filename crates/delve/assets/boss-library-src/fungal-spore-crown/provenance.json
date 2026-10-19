@@ -1,0 +1,215 @@
+{
+  "id": "fungal-spore-crown",
+  "source_path": "./cockpit/assets/boss-library/existing/fungal-spore-crown/v01/source-sheet-refined.png",
+  "source_sha256": "b6005a0a4aaf8b0f1fb8f11a8fba613d0c050a7b244e16c4ec695a9ced0b700f",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "identity": "Rare hovering fungal brood apex: a broad violet-teal spore sac body topped with a CROWN of FIVE chunky amber-gilled mushrooms, small sly dark eyes below central cap, short dangling root tendrils instead of legs. Two thick stubby fungal arms with bulbous mitts. Large clean silhouette, rich moss and amber accents, no skull, no human clothing, one coherent mushroom creature.",
+  "definition_header": "name SPORE CROWN\ntext A rare brood apex, provisioned only by rich beds. Slaying the core brood opens its chamber even when the hive starves.\nby angelX\nwhere fungal\nhp 820\nsize 1.7\nmove hover speed=1.0\nattack ring shots=6 speed=5 every=85 damage=12 shot=orb\nattack aimed shots=2 speed=7 every=60 damage=10 shot=orb\nphases mines split crossfire surge every=78 volleys=2 damage=12\nrage 30%\ndrops gold 180, gem 2",
+  "source_definition_sha256": "d62284c426822529b483cda922db86897837b8fb3b89ffc78bda505b085ada85",
+  "definition_sha256": "d62284c426822529b483cda922db86897837b8fb3b89ffc78bda505b085ada85",
+  "frames": [
+    {
+      "id": "overhead/idle",
+      "source_rect_xywh": [
+        61,
+        177,
+        241,
+        287
+      ],
+      "opaque_component_pixels": 42257,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-idle.png",
+      "sha256": "1df3c0ca1a4150255d465d2f7be20f9c1471d91e9b54e420943aba5fe83dd9fb"
+    },
+    {
+      "id": "overhead/anticipate",
+      "source_rect_xywh": [
+        371,
+        159,
+        253,
+        317
+      ],
+      "opaque_component_pixels": 49658,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "assembled-keypose",
+      "path": "overhead-anticipate.png",
+      "sha256": "315f8c1499f3229d9af973b72f7641f3fd090641658d097ef54e2793dccbb080"
+    },
+    {
+      "id": "side/idle",
+      "source_rect_xywh": [
+        678,
+        187,
+        201,
+        294
+      ],
+      "opaque_component_pixels": 35822,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-idle.png",
+      "sha256": "5a835917082887d80735138946b9b3de145c7ff101287f286ca9c314154d76f6"
+    },
+    {
+      "id": "side/anticipate",
+      "source_rect_xywh": [
+        964,
+        172,
+        234,
+        311
+      ],
+      "opaque_component_pixels": 42865,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "assembled-keypose",
+      "path": "side-anticipate.png",
+      "sha256": "7ce652b263bc09ba903b58be41c3bf9c3171c12184f219ec21a2265c189987f8"
+    },
+    {
+      "id": "overhead/part/violet-spore-sac",
+      "source_rect_xywh": [
+        81,
+        584,
+        199,
+        180
+      ],
+      "opaque_component_pixels": 26331,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-violet-spore-sac.png",
+      "sha256": "b3d6621e725fada809a53a18c5a5164e9272ce72236df4d464f34cea3694b914"
+    },
+    {
+      "id": "overhead/part/five-cap-crown",
+      "source_rect_xywh": [
+        379,
+        590,
+        250,
+        165
+      ],
+      "opaque_component_pixels": 26006,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-five-cap-crown.png",
+      "sha256": "aedb164cf52629ea9617b2f32f5722737fbed1f6e8cd6aef8e80e007af5a925a"
+    },
+    {
+      "id": "overhead/part/fungal-mitten-arm",
+      "source_rect_xywh": [
+        721,
+        610,
+        151,
+        139
+      ],
+      "opaque_component_pixels": 14148,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-fungal-mitten-arm.png",
+      "sha256": "726e8d766c442deab16ae216e2e29040c0167fa02807f8a4d2d10a09dd662852"
+    },
+    {
+      "id": "overhead/part/root-tendril-cluster",
+      "source_rect_xywh": [
+        999,
+        601,
+        172,
+        176
+      ],
+      "opaque_component_pixels": 16320,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "overhead",
+      "kind": "cutout",
+      "path": "overhead-part-root-tendril-cluster.png",
+      "sha256": "7312058d2cceed918cb66f5a7422c72f319e6560f7951dad3d9fab13cee4f60d"
+    },
+    {
+      "id": "side/part/violet-spore-sac",
+      "source_rect_xywh": [
+        79,
+        899,
+        211,
+        189
+      ],
+      "opaque_component_pixels": 29416,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-violet-spore-sac.png",
+      "sha256": "e70b8ae3dfb6ba3ce9e5c1671f0f169ceca292d3d1573b3a386a739bc3189658"
+    },
+    {
+      "id": "side/part/five-cap-crown",
+      "source_rect_xywh": [
+        387,
+        901,
+        234,
+        154
+      ],
+      "opaque_component_pixels": 21855,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-five-cap-crown.png",
+      "sha256": "1e1a97857fc8843b1a428fd5dd2327b90bdb8b13a43cfacbc2f821cc1bdb00c4"
+    },
+    {
+      "id": "side/part/fungal-mitten-arm",
+      "source_rect_xywh": [
+        715,
+        942,
+        165,
+        128
+      ],
+      "opaque_component_pixels": 13836,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-fungal-mitten-arm.png",
+      "sha256": "f2b8e9e7d4b1c805340edf6c751ccef8bba147ffb25f454ae7e51eb592c61229"
+    },
+    {
+      "id": "side/part/root-tendril-cluster",
+      "source_rect_xywh": [
+        1011,
+        928,
+        157,
+        181
+      ],
+      "opaque_component_pixels": 15510,
+      "foreign_core_pixels_in_crop": 0,
+      "touches_image_edge": false,
+      "camera": "side",
+      "kind": "cutout",
+      "path": "side-part-root-tendril-cluster.png",
+      "sha256": "1c6a7f801f2d00a0cf60a83a3dc50a012eb4b2f4a6000cab12f5c992d1f3a161"
+    }
+  ],
+  "runtime_mapping": {
+    "idle": "overhead/idle plus existing one-sample breath",
+    "windup": "overhead/anticipate during ring_warning or arms_warning only",
+    "attack": "existing idle/breath; no new attack animation or timing",
+    "hurt": "existing two cached hit grades on the selected pose",
+    "rage": "existing heat flash; anticipation only during real warnings",
+    "unwired": "side keyposes and all detached parts await camera/socket registration"
+  }
+}

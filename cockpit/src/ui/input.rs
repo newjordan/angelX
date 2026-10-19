@@ -333,6 +333,7 @@ const CODEX_CMDS: &[&str] = &[
     "test-approval",
     "world",
     "together",
+    "table",
     "dungeon",
     "dungeon_host",
     "research",
@@ -495,9 +496,10 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
+        "table" => " [host|join <link>|new|claim|work|submit|apply|merge] · the Round Table work board",
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
         "dungeon_host" => {
-            " --N [--view]  (N friends, up to 3: one invite line each; --view: read-only browser view)"
+            " --N [--view]  (N friends, up to 5: one invite line each; --view: read-only browser view)"
         }
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",

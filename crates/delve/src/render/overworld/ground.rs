@@ -115,6 +115,8 @@ fn bed(
 ) -> Option<char> {
     let rag = |a: i32, b: i32, s: u32| (hash(a, b, s) % 3) as i32 + 1;
     let mut edge = false;
+    // How far in from the road's nearest edge this pixel lies.
+    let mut inward = i32::MAX;
     for (gone, dist, reach) in [
         (!open(-1, 0), lx, rag(wy, tx, 11)),
         (!open(1, 0), TILE - 1 - lx, rag(wy, tx, 12)),
@@ -128,8 +130,12 @@ fn bed(
             if dist == reach {
                 edge = true;
             }
+            inward = inward.min(dist);
         }
     }
+    // A wide road is trodden smooth down its middle: the stones lie along
+    // its verges, and the crown is dust.
+    let middle = inward > 7;
     if edge {
         return (!hash(wx, wy, 16).is_multiple_of(3)).then_some('I');
     }
@@ -139,9 +145,9 @@ fn bed(
     let (cx, cy) = (wx.div_euclid(5), wy.div_euclid(4));
     let (px, py) = (wx.rem_euclid(5), wy.rem_euclid(4));
     let h = hash(cx, cy, 15);
-    if h % 5 < 3 {
+    if h % 5 < if middle { 0 } else { 3 } {
         let (ox, oy) = (((h >> 4) % 3) as i32, ((h >> 7) % 2) as i32);
-        let bright = (h >> 9).is_multiple_of(4);
+        let bright = !middle && (h >> 9).is_multiple_of(4);
         if py == oy && (px == ox || px == ox + 1) {
             return Some(if bright && px == ox { 'o' } else { 'r' });
         }
@@ -153,7 +159,52 @@ fn bed(
         }
     }
     let dust = vnoise(wx as f32 / 7.0, wy as f32 / 5.0, 19);
+    if middle {
+        return (dust > 0.5 && hash(wx, wy, 18) % 5 == 0).then_some('b');
+    }
     (dust > 0.62 && hash(wx, wy, 18) % 3 == 0).then_some('b')
+}
+
+/// A footpath tile: a narrow ribbon of trodden earth wandering through the
+/// tile, joined to whichever neighbours `joined(dx, dy)` says are path or
+/// road, its edges ragged. `None` outside the ribbon (the ground shows
+/// through); `Some(None)` inside it where nothing is drawn, `Some(Some(ink))`
+/// a speck of worn earth.
+pub fn trail(wx: i32, wy: i32, on: u8, joined: impl Fn(i32, i32) -> bool) -> Option<Option<char>> {
+    let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
+    let (lx, ly) = (wx.rem_euclid(TILE), wy.rem_euclid(TILE));
+    let rag = |a: i32, b: i32, s: u32| (hash(a, b, s) % 3) as i32;
+    // A ribbon is eight pixels across with the edges worn ragged; a side
+    // with no neighbour closes it off.
+    let mut inside = true;
+    for (open, dist, a, b, salt) in [
+        (joined(-1, 0), lx, wy, tx, 25),
+        (joined(1, 0), TILE - 1 - lx, wy, tx, 26),
+        (joined(0, -1), ly, wx, ty, 27),
+        (joined(0, 1), TILE - 1 - ly, wx, ty, 28),
+    ] {
+        if !open && dist < 5 + rag(a, b, salt) {
+            inside = false;
+        }
+    }
+    // Where it runs straight, the ribbon is trimmed to the middle of the
+    // tile across, so it never fills a whole tile edge to edge.
+    let across = |open_a: bool, open_b: bool, d: i32| open_a && open_b && !(5..TILE - 5).contains(&d);
+    if across(joined(-1, 0), joined(1, 0), ly) || across(joined(0, -1), joined(0, 1), lx) {
+        inside = false;
+    }
+    if !inside {
+        return None;
+    }
+    // Worn earth is brown on grass and ash, a darker grey on sand, where
+    // the dunes' own speckle is already brown.
+    let n = hash(wx, wy, 29) % 100;
+    let (a, b) = if on == b's' { ('X', 'g') } else { ('b', 'I') };
+    Some(match n {
+        0..=29 => Some(a),
+        30..=35 => Some(b),
+        _ => None,
+    })
 }
 
 pub fn cobble(wx: i32, wy: i32) -> Option<char> {
@@ -344,13 +395,14 @@ fn ash(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
+/// Plank bridges: weathered boards at dusk, a darker seam between them.
 pub fn planks(wx: i32, wy: i32) -> char {
     if wy.rem_euclid(4) == 3 {
         'b'
     } else if hash(wx / 5, wy / 4, 3).is_multiple_of(4) {
         'r'
     } else {
-        'R'
+        'P'
     }
 }
 

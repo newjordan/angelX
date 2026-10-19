@@ -83,6 +83,28 @@ fn the_dug_wing_opens_the_trophy_hall_onto_the_tavern() {
 }
 
 #[test]
+fn the_home_keeps_both_game_annexes_while_settlements_keep_the_reserved_tavern() {
+    let mut home = layout::undercroft(Pack::Cavern);
+    assert!(layout::dig_tavern(&mut home));
+    let tavern = home.rooms.iter().position(|r| r.kind == RoomKind::Tavern).unwrap();
+    let loft = home.neighbour(tavern, 3).expect("loft beyond the tavern");
+    assert_eq!(home.rooms[loft].kind, RoomKind::Workshop);
+    let muster = home.neighbour(loft, 0).expect("muster beyond the loft");
+    assert_eq!(home.rooms[muster].kind, RoomKind::Muster);
+    assert_eq!(home.neighbour(loft, 1), Some(tavern));
+    assert_eq!(home.neighbour(muster, 2), Some(loft));
+
+    let mut saved = layout::undercroft(Pack::Cavern);
+    assert!(layout::dig_tavern_reserved(&mut saved));
+    assert_eq!(saved.rooms.len(), 5, "the mining ledger reserves one paid cell");
+    assert_eq!(saved.rooms[4].kind, RoomKind::Tavern);
+    assert_eq!(saved.rooms[4].cell, (1, 3));
+    assert!(!saved.rooms[4].doors[3], "no door into future recorded excavation");
+    assert_eq!(saved.neighbour(4, 1), Some(3));
+    assert!(!layout::dig_tavern_reserved(&mut saved));
+}
+
+#[test]
 fn maud_keeps_the_bar_once_she_is_home_and_the_tap_is_dry_until_then() {
     let at_the_bar = |maud: bool| {
         let mut home = dug();
@@ -197,7 +219,7 @@ fn a_round_is_drunk_at_the_top_of_the_stair() {
     let ale = down_with(Some("ale"));
     assert_eq!(ale.players[&1].winds, winds + 1);
     let reserve = down_with(Some("reserve"));
-    assert!(reserve.audience >= dry.audience + 300);
+    assert!(reserve.players[&1].carried.get(Spoil::Gold) >= dry.players[&1].carried.get(Spoil::Gold) + RESERVE);
     assert!(!dry.marks.contains_key("round_drunk"));
 }
 

@@ -1,0 +1,58 @@
+{
+  "schema": "angel-scroll-mesh-export/v1",
+  "source": "trellis-asset.glb",
+  "source_sha256": "d36244a84dec603b6a2e35e809a4b003135151518bea12ada46a7255d3285d49",
+  "source_vertices": 7493,
+  "source_triangles": 9186,
+  "runtime_vertices": 6487,
+  "runtime_triangles": 7815,
+  "format": "AXSM0001: u32 vertices, u32 triangles; vertices=(position3,normal3,uv2) f32 LE; triangles=u32 LE",
+  "basis_columns": [
+    [
+      0.9999997399825097,
+      0.0004890326455414805,
+      0.0005299830040593797
+    ],
+    [
+      -0.000489032714221725,
+      0.9999998804234951,
+      0.0
+    ],
+    [
+      -0.0005299829406858644,
+      -2.5917902696654197e-07,
+      0.9999998595589978
+    ]
+  ],
+  "source_half_length": 0.5019807166641099,
+  "source_body_radius_p85": 0.10671425508176323,
+  "runtime_bounds": [
+    [
+      -1.0,
+      -1.0035064288122177,
+      -1.0098010221971943
+    ],
+    [
+      1.0,
+      1.0035064288122177,
+      1.0098010221971943
+    ]
+  ],
+  "source_normalized_extents": [
+    2.0,
+    2.0070128576244355,
+    2.0196020443943885
+  ],
+  "clustering_grid": 12,
+  "radial_cross_section_ratio": 0.9937665012743992,
+  "texture": {
+    "size": [
+      1024,
+      1024
+    ],
+    "sha256": "70bcf93a1569b93de397b8dcfa49d3fda73a23b25fcd5d5b4efd7c5862fa4a68"
+  },
+  "mesh_sha256": "c06cf3a93565d4258a98db26c416f81bc0beb6cb2082089aacb51be816f03d32",
+  "exporter_sha256": "e2f84c47c1c0a71ce52651b4b15437f33cf431cde82396349ca92976d8ffc116",
+  "no_synthetic_geometry": true
+}

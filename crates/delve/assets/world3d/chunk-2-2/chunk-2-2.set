@@ -1,0 +1,223 @@
+set chunk-2-2
+# The kingdom, chunk 2,2 in The Highlands: tiles 48..72 x 32..48 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 960 640
+plate 1536 1024
+
+# ground
+box    rock    at 792 -4 560 size 48 4 96
+box    grass   at 840 -4 528 size 48 4 32
+box    rock    at 928 -4 520 size 128 4 16
+box    path    at 1000 -4 520 size 16 4 16
+box    grass   at 1032 -4 624 size 48 4 224
+box    rock    at 1104 -4 520 size 96 4 16
+box    grass   at 872 -4 624 size 16 4 192
+box    rock    at 888 -4 536 size 16 4 16
+box    grass   at 912 -4 592 size 32 4 128
+box    rock    at 936 -4 536 size 16 4 16
+box    grass   at 952 -4 632 size 16 4 208
+box    rock    at 984 -4 536 size 48 4 16
+box    rock    at 1064 -4 536 size 16 4 16
+box    grass   at 1080 -4 624 size 16 4 192
+box    rock    at 1096 -4 536 size 16 4 16
+box    grass   at 1120 -4 536 size 32 4 16
+box    rock    at 1144 -4 568 size 16 4 80
+box    rock    at 824 -4 608 size 16 4 128
+box    grass   at 848 -4 568 size 32 4 48
+box    grass   at 888 -4 608 size 16 4 128
+box    grass   at 936 -4 640 size 16 4 192
+box    grass   at 984 -4 616 size 48 4 144
+box    grass   at 1064 -4 640 size 16 4 192
+box    grass   at 1104 -4 632 size 32 4 176
+box    rock    at 1128 -4 568 size 16 4 48
+box    rock    at 840 -4 624 size 16 4 64
+box    grass   at 856 -4 640 size 16 4 96
+box    grass   at 1128 -4 648 size 16 4 112
+box    grass   at 784 -4 616 size 32 4 16
+box    rock    at 808 -4 632 size 16 4 48
+box    grass   at 1144 -4 664 size 16 4 112
+box    rock    at 776 -4 632 size 16 4 16
+box    grass   at 792 -4 672 size 16 4 96
+box    grass   at 776 -4 656 size 16 4 32
+box    grass   at 808 -4 688 size 16 4 64
+box    grass   at 840 -4 696 size 16 4 80
+box    rock    at 904 -4 696 size 16 4 80
+box    grass   at 920 -4 664 size 16 4 16
+box    rock    at 776 -4 696 size 16 4 48
+box    grass   at 824 -4 696 size 16 4 48
+box    rock    at 888 -4 696 size 16 4 48
+box    rock    at 920 -4 696 size 16 4 48
+box    path    at 856 -4 712 size 16 4 48
+box    grass   at 968 -4 712 size 16 4 48
+box    path    at 984 -4 720 size 16 4 64
+box    grass   at 1000 -4 696 size 16 4 16
+box    path    at 1000 -4 728 size 16 4 48
+box    sand    at 1128 -4 712 size 16 4 16
+box    sand    at 800 -4 728 size 64 4 16
+box    path    at 880 -4 728 size 32 4 16
+box    grass   at 920 -4 728 size 16 4 16
+box    sand    at 1096 -4 728 size 48 4 16
+box    water   at 1136 -4 736 size 32 1 32
+box    water   at 800 -4 752 size 64 1 32
+box    sand    at 856 -4 744 size 48 4 16
+box    path    at 928 -4 744 size 96 4 16
+box    rock    at 1040 -4 744 size 64 4 16
+box    water   at 1096 -4 752 size 48 1 32
+box    water   at 952 -4 760 size 240 1 16
+box    water   at 1128 -4 760 size 16 1 16
+box    sand    at 1144 -4 760 size 16 4 16
+
+# UNNECESSARY AQUEDUCT: aqueduct arches at 60,40 4x3
+arch   stone   at 969.5 0 680 size 15 22 6 id unnecessary-aqueduct
+arch   stone   at 984.5 0 680 size 15 22 6
+arch   stone   at 999.5 0 680 size 15 22 6
+arch   stone   at 1014.5 0 680 size 15 22 6
+box    stone   at 992 22 680 size 60 4 7
+box    water   at 992 24 680 size 58 2.5 4
+
+# set dressing
+rock-43 rock    at 810 0 682 size 4 2 3.5
+rock-34 rock    at 805 0 677 size 4 2 3.5
+rock-20 rock    at 808 0 679 size 4 2 3.5
+rock-39 rock    at 803 0 676 size 4 2 3.5
+rock-58 rock    at 1096 0 712 size 8 2.5 7
+rock-7 rock    at 1096 2 712 size 5 2 4.5
+rock-24 rock    at 1125 0 708 size 4 2 3.5
+rock-5 rock    at 1131 0 714 size 4 2 3.5
+rock-49 rock    at 1127 0 710 size 4 2 3.5
+rock-56 rock    at 1132 0 711 size 4 2 3.5
+rock-49 rock    at 808 0 728 size 8 2.5 7
+rock-9 rock    at 808 2 728 size 5 2 4.5
+
+# rock (at 95% of its height, for the camera)
+box    rock    at 776 0 520 size 16 3 16
+box    rock    at 792 0 552 size 16 9 80
+box    rock    at 808 0 536 size 16 3 48
+box    rock    at 928 0 520 size 128 3 16
+box    rock    at 1104 0 520 size 96 3 16
+box    rock    at 776 0 536 size 16 9 16
+box    rock    at 888 0 536 size 16 3 16
+box    rock    at 936 0 536 size 16 3 16
+box    rock    at 984 0 536 size 48 3 16
+box    rock    at 1064 0 536 size 16 3 16
+box    rock    at 1096 0 536 size 16 3 16
+box    rock    at 1144 0 544 size 16 3 32
+box    rock    at 776 0 560 size 16 15 32
+box    rock    at 824 0 552 size 16 2.5 16
+box    rock    at 1128 0 568 size 16 3 48
+box    rock    at 808 0 576 size 16 9 32
+box    rock    at 824 0 584 size 16 3 48
+box    rock    at 1144 0 568 size 16 9 16
+box    rock    at 776 0 584 size 16 9 16
+box    rock    at 1144 0 592 size 16 3 32
+box    rock    at 792 0 600 size 48 3 16
+box    rock    at 840 0 624 size 16 3 64
+box    rock    at 808 0 632 size 16 3 48
+box    rock    at 824 0 624 size 16 9 32
+box    rock    at 776 0 632 size 16 3 16
+box    rock    at 824 0 656 size 16 3 32
+box    rock    at 904 0 672 size 16 3 32
+box    rock    at 776 0 696 size 16 3 48
+box    rock    at 888 0 696 size 16 3 48
+box    rock    at 920 0 696 size 16 3 48
+box    rock    at 904 0 696 size 16 9 16
+box    rock    at 904 0 720 size 16 3 32
+box    rock    at 1040 0 744 size 64 3 16
+rock-51 rock    at 776 1.5 521 size 17 9 15.3 turn 180
+rock-58 rock    at 792 7.5 520 size 14 9 12.6 turn 270
+rock-17 rock    at 807 1.5 520 size 17 10 15.3 turn 180
+rock-39 rock    at 873 1.5 521 size 14 8 12.6
+rock-44 rock    at 887 1.5 520 size 17 8 15.3 turn 90
+rock-5 rock    at 905 1.5 520 size 15 10 13.5
+rock-43 rock    at 921 1.5 519 size 15 8 13.5 turn 90
+rock-23 rock    at 936 1.5 521 size 16 8 14.4 turn 180
+rock-53 rock    at 951 1.5 519 size 16 8 14.4 turn 180
+rock-17 rock    at 969 1.5 519 size 16 9 14.4 turn 180
+rock-49 rock    at 984 1.5 519 size 15 8 13.5 turn 180
+rock-60 rock    at 1065 1.5 521 size 14 8 12.6 turn 270
+rock-24 rock    at 1080 1.5 521 size 17 10 15.3 turn 180
+rock-23 rock    at 1097 1.5 520 size 15 10 13.5 turn 180
+rock-61 rock    at 1113 1.5 521 size 17 7 15.3 turn 270
+rock-6 rock    at 1127 1.5 521 size 15 9 13.5
+rock-43 rock    at 1144 1.5 519 size 15 10 13.5 turn 90
+rock-45 rock    at 775 7.5 536 size 12 7 10.8 turn 90
+rock-45 rock    at 792 7.5 536 size 15 7 13.5 turn 90
+rock-30 rock    at 807 1.5 536 size 15 7 13.5 turn 270
+rock-12 rock    at 889 1.5 535 size 16 10 14.4 turn 90
+rock-20 rock    at 936 1.5 536 size 16 7 14.4 turn 180
+rock-38 rock    at 969 1.5 536 size 16 9 14.4
+rock-45 rock    at 984 1.5 536 size 17 9 15.3 turn 90
+rock-29 rock    at 1001 1.5 536 size 15 8 13.5 turn 270
+rock-45 rock    at 1064 1.5 536 size 14 9 12.6 turn 90
+rock-2 rock    at 1097 1.5 535 size 15 9 13.5
+rock-8 rock    at 1143 1.5 537 size 17 8 15.3
+rock-5 rock    at 777 13.5 551 size 13 9 11.7
+rock-2 rock    at 793 7.5 553 size 15 8 13.5
+rock-54 rock    at 809 1.5 553 size 17 7 15.3 turn 180
+rock-4 rock    at 825 1 551 size 14 9.5 12.6
+rock-29 rock    at 1127 1.5 552 size 17 7 15.3 turn 270
+rock-20 rock    at 1145 1.5 553 size 14 7 12.6 turn 180
+rock-33 rock    at 776 13.5 568 size 13 7 11.7
+rock-39 rock    at 792 7.5 569 size 15 6 13.5
+rock-36 rock    at 808 7.5 568 size 14 6 12.6
+rock-32 rock    at 824 1.5 569 size 17 8 15.3 turn 270
+rock-63 rock    at 1127 1.5 568 size 17 7 15.3 turn 270
+rock-13 rock    at 1144 7.5 569 size 14 6 12.6 turn 90
+rock-58 rock    at 777 7.5 584 size 14 7 12.6 turn 270
+rock-63 rock    at 792 7.5 584 size 12 9 10.8 turn 270
+rock-37 rock    at 808 7.5 584 size 13 9 11.7
+rock-8 rock    at 823 1.5 585 size 15 10 13.5
+rock-33 rock    at 1129 1.5 584 size 15 7 13.5
+rock-46 rock    at 1143 1.5 584 size 16 10 14.4 turn 90
+rock-53 rock    at 775 1.5 600 size 16 7 14.4 turn 180
+rock-19 rock    at 793 1.5 600 size 15 7 13.5 turn 180
+rock-53 rock    at 807 1.5 601 size 15 7 13.5 turn 180
+rock-28 rock    at 823 1.5 601 size 15 7 13.5 turn 270
+rock-4 rock    at 839 1.5 599 size 16 7 14.4
+rock-35 rock    at 1145 1.5 600 size 15 7 13.5
+rock-26 rock    at 809 1.5 617 size 14 10 12.6 turn 270
+rock-37 rock    at 823 7.5 615 size 12 6 10.8
+rock-58 rock    at 841 1.5 616 size 16 9 14.4 turn 270
+rock-59 rock    at 777 1.5 633 size 17 8 15.3 turn 270
+rock-46 rock    at 807 1.5 632 size 14 9 12.6 turn 90
+rock-26 rock    at 823 7.5 633 size 15 9 13.5 turn 270
+rock-2 rock    at 839 1.5 631 size 17 9 15.3
+rock-21 rock    at 809 1.5 647 size 17 9 15.3 turn 180
+rock-34 rock    at 825 1.5 648 size 17 10 15.3
+rock-5 rock    at 840 1.5 648 size 17 9 15.3
+rock-34 rock    at 823 1.5 664 size 16 9 14.4
+rock-33 rock    at 904 1.5 664 size 14 7 12.6
+rock-30 rock    at 775 1.5 679 size 14 8 12.6 turn 270
+rock-2 rock    at 889 1.5 681 size 17 8 15.3
+rock-53 rock    at 904 1.5 679 size 14 7 12.6 turn 180
+rock-39 rock    at 919 1.5 681 size 17 10 15.3
+rock-10 rock    at 777 1.5 697 size 17 8 15.3 turn 90
+rock-49 rock    at 889 1.5 695 size 14 8 12.6 turn 180
+rock-18 rock    at 904 7.5 696 size 14 8 12.6 turn 180
+rock-8 rock    at 920 1.5 697 size 17 10 15.3
+rock-15 rock    at 775 1.5 712 size 17 8 15.3 turn 90
+rock-8 rock    at 888 1.5 713 size 14 7 12.6
+rock-7 rock    at 903 1.5 711 size 14 9 12.6
+rock-56 rock    at 921 1.5 712 size 17 10 15.3 turn 180
+rock-14 rock    at 905 1.5 729 size 14 7 12.6 turn 90
+rock-10 rock    at 1017 1.5 744 size 15 9 13.5 turn 90
+rock-30 rock    at 1032 1.5 743 size 17 8 15.3 turn 270
+rock-52 rock    at 1047 1.5 745 size 17 8 15.3 turn 180
+rock-58 rock    at 1063 1.5 744 size 16 10 14.4 turn 270
+
+# woods (at 51% of its height, for the camera)
+frustum trunk   at 1145 0 679 size 3 4.5 3
+cone   foliage at 1145 3 679 size 17 9 17
+cone   foliage at 1145 8.5 679 size 12.24 8.5 12.24
+frustum trunk   at 1145 0 696 size 3 8 3
+cone   foliage at 1145 5 696 size 19 20.46 19
+cone   foliage at 1145 17.54 696 size 13.68 20.46 13.68
+cylinder trunk   at 1144 0 712 size 3 7 3
+cone   foliage at 1144 4 712 size 18 20.46 18
+cone   foliage at 1144 16.54 712 size 12.96 20.46 12.96
+
+# bridges
+box    wood    at 992 -3 760 size 32 5.5 16
+box    wood    at 975.25 0 760 size 1.5 6 16
+box    wood    at 1008.75 0 760 size 1.5 6 16

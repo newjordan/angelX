@@ -1,0 +1,14 @@
+GLASS_PARTS build_mean_ms=0.208 build_worst_ms=1.595 acquire_mean_ms=0.015 acquire_worst_ms=0.031 submit_mean_ms=0.160 submit_worst_ms=0.222 present_mean_ms=0.321 present_worst_ms=1.060
+GLASS_PARTS build_mean_ms=0.175 build_worst_ms=0.246 acquire_mean_ms=0.018 acquire_worst_ms=0.028 submit_mean_ms=0.195 submit_worst_ms=0.259 present_mean_ms=0.425 present_worst_ms=0.678
+GLASS_PARTS build_mean_ms=0.199 build_worst_ms=0.267 acquire_mean_ms=0.021 acquire_worst_ms=0.036 submit_mean_ms=0.237 submit_worst_ms=0.273 present_mean_ms=0.860 present_worst_ms=1.126
+GLASS_PARTS build_mean_ms=0.211 build_worst_ms=0.249 acquire_mean_ms=0.021 acquire_worst_ms=0.029 submit_mean_ms=0.314 submit_worst_ms=0.844 present_mean_ms=1.445 present_worst_ms=2.225
+GLASS_PARTS build_mean_ms=0.242 build_worst_ms=0.285 acquire_mean_ms=0.024 acquire_worst_ms=0.041 submit_mean_ms=0.280 submit_worst_ms=0.327 present_mean_ms=1.789 present_worst_ms=3.231
+GLASS_PARTS build_mean_ms=0.175 build_worst_ms=0.209 acquire_mean_ms=0.021 acquire_worst_ms=0.054 submit_mean_ms=0.248 submit_worst_ms=0.292 present_mean_ms=1.551 present_worst_ms=3.122
+GLASS_PARTS build_mean_ms=0.194 build_worst_ms=0.305 acquire_mean_ms=0.024 acquire_worst_ms=0.039 submit_mean_ms=0.267 submit_worst_ms=0.305 present_mean_ms=1.486 present_worst_ms=2.429
+GLASS_PARTS build_mean_ms=0.191 build_worst_ms=0.278 acquire_mean_ms=0.022 acquire_worst_ms=0.033 submit_mean_ms=0.253 submit_worst_ms=0.355 present_mean_ms=1.265 present_worst_ms=3.773
+GLASS_KEYHOP n=16 hop_p50_ms=4.087 hop_p95_ms=6.044 total_p50_ms=5.390 total_p95_ms=7.510
+GLASS_PARTS build_mean_ms=0.226 build_worst_ms=0.407 acquire_mean_ms=0.025 acquire_worst_ms=0.041 submit_mean_ms=0.285 submit_worst_ms=0.354 present_mean_ms=1.494 present_worst_ms=2.793
+GLASS_KEYHOP n=15 hop_p50_ms=4.119 hop_p95_ms=4.767 total_p50_ms=5.640 total_p95_ms=7.911
+GLASS_PARTS build_mean_ms=0.257 build_worst_ms=0.407 acquire_mean_ms=0.023 acquire_worst_ms=0.036 submit_mean_ms=0.258 submit_worst_ms=0.334 present_mean_ms=0.903 present_worst_ms=1.169
+GLASS_KEYHOP n=11 hop_p50_ms=4.202 hop_p95_ms=4.961 total_p50_ms=5.644 total_p95_ms=6.624
+GLASS_PARTS build_mean_ms=0.203 build_worst_ms=0.316 acquire_mean_ms=0.021 acquire_worst_ms=0.038 submit_mean_ms=0.238 submit_worst_ms=0.301 present_mean_ms=1.305 present_worst_ms=3.072

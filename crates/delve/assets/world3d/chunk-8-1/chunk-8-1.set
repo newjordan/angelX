@@ -1,0 +1,171 @@
+set chunk-8-1
+# The kingdom, chunk 8,1 in The Wastes: tiles 192..216 x 16..32 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 3264 384
+plate 1536 1024
+
+# ground
+box    ground  at 3104 -4 272 size 64 4 32
+box    grass   at 3176 -4 280 size 80 4 48
+box    ground  at 3232 -4 264 size 32 4 16
+box    path    at 3256 -4 288 size 16 4 64
+box    ground  at 3304 -4 272 size 80 4 32
+box    grass   at 3360 -4 264 size 32 4 16
+box    ground  at 3392 -4 312 size 32 4 112
+box    rock    at 3432 -4 264 size 48 4 16
+box    grass   at 3224 -4 288 size 16 4 32
+box    ground  at 3240 -4 288 size 16 4 32
+box    ground  at 3360 -4 280 size 32 4 16
+box    ground  at 3416 -4 280 size 16 4 16
+box    rock    at 3440 -4 352 size 32 4 160
+box    ground  at 3096 -4 384 size 48 4 192
+box    grass   at 3128 -4 320 size 16 4 64
+box    ground  at 3296 -4 304 size 64 4 32
+box    rock    at 3336 -4 296 size 16 4 16
+box    fire    at 3352 -4 320 size 16 2 64
+box    rock    at 3368 -4 296 size 16 4 16
+box    rock    at 3416 -4 296 size 16 4 16
+box    grass   at 3168 -4 328 size 64 4 48
+box    path    at 3224 -4 312 size 48 4 16
+box    ground  at 3336 -4 312 size 16 4 16
+box    ground  at 3368 -4 360 size 16 4 112
+box    ground  at 3416 -4 312 size 16 4 16
+box    path    at 3208 -4 360 size 16 4 80
+box    grass   at 3232 -4 328 size 32 4 16
+box    ground  at 3272 -4 416 size 48 4 192
+box    fire    at 3320 -4 344 size 48 2 48
+box    rock    at 3416 -4 336 size 16 4 32
+box    grass   at 3224 -4 344 size 16 4 16
+box    ground  at 3240 -4 400 size 16 4 128
+box    ground  at 3136 -4 408 size 32 4 112
+box    grass   at 3176 -4 360 size 48 4 16
+box    ground  at 3224 -4 408 size 16 4 112
+box    ground  at 3352 -4 376 size 16 4 48
+box    ground  at 3416 -4 376 size 16 4 48
+box    ground  at 3176 -4 408 size 48 4 80
+box    ground  at 3312 -4 384 size 32 4 32
+box    fire    at 3336 -4 408 size 16 2 80
+box    ground  at 3384 -4 440 size 16 4 144
+box    path    at 3400 -4 408 size 16 4 80
+box    ground  at 3208 -4 432 size 16 4 64
+box    ground  at 3304 -4 408 size 16 4 16
+box    fire    at 3320 -4 424 size 16 2 48
+box    fire    at 3352 -4 424 size 16 2 48
+box    rock    at 3416 -4 416 size 16 4 32
+box    fire    at 3304 -4 424 size 16 2 16
+box    fire    at 3368 -4 424 size 16 2 16
+box    ground  at 3304 -4 472 size 16 4 80
+box    ground  at 3368 -4 472 size 16 4 80
+box    path    at 3432 -4 440 size 48 4 16
+box    grass   at 3176 -4 472 size 48 4 48
+box    ground  at 3336 -4 480 size 48 4 64
+box    ground  at 3424 -4 472 size 64 4 48
+box    grass   at 3136 -4 488 size 32 4 48
+box    grass   at 3224 -4 488 size 48 4 48
+box    ground  at 3088 -4 496 size 32 4 32
+box    grass   at 3112 -4 488 size 16 4 16
+box    ground  at 3112 -4 504 size 16 4 16
+box    grass   at 3160 -4 504 size 16 4 16
+box    ground  at 3176 -4 504 size 16 4 16
+box    grass   at 3192 -4 504 size 16 4 16
+box    ground  at 3408 -4 504 size 32 4 16
+box    rock    at 3432 -4 504 size 16 4 16
+box    ground  at 3448 -4 504 size 16 4 16
+
+# set dressing
+box    bone    at 3398 0 344 size 7 1 1.5 turn 25
+box    bone    at 3402 0 346 size 5 1 1.2 turn -40
+sphere bone    at 3404 0 342 size 3 2.5 3
+box    trunk   at 3352 0 376 size 13 3.5 7 turn 10
+sphere trunk   at 3357 0 380 size 6 1.5 6
+box    trunk   at 3256 0 392 size 1.5 13 1.5
+box    trunk   at 3253.5 9 392 size 4 1 1
+box    wood    at 3160 0 408 size 13 2 7
+box    trunk   at 3160 2 408 size 11 2 6
+cylinder rock    at 3208 0 424 size 10 1.5 9
+cylinder ground  at 3208 0 424 size 7 1.75 6
+
+# rock (at 90% of its height, for the camera)
+box    rock    at 3432 0 264 size 48 3 16
+box    rock    at 3440 0 352 size 32 3 160
+box    rock    at 3336 0 296 size 16 3 16
+box    rock    at 3368 0 296 size 16 3 16
+box    rock    at 3416 0 296 size 16 2.5 16
+box    rock    at 3416 0 336 size 16 3 32
+box    rock    at 3416 0 408 size 16 2.5 16
+box    rock    at 3416 0 424 size 16 3 16
+box    rock    at 3432 0 504 size 16 3 16
+rock-45 rock    at 3417 1.5 265 size 16 8 14.4 turn 90
+rock-44 rock    at 3431 1.5 263 size 17 7 15.3 turn 90
+rock-3 rock    at 3449 1.5 265 size 15 9 13.5
+rock-36 rock    at 3431 1.5 280 size 17 10 15.3
+rock-22 rock    at 3449 1.5 280 size 14 9 12.6 turn 180
+rock-64 rock    at 3337 1.5 296 size 15 9 13.5 turn 270
+rock-10 rock    at 3369 1.5 297 size 16 8 14.4 turn 90
+rock-46 rock    at 3416 1 295 size 17 8 15.3 turn 90
+rock-49 rock    at 3431 1.5 295 size 17 8 15.3 turn 180
+rock-61 rock    at 3447 1.5 297 size 16 8 14.4 turn 270
+rock-59 rock    at 3433 1.5 312 size 17 9 15.3 turn 270
+rock-38 rock    at 3449 1.5 312 size 16 10 14.4
+rock-64 rock    at 3417 1.5 328 size 15 10 13.5 turn 270
+rock-37 rock    at 3433 1.5 328 size 16 7 14.4
+rock-60 rock    at 3448 1.5 327 size 15 7 13.5 turn 270
+rock-29 rock    at 3416 1.5 343 size 15 10 13.5 turn 270
+rock-25 rock    at 3432 1.5 343 size 15 10 13.5 turn 270
+rock-60 rock    at 3448 1.5 343 size 17 9 15.3 turn 270
+rock-31 rock    at 3432 1.5 359 size 16 9 14.4 turn 270
+rock-44 rock    at 3448 1.5 361 size 15 7 13.5 turn 90
+rock-53 rock    at 3433 1.5 376 size 17 8 15.3 turn 180
+rock-18 rock    at 3448 1.5 376 size 16 10 14.4 turn 180
+rock-18 rock    at 3432 1.5 391 size 14 8 12.6 turn 180
+rock-60 rock    at 3448 1.5 391 size 14 9 12.6 turn 270
+rock-48 rock    at 3415 1 407 size 16 9.5 14.4 turn 90
+rock-59 rock    at 3431 1.5 407 size 14 8 12.6 turn 270
+rock-52 rock    at 3447 1.5 409 size 15 8 13.5 turn 180
+rock-14 rock    at 3417 1.5 424 size 17 10 15.3 turn 90
+rock-64 rock    at 3433 1.5 423 size 17 9 15.3 turn 270
+rock-63 rock    at 3447 1.5 424 size 15 9 13.5 turn 270
+rock-40 rock    at 3432 1.5 503 size 16 10 14.4
+
+# dead trees
+frustum trunk   at 3286 0 454 size 4 21 4
+box    trunk   at 3284.12 11.55 451.99 size 5.5 1.2 1.2 turn 133
+box    trunk   at 3286.51 15.12 456.19 size 4.5 1.2 1.2 turn 283
+box    trunk   at 3287.61 18.48 453.32 size 3.5 1.2 1.2 turn 383
+frustum trunk   at 3353 0 455 size 4 20 4
+box    trunk   at 3354.42 11 452.64 size 5.5 1.2 1.2 turn 59
+box    trunk   at 3351.03 14.4 456.09 size 4.5 1.2 1.2 turn 209
+box    trunk   at 3354.1 17.6 456.36 size 3.5 1.2 1.2 turn 309
+frustum trunk   at 3303 0 473 size 4 20 4
+box    trunk   at 3300.25 11 472.86 size 5.5 1.2 1.2 turn 177
+box    trunk   at 3304.89 14.4 474.23 size 4.5 1.2 1.2 turn 327
+box    trunk   at 3303.68 17.6 471.39 size 3.5 1.2 1.2 turn 427
+frustum trunk   at 3354 0 490 size 4 18 4
+box    trunk   at 3352.88 9.9 487.49 size 5.5 1.2 1.2 turn 114
+box    trunk   at 3353.77 12.96 492.24 size 4.5 1.2 1.2 turn 264
+box    trunk   at 3355.75 15.84 489.88 size 3.5 1.2 1.2 turn 364
+frustum trunk   at 3384 0 490 size 4 21 4
+box    trunk   at 3383.43 11.55 487.31 size 5.5 1.2 1.2 turn 102
+box    trunk   at 3383.3 15.12 492.14 size 4.5 1.2 1.2 turn 252
+box    trunk   at 3385.73 18.48 490.24 size 3.5 1.2 1.2 turn 352
+frustum trunk   at 3113 0 506 size 4 16 4
+box    trunk   at 3110.26 8.8 505.76 size 5.5 1.2 1.2 turn 175
+box    trunk   at 3114.84 11.52 507.29 size 4.5 1.2 1.2 turn 325
+box    trunk   at 3113.74 14.08 504.41 size 3.5 1.2 1.2 turn 425
+frustum trunk   at 3177 0 504 size 4 17 4
+box    trunk   at 3175.31 9.35 501.83 size 5.5 1.2 1.2 turn 128
+box    trunk   at 3177.31 12.24 506.23 size 4.5 1.2 1.2 turn 278
+box    trunk   at 3178.66 14.96 503.46 size 3.5 1.2 1.2 turn 378
+frustum trunk   at 3368 0 505 size 4 20 4
+box    trunk   at 3370.17 11 503.31 size 5.5 1.2 1.2 turn 38
+box    trunk   at 3365.77 14.4 505.31 size 4.5 1.2 1.2 turn 188
+box    trunk   at 3368.54 17.6 506.66 size 3.5 1.2 1.2 turn 288
+frustum trunk   at 3399 0 505 size 4 21 4
+box    trunk   at 3401.75 11.55 504.95 size 5.5 1.2 1.2 turn 1
+box    trunk   at 3397.03 15.12 503.91 size 4.5 1.2 1.2 turn 151
+box    trunk   at 3398.43 18.48 506.65 size 3.5 1.2 1.2 turn 251
+frustum trunk   at 3416 0 503 size 4 16 4
+box    trunk   at 3413.96 8.8 501.16 size 5.5 1.2 1.2 turn 138
+box    trunk   at 3416.7 11.52 505.14 size 4.5 1.2 1.2 turn 288
+box    trunk   at 3417.55 14.08 502.18 size 3.5 1.2 1.2 turn 388

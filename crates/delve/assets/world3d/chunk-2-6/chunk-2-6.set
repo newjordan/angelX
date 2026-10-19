@@ -1,0 +1,141 @@
+set chunk-2-6
+# The kingdom, chunk 2,6 in The Fen: tiles 48..72 x 96..112 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 960 1664
+plate 1536 1024
+
+# ground
+box    grass   at 776 -4 1544 size 16 4 16
+box    sand    at 808 -4 1544 size 48 4 16
+box    water   at 880 -4 1544 size 96 1 16
+box    path    at 944 -4 1640 size 32 4 208
+box    mud     at 1032 -4 1544 size 144 4 16
+box    water   at 1128 -4 1544 size 48 1 16
+box    sand    at 776 -4 1560 size 16 4 16
+box    water   at 808 -4 1592 size 48 1 80
+box    mud     at 880 -4 1560 size 96 4 16
+box    mud     at 984 -4 1560 size 48 4 16
+box    water   at 1040 -4 1576 size 64 1 48
+box    mud     at 1112 -4 1560 size 80 4 16
+box    water   at 776 -4 1592 size 16 1 48
+box    water   at 840 -4 1592 size 16 1 48
+box    sand    at 856 -4 1608 size 16 4 80
+box    mud     at 896 -4 1576 size 64 4 16
+box    grass   at 976 -4 1640 size 32 4 144
+box    sand    at 1000 -4 1584 size 16 4 32
+box    water   at 1080 -4 1576 size 16 1 16
+box    mud     at 1120 -4 1576 size 64 4 16
+box    grass   at 896 -4 1592 size 64 4 16
+box    sand    at 1080 -4 1592 size 16 4 16
+box    grass   at 1096 -4 1616 size 16 4 64
+box    mud     at 1128 -4 1600 size 48 4 32
+box    sand    at 880 -4 1608 size 32 4 16
+box    grass   at 912 -4 1608 size 32 4 16
+box    grass   at 1000 -4 1672 size 16 4 144
+box    sand    at 1040 -4 1608 size 64 4 16
+box    grass   at 1080 -4 1616 size 16 4 32
+box    sand    at 776 -4 1648 size 16 4 64
+box    sand    at 840 -4 1632 size 16 4 32
+box    water   at 880 -4 1648 size 32 1 64
+box    sand    at 904 -4 1632 size 16 4 32
+box    grass   at 920 -4 1632 size 16 4 32
+box    grass   at 1040 -4 1624 size 64 4 16
+box    grass   at 1112 -4 1640 size 16 4 48
+box    mud     at 1136 -4 1624 size 32 4 16
+box    sand    at 808 -4 1640 size 48 4 16
+box    grass   at 1032 -4 1640 size 48 4 16
+box    sand    at 1072 -4 1640 size 32 4 16
+box    grass   at 1128 -4 1672 size 16 4 80
+box    sand    at 1144 -4 1648 size 16 4 32
+box    grass   at 792 -4 1656 size 16 4 16
+box    sand    at 808 -4 1656 size 16 4 16
+box    water   at 840 -4 1680 size 48 1 64
+box    mud     at 912 -4 1664 size 32 4 32
+box    grass   at 1024 -4 1696 size 32 4 96
+box    sand    at 1048 -4 1688 size 16 4 80
+box    water   at 1072 -4 1688 size 32 1 80
+box    sand    at 1096 -4 1656 size 16 4 16
+box    sand    at 792 -4 1688 size 16 4 48
+box    water   at 808 -4 1688 size 16 1 48
+box    water   at 1096 -4 1696 size 16 1 64
+box    sand    at 1112 -4 1688 size 16 4 48
+box    grass   at 1144 -4 1688 size 16 4 48
+box    grass   at 776 -4 1720 size 16 4 80
+box    water   at 872 -4 1696 size 16 1 32
+box    mud     at 896 -4 1688 size 32 4 16
+box    path    at 920 -4 1736 size 16 4 112
+box    sand    at 888 -4 1704 size 16 4 16
+box    grass   at 904 -4 1704 size 16 4 16
+box    grass   at 792 -4 1728 size 16 4 32
+box    sand    at 816 -4 1720 size 32 4 16
+box    water   at 848 -4 1720 size 32 1 16
+box    sand    at 872 -4 1720 size 16 4 16
+box    grass   at 888 -4 1736 size 16 4 48
+box    path    at 904 -4 1752 size 16 4 80
+box    path    at 976 -4 1720 size 32 4 16
+box    mud     at 1128 -4 1736 size 48 4 48
+box    mud     at 808 -4 1736 size 16 4 16
+box    sand    at 840 -4 1736 size 48 4 16
+box    grass   at 872 -4 1736 size 16 4 16
+box    path    at 968 -4 1736 size 16 4 16
+box    mud     at 984 -4 1736 size 16 4 16
+box    grass   at 1048 -4 1736 size 16 4 16
+box    sand    at 1072 -4 1744 size 32 4 32
+box    mud     at 1096 -4 1744 size 16 4 32
+box    sand    at 792 -4 1752 size 16 4 16
+box    water   at 832 -4 1752 size 64 1 16
+box    sand    at 872 -4 1752 size 16 4 16
+box    grass   at 952 -4 1752 size 48 4 16
+box    sand    at 1016 -4 1752 size 80 4 16
+box    mud     at 776 -4 1768 size 16 4 16
+box    water   at 816 -4 1776 size 64 1 32
+box    sand    at 856 -4 1768 size 16 4 16
+box    grass   at 872 -4 1768 size 16 4 16
+box    path    at 888 -4 1776 size 16 4 32
+box    grass   at 936 -4 1768 size 16 4 16
+box    sand    at 960 -4 1768 size 32 4 16
+box    water   at 1064 -4 1768 size 176 1 16
+box    water   at 776 -4 1784 size 16 1 16
+box    mud     at 864 -4 1784 size 32 4 16
+box    sand    at 936 -4 1784 size 16 4 16
+box    water   at 968 -4 1784 size 48 1 16
+box    sand    at 1000 -4 1784 size 16 4 16
+box    mud     at 1016 -4 1784 size 16 4 16
+box    water   at 1080 -4 1784 size 112 1 16
+box    mud     at 1144 -4 1784 size 16 4 16
+
+# WASHBUCKET QUAY: a stone quay with a crane at 60,104 4x3 (at 58% of its height, for the camera)
+box    stone   at 992 0 1704 size 60 3 12 id washbucket-quay
+cylinder wood    at 968 3 1708.5 size 2.5 3 2.5
+cylinder wood    at 992 3 1708.5 size 2.5 3 2.5
+cylinder wood    at 1016 3 1708.5 size 2.5 3 2.5
+box    wood    at 1006 3 1703 size 8 5 6
+box    wood    at 1014 3 1702.5 size 6 4 5
+box    wood    at 972 3 1703 size 2.5 22 2.5
+box    wood    at 978 23 1703 size 16 2 2
+box    plaster at 1004.9 0 1689 size 32.2 11 14
+gable  slate   at 1004.9 11 1689 size 35.2 8 17
+box    stone   at 1012.63 11 1687.6 size 4 9.8 4
+box    door    at 1004.9 0 1696.25 size 7 8 1
+box    window  at 996.85 4.62 1696.25 size 5 3.3 1
+box    window  at 1012.95 4.62 1696.25 size 5 3.3 1
+cylinder trunk   at 968 0 1672 size 3 6 3
+blob-25 foliage at 968 3 1672 size 14 10 13.3
+blob-42 foliage at 968 0 1688 size 13 10 12
+
+# fingerposts
+box    wood    at 964 0 1544 size 1.5 19 1.5
+pyramid wood    at 964 19 1544 size 2.2 1.5 2.2
+box    wood    at 964 16 1540 size 0.6 1.8 6.5
+box    wood    at 964 13.5 1548 size 0.6 1.8 6.5
+box    wood    at 872 0 1772 size 1.5 19 1.5
+pyramid wood    at 872 19 1772 size 2.2 1.5 2.2
+box    wood    at 872 16 1768 size 0.6 1.8 6.5
+box    wood    at 872 13.5 1776 size 0.6 1.8 6.5
+
+# set dressing
+cylinder wood    at 1075 0 1640 size 3.5 3 3.5
+cylinder wood    at 1080 0 1642 size 3.5 3 3.5
+cylinder wood    at 1085 0 1640 size 3.5 3 3.5
+cone   thatch  at 1128 0 1656 size 9 4 8

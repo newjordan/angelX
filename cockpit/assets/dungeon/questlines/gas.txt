@@ -1,0 +1,27 @@
+# Fart Cloud (the skill) — Widow Peascod, the swamp's reed-isle.
+# Levels: I GAS_LIFE 7s/8s, GAS_RADIUS 3.0/3.5; II 8s/9s, 3.5/4.0, POISON_BASE 4/5;
+# III 9s/10s, 4.0/4.5, poison 5/6, and a cloud may be held one beat before release.
+power skill:gas 3
+teacher Widow Peascod
+place   the swamp's reed-isle
+room    marsh
+at      6 6
+look    a black shawl, billowing skirts, and a presence that arrives slightly before she does
+line    A cloud is weather you can aim.
+teach   Hold it in and it becomes philosophy. Let it go and it becomes tactics.
+hook    The marsh's reeds stand cut and waiting; the reed-isle's post bears the three-flames mark in cut reed.
+reward  Fart Cloud level III (life 10s, radius 4.5, poison 6, a held release)
+title   the Aimed Weather
+keepsake the Reed Whistle
+tie     the marsh roads (Chain Spark, Awakened Fork, Fart Bombs)
+step    The reed gathering | | reeds_gathered 3 | Hold it in and it becomes philosophy.
+step    The weather argument | | pastime_rounds_won 1 | Weather you can aim.
+step    The cleared hall | | gas_pure_halls 1 | Tactics, dear.
+trial   The held release | | held_release_halls 1 | 
+art
+...8...
+.8.8.8.
+..888..
+.8...8.
+.88888.
+..8.8..

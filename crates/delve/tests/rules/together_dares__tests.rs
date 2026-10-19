@@ -13,7 +13,6 @@ fn dared(kind: DareKind) -> Run {
         count: 0,
         kept: false,
         broken: false,
-        viewers: run.audience,
         rose: None,
     });
     run
@@ -113,13 +112,13 @@ fn a_guardian_felled_in_time_keeps_make_it_quick() {
 }
 
 #[test]
-fn a_show_off_needs_three_hundred_thousand_more() {
-    let mut run = dared(DareKind::ShowOff);
-    run.thrill(250);
-    run.watch_dare(run.cues.len(), run.sounds.len());
+fn a_pathfinder_clears_three_rooms() {
+    let mut run = dared(DareKind::Pathfinder);
+    run.cues.extend(["room_clear".into(), "room_clear".into()]);
+    run.watch_dare(run.cues.len() - 2, run.sounds.len());
     assert!(!kept(&run));
-    run.thrill(60);
-    run.watch_dare(run.cues.len(), run.sounds.len());
+    run.cues.push("room_clear".into());
+    run.watch_dare(run.cues.len() - 1, run.sounds.len());
     assert!(kept(&run));
 }
 
@@ -145,7 +144,7 @@ fn friends_see_the_dare() {
             .dare
             .as_ref()
             .unwrap()
-            .standing(friend.tick, friend.audience),
+            .standing(friend.tick),
         "1 of 2"
     );
 }

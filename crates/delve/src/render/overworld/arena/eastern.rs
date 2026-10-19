@@ -74,7 +74,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let ink = if stage > i as u8 {
             'g'
         } else if stage == i as u8 {
-            'O'
+            'o'
         } else {
             'h'
         };
@@ -139,7 +139,7 @@ pub(super) fn board(run: &Run) -> Option<Img> {
         return None;
     }
     let stage = countryside::picnic_stage(&run.home.countryside, &run.marks);
-    Some(home::board(&[
+    Some(home::quest_board(&[
         ("THE ABBOT'S LOST PICNIC".into(), '9'),
         (
             match stage {

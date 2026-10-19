@@ -152,7 +152,7 @@ fn own_path() -> Option<PathBuf> {
     [
         std::env::var_os("ANGEL_RESOURCE_DIR")
             .map(|d| PathBuf::from(d).join("cockpit/assets/dungeon/phrasebook.txt")),
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/dungeon/phrasebook.txt")),
+        option_env!("ANGEL_SOURCE_COCKPIT_DIR").map(|d| PathBuf::from(d).join("assets/dungeon/phrasebook.txt")),
     ]
     .into_iter()
     .flatten()

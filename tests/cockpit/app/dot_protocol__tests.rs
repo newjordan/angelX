@@ -90,3 +90,23 @@ fn inside_tmux_every_command_rides_passthrough_and_decodes_the_same() {
         .replace("\x1b\x1b_G", "\x1b_G");
     assert_eq!(unwrapped, plain);
 }
+
+#[test]
+fn stack_encoded_placeholders_match_format_across_grid() {
+    let area = Rect::new(3, 2, 80, 36);
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 90, 42));
+    placeholders(0x00fa_57a4, Size::new(80, 36), area, &mut buffer);
+    for y in 0..36u16 {
+        for x in 0..80u16 {
+            let cell = buffer.cell((area.x + x, area.y + y)).unwrap();
+            let want = format!(
+                "\u{10eeee}{}{}",
+                mark(usize::from(y)),
+                mark(usize::from(x))
+            );
+            assert_eq!(cell.symbol(), want);
+            assert_eq!(cell.fg, Color::Rgb(0xfa, 0x57, 0xa4));
+        }
+    }
+}
+

@@ -1,0 +1,19 @@
+{
+  "delivery": "pennon.entrance.room-1",
+  "detached_alpha_pixels_removed": 0,
+  "metadata_sha256": "e52c0c15926fda56ffc439cd68c4fe5b320c17ab94aaccc9d5d57bfd381bfc16",
+  "native_contract": {
+    "v1": [
+      384,
+      224
+    ],
+    "v2": [
+      768,
+      448
+    ]
+  },
+  "prepared_sha256": "17a4234b7e50167c4a86dbe844e526b1c03fa152edfd8923eac96e06589b4c3b",
+  "recipe_sha256": "34a18f3cf0cff8feb39074e11b0ca483070be7834e57a341d067866964054bb5",
+  "source_path": "/work/artifacts/art-prod/slots/pennon.entrance.room-1/v01/source-sheet.png",
+  "source_sha256": "faa93d5a7e312cca10bc24b5e50691f39625001bcb0437c397f96c64eab63b23"
+}

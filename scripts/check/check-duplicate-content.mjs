@@ -75,6 +75,31 @@ export function matchesAny(path, globs) {
 //   min_members    group has at least this many members
 export const DEFAULT_RULES = [
   {
+    id: 'art-slot-kits',
+    reason:
+      'Imported slot art keeps a v1 and a v2 kit for each slot, and crates/delve/build.rs embeds the kits a slot\'s map.json names under `embed_kits`; a piece the v2 pass left alone is the same file in both kits, and frames of one animation that hold still (blank ghosts, held poses) share pixels. build.rs embeds by slot and piece name, so each name is load-bearing.',
+    all_match: ['crates/delve/assets/art-slots/**'],
+    min_members: 2,
+  },
+  {
+    id: 'boss-library-studies',
+    reason:
+      'A boss\'s library keeps every study it was chosen from (`library-vN-study-K-pose.png`) beside the chosen pose (`library-vN-pose.png`), which is a copy of the winning study; crates/delve/build.rs embeds the chosen names and the studies only under the boss-library-review feature.',
+    all_match: ['cockpit/assets/dungeon/bosses/**'],
+    min_members: 2,
+  },
+  {
+    id: 'held-animation-frames',
+    reason:
+      'Hall-game and arcade frames are looked up by state and beat: a tell\'s last beat (`-tell-3`) holds its first, a damage beat or a stage\'s idle shares that stage\'s pose, and the arcade knight\'s defeat holds a frame. The copies keep every state\'s frame table whole.',
+    all_match: [
+      'crates/delve/assets/pennon/**',
+      'crates/delve/assets/rafterwake/**',
+      'crates/delve/assets/arcade/knight/**',
+    ],
+    min_members: 2,
+  },
+  {
     id: 'labyrinth-complete-upstream-bundle',
     reason:
       'The complete pinned MIT upstream workflow is retained verbatim under cockpit/research/labyrinth/upstream/. Its dashboard/schema/license also have runtime and notice locations; UPSTREAM.json records every exact source hash.',

@@ -106,7 +106,7 @@ The model/prompt interaction that produces those long bursts needs a separate
 controlled comparison.
 
 Trace references, relative to
-`/home/frosty40/angel_tests/angelX-bench/polyglot-20260921`:
+`~/angel_tests/angelX-bench/polyglot-20260921`:
 
 - Angel: `runs-compact-full/qwen/angelx/seed0-20260925T202320Z/traces.jsonl`,
   line 134 (`js-wordy`, call 3), line 118 (`py-wordy`, call 3), and line 67

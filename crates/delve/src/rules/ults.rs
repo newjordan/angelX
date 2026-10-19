@@ -40,10 +40,12 @@ pub enum Ult {
     Assassinate,
     Phantasm,
     AxeStorm,
+    Lullaby,
+    Desertion,
 }
 
 impl Ult {
-    pub const ALL: [Ult; 11] = [
+    pub const ALL: [Ult; 13] = [
         Ult::PilgrimsArrow,
         Ult::LadysVeil,
         Ult::Trebuchet,
@@ -55,6 +57,8 @@ impl Ult {
         Ult::Assassinate,
         Ult::Phantasm,
         Ult::AxeStorm,
+        Ult::Lullaby,
+        Ult::Desertion,
     ];
 
     /// The ultimate a knight of the company carries.
@@ -70,6 +74,8 @@ impl Ult {
             "competition" => Ult::Assassinate,
             "scryglass" => Ult::Phantasm,
             "ironbraid" => Ult::AxeStorm,
+            "bard" => Ult::Lullaby,
+            "peasant" => Ult::Desertion,
             _ => Ult::PilgrimsArrow,
         }
     }
@@ -87,6 +93,8 @@ impl Ult {
             Ult::Assassinate => "Assassinate",
             Ult::Phantasm => "Phantasm",
             Ult::AxeStorm => "Axe Storm",
+            Ult::Lullaby => "Lullaby",
+            Ult::Desertion => "Desertion",
         }
     }
 
@@ -104,6 +112,8 @@ impl Ult {
             Ult::Assassinate => "assassinate",
             Ult::Phantasm => "phantasm",
             Ult::AxeStorm => "axe_storm",
+            Ult::Lullaby => "lullaby",
+            Ult::Desertion => "desertion",
         }
     }
 }
@@ -151,7 +161,7 @@ const PHANTOM_SHARE: u32 = 40;
 impl Run {
     /// The knights' charges fill while the party fights.
     pub(super) fn charge_ults(&mut self, credits: &[(u32, u32)]) {
-        let fighting = self.phase == Phase::Fighting;
+        let fighting = self.fighting();
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
             if fighting {
                 hero.ult_charge = (hero.ult_charge + PER_TICK).min(ULT_FULL);
@@ -235,6 +245,14 @@ impl Run {
                         }
                     }
                 }
+                // Desertion starts at input time, before movement and attacks.
+                Ult::Desertion => {}
+                Ult::Lullaby => {
+                    self.bard_songs.push(bard::Song {
+                        owner: id, until: self.tick + u64::from(bard::SONG_TICKS),
+                        reached: Default::default(),
+                    });
+                }
                 Ult::AxeStorm => {
                     hero.whirl = 3 * HZ;
                     hero.invulnerable = hero.invulnerable.max(HZ / 2);
@@ -259,6 +277,9 @@ impl Run {
                         let enemy = &mut self.enemies[i];
                         let damage = aoe::part(damage, rank).min(enemy.hp);
                         enemy.hp = enemy.hp.saturating_sub(damage);
+                        if damage > 0 && enemy.is_boss() {
+                            self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                        }
                         enemy.wits.foe = id;
                         self.feel.credit(id, enemy.id, damage, self.tick);
                         enemy.frozen = enemy.frozen.max(hold);
@@ -356,6 +377,9 @@ impl Run {
                             enemy.hp = 0;
                         }
                         enemy.wits.foe = id;
+                        if enemy.hp < was && enemy.is_boss() {
+                            self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                        }
                         self.feel.credit(id, enemy.id, was - enemy.hp, self.tick);
                         gilded.push((enemy.x, enemy.y));
                     }
@@ -445,6 +469,9 @@ impl Run {
             if let Some(enemy) = self.enemies.iter_mut().find(|e| e.id == tid) {
                 let actual = damage.min(enemy.hp);
                 enemy.hp = enemy.hp.saturating_sub(damage);
+                if actual > 0 && enemy.is_boss() {
+                    self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+                }
                 enemy.wits.foe = id;
                 self.feel.credit(id, enemy.id, actual, self.tick);
             }
@@ -522,12 +549,15 @@ impl Run {
         }
         self.strikes.retain(|s| s.fall > 0);
         for strike in landed {
-            aoe::strike(
+            let struck = aoe::strike(
                 &mut self.enemies,
                 (strike.x, strike.y),
                 strike.damage,
                 |e| (e.x - strike.x).hypot(e.y - strike.y) <= STRIKE_REACH + e.radius(),
             );
+            if struck.iter().any(|&(i, damage)| damage > 0 && self.enemies[i].is_boss()) {
+                self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
+            }
             if self.blasts.len() < 16 {
                 self.blasts.push((strike.x, strike.y, BLAST_TICKS));
             }

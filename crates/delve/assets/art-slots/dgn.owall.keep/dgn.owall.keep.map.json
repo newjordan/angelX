@@ -1,0 +1,407 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    12.0
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Wall faces 1 x 1.5 tiles; caps 1 tile (16 px v1 / 32 px v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "408ab903d3ef4adff691b203c3e327a7fddd049c683a6e9d642581f44c81609f",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "Plain north wall front segment with narrow top cap and iron bands.",
+      "name": "face-0",
+      "piece": 0,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        143.0,
+        205.0
+      ],
+      "source_rect_xywh": [
+        59,
+        78,
+        286,
+        410
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "Cracked north wall front segment with orange fissures.",
+      "name": "face-1",
+      "piece": 1,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        142.5,
+        205.0
+      ],
+      "source_rect_xywh": [
+        442,
+        78,
+        285,
+        410
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "North wall front segment with lit iron sconce.",
+      "name": "face-2",
+      "piece": 2,
+      "runtime": true,
+      "sampling": "cover",
+      "source_pivot_xy": [
+        144.0,
+        205.0
+      ],
+      "source_rect_xywh": [
+        816,
+        78,
+        288,
+        410
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "North-west turn, rendered as an orthogonal L-shaped cap/face assembly.",
+      "name": "corner-nw",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        142.5,
+        205.0
+      ],
+      "source_rect_xywh": [
+        1194,
+        78,
+        285,
+        410
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "label": "North-east turn, rendered as an orthogonal L-shaped cap/face assembly.",
+      "name": "corner-ne",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        143.5,
+        217.5
+      ],
+      "source_rect_xywh": [
+        59,
+        560,
+        287,
+        435
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "West cap A with chain down the center.",
+      "name": "west-0",
+      "piece": 5,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        91.0,
+        218.0
+      ],
+      "source_rect_xywh": [
+        495,
+        559,
+        182,
+        436
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "West cap B with a recessed iron grate.",
+      "name": "west-1",
+      "piece": 6,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        94.0,
+        218.5
+      ],
+      "source_rect_xywh": [
+        864,
+        559,
+        188,
+        437
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "East cap A, plain basalt cap strip.",
+      "name": "east-0",
+      "piece": 7,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        92.0,
+        218.5
+      ],
+      "source_rect_xywh": [
+        1240,
+        559,
+        184,
+        437
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "East cap B, basalt cap strip with distinct fissure pattern.",
+      "name": "east-1",
+      "piece": 8,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        91.5,
+        208.5
+      ],
+      "source_rect_xywh": [
+        105,
+        1043,
+        183,
+        417
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "South cap with iron grate.",
+      "name": "south",
+      "piece": 9,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        167.0,
+        89.5
+      ],
+      "source_rect_xywh": [
+        410,
+        1221,
+        334,
+        179
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "South-west outer corner cap, orthogonal L turn.",
+      "name": "corner-sw",
+      "piece": 10,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        141.5,
+        150.5
+      ],
+      "source_rect_xywh": [
+        821,
+        1105,
+        283,
+        301
+      ],
+      "state": "owall"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.85,
+        "value": 0.8
+      },
+      "inset_fraction": 0.025,
+      "label": "South-east outer corner cap, orthogonal L turn.",
+      "name": "corner-se",
+      "piece": 11,
+      "runtime": true,
+      "sampling": "cover",
+      "sizes": {
+        "v1": [
+          16,
+          16
+        ],
+        "v2": [
+          32,
+          32
+        ]
+      },
+      "source_pivot_xy": [
+        144.0,
+        150.5
+      ],
+      "source_rect_xywh": [
+        1191,
+        1105,
+        288,
+        301
+      ],
+      "state": "owall"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.owall.keep",
+  "source_sha256": "a4ef7474bfaab6dc2ddc886996a957c9fc37ea17573d60b4875cc681675ec89a",
+  "timing": ""
+}

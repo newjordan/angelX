@@ -1,0 +1,77 @@
+set kings-hall
+# King's Hall: 24 x 14 tiles of 16 stage pixels.
+# Made from the game's own layout by angel-delve world3d::blockout; written by the
+# write_world3d_sets test (ANGEL_WORLD3D_SETS=1). Change the generator, not this file.
+camera room 384 224
+plate 1536 1024
+# Painted on open floor, not blocks: the runner from the great door to the dais, braziers along the walls.
+
+# the ground: its top is the floor line
+box    floor   at 192 -4 112 size 384 4 224
+
+# the north wall, columns 0 to 23
+box    stone   at 192 -4 8 size 384 52 16
+box    metal   at 8 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 8 51 8 size 8 10.4 8
+box    metal   at 376 48 8 size 10 3 10  # TODO prims: frustum
+cone   fire    at 376 51 8 size 8 10.4 8
+
+# the south wall, columns 0 to 23 (at 81% of its height, for the camera)
+box    stone   at 192 -4 212 size 384 10 8  # TODO prims: wedge
+box    stone   at 192 -4 220 size 384 16.5 8
+box    metal   at 8 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 8 15 220 size 6 6.5 6
+box    metal   at 376 12.5 220 size 8 2.5 8  # TODO prims: frustum
+cone   fire    at 376 15 220 size 6 6.5 6
+
+# the west wall, rows 1 to 12
+box    stone   at 8 -4 112 size 16 52 192
+
+# the east wall, rows 1 to 12
+box    stone   at 376 -4 112 size 16 52 192
+
+# dais at 10,1 4x2
+box    stone   at 192 0 32 size 63 3 31 id dais  # TODO prims: stairs
+box    stone   at 192 3 31 size 56 3 24
+box    stone   at 192 6 24.5 size 12 13 9
+box    cloth   at 192 14 15.5 size 16 28 3
+
+# furnace at 19,3 4x6 (at 13% of its height, for the camera)
+box    stone   at 336 0 96 size 62 5.91 94 id furnace
+box    metal   at 336 3 143 size 20 2.91 1
+
+# desk at 4,8 4x2 (at 64% of its height, for the camera)
+box    wood    at 96 0 144 size 62 5.5 30 id desk-1
+box    plaster at 96 5.5 144 size 63 0.5 31
+
+# desk at 3,3 1x1 (at 66% of its height, for the camera)
+box    wood    at 56 0 56 size 14 7 14 id desk-2
+box    plaster at 56 7 56 size 15 0.5 15
+
+# column at 7,3 1x1 (at 21% of its height, for the camera)
+box    stone   at 120 -4 56 size 12 11 12 id column-1  # TODO prims: cylinder
+box    stone   at 120 7 56 size 14 0.5 14
+
+# column at 16,3 1x1 (at 21% of its height, for the camera)
+box    stone   at 264 -4 56 size 12 11 12 id column-2  # TODO prims: cylinder
+box    stone   at 264 7 56 size 14 0.5 14
+
+# column at 7,7 1x1 (at 24% of its height, for the camera)
+box    stone   at 120 -4 120 size 12 12 12 id column-3  # TODO prims: cylinder
+box    stone   at 120 8 120 size 14 0.5 14
+
+# column at 16,7 1x1 (at 24% of its height, for the camera)
+box    stone   at 264 -4 120 size 12 12 12 id column-4  # TODO prims: cylinder
+box    stone   at 264 8 120 size 14 0.5 14
+
+# rug at 11,4 2x8
+box    rug     at 192 0 128 size 30 0.6 126 id rug
+
+# plate at 11,12 2x1
+box    stone   at 192 0 200 size 30 1.5 14 id plate  # TODO prims: stairs
+
+# fixed to the far wall: windows, banners, hearths, lamps
+box    metal   at 56 18 16 size 3 5 3
+cone   fire    at 56 23 16 size 5 7 5
+box    metal   at 328 18 16 size 3 5 3
+cone   fire    at 328 23 16 size 5 7 5

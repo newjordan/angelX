@@ -1,0 +1,39 @@
+{
+  "fit": "native canvas 14x20, anchor bottom-centre (7,20); stage 384x224 at 16 px per tile; a knight is 16x16; a brazier is a little shorter than 1.3 knights.",
+  "frame_groups": [
+    {
+      "kind": "poses",
+      "names": [
+        "out-0"
+      ],
+      "source_pose_count": 1,
+      "state": "out"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "lit-0",
+        "lit-1",
+        "lit-2",
+        "lit-3"
+      ],
+      "source_pose_count": 4,
+      "state": "lit"
+    },
+    {
+      "kind": "poses",
+      "names": [
+        "gutter-0",
+        "gutter-1",
+        "gutter-2"
+      ],
+      "source_pose_count": 3,
+      "state": "gutter"
+    }
+  ],
+  "game": "lanternward",
+  "geometry": "Collision is one tile and belongs to the rules; art never sets a hitbox. The stage stamps the frame bottom-centre at the tile centre x and one half tile below the tile centre y (the tile foot).",
+  "id": "lanternward.brazier",
+  "role": "prop",
+  "timing": "out 12 ticks; lit 4x4 ticks; gutter 3x4 ticks (30 Hz). Art never sets a hitbox (collision is one tile)."
+}

@@ -1,0 +1,23 @@
+power wish:heavy 3
+teacher Old Sledge
+place the counterweight shop at Gullible Cliffs, where the goat lift is wound
+room Cliffs
+look barrel-chested, a hammer worn down to a wedge, tea the colour of ore
+line Heavy is honest. Light has to explain itself.
+hook The level-2 card carries ...and a weight to it, like a hammer worn down to a wedge.
+step The counterweight | sign the three western survey stakes and ride the goat lift once | stakes_signed 1 | Heavy goes down honest. Light needs a pulley and an excuse. | needs stakes_signed
+step The pot put | win one Pot Put record attempt at the Fair's greensward | pastime_records_set 1 | Good thump. Honest clay. | needs pastime_records_set
+step The ore tithe | bring Old Sledge three ore from the Mines | ore_given_to_forge 5 | Now that's a tithe with spine. | cue forge
+step The door that yields | break three monster doors with swings alone | doors_broken 3 | The door yielded. They always do, eventually, to honest weight.
+trial The single-blow hall | every monster falls to a single swing or shot, one blow each | oneblow_halls 1 | Once, like you mean it.
+reward Heavy Heads tier 3
+title the Wedge
+keepsake the Worn Hammer, a hammer head worn to a wedge that rings once on every one-blow kill
+ties The stakes and lift are the cliffs' errand on Reynard's road; the ore tithe shares Wymond's forge spoils; the pot put shares the greensward with Pib.
+art
+.88888.
+8877888
+88.8.88
+.8...8.
+.8...8.
+..8.8..

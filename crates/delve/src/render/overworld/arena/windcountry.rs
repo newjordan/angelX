@@ -132,7 +132,7 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
                 let order=w::ORDER.iter().position(|&n|n==i).unwrap();
                 let lit=stage>order as u8+2;
                 let (x,y)=at(x*2.0,y*2.0);cv.rect(x-2,y-12,3,18,'r');cv.rect(x+1,y-12,11,7,if lit{'9'}else{'O'});
-                cv.text(x-12,y+8,["BOOT","CROWN","FISH"][i],if lit{'9'}else{'h'});
+                cv.text(x-12,y+8,["BOOT","CROWN","FISH"][i],if lit{'i'}else{'h'});
             }
         }
         RoomKind::GooseGreen=>{
@@ -148,7 +148,7 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
                     let elapsed=TRENCHER_FLIGHT-p.left;
                     let arc=(elapsed*(TRENCHER_FLIGHT-elapsed)*48/(TRENCHER_FLIGHT*TRENCHER_FLIGHT)) as i32;
                     cv.rect(p.x*TILE/256-5,7*TILE-arc,10,2,'O');
-                    cv.text(landing-16,9*TILE,"CATCH",'9');
+                    cv.text(landing-16,9*TILE,"CATCH",'i');
                 }
             }
         }

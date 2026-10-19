@@ -1,0 +1,102 @@
+set chunk-0-3
+# The kingdom, chunk 0,3 in The Fen: tiles 0..24 x 48..64 (24 x 16 of 16 stage pixels).
+# Made from the game's own map by angel-delve world3d::chunks; written by the
+# write_world3d_chunks test (ANGEL_WORLD3D_CHUNKS=1). Change the generator, not this file.
+camera chunk 384 256 centre 192 896
+plate 1536 1024
+
+# ground
+box    water   at 32 -4 896 size 64 1 256
+box    sand    at 80 -4 776 size 32 4 16
+box    water   at 104 -4 888 size 16 1 240
+box    sand    at 120 -4 848 size 16 4 160
+box    grass   at 152 -4 816 size 48 4 96
+box    path    at 200 -4 784 size 48 4 32
+box    mud     at 240 -4 776 size 32 4 16
+box    water   at 320 -4 776 size 128 1 16
+box    water   at 80 -4 888 size 32 1 208
+box    grass   at 240 -4 824 size 32 4 80
+box    sand    at 296 -4 792 size 80 4 16
+box    water   at 360 -4 800 size 48 1 32
+box    grass   at 184 -4 832 size 16 4 64
+box    path    at 200 -4 840 size 16 4 80
+box    grass   at 216 -4 832 size 16 4 64
+box    grass   at 288 -4 832 size 64 4 64
+box    sand    at 328 -4 808 size 16 4 16
+box    grass   at 328 -4 832 size 16 4 32
+box    sand    at 344 -4 832 size 16 4 32
+box    water   at 368 -4 824 size 32 1 16
+box    water   at 360 -4 848 size 16 1 32
+box    sand    at 376 -4 840 size 16 4 16
+box    path    at 336 -4 872 size 32 4 48
+box    path    at 376 -4 872 size 16 4 48
+box    path    at 160 -4 872 size 64 4 16
+box    path    at 264 -4 872 size 112 4 16
+box    wood    at 360 -4 872 size 16 4 16
+box    grass   at 224 -4 896 size 192 4 32
+box    water   at 360 -4 896 size 16 1 32
+box    grass   at 328 -4 912 size 16 4 32
+box    sand    at 344 -4 904 size 16 4 16
+box    water   at 376 -4 960 size 16 1 128
+box    sand    at 136 -4 936 size 16 4 48
+box    grass   at 232 -4 920 size 176 4 16
+box    grass   at 344 -4 920 size 16 4 16
+box    mud     at 360 -4 952 size 16 4 80
+box    water   at 120 -4 960 size 16 1 64
+box    grass   at 224 -4 936 size 160 4 16
+box    mud     at 328 -4 960 size 48 4 64
+box    sand    at 152 -4 968 size 16 4 48
+box    grass   at 232 -4 952 size 144 4 16
+box    water   at 136 -4 976 size 16 1 32
+box    mud     at 176 -4 968 size 32 4 16
+box    grass   at 240 -4 992 size 96 4 64
+box    mud     at 296 -4 976 size 16 4 32
+box    mud     at 168 -4 984 size 16 4 16
+box    grass   at 184 -4 1000 size 16 4 48
+box    water   at 72 -4 1008 size 16 1 32
+box    mud     at 88 -4 1008 size 16 4 32
+box    mud     at 120 -4 1008 size 16 4 32
+box    sand    at 136 -4 1000 size 16 4 16
+box    grass   at 160 -4 1008 size 32 4 32
+box    grass   at 320 -4 1008 size 64 4 32
+box    sand    at 360 -4 1008 size 16 4 32
+box    mud     at 104 -4 1016 size 16 4 16
+box    grass   at 136 -4 1016 size 16 4 16
+
+# the Gatehouse of Gatehouse: a gatehouse arch between towers at 9,53 2x1 (at 34% of its height, for the camera)
+cylinder stone   at 150.33 0 857.67 size 10.67 12 10.67 id gatehouse
+cone   slate   at 150.33 12 857.67 size 12.67 4 12.67
+box    window  at 150.33 8 862.75 size 2.5 1.5 1
+cylinder stone   at 169.67 0 857.67 size 10.67 10 10.67
+cone   slate   at 169.67 10 857.67 size 12.67 3 12.67
+box    window  at 169.67 6.5 862.75 size 2.5 1.5 1
+arch   stone   at 160 0 857.67 size 10.67 7 8.67
+box    door    at 160 0 857.67 size 5.9 5.5 1
+box    stone   at 157.33 7 861.25 size 2.93 1.5 1.5
+box    stone   at 162.67 7 861.25 size 2.93 1.5 1.5
+
+# woods (at 41% of its height, for the camera)
+frustum trunk   at 136 0 824 size 3 5 3
+blob-55 foliage at 136 2.5 824 size 19 6 18.05 turn 270
+cylinder trunk   at 168 0 904 size 3 4 3
+cone   foliage at 168 2.5 904 size 19 8.5 19
+cone   foliage at 168 7.5 904 size 13.68 9 13.68
+cylinder trunk   at 264.5 0 904.5 size 3 4 3
+blob-60 foliage at 264.5 1.5 904.5 size 18 9 17.1 turn 90
+frustum trunk   at 200.5 0 935.5 size 3 3.5 3
+blob-38 foliage at 200.5 1.5 935.5 size 18 8.5 17.1 turn 90
+frustum trunk   at 297 0 953 size 3 5 3
+blob-38 foliage at 297 2 953 size 17 11.5 16.15 turn 180
+box    hedge   at 216 0 936 size 16 6 15
+blob-37 hedge   at 216 4 936 size 16 4.5 15
+
+# bridges (at 99% of its height, for the camera)
+box    wood    at 360 -3 856 size 16 5.5 16
+box    wood    at 360 -3 888 size 16 5.5 16
+box    wood    at 376 -3 904 size 16 5.5 16
+box    wood    at 360 0 847.25 size 16 6 1.5
+arch   stone   at 360 -4 895 size 16 6.5 2
+box    wood    at 360 0 896.75 size 16 5.5 1.5
+arch   stone   at 376 -4 911 size 16 6.5 2
+box    wood    at 376 0 912.75 size 16 5.5 1.5
+box    wood    at 367.25 0 904 size 1.5 6 16

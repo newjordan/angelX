@@ -1,0 +1,156 @@
+{
+  "source_path": "/work/artifacts/art-prod/slots/bossfx.shoggoth-heart.impact/v01/source-sheet-3.png",
+  "source_sha256": "b91e87270c47f398a6bc1e187a5bc698ab3c27e649dec1c79e8ae59f44d883ee",
+  "original_sheet_sha256": "b91e87270c47f398a6bc1e187a5bc698ab3c27e649dec1c79e8ae59f44d883ee",
+  "metadata_sha256": "4d2f0e16166ba0f0996af1c7aa08127dedb79d0911260739e4970a715395eca1",
+  "size": [
+    1254,
+    1254
+  ],
+  "frames": [
+    {
+      "source_rect_xywh": [
+        304,
+        104,
+        319,
+        334
+      ],
+      "alpha_area": 65122,
+      "index": 0,
+      "file": "00.png",
+      "sha256": "fef0ea9a27052ccb29a8bd265e44db947f5bd00942a3fa94f1241caef3e3ac1e"
+    },
+    {
+      "source_rect_xywh": [
+        656,
+        161,
+        273,
+        279
+      ],
+      "alpha_area": 35696,
+      "index": 1,
+      "file": "01.png",
+      "sha256": "5254a47c2f146c9d29c07c3ec4e1c13251ab121436d214f61ebc300d6333a786"
+    },
+    {
+      "source_rect_xywh": [
+        988,
+        192,
+        212,
+        213
+      ],
+      "alpha_area": 17943,
+      "index": 2,
+      "file": "02.png",
+      "sha256": "7c1fd27b0d2c8c0ff714d0c82c6573b3d5ab1b537826db530b478130f48618aa"
+    },
+    {
+      "source_rect_xywh": [
+        63,
+        222,
+        195,
+        191
+      ],
+      "alpha_area": 20128,
+      "index": 3,
+      "file": "03.png",
+      "sha256": "cce369acc8ba63bb6d30c6f81cdc263f5e32be2ce457ab50f4fddc5783db46cc"
+    },
+    {
+      "source_rect_xywh": [
+        32,
+        646,
+        253,
+        153
+      ],
+      "alpha_area": 20465,
+      "index": 4,
+      "file": "04.png",
+      "sha256": "2d4bdd92bcc0bd4a81077ff8e36388c1df3ee10a4c19fb158e4a1a17c438a66e"
+    },
+    {
+      "source_rect_xywh": [
+        325,
+        586,
+        242,
+        216
+      ],
+      "alpha_area": 29363,
+      "index": 5,
+      "file": "05.png",
+      "sha256": "098401558d62f0bcb9554f52c769264cd50c5f7bbb36fe2a69744d8803ad256c"
+    },
+    {
+      "source_rect_xywh": [
+        604,
+        521,
+        306,
+        297
+      ],
+      "alpha_area": 55175,
+      "index": 6,
+      "file": "06.png",
+      "sha256": "c2cde1e45c2c469510c6c4fbdf112959885e85f0561ad7c39822572cd4a3f24f"
+    },
+    {
+      "source_rect_xywh": [
+        987,
+        541,
+        252,
+        257
+      ],
+      "alpha_area": 32539,
+      "index": 7,
+      "file": "07.png",
+      "sha256": "d8468e69f79d93be63b1f345a1198151df1d51b4af6c5f791eb4d9d796f04d57"
+    },
+    {
+      "source_rect_xywh": [
+        57,
+        931,
+        205,
+        212
+      ],
+      "alpha_area": 17063,
+      "index": 8,
+      "file": "08.png",
+      "sha256": "42a6d7bb69456c3b73078ec6eff9f2968426de6d3a73875ded8ac4fbd948b07e"
+    },
+    {
+      "source_rect_xywh": [
+        366,
+        990,
+        229,
+        167
+      ],
+      "alpha_area": 18767,
+      "index": 9,
+      "file": "09.png",
+      "sha256": "e7a0345d002cbd31d9f74e23e7e003890503ffed97a92584717238cd3f6ebcf0"
+    },
+    {
+      "source_rect_xywh": [
+        689,
+        939,
+        217,
+        215
+      ],
+      "alpha_area": 20759,
+      "index": 10,
+      "file": "10.png",
+      "sha256": "9042f40683dde155a3a88c17b65879a842d6f3e2cf587f6f07048a2ac2fda508"
+    },
+    {
+      "source_rect_xywh": [
+        970,
+        920,
+        241,
+        248
+      ],
+      "alpha_area": 27222,
+      "index": 11,
+      "file": "11.png",
+      "sha256": "30de980a303e058172a0b2c3e43557478f91be0f6695b97c8465953c1dcdbff5"
+    }
+  ]
+}

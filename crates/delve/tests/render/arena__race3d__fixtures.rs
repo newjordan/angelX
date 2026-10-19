@@ -11,6 +11,7 @@ pub fn racing(course: Course, seats: u32) -> Run {
             let mut r = Run::new(seed, 1, None);
             for _ in 0..6 {
                 r.descend_for_test();
+                r.race3d_hall_for_test();
                 if Course::of_floor(r.dungeon.depth) == course && r.race3d_room.is_some() {
                     return Some(r);
                 }

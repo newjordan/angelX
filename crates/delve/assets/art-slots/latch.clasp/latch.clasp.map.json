@@ -1,0 +1,279 @@
+{
+  "anchor_canvas_wh": [
+    80,
+    80
+  ],
+  "anchor_xy": [
+    40,
+    80
+  ],
+  "comments": [
+    "Visually reviewed against sources-1.png through sources-5.png on 2026-10-15.",
+    "Supplemental pieces retained as reviewed proposals; runtime selects existing states only.",
+    "Every body already faces left in the delivered sheet. Twin eyes enlarged by existing visor treatment at reviewed face sockets; action seams remain clipped to opaque body."
+  ],
+  "delivered_pieces": 12,
+  "expected_existing_pieces": 9,
+  "geometry": "Duel::height=-1/+1 selects contact y=120/144; draw() lane starts x=192, width=25, height=2. Counter legality is Beat/ticks/guard, never the image outline.",
+  "mapping_basis": "Inspected source poses and manually measured transparent gutters; runtime names match existing renderer states.",
+  "notes_sha256": "e19ac9a4f4277f08021c6e863def897f15d635eaf87e62711764b9ba4564b136",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Idle breathing: upright, hook raised slightly; eyes visible.",
+      "name": "idle",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        141.5,
+        239
+      ],
+      "source_rect_xywh": [
+        21,
+        170,
+        283,
+        239
+      ],
+      "state": "idle"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "High windup: hook held high.",
+      "name": "high-tell",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        134.0,
+        329
+      ],
+      "source_rect_xywh": [
+        352,
+        77,
+        268,
+        329
+      ],
+      "state": "high-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "High strike: forward hook motion.",
+      "name": "high-attack",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        155.0,
+        211
+      ],
+      "source_rect_xywh": [
+        623,
+        209,
+        310,
+        211
+      ],
+      "state": "high-attack"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Low windup: crouched, tool arm extended.",
+      "name": "low-tell",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        146.5,
+        211
+      ],
+      "source_rect_xywh": [
+        941,
+        209,
+        293,
+        211
+      ],
+      "state": "low-tell"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Low strike: low sweeping posture.",
+      "name": "low-attack",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        156.0,
+        203
+      ],
+      "source_rect_xywh": [
+        21,
+        577,
+        312,
+        203
+      ],
+      "state": "low-attack"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Hit flinch: recoiling/lifted posture.",
+      "name": "flinch",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        152.0,
+        308
+      ],
+      "source_rect_xywh": [
+        340,
+        472,
+        304,
+        308
+      ],
+      "state": "flinch"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 1: dented shell, standing.",
+      "name": "damage-1",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        124.0,
+        227
+      ],
+      "source_rect_xywh": [
+        674,
+        554,
+        248,
+        227
+      ],
+      "state": "damage-1"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Damage stage 2: more battered, hunched.",
+      "name": "damage-2",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        130.0,
+        225
+      ],
+      "source_rect_xywh": [
+        970,
+        558,
+        260,
+        225
+      ],
+      "state": "damage-2"
+    },
+    {
+      "approved": true,
+      "frame": 0,
+      "label": "Defeat: dismantled body and detached tool pieces; eyes remain visible.",
+      "name": "defeat",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        145.0,
+        234
+      ],
+      "source_rect_xywh": [
+        29,
+        938,
+        290,
+        234
+      ],
+      "state": "defeat"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "label": "Recover: settling upright.",
+      "name": "piece-09",
+      "piece": 9,
+      "runtime": false,
+      "source_pivot_xy": [
+        147.0,
+        234
+      ],
+      "source_rect_xywh": [
+        333,
+        938,
+        294,
+        234
+      ],
+      "state": "recover"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "label": "Step 1: forward heavy step.",
+      "name": "piece-10",
+      "piece": 10,
+      "runtime": false,
+      "source_pivot_xy": [
+        143.5,
+        224
+      ],
+      "source_rect_xywh": [
+        649,
+        910,
+        287,
+        224
+      ],
+      "state": "step-1"
+    },
+    {
+      "approved": true,
+      "frame": 11,
+      "label": "Step 2: follow-through step.",
+      "name": "piece-11",
+      "piece": 11,
+      "runtime": false,
+      "source_pivot_xy": [
+        145.5,
+        224
+      ],
+      "source_rect_xywh": [
+        944,
+        910,
+        291,
+        224
+      ],
+      "state": "step-2"
+    }
+  ],
+  "registration": "shared-feet",
+  "review": "reviewed",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "80\u00d780 sources enlarged once to 100\u00d7100; top-left (217+recoil+shake,56), base canvas foot (50,100). Face positions differ per pose in art() eyes[]; terminal visor snaps to cells.",
+  "sizes": {
+    "v1": [
+      80,
+      80
+    ],
+    "v2": [
+      80,
+      80
+    ]
+  },
+  "slot": "latch.clasp",
+  "source_preparation": {
+    "alpha_threshold": 128,
+    "effect_value_cap": null,
+    "metadata_sha256": "982fd68893435f7f062f5070d619bbd1b1f802355ace01a7569ff557ac1ea40c",
+    "original_path": "/work/artifacts/art-prod/slots/latch.clasp/v01/source-sheet.png",
+    "original_sha256": "42cefb9fe685b47d5c626650ec3dd78abbfeeea7c91a07ff3fce2a732267342c",
+    "room_gain": null,
+    "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
+    "warm_boundary_cleanup": "alpha <224, R >1.65G and R >1.65B",
+    "warm_effect_grade": "pale cores to 216/169/94; warm R<=208, G<=0.82R, B raised toward 0.30R within G"
+  },
+  "source_sha256": "57acabed78eb532bc0188c23f559602520ff7ed9a8f4d9a3b3d3d6f7013d134c",
+  "timing": "Nine source poses; tell 36, missed attack/recovery 18, clean flinch 18 plus STOP=4 freeze. Rest 24 initially, then 21/18 after counters. Damage poses at counters 1/2; defeat at 3 after final clean (Duel::step_at; renderer::pose)."
+}

@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.tiles/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP (re-run).",
+  "generation_sha256": "b6cac20a8d91493250685e0dd7da2864fc2c0e22be68dbeaa0b40ddc8c149cad",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "d72d4ded8d351c91d8b808a0a4e54d35582a00f63a59aa28558071c18b054438",
+  "native_contract": "Native 16x16 per tile.",
+  "notes_sha256": "c47d947dc0623edb010c710710f722f856e7be0093c56efe6a832dc99703c27a",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "e8e59711220e29b912ee6db264274334dbbc3f27b24e1d3999745e4aff5baf7b",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the re-run; v01-first, rejected for copying its reference textures, is kept outside the repo and not used)",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.tiles/v01/source-sheet.png",
+  "source_sha256": "2030b019a65f1ea1af610ff431310b61ad7e676bd42d49655988ffce2e638844"
+}

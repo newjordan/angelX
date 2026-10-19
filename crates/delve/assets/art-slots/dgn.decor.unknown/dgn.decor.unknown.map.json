@@ -1,0 +1,334 @@
+{
+  "anchor_canvas_wh": [
+    16,
+    24
+  ],
+  "anchor_xy": [
+    8.0,
+    24
+  ],
+  "comments": [
+    "No perspective warp or rotation. Original angled side pieces inactive.",
+    "Native BOX reduction, alpha threshold 128, existing shared inks.",
+    "Pack grade follows DUNGEON-JUDGE.md. Palette untouched."
+  ],
+  "delivered_pieces": 12,
+  "embed_kits": [
+    "v1",
+    "v2"
+  ],
+  "expected_existing_pieces": 12,
+  "geometry": "Props 12-24 px (v1) / 24-48 px (v2).",
+  "mapping_basis": "unreviewed request order when counts match; otherwise delivered labels",
+  "notes_sha256": "3d35af736ee3240cfad0e6ee8fb5dd114c1e2fa7bcb512f28653ab4cf0f34f44",
+  "pieces": [
+    {
+      "approved": true,
+      "frame": 0,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Three separate frames of a black-violet cyclopean brazier with changing pale teal flames.",
+      "name": "flame-0",
+      "piece": 0,
+      "runtime": true,
+      "source_pivot_xy": [
+        122.0,
+        497
+      ],
+      "source_rect_xywh": [
+        85,
+        80,
+        244,
+        497
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 1,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, narrower flame with floating motes.",
+      "name": "flame-1",
+      "piece": 1,
+      "runtime": true,
+      "source_pivot_xy": [
+        120.5,
+        471
+      ],
+      "source_rect_xywh": [
+        476,
+        110,
+        241,
+        471
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 2,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Same brazier, taller bending flame and distinct motes.",
+      "name": "flame-2",
+      "piece": 2,
+      "runtime": true,
+      "source_pivot_xy": [
+        119.5,
+        473
+      ],
+      "source_rect_xywh": [
+        859,
+        105,
+        239,
+        473
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 3,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Low organic stone oil lamp with a teal flame and eye-like side details.",
+      "name": "lamp",
+      "piece": 3,
+      "runtime": true,
+      "source_pivot_xy": [
+        128.5,
+        292
+      ],
+      "source_rect_xywh": [
+        1230,
+        246,
+        257,
+        292
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 4,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Violet masonry barrel bound by a slick vein, with an eye inset.",
+      "name": "barrel",
+      "piece": 4,
+      "runtime": true,
+      "source_pivot_xy": [
+        127.0,
+        330
+      ],
+      "source_rect_xywh": [
+        57,
+        700,
+        254,
+        330
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 5,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Rubble and bones with a curling organic root/vein.",
+      "name": "bones",
+      "piece": 7,
+      "runtime": true,
+      "source_pivot_xy": [
+        186.0,
+        276
+      ],
+      "source_rect_xywh": [
+        398,
+        769,
+        372,
+        276
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 6,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Pale web stretched between stone uprights, with an eye-like central knot.",
+      "name": "web",
+      "piece": 5,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.0,
+        292
+      ],
+      "source_rect_xywh": [
+        843,
+        723,
+        318,
+        292
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 7,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Broken stone pick with a vein-wrapped handle and eye inset.",
+      "name": "prop-0",
+      "piece": 6,
+      "runtime": true,
+      "source_pivot_xy": [
+        133.0,
+        339
+      ],
+      "source_rect_xywh": [
+        1226,
+        705,
+        266,
+        339
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 8,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Crooked cyclopean stone marker with a blank eye-like inset.",
+      "name": "prop-1",
+      "piece": 8,
+      "runtime": true,
+      "source_pivot_xy": [
+        116.0,
+        377
+      ],
+      "source_rect_xywh": [
+        82,
+        1099,
+        232,
+        377
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 9,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Branching slick organic floor stain with teal glints.",
+      "name": "decal-0",
+      "piece": 9,
+      "runtime": true,
+      "source_pivot_xy": [
+        193.0,
+        347
+      ],
+      "source_rect_xywh": [
+        387,
+        1127,
+        386,
+        347
+      ],
+      "state": "decor"
+    },
+    {
+      "approved": true,
+      "frame": 10,
+      "grade": {
+        "saturation": 0.8,
+        "value": 0.85
+      },
+      "label": "Jagged masonry crack with sparse pale-teal veins and scattered fragments.",
+      "name": "decal-1",
+      "piece": 10,
+      "runtime": true,
+      "source_pivot_xy": [
+        159.5,
+        383
+      ],
+      "source_rect_xywh": [
+        844,
+        1102,
+        319,
+        383
+      ],
+      "state": "decor"
+    },
+    {
+      "anchor_fraction": [
+        0.5,
+        0.5
+      ],
+      "approved": true,
+      "frame": 11,
+      "grade": {
+        "saturation": 0.65,
+        "value": 0.5
+      },
+      "label": "Soft warm radial pool of light with transparent surrounding area.",
+      "name": "glow",
+      "piece": 11,
+      "runtime": true,
+      "sizes": {
+        "v1": [
+          64,
+          64
+        ],
+        "v2": [
+          128,
+          128
+        ]
+      },
+      "source_pivot_xy": [
+        121.5,
+        134.0
+      ],
+      "source_rect_xywh": [
+        1225,
+        1144,
+        243,
+        268
+      ],
+      "state": "decor"
+    }
+  ],
+  "registration": "own-bounds",
+  "review": "Source contacts and judge verdict reviewed; orthogonal subset",
+  "runtime": true,
+  "schema_version": 1,
+  "size_basis": "16x24",
+  "sizes": {
+    "v1": [
+      16,
+      24
+    ],
+    "v2": [
+      32,
+      48
+    ]
+  },
+  "slot": "dgn.decor.unknown",
+  "source_sha256": "32b594b332e45b1c3c23ed126b101a024fea9eb46b4544a4ef0a0016b8109db8",
+  "timing": ""
+}

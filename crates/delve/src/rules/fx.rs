@@ -31,6 +31,7 @@ pub fn ground_pace(
     tune: &super::tune::Tune,
 ) -> f32 {
     let mut pace = tune.hero_speed * (100 + hero.bonus.speed) as f32 / 100.0 * hero.pit.pace();
+    if hero.peasant() { pace *= peasant::PACE; }
     if hero.immune == 0 && Run::webbed(webs, hero.x, hero.y) {
         pace *= hunters::WEB_PACE;
     }
@@ -42,6 +43,9 @@ pub fn ground_pace(
     }
     if hero.chilled > 0 {
         pace *= lich::CHILL_PACE;
+    }
+    if hero.mired > 0 {
+        pace *= horrors::GRIP_PACE;
     }
     if roads.is_some_and(|geo| kingdom::on_road(geo, hero.x, hero.y)) {
         pace *= tune.road_pace;

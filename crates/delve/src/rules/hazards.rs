@@ -299,7 +299,7 @@ impl Run {
     fn pour(&mut self, side: usize) {
         let depth = self.dungeon.depth.min(FLOORS) as usize;
         // Each knight past the first brings two more through the door.
-        let more = stakes::EXTRA_PER_KNIGHT * self.party_len().saturating_sub(1);
+        let more = stakes::EXTRA_PER_KNIGHT * self.party_len().saturating_sub(1) * self.ramp() / 100;
         let count = (2 + depth + more).min(6 + more);
         let ((x0, y0), (ix, iy)) = doorway(&self.dungeon.rooms[self.at], side);
         let (lx, ly) = (iy, ix);
@@ -417,6 +417,11 @@ impl Run {
                     }
                 }
                 Trap::Rockfall => {
+                    // The ceiling settles once the room is won: no rock falls on a
+                    // knight resting in a cleared room (or sat in its privy).
+                    if self.room().cleared {
+                        continue;
+                    }
                     let living: Vec<(f32, f32)> = self
                         .players
                         .values()
@@ -496,8 +501,11 @@ impl Run {
             return false; // exhausted provision leaves the genuine chest usable
         }
         self.dungeon.rooms[self.at].chest = None;
-        self.dungeon.rooms[self.at].cleared = false;
-        self.phase = Phase::Fighting;
+        // On an open map a mimic is one more foe where it stands.
+        if !self.open_map() {
+            self.dungeon.rooms[self.at].cleared = false;
+            self.phase = Phase::Fighting;
+        }
         self.cues.push("mimic".into());
         self.sounds.push("mimic");
         self.notice("it_was_a_chest");

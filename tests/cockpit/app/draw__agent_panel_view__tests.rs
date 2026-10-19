@@ -195,7 +195,7 @@ fn blocked_approval_owns_the_bay_caption_and_sampler_precedence() {
 }
 
 #[test]
-fn active_webgpu_stage_has_a_visible_agent_pane_card() {
+fn active_stage_has_a_visible_round_table_card() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
     use crate::ui::viewer::Viewer;
@@ -209,8 +209,7 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
     crate::drive::comp_mode::invalidate_cache();
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal =
-        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.council = crate::ui::viz::council::Council::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -224,15 +223,15 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
         .collect::<String>();
     assert!(
         rendered.contains("Round Table · judge"),
-        "portal title missing: {rendered}"
+        "Round Table title missing: {rendered}"
     );
     assert!(
-        !rendered.contains("WebGPU") && !rendered.contains("seats"),
+        !rendered.contains("seats"),
         "the table shows its seats; the title is no spec line: {rendered}"
     );
     assert!(
         rendered.contains("the council gathers"),
-        "portal pending state missing: {rendered}"
+        "the gathering line is missing: {rendered}"
     );
 }
 
@@ -405,7 +404,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
 
     assert!(
         super::side_column_kitty_compose_allowed(),
-        "default bay still encodes Kitty portraits/portal"
+        "default bay still encodes Kitty portraits and the Round Table"
     );
     let mut composed = 0usize;
     assert_eq!(
@@ -418,8 +417,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     assert_eq!(composed, 1);
 
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal =
-        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.council = crate::ui::viz::council::Council::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -433,7 +431,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
         .collect::<String>();
     assert!(
         standard.contains("Round Table") && standard.contains("the council gathers"),
-        "default visible bay still paints the portal card\n{standard}"
+        "default visible bay still paints the Round Table card\n{standard}"
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
@@ -450,8 +448,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     assert_eq!(skipped, 0, "comp/lean must not invoke Kitty compose");
 
     let mut armed = App::preview(Viewer::static_preview());
-    armed.agentviz_portal =
-        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    armed.council = crate::ui::viz::council::Council::presentation_for_test("judge", 3);
     let mut lean = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     lean.draw(|frame| render_agent_bay(frame, &mut armed, frame.area()))
         .expect("render lean agent bay");
@@ -468,7 +465,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     );
     assert!(
         !lean_text.contains("Round Table") && !lean_text.contains("the council gathers"),
-        "comp-mode must not compose the portal card\n{lean_text}"
+        "comp-mode must not compose the Round Table card\n{lean_text}"
     );
 
     drop(_on);
@@ -697,15 +694,11 @@ fn round_table_paints_the_station_table_with_the_council_on_kitty() {
     crate::drive::comp_mode::invalidate_cache();
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::kitty_for_test());
-    app.agentviz_portal = crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(
+    app.council = crate::ui::viz::council::Council::council_for_test(
         "judge",
         &[SeatState::Running, SeatState::Returned, SeatState::Failed],
     );
-    let shown = app
-        .agentviz_portal
-        .presentation()
-        .expect("council presents");
-    assert!(shown.painted, "the painted table is the default picture");
+    let shown = app.council.presentation().expect("council presents");
     assert_eq!(shown.deed, crate::ui::viz::council_table::Deed::Judge);
 
     let frames = draw_council_until_painted(&mut app, 48, 16);
@@ -736,7 +729,7 @@ fn round_table_paints_the_station_table_with_the_council_on_kitty() {
 
     // A seat coming back changes the picture; the old one stays up while
     // the new one encodes, so the panel never blanks to the gathering line.
-    app.agentviz_portal = crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(
+    app.council = crate::ui::viz::council::Council::council_for_test(
         "judge",
         &[SeatState::Returned, SeatState::Returned, SeatState::Failed],
     );
@@ -812,8 +805,7 @@ fn write_council_panel_shots() {
             ((48, 14), (10, 20)),
         ] {
             let mut app = App::preview(Viewer::kitty_cells_for_test(cell));
-            app.agentviz_portal =
-                crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(stage, &states);
+            app.council = crate::ui::viz::council::Council::council_for_test(stage, &states);
             // The real terminal path: ratatui's own diff and flush, as
             // Kitty receives a live session's bytes.
             let sink = Sink::default();

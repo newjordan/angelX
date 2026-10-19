@@ -1,0 +1,14 @@
+{
+  "default": {
+    "compact": false,
+    "hide_hints_after": null
+  },
+  "compact": {
+    "compact": true,
+    "hide_hints_after": 150
+  },
+  "strip_y": 34,
+  "strip_x": 64,
+  "seat_step": 64,
+  "note": "Display-only trial. ANGEL_MINIGAME_HUD=compact selects the prototype; full standings and hints remain the default."
+}

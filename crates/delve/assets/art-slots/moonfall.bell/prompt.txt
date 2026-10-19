@@ -1,0 +1,22 @@
+medieval arcade physical comedy, squat chunky mass, enormous expressive hands or appendages, heavy boots where anatomical, scuffed lived-in equipment. Crisp hand-clustered pixel art, visible stepped pixel clusters, restricted rich material ramps, warm north-west ivory light and cool shadows. Readable broad silhouettes rather than tiny texture noise. No smooth 3D render, no photorealism.
+KNIGHT ANATOMY (from the onboarding art direction): enormous helmets, gloves nearly as large as helmets, heavy boots, short limbs, round bellies, spring-loaded stances; bent feathers, uneven repairs, dents; bold dark contours; bright steel glints; royal blue, ochre, cream, red and brown. Choose expressive asymmetry over catalogue symmetry. Recruits wear a brown headband around a bucket helmet and a cheap off-white karate-gi; player knights have modular helmets, pauldrons, surcoats, heraldry, capes and crests.
+SHEET RULES (they produced the good results): ONE sheet, genuinely transparent alpha background; isolated drawings in equal cells with at least 40 pixels of EMPTY TRANSPARENT space around every piece; art within ~65% of each cell; never touching cell borders or image edges; smaller pieces keep natural relative scale; NO text, labels, UI, lettering, gridlines, scenery, floor shadows, broad glow or gradient matte. Dark-room friendly: no hypercontrast, no pure white.
+ORIGINALITY: original designs only; never an existing commercial game character, enemy, vehicle or logo.
+
+SHEET RULES: Create one 1536x1024 prop sheet with real transparent background. Four columns by two rows; each cell is about 384x512 pixels. Reading order left to right, top to bottom. Exactly seven separate drawings, one in each of cells 1–7; cell 8 (bottom right) remains completely empty and transparent. Each drawing is about 400 px tall, same scale, centre line and bottom baseline in every cell; leave at least 40 px empty around each drawing and never touch or merge with neighbours or sheet edges. No labels, text, dividers, floor, scenery, shadows, glow, halo, or effects. Draw only the object itself.
+
+ASSET IDENTITY: Moonwell Bell, an original town prop: a tall timber bell-frame with two thick vertical posts, thick crossbeam, small pitched dark slate cap roof on the crossbeam, and ONE large bright brass bell hanging by a yoke from the crossbeam between the posts. Bell mouth sits about one third of frame height above base. A short thick rope hangs from the clapper. Upright billboard sprite, designed to reduce cleanly to native 24x36 px: very broad flat shapes, thick warm dark-brown outline, no texture, no lettering, no fine detail. Weathered grey-brown timber with pale top edges, dark slate roof with pale rim, bright brass bell is the lightest warmest shape. Match the brass bell and iron post colours, chunky stepped shading and contour weight of the accepted Moonwell sheet. Keep frame and cap identical in every cell; only bell, clapper, rope move. Damped physical swing. No motion marks.
+
+POSES IN READING ORDER:
+Cell 1 idle-0: bell hangs perfectly straight and still, rope vertical.
+Cell 2 ring-0: bell tilted RIGHT about 28 degrees; clapper hangs out below lip on opposite side of tilt; rope swings with it.
+Cell 3 ring-1: bell tilted LEFT about 28 degrees; clapper opposite; rope swings with it.
+Cell 4 ring-2: bell tilted RIGHT about 18 degrees; clapper opposite; rope swings with it.
+Cell 5 ring-3: bell tilted LEFT about 18 degrees; clapper opposite; rope swings with it.
+Cell 6 ring-4: bell tilted RIGHT about 10 degrees; clapper opposite; rope swings with it.
+Cell 7 ring-5: bell tilted LEFT about 6 degrees; clapper opposite; rope swings with it.
+Cell 8 empty transparent.
+
+CAMERA: high three-quarter front view for a top-down town game, about 45 degrees above. Object stands upright like a billboard sprite. Keep the view consistent across cells.
+
+Reference roles: input image 1 is the layout and quality reference; input image 2 is the knight anatomy reference; input image 3 is the props/VFX reference. These three are STYLE AND MATERIAL anchors only; do not copy their characters, costumes, objects, or heraldry. The provided bell belfry and accepted Moonwell sheet are additional style and material references only.

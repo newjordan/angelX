@@ -1,0 +1,16 @@
+{
+  "delivery": "bannerpeak.wheel/v01",
+  "delivery_status": "Producer note (wave 4): ACCEPTED WITH CLEANUP (re-run).",
+  "generation_sha256": "23981661ec87295a1f5a1f6080b0a341f61b6e8e7e1e861e257297b74ec023f8",
+  "generations": 1,
+  "generator": "Luna (gpt-6-luna) via Codex CLI",
+  "metadata_sha256": "e731ff4b8dab4708866fb110929667ba09a2b42c074b1cb6a0c97a5504daaa7a",
+  "native_contract": "Native 96x96, hub at the canvas centre (48,48).",
+  "notes_sha256": "67e4ebefed613d5109f095dd1c2ea8ad785cfbad5c1a50aa7d4dab7cef5cab01",
+  "prompt": "prompt.txt",
+  "prompt_sha256": "adb4e83a7ec40a00fdcdbc769bb3cd25e319a2798bffc15e1aa1fa78c35cd714",
+  "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
+  "selected_sheet": "source-sheet.png (the re-run; v01-first is kept outside the repo and not used). The delivery's generation.json is the first run's record; the producer note accepts this re-run",
+  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.wheel/v01/source-sheet.png",
+  "source_sha256": "6b6937fee30f149d22d161a94b9087858c4f8e46d982f9d4c1ccbe941832fa26"
+}

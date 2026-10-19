@@ -159,7 +159,12 @@ impl Run {
 
     /// Entering a room for the first time: about one in five has a frog.
     pub(super) fn maybe_frog(&mut self, index: usize, first_visit: bool) {
-        if !first_visit || self.side_on() || self.dungeon.depth == 0 {
+        // The Wax Maze's lanes are the wax's and the wraiths'.
+        if !first_visit
+            || self.side_on()
+            || self.dungeon.depth == 0
+            || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)
+        {
             return;
         }
         let room = &self.dungeon.rooms[index];
@@ -334,7 +339,7 @@ impl Run {
                 hero.rider = true;
                 self.cues.push("frog_boards".into());
                 self.sounds.push("spoil_pickup");
-                let name = hero.knight_name().unwrap_or_else(|| hero.name.clone());
+                let name = hero.shown_name();
                 self.found = Some((self.tick, id, format!("A frog leaps onto {name}'s shoulder")));
             }
         }

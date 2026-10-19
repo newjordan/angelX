@@ -204,6 +204,21 @@ pub enum Effect {
     Fork(u32),
     /// A hit leaves a fart cloud on what it struck, oftener with N.
     Fart(u32),
+    /// Shots are N sizes bigger: drawn larger, and they hit what a bigger
+    /// shot would (`wishcraft`).
+    Size(u32),
+    /// Hits shove monsters N steps further back.
+    Knock(u32),
+    /// Hits set monsters burning, N times as hot (Fire Arrows' burn).
+    Burn(u32),
+    /// Hits chill monsters: they walk slowly for N times the Lich's chill.
+    Chill(u32),
+    /// Hits poison monsters, N times as strong as the gas skill's.
+    Poison(u32),
+    /// Shots fly out and come back to the hand, like the thrown blade.
+    Boomerang(u32),
+    /// Shots fly N% faster, as far.
+    Velocity(u32),
     /// Spoils carried out of the delve for the realm's treasury.
     Bone(u32),
     Wax(u32),
@@ -550,8 +565,8 @@ const SPECS: &[Spec] = &[
     Spec {
         word: "shots",
         low: 1,
-        high: 2,
-        cap: 1,
+        high: 3,
+        cap: 2,
         hold: true,
         spend: false,
         make: Effect::Shots,
@@ -650,8 +665,8 @@ const SPECS: &[Spec] = &[
     Spec {
         word: "fork",
         low: 1,
-        high: 2,
-        cap: 2,
+        high: 3,
+        cap: 3,
         hold: true,
         spend: false,
         make: Effect::Fork,
@@ -666,6 +681,76 @@ const SPECS: &[Spec] = &[
         spend: false,
         make: Effect::Fart,
         says: "your hits leave a fart cloud on what they strike, oftener with N",
+    },
+    Spec {
+        word: "size",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Size,
+        says: "your shots are N sizes bigger: drawn larger, and they hit wider",
+    },
+    Spec {
+        word: "knock",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Knock,
+        says: "your hits shove monsters N steps further back",
+    },
+    Spec {
+        word: "burn",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Burn,
+        says: "your shots are aflame: hits set monsters burning, hotter with N",
+    },
+    Spec {
+        word: "chill",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Chill,
+        says: "your shots are frost: hits slow monsters to a crawl, longer with N",
+    },
+    Spec {
+        word: "poison",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Poison,
+        says: "your shots are venom: hits poison monsters, stronger with N",
+    },
+    Spec {
+        word: "boomerang",
+        low: 1,
+        high: 1,
+        cap: 1,
+        hold: true,
+        spend: false,
+        make: Effect::Boomerang,
+        says: "your shots fly out, turn, and come back to your hand, striking again on the way",
+    },
+    Spec {
+        word: "velocity",
+        low: 10,
+        high: 60,
+        cap: 60,
+        hold: true,
+        spend: false,
+        make: Effect::Velocity,
+        says: "your shots fly N% faster, as far",
     },
     Spec {
         word: "bone",
@@ -760,7 +845,7 @@ impl Effect {
         })
     }
 
-    fn parts(self) -> (&'static str, u32) {
+    pub(super) fn parts(self) -> (&'static str, u32) {
         let value = match self {
             Effect::Cast(_) => return ("cast", 0),
             Effect::Cabbages(v) => return ("cabbages", v),
@@ -789,6 +874,13 @@ impl Effect {
             | Effect::Burst(v)
             | Effect::Fork(v)
             | Effect::Fart(v)
+            | Effect::Size(v)
+            | Effect::Knock(v)
+            | Effect::Burn(v)
+            | Effect::Chill(v)
+            | Effect::Poison(v)
+            | Effect::Boomerang(v)
+            | Effect::Velocity(v)
             | Effect::Bone(v)
             | Effect::Wax(v)
             | Effect::Ore(v)
@@ -825,7 +917,10 @@ impl Effect {
         }
         let (word, value) = self.parts();
         match self {
-            Effect::Damage(_) | Effect::Rate(_) | Effect::Speed(_) => format!("{word} +{value}%"),
+            Effect::Damage(_) | Effect::Rate(_) | Effect::Speed(_) | Effect::Velocity(_) => {
+                format!("{word} +{value}%")
+            }
+            Effect::Boomerang(_) => word.to_string(),
             Effect::Ward(_) => format!("ward {value}s"),
             Effect::MaxHp(_) => format!("max hp +{value}"),
             Effect::Pierce(_) | Effect::Shots(_) | Effect::Armor(_) => format!("{word} +{value}"),
@@ -1191,8 +1286,10 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 "bow" => plain = Some(Weapon::Bow),
                 "crossbow" => plain = Some(Weapon::Crossbow),
                 "handgonne" => plain = Some(Weapon::Handgonne),
+                "notes" => plain = Some(Weapon::Notes),
+                "stones" => plain = Some(Weapon::Stones),
                 other => errors.push(format!(
-                    "line {n}: arm `{other}` — use bow, crossbow or handgonne, or Forge rune lines"
+                    "line {n}: arm `{other}` — use bow, crossbow, handgonne or notes, or Forge rune lines"
                 )),
             },
             "bolt" | "spread" | "melee" | "throw" => runes.push(format!("{word} {rest}")),
@@ -1273,10 +1370,14 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
             }
             _ => {
                 if let Some(spec) = SPECS.iter().find(|s| s.word == word) {
-                    let value = rest
-                        .trim_start_matches('+')
-                        .trim_end_matches(['%', 's'])
-                        .parse::<u32>();
+                    // A word with one value (`boomerang`) may stand alone.
+                    let value = if rest.trim().is_empty() && spec.low == spec.high {
+                        Ok(spec.low)
+                    } else {
+                        rest.trim_start_matches('+')
+                            .trim_end_matches(['%', 's'])
+                            .parse::<u32>()
+                    };
                     match value {
                         Ok(value) => {
                             let clamped = value.clamp(spec.low, spec.high);
@@ -1449,7 +1550,7 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 }
             }
             (None, true) => errors.push(
-                "an arm card needs `arm bow|crossbow|handgonne` or Forge runes (bolt/melee/spread/look)".into(),
+                "an arm card needs `arm bow|crossbow|handgonne|notes` or Forge runes (bolt/melee/spread/look)".into(),
             ),
         }
     } else {
@@ -1580,22 +1681,102 @@ pub struct Bonus {
     pub fork: u32,
     #[serde(default)]
     pub fart: u32,
+    /// What wishes made literal (`wishcraft`): bigger shots, harder
+    /// shoves, burning, chilling and poisoning hits, shots that come back,
+    /// faster shots. Left off the wire at zero.
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub size: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub knock: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub burn: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub chill: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub poison: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub boomerang: u32,
+    #[serde(default, skip_serializing_if = "nothing")]
+    pub velocity: u32,
+}
+
+fn nothing(n: &u32) -> bool {
+    *n == 0
 }
 
 /// What each copy of one card is worth, in percent: the first whole, the
 /// second half, the third a quarter, and nothing after.
 const COPIES: [f32; 3] = [1.0, 0.5, 0.25];
 
+/// The held words, in the order `Bonus::of` sums them.
+const WORDS: [&str; 22] = [
+    "damage", "rate", "speed", "pierce", "shots", "armor", "vamp", "bounce", "homing", "chain",
+    "mend", "orbit", "burst", "fork", "fart", "size", "knock", "burn", "chill", "poison",
+    "boomerang", "velocity",
+];
+
+/// Wishes of one family (two wishes for faster shots) are worth less each:
+/// the strongest whole, the next half, the next a quarter, none after.
+pub const WISH_STEPS: [f32; 3] = [1.0, 0.5, 0.25];
+
+/// The most a knight's wishes add up to of each word, under the card cap
+/// (`cap`): a wish is a gift, not the whole build.
+pub fn wish_cap(word: &str) -> u32 {
+    match word {
+        "damage" => 25,
+        "rate" => 20,
+        "speed" => 20,
+        "velocity" => 40,
+        "burst" => 15,
+        // More shots multiply every other gift: one, from wishes.
+        "shots" => 1,
+        _ => cap(word).min(2),
+    }
+}
+
+/// How much a knight's wishes may give together, by the floor they stand
+/// on (the last for every floor below): in whole words at their wish cap.
+/// Floor 1's three wishes fit; a deep knight's twenty do not, and what they
+/// hold is given in proportion.
+pub const WISH_BUDGET: [f32; 7] = [3.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+
+/// A word counted in whole steps (pierce, shots, armour ...), not percent.
+fn whole(word: &str) -> bool {
+    cap(word) <= 3
+}
+
 impl Bonus {
+    /// What `held` adds, with no floor's budget on its wishes.
     pub fn of<'a>(held: impl IntoIterator<Item = &'a Card>) -> Bonus {
+        Bonus::within(held, None)
+    }
+
+    /// What `held` adds for a knight on `floor`: found cards as they come
+    /// (copies of one worth less, `COPIES`), wishes by their own clamps
+    /// (`WISH_STEPS`, `wish_cap`, `WISH_BUDGET` when a floor is named), a
+    /// wish's super effect only with its recipe (`combos`), all of it
+    /// under the card caps.
+    pub fn within<'a>(held: impl IntoIterator<Item = &'a Card>, floor: Option<u32>) -> Bonus {
+        let held: Vec<&Card> = held.into_iter().collect();
+        let families = super::combos::held_families(held.iter().copied());
         let mut seen: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
-        let mut sums = [0.0f32; 16];
+        let mut sums = [0.0f32; 22];
+        let mut wished: [Vec<f32>; 22] = Default::default();
         let mut bonus = Bonus::default();
         for card in held {
+            let wish = super::combos::is_wish(card);
             let copy = seen.entry(card.id.as_str()).or_insert(0);
             let worth = COPIES.get(*copy).copied().unwrap_or(0.0);
             *copy += 1;
             for effect in card.effects.iter().copied() {
+                if wish
+                    && let Some(word) = super::combos::effect_word(&effect)
+                    && !super::combos::unlocked(word, &families)
+                {
+                    // Not yet: it hits a little harder till its recipe is held.
+                    wished[0].push(super::combos::STAND_IN as f32);
+                    continue;
+                }
                 let slot = match effect {
                     Effect::Damage(v) => Some((0, v)),
                     Effect::Rate(v) => Some((1, v)),
@@ -1612,6 +1793,13 @@ impl Bonus {
                     Effect::Burst(v) => Some((12, v)),
                     Effect::Fork(v) => Some((13, v)),
                     Effect::Fart(v) => Some((14, v)),
+                    Effect::Size(v) => Some((15, v)),
+                    Effect::Knock(v) => Some((16, v)),
+                    Effect::Burn(v) => Some((17, v)),
+                    Effect::Chill(v) => Some((18, v)),
+                    Effect::Poison(v) => Some((19, v)),
+                    Effect::Boomerang(v) => Some((20, v)),
+                    Effect::Velocity(v) => Some((21, v)),
                     // Volleys don't add up: the tightest cadence held
                     // counts, and none is tighter than `VOLLEY_FLOOR`.
                     Effect::Volley(v) => {
@@ -1626,34 +1814,82 @@ impl Bonus {
                     _ => None,
                 };
                 if let Some((i, value)) = slot {
-                    sums[i] += value as f32 * worth;
+                    if wish {
+                        wished[i].push(value as f32);
+                    } else {
+                        sums[i] += value as f32 * worth;
+                    }
                 }
             }
         }
-        let capped = |i: usize, word: &str| (sums[i].round() as u32).min(cap(word));
-        bonus.damage = capped(0, "damage");
-        bonus.rate = capped(1, "rate");
-        bonus.speed = capped(2, "speed");
-        bonus.pierce = capped(3, "pierce");
-        bonus.shots = capped(4, "shots");
+        // Each word's wishes, strongest first, each further one worth less,
+        // to the word's wish cap; then the floor's budget over them all.
+        let mut share = [0.0f32; 22];
+        let mut power = 0.0;
+        for i in 0..22 {
+            let mut v = std::mem::take(&mut wished[i]);
+            v.sort_by(|a, b| b.total_cmp(a));
+            let sum: f32 = v.iter().zip(WISH_STEPS).map(|(v, k)| v * k).sum();
+            let top = wish_cap(WORDS[i]) as f32;
+            share[i] = sum.min(top);
+            if top > 0.0 {
+                power += share[i] / top;
+            }
+        }
+        if let Some(floor) = floor {
+            let budget = WISH_BUDGET[(floor as usize).min(WISH_BUDGET.len() - 1)];
+            if power > budget {
+                let k = budget / power;
+                share.iter_mut().for_each(|s| *s *= k);
+            }
+        }
+        let capped = |i: usize| {
+            let word = WORDS[i];
+            let value = if whole(word) {
+                // A whole step needs three quarters of one.
+                let found = if word == "armor" { sums[i].floor() } else { sums[i].round() };
+                found + (share[i] + 0.25).floor()
+            } else {
+                (sums[i] + share[i]).round()
+            };
+            (value as u32).min(cap(word))
+        };
+        bonus.damage = capped(0);
+        bonus.rate = capped(1);
+        bonus.speed = capped(2);
+        bonus.pierce = capped(3);
+        bonus.shots = capped(4);
         // Mail is worn in whole pieces: copies that add up to part of one
         // add none.
-        bonus.armor = (sums[5].floor() as u32).min(cap("armor"));
-        bonus.vamp = capped(6, "vamp");
-        bonus.bounce = capped(7, "bounce");
-        bonus.homing = capped(8, "homing");
-        bonus.chain = capped(9, "chain");
-        bonus.mend = capped(10, "mend");
-        bonus.orbit = capped(11, "orbit");
-        bonus.burst = capped(12, "burst");
-        bonus.fork = capped(13, "fork");
-        bonus.fart = capped(14, "fart");
+        bonus.armor = capped(5);
+        bonus.vamp = capped(6);
+        bonus.bounce = capped(7);
+        bonus.homing = capped(8);
+        bonus.chain = capped(9);
+        bonus.mend = capped(10);
+        bonus.orbit = capped(11);
+        bonus.burst = capped(12);
+        bonus.fork = capped(13);
+        bonus.fart = capped(14);
+        bonus.size = capped(15);
+        bonus.knock = capped(16);
+        bonus.burn = capped(17);
+        bonus.chill = capped(18);
+        bonus.poison = capped(19);
+        // A shot comes back or it doesn't: any copy held is the whole of it.
+        bonus.boomerang = u32::from(sums[20] + share[20] > 0.0).min(cap("boomerang"));
+        bonus.velocity = capped(21);
         bonus
     }
 }
 
 /// No volley comes round oftener than every this many shots.
 const VOLLEY_FLOOR: u32 = 5;
+
+/// The numbers a card's `word` line takes, low to high, if it is a word.
+pub fn range(word: &str) -> Option<(u32, u32)> {
+    SPECS.iter().find(|s| s.word == word).map(|s| (s.low, s.high))
+}
 
 /// The most a knight's held cards may add up to of effect `word`.
 pub fn cap(word: &str) -> u32 {
@@ -1735,6 +1971,8 @@ pub const BUILTIN: &[(&str, &str)] = &[
         "crossbow",
         include_str!("../../../../cockpit/assets/dungeon/cards/crossbow.card"),
     ),
+    ("thrown-stones", include_str!("../../../../cockpit/assets/dungeon/cards/thrown-stones.card")),
+    ("note-stream", include_str!("../../../../cockpit/assets/dungeon/cards/note-stream.card")),
     (
         "handgonne",
         include_str!("../../../../cockpit/assets/dungeon/cards/handgonne.card"),
@@ -2043,7 +2281,7 @@ drop   <0–100 weight in monster drops>   chest <0–100 weight as a chest priz
 where  crypt | mines | keep | anywhere   (which delve it drops in)\n\
 <effect> <number>   at most {MAX_EFFECTS}:\n{effects}\n\
 Spell cards: `cooldown <1–120 seconds>` is required; use heal, bombs, nova, ward or `cast bolt|ring|meteor`. Shapes carry your shot traits.\n\
-Arm cards: `arm bow|crossbow|handgonne`, or Forge rune lines (bolt/spread/melee/look; see /dungeon forge).\n\
+Arm cards: `arm bow|crossbow|handgonne|notes`, or Forge rune lines (bolt/spread/melee/look; see /dungeon forge).\n\
 Summons (spell or play cards): `summon N swarm|guard|turret` — {summon}.\n\
 Looks on the field: `draw <slot>` then rows of inks, 1–{frames} frames side by side with `|` between (a worn piece drawn small may add `at=<place>`: {places}):\n{slots}\n\
 `sheet <slot> <file.png> [frames=N] [size=N] [at=<place>]` names a picture in .angel/dungeon/sheets/ (a strip of up to {frames} frames on a flat background, at most 2 MiB) that is cut into those rows when the card loads. Hold and spell cards may also say `look <colour> <shape>` for their knight's shots.\n\

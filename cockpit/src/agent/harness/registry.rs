@@ -913,6 +913,7 @@ impl ToolRegistry {
         maybe_register_fleet_tools(&mut r);
         maybe_register_llm_tools(&mut r);
         crate::agent::tools::jev::maybe_register_jev(&mut r);
+        crate::agent::harness::cartridges::tools::register(&mut r, &workspace);
         maybe_register_embedding_tools(&mut r, workspace);
         maybe_register_code_mode(&mut r);
         maybe_register_handle_read(&mut r);
@@ -1057,6 +1058,7 @@ impl ToolRegistry {
         maybe_register_fleet_tools(&mut r);
         maybe_register_llm_tools(&mut r);
         crate::agent::tools::jev::maybe_register_jev(&mut r);
+        crate::agent::harness::cartridges::tools::register(&mut r, &workspace);
         maybe_register_embedding_tools(&mut r, workspace);
         maybe_register_code_mode(&mut r);
         maybe_register_handle_read(&mut r);
@@ -1969,7 +1971,7 @@ pub(crate) fn is_essential_tool(name: &str) -> bool {
             | "swarm_compile"
             | "skill"
             | "tool_search"
-    )
+    ) || crate::agent::harness::cartridges::tools::is_core(name)
 }
 
 /// Bounded / competition / forced-essential advertised set. Orchestration

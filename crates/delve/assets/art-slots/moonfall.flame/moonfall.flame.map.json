@@ -1,0 +1,66 @@
+{
+  "runtime": false,
+  "embed_kits": [
+    "v1"
+  ],
+  "anchor": [
+    14,
+    40
+  ],
+  "pieces": [
+    {
+      "name": "dim-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "dim-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 10
+    },
+    {
+      "name": "lit-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "lit-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "lit-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "lit-3",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuffing-0",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuffing-1",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    },
+    {
+      "name": "snuffing-2",
+      "runtime": false,
+      "approved": false,
+      "ticks": 5
+    }
+  ]
+}

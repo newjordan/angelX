@@ -1,0 +1,23 @@
+power wish:twin 3
+teacher Hodge and Podge
+place the stables' loft, west of the gate
+room Stables
+look identical except that one is left-handed; they finish each other's arrows
+line Two shafts, one thought.
+hook The level-2 card carries ...and a second nock, cut by a left hand.
+step The handedness test | shoot Wat's practice butts left-handed and right-handed, three each | practice_butts_hit 6 | Two shafts, one thought. | cue shoot
+step The wheelwright's join | complete one workshop commission for the wheelwright | commissions_done 1 | Which of us taught you? Yes. | needs commissions_done
+step The four-slot hand | play four cards in four seconds in the Delve | fast_plays 1 | Left and right agree. Rare. Marry them.
+step The pontificate | return the three lost tax minutes to the Speaker | tax_minutes_returned 1 | Bureaucracy and archery agree: everything in duplicate. | cue deliver
+trial The doubled hall | every killing blow lands as a pair, both shafts on the same monster | paired_kill_halls 1 | One thought. Two shafts. No argument.
+reward Twin Fletch tier 3
+title the Second Nock
+keepsake the Twin Nocks, two nock-cuts at the glove that flash in unison on every paired kill
+ties The four-slot hand is Pib's own step; the join is Wymond's commission ground; the parliament is Reynard's postal road and Fenna's mail.
+art
+.8...8.
+..8.8..
+..888..
+.8.8.8.
+.8...8.
+...b...

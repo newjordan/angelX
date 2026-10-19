@@ -1,0 +1,30 @@
+# Longbow Green: three straw butts with their targets on the turf bank, the two popinjay poles and rope, the judges' pavilion in the north-east corner and the archers' rack in the north-west.
+# the butts: thick straw drums with a three-ring target on each face
+box    thatch  at 107 5 30 size 30 30 18
+sphere brick   at 107 19 40 size 22 22 3
+sphere plaster at 107 24 40 size 14 14 3.6
+sphere brick   at 107 28 40 size 6 6 4.2
+box    thatch  at 192 5 30 size 30 30 18
+sphere brick   at 192 19 40 size 22 22 3
+sphere plaster at 192 24 40 size 14 14 3.6
+sphere brick   at 192 28 40 size 6 6 4.2
+box    thatch  at 277 5 30 size 30 30 18
+sphere brick   at 277 19 40 size 22 22 3
+sphere plaster at 277 24 40 size 14 14 3.6
+sphere brick   at 277 28 40 size 6 6 4.2
+# the popinjay: two tall poles at the back, a rope between them and the bird hung from it
+box    wood    at 96 0 8 size 6 78 6
+box    wood    at 288 0 8 size 6 78 6
+box    wood    at 192 72 8 size 192 1.5 1.5
+box    wood    at 192 62 8 size 1 10 1
+sphere trunk   at 192 54 8 size 7 9 6
+# the judges' pavilion: four posts, a striped hipped roof, a counter
+box    wood    at 326 0 3 size 4 34 4
+box    wood    at 362 0 3 size 4 34 4
+box    wood    at 326 0 13 size 4 34 4
+box    wood    at 362 0 13 size 4 34 4
+hip    cloth   at 344 34 8 size 58 16 30
+box    wood    at 344 0 6 size 40 9 8
+# the archers' rack: arrows on a fence and a quiver barrel
+fence-6 wood   at 40 0 8 size 36 16 3
+cylinder-8 wood at 58 0 10 size 9 12 9
