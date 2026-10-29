@@ -91,3 +91,12 @@ a{color:inherit}
   .mast{padding-top:24px}
   .tabs-wrap{overflow-x:auto}
 }
+
+/* ─── 0.1.9 harness comparison ─────────────────────────────────── */
+.v019-table th:nth-child(3){text-align:right}
+.v019-table tbody th{text-align:left}
+.v019-table td:nth-child(2){text-align:left;white-space:nowrap}
+.v019-chart{margin:22px 0 0}
+.v019-chart a{display:block;max-width:900px}
+.v019-chart img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.v019-chart figcaption{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--faint)}
