@@ -29,7 +29,8 @@ cd angelX
 ```
 
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
-[Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
+[Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE) ·
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## New in 0.2.5
 
@@ -365,4 +366,12 @@ Field proven: 100+ records on Yukon public research leaderboards, with first-pla
 results in kernel optimization, LLM inference and cryptography research, and
 2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
 leaderboard.  https://www.yukon.org/
+
+## Contributing
+
+Fork the repository and open a pull request against `main`. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Jordan
+([@newjordan](https://github.com/newjordan)) reviews and merges; there are no
+other human maintainers yet. Report security issues privately; see
+[SECURITY.md](SECURITY.md).
 
