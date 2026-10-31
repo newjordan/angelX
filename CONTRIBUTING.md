@@ -59,3 +59,11 @@ cargo fmt --manifest-path cockpit/Cargo.toml --check
 - Benchmark claims need pinned source, model and effort, explicit run settings,
   retained failures and an independent evaluator. A completed answer is not
   itself proof of success.
+
+## Pull requests
+
+Fork the repository, branch off `main`, and open the pull request against `main`.
+
+- Keep each patch focused.
+- Run the check scripts listed in [Setup](#setup) before opening the pull request.
+- Expect review from [@newjordan](https://github.com/newjordan). Jordan reviews and merges; there are no other human maintainers yet.
