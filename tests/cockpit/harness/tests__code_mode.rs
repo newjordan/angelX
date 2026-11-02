@@ -470,6 +470,7 @@ fn code_mode_nested_call_respects_blocking_hook() {
             command: "echo denied; exit 1".into(),
         }],
         post: vec![],
+        ..Hooks::default()
     };
     let args = serde_json::json!({ "script": "return reverse({text:'ab'});" });
     let r = dispatch_with_hooks(&reg, &block, "code_mode", &args);

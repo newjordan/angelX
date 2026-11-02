@@ -341,9 +341,9 @@ where
     app.submit_deferral = true;
     // `--resume [id]` (the phoenix relight): reload a saved session before the
     // first frame so a restarted self continues the same conversation.
-    if let Some(id) = launch.resume {
-        app.startup_resume(id);
-    }
+    // SessionStart fires once: source `resume` when that load succeeds,
+    // otherwise `startup` (a fresh launch, or a resume that found nothing).
+    app.establish_launch_session(launch.resume.clone());
     eprintln!("RUN: entering event loop");
     let mut applied_title: Option<String> = None;
     let mut game_keyboard_active = false;

@@ -1013,7 +1013,7 @@ pub(crate) fn output_timed_captured_cancellable_with_progress(
     cancel: Option<&std::sync::atomic::AtomicBool>,
     progress: Option<Arc<ToolOutputProgress>>,
 ) -> Result<TimedCapture, String> {
-    output_timed_inner(cmd, timeout, cancel, progress, false, false)
+    output_timed_inner(cmd, timeout, cancel, progress, false, false, None)
 }
 
 /// Run a short internal control-plane probe with a deadline that remains fixed
@@ -1026,7 +1026,19 @@ pub(crate) fn output_timed_fixed_captured(
     cmd: Command,
     timeout: Duration,
 ) -> Result<TimedCapture, String> {
-    output_timed_inner(cmd, Some(timeout), None, None, false, true)
+    output_timed_inner(cmd, Some(timeout), None, None, false, true, None)
+}
+
+/// Fixed-deadline capture that writes `stdin` before waiting. SessionStart uses
+/// this so a hook payload can be piped without YOLO lifting the deadline the
+/// way it lifts ordinary tool timeouts.
+pub(crate) fn output_timed_fixed_with_stdin(
+    cmd: Command,
+    timeout: Duration,
+    stdin: &[u8],
+) -> Result<(std::process::Output, bool), String> {
+    let captured = output_timed_inner(cmd, Some(timeout), None, None, false, true, Some(stdin))?;
+    Ok((captured.output, captured.timed_out))
 }
 
 /// The operator-extensible variant: only callers whose timeout IS the live
@@ -1038,7 +1050,7 @@ pub(crate) fn output_timed_extensible_cancellable_with_progress(
     cancel: Option<&std::sync::atomic::AtomicBool>,
     progress: Option<Arc<ToolOutputProgress>>,
 ) -> Result<TimedCapture, String> {
-    output_timed_inner(cmd, timeout, cancel, progress, true, false)
+    output_timed_inner(cmd, timeout, cancel, progress, true, false, None)
 }
 
 fn output_timed_inner(
@@ -1048,6 +1060,7 @@ fn output_timed_inner(
     progress: Option<Arc<ToolOutputProgress>>,
     extensible: bool,
     fixed_timeout: bool,
+    stdin_payload: Option<&[u8]>,
 ) -> Result<TimedCapture, String> {
     // Internal fixed probes include spawn/retry in their original allowance.
     // Ordinary and operator-extensible tools retain their setup/relink grace.
@@ -1071,9 +1084,12 @@ fn output_timed_inner(
             .zip(timeout)
             .map(|(started, budget)| budget.saturating_sub(started.elapsed()))
     };
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    if stdin_payload.is_some() {
+        cmd.stdin(Stdio::piped());
+    } else {
+        cmd.stdin(Stdio::null());
+    }
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     // New process group with the child as leader, so `kill -<pid>` reaches the
     // whole subtree (the child must be the group leader for that to work).
     cmd.process_group(0);
@@ -1144,6 +1160,16 @@ fn output_timed_inner(
         }
         Err(e) => return Err(format!("spawn failed: {e}")),
     };
+    // Close stdin after the write so a hook reading the payload sees EOF.
+    // The body is a small JSON object; it fits in the pipe buffer, so this
+    // does not wait on the child's stdout reader.
+    if let Some(bytes) = stdin_payload
+        && let Some(mut input) = child.stdin.take()
+    {
+        use std::io::Write;
+        let _ = input.write_all(bytes);
+        let _ = input.flush();
+    }
     let pid = child.id();
     let mut activity = activity::ChildActivity::new(pid, cancel);
     let so = child.stdout.take().unwrap();

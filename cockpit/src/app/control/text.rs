@@ -298,8 +298,9 @@ pub(crate) fn pet_glyph(name: &str) -> String {
 }
 
 pub(crate) fn hooks_text() -> String {
-    "hooks\n  the cockpit fires Pre/PostToolUse hooks configured via env\n  \
+    "hooks\n  the cockpit fires Pre/PostToolUse and SessionStart hooks configured via env\n  \
      PostToolUse sees: ANGEL_TOOL_NAME / _ARGS / _RESULT / _TIMEOUT\n  \
+     SessionStart stdin is JSON (session_id, cwd, source) plus ANGEL_SESSION_ID / ANGEL_WORKSPACE\n  \
      (configured via env, not a runtime menu)"
         .to_string()
 }

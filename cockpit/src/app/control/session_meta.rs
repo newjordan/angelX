@@ -257,13 +257,15 @@ impl App {
             }
         ));
         let _ = self.session.save(&self.history);
+        self.announce_session(crate::agent::harness::SESSION_SOURCE_WORKSPACE);
         format!("working directory → {}", target.display())
     }
 
     /// `--resume [id]` startup path (the phoenix relight): load a saved session
     /// before the first frame — the same reload `/resume` does, so a reborn self
     /// (or a plain restart) continues the conversation it left.
-    pub(crate) fn startup_resume(&mut self, id: Option<String>) {
+    /// `true` when a saved session became the current one.
+    pub(crate) fn startup_resume(&mut self, id: Option<String>) -> bool {
         let workspace = self.tools.current_workspace().to_path_buf();
         match crate::app::local_command::resume(id, &workspace) {
             crate::app::local_command::ResumeResult::Loaded {
@@ -281,14 +283,43 @@ impl App {
                 self.rebuild_display();
                 self.session = crate::knowledge::session::Session::with_id_for(&id, &workspace);
                 self.system_msg(format!("resumed session {id} ({turns} turns) — continuing"));
+                true
             }
             crate::app::local_command::ResumeResult::NoSession => {
                 self.system_msg("--resume: no saved session found — starting fresh".to_string());
+                false
             }
             crate::app::local_command::ResumeResult::Failed(e) => {
                 self.system_msg(format!("--resume failed ({e}) — starting fresh"));
+                false
             }
         }
+    }
+
+    /// Bind the launch session, then announce it once. A phoenix relight is a
+    /// startup whose source is `resume` in this process. A fresh launch, or a
+    /// `--resume` that did not load anything, is `startup`.
+    pub(crate) fn establish_launch_session(&mut self, resume: Option<Option<String>>) {
+        let resumed = if let Some(id) = resume {
+            self.startup_resume(id)
+        } else {
+            false
+        };
+        self.announce_session(if resumed {
+            crate::agent::harness::SESSION_SOURCE_RESUME
+        } else {
+            crate::agent::harness::SESSION_SOURCE_STARTUP
+        });
+    }
+
+    /// Tell SessionStart hooks which session this process holds. Best-effort:
+    /// the session is already current, and a hook cannot roll it back.
+    pub(crate) fn announce_session(&self, source: &str) {
+        crate::agent::harness::emit_session_start(
+            &self.session.id,
+            self.tools.current_workspace(),
+            source,
+        );
     }
 
     /// The in-hand box and (when it has more than one) the active mode.
@@ -853,6 +884,7 @@ impl App {
         }
         let id = forked.id.clone();
         self.session = forked;
+        self.announce_session(crate::agent::harness::SESSION_SOURCE_FORK);
         format!("forked → session {id} (original left intact; now writing to the fork)")
     }
 

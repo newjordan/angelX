@@ -1094,6 +1094,7 @@ impl App {
                             text: format!("resumed session {id} ({turns} turns) — continuing")
                                 .into(),
                         });
+                        self.announce_session(crate::agent::harness::SESSION_SOURCE_RESUME);
                     }
                     local_command::ResumeResult::NoSession => self.messages.push(Message {
                         role: Role::System,
@@ -1479,6 +1480,9 @@ impl App {
                 self.session = new_session;
                 self.scroll = 0;
                 self.system_msg("new chat — conversation cleared".to_string());
+                // `/new` and `/clear` share this path. The SessionStart vocabulary
+                // names that fresh thread `clear`.
+                self.announce_session(crate::agent::harness::SESSION_SOURCE_CLEAR);
                 return;
             }
             // /review hands the working-tree diff to the in-hand agent as a turn.
