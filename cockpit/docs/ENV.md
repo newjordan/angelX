@@ -396,7 +396,7 @@ language server per language.
 | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ANGEL_MCP_CONFIG`   | `~/.angelX/mcp.json`   | User-global trusted config for external stdio MCP servers. Each connection is spawned in the active project cwd; warm clients are never reused across project identities. Secret-named variables the cockpit holds are withheld from every server (`ANGEL_TOOL_STRIP_SECRETS`); a server's own key must be set in its `env` entry. |
 | `ANGEL_MCP_TIMEOUT`  | `15` (s)              | Per-call timeout for MCP tools.                                                                                                                                           |
-| `ANGEL_HOOKS_CONFIG` | `~/.angelX/hooks.json` | PreToolUse (block-capable) / PostToolUse lifecycle hooks.                                                                                                                 |
+| `ANGEL_HOOKS_CONFIG` | `~/.angelX/hooks.json` | PreToolUse (block-capable) / PostToolUse / SessionStart lifecycle hooks.                                                                                                  |
 | `ANGEL_HOOK_TIMEOUT` | `10` (s)              | Per-hook subprocess timeout.                                                                                                                                              |
 | `ANGEL_PRE_HOOK_FAIL_OPEN` | off             | Explicitly allow a configured PreToolUse hook timeout/spawn failure to pass. The safe default denies when policy infrastructure is unavailable.                           |
 | `ANGEL_GIT_TIMEOUT`  | unset (`0` = unlimited) | Optional deadline for trusted harness git operations, including `/diff`, `/review`, delegate, and integrate. Unset or `0` does not kill git. |
@@ -404,8 +404,23 @@ language server per language.
 Hooks are invoked with these set in their environment (read by the hook, not by
 the cockpit): `ANGEL_TOOL_NAME`, `ANGEL_TOOL_ARGS`, `ANGEL_TOOL_RESULT` (PostToolUse only), `ANGEL_TOOL_TIMEOUT`.
 Argument/result values above 32 KiB are replaced by a bounded JSON receipt with
-their byte length and SHA-256. Any configured hook makes its emitted tool batch
-a serial barrier because hook side effects are outside filesystem footprints.
+their byte length and SHA-256. Any configured PreToolUse or PostToolUse hook makes
+its emitted tool batch a serial barrier because hook side effects are outside
+filesystem footprints. SessionStart rules are not tool hooks and do not change
+dispatch, approval, or that barrier.
+
+`SessionStart` runs when the process's current session is established or changes:
+startup (a fresh session, or `--resume` / a phoenix relight — source `resume` when
+a saved session loads), `/new` and `/clear` (source `clear`), `/resume`, `/fork`,
+and `/cd` (alias `/workspace`, source `workspace`). It is best-effort, like
+PostToolUse: a missing, failing, or timed-out command does not block or change
+the session. Stdin is one JSON object
+`{"hook_event_name":"SessionStart","session_id":"<id>","cwd":"<workspace>","source":"startup|resume|clear|fork|workspace"}`
+and the child environment sets `ANGEL_SESSION_ID` and `ANGEL_WORKSPACE` to that
+current workspace. The payload has no conversation content, credentials, or
+transcript path. The matcher uses the same `*` / `|` rules as tool hooks, compared
+against `source`. The wait is `ANGEL_HOOK_TIMEOUT` and stays armed when YOLO lifts
+tool deadlines.
 
 ## HTTP / resilience (`club.rs`)
 

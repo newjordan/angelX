@@ -1422,8 +1422,9 @@ fn run_turn_tiered(
     refresh_knowledge_broker_with_prefix(registry, history, effective_budget, &defs, cache_stable);
     crate::agent::turn::phase::mark("auto_recall");
     maybe_auto_recall(registry, history, effective_budget, &defs, events);
-    // Lifecycle hooks (PreToolUse/PostToolUse), loaded once from config. Empty
-    // unless ~/.angelX/hooks.json exists, so default dispatch is unchanged.
+    // Tool lifecycle hooks (PreToolUse/PostToolUse), loaded once from config.
+    // Empty unless those events are configured, so default dispatch is unchanged.
+    // SessionStart is announced from session changes and is not a tool gate.
     crate::agent::turn::phase::mark("hooks_load");
     let hooks = Hooks::load();
     // This reads a small local mode once, never calls a model, and only becomes

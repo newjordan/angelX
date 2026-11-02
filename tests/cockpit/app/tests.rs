@@ -46,6 +46,8 @@ mod route_decks;
 mod session_boundaries;
 #[path = "tests__session_exit.rs"]
 mod session_exit;
+#[path = "tests__session_start.rs"]
+mod session_start;
 #[path = "tests__stage.rs"]
 mod stage;
 #[path = "tests__tab_completion.rs"]
