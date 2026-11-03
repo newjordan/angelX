@@ -100,5 +100,5 @@ the game exactly, so that is where the engineering goes. The brain is kept thin.
 
 Own worktree and branch off `rnd/kiln`; builds through `systemd-run --user` with `MemoryMax` and the
 lane's own `CARGO_TARGET_DIR` under `<build-cache>/`; commits as Jordan Newman
-<newjordan@gmail.com>, with no AI attribution of any kind anywhere; no pushes; no rented servers;
+(the repo's configured author), with no AI attribution of any kind anywhere; no pushes; no rented servers;
 never touch `~/.codex/worktrees`; every picture looked at before it is called done.

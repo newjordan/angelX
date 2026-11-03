@@ -159,6 +159,6 @@ reachable from `Run::step` (and every compute contract) in them; skip
 `#[cfg(test)]` code, Debug/Display impls, and host-only paths the worker never
 runs (say which in your report). Commit your own paths only (`git add
 delve/rules/<group> delve/stubs/<group>.bend crates/.../*_bend_cases_tests.rs`),
-often, as Jordan Newman <newjordan@gmail.com> (author and committer), never
+often, as Jordan Newman (author and committer), never
 with any AI attribution. Do not delete Rust: deletion happens at the flip, when
 the whole Run replays green.
