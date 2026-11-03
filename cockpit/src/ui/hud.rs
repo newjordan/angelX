@@ -6,23 +6,23 @@ use ratatui::{
     widgets::{Block, BorderType, Borders},
 };
 
-pub const HUD_BLUE: Color = crate::stage::identity::HUD_BLUE;
-pub const HUD_DIM: Color = crate::stage::identity::HUD_DIM;
-pub const HUD_TEXT: Color = crate::stage::identity::HUD_TEXT;
+// Camelot-noir palette anchors.
+pub const HUD_BLUE: Color = Color::Rgb(91, 190, 255);
+pub const HUD_DIM: Color = Color::Rgb(58, 111, 151);
+pub const HUD_TEXT: Color = Color::Rgb(184, 228, 255);
 /// Hot CRT-phosphor cyan-blue: the agent's live thinking glow.
-pub const HUD_PHOSPHOR: Color = crate::stage::identity::HUD_PHOSPHOR;
-/// Candlelight gold: the Camelot-noir accent. One flame against the HUD
-/// blues — heading sigils, inline code, the knight's tag. Use sparingly.
-pub const HUD_GOLD: Color = crate::stage::identity::HUD_GOLD;
+pub const HUD_PHOSPHOR: Color = Color::Rgb(86, 232, 255);
 /// Warning coral: faults and destructive states only.
-pub const HUD_DANGER: Color = crate::stage::identity::HUD_DANGER;
+pub const HUD_DANGER: Color = Color::Rgb(255, 103, 126);
 /// Alchemical green: verified success and recovered state only.
-pub const HUD_VERIFIED: Color = crate::stage::identity::HUD_VERIFIED;
-/// Warning amber: caution, never blame. The quest HUD's danger ladder and
-/// the world pane's danger border ride it — it is not a failure colour.
-pub const HUD_AMBER: Color = crate::stage::identity::HUD_AMBER;
+pub const HUD_VERIFIED: Color = Color::Rgb(99, 241, 169);
 /// Regal purple: the operator's speaker label in the primary conversation pane.
-pub const HUD_PURPLE: Color = crate::stage::identity::HUD_PURPLE;
+pub const HUD_PURPLE: Color = Color::Rgb(200, 130, 255);
+// Candlelight gold and caution amber are the world pane's chrome too, so the
+// realm host owns them; they keep their old path here.
+pub use angel_realm_host::hud_palette::HUD_GOLD;
+#[cfg(test)]
+pub use angel_realm_host::hud_palette::HUD_AMBER;
 const PANEL_STYLE: Style = Style::new().fg(HUD_TEXT);
 const DIM_PANEL_STYLE: Style = Style::new().fg(HUD_DIM);
 const CHROME_STYLE: Style = Style::new().fg(HUD_TEXT);

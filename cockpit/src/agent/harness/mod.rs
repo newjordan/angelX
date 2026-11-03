@@ -23,6 +23,7 @@ pub(crate) use crate::agent::tools::file::{
 };
 pub(crate) use crate::agent::tools::fleet::maybe_register_fleet_tools;
 pub(crate) use crate::agent::tools::git::{GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool};
+pub(crate) use crate::agent::tools::hands::maybe_register_hands;
 pub(crate) use crate::agent::tools::llm::maybe_register_llm_tools;
 pub(crate) use crate::agent::tools::nav::{
     DefsTool, FileSearchTool, FindFilesTool, GrepTool, ListDirTool, OutlineTool,
@@ -59,16 +60,18 @@ pub(crate) const DEFAULT_AUTO_RECALL_K: usize = 12;
 
 mod action_capsule;
 mod agent_graph;
+pub(crate) mod attack_net;
 mod auxiliary;
 pub(crate) mod book;
+pub(crate) mod cartridges;
 mod code_mode;
 pub(crate) mod coeffect;
-pub(crate) mod cartridges;
 mod comp_watch;
 mod compact;
 mod compactor;
 mod confined_fs;
 mod context;
+pub(crate) mod core_catalog;
 mod delegated_lineage;
 mod descendant_budget;
 pub(crate) mod exec;
@@ -81,6 +84,8 @@ pub(crate) mod independence;
 pub(crate) mod interception;
 mod knowledge_graph;
 mod lane;
+mod live_outcomes;
+pub(crate) mod live_policy;
 mod loop_experiment;
 mod needs_pro;
 mod orchestrator;

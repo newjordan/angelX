@@ -1,11 +1,10 @@
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+//! The `/loop` launch's state: the three caps (laps, clock, fuel), the typed
+//! custom length, focus, and the settings Start hands the loop. The card
+//! that shows it, in the window or a terminal, is `ui::loop_card`.
 
+use ratatui::layout::Rect;
+
+/// Keep the established keyboard cycle: clock, laps, fuel, then the actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LoopDialogFocus {
     Duration,
@@ -68,6 +67,27 @@ pub(crate) struct LoopLaunchDialog {
     pre_custom_idx: usize,
 }
 
+/// One of the card's three pickers as it is drawn: which focus it is, its
+/// choices as short marks (`∞` for endless), the chosen one in words, and
+/// how a click names a choice.
+pub(crate) struct Picker {
+    pub(crate) focus: LoopDialogFocus,
+    pub(crate) choices: Vec<String>,
+    pub(crate) value: String,
+    pub(crate) selected: usize,
+    /// The typed length is open on this picker.
+    pub(crate) entry: bool,
+    pub(crate) action: fn(usize) -> LoopDialogAction,
+}
+
+impl Picker {
+    /// The choice one step back or on, as a click would name it: the same
+    /// ring the arrow keys walk.
+    pub(crate) fn step(&self, forward: bool) -> LoopDialogAction {
+        (self.action)(cycle_index(self.selected, self.choices.len(), forward))
+    }
+}
+
 #[derive(Clone, Copy)]
 struct DurationChoice {
     label: &'static str,
@@ -128,8 +148,8 @@ const ITERATIONS: &[IterChoice] = &[
     },
 ];
 
-/// The always-present iters choice that opens the typed length entry.
-const CUSTOM_LENGTH_LABEL: &str = "set custom";
+/// The always-present laps choice that opens the typed length entry.
+const CUSTOM_SLOT_MARK: &str = "custom";
 
 const BUDGETS: &[BudgetChoice] = &[
     BudgetChoice {
@@ -149,13 +169,6 @@ const BUDGETS: &[BudgetChoice] = &[
         tokens: 0,
     },
 ];
-
-struct ChoiceRow<'a> {
-    label: &'static str,
-    choices: &'a [&'a str],
-    selected: usize,
-    focused: bool,
-}
 
 impl LoopLaunchDialog {
     pub(crate) fn new(task: impl Into<String>, interval_secs: u64, deli: bool) -> Self {
@@ -288,6 +301,94 @@ impl LoopLaunchDialog {
             LoopDialogFocus::Start => LoopDialogFocus::Budget,
             LoopDialogFocus::Cancel => LoopDialogFocus::Start,
         };
+    }
+
+    pub(crate) fn focus(&self) -> LoopDialogFocus {
+        self.focus
+    }
+
+    /// Whether this launch is the five-day podrace profile.
+    pub(crate) fn is_podrace(&self) -> bool {
+        self.podrace
+    }
+
+    /// The card's three pickers in its order: laps, clock, fuel. The marks
+    /// are the presets' own labels, endless as `∞`; a custom cap shows as
+    /// its value, and the laps picker always ends in the custom slot.
+    pub(crate) fn pickers(&self) -> [Picker; 3] {
+        let endless = |label: &str| {
+            if label == "endless" {
+                "∞".to_string()
+            } else {
+                label.to_string()
+            }
+        };
+        let words = |mark: &str| {
+            if mark == "∞" {
+                "endless".to_string()
+            } else {
+                mark.to_string()
+            }
+        };
+        let entry = self.custom_entry_text();
+        let custom_lap = match entry {
+            Some(typed) => format!("{typed}▏"),
+            None => self
+                .custom_iterations
+                .map_or_else(|| CUSTOM_SLOT_MARK.to_string(), |n| n.to_string()),
+        };
+        let laps: Vec<String> = ITERATIONS
+            .iter()
+            .map(|c| endless(c.label))
+            .chain([custom_lap])
+            .collect();
+        let clock: Vec<String> = DURATIONS
+            .iter()
+            .map(|c| endless(c.label))
+            .chain(self.custom_duration.map(span_mark))
+            .collect();
+        let fuel: Vec<String> = BUDGETS
+            .iter()
+            .map(|c| endless(c.label).to_uppercase())
+            .chain(self.custom_budget.map(token_mark))
+            .collect();
+        let pick =
+            |choices: &[String], at: usize| choices.get(at).map(|c| words(c)).unwrap_or_default();
+        [
+            Picker {
+                focus: LoopDialogFocus::Iterations,
+                value: if entry.is_some() {
+                    laps[ITERATIONS.len()].clone()
+                } else {
+                    pick(&laps, self.iterations_idx)
+                },
+                // While a length is typed the custom slot is the one in hand.
+                selected: if entry.is_some() {
+                    ITERATIONS.len()
+                } else {
+                    self.iterations_idx.min(laps.len() - 1)
+                },
+                entry: entry.is_some(),
+                choices: laps,
+                action: LoopDialogAction::SelectIterations,
+            },
+            Picker {
+                focus: LoopDialogFocus::Duration,
+                value: pick(&clock, self.duration_idx),
+                selected: self.duration_idx.min(clock.len() - 1),
+                entry: false,
+                choices: clock,
+                action: LoopDialogAction::SelectDuration,
+            },
+            Picker {
+                focus: LoopDialogFocus::Budget,
+                value: pick(&fuel, self.budget_idx),
+                selected: self.budget_idx.min(fuel.len() - 1),
+                entry: false,
+                choices: fuel,
+                action: LoopDialogAction::SelectBudget,
+            },
+        ]
     }
 
     pub(crate) fn adjust(&mut self, forward: bool) {
@@ -474,285 +575,27 @@ fn cycle_index(idx: usize, len: usize, forward: bool) -> usize {
     }
 }
 
-pub(crate) fn render(
-    frame: &mut Frame,
-    root: Rect,
-    dialog: &LoopLaunchDialog,
-) -> Vec<LoopDialogHit> {
-    let area = modal_area(root);
-    let mut hits = Vec::new();
-    if area.width == 0 || area.height == 0 {
-        return hits;
+/// A custom deadline as a short mark: whole days, hours or minutes when it
+/// is one, else seconds.
+fn span_mark(secs: u64) -> String {
+    match secs {
+        0 => "∞".to_string(),
+        s if s % 86_400 == 0 => format!("{}d", s / 86_400),
+        s if s % 3_600 == 0 => format!("{}h", s / 3_600),
+        s if s % 60 == 0 => format!("{}m", s / 60),
+        s => format!("{s}s"),
     }
-    frame.render_widget(Clear, area);
-    let workshop_title = if dialog.is_handoff_rl() {
-        " W> handoff-rl workshop "
-    } else {
-        " W> loop workshop "
-    };
-    let block = Block::default().borders(Borders::ALL).title(workshop_title);
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-    if inner.width < 24 || inner.height < 8 {
-        frame.render_widget(
-            Paragraph::new(if dialog.is_handoff_rl() {
-                "handoff-rl workshop\nresize for controls"
-            } else {
-                "loop workshop\nresize for controls"
-            })
-            .style(dim()),
-            inner,
-        );
-        return hits;
-    }
-
-    let mut y = inner.y;
-    let title = if dialog.is_handoff_rl() {
-        if dialog.podrace {
-            "enter workshop · handoff-rl 5-day podrace"
-        } else {
-            "enter workshop · handoff-rl campaign"
-        }
-    } else if dialog.podrace {
-        "enter workshop · 5-day competition podrace"
-    } else if dialog.deli {
-        "enter workshop · deli loop"
-    } else {
-        "enter workshop · agent loop"
-    };
-    let title = if dialog.custom_entry_active() {
-        format!("{title} · set custom length")
-    } else {
-        title.to_string()
-    };
-    let task = if dialog.task.trim().is_empty() {
-        "task: active goal".to_string()
-    } else {
-        fit_ascii(
-            &format!("task: {}", dialog.task.trim()),
-            inner.width.saturating_sub(28),
-        )
-    };
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(title, bright()),
-            Span::raw("  "),
-            Span::styled(task, dim()),
-        ])),
-        Rect::new(inner.x, y, inner.width, 1),
-    );
-    y = y.saturating_add(2);
-
-    let custom_duration = dialog.custom_duration.map(|v| format!("{v}s"));
-    let duration_choices: Vec<_> = DURATIONS
-        .iter()
-        .map(|c| c.label)
-        .chain(custom_duration.as_deref())
-        .collect();
-    render_choices(
-        frame,
-        Rect::new(inner.x, y, inner.width, 1),
-        ChoiceRow {
-            label: "time",
-            choices: &duration_choices,
-            selected: dialog.duration_idx,
-            focused: matches!(dialog.focus, LoopDialogFocus::Duration),
-        },
-        LoopDialogAction::SelectDuration,
-        &mut hits,
-    );
-    y = y.saturating_add(1);
-    let custom_iterations = dialog.custom_iterations.map(|v| v.to_string());
-    // The custom-length slot is always on the row: it is how an operator asks
-    // for a length the presets do not offer. While the entry is open it shows
-    // the buffer with a caret instead of a label.
-    let custom_length = match dialog.custom_entry_text() {
-        Some("") => format!("{CUSTOM_LENGTH_LABEL}_"),
-        Some(buffer) => format!("{buffer}_"),
-        None => custom_iterations.unwrap_or_else(|| CUSTOM_LENGTH_LABEL.to_string()),
-    };
-    let iteration_choices: Vec<_> = ITERATIONS
-        .iter()
-        .map(|c| c.label)
-        .chain([custom_length.as_str()])
-        .collect();
-    let iters_label = if dialog.is_handoff_rl() {
-        "rolls"
-    } else {
-        "iters"
-    };
-    render_choices(
-        frame,
-        Rect::new(inner.x, y, inner.width, 1),
-        ChoiceRow {
-            label: iters_label,
-            choices: &iteration_choices,
-            selected: dialog.iterations_idx,
-            focused: matches!(dialog.focus, LoopDialogFocus::Iterations),
-        },
-        LoopDialogAction::SelectIterations,
-        &mut hits,
-    );
-    y = y.saturating_add(1);
-    let custom_budget = dialog.custom_budget.map(|v| v.to_string());
-    let budget_choices: Vec<_> = BUDGETS
-        .iter()
-        .map(|c| c.label)
-        .chain(custom_budget.as_deref())
-        .collect();
-    render_choices(
-        frame,
-        Rect::new(inner.x, y, inner.width, 1),
-        ChoiceRow {
-            label: "operator token cap",
-            choices: &budget_choices,
-            selected: dialog.budget_idx,
-            focused: matches!(dialog.focus, LoopDialogFocus::Budget),
-        },
-        LoopDialogAction::SelectBudget,
-        &mut hits,
-    );
-    y = y.saturating_add(2);
-
-    let start = "  START  ";
-    let cancel = "  BACK  ";
-    let sx = inner.x + 2;
-    let cx = sx + start.len() as u16 + 2;
-    let start_rect = Rect::new(sx, y, start.len() as u16, 1);
-    let cancel_rect = Rect::new(cx, y, cancel.len() as u16, 1);
-    hits.push(LoopDialogHit {
-        rect: start_rect,
-        action: LoopDialogAction::Start,
-    });
-    hits.push(LoopDialogHit {
-        rect: cancel_rect,
-        action: LoopDialogAction::Cancel,
-    });
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(
-                start,
-                button_style(matches!(dialog.focus, LoopDialogFocus::Start), true),
-            ),
-            Span::raw("  "),
-            Span::styled(
-                cancel,
-                button_style(matches!(dialog.focus, LoopDialogFocus::Cancel), false),
-            ),
-        ])),
-        Rect::new(sx, y, inner.width.saturating_sub(2), 1),
-    );
-
-    let help_y = inner.y + inner.height.saturating_sub(1);
-    frame.render_widget(
-        Paragraph::new(if dialog.custom_entry_active() {
-            "digits set the length · Backspace edits · Enter sets it · Esc drops it"
-        } else {
-            "Tab/arrow keys or click · Enter starts · Esc exits"
-        })
-        .style(dim()),
-        Rect::new(inner.x, help_y, inner.width, 1),
-    );
-    hits
 }
 
-fn render_choices(
-    frame: &mut Frame,
-    area: Rect,
-    row: ChoiceRow<'_>,
-    action: impl Fn(usize) -> LoopDialogAction,
-    hits: &mut Vec<LoopDialogHit>,
-) {
-    let mut spans = Vec::new();
-    let prefix = format!("{:<7}", row.label);
-    let prefix_width = prefix.chars().count() as u16;
-    spans.push(Span::styled(prefix, bright()));
-    let mut x = area.x.saturating_add(prefix_width);
-    // Keep the actual selection visible even when a custom cap would otherwise
-    // be clipped after the presets. Hit actions retain their original indices.
-    let selected_end = prefix_width as usize
-        + row
-            .choices
-            .iter()
-            .take(row.selected + 1)
-            .map(|c| c.chars().count() + 3)
-            .sum::<usize>();
-    let first = if selected_end > area.width as usize {
-        row.selected
-    } else {
-        0
-    };
-    for (idx, choice) in row
-        .choices
-        .iter()
-        .enumerate()
-        .cycle()
-        .skip(first)
-        .take(row.choices.len())
-    {
-        let text = format!(" {choice} ");
-        let w = text.chars().count() as u16;
-        if x.saturating_add(w) <= area.x.saturating_add(area.width) {
-            hits.push(LoopDialogHit {
-                rect: Rect::new(x, area.y, w, 1),
-                action: action(idx),
-            });
-        }
-        spans.push(Span::styled(
-            text,
-            button_style(row.focused && idx == row.selected, idx == row.selected),
-        ));
-        spans.push(Span::raw(" "));
-        x = x.saturating_add(w + 1);
+/// A custom token cap as a short mark: whole millions or thousands when it
+/// is one, else every digit.
+fn token_mark(tokens: usize) -> String {
+    match tokens {
+        0 => "∞".to_string(),
+        t if t % 1_000_000 == 0 => format!("{}M", t / 1_000_000),
+        t if t % 1_000 == 0 => format!("{}K", t / 1_000),
+        t => t.to_string(),
     }
-    frame.render_widget(Paragraph::new(Line::from(spans)), area);
-}
-
-pub(crate) fn modal_area(root: Rect) -> Rect {
-    let w = root.width.min(70).max(root.width.min(24));
-    let h = root.height.min(12).max(root.height.min(8));
-    Rect::new(
-        root.x + root.width.saturating_sub(w) / 2,
-        root.y + root.height.saturating_sub(h) / 2,
-        w,
-        h,
-    )
-}
-
-fn bright() -> Style {
-    Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD)
-}
-
-fn dim() -> Style {
-    Style::new().fg(Color::DarkGray)
-}
-
-fn button_style(focused: bool, selected: bool) -> Style {
-    let mut style = if selected {
-        Style::new().fg(Color::Black).bg(Color::Cyan)
-    } else {
-        Style::new().fg(Color::Gray)
-    };
-    if focused {
-        style = style.add_modifier(Modifier::BOLD);
-    }
-    style
-}
-
-fn fit_ascii(text: &str, max_width: u16) -> String {
-    let max_width = usize::from(max_width);
-    if max_width == 0 || text.chars().count() <= max_width {
-        return text.to_string();
-    }
-    if max_width <= 1 {
-        return "~".to_string();
-    }
-    let mut out = text
-        .chars()
-        .take(max_width.saturating_sub(1))
-        .collect::<String>();
-    out.push('~');
-    out
 }
 
 #[cfg(test)]

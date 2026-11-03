@@ -1,0 +1,118 @@
+# crates/delve/src/rules/bannerpeak/session.rs, `Session::repair`: mend what a bad save
+# broke (out-of-range things go, the rest stays). Only a save's check reaches it.
+module bannerpeak.session
+
+use world.TILE
+use body.Q
+use layout.WIDTH
+use layout.HEIGHT
+
+fn Session.keep_ids(m: Map<Knight>, ids: list<u32>, acc: Map<Knight>) -> Map<Knight>:
+  if ids.is_empty():
+    return acc
+  let id = ids.head()
+  if inc(id, 1, MAX_PLAYERS):
+    acc.insert(id, m[id])
+  return Session::keep_ids(m, ids.tail(), acc)
+
+fn Session.mend_seats(self: Session mut, ids: list<u32>, elapsed: u32, sx: i32, sy: i32) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let k = self.seats[id]
+  if !k.valid() || k.joined > elapsed:
+    let joined = k.joined.min(elapsed)
+    self.seats.insert(id, Knight::at(joined, sx, sy))
+  self.mend_seats(ids.tail(), elapsed, sx, sy)
+
+fn Session.keep_foes(foes: Vec<Foe>, n: u32, wp: i32, hp: i32, acc: Vec<Foe>) -> Vec<Foe>:
+  if n >= foes.len():
+    return acc
+  if foes[n].valid(wp, hp):
+    acc.push(foes[n])
+  return Session::keep_foes(foes, n + 1, wp, hp, acc)
+
+fn Session.keep_items(items: Vec<Item>, n: u32, wp: i32, hp: i32, acc: Vec<Item>) -> Vec<Item>:
+  if n >= items.len():
+    return acc
+  if items[n].valid(wp, hp):
+    acc.push(items[n])
+  return Session::keep_items(items, n + 1, wp, hp, acc)
+
+fn Session.keep_bolts(bolts: Vec<Bolt>, n: u32, wp: i32, hp: i32, acc: Vec<Bolt>) -> Vec<Bolt>:
+  if n >= bolts.len():
+    return acc
+  if bolts[n].valid(wp, hp):
+    acc.push(bolts[n])
+  return Session::keep_bolts(bolts, n + 1, wp, hp, acc)
+
+fn Session.keep_boulders(bs: Vec<Boulder>, n: u32, wp: i32, acc: Vec<Boulder>) -> Vec<Boulder>:
+  if n >= bs.len():
+    return acc
+  if inc(bs[n].x, 0, wp * Q):
+    acc.push(bs[n])
+  return Session::keep_boulders(bs, n + 1, wp, acc)
+
+fn Session.keep_fx(fx: Vec<Fx>, n: u32, acc: Vec<Fx>) -> Vec<Fx>:
+  if n >= fx.len():
+    return acc
+  if fx[n].t <= FX_LIFE:
+    acc.push(fx[n])
+  return Session::keep_fx(fx, n + 1, acc)
+
+fn Session.keep_taken(taken: Vec<u32>, n: u32, coins: u32, acc: Vec<u32>) -> Vec<u32>:
+  if n >= taken.len():
+    return acc
+  if taken[n] < coins:
+    acc.push(taken[n])
+  return Session::keep_taken(taken, n + 1, coins, acc)
+
+fn Session.keep_changed(self: Session, ids: list<u32>, acc: View) -> View:
+  if ids.is_empty():
+    return acc
+  let key = ids.head()
+  let code = self.changed.code(key)
+  if (key as i32) < WIDTH * HEIGHT && Tile::known(code):
+    acc.insert(key, code)
+  return self.keep_changed(ids.tail(), acc)
+
+fn Session.repair(self: Session mut) -> unit:
+  self.seats = Session::keep_ids(self.seats, self.seats.ids(), Map::new())
+  self.elapsed = self.elapsed.min(LIMIT)
+  let elapsed = self.elapsed
+  let wp = WIDTH * TILE
+  let hp = HEIGHT * TILE
+  let (sx, sy) = self.station()
+  self.mend_seats(self.seats.ids(), elapsed, sx, sy)
+  let gates_len = layout::info::gates_len()
+  self.checkpoint = (self.checkpoint as u32).min(gates_len)
+  self.gates = (self.gates as u32) & ((1 << gates_len) - 1)
+  self.doors = (self.doors as u32) & 3
+  self.phase_t = self.phase_t.min(LIMIT)
+  self.cursor = (self.cursor as u32).min(BOARD_LEN - 1)
+  self.foes = Session::keep_foes(self.foes, 0, wp, hp, Vec::new())
+  self.foes.truncate(128)
+  self.items = Session::keep_items(self.items, 0, wp, hp, Vec::new())
+  self.items.truncate(48)
+  self.bolts = Session::keep_bolts(self.bolts, 0, wp, hp, Vec::new())
+  self.bolts.truncate(16)
+  self.boulders = Session::keep_boulders(self.boulders, 0, wp, Vec::new())
+  self.boulders.truncate(8)
+  if !self.boss.valid(MAX_PLAYERS):
+    self.boss = Boss::new(self.seat_count().max(1))
+  self.fx = Session::keep_fx(self.fx, 0, Vec::new())
+  self.fx.truncate(48)
+  self.taken = Session::keep_taken(self.taken, 0, layout::info::coins_len(), Vec::new())
+  self.changed = self.keep_changed(self.changed.ids(), Map::new())
+  if bannerpeak_map_len(self.changed) > 2048:
+    self.changed = Map::new()
+  if self.announce.is_some() && (self.announce.unwrap().banner >= 8 || self.announce.unwrap().t > ANNOUNCE_TICKS):
+    self.announce = None
+  self.wipe = self.wipe.min(WIPE_TICKS)
+  self.scaled = (self.scaled as u32).min(MAX_PLAYERS)
+  if self.completed.is_some() && self.completed.unwrap() > elapsed:
+    self.completed = None
+  if self.phase == Phase::Finale && self.banners != 255:
+    self.phase = Phase::Play
+
+case Session.repair: session=self

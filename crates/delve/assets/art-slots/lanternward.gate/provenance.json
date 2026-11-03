@@ -11,6 +11,6 @@
   "prompt_sha256": "132cdcd1fc5813badebfca017c1f464d0a654f92cb24c576a45aa9944964bdff",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (generation 1; the pilot review found the second generation's bar steps uneven; source-sheet-2.png is kept outside the repo and not used)",
-  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.gate/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/lanternward.gate/v01/source-sheet.png",
   "source_sha256": "ec02e83e1b28cfd733c3d44d174d8b7c97b3e2e84953b1cea51d3cf81f1f247d"
 }

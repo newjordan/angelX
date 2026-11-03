@@ -367,7 +367,7 @@ impl Default for Ball {
         Self::new()
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 struct Sample {
     tick: u64,
     age: u32,
@@ -380,7 +380,11 @@ pub struct Table {
     pub ball: Ball,
     pub seed: u64,
     pub keys: (bool, bool, bool, bool),
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     history: VecDeque<Sample>,
 }
 impl Table {

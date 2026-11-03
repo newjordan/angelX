@@ -22,6 +22,7 @@
 //! | `⠼⠋` | mutation thrash | the same edit issued three times |
 //! | `⠼⠛` | peripheral fan-out | four edits under docs or fixtures, none in the code |
 //! | `⠼⠓` | error cascade | every call failed for six hops running |
+//! | `⠼⠊` | post-edit logic | the turn's first successful edit, once |
 
 use super::{Primary, Route, Sub};
 use crate::agent::harness::*;
@@ -36,6 +37,10 @@ pub(crate) const WEAK: Route = Route::new(CELL, '⠑');
 pub(crate) const THRASH: Route = Route::new(CELL, '⠋');
 pub(crate) const FANOUT: Route = Route::new(CELL, '⠛');
 pub(crate) const CASCADE: Route = Route::new(CELL, '⠓');
+/// The post-edit review stood at `⠼⠁` until 2026-10-16, when 25086af8
+/// deleted it and shifted every route above down one digit. Restored at the
+/// free ninth digit so every address in use since keeps its meaning.
+pub(crate) const POST_EDIT: Route = Route::new(CELL, '⠊');
 
 /// The same edit issued this many times: `ANGEL_MUTATION_THRASH_NUDGE=3`, the
 /// value the 0.1.6 task defaults set.
@@ -52,7 +57,7 @@ pub(crate) const FINAL_MILE_AGAIN: usize = 4;
 pub(crate) const PRIMARY: Primary = Primary {
     cell: CELL,
     name: "advisories",
-    surface: "the hop advisories: a green verifier, the final mile, the first write, weak checks, thrash, fan-out, an error cascade",
+    surface: "the hop advisories: a green verifier, the final mile, the first write, weak checks, thrash, fan-out, an error cascade, review an edit",
     subs: &[
         Sub {
             route: GREEN,
@@ -156,6 +161,21 @@ pub(crate) const PRIMARY: Primary = Primary {
                 "Read the compiler diagnostics above and rewrite the file cleanly using `write_file` instead of accumulating micro-patches.",
             ],
         },
+        Sub {
+            route: POST_EDIT,
+            name: "post-edit",
+            signal: "the first edit landed; review it before testing",
+            action: "",
+            ideas: "",
+            pages: &[
+                "POST-EDIT LOGIC REVIEW. Review the edit logically before testing: trace the state transitions, invariants, cleanup/empty cases, and error paths implied by the task. Before the next tool call, write the trace in one or two lines.",
+                "Prefer the code that *implements or emits* the behavior (library/pkg/src machinery) over generated testdata, docs, or example trees.",
+                "If the bug names multiple surfaces (code + config/markdown/model file), check whether each still needs a change.",
+                "Respect explicit no-build and externally delegated verification instructions; in those cases keep the candidate, note verification as truthfully pending, and carry on with the task.",
+                "Otherwise, if the edit already covers them, run one smallest relevant verifier from a *pre-existing* project test entry point, then keep working the task — this advice is not a stop, a wrap-up, or a reason to end a loop.",
+                "Do not invent new tests as proof, stack broader checks without a concrete diagnostic, or thrash the same edit.",
+            ],
+        },
     ],
 };
 
@@ -207,6 +227,11 @@ pub(crate) fn first_write_limit() -> usize {
 /// with a first-write limit, as at 0.1.6.
 pub(crate) fn no_edit_guard_armed() -> bool {
     env_flag("ANGEL_NO_EDIT_ANSWER_GUARD", false) && first_write_limit() > 0
+}
+
+/// `ANGEL_POST_EDIT_LOGIC_REVIEW`: on unless the operator turns it off.
+pub(crate) fn post_edit_review_enabled() -> bool {
+    env_flag("ANGEL_POST_EDIT_LOGIC_REVIEW", true)
 }
 
 /// The same edit issued again and again, by its identity: the path and the

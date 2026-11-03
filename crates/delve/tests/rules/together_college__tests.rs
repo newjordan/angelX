@@ -71,7 +71,9 @@ fn college_doors_connect_every_room_and_return_the_whole_company_to_the_gate() {
     assert!(r.valid_snapshot());
     assert!(r.dungeon.rooms.len() <= crate::rules::world::HOME_ROOM_LIMIT);
     let mut visited = std::collections::HashSet::new();
-    let mut todo = vec![RoomKind::Gate];
+    // The college is come to by its door on the kingdom's map: the green
+    // house in the Delve's courtyard is the tavern's now (`alehouse`).
+    let mut todo = vec![RoomKind::CollegeGrounds];
     while let Some(kind) = todo.pop() {
         if !visited.insert(kind) {
             continue;
@@ -412,7 +414,9 @@ fn college_migrates_a_full_old_home_without_losing_any_rooms() {
     }
     let old: Vec<_> = r.dungeon.rooms.iter().map(|room| room.cell).collect();
     assert!(world::raise_world(&mut r.dungeon));
-    assert_eq!(r.dungeon.rooms.len(), 73);
+    // Every old room kept, the College's rooms raised beside them.
+    let college = world::ROOMS.iter().filter(|(k, _)| is_room(*k)).count();
+    assert_eq!(r.dungeon.rooms.len(), old.len() + college);
     for cell in old {
         assert!(r.dungeon.rooms.iter().any(|room| room.cell == cell));
     }

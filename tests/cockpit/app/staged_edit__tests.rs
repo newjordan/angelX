@@ -293,3 +293,40 @@ fn stage_accept_writes() {
     let _ = fs::remove_dir_all(&root);
     clear_staged_for_test();
 }
+
+#[test]
+fn commit_actions_reports_rollback_write_failure() {
+    let root = std::env::temp_dir().join(format!(
+        "angel-stage-rollback-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("a.txt"), "old-a").unwrap();
+    fs::write(root.join("b.txt"), "old-b").unwrap();
+    fail_next_rollback_io();
+    let error = commit_actions(
+        &root,
+        vec![
+            StagedAction::Update {
+                path: "a.txt".into(),
+                original: b"old-a".to_vec(),
+                content: "new-a".into(),
+            },
+            StagedAction::Update {
+                path: "b.txt".into(),
+                original: b"stale".to_vec(),
+                content: "new-b".into(),
+            },
+        ],
+    )
+    .unwrap_err();
+    assert!(
+        error.contains("rollback failed"),
+        "a failed restore must not be reported as a successful rollback: {error}"
+    );
+    assert!(error.contains("injected rollback io failure"), "{error}");
+    assert_eq!(fs::read_to_string(root.join("a.txt")).unwrap(), "new-a");
+    assert_eq!(fs::read_to_string(root.join("b.txt")).unwrap(), "old-b");
+    let _ = fs::remove_dir_all(&root);
+}

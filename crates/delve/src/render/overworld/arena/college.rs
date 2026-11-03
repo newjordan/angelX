@@ -759,23 +759,6 @@ pub fn tower(tick: u32) -> Img {
     im.put(31, 3, 'T');
     im
 }
-fn compact(im: &Img) -> Img {
-    let mut out = Img::new(im.w * 2 / 3, im.h * 2 / 3);
-    for y in 0..out.h {
-        for x in 0..out.w {
-            if let Some(rgb) = im.get(x * 3 / 2, y * 3 / 2) {
-                out.set(x, y, rgb);
-            }
-        }
-    }
-    out
-}
-pub fn gate_building(cv: &mut Img, t: u32) {
-    let im = compact(&building(t));
-    cv.stamp(&im, 298, 80 - im.h);
-    let im = compact(&tower(t));
-    cv.stamp(&im, 328, 80 - im.h);
-}
 pub fn figures(cv: &mut Img, run: &Run) {
     if c::is_room(run.room().kind) {
         for f in folk::figures(&run.home, run.room().kind, run.dungeon.pack, run.tick) {

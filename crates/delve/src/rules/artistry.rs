@@ -26,13 +26,28 @@
 //! doodle gives less, a fine sprite most of it, a masterwork all of it, a
 //! legendary one a little over, always inside the caps (`cards::Bonus`).
 
-/// The ink groups the briefs name, each from its darkest to its lightest.
-const GROUPS: [&str; 5] = [
+/// Repair worn rows against the reference attachment before a learned
+/// entry is accepted. The same contract is used for sheets and paintings.
+pub fn fit_worn(sprite: &mut super::looks::Sprite, at: &str) -> Result<(), String> {
+    let part = super::looks::profile("knight").part(at)
+        .ok_or_else(|| format!("at=`{at}`: use {}", super::looks::PLACES))?;
+    super::looks::repair(sprite, part);
+    if sprite.frames.iter().any(|f| !f.iter().any(|r| r.chars().any(|c| c != '.' && c != ' '))) {
+        return Err(format!("at={at}: these rows lose their subject when fitted to {}x{}; draw a clearer silhouette", part.size.0, part.size.1));
+    }
+    Ok(())
+}
+
+/// The ink groups the briefs name, each from its darkest to its lightest:
+/// the realm's five banks and the two dyes.
+const GROUPS: [&str; 7] = [
     "kKZXgjGJhiH",
     "fDFEelNmLAMyCY",
     "nbIBpPrRoOtT",
     "sxSuUvVWqQz",
     "0123wa4@56$c987",
+    "d()[]^",
+    "!?;%+",
 ];
 
 /// The marks' weights, out of 100 together.

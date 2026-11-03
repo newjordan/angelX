@@ -446,7 +446,7 @@
       }
     ],
     "original_metadata_sha256": "dba17901ebdbc23abe8ab4c2abaace8b4688c3eca2e94d44d34ad88d680d1d7c",
-    "original_path": "/work/artifacts/art-prod/slots/rafterwake.keeper-damaged/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/rafterwake.keeper-damaged/v01/source-sheet.png",
     "original_sha256": "e1fc7af3786832b1a9596e136ac7f7c42e113ba9b134fbedffe31a9ab105c44f",
     "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
     "source_anchor": [

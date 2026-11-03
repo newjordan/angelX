@@ -1,0 +1,2626 @@
+{
+  "version": 1,
+  "tools": {
+    "write_file": {
+      "description": "Create or overwrite a text file in the workspace (creates parent directories as needed). Returns the new content tag for guarded follow-up edits without a reread. Also resolves `conflict://N` (and `conflict://*` bulk): content may be `@ours`, `@theirs`, `@base`, `@both`, or a custom body that replaces the marker region. ⠷⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠷⠁⠁"
+          },
+          "content": {
+            "type": "string",
+            "description": "⠷⠁⠃"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      }
+    },
+    "str_replace": {
+      "description": "Replace an exact, unique substring in a workspace file. Fails if 'old' is absent or appears more than once. If the exact text isn't found, falls back to a whole-line match tolerant of trailing whitespace, CRLF, and smart quotes/dashes (indentation must still match — it never silently re-indents). Returns the new content tag for a guarded follow-up edit without a reread. An indentation-only miss can return exact `old` and `expect_tag` recovery fields. ⠡⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠡⠃⠉"
+          },
+          "old": {
+            "type": "string",
+            "description": "⠡⠃⠙"
+          },
+          "new": {
+            "type": "string",
+            "description": "⠡⠃⠑"
+          },
+          "expect_tag": {
+            "type": "string",
+            "description": "⠡⠃⠋⠡⠃⠛"
+          }
+        },
+        "required": [
+          "path",
+          "old",
+          "new"
+        ]
+      }
+    },
+    "apply_patch": {
+      "description": "Apply a preflight-validated patch to the workspace (multi-file). Accepts a unified diff (applied via `git apply`/`patch`), the freeform envelope (`*** Begin Patch` / `*** Add File:` / `*** Update File:` with `@@` hunks of ` `/`+`/`-` lines / `*** End Patch`, whitespace-tolerant), OR the token-cheap hashline format: `*** Begin Patch`, then per file a `[path#tag]` header (tag = the content hash shown by read_file), then line-addressed ops — `SWAP A[.=B]:` / `SWAP.BLK A:` / `INS.PRE A:` / `INS.POST A:` / `INS.BLK.POST A:` / `INS.HEAD:` / `INS.TAIL:` each followed by `+`-prefixed new rows; `DEL A[.=B]` / `DEL.BLK A`; whole-file `REM`; rename `MV DEST` (optionally after line edits) — then `*** End Patch`. Block ops resolve the multi-line construct beginning on line A (brace, markdown heading, or indent suite). Hashline emits only the NEW lines (no retyping the old). If `tag` no longer matches the live file, the patcher first tries session-snapshot recovery (remap anchors through unchanged lines); only an unrecoverable drift rejects. Receipts return each file's new tag so the next edit can chain without a reread. Every target path must stay inside the workspace; every edit is checked before the first write. Hashline also supports stage=true: preflight and queue the plan without writing. ⠷⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "⠷⠉⠃"
+          },
+          "strip": {
+            "type": "integer",
+            "description": "⠷⠉⠉"
+          },
+          "stage": {
+            "type": "boolean",
+            "description": "⠷⠉⠙"
+          }
+        },
+        "required": [
+          "diff"
+        ]
+      }
+    },
+    "list_dir": {
+      "description": "List the entries of a workspace directory (default: workspace root). Directories are suffixed with '/'. Optional hint/pattern ranks entries; otherwise directories and source/config files come first. Results report paging when truncated. ⠣⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "hint": {
+            "type": "string",
+            "description": "⠣⠃⠁"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "⠣⠃⠃"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "⠣⠃⠉"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 700,
+            "description": "⠣⠃⠙"
+          },
+          "no_ignore": {
+            "type": "boolean",
+            "description": "⠣⠃⠑"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "⠣⠃⠋"
+          },
+          "path": {
+            "type": "string",
+            "description": "⠣⠃⠛"
+          }
+        },
+        "required": []
+      }
+    },
+    "run_tests": {
+      "description": "Run the workspace test suite under the sandbox and return a structured pass/fail summary plus a [0,1] reward. Typed (pinned, reward-labeled) native runners come first: Cargo for Rust, Node's builtin test runner for JavaScript, isolated stdlib unittest for Python. When the typed route declines (mixed roots, package scripts, other frameworks, YOLO) the suite still runs through the runner the workspace's own files choose — `npm test` / `node --test`, `pytest` / `unittest discover`, `go test`, `swift test` — and the receipt says why the reward is unlabeled. Reports observed tests; project tests do not replace an independent evaluator. ⠾⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "rust",
+              "node",
+              "python",
+              "go"
+            ],
+            "description": "⠾⠁⠁"
+          },
+          "entrypoint": {
+            "type": "string",
+            "enum": [
+              "",
+              "node",
+              "unittest",
+              "pytest"
+            ],
+            "description": "⠾⠁⠃"
+          },
+          "runner": {
+            "type": "string",
+            "description": "⠾⠁⠉"
+          },
+          "args": {
+            "type": "string",
+            "description": "⠾⠁⠙⠾⠁⠑⠾⠁⠋⠾⠁⠛"
+          },
+          "dir": {
+            "type": "string",
+            "description": "⠾⠁⠓"
+          },
+          "crate": {
+            "type": "string",
+            "description": "⠾⠁⠊"
+          }
+        },
+        "required": []
+      }
+    },
+    "fmt": {
+      "description": "Run `cargo fmt` in the workspace (sandboxed). With check=true, runs `cargo fmt --check` and reports whether the tree is rustfmt-clean without modifying files; otherwise formats in place. ⠾⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "boolean",
+            "description": "⠾⠉⠁"
+          }
+        },
+        "required": []
+      }
+    },
+    "multi_edit": {
+      "description": "Apply an ordered list of exact str-replace edits to ONE file, atomically (all-or-nothing). Edits apply in sequence; each 'old' must be unique in the file's current state. Returns the new content tag for a guarded follow-up edit without a reread. ⠷⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠷⠃⠃"
+          },
+          "expect_tag": {
+            "type": "string",
+            "description": "⠷⠃⠉⠷⠃⠙"
+          },
+          "edits": {
+            "type": "array",
+            "description": "⠷⠃⠑",
+            "items": {
+              "type": "object",
+              "properties": {
+                "old": {
+                  "type": "string"
+                },
+                "new": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "old",
+                "new"
+              ]
+            }
+          }
+        },
+        "required": [
+          "path",
+          "edits"
+        ]
+      }
+    },
+    "resolve_edit": {
+      "description": "Accept or reject a staged edit batch created by apply_patch with stage=true (oh-my-pi preview/accept). action=list shows pending proposals; accept writes transactionally; reject drops the proposal. Disk is untouched until accept. ⠷⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "⠷⠙⠁"
+          },
+          "id": {
+            "type": "integer",
+            "description": "⠷⠙⠃"
+          },
+          "reason": {
+            "type": "string",
+            "description": "⠷⠙⠉"
+          }
+        },
+        "required": []
+      }
+    },
+    "gpu_stat": {
+      "description": "Read-only snapshot of the local GPUs: utilization, VRAM used/total, temperature, power draw, driver, and the compute processes holding VRAM. Tries nvidia-smi, then rocm-smi, then xpu-smi. Never mutates anything.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "fleet_status": {
+      "description": "Read-only Tailscale fleet snapshot: each peer's hostname, tailnet IP, OS, and online/offline state. ⠱⠛",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "vast_instances": {
+      "description": "Read-only list of the account's Vast.ai instances (id, machine, GPU, status, $/hr). ⠱⠓",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "git_diff": {
+      "description": "Show workspace changes (read-only). By default this is the unstaged worktree; staged=true shows the index. base compares the full current worktree against one verified branch, tag, or commit (and cannot combine with staged). stat=true returns a cheaper summary first. An optional path confines the comparison. ⠡⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "staged": {
+            "type": "boolean",
+            "description": "⠡⠉⠃"
+          },
+          "base": {
+            "type": "string",
+            "description": "⠡⠉⠉"
+          },
+          "stat": {
+            "type": "boolean",
+            "description": "⠡⠉⠙"
+          },
+          "path": {
+            "type": "string",
+            "description": "⠡⠉⠑"
+          }
+        },
+        "required": []
+      }
+    },
+    "git_status": {
+      "description": "Show the workspace's git status (read-only): current branch + ahead/behind, and the staged / modified / untracked files. ⠣⠋",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "git_log": {
+      "description": "Show recent commits (read-only): one line each (short hash + subject). count defaults to 15 (max 100); an optional path scopes history to that file/dir. ⠡⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "⠡⠙⠃"
+          },
+          "path": {
+            "type": "string",
+            "description": "⠡⠙⠉"
+          }
+        },
+        "required": []
+      }
+    },
+    "git_commit": {
+      "description": "Plan or create atomic git commits from the dirty worktree. Default is plan-only (execute=false): classifies dirty paths into source → test → docs → config → other → lock units and suggests subjects. split=true (default) makes one commit per class; split=false packs everything into one commit. Optional message sets the subject (validated: ≤72 chars, blank line before body). Never force-pushes; never amends. ⠷⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "execute": {
+            "type": "boolean",
+            "description": "⠷⠑⠃"
+          },
+          "split": {
+            "type": "boolean",
+            "description": "⠷⠑⠉"
+          },
+          "message": {
+            "type": "string",
+            "description": "⠷⠑⠙⠷⠑⠑"
+          },
+          "include_untracked": {
+            "type": "boolean",
+            "description": "⠷⠑⠋"
+          }
+        },
+        "required": []
+      }
+    },
+    "goal": {
+      "description": "Read or set the durable standing objective for this project (the same store the operator's /goal drives). action=show (default) reads it; action=set replaces it with `text`, plus optional `accept_cmd` (a command whose success means the goal is truly met) and optional `criteria` (acceptance criteria); action=clear removes it. A set goal is re-injected into future turns so the session keeps steering toward it. This does NOT start an autonomous loop. ⠯⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "show",
+              "set",
+              "clear"
+            ],
+            "description": "⠯⠃⠃"
+          },
+          "text": {
+            "type": "string",
+            "description": "⠯⠃⠉"
+          },
+          "accept_cmd": {
+            "type": "string",
+            "description": "⠯⠃⠙"
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "⠯⠃⠑"
+          }
+        },
+        "required": []
+      }
+    },
+    "llm_probe": {
+      "description": "Check an OpenAI-compatible inference endpoint (llama.cpp, vLLM, SGLang, …): GET /v1/models and report the served model ids. ⠱⠊",
+      "params": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "⠱⠊⠃"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "⠱⠊⠉"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    "llm_bench": {
+      "description": "Measure an OpenAI-compatible endpoint's single-stream speed: streamed runs reporting TTFT (prefill) and decode tok/s per run plus the mean. The first run is warmup and excluded from the mean. Pointing it at a paid API spends real tokens. ⠱⠚",
+      "params": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "⠱⠚⠃"
+          },
+          "model": {
+            "type": "string",
+            "description": "⠱⠚⠉"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "⠱⠚⠙"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "⠱⠚⠑"
+          },
+          "runs": {
+            "type": "integer",
+            "description": "⠱⠚⠋"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "⠱⠚⠛"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    "outline": {
+      "description": "List the top-level symbols of a workspace source file (fn/struct/enum/trait/impl/mod/type/const, plus py def/class, js function/class, Go func/interface/package, and Java-style visibility methods) with line numbers — a fast map without reading the whole file. ⠣⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠣⠁⠁"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "find_files": {
+      "description": "List workspace files matching a glob (`*`/`?` within a segment, `**` across dirs), e.g. '**/*.rs' or 'src/*.toml'. Skips hidden and ignored paths by default. Complements grep (by name vs by content). ⠣⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "no_ignore": {
+            "type": "boolean",
+            "description": "⠣⠙⠁"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "⠣⠙⠃"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "⠣⠙⠉"
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    },
+    "file_search": {
+      "description": "Fuzzy-find files by name: type a fragment of a path (fzf-style subsequence ranking) and get the best matches, best first. Skips hidden and ignored paths by default. Complements find_files (exact glob) and grep (by content). ⠡⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "no_ignore": {
+            "type": "boolean",
+            "description": "⠡⠑⠃"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "⠡⠑⠉"
+          },
+          "query": {
+            "type": "string",
+            "description": "⠡⠑⠙"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "⠡⠑⠑"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "notes": {
+      "description": "Your persistent project memory — survives restarts and is shared only across this repository's sessions. action=list (default) reads it; add {text} appends a note; clear wipes it. ⠡⠓",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "add",
+              "clear"
+            ],
+            "description": "⠡⠓⠃"
+          },
+          "text": {
+            "type": "string",
+            "description": "⠡⠓⠉"
+          }
+        },
+        "required": []
+      }
+    },
+    "proc_run": {
+      "description": "Start a long-running command in the BACKGROUND (own process group, captured output) and return a handle id immediately. proc_status reads the captured log. Jobs survive successful answers in this cockpit; turn cancellation/failure stops its jobs. proc_stop or cockpit exit stops remaining jobs and retains their receipts. With persistent=true (only when the operator enabled persistent services) the command is detached into its own session to OUTLIVE this Angel process — for services a post-exit verifier must reach — and is not tracked by proc_status/proc_stop. ⠩⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "⠩⠙⠑"
+          },
+          "name": {
+            "type": "string",
+            "description": "⠩⠙⠋"
+          },
+          "cwd": {
+            "type": "string",
+            "description": "⠩⠙⠛"
+          },
+          "persistent": {
+            "type": "boolean",
+            "description": "⠩⠙⠓"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    },
+    "proc_status": {
+      "description": "Status of background processes started with proc_run. Without an id: one summary line per process. With an id: state + the tail of its log. Always a snapshot — wait_ms is ignored so the turn cannot freeze thinking. ⠩⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "⠩⠑⠙"
+          },
+          "tail_lines": {
+            "type": "integer",
+            "description": "⠩⠑⠑"
+          },
+          "contains": {
+            "type": "string",
+            "description": "⠩⠑⠋⠩⠑⠛"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000,
+            "description": "⠩⠑⠓⠩⠑⠊"
+          }
+        }
+      }
+    },
+    "proc_stop": {
+      "description": "Stop a background process started with proc_run: SIGTERM to its whole process group, escalating to SIGKILL after a short grace period. ⠾⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "⠾⠙⠁"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "proc_wait": {
+      "description": "Wait for one background job. Returns early when the job exits, or after at most 30 seconds, with its actual status and captured output. Cancellable. A running result means more work remains, not success. Process exit alone is not benchmark acceptance. ⠩⠋",
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "⠩⠋⠉"
+          },
+          "tail_lines": {
+            "type": "integer",
+            "description": "⠩⠋⠙"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "tool_repair": {
+      "description": "Diagnose a broken CLI surface (gh, git auth, PATH, snap launchers). Diagnose-only by default. It checks PATH resolution, detects snap launchers that fail in sandboxed agents, links usable payload binaries into ~/.local/bin, and runs profile probes. Built-in profiles: auto, gh. ⠩⠛",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "⠩⠛⠙"
+          },
+          "repair": {
+            "type": "boolean",
+            "description": "⠩⠛⠑⠩⠛⠉"
+          }
+        },
+        "required": []
+      }
+    },
+    "present": {
+      "description": "Show the requested actual work in the ordinary terminal Stage. image/video displays a local artifact; resource/report displays a local UTF-8 document (including Markdown, source, CSV, or JSON). The display stays open until dismissed. Remote links show their URL, not fetched page contents. The result acknowledges a queued display request; decode/read failures are shown honestly in Stage. ⠫⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "link",
+              "graph",
+              "resource",
+              "report"
+            ],
+            "description": "⠫⠁⠉"
+          },
+          "label": {
+            "type": "string",
+            "description": "⠫⠁⠙"
+          },
+          "url": {
+            "type": "string",
+            "description": "⠫⠁⠑"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "url"
+        ]
+      }
+    },
+    "vision_look": {
+      "description": "Machine eyes for a text-only driver (DeepSeek Flash, …): send a workspace image (png/jpg/webp/gif) or sample frames from a video to the vision sidecar and get a textual read — OCR, layout, objects, UI state. Backend: ANGEL_VISION_URL/ANGEL_VISION_MODEL (OpenAI-compatible VLM), else Kimi, else the signed-in Codex image model. /see on a text-only club auto-routes through the same sidecar. ⠫⠛",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠫⠛⠃"
+          },
+          "question": {
+            "type": "string",
+            "description": "⠫⠛⠉"
+          },
+          "frames": {
+            "type": "integer",
+            "description": "⠫⠛⠙"
+          },
+          "timestamps": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "⠫⠛⠑"
+          }
+        },
+        "required": [
+          "path",
+          "question"
+        ]
+      }
+    },
+    "grok_research": {
+      "description": "Live web + X (twitter) research via Grok (xAI). Returns fresh, dated, source-cited findings. It runs Grok's own agentic web + X search and brings back cited context. ⠱⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "⠱⠑⠃"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "work_landing": {
+      "description": "Establish your WORK CONTEXT for this workspace. No args: DETECT the folder, the GitHub repo (git remote origin), and visibility (private/public via gh) — gracefully, returning a proposed behavior mode (internal-dev for private/local, public-facing-care for a public repo). ⠫⠚",
+      "params": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "⠫⠚⠙"
+          },
+          "repo": {
+            "type": "string",
+            "description": "⠫⠚⠑"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private",
+              "unknown"
+            ],
+            "description": "⠫⠚⠋"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "internal-dev",
+              "public-facing",
+              "unset"
+            ],
+            "description": "⠫⠚⠛"
+          }
+        }
+      }
+    },
+    "rl_campaign": {
+      "description": "Run and inspect native RL campaigns during an active loop. run launches asynchronous isolated coding attempts, verifier measurements, reflection and policy comparison on the current loop model. Defaults to the loop task/verifier; task and verify can select a research subproblem. results retains artifacts across iterations and resumes. Only independently audited promotion installs a learned policy; otherwise this is measured exploration. /rl shows the same campaign to the operator. ⠩⠊",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "run",
+              "status",
+              "results",
+              "stop"
+            ]
+          },
+          "task": {
+            "type": "string",
+            "description": "⠩⠊⠉"
+          },
+          "verify": {
+            "type": "string",
+            "description": "⠩⠊⠙"
+          },
+          "rounds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠩⠊⠑"
+          },
+          "group": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠩⠊⠋"
+          },
+          "samples": {
+            "type": "integer",
+            "minimum": 2,
+            "description": "⠩⠊⠛"
+          },
+          "verifier_scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "⠩⠊⠓"
+          },
+          "audit": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "task": {
+                  "type": "string"
+                },
+                "verify": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "⠩⠊⠊"
+                }
+              },
+              "required": [
+                "task",
+                "verify",
+                "source"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "run_id": {
+            "type": "string",
+            "description": "⠩⠊⠚"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠾⠛⠁"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "benchmark_compare": {
+      "description": "Calculate measured benchmark percentages from paired baseline/candidate samples on one named dataset: mean/median/p95, sample standard deviation, signed improvement, ratio-of-means speedup, paired wins/ties/losses. Local deterministic arithmetic; no network, model estimates or acceptance authority. Samples must be nonnegative and matched in order. ⠩⠚",
+      "params": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "metric": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "⠩⠚⠃"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "minimize",
+              "maximize"
+            ]
+          },
+          "baseline": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1e+100
+            }
+          },
+          "candidate": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1e+100
+            }
+          }
+        },
+        "required": [
+          "dataset",
+          "metric",
+          "direction",
+          "baseline",
+          "candidate"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "jev_decide": {
+      "description": "Ask Jev fast typed technical questions about explicit evidence: defect triage, hypothesis ranking, regression risk, or next diagnostic. Returns advisory probability percentages, choice confidence, rubric scores, latency and token usage. Sends only supplied state/questions to TypeSafe. No automatic retries. ⠹⠚",
+      "params": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "maxLength": 24576,
+            "description": "⠹⠚⠋⠹⠚⠙⠹⠚⠑"
+          },
+          "questions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "noul",
+                    "choice",
+                    "score"
+                  ]
+                },
+                "instructions": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "description": "⠹⠚⠛"
+                },
+                "options": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "description": "⠹⠚⠓⠹⠚⠊⠹⠚⠚"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "instructions"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "state",
+          "questions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "knowledge_graph": {
+      "description": "Typed knowledge-graph memory for this workspace (entities: PERSON/ORGANIZATION/LOCATION/EVENT/ARTIFACT; directed verb-phrase edges; provenance on every fact). op=ingest extracts one document's entities+relations into the store; op=resolve deduplicates surface forms of the same real-world thing; op=summarize writes grounded profiles for well-connected hub entities; op=query answers a question from stored facts with edge citations; op=stats summarizes the store. Facts persist across sessions. ⠫⠓",
+      "params": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "ingest",
+              "resolve",
+              "summarize",
+              "query",
+              "stats"
+            ],
+            "description": "⠫⠓⠃"
+          },
+          "text": {
+            "type": "string",
+            "description": "⠫⠓⠉"
+          },
+          "source": {
+            "type": "string",
+            "description": "⠫⠓⠙"
+          },
+          "question": {
+            "type": "string",
+            "description": "⠫⠓⠑"
+          },
+          "club": {
+            "type": "string",
+            "description": "⠫⠓⠋"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      }
+    },
+    "get_context_remaining": {
+      "description": "Report how many tokens the conversation holds against its compaction threshold. Takes no arguments. ⠯⠉",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "handle_read": {
+      "description": "Explicitly disclose a capped byte slice from a session handle previously offloaded out of root history. Output is hard-capped by ANGEL_HANDLE_MAX_DISCLOSE_BYTES. ⠹⠛",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "⠹⠛⠃"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "⠹⠛⠉"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠹⠛⠙"
+          }
+        },
+        "required": [
+          "handle"
+        ]
+      }
+    },
+    "delegate": {
+      "description": "Delegate a task to a configured club (a local mode or a SOTA link). It works in an isolated git worktree and returns its summary, the branch name, and the diff. Local seats are optional and only used while reachable — a down local is skipped, not a failed turn. ⠹⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "club": {
+            "type": "string",
+            "description": "⠹⠁⠃"
+          },
+          "task": {
+            "type": "string",
+            "description": "⠹⠁⠉"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "write",
+              "review",
+              "read_only"
+            ],
+            "default": "write",
+            "description": "⠹⠁⠙"
+          }
+        },
+        "required": [
+          "club",
+          "task"
+        ]
+      }
+    },
+    "integrate": {
+      "description": "Merge a delegated branch into the shared workspace (serialized, one at a time). Reports conflicts instead of leaving a mess. ⠷⠋",
+      "params": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "⠷⠋⠁"
+          }
+        },
+        "required": [
+          "branch"
+        ]
+      }
+    },
+    "recall": {
+      "description": "Search long-term memory (notes distilled from this and earlier sessions: decisions, files changed, durable facts, open threads) and return the most relevant. Args: `query` (string, required), `limit` (int, optional, default 5). ⠡⠚",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "⠡⠚⠃"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "⠡⠚⠉"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "swarm_compile": {
+      "description": "Compile a green-base coding goal into a durable proof graph: isolated investigator, independent regression-test author, implementer, adversarial reviewer, differential/full verification, causal credit, and learned routing. A verified result is parked on a branch and never auto-merged. Actions: run, resume, status, policy. ⠹⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "run",
+              "resume",
+              "status",
+              "policy"
+            ],
+            "default": "run"
+          },
+          "run_id": {
+            "type": "string",
+            "description": "⠹⠃⠃"
+          },
+          "goal": {
+            "type": "string",
+            "description": "⠹⠃⠉"
+          },
+          "task_type": {
+            "type": "string",
+            "description": "⠹⠃⠙"
+          },
+          "targeted_test_cmd": {
+            "type": "string",
+            "description": "⠹⠃⠑"
+          },
+          "accept_cmd": {
+            "type": "string",
+            "description": "⠹⠃⠋"
+          },
+          "quality_cmds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "⠹⠃⠛"
+          },
+          "test_scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "⠹⠃⠓"
+          },
+          "club": {
+            "type": "string",
+            "default": "auto",
+            "description": "⠹⠃⠊"
+          },
+          "routes": {
+            "type": "object",
+            "description": "⠹⠃⠚"
+          }
+        },
+        "required": []
+      }
+    },
+    "lsp_diagnostics": {
+      "description": "Ground-truth errors/warnings for a source file from a language server (rust-analyzer/pyright/tsserver/…). Opens the file and returns its diagnostics (severity line:col message). Read-only. ⠡⠛",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠡⠛⠃"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "lsp_symbols": {
+      "description": "Outline a file's symbols (functions, structs, methods, …) from the language server — indented, with each symbol's line. Analyzer-grade (handles nesting/visibility), unlike the regex `outline`/`defs`. Read-only. ⠮⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠮⠙⠁"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "lsp_workspace_symbol": {
+      "description": "Find a symbol by name ANYWHERE in the project (functions/structs/…), via the language server's workspace index — more precise than grepping for the name. Returns `kind name  path:line`. A server must be warm first. Read-only. ⠮⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "⠮⠑⠃"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "ui_inspect": {
+      "description": "Inspect the next fully rendered interactive cockpit frame. Defaults to the braille Scryglass and returns matching panel, focus, media, world, and control state. ⠮⠋",
+      "params": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠮⠋⠃"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "scryglass",
+              "artifacts",
+              "screen",
+              "header",
+              "transcript",
+              "agent",
+              "input",
+              "shell",
+              "image",
+              "transport"
+            ],
+            "default": "scryglass"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "cells"
+            ],
+            "default": "text"
+          },
+          "row_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 24
+          }
+        }
+      }
+    },
+    "ui_verify": {
+      "description": "Apply one typed, display-only operation through the ordinary cockpit input path, then return its receipt with exact terminal cells and semantic state from that same completed frame. ⠮⠛",
+      "params": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "inspect_image"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "zoom_in",
+                      "zoom_out",
+                      "left",
+                      "right",
+                      "up",
+                      "down",
+                      "fit"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "action"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "open_control"
+                  },
+                  "control": {
+                    "type": "string",
+                    "enum": [
+                      "model",
+                      "thinking"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "control"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "navigate_control"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "up",
+                      "down",
+                      "left",
+                      "right"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "direction"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "focus_surface"
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "core",
+                      "agent",
+                      "scryglass"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "surface"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "open_observatory"
+                  },
+                  "campaign": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "⠮⠛⠃"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "scryglass",
+              "artifacts",
+              "screen",
+              "header",
+              "transcript",
+              "agent",
+              "input",
+              "shell",
+              "image",
+              "transport"
+            ],
+            "default": "screen"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "cells"
+            ],
+            "default": "text"
+          },
+          "row_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 17
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "lsp_definition": {
+      "description": "Jump to where a symbol is DEFINED (path:line:col) via the language server. Read-only. ⠮⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠮⠁⠃"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "⠮⠁⠉⠮⠁⠙"
+          },
+          "line": {
+            "type": "integer",
+            "description": "⠮⠁⠑"
+          },
+          "character": {
+            "type": "integer",
+            "description": "⠮⠁⠋"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "lsp_references": {
+      "description": "List every USE of a symbol (path:line:col) via the language server. Read-only. ⠮⠃",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠮⠃⠃"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "⠮⠃⠉⠮⠃⠙"
+          },
+          "line": {
+            "type": "integer",
+            "description": "⠮⠃⠑"
+          },
+          "character": {
+            "type": "integer",
+            "description": "⠮⠃⠋"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "lsp_hover": {
+      "description": "Type signature / doc for a symbol via the language server. Read-only. ⠮⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠮⠉⠃"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "⠮⠉⠉⠮⠉⠙"
+          },
+          "line": {
+            "type": "integer",
+            "description": "⠮⠉⠑"
+          },
+          "character": {
+            "type": "integer",
+            "description": "⠮⠉⠋"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "atlas": {
+      "description": "Search Living Atlas, observe an exact workspace source file, trace concept/code links, or propose a sourced claim and links for human review. Source observations include current file hashes and lexical declaration hints, not verified behavior. Claims and relations cannot self-activate.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "search",
+              "detail",
+              "propose",
+              "observe",
+              "trace"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "symbol": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "decision",
+              "preference",
+              "procedure",
+              "open_thread",
+              "entity",
+              "artifact",
+              "note"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "links": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "related",
+                    "derived_from"
+                  ]
+                },
+                "target_id": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "kind",
+                "target_id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sources": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "kind": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "digest": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "excerpt": {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "independent": {
+                  "type": "boolean"
+                },
+                "influenced_by": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "grep": {
+      "description": "Search one path, or up to eight workspace files/directories, for a regular-expression pattern. Uses Git ignore rules when available and skips hidden, credential, key, and quarantined files. Results are deterministic and diverse across files; a bounded receipt provides `after_file` when another page exists. ⠣⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "no_ignore": {
+            "type": "boolean",
+            "description": "⠣⠉⠁"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "⠣⠉⠃"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "⠣⠉⠉"
+          },
+          "path": {
+            "type": "string",
+            "description": "⠣⠉⠙"
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string"
+            },
+            "description": "⠣⠉⠑"
+          },
+          "after_file": {
+            "type": "string",
+            "description": "⠣⠉⠋"
+          },
+          "skip_files": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string"
+            },
+            "description": "⠣⠉⠛"
+          },
+          "ignore_case": {
+            "type": "boolean",
+            "description": "⠣⠉⠓"
+          },
+          "context": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "⠣⠉⠊"
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    },
+    "defs": {
+      "description": "Find where one symbol, or up to eight symbols, are DEFINED across the workspace in one scan (fn/struct/enum/trait/type/const/static/impl, plus Python, JS, and Go declarations). Default discovery uses Git ignore rules when available. Both modes skip hidden, credential, key, and quarantined paths; explicit source mode also rejects symlinks. Returns file:line by default. Matches are lexical heuristics, not a semantic call graph. ⠣⠑",
+      "params": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "⠣⠑⠉"
+          },
+          "name": {
+            "type": "string",
+            "description": "⠣⠑⠙"
+          },
+          "names": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string"
+            },
+            "description": "⠣⠑⠑"
+          },
+          "ignore_case": {
+            "type": "boolean",
+            "description": "⠣⠑⠋"
+          },
+          "include_source": {
+            "type": "boolean",
+            "description": "⠣⠑⠛"
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "⠣⠑⠓"
+          },
+          "max_source_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 65536,
+            "description": "⠣⠑⠊"
+          }
+        }
+      }
+    },
+    "todo": {
+      "description": "Your persistent task list for multi-step work. action=list (default) returns its canonical JSON state; add {text} appends; complete {id} checks one off; set {items:[...]} replaces the whole list. ⠯⠁",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "add",
+              "complete",
+              "set"
+            ],
+            "description": "⠯⠁⠁"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "⠯⠁⠃"
+          },
+          "id": {
+            "type": "integer",
+            "description": "⠯⠁⠉"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "description": "⠯⠁⠙"
+          }
+        },
+        "required": []
+      }
+    },
+    "handoff": {
+      "description": "Your compaction-proof, session-proof handoff note. The newest note replaces the previous one, is carried verbatim across context compaction, and persists on disk so a FRESH session's action=show recovers it. action=show (default when no note is given) returns the current note; write {note} replaces it. ⠡⠊",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "show",
+              "write"
+            ],
+            "description": "⠡⠊⠉"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 200,
+            "maxLength": 6000,
+            "description": "⠡⠊⠙"
+          }
+        },
+        "required": []
+      }
+    },
+    "semantic_read": {
+      "description": "Use the shared Casper embedding service to rank bounded chunks from explicitly named workspace files, returning only the most relevant source passages with path and line provenance. Files stay confined to the active repository; hidden, credential, key, and off-limits paths are rejected. ⠡⠋",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "⠡⠋⠃"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 32,
+            "description": "⠡⠋⠉"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "⠡⠋⠙"
+          }
+        },
+        "required": [
+          "query",
+          "paths"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "science_search": {
+      "description": "Search the scientific literature: fans one query across OpenAlex, Crossref, Semantic Scholar and Europe PMC, deduplicates by DOI and ranks by citations + recency. Returns a briefing — the dominant title-metadata cues, the seminal and freshest papers, then a ranked reading list with validated DOI or source-record links. It does not read abstracts or full text. ⠱⠉",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "⠱⠉⠃"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "⠱⠉⠉"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "repo_search": {
+      "description": "Surface the latest/best code repositories for a topic via GitHub repository search. Returns a cited shortlist — owner/name, stars, last-push date, primary language, description, and a validated github.com link — ranked by reputation (stars) or recency. `mode:\"latest\"` favours recently-pushed repos; `mode:\"best\"` (default) favours established, high-star ones. ⠱⠙",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "⠱⠙⠃"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "best",
+              "latest"
+            ],
+            "description": "⠱⠙⠉"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "⠱⠙⠙"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    "labyrinth_campaign_spec": {
+      "description": "native campaign specification",
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "task": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000
+          },
+          "doors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "statement": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16000
+                },
+                "missing": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8000
+                },
+                "perspectives": {
+                  "type": "array",
+                  "minItems": 5,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "statement",
+                "missing",
+                "perspectives"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "referee_inputs": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "canonical_documents": {
+            "type": "array",
+            "maxItems": 1024,
+            "items": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "argv": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "timeout_secs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 14400
+                }
+              },
+              "required": [
+                "argv"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "spot_checks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "argv": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "timeout_secs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 14400
+                }
+              },
+              "required": [
+                "argv"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "closed_routes": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "properties": {
+                "door_id": {
+                  "type": "string",
+                  "maxLength": 240
+                },
+                "route": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "lesson": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "required": [
+                "door_id",
+                "route",
+                "lesson"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "side_projects": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "compute_rules": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "max_hops": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 128
+          },
+          "role_timeout_secs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14400
+          },
+          "campaign_timeout_secs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "max_rounds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "writer_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        },
+        "required": [
+          "id",
+          "task",
+          "doors",
+          "referee_inputs",
+          "canonical_documents",
+          "checks",
+          "spot_checks"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "loop_research": {
+      "description": "Sloptomizer research. context(task) recalls live evidence relationships across models, including outside /loop. During a loop: suggest ranks ideas with Pareto, UCB and MicroLearner without a model call; run tests your chosen idea asynchronously in an isolated copy on the current model/effort; compare=true measures a paired baseline. Completion arrives in the running turn automatically. Advice never forces a choice. rl_campaign handles measured policy promotion. ⠩⠓",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "options",
+              "context",
+              "suggest",
+              "run",
+              "campaign",
+              "status",
+              "results",
+              "stop"
+            ]
+          },
+          "campaign_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "run",
+              "status",
+              "cancel",
+              "check",
+              "recover",
+              "recheck"
+            ],
+            "description": "⠾⠋⠉"
+          },
+          "campaign_id": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "⠾⠋⠙"
+          },
+          "campaign_spec": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "task": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16000
+              },
+              "doors": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "statement": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 16000
+                    },
+                    "missing": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8000
+                    },
+                    "perspectives": {
+                      "type": "array",
+                      "minItems": 5,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "statement",
+                    "missing",
+                    "perspectives"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "inputs": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "referee_inputs": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "canonical_documents": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "checks": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "timeout_secs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14400
+                    }
+                  },
+                  "required": [
+                    "argv"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "spot_checks": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "timeout_secs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14400
+                    }
+                  },
+                  "required": [
+                    "argv"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "closed_routes": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "door_id": {
+                      "type": "string",
+                      "maxLength": 240
+                    },
+                    "route": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "lesson": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  },
+                  "required": [
+                    "door_id",
+                    "route",
+                    "lesson"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "side_projects": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "compute_rules": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16000
+              },
+              "concurrency": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "max_hops": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 128
+              },
+              "role_timeout_secs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14400
+              },
+              "campaign_timeout_secs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 86400
+              },
+              "max_rounds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "writer_retries": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
+            },
+            "required": [
+              "id",
+              "task",
+              "doors",
+              "referee_inputs",
+              "canonical_documents",
+              "checks",
+              "spot_checks"
+            ],
+            "additionalProperties": false,
+            "description": "⠾⠋⠑"
+          },
+          "campaign_bundle": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "⠾⠋⠋"
+          },
+          "task": {
+            "type": "string",
+            "description": "⠩⠓⠉"
+          },
+          "verify": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "⠩⠓⠙"
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pareto",
+                "bandit",
+                "memory"
+              ]
+            },
+            "description": "⠩⠓⠑"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "idea": {
+                  "type": "string"
+                },
+                "approach": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "idea"
+              ],
+              "additionalProperties": false
+            },
+            "description": "⠩⠓⠃"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "⠩⠓⠋"
+          },
+          "idea": {
+            "type": "string",
+            "description": "⠩⠓⠛"
+          },
+          "approach": {
+            "type": "string",
+            "description": "⠩⠓⠓"
+          },
+          "compare": {
+            "type": "boolean",
+            "description": "⠩⠓⠊"
+          },
+          "use_memory": {
+            "type": "boolean",
+            "description": "⠩⠓⠚"
+          },
+          "run_id": {
+            "type": "string",
+            "description": "⠾⠋⠁"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "⠾⠋⠃"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "labyrinth_campaign": {
+      "description": "native book-backed campaign description",
+      "params": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "run",
+              "status",
+              "cancel",
+              "check",
+              "recover",
+              "recheck"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "spec": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "task": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16000
+              },
+              "doors": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "statement": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 16000
+                    },
+                    "missing": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8000
+                    },
+                    "perspectives": {
+                      "type": "array",
+                      "minItems": 5,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "statement",
+                    "missing",
+                    "perspectives"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "inputs": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "referee_inputs": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "canonical_documents": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "checks": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "timeout_secs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14400
+                    }
+                  },
+                  "required": [
+                    "argv"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "spot_checks": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 4096
+                      }
+                    },
+                    "timeout_secs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14400
+                    }
+                  },
+                  "required": [
+                    "argv"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "closed_routes": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "door_id": {
+                      "type": "string",
+                      "maxLength": 240
+                    },
+                    "route": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "lesson": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  },
+                  "required": [
+                    "door_id",
+                    "route",
+                    "lesson"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "side_projects": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "compute_rules": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16000
+              },
+              "concurrency": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "max_hops": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 128
+              },
+              "role_timeout_secs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14400
+              },
+              "campaign_timeout_secs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 86400
+              },
+              "max_rounds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "writer_retries": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
+            },
+            "required": [
+              "id",
+              "task",
+              "doors",
+              "referee_inputs",
+              "canonical_documents",
+              "checks",
+              "spot_checks"
+            ],
+            "additionalProperties": false
+          },
+          "bundle": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

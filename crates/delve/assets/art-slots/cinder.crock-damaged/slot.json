@@ -67,7 +67,7 @@
     "foreign/duplicate suspicion",
     "unreviewed mapping/components"
   ],
-  "map_sha256": "ca144f36b5852bd8727b441b796d1b52fc937590b4d07843c3bcbe90cea74b34",
+  "map_sha256": "eead9676a20ccd81b07b9d2b069fa75311fdbd553073cbac495cc969c9574c97",
   "metadata_sha256": "0800d2f0dd032407ef0fb2959e291be9bc1dc286560cf17c8ba50a36e86dcb69",
   "notes_sha256": "ec8fc2ba14964467ae41b10a0fadced2cbd408b59491154f0c3ac98e01d7f458",
   "outputs": {
@@ -534,7 +534,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "cinder.crock-damaged",
-  "source_path": "/work/artifacts/boss-art-20261015/damage-1/prepared/cinder.crock-damaged/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/damage-1/prepared/cinder.crock-damaged/source-sheet.png",
   "source_sha256": "b7d0d01191a806f205844908c30f97b1dc4610fef79ceacd93c676b4f13a84d0",
   "tool_version": 2
 }

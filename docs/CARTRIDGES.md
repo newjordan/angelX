@@ -132,7 +132,7 @@ llama.cpp, on this machine, and keeps one SQLite index of vectors and exact
 words. A hit names the page, the second or the line.
 
 ```sh
-DIG_HOME=/work/digup docs/examples/cartridges/dig/install.sh   # into ~/.angelX/cartridges/dig
+DIG_HOME=~/digup docs/examples/cartridges/dig/install.sh   # into ~/.angelX/cartridges/dig
 ~/.angelX/cartridges/dig/bin/digup estimate ~/Pictures         # the first pass's time
 ~/.angelX/cartridges/dig/bin/digup index ~/Pictures            # adds the folder; again to catch up
 ```
@@ -159,6 +159,23 @@ with `digup index --code <repo>`. Nothing watches the folders; re-running
 `digup index` on a schedule (a systemd timer, say) keeps the index current, and
 an unchanged repository costs seconds. Remove `~/.angelX/cartridges/dig` to
 unplug it.
+
+### Bend Pixel VFX
+
+[`examples/cartridges/vfx`](examples/cartridges/vfx/) carries a local pixel VFX
+renderer written in Bend 2, with a Node adapter for PNG sheets, GIFs, atlas JSON,
+Godot SpriteFrames and ZIP exports. It is an independent MIT implementation;
+it uses no Scenario source, accounts or paid generation.
+
+```sh
+docs/examples/cartridges/vfx/install.sh   # into ~/.angelX/cartridges/vfx
+```
+
+After restarting angelX, `/vfx <effect>` loads its authoring skill, and the
+deferred `vfx_catalog` and `vfx_render` tools list and render effects. The same
+adapter also exposes stdio MCP (`bin/vfx mcp`) and a loopback HTTP API
+(`bin/vfx serve`). The cartridge's README documents the recipe format, pinned
+toolchain, output limits and interface examples.
 
 ## A config-only cartridge
 
@@ -229,5 +246,9 @@ optional:
 | `status_cli` | `angel --comp-status ARGS…` |
 
 A source cartridge can use anything in the cockpit crate. Rebuild after
-changing it; the build watches its files. A source cartridge that a binary was
+changing it; Rust tracks the source modules and included files it compiles.
+Only cartridge manifests and entry modules rerun the cockpit build script;
+unrelated docs, launchers and uncompiled tests do not. A source cartridge plugged in
+after the last build is compiled in by the next one that has a reason to
+run the build script; `touch cockpit/build.rs` gives it one. A source cartridge that a binary was
 not built with is ignored at startup rather than run without its hooks.

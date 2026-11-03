@@ -20,6 +20,6 @@
   "prompt_sha256": "9b95852f7226f1f5aae1b85d525a65bff13ea624f99b82851d2745a45dea82bb",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "v01/picked/{rock,stone,causeway,bone,lava,mist}.png, the producer's six chosen swatches (bone from the re-run in v01/source-sheet.png; rock, lava and mist from the first run's second image in v01-first; rock wrap-blended in y and mist in x by the lane). The importer reads the six pasted unscaled on one sheet",
-  "source_path": "/work/artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
   "source_sha256": "8e232d4b80ce7b285919e705266f33bfca707d7cf7438655a712669489449fcf"
 }

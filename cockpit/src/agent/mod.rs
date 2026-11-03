@@ -13,6 +13,7 @@ pub(crate) mod formations;
 pub(crate) mod git;
 pub(crate) mod harness;
 pub(crate) mod hashline;
+pub(crate) mod hotload;
 pub(crate) mod lsp;
 pub(crate) mod mcp;
 pub(crate) mod openai_codex;

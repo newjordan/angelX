@@ -90,31 +90,99 @@ const ODOOR: [&str; 12] = [
     "boss",
     "seal",
 ];
-struct Bank {
-    floor: Vec<Option<Img>>,
-    slabs: Vec<[Option<Img>;4]>,
-    wall: Vec<Option<Img>>,
-    block: Vec<Option<Img>>,
-    hazard: Vec<Option<Img>>,
-    gate: Vec<Option<Img>>,
-    decor: Vec<Option<Img>>,
-    owall: Vec<Option<Img>>,
-    odoor: Vec<Option<Img>>,
-    sidedoor: Vec<Option<Img>>,
+/// Side doors' drawings, by name: west and east, closed, open, locked.
+const SIDEDOOR: [&str; 6] = ["west-closed", "west-open", "west-locked", "east-closed", "east-open", "east-locked"];
+
+/// One kind of a kit's tiles (`FLOOR`, `WALL`, ...): each by its place in
+/// the kind's names, and which of them a bake has drawn since `clear_drawn`
+/// (indexing one that is there marks it), so the art a room stands on can
+/// be listed (`tiles_drawn`).
+struct KitTiles {
+    kind: &'static str,
+    names: &'static [&'static str],
+    imgs: Vec<Option<Img>>,
+    drawn: Vec<std::sync::atomic::AtomicBool>,
 }
-fn bank(pack: Pack, scale: i32) -> &'static Bank {
-    static BANKS: [OnceLock<Bank>; 14] = [const { OnceLock::new() }; 14];
-    BANKS[pack as usize * 2 + (scale - 1) as usize].get_or_init(|| {
-        let load = |kind: &str, names: &[&str]| {
-            names
+
+impl KitTiles {
+    fn new(kind: &'static str, names: &'static [&'static str], imgs: Vec<Option<Img>>) -> Self {
+        let drawn = imgs.iter().map(|_| std::sync::atomic::AtomicBool::new(false)).collect();
+        Self { kind, names, imgs, drawn }
+    }
+
+    /// Whether tile `i` is in the kit, without counting it drawn.
+    fn has(&self, i: usize) -> bool {
+        self.imgs.get(i).is_some_and(Option::is_some)
+    }
+
+    fn mark(&self, i: usize) {
+        if self.has(i) {
+            self.drawn[i].store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// The same tiles, each made by `f`.
+    fn map(&self, f: impl Fn(&Img) -> Img) -> Self {
+        Self::new(self.kind, self.names, self.imgs.iter().map(|im| im.as_ref().map(&f)).collect())
+    }
+}
+
+impl std::ops::Index<usize> for KitTiles {
+    type Output = Option<Img>;
+    fn index(&self, i: usize) -> &Option<Img> {
+        self.mark(i);
+        &self.imgs[i]
+    }
+}
+
+impl std::ops::Deref for KitTiles {
+    type Target = [Option<Img>];
+    fn deref(&self) -> &[Option<Img>] {
+        &self.imgs
+    }
+}
+
+struct Bank {
+    floor: KitTiles,
+    slabs: Vec<[Option<Img>;4]>,
+    wall: KitTiles,
+    block: KitTiles,
+    hazard: KitTiles,
+    gate: KitTiles,
+    decor: KitTiles,
+    owall: KitTiles,
+    odoor: KitTiles,
+    sidedoor: KitTiles,
+}
+
+impl Bank {
+    fn kinds(&self) -> [&KitTiles; 9] {
+        [&self.floor, &self.wall, &self.block, &self.hazard, &self.gate, &self.decor, &self.owall, &self.odoor, &self.sidedoor]
+    }
+
+    /// A kit's tiles, its floor's material quadrants made from its floor.
+    fn of(floor: KitTiles, [wall, block, hazard, gate, decor, owall, odoor, sidedoor]: [KitTiles; 8], scale: i32) -> Self {
+        // Cache the four material quadrants once. Room admission then uses
+        // packed row stamps rather than sampling every floor pixel again.
+        let slabs=floor.imgs.iter().map(|im|std::array::from_fn(|q|im.as_ref().map(|source| {
+            let t=16*scale;let mut out=Img::new(t,t);
+            for y in 0..t {for x in 0..t {
+                if let Some(c)=source.get((q as i32%2*t+x)/2,(q as i32/2*t+y)/2) {out.set(x,y,c);}
+            }}out
+        }))).collect();
+        Bank { floor, slabs, wall, block, hazard, gate, decor, owall, odoor, sidedoor }
+    }
+}
+
+fn bank(pack: Pack) -> &'static Bank {
+    static BANKS: [OnceLock<Bank>; 7] = [const { OnceLock::new() }; 7];
+    BANKS[pack as usize].get_or_init(|| {
+        let load = |kind: &'static str, names: &'static [&'static str]| {
+            KitTiles::new(kind, names, names
                 .iter()
                 .map(|name| {
                     let slot = format!("dgn.{kind}.{}", PACKS[pack as usize]);
-                    let name = if scale == 2 {
-                        format!("v2-{name}")
-                    } else {
-                        name.to_string()
-                    };
+                    let name = name.to_string();
                     slot_art::bytes(&slot, &name).map(|_| {
                         let mut im=slot_art::load(&slot,&name,&[]);
                         if kind=="decor" || kind=="block" {
@@ -126,52 +194,160 @@ fn bank(pack: Pack, scale: i32) -> &'static Bank {
                         }im
                     })
                 })
-                .collect()
+                .collect())
         };
-        let floor:Vec<Option<Img>>=load("floor",&FLOOR);
-        // Cache the four material quadrants once. Room admission then uses
-        // packed row stamps rather than sampling every floor pixel again.
-        let slabs=floor.iter().map(|im|std::array::from_fn(|q|im.as_ref().map(|source| {
-            let t=16*scale;let mut out=Img::new(t,t);
-            for y in 0..t {for x in 0..t {
-                if let Some(c)=source.get((q as i32%2*t+x)/2,(q as i32/2*t+y)/2) {out.set(x,y,c);}
-            }}out
-        }))).collect();
-        Bank {
-            floor,
-            slabs,
-            wall: load("wall", &WALL),
-            block: load("block", &BLOCK),
-            hazard: load("hazard", &HAZARD),
-            gate: load("gate", &GATE),
-            decor: load("decor", &DECOR),
-            owall: load("owall", &OWALL),
-            odoor: load("odoor", &ODOOR),
-            sidedoor: ["west-closed", "west-open", "west-locked", "east-closed", "east-open", "east-locked"].iter().map(|name| {
-                let slot = format!("dgn.sidedoor-{}", PACKS[pack as usize]);
-                let name = if scale == 2 {format!("v2-{name}")} else {name.to_string()};
-                slot_art::bytes(&slot, &name).map(|_|slot_art::load(&slot, &name, &[]))
-            }).collect(),
-        }
+        let sidedoor = KitTiles::new("sidedoor", &SIDEDOOR, SIDEDOOR.iter().map(|name| {
+            let slot = format!("dgn.sidedoor-{}", PACKS[pack as usize]);
+            let name = name.to_string();
+            slot_art::bytes(&slot, &name).map(|_|slot_art::load(&slot, &name, &[]))
+        }).collect());
+        Bank::of(load("floor", &FLOOR), [
+            load("wall", &WALL),
+            load("block", &BLOCK),
+            load("hazard", &HAZARD),
+            load("gate", &GATE),
+            load("decor", &DECOR),
+            load("owall", &OWALL),
+            load("odoor", &ODOOR),
+            sidedoor,
+        ], 1)
     })
+}
+
+/// A kit's tiles at `scale` (3 and up) from the installed HD pack
+/// (`hd_pack`): each 1x tile's drawing where the pack has one at exactly
+/// that scale, keyed by the tile's look (`look_key`, the same key a sprite
+/// has, so a block standing among the crowd and the same block in the
+/// room's art are one drawing), else the tile itself with each pixel
+/// `scale` square. Made once a pack, kit and scale.
+fn fine_bank(pack: Pack, scale: i32) -> Arc<Bank> {
+    type Fine = Mutex<Vec<((Pack, i32, u64), Arc<Bank>)>>;
+    static FINE: OnceLock<Fine> = OnceLock::new();
+    let art = super::hd_pack::installed();
+    let key = (pack, scale, art.as_ref().map_or(0, |a| a.generation()));
+    let fine = FINE.get_or_init(Default::default);
+    if let Some((_, bank)) = fine.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _)| *k == key) {
+        return bank.clone();
+    }
+    let base = bank(pack);
+    let finer = |im: &Img| -> Img {
+        let drawn = art.as_ref().and_then(|a| a.drawing_at(look_key(im), (im.w as u32, im.h as u32), scale as u32));
+        match drawn {
+            Some(d) => {
+                let mut out = Img::new(d.width as i32, d.height as i32);
+                for (i, px) in d.rgba.chunks_exact(4).enumerate() {
+                    if px[3] >= 128 {
+                        out.set(i as i32 % d.width as i32, i as i32 / d.width as i32, [px[0], px[1], px[2]]);
+                    }
+                }
+                out
+            }
+            None => {
+                let mut out = Img::new(im.w * scale, im.h * scale);
+                out.stamp_times(im, 0, 0, scale);
+                out
+            }
+        }
+    };
+    let bank = Arc::new(Bank::of(base.floor.map(&finer), [
+        base.wall.map(&finer),
+        base.block.map(&finer),
+        base.hazard.map(&finer),
+        base.gate.map(&finer),
+        base.decor.map(&finer),
+        base.owall.map(&finer),
+        base.odoor.map(&finer),
+        base.sidedoor.map(&finer),
+    ], scale));
+    let mut fine = fine.lock().unwrap_or_else(|e| e.into_inner());
+    // A few kits and packs at a time: a host walks one floor's kit.
+    if fine.len() >= 8 {
+        fine.remove(0);
+    }
+    fine.push((key, bank.clone()));
+    bank
+}
+
+/// The scale the installed HD pack composes this room's kit at, when it has
+/// a drawing of any of the kit's tiles: a pack of knights alone leaves the
+/// room as it was.
+pub(super) fn fine_scale(run: &Run) -> Option<i32> {
+    type Covered = Mutex<Vec<((Pack, u64), bool)>>;
+    static COVERED: OnceLock<Covered> = OnceLock::new();
+    let scale = super::hd_pack::room_scale()?;
+    let art = super::hd_pack::installed()?;
+    let key = (run.dungeon.pack, art.generation());
+    let covered = COVERED.get_or_init(Default::default);
+    let known = covered.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _)| *k == key).map(|&(_, c)| c);
+    let any = known.unwrap_or_else(|| {
+        let base = bank(run.dungeon.pack);
+        let any = base
+            .kinds()
+            .iter()
+            .flat_map(|tiles| tiles.imgs.iter().flatten())
+            .any(|im| art.drawing_at(look_key(im), (im.w as u32, im.h as u32), scale as u32).is_some());
+        let mut covered = covered.lock().unwrap_or_else(|e| e.into_inner());
+        if covered.len() >= 16 {
+            covered.remove(0);
+        }
+        covered.push((key, any));
+        any
+    });
+    any.then_some(scale)
+}
+
+/// Every tile of `run`'s kit at the game's grain, by kind and name.
+#[cfg(any(test, feature = "testing"))]
+pub(super) fn kit_tiles(run: &Run) -> Vec<(&'static str, &'static str, Img)> {
+    let b = bank(run.dungeon.pack);
+    b.kinds()
+        .iter()
+        .flat_map(|tiles| tiles.imgs.iter().zip(tiles.names).filter_map(|(im, &name)| Some((tiles.kind, name, im.clone()?))))
+        .collect()
+}
+
+/// The tiles of `run`'s kit its room is laid with at the game's grain (its
+/// fires' every flame too), by kind and name: the art the room stands on,
+/// for an art request (`hd_pack`'s `write_hd_request`).
+#[cfg(any(test, feature = "testing"))]
+pub(super) fn tiles_drawn(run: &Run) -> Vec<(&'static str, &'static str, Img)> {
+    let b = bank(run.dungeon.pack);
+    for tiles in b.kinds() {
+        for drawn in &tiles.drawn {
+            drawn.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    let scene = bake(run, 1);
+    if !scene.fires.is_empty() {
+        (0..3).for_each(|i| b.decor.mark(i));
+    }
+    b.kinds()
+        .iter()
+        .flat_map(|tiles| {
+            tiles.imgs.iter().zip(tiles.names).zip(&tiles.drawn).filter_map(|((im, &name), drawn)| {
+                drawn.load(std::sync::atomic::Ordering::Relaxed).then(|| Some((tiles.kind, name, im.clone()?))).flatten()
+            })
+        })
+        .collect()
 }
 /// Decode and prepare each delivered bank before the first displayed room.
 pub(super) fn warm() {
-    let scale = if art_v2::enabled() { 2 } else { 1 };
     for pack in [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown] {
-        let _ = bank(pack, scale);
+        let _ = bank(pack);
     }
 }
 
 pub(super) fn supported(run: &Run) -> bool {
     !run.race3d_showing()
+        && !super::atari::here(run)
         && slot_art::enabled()
         && !run.at_home_now()
         && !run.side_on()
         && run.circle() == 0
         && run.mode != crate::rules::fortune::Mode::LightsOut
         && run.room().kind != RoomKind::Wanted
-        && bank(run.dungeon.pack, 1).floor[..6]
+        && run.room().kind != RoomKind::DeepVillage
+        && bank(run.dungeon.pack).floor.imgs[..6]
             .iter()
             .all(Option::is_some)
 }
@@ -195,11 +371,24 @@ struct Key {
     pack: Pack,
     barred: bool,
     side_state: usize,
+    /// At 3 and up, the scale and the HD pack the tiles are drawn from.
+    fine: Option<(i32, u64)>,
 }
-pub(super) fn scene(run: &Run, scale: i32) -> Arc<Scene> {
+pub(super) fn scene(run: &Run) -> Arc<Scene> {
+    scene_at(run, 1)
+}
+/// The room's still art at the game's grain (1), or at `s` (3 and up) from
+/// the installed HD pack's tiles (`fine_bank`); one kept for each.
+fn scene_at(run: &Run, s: i32) -> Arc<Scene> {
+    #[cfg(test)]
+    let _gate = if HOLDING_CACHE_GATE.with(|h| h.get()) {
+        None
+    } else {
+        Some(CACHE_GATE.lock().unwrap_or_else(|p| p.into_inner()))
+    };
     type Cache = Mutex<Option<(Key, Arc<Scene>)>>;
     static CACHE: [OnceLock<Cache>; 2] = [const { OnceLock::new() }; 2];
-    let cache = CACHE[(scale - 1) as usize].get_or_init(Default::default);
+    let cache = CACHE[usize::from(s >= 3)].get_or_init(Default::default);
     let key = Key {
         layout: run.room().fingerprint(),
         room: run.at,
@@ -207,13 +396,14 @@ pub(super) fn scene(run: &Run, scale: i32) -> Arc<Scene> {
         pack: run.dungeon.pack,
         barred: run.barred(),
         side_state: side_state(run),
+        fine: (s >= 3).then(|| (s, super::hd_pack::installed().map_or(0, |a| a.generation()))),
     };
     if let Some((k, scene)) = cache.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
         if *k == key {
             return scene.clone();
         }
     }
-    let scene = Arc::new(bake(run, scale));
+    let scene = Arc::new(bake(run, s));
     *cache.lock().unwrap_or_else(|e| e.into_inner()) = Some((key, scene.clone()));
     scene
 }
@@ -222,7 +412,30 @@ pub(super) fn scene(run: &Run, scale: i32) -> Arc<Scene> {
 pub(super) fn side_state(run: &Run) -> usize {
     if !run.barred() {1} else if run.foes_left() {0} else {2}
 }
-fn stamp(cv: &mut Img, bank: &[Option<Img>], index: usize, x: i32, y: i32) {
+
+#[cfg(test)]
+thread_local! {
+    static HOLDING_CACHE_GATE: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
+#[cfg(test)]
+static CACHE_GATE: Mutex<()> = Mutex::new(());
+
+/// Hold the scene cache so a parallel test cannot evict it mid-check.
+#[cfg(test)]
+fn pin_scene_cache() -> impl Drop {
+    struct Pin {
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+    impl Drop for Pin {
+        fn drop(&mut self) {
+            HOLDING_CACHE_GATE.with(|h| h.set(false));
+        }
+    }
+    let guard = CACHE_GATE.lock().unwrap_or_else(|p| p.into_inner());
+    HOLDING_CACHE_GATE.with(|h| h.set(true));
+    Pin { _guard: guard }
+}
+fn stamp(cv: &mut Img, bank: &KitTiles, index: usize, x: i32, y: i32) {
     if let Some(im) = &bank[index] {
         cv.stamp(im, x, y);
     }
@@ -230,7 +443,7 @@ fn stamp(cv: &mut Img, bank: &[Option<Img>], index: usize, x: i32, y: i32) {
 fn wall(cv: &mut Img, b: &Bank, room: &Room, c: i32, r: i32, s: i32, v: usize) {
     let t = 16 * s;
     let (x, y) = (c * t, r * t);
-    if b.owall[0].is_some() {
+    if b.owall.has(0) {
         let i = if r == 0 {
             if c == 0 {
                 3
@@ -264,7 +477,7 @@ fn wall(cv: &mut Img, b: &Bank, room: &Room, c: i32, r: i32, s: i32, v: usize) {
         if let Some(im) = &b.wall[v % 4] {
             cv.stamp(im, x, y + t - im.h);
         }
-    } else if r == room.rows as i32 - 1 && b.wall[6].is_some() {
+    } else if r == room.rows as i32 - 1 && b.wall.has(6) {
         if let Some(im) = &b.wall[6 + v % 2] {
             cv.stamp(im, x, y + t - im.h);
         }
@@ -276,7 +489,7 @@ fn wall(cv: &mut Img, b: &Bank, room: &Room, c: i32, r: i32, s: i32, v: usize) {
 fn hazard(cv: &mut Img, b: &Bank, room: &Room, c: i32, r: i32, s: i32, v: usize) {
     let t = 16 * s;
     let (x, y) = (c * t, r * t);
-    if b.hazard[0].is_none() {
+    if !b.hazard.has(0) {
         return;
     }
     stamp(cv, &b.hazard, v % 4, x, y);
@@ -367,7 +580,8 @@ fn objects_for_room(run:&Run,s:i32)->Vec<Object> {
 }
 fn bake(run: &Run, s: i32) -> Scene {
     let room = run.room();
-    let b = bank(run.dungeon.pack, s);
+    let fine = (s >= 3).then(|| fine_bank(run.dungeon.pack, s));
+    let b = fine.as_deref().unwrap_or_else(|| bank(run.dungeon.pack));
     let t = 16 * s;
     let mut cv = Img::black(room.cols as i32 * t, room.rows as i32 * t);
     let objects;
@@ -406,6 +620,7 @@ fn bake(run: &Run, s: i32) -> Scene {
                     // A source slab spans two collision cells. Registration and
                     // collision stay on the original grid; only material scale changes.
                     if let Some(im) = &b.slabs[variant][(r%2*2+c%2) as usize] {
+                        b.floor.mark(variant);
                         cv.stamp(im,x,y);
                     }
 
@@ -428,7 +643,7 @@ fn bake(run: &Run, s: i32) -> Scene {
         }
     }}
     objects=objects_for_room(run,s);
-    for &object in &objects {stamp_object(&mut cv,run,s,object);}
+    for &object in &objects {stamp_block(&mut cv,b,object);}
     reveal.grade(&mut cv);
     let standing = std::mem::replace(&mut cv, floor);
     cv.stamp(&standing, 0, 0);
@@ -463,8 +678,8 @@ fn bake(run: &Run, s: i32) -> Scene {
             }}
             im.rect(im.w/2-1,im.h/2-1,3,3,'7');
             im.put(im.w/2,im.h/2,'6');
-            if s == 2 {
-                cv.stamp_twice(&im, x, y);
+            if s > 1 {
+                cv.stamp_times(&im, x, y, s);
             } else {
                 cv.stamp(&im, x, y);
             }
@@ -476,14 +691,14 @@ fn bake(run: &Run, s: i32) -> Scene {
                 && room.tile(c - 1, r) != Tile::Stairs
                 && room.tile(c, r - 1) != Tile::Stairs
             {
-                if b.odoor[9].is_some() {
+                if b.odoor.has(9) {
                     stamp(&mut cv, &b.odoor, 9, c * t, r * t);
-                } else if b.gate[8].is_some() {
+                } else if b.gate.has(8) {
                     stamp(&mut cv, &b.gate, 8, c * t, r * t);
                 } else {
                     let im = super::sprites::stairs(!run.barred());
-                    if s == 2 {
-                        cv.stamp_twice(&im, c * t, r * t);
+                    if s > 1 {
+                        cv.stamp_times(&im, c * t, r * t, s);
                     } else {
                         cv.stamp(&im, c * t, r * t);
                     }
@@ -513,61 +728,45 @@ fn bake(run: &Run, s: i32) -> Scene {
         shimmer,
     }
 }
-pub(super) fn stamp_object(cv: &mut Img, run: &Run, s: i32, o: Object) {
-    if let Some(im) = &bank(run.dungeon.pack, s).block[o.index] {
+fn stamp_block(cv: &mut Img, b: &Bank, o: Object) {
+    if let Some(im) = &b.block[o.index] {
         cv.stamp(im, o.x, o.feet - im.h);
     }
 }
-/// Special knight states still use the legacy body painter. Preserve the
-/// earlier overlay under opaque foreground props, leaving the native v2
-/// obstacle visible there. Cues and the final HUD are painted afterward.
-pub(super) fn legacy_body(cv: &mut Img, run: &Run, feet: f32, paint: impl FnOnce(&mut Img)) {
-    let objects=objects_for_room(run,1);
-    let b = bank(run.dungeon.pack, 1);
-    let feet = (feet * UNIT).round() as i32;
-    let mut covered = Vec::new();
-    for object in &objects {
-        if object.feet <= feet {
-            continue;
-        }
-        if let Some(im) = &b.block[object.index] {
-            for y in 0..im.h {
-                for x in 0..im.w {
-                    if im.get(x, y).is_some() {
-                        let (x, y) = (object.x + x, object.feet - im.h + y);
-                        covered.push((x, y, cv.get(x, y)));
-                    }
-                }
-            }
-        }
-    }
-    paint(cv);
-    for (x, y, previous) in covered {
-        if let Some(c) = previous {
-            cv.set(x, y, c);
-        } else {
-            cv.clear(x, y);
-        }
+/// A block standing among the crowd at the game's grain (`stamp_block`),
+/// noted as a sprite stood up there (`note_body`): a window with an HD
+/// pack's drawing of it draws that in its place, the same drawing the
+/// room's finer still art has it in (`fine_bank`).
+pub(super) fn stand_object(cv: &mut Img, run: &Run, o: Object) {
+    if let Some(im) = &bank(run.dungeon.pack).block[o.index] {
+        super::note_body(im, o.x, o.feet - im.h);
+        cv.stamp(im, o.x, o.feet - im.h);
     }
 }
-pub(super) fn flames(cv: &mut Img, run: &Run, s: i32, scene: &Scene) {
-    let b = bank(run.dungeon.pack, s);
-    for &(x,y,colours) in &scene.shimmer { cv.set(x,y,colours[(run.tick / 4 % 4) as usize]); }
+/// The fires and the light shimmering round them at `tick`.
+pub(super) fn flames(cv: &mut Img, run: &Run, tick: u64, s: i32, scene: &Scene) {
+    let fine = (s >= 3).then(|| fine_bank(run.dungeon.pack, s));
+    let b = fine.as_deref().unwrap_or_else(|| bank(run.dungeon.pack));
+    for &(x,y,colours) in &scene.shimmer { cv.set(x,y,colours[(tick / 4 % 4) as usize]); }
     for (i, &(x, y)) in scene.fires.iter().enumerate() {
-        if let Some(im) = &b.decor[((run.tick / 6 + i as u64) % 3) as usize] {
+        if let Some(im) = &b.decor[((tick / 6 + i as u64) % 3) as usize] {
             cv.stamp(im, x - im.w / 2, y + 8 * s - im.h);
         }
     }
 }
+/// The room's still art, kept a torch step (`scenery_cached`): its fires,
+/// shimmer and motes drawn at the step's first tick (`torch_tick`), so the
+/// kept drawing is the same whichever tick of the step drew it.
 pub(super) fn scenery(run: &Run) -> Img {
-    let scene = scene(run, 1);
+    let scene = scene(run);
     let mut im = scene.base.clone();
-    flames(&mut im, run, 1, &scene);
+    let tick = super::scenery::torch_tick(run);
+    flames(&mut im, run, tick, 1, &scene);
     let tint=lighting::colour(run.dungeon.pack);
     for i in 0..14 {
         let v=hash(i,run.at as i32,71);
-        let x=((v as u64+run.tick/3)%im.w as u64) as i32;
-        let y=(((v>>10) as u64+run.tick/5)%im.h as u64) as i32;
+        let x=((v as u64+tick/3)%im.w as u64) as i32;
+        let y=(((v>>10) as u64+tick/5)%im.h as u64) as i32;
         if let Some(c)=im.get(x,y) {im.set(x,y,std::array::from_fn(|k|((c[k] as u16*89+tint[k] as u16*11)/100) as u8));}
     }
     // Special furniture, traps, chests and sealed walls keep their existing
@@ -575,113 +774,42 @@ pub(super) fn scenery(run: &Run) -> Img {
     super::room_details(run, &mut im, &mut vec![]);
     im
 }
-pub(super) fn v2_ground(cv: &mut super::art_v2::paint::Canvas, run: &Run) {
-    let scene=scene(run,2);
-    let (ox,oy) = (cv.origin.0 as i32*2,cv.origin.1 as i32*2);
-    for &(x,y,colours) in &scene.shimmer {
-        let (x,y)=(x-ox,y-oy);
-        if x>=0 && y>=0 && (x as usize)<cv.w && (y as usize)<cv.h {cv.px[y as usize*cv.w+x as usize]=colours[(run.tick/4%4) as usize];}
+/// The room's still art at `s` (3 and up) from the installed HD pack's
+/// tiles (`fine_bank`): `scenery` drawn finer, with its fires, its motes
+/// and its fixtures as at 1x (a chest, a trap, a sealed wall are the
+/// game's own: each of their pixels `s` square), for a window to draw in
+/// the 1x art's place.
+pub(super) fn fine_scenery(run: &Run, s: i32) -> Img {
+    let scene = scene_at(run, s);
+    let mut im = scene.base.clone();
+    let tick = super::scenery::torch_tick(run);
+    flames(&mut im, run, tick, s, &scene);
+    let (w, h) = (im.w / s, im.h / s);
+    let tint=lighting::colour(run.dungeon.pack);
+    for i in 0..14 {
+        let v=hash(i,run.at as i32,71);
+        let x=((v as u64+tick/3)%w.max(1) as u64) as i32;
+        let y=(((v>>10) as u64+tick/5)%h.max(1) as u64) as i32;
+        for (px, py) in (0..s * s).map(|k| (x * s + k % s, y * s + k / s)) {
+            if let Some(c)=im.get(px,py) {im.set(px,py,std::array::from_fn(|k|((c[k] as u16*89+tint[k] as u16*11)/100) as u8));}
+        }
     }
+    let mut details = Img::new(w, h);
+    super::room_details(run, &mut details, &mut vec![]);
+    im.stamp_times(&details, 0, 0, s);
+    im
 }
-pub(super) fn v2_flames(cv: &mut super::art_v2::paint::Canvas, run: &Run) {
-    let scene = scene(run, 2);
-    let b = bank(run.dungeon.pack, 2);
-    for (i, &(x, y)) in scene.fires.iter().enumerate() {
-        if let Some(im) = &b.decor[((run.tick / 6 + i as u64) % 3) as usize] {
-            stamp_canvas(cv, im, x - im.w / 2, y + 16 - im.h);
-        }
-    }
-    let pixels = details(run);
-    let (ox, oy) = (cv.origin.0 as i32 * 2, cv.origin.1 as i32 * 2);
-    for &(x, y, c) in pixels.iter() {
-        let (x, y) = (x - ox, y - oy);
-        if x >= 0 && y >= 0 && (x as usize) < cv.w && (y as usize) < cv.h {
-            cv.px[y as usize * cv.w + x as usize] = c;
-        }
-    }
-}
-// Keep sparse fixture pixels, not an empty full-room overlay on every seat.
-fn details(run: &Run) -> Arc<Vec<(i32, i32, Rgb)>> {
-    type DetailKey = (u64, Pack, u64, bool, Option<bool>, usize, bool);
-    type Cache = Mutex<Option<(DetailKey, Arc<Vec<(i32, i32, Rgb)>>)>>;
-    static CACHE: OnceLock<Cache> = OnceLock::new();
-    let key = (
-        run.room().fingerprint(),
-        run.dungeon.pack,
-        run.tick / 6,
-        run.barred(),
-        run.room().chest.map(|c| c.open),
-        run.traps.len(),
-        run.wishing,
-    );
-    let cache = CACHE.get_or_init(Default::default);
-    if let Some((k, pixels)) = cache.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
-        if *k == key {
-            return pixels.clone();
-        }
-    }
-    let mut im = Img::new(run.room().cols as i32 * 16, run.room().rows as i32 * 16);
-    super::room_details(run, &mut im, &mut vec![]);
-    let mut pixels = Vec::new();
-    for y in 0..im.h {
-        for x in 0..im.w {
-            if let Some(c) = im.get(x, y) {
-                for dy in 0..2 {
-                    for dx in 0..2 {
-                        pixels.push((x * 2 + dx, y * 2 + dy, c));
-                    }
-                }
-            }
-        }
-    }
-    let pixels = Arc::new(pixels);
-    *cache.lock().unwrap_or_else(|e| e.into_inner()) = Some((key, pixels.clone()));
-    pixels
-}
-fn stamp_canvas(cv: &mut super::art_v2::paint::Canvas, im: &Img, x: i32, y: i32) {
-    let ox = (cv.origin.0 as i32) * 2;
-    let oy = (cv.origin.1 as i32) * 2;
-    for yy in 0..im.h {
-        for xx in 0..im.w {
-            let (px, py) = (x + xx - ox, y + yy - oy);
-            if px >= 0 && py >= 0 && (px as usize) < cv.w && (py as usize) < cv.h {
-                if let Some(c) = im.get(xx, yy) {
-                    cv.px[py as usize * cv.w + px as usize] = c;
-                }
-            }
-        }
-    }
-}
-pub(super) fn v2_foreground(cv: &mut super::art_v2::paint::Canvas, run: &Run, depth: &[i32]) {
-    let scene = scene(run, 2);
-    let b = bank(run.dungeon.pack, 2);
-    let (ox, oy) = (cv.origin.0 as i32 * 2, cv.origin.1 as i32 * 2);
-    for o in &scene.objects {
-        if let Some(im) = &b.block[o.index] {
-            for yy in 0..im.h {
-                for xx in 0..im.w {
-                    let (x, y) = (o.x + xx - ox, o.feet - im.h + yy - oy);
-                    if x >= 0 && y >= 0 && (x as usize) < cv.w && (y as usize) < cv.h {
-                        let i = y as usize * cv.w + x as usize;
-                        if depth[i] < o.feet {
-                            if let Some(c) = im.get(xx, yy) {
-                                cv.px[i] = c;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// A tight 60% contact ellipse on the ink overlay; no opaque navy stamp.
 pub(super) fn contact(cv:&mut Img,run:&Run,x:i32,y:i32,width:i32) {
+    // `scene` hashes the whole floor. Callers with a crowd already in hand
+    // use `contact_on` so an open floor is not hashed once per figure.
+    contact_on(cv,&scene(run),x,y,width);
+}
+pub(super) fn contact_on(cv:&mut Img,ground:&Scene,x:i32,y:i32,width:i32) {
     let rx=(width/4).clamp(3,14);
-    let ground=scene(run,1);
+    let ground=&ground.base;
     for dy in -2..=2 {for dx in -rx..=rx {
         if dx*dx*4+dy*dy*rx*rx<=rx*rx*4 {
-            let c=cv.get(x+dx,y+dy).or_else(||ground.base.get(x+dx,y+dy)).unwrap_or([0;3]);
+            let c=cv.get(x+dx,y+dy).or_else(||ground.get(x+dx,y+dy)).unwrap_or([0;3]);
             cv.set(x+dx,y+dy,c.map(|v|(v as u16*2/5) as u8));
         }
     }}
@@ -710,63 +838,28 @@ pub(super) fn knight_shot(cv:&mut Img,p:&crate::rules::Projectile,x:i32,y:i32)->
         || p.look.is_some() || p.empowered || p.traits.path.beam.is_some() || p.traits.path.waiting() {return false;}
     let speed=p.vx.abs().max(p.vy.abs()).max(0.01);
     let (dx,dy)=(p.vx/speed,p.vy/speed);
-    let at=|n:f32|(x+(dx*n).round() as i32,y+(dy*n).round() as i32);
+    // A stroke 8 pixels long at its old size. A one-pixel line is no
+    // thinner when a shot is smaller, so its length follows the square
+    // root of the shot's size (`wishcraft`), and a stroke is never under
+    // 5 pixels: its direction still reads.
+    let k=p.scale().sqrt();
+    let at=|n:f32|(x+(dx*n*k).round() as i32,y+(dy*n*k).round() as i32);
     let (tx,ty)=at(-5.0);let (hx,hy)=at(2.0);
     // Short direction-bearing stroke; the one-pixel contour follows that
     // stroke instead of making a black disc behind the whole projectile.
-    for (ox,oy) in [(-1,0),(1,0),(0,-1),(0,1)] {cv.line(tx+ox,ty+oy,hx+ox,hy+oy,'s');}
+    // A small shot is its stroke alone: the contour would be most of it.
+    if k>=0.85 {
+        for (ox,oy) in [(-1,0),(1,0),(0,-1),(0,1)] {cv.line(tx+ox,ty+oy,hx+ox,hy+oy,'s');}
+    }
     cv.line(tx,ty,hx,hy,'2');
     let (mx,my)=at(-2.0);cv.line(mx,my,hx,hy,'V');
     cv.put(hx,hy,'W');true
 }
-/// The terminal keeps the native raster. Grade ground and foreground
-/// separately before the shared half-block/braille coverage reduction.
-pub(super) fn terminal_layers(cv:&super::art_v2::paint::Canvas,run:&Run)->(Img,Img) {
-    let mut base=Img::black(cv.w as i32,cv.h as i32);
-    for y in 0..cv.h {for x in 0..cv.w {
-        let i=y*cv.w+x;let c=cv.px[i];
-        let foreground=cv.ground.get(i).is_some_and(|&g|g!=c);
-        let value=(54*c[0] as i32+183*c[1] as i32+19*c[2] as i32)/256;
-        let hazard=run.room().tile((x as i32+cv.origin.0 as i32*2).div_euclid(32),(y as i32+cv.origin.1 as i32*2).div_euclid(32))==Tile::Hazard;
-        let grade=if foreground && value>55 {
-            // Preserve steel glints and the original cloth/attack chroma at
-            // fractional cell coverage; no scene-wide desaturation.
-            std::array::from_fn(|k|((value+(c[k] as i32-value)*145/100)*115/100).clamp(0,226) as u8)
-        } else if hazard {
-            std::array::from_fn(|k|(value+(c[k] as i32-value)*125/100).clamp(0,226) as u8)
-        } else {c.map(|v|(v as u16*3/4) as u8)};
-        base.set(x as i32,y as i32,grade);
-    }}
-    (base,Img::from_rgb(cv.w as i32,cv.h as i32,&cv.fx))
-}
-pub(super) fn v2_motes(cv:&mut super::art_v2::paint::Canvas,run:&Run) {
-    let tint=lighting::colour(run.dungeon.pack);
-    for i in 0..14 {
-        let v=hash(i,run.at as i32,71);
-        let x=((v%768) as u64+run.tick/3)%768;
-        let y=(((v>>10)%448) as u64+448-run.tick/5%448)%448;
-        let index=y as usize*cv.w+x as usize;
-        if index<cv.px.len() {for k in 0..3 {cv.px[index][k]=(cv.px[index][k] as u16*89/100+tint[k] as u16*11/100) as u8;}}
-        // Fifteen-percent premultiplied light, covering one real braille
-        // sample. Keep it on the atmosphere plane so quiet rooms retain dots.
-        let emission=match run.dungeon.pack {
-            Pack::Crypt|Pack::Cavern|Pack::Hellforge=>[33,27,20],
-            Pack::Archive=>[28,33,20],Pack::Fungal=>[22,33,30],Pack::Unknown=>[31,27,33],
-            Pack::Swamp=>[24,32,22],
-        };
-        let (x,y)=(x as usize/4*4,y as usize/4*4);
-        for dy in 0..4 {for dx in 0..4 {
-            let at=(y+dy)*cv.w+x+dx;
-            if at<cv.fx.len() {for k in 0..3 {cv.fx[at][k]=cv.fx[at][k].max(emission[k]);}}
-        }}
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     fn four(pack: Pack) -> Run {
-        let mut r = super::super::art_v2::testing::fight();
+        let mut r = super::super::testing::fight();
         for id in 2..=4 {
             r.join_seat(id, &format!("Knight {id}"));
         }
@@ -785,23 +878,21 @@ mod tests {
             for side in [1,3] {run.dungeon.rooms[at].open_door(side);}
             run.spawn_at_for_test(EnemyKind::Imp,24.0,6.0);
             assert!(run.barred());
-            let closed=[scene(&run,1),scene(&run,2)];
+            let closed=scene(&run);
             run.enemies.clear();run.waves.left=1;
             assert!(run.barred());
-            for scale in 1..=2 {
-                let locked=scene(&run,scale);
-                for side in [1,3] {
-                    let (x,y)=super::super::doors(run.room())[side];
-                    let rect=(x*16*scale,y*16*scale,16*scale,32*scale);
-                    let crop=|im:&Img|Img::from_view(im,rect.0,rect.1,rect.2,rect.3).content_hash();
-                    assert_ne!(crop(&closed[(scale-1) as usize].base),crop(&locked.base),"{pack:?} side {side} grain {scale}");
-                }
+            let locked=scene(&run);
+            for side in [1,3] {
+                let (x,y)=super::super::doors(run.room())[side];
+                let rect=(x*16,y*16,16,32);
+                let crop=|im:&Img|Img::from_view(im,rect.0,rect.1,rect.2,rect.3).content_hash();
+                assert_ne!(crop(&closed.base),crop(&locked.base),"{pack:?} side {side}");
             }
         }
     }
 
     #[test]
-    fn both_grains_cover_each_pack_and_only_collision_tiles_get_obstacles() {
+    fn the_kit_covers_each_pack_and_only_collision_tiles_get_obstacles() {
         for pack in [
             Pack::Crypt,
             Pack::Cavern,
@@ -816,8 +907,9 @@ mod tests {
                 "live wasm must retain the slot scenery path"
             );
             let before = serde_json::to_vec(&r).unwrap();
-            for s in [1, 2] {
-                let a = scene(&r, s);
+            {
+                let s = 1;
+                let a = scene(&r);
                 let b = bake(&r, s);
                 assert_eq!(a.base, b.base, "cached scenery is exact {pack:?}");
                 assert_eq!(
@@ -825,8 +917,8 @@ mod tests {
                     (r.room().cols as i32 * 16 * s, r.room().rows as i32 * 16 * s)
                 );
                 // Native source banks still obey the shared ink gate. RGB
-                // illumination is a post-process, like v2's existing lighting.
-                for im in bank(pack,s).floor.iter().flatten() {
+                // illumination is a post-process.
+                for im in bank(pack).floor.iter().flatten() {
                     assert!(im.pixels().all(|c| super::super::super::ink::palette_index(c).is_some()));
                 }
                 assert!(a.shimmer.iter().all(|&(x,y,_)| r.room().tile(x/(16*s),y/(16*s))!=Tile::Wall));
@@ -840,9 +932,9 @@ mod tests {
                         r.room().tile(o.x / (16 * s), o.feet / (16 * s) - 1),
                         Tile::Block
                     );
-                    assert!(bank(pack, s).block[o.index].is_some());
+                    assert!(bank(pack).block[o.index].is_some());
                 }
-                for f in &bank(pack, s).floor[..6] {
+                for f in &bank(pack).floor.imgs[..6] {
                     let f = f.as_ref().unwrap();
                     let brightness = f
                         .pixels()
@@ -872,7 +964,7 @@ mod tests {
             let run = four(pack);
             let room = run.room();
             let t = 16;
-            let scene = scene(&run, 1);
+            let scene = scene(&run);
             assert!(!scene.fires.is_empty(), "{pack:?}: the room has sconces");
             // Every light the floor knows: sconces, open doors, hazards.
             let mut lights: Vec<(i32, i32)> = lighting::fixtures(room, t);
@@ -923,7 +1015,7 @@ mod tests {
         assert!(run.open_here().is_some());
         assert!(supported(&run), "the open map takes the slot scenery");
         let room = run.room();
-        let scene = scene(&run, 1);
+        let scene = scene(&run);
         let t = 16;
         // The rock a wall's art cannot spill onto: rock all round, two deep.
         let core = |c: i32, r: i32| (-1..=1).all(|dr| (-1..=1).all(|dc| super::super::open::deep_rock(room, c + dc, r + dr)));
@@ -954,13 +1046,17 @@ mod tests {
     fn light_fields_are_tick_only_and_do_not_rebake_for_flicker() {
         let r=four(Pack::Crypt);
         let mut later=r.clone();later.tick+=4;
-        for s in [1,2] {
-            let a=scene(&r,s);let b=scene(&later,s);
-            assert!(Arc::ptr_eq(&a,&b));
+        {
+            let s = 1;
+            // Hold the one-entry scene cache so a parallel room cannot take it
+            // between the two lookups. Tick is not part of the key.
+            let _pin = pin_scene_cache();
+            let a=scene(&r);let b=scene(&later);
+            assert!(Arc::ptr_eq(&a,&b), "drawing a later tick takes the baked room, not a new one");
             assert!(!a.fires.is_empty());
             assert!(a.shimmer.iter().any(|&(_,_,c)| c[0]!=c[1]));
-            let mut im=a.base.clone();flames(&mut im,&r,s,&a);
-            let mut other=a.base.clone();flames(&mut other,&later,s,&b);
+            let mut im=a.base.clone();flames(&mut im,&r,r.tick,s,&a);
+            let mut other=a.base.clone();flames(&mut other,&later,later.tick,s,&b);
             assert_ne!(im,other);
         }
     }
@@ -978,16 +1074,8 @@ mod tests {
         assert!(!knight_shot(&mut im,&hostile,16,16));
     }
     #[test]
-    fn cell_grade_preserves_raster_and_separates_actor_chroma_from_ground() {
-        let r=four(Pack::Crypt);
-        let mut cv=super::super::art_v2::paint::Canvas::new(16,16,[50;3]);
-        cv.mark_ground();cv.px[17]=[180,45,35];
-        let (base,_) = terminal_layers(&cv,&r);
-        assert_eq!((base.w,base.h),(16,16));
-        let body=base.get(1,1).unwrap();
-        assert!(body[0]-body[1]>135,"cloth saturation survives coverage");
-        assert_eq!(base.get(0,0),Some([37;3]));
-        for im in bank(Pack::Fungal,2).decor.iter().flatten() {
+    fn the_fungal_decor_keeps_none_of_its_cyan_inks() {
+        for im in bank(Pack::Fungal).decor.iter().flatten() {
             assert!(im.pixels().all(|c|!matches!(c,[80,198,179]|[143,232,220]|[228,255,248])));
         }
     }
@@ -1002,7 +1090,8 @@ mod tests {
             Pack::Unknown,
         ] {
             let r = four(pack);
-            for s in [1, 2] {
+            {
+                let s = 1;
                 for mask in 0..256 {
                     let mut room = r.room().clone();
                     room.set(1, 1, Tile::Hazard);
@@ -1031,7 +1120,7 @@ mod tests {
                     }
                     let t = 16 * s;
                     let mut cv = Img::new(t * 3, t * 3);
-                    hazard(&mut cv, bank(pack, s), &room, 1, 1, s, 0);
+                    hazard(&mut cv, bank(pack), &room, 1, 1, s, 0);
                     for y in 0..cv.h {
                         for x in 0..cv.w {
                             if x < t || x >= 2 * t || y < t || y >= 2 * t {
@@ -1049,7 +1138,7 @@ mod tests {
         }
     }
     #[test]
-    fn door_state_and_depth_order_change_art_without_changing_geometry() {
+    fn door_state_changes_art_without_changing_geometry() {
         let mut r = four(Pack::Crypt);
         let at = r.at;
         // A prop to stand behind, whatever the floor laid in this room.
@@ -1063,11 +1152,11 @@ mod tests {
         open.enemies.clear();
         open.phase = Phase::Exploring;
         assert_eq!(r.room().fingerprint(), open.room().fingerprint());
-        assert_ne!(scene(&r, 1).base, scene(&open, 1).base);
-        for scale in [1, 2] {
-            let barred = scene(&r, scale);
-            let clear = scene(&open, scale);
-            let t = 16 * scale;
+        assert_ne!(scene(&r).base, scene(&open).base);
+        {
+            let barred = scene(&r);
+            let clear = scene(&open);
+            let t = 16;
             for (side, &(c, row)) in super::super::doors(r.room()).iter().enumerate() {
                 let (x0, y0) = (c * t, row * t);
                 let (w, h) = if side % 2 == 0 {
@@ -1079,49 +1168,32 @@ mod tests {
                     (y0..y0 + h).any(
                         |y| (x0..x0 + w).any(|x| barred.base.get(x, y) != clear.base.get(x, y))
                     ),
-                    "door {side} changes at grain {scale}"
+                    "door {side} changes"
                 );
             }
         }
-        let scene = scene(&r, 2);
-        let o = scene.objects[0];
-        let b = bank(Pack::Crypt, 2);
-        let im = b.block[o.index].as_ref().unwrap();
-        let mut cv = super::super::art_v2::paint::Canvas::new(
-            scene.base.w as usize,
-            scene.base.h as usize,
-            [17, 19, 23],
-        );
-        let behind = vec![i32::MIN; cv.px.len()];
-        v2_foreground(&mut cv, &r, &behind);
-        assert!(
-            (0..im.h).any(|y| (0..im.w).any(|x| im.get(x, y).is_some_and(|c| cv.px
-                [(o.feet - im.h + y) as usize * cv.w + (o.x + x) as usize]
-                == c)))
-        );
-        let mut legacy = Img::new(scene.base.w / 2, scene.base.h / 2);
-        let (w, h) = (legacy.w, legacy.h);
-        legacy_body(&mut legacy, &r, 0.0, |cv| cv.rect(0, 0, w, h, '6'));
-        let first = super::scene(&r, 1).objects[0];
-        let low = bank(Pack::Crypt, 1).block[first.index].as_ref().unwrap();
-        assert!(
-            (0..low.h).any(|y| (0..low.w).any(|x| low.get(x, y).is_some()
-                && legacy.get(first.x + x, first.feet - low.h + y).is_none()))
-        );
-        legacy_body(&mut legacy, &r, 1000.0, |cv| cv.rect(0, 0, w, h, '6'));
-        assert!(
-            legacy
-                .pixels()
-                .all(|c| c == super::super::super::ink::ink('6').unwrap()),
-            "dressed/rolling front knights keep their samples"
-        );
-        cv.px.fill([17, 19, 23]);
-        let front = vec![i32::MAX; cv.px.len()];
-        v2_foreground(&mut cv, &r, &front);
-        assert!(
-            cv.px.iter().all(|&c| c == [17, 19, 23]),
-            "a knight in front keeps every body sample"
-        );
+    }
+    #[test]
+    fn a_torch_steps_drawing_is_the_same_whichever_of_its_ticks_drew_it() {
+        // Two ticks of one torch step, a shimmer phase and the motes apart.
+        let mut first = four(Pack::Crypt);
+        first.tick = 600;
+        let mut last = first.clone();
+        last.tick = 605;
+        assert_eq!(super::super::scenery::torch_step(&first), super::super::scenery::torch_step(&last));
+        assert_eq!(scenery(&first), scenery(&last));
+        // The drawing kept for the step, baked by its last tick (another
+        // seat, another test's thread), draws the first tick's frame as its
+        // own bake does: hold the one kept drawing so nothing else bakes.
+        let mut elsewhere = first.clone();
+        elsewhere.raid_id ^= 1;
+        let frame = |run: &Run| super::super::frame_v1(run, 384, 224, Some(1));
+        let _pin = super::super::scenery::pin_scene_cache();
+        frame(&elsewhere);
+        let own = frame(&first);
+        frame(&elsewhere);
+        frame(&last);
+        assert!(own == frame(&first), "the step's kept drawing is the first tick's own");
     }
     #[test]
     fn four_seat_rendering_is_read_only_and_lights_out_retains_its_old_path() {
@@ -1130,8 +1202,6 @@ mod tests {
         for id in 1..=4 {
             let a = super::super::frame_v1(&r, 384, 224, Some(id));
             assert_eq!(a, super::super::frame_v1(&r, 384, 224, Some(id)));
-            let a = super::super::art_v2::frame(&r, 768, 448, Some(id));
-            assert_eq!(a, super::super::art_v2::frame(&r, 768, 448, Some(id)));
         }
         assert_eq!(before, serde_json::to_vec(&r).unwrap());
         r.mode = crate::rules::fortune::Mode::LightsOut;
@@ -1154,9 +1224,11 @@ pub(super) fn palette_frame(im: Img) -> Img {
 /// snapper lives: a frame in parts snaps what it composes the same way
 /// (`room_scene`).
 pub(super) fn snapper() -> impl FnMut(Rgb) -> Rgb {
-    use super::super::ink::{PALETTE,RgbMap,rgb};
+    use super::super::ink::{PALETTE,RgbMap,every_colour,rgb};
     static COLOURS:OnceLock<Mutex<RgbMap<Rgb>>>=OnceLock::new();
-    let mut colours=COLOURS.get_or_init(|| Mutex::new(PALETTE.iter().map(|&c|(rgb(c),rgb(c))).collect()))
+    // Every ink stays itself, a dye too; only a colour off them all is
+    // snapped, and only ever to the realm's own.
+    let mut colours=COLOURS.get_or_init(|| Mutex::new(every_colour().map(|c|(rgb(c),rgb(c))).collect()))
         .lock().unwrap_or_else(|e|e.into_inner());
     move |c: Rgb| *colours.entry(c).or_insert_with(|| PALETTE.iter().filter(|&&p|p!=0xe4fff8).map(|&p|rgb(p))
         .min_by_key(|p|(0..3).map(|k|(p[k] as i32-c[k] as i32).pow(2)).sum::<i32>()).unwrap())

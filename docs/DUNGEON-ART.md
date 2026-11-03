@@ -148,7 +148,7 @@ dungeon contracts pass, all six importer unit checks pass, wasm32 cargo check
 passes, and all 52 imported banks reproduce with --check. No golden hashes
 were regenerated and no shared palette definition changed.
 
-Review: /work/artifacts/boss-art-20261015/dungeon-int-1/REVIEW.md. Raw states,
+Review: <artifacts>/boss-art-20261015/dungeon-int-1/REVIEW.md. Raw states,
 cells, images, before/after timing logs and the reproducible review harness
 are beside that index. The first boss capture placed its boss outside the
 seat's view; it was rejected and recaptured with the boss nearer that knight.
@@ -238,7 +238,7 @@ Unknown, Cinderjaw and Mother of Spores, both grains. No fixture golden hash
 is regenerated. Sixteen four-bot serialised pack/boss/grain states compare
 byte-for-byte with the pre-change harness; source plates and default kit stay
 unchanged. Review tools, raw buffers, timings and nine comparison sheets live
-under /work/artifacts/boss-art-20261015/dungeon-int-2/.
+under <artifacts>/boss-art-20261015/dungeon-int-2/.
 
 Remaining art/renderer requests, in order:
 1. dgn.odoor.<pack>: twelve separated measured orthogonal states, especially
@@ -277,10 +277,12 @@ folder, including the 9.989 ms p95 during parallel checks.
 
 Mines and Keep reruns now use clean per-grid measured crops instead of the
 old 5/9-component split. Their source sheets and the matching measured retry,
-Fungal and HUD sheet are retained under `assets/dungeon-src`, with original
-sheet/metadata hashes. `scripts/dungeon-finish-import.py` reproduces that crop
-review from the read-only delivery. Normal conversion uses `slot-art-import.py`
-with `--source-dir crates/delve/assets/dungeon-src/<slot>` and `--requests
+Fungal and HUD sheet are retained in the source-art archive
+(`<archive>/2026-10-20/source-art/dungeon-src`; they left
+the repository on 2026-10-20), with original sheet/metadata hashes.
+`scripts/dungeon-finish-import.py` reproduces that crop review from the
+read-only delivery. Normal conversion uses `slot-art-import.py` with
+`--source-dir <source-art>/dungeon-src/<slot>` and `--requests
 crates/delve/assets/art-slots/dgn.requests.json`; `--check` verifies it.
 
 North doors draw their complete connected frame from the north wall baseline,
@@ -321,7 +323,7 @@ Their cached body banks lift only dark silhouette edges using the material's
 own hue ratios. Ordinary room grades and scenery source art are unchanged.
 All seven registered bodies pass the unchanged native/cell floor-contrast rule;
 measurements and reviewed before/after captures are in
-`/work/artifacts/delve-int-20261015/boss-read-1/`. See BOSS-LIBRARY-IMPORT.md for
+`<artifacts>/delve-int-20261015/boss-read-1/`. See BOSS-LIBRARY-IMPORT.md for
 acceptance values and the paired-floor exporter.
 
 ## INT-4 entrance rooms and vertical doors

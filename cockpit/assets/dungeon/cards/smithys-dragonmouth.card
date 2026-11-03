@@ -1,0 +1,14 @@
+name   Smithy's Dragonmouth
+kind   arm
+rarity relic
+text   A bell-mouth that roars.
+drop   0
+chest  1
+bolt   damage=9 speed=10 every=15 range=26
+spread shots=3 arc=40
+art
+..W77W..
+.W7ww7W.
+W7w88w7W
+.W7ww7W.
+..W77W..

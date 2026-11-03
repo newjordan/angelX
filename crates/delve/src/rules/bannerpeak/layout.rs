@@ -11,7 +11,7 @@
 //! j bell chute   r u v x y q o m signs
 //! & | / " < >  hints for the scripted bots (never drawn)
 //! ```
-use super::body::{Mover, Q};
+use super::body::Mover;
 use super::world::{Mark, TILE, World};
 use crate::rules::rafterwake::Plank;
 use std::sync::OnceLock;
@@ -286,12 +286,6 @@ fn log(id: u16, top: i32, left: i32) -> Mover {
             lift: false,
         },
     }
-}
-
-/// The fixed-point foot position of a world cell's floor.
-pub fn feet_q(cell: (i32, i32)) -> (i32, i32) {
-    let (x, y) = cell_feet(cell);
-    (x * Q, y * Q)
 }
 
 #[cfg(test)]

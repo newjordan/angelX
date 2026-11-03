@@ -133,19 +133,7 @@ impl Tool for OutlineTool {
         "outline"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "outline".to_string(),
-            description: "List the top-level symbols of a workspace source file (fn/struct/\
-                          enum/trait/impl/mod/type/const, plus py def/class, js function/class, \
-                          Go func/interface/package, and Java-style visibility methods) with line \
-                          numbers — a fast map without reading the whole file. ⠣⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": { "path": { "type": "string", "description": "⠣⠁⠁" } },
-                "required": ["path"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("outline")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args["path"].as_str().ok_or("missing 'path'")?;
@@ -183,24 +171,7 @@ impl Tool for ListDirTool {
         "list_dir"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "list_dir".to_string(),
-            description: "List the entries of a workspace directory (default: workspace \
-                          root). Directories are suffixed with '/'. Optional hint/pattern ranks entries; \
-                          otherwise directories and source/config files come first. Results report paging when truncated. ⠣⠃"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "hint": { "type": "string", "description": "⠣⠃⠁" },
-                    "pattern": { "type": "string", "description": "⠣⠃⠃" },
-                    "offset": { "type": "integer", "minimum": 0, "description": "⠣⠃⠉" },
-                    "limit": { "type": "integer", "minimum": 1, "maximum": 700, "description": "⠣⠃⠙" },
-                    "no_ignore": { "type": "boolean", "description": "⠣⠃⠑" },
-                    "hidden": { "type": "boolean", "description": "⠣⠃⠋" }, "path": { "type": "string", "description": "⠣⠃⠛" } },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("list_dir")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args["path"].as_str().unwrap_or(".");
@@ -259,49 +230,11 @@ impl Tool for GrepTool {
         "grep"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "grep".to_string(),
-            description:
-                "Search one path, or up to eight workspace files/directories, for a regular-expression \
-                          pattern. Uses Git ignore rules when available and skips hidden, credential, \
-                          key, and quarantined files. Results are deterministic and diverse across \
-                          files; a bounded receipt provides `after_file` when another page exists. ⠣⠉"
-                    .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "no_ignore": { "type": "boolean", "description": "⠣⠉⠁" },
-                    "hidden": { "type": "boolean", "description": "⠣⠉⠃" },
-                    "pattern": { "type": "string", "description": "⠣⠉⠉" },
-                    "path": { "type": "string", "description": "⠣⠉⠙" },
-                    "paths": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": GREP_MAX_PATHS,
-                        "items": { "type": "string" },
-                        "description": "⠣⠉⠑"
-                    },
-                    "after_file": {
-                        "type": "string",
-                        "description": "⠣⠉⠋"
-                    },
-                    "skip_files": {
-                        "type": "array",
-                        "maxItems": GREP_MAX_SKIP_FILES,
-                        "items": { "type": "string" },
-                        "description": "⠣⠉⠛"
-                    },
-                    "ignore_case": { "type": "boolean", "description": "⠣⠉⠓" },
-                    "context": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": GREP_MAX_CONTEXT_LINES,
-                        "description": "⠣⠉⠊"
-                    },
-                },
-                "required": ["pattern"],
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("grep");
+        *definition.params.pointer_mut("/properties/paths/maxItems").expect("embedded tool schema") = serde_json::json!(GREP_MAX_PATHS);
+        *definition.params.pointer_mut("/properties/skip_files/maxItems").expect("embedded tool schema") = serde_json::json!(GREP_MAX_SKIP_FILES);
+        *definition.params.pointer_mut("/properties/context/maximum").expect("embedded tool schema") = serde_json::json!(GREP_MAX_CONTEXT_LINES);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let pattern = args["pattern"].as_str().ok_or("missing 'pattern'")?;
@@ -1118,20 +1051,7 @@ impl Tool for FindFilesTool {
         "find_files"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "find_files".to_string(),
-            description: "List workspace files matching a glob (`*`/`?` within a segment, `**` \
-                          across dirs), e.g. '**/*.rs' or 'src/*.toml'. Skips \
-                          hidden and ignored paths by default. Complements grep (by name vs by content). ⠣⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "no_ignore": { "type": "boolean", "description": "⠣⠙⠁" },
-                    "hidden": { "type": "boolean", "description": "⠣⠙⠃" }, "pattern": { "type": "string", "description": "⠣⠙⠉" } },
-                "required": ["pattern"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("find_files")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let pattern = args["pattern"].as_str().ok_or("missing 'pattern'")?;
@@ -1255,23 +1175,7 @@ impl Tool for FileSearchTool {
         "file_search"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "file_search".to_string(),
-            description: "Fuzzy-find files by name: type a fragment of a path (fzf-style \
-                          subsequence ranking) and get the best matches, best first. Skips \
-                          hidden and ignored paths by default. Complements find_files (exact glob) and grep (by content). ⠡⠑"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "no_ignore": { "type": "boolean", "description": "⠡⠑⠃" },
-                    "hidden": { "type": "boolean", "description": "⠡⠑⠉" },
-                    "query": { "type": "string", "description": "⠡⠑⠙" },
-                    "limit": { "type": "integer", "description": "⠡⠑⠑" },
-                },
-                "required": ["query"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("file_search")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let query = args["query"].as_str().ok_or("missing 'query'")?;
@@ -1425,50 +1329,9 @@ impl Tool for DefsTool {
         "defs"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "defs".to_string(),
-            description: "Find where one symbol, or up to eight symbols, are DEFINED across the \
-                          workspace in one scan (fn/struct/enum/trait/type/const/static/impl, plus \
-                          Python, JS, and Go declarations). Default discovery uses Git ignore \
-                          rules when available. Both modes skip hidden, credential, key, and \
-                          quarantined paths; explicit source mode also rejects symlinks. Returns \
-                          file:line by default. Matches are lexical heuristics, not a semantic call graph. ⠣⠑"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "⠣⠑⠉"
-                    },
-                    "name": { "type": "string", "description": "⠣⠑⠙" },
-                    "names": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": DEFS_MAX_NAMES,
-                        "items": { "type": "string" },
-                        "description": "⠣⠑⠑"
-                    },
-                    "ignore_case": {
-                        "type": "boolean",
-                        "description": "⠣⠑⠋"
-                    },
-                    "include_source": {
-                        "type": "boolean",
-                        "description": "⠣⠑⠛"
-                    },
-                    "paths": {
-                        "type": "array", "minItems": 1, "maxItems": 8,
-                        "items": { "type": "string", "maxLength": 1024 },
-                        "description": "⠣⠑⠓"
-                    },
-                    "max_source_bytes": {
-                        "type": "integer", "minimum": 1024, "maximum": 65536,
-                        "description": "⠣⠑⠊"
-                    }
-                },
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("defs");
+        *definition.params.pointer_mut("/properties/names/maxItems").expect("embedded tool schema") = serde_json::json!(DEFS_MAX_NAMES);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let names = definition_names(args)?;

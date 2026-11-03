@@ -32,14 +32,26 @@ use super::*;
 
 pub mod boss;
 pub mod bot;
-mod combat;
-mod flight;
 pub mod rail;
-mod script;
 pub mod things;
 pub mod trig;
 pub mod types;
 pub use types::*;
+
+/// The rules themselves are the Bend module `cockpit/live/griffinwing-rules`,
+/// which the host's engine runs (`scripted::step`): the session, the keys,
+/// who is at the table and the five numbers go in as the JSON the Delve
+/// already saves and sends, and the next session comes back with the tick's
+/// sounds and the knights who left the tally. `Session::step` and
+/// `Session::bot_with` are the two asks; the session's types, saves and wire,
+/// the pictures' reads and the door stay here. The tick as it ran in Rust is
+/// the module's oracle, in the cockpit's rules tests; this crate's own tests
+/// tick through it.
+pub const MODULE: &str = "griffinwing-rules";
+/// The sounds the rules cue, by the index the module answers with.
+pub const SOUNDS: &str = "play_card knight_fall boss_death roll shot_bolt spoil_pickup shot_spark vent_fire \
+    shot_crossbow clang hero_hurt knight_hit_big bomb_toss hit_magic kill boss_rage bomb shield_up shield_block \
+    gold rock_land boss_rise boss_roar";
 
 pub const NAME: &str = "Griffinwing";
 /// The kingdom tile its door stands on: walk up and press E.
@@ -190,7 +202,7 @@ pub const REPLAY: u32 = 5;
 pub const REPLAY_MEDAL: u32 = 2;
 
 /// The five numbers as the sim reads them (`Tune::roundtable[SLOT]`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Nums {
     pub charge: u32,
     pub roll: u32,
@@ -282,9 +294,17 @@ pub struct Session {
     pub home: i32,
     /// Whether this is the party's first run (the beacon not yet lit).
     pub first: bool,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::symbols"
+    )]
     pub snd: Vec<&'static str>,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub leave: Vec<u32>,
 }
 
@@ -332,11 +352,11 @@ impl Session {
     }
 
     /// Seat a knight at the formation, unhurt for a moment.
-    fn sit(&mut self, id: u32, joined: u32) {
+    pub fn sit(&mut self, id: u32, joined: u32) {
         if !(1..=MAX_PLAYERS).contains(&id) || self.seats.contains_key(&id) {
             return;
         }
-        let (x, z) = flight::slot(id);
+        let (x, z) = slot(id);
         let mut craft = Craft::new(x, z);
         craft.hurt = 2 * HZ;
         self.seats.insert(id, Seat { joined, craft });
@@ -353,71 +373,16 @@ impl Session {
         self.seats.len().clamp(1, MAX_PLAYERS as usize) as u8
     }
 
-    /// A fresh id for a foe.
-    pub(super) fn next_id(&mut self) -> u16 {
-        let id = self.ids;
-        self.ids = if self.ids >= 60_000 { 1 } else { self.ids + 1 };
-        id
-    }
-
-    pub(super) fn sound(&mut self, name: &'static str) {
-        if self.snd.len() < 12 && !self.snd.contains(&name) {
-            self.snd.push(name);
-        }
-    }
-
-    /// A rider's short shout, shown as a portrait for a moment. The same line
-    /// is not said twice in a row, and four show at most.
-    pub(super) fn say(&mut self, who: u8, line: Line) {
-        if self.calls.iter().any(|c| c.line == line && c.ticks > 40) {
-            return;
-        }
-        if self.calls.len() >= MAX_CALLS {
-            self.calls.remove(0);
-        }
-        self.calls.push(Call {
-            who,
-            line,
-            ticks: 100,
-        });
-    }
-
-    pub(super) fn spark(&mut self, what: Burst, s: i32, x: i32, z: i32, n: u8) {
-        if self.fx.len() >= MAX_FX {
-            self.fx.remove(0);
-        }
-        self.fx.push(Flare {
-            what,
-            s,
-            x,
-            z,
-            ticks: match what {
-                Burst::Starfall => 36,
-                Burst::Fall => 40,
-                Burst::Lock => 8,
-                _ => 14,
-            },
-            n,
-        });
-    }
-
-    /// Who calls the hints: the first of the riders still flying, and when a
-    /// full table leaves none (or all are lost), Aster, the wing's lead, who
-    /// calls from the beacon's keep.
-    pub(super) fn voice(&self) -> u8 {
-        self.wing.iter().find(|w| !w.lost).map_or(7, |w| w.id)
-    }
-
     /// Fill the wing up to four with riders: the seats first, riders in the
     /// seats nobody sits in.
-    pub(super) fn fill_wing(&mut self) {
+    pub fn fill_wing(&mut self) {
         let want = WING.saturating_sub(self.seats.len());
         while self.wing.len() > want {
             self.wing.pop();
         }
         while self.wing.len() < want {
             let k = self.wing.len();
-            let (x, z, back) = flight::rider_slot(k);
+            let (x, z, back) = rider_slot(k);
             let mut craft = Craft::new(x, z);
             craft.back = back;
             self.wing.push(Wingman {
@@ -427,245 +392,6 @@ impl Session {
                 fire: 12 * k as u32,
             });
         }
-    }
-
-    /// Who is at the table now (`present`), seated and stood up, and the
-    /// foes' health provisioned for the seats now flying: a knight who sits
-    /// down scales the beat up by its share, and a seat already provisioned
-    /// does not scale twice (`Foe::seats`).
-    fn muster(&mut self, heroes: &BTreeMap<u32, Hero>) {
-        self.seats
-            .retain(|id, _| heroes.get(id).is_some_and(|h| !h.away && !h.stone));
-        let here: Vec<u32> = heroes
-            .iter()
-            .filter(|(_, h)| !h.away && !h.stone)
-            .map(|(&id, _)| id)
-            .collect();
-        for id in here {
-            if !self.seats.contains_key(&id) && (1..=MAX_PLAYERS).contains(&id) {
-                self.sit(id, self.elapsed);
-                if self.elapsed > 0 {
-                    self.say(id as u8, Line::Join);
-                    self.sound("play_card");
-                }
-            }
-        }
-        let now = self.pressure();
-        for f in &mut self.foes {
-            if f.seats < now {
-                let was = u32::from(f.seats.max(1));
-                f.hp = (u64::from(f.hp) * u64::from(now) / u64::from(was)) as u32;
-                f.full = f.full * u32::from(now) / was;
-                f.seats = now;
-            }
-        }
-        self.fill_wing();
-    }
-
-    /// One tick: the seats are whoever is here and awake, so a knight who
-    /// leaves stands up and one who joins late sits down; then the beat.
-    pub fn step(
-        &mut self,
-        inputs: &BTreeMap<u32, Input>,
-        heroes: &BTreeMap<u32, Hero>,
-        nums: &Nums,
-    ) -> Out {
-        self.elapsed = (self.elapsed + 1).min(LIMIT);
-        self.muster(heroes);
-        let live: Vec<u32> = self.seats.keys().copied().collect();
-        let keys = |id: u32| {
-            inputs
-                .get(&id)
-                .copied()
-                .filter(|i| i.valid())
-                .unwrap_or_default()
-        };
-        match self.mode {
-            Mode::Play => {
-                self.t = (self.t + 1).min(LIMIT);
-                for &id in &live {
-                    self.fly(id, keys(id), nums);
-                }
-                self.wing_fly(nums);
-                self.run_script(nums);
-                self.step_foes(nums);
-                self.step_boss(nums);
-                self.step_bolts(nums);
-                self.step_props(nums);
-                self.step_craft(nums);
-                self.tick_lists();
-                self.end_beat();
-            }
-            Mode::Retry => {
-                self.tick_lists();
-                self.mode_t = self.mode_t.saturating_sub(1);
-                if self.mode_t == 0 {
-                    self.restart();
-                }
-            }
-            Mode::Victory | Mode::Tally => {
-                // The rail carries them home; at the tally the wing hovers.
-                if self.mode == Mode::Victory {
-                    self.t = (self.t + 1).min(LIMIT);
-                }
-                for &id in &live {
-                    self.fly(id, keys(id), nums);
-                }
-                self.wing_fly(nums);
-                self.step_bolts(nums);
-                self.step_props(nums);
-                self.step_craft(nums);
-                self.tick_lists();
-                self.mode_t = (self.mode_t + 1).min(LIMIT);
-                if self.mode == Mode::Victory && self.mode_t >= VICTORY {
-                    self.finish();
-                } else if self.mode == Mode::Tally && self.mode_t > TALLY_HOLD {
-                    for &id in &live {
-                        let fresh = self
-                            .seats
-                            .get(&id)
-                            .is_some_and(|s| s.craft.keys & flight::K_SPUR == 0);
-                        if keys(id).interact && fresh {
-                            self.leave.push(id);
-                        }
-                    }
-                }
-            }
-        }
-        // The keys of this tick stand for the next one's presses.
-        for (&id, seat) in &mut self.seats {
-            seat.craft.keys = flight::bits(keys(id));
-        }
-        Out {
-            sounds: std::mem::take(&mut self.snd),
-            leave: std::mem::take(&mut self.leave),
-        }
-    }
-
-    /// The calls, flashes and counters wind down.
-    fn tick_lists(&mut self) {
-        for c in &mut self.calls {
-            c.ticks = c.ticks.saturating_sub(1);
-        }
-        self.calls.retain(|c| c.ticks > 0);
-        for f in &mut self.fx {
-            f.ticks = f.ticks.saturating_sub(1);
-        }
-        self.fx.retain(|f| f.ticks > 0);
-        for f in &mut self.foes {
-            f.flash = f.flash.saturating_sub(1);
-        }
-    }
-
-    /// The beat's end, a wipe, or the Wyrm's fall.
-    fn end_beat(&mut self) {
-        // A wipe: every knight down at once.
-        if !self.seats.is_empty() && self.seats.values().all(|s| s.craft.down > 0) {
-            self.mode = Mode::Retry;
-            self.mode_t = RETRY;
-            self.sound("knight_fall");
-            return;
-        }
-        if self.stage < 2 && self.t >= rail::LEN[usize::from(self.stage)] {
-            self.next_beat();
-            return;
-        }
-        let dying = self
-            .boss
-            .as_ref()
-            .is_some_and(|b| b.st == Wyrm::Dying && b.ticks == 0);
-        if self.stage == 2 && dying {
-            self.mode = Mode::Victory;
-            self.mode_t = 0;
-            self.done = Some(self.elapsed);
-            self.home = self.anchor();
-            self.beat.pts += Kind::Lamp.worth() * 2;
-            self.beat.base += Kind::Lamp.worth() * 2;
-            self.beat.offered += Kind::Lamp.worth() * 2;
-            self.foes.clear();
-            self.bolts.clear();
-            self.say(self.voice(), Line::Home);
-            self.sound("boss_death");
-            self.victory_gates();
-        }
-    }
-
-    /// The next beat flies on from where this one ends, the party mended a
-    /// little and a bomb richer; what the beat made is banked.
-    fn next_beat(&mut self) {
-        self.bank.bank(&self.beat);
-        self.beat = Tally::default();
-        self.stage += 1;
-        self.t = 0;
-        self.cp = 0;
-        self.next = 0;
-        let line = if self.stage == 1 {
-            Line::Ruins
-        } else {
-            Line::Roost
-        };
-        self.say(self.voice(), line);
-        self.sound("play_card");
-        for s in self.seats.values_mut() {
-            s.craft.shield = (s.craft.shield + 40).min(SHIELD);
-            s.craft.bombs = (s.craft.bombs + 1).min(3);
-            s.craft.meter = METER;
-            s.craft.spent = false;
-        }
-        for w in &mut self.wing {
-            w.lost = false;
-            w.craft.shield = (w.craft.shield + 40).min(SHIELD);
-        }
-    }
-
-    /// A beat starts over from its checkpoint: the foes the beat had are
-    /// gone and its script runs again from there; what was banked stays, as
-    /// do the Wyrm's lamps already out. Everyone is up, mended and unhurt for
-    /// a moment.
-    fn restart(&mut self) {
-        self.retries = self.retries.saturating_add(1);
-        self.beat = Tally::default();
-        self.t = self.cp;
-        self.next = script::resume(self.stage, self.cp);
-        self.props.clear();
-        self.bolts.clear();
-        self.fx.clear();
-        self.calls.clear();
-        self.foes.retain(|f| f.kind == Kind::Lamp);
-        if let Some(b) = &mut self.boss {
-            b.st = Wyrm::Idle;
-            b.ticks = 2 * HZ;
-            b.marks.clear();
-        }
-        for (&id, s) in &mut self.seats {
-            let (x, z) = flight::slot(id);
-            let bombs = s.craft.bombs.max(2);
-            let (pts, hits, saved, gates) =
-                (s.craft.pts, s.craft.hits, s.craft.saved, s.craft.gates);
-            s.craft = Craft::new(x, z);
-            s.craft.hurt = 2 * HZ;
-            s.craft.bombs = bombs;
-            (s.craft.pts, s.craft.hits, s.craft.saved, s.craft.gates) = (pts, hits, saved, gates);
-        }
-        for w in &mut self.wing {
-            w.lost = false;
-            w.craft.shield = SHIELD;
-            w.craft.down = 0;
-        }
-        self.mode = Mode::Play;
-        self.mode_t = 0;
-        self.say(self.voice(), Line::Hello);
-    }
-
-    /// The Wyrm is down and the fly-through is over: the medal, and the
-    /// tally.
-    fn finish(&mut self) {
-        self.bank.bank(&self.beat);
-        self.beat = Tally::default();
-        self.medal = Some(self.medal_now());
-        self.mode = Mode::Tally;
-        self.mode_t = 0;
-        self.sound("play_card");
     }
 
     /// The medal the party has earned: the share of what the beats offered
@@ -782,7 +508,7 @@ impl Session {
         for (&id, seat) in &mut self.seats {
             seat.joined = seat.joined.min(elapsed);
             if !seat.craft.valid() {
-                let (x, z) = flight::slot(id);
+                let (x, z) = slot(id);
                 seat.craft = Craft::new(x, z);
             }
         }
@@ -824,6 +550,152 @@ impl Session {
             self.next = 0;
         }
     }
+
+    /// The rail point a craft is at.
+    pub fn craft_s(&self, c: &Craft) -> i32 {
+        self.anchor() + c.back
+    }
+
+    /// Whether some kite hangs on this craft.
+    pub fn latched(&self, id: u8) -> bool {
+        self.foes.iter().any(|f| f.st == St::Latched && f.on == id)
+    }
+
+    /// The marks a turret's shot will land on, across and up: where it
+    /// locked, and a pair more to each side for every three knights beyond
+    /// the first.
+    pub fn marks(f: &Foe, seats: u8) -> Vec<(i32, i32)> {
+        let extra = i32::from(seats.saturating_sub(1)) / 3;
+        let mut out = vec![(f.fx - dm(8), f.fz), (f.fx + dm(8), f.fz)];
+        for k in 1..=extra {
+            out.push((f.fx - dm(8) - k * dm(20), f.fz));
+            out.push((f.fx + dm(8) + k * dm(20), f.fz));
+        }
+        out
+    }
+
+    /// One tick: the module reads the session, what the knights pressed
+    /// (an invalid press is no press), who is at the table and awake, and the
+    /// five numbers, and answers with the next session and what the host is
+    /// asked: the sounds and the knights who pressed to leave the tally. A
+    /// missing engine or an answer that is not a session a run may hold
+    /// leaves the session as it was.
+    pub fn step(
+        &mut self,
+        inputs: &BTreeMap<u32, Input>,
+        heroes: &BTreeMap<u32, Hero>,
+        nums: &Nums,
+    ) -> Out {
+        let mut ask = Ask::of("tick", self, nums);
+        ask.keys = inputs
+            .iter()
+            .filter(|(_, i)| i.valid())
+            .map(|(&id, i)| (id, i))
+            .collect();
+        ask.here = heroes
+            .iter()
+            .filter(|(_, h)| !h.away && !h.stone)
+            .map(|(&id, _)| id)
+            .collect();
+        let answer = ask_module::<Answer>(&ask).and_then(|a| match a.session.valid() {
+            true => Ok(a),
+            false => Err("an answer that is not a session a run may hold".to_string()),
+        });
+        match answer {
+            Ok(a) => {
+                *self = a.session;
+                let sounds = a.sounds.iter().filter_map(|&i| SOUNDS.split(' ').nth(i));
+                Out {
+                    sounds: sounds.collect(),
+                    leave: a.leave,
+                }
+            }
+            Err(error) => {
+                // said once, not thirty times a second
+                static SAID: std::sync::atomic::AtomicBool =
+                    std::sync::atomic::AtomicBool::new(false);
+                if !SAID.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                    tracing::warn!(%error, "griffinwing: a tick was not taken");
+                }
+                Out::default()
+            }
+        }
+    }
+
+    /// What knight `id` presses this tick, for the numbers `n` stand at.
+    pub fn bot_with(&self, id: u32, n: &Nums, skill: bot::Skill) -> Input {
+        let mut ask = Ask::of("bot", self, n);
+        (ask.id, ask.novice) = (id, skill == bot::Skill::Novice);
+        ask_module(&ask).unwrap_or_default()
+    }
+
+    /// What knight `id` presses this tick, with a sure hand.
+    pub fn bot_input(&self, id: u32, _hero: &Hero) -> Input {
+        self.bot_with(id, &Nums::default(), bot::Skill::Sure)
+    }
+}
+
+/// What the module is asked.
+#[derive(Serialize)]
+struct Ask<'a> {
+    op: &'a str,
+    session: &'a Session,
+    nums: &'a Nums,
+    keys: BTreeMap<u32, &'a Input>,
+    here: Vec<u32>,
+    id: u32,
+    novice: bool,
+}
+
+impl<'a> Ask<'a> {
+    fn of(op: &'a str, session: &'a Session, nums: &'a Nums) -> Self {
+        Ask {
+            op,
+            session,
+            nums,
+            keys: BTreeMap::new(),
+            here: Vec::new(),
+            id: 0,
+            novice: false,
+        }
+    }
+}
+
+/// What it answers to a tick.
+#[derive(Deserialize)]
+struct Answer {
+    session: Session,
+    sounds: Vec<usize>,
+    leave: Vec<u32>,
+}
+
+fn ask_module<T: serde::de::DeserializeOwned>(ask: &Ask<'_>) -> Result<T, String> {
+    #[cfg(test)]
+    crate::scripted::install_for_test(MODULE, oracle::answer);
+    crate::scripted::step(MODULE, ask)
+}
+
+/// A seat's place in the formation: across and up, tenths of a unit.
+pub fn slot(id: u32) -> (i32, i32) {
+    match id {
+        1 => (0, 0),
+        2 => (dm(-22), dm(-4)),
+        3 => (dm(22), dm(-4)),
+        4 => (dm(-40), dm(-8)),
+        5 => (dm(40), dm(-8)),
+        _ => (0, dm(12)),
+    }
+}
+
+/// A rider's place: across, up and ahead of the knights, so that what hangs
+/// on a rider's tail is in front of a knight behind.
+pub fn rider_slot(k: usize) -> (i32, i32, i32) {
+    match k {
+        0 => (dm(-30), dm(8), dm(60)),
+        1 => (dm(30), dm(8), dm(60)),
+        2 => (0, dm(18), dm(78)),
+        _ => (dm(-62), dm(2), dm(50)),
+    }
 }
 
 /// What the pictures' own checks reach for: a foe or a hunter put where the
@@ -837,10 +709,54 @@ impl Session {
         vel: (i32, i32, i32),
         st: St,
     ) -> Option<u16> {
-        self.spawn_foe(kind, at, vel, st, 0, 0)
+        self.place_for_test(kind, at, vel, st, 0)
     }
     pub fn hunter_for_test(&mut self, side: i8) {
-        self.act(script::Act::Hunter { side });
+        let at = (
+            self.anchor() + LEAD - dm(40),
+            i32::from(side) * dm(90),
+            dm(40),
+        );
+        self.place_for_test(Kind::Kite, at, (0, 0, 0), St::Hunt, 1);
+    }
+    fn place_for_test(
+        &mut self,
+        kind: Kind,
+        at: (i32, i32, i32),
+        vel: (i32, i32, i32),
+        st: St,
+        mode: u8,
+    ) -> Option<u16> {
+        if self.foes.len() >= MAX_FOES {
+            return None;
+        }
+        let seats = self.pressure();
+        let full = kind.health() * u32::from(seats);
+        let id = self.ids;
+        self.ids = if id >= 60_000 { 1 } else { id + 1 };
+        self.foes.push(Foe {
+            id,
+            kind,
+            s: at.0,
+            x: at.1,
+            z: at.2,
+            vs: vel.0,
+            vx: vel.1,
+            vz: vel.2,
+            hp: full,
+            full,
+            seats,
+            st,
+            ticks: 0,
+            fx: 0,
+            fz: 0,
+            on: 0,
+            flash: 0,
+            mode,
+            phase: 0,
+        });
+        self.beat.offered += kind.worth();
+        Some(id)
     }
 }
 
@@ -934,9 +850,25 @@ impl Run {
         roundtable::fixture(&ADVENTURE)
     }
 }
+/// The rules as they ran in Rust before they moved into Bend: the engine this
+/// crate's own tests tick against, and the oracle of the cockpit's parity tests.
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/drive/griffinwing_oracle.rs"]
+pub mod oracle;
 #[cfg(test)]
 #[path = "../../tests/rules/together_griffinwing_play__tests.rs"]
 mod play_tests;
 #[cfg(test)]
 #[path = "../../tests/rules/together_griffinwing__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-games-a-griffinwing"))]
+#[path = "../../tests/rules/griffinwing_bend_kit__tests.rs"]
+mod bend_kit;
+#[cfg(all(test, feature = "bend-cases-games-a-griffinwing"))]
+#[path = "griffinwing/recorder/bend.rs"]
+mod bend_cases_tests;
+#[cfg(all(test, feature = "bend-cases-games-a-griffinwing"))]
+#[path = "griffinwing/recorder/run_bend.rs"]
+mod bend_run_tests;
+#[cfg(test)]
+use oracle::Rules;

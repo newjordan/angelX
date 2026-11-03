@@ -733,7 +733,9 @@ impl SwarmClub {
                 let role = crate::agent::harness::formation_budget::role();
                 // The seat reads its caller's ledger (`book::connect`).
                 let ledger = crate::agent::harness::book::connect::workspace();
+                let book_catalog = crate::agent::harness::book::catalog::current();
                 std::thread::spawn(move || {
+                    let _book_catalog = book_catalog.map(crate::agent::harness::book::catalog::enter);
                     let _budget_scope = crate::agent::harness::formation_budget::enter(budget);
                     let _seat_role = crate::agent::harness::formation_budget::enter_role(&role);
                     let _ledger = crate::agent::harness::book::connect::enter(&ledger);
@@ -878,7 +880,9 @@ impl SwarmClub {
         // until the user summons the mixture with a leading `moa:` — or an
         // armed formation (`engaged`) authorizes the same deliberate answers
         // without making every short reply a fan-out.
-        let summoned = summons_moa(&problem);
+        // One leg evaluation answers every routing question about this turn.
+        let routing = route_decisions(&problem);
+        let summoned = routing.moa;
         let explicitly_requested = self.k.always || self.k.mode == MoaMode::Always || summoned;
         let mut amplify = match self.k.mode {
             MoaMode::Always => true,
@@ -886,8 +890,8 @@ impl SwarmClub {
             MoaMode::Auto => {
                 self.k.always
                     || summoned
-                    || self.should_research_route(&problem)
-                    || wants_synthesis(&problem)
+                    || self.research_route_for(routing.research)
+                    || routing.synthesis
             }
         };
         let preflight_requested = explicitly_requested || self.k.engaged;

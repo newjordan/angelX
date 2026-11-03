@@ -1,0 +1,22 @@
+{
+  "api_version": 1,
+  "id": "compaction-window",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "messages": [
+      {"pinned": true, "tool": false, "weight": 2500},
+      {"pinned": false, "tool": false, "weight": 40},
+      {"pinned": false, "tool": false, "weight": 900},
+      {"pinned": false, "tool": true, "weight": 1200},
+      {"pinned": false, "tool": false, "weight": 30}
+    ],
+    "keep_recent": 3,
+    "keep_recent_tokens": 2000
+  },
+  "bend": {
+    "entry": "compaction-window.bend",
+    "proof": "PROOF.bend",
+    "output": "compaction-window.compiled.js"
+  }
+}

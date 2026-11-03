@@ -448,7 +448,7 @@
       }
     ],
     "original_metadata_sha256": "767a360ec0df8c804381c1716d302cd88e3c53ee33767e502e89939451bebe08",
-    "original_path": "/work/artifacts/art-prod/slots/latch.clasp-damaged/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/latch.clasp-damaged/v01/source-sheet.png",
     "original_sha256": "27885cbf455326dfa161a28b228b8afd3aa85e737c0c8e5291121cf9f956e1b6",
     "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
     "source_anchor": [

@@ -93,6 +93,9 @@ pub(super) fn scenery(run: &Run) -> Img {
     let barrels = kit::barrels();
     cv.stamp(&barrels, pw - 3 * TILE, ph - 2 * TILE - 2);
     cv.stamp(&barrels, pw - 4 * TILE - 6, ph - 2 * TILE + 3);
+    if let Some(cask) = super::factory::prop_image("tavern-cask", run.tick) {
+        cv.stamp(&cask, pw - 3 * TILE - 10, ph - 2 * TILE - cask.h + 10);
+    }
     // Lanterns on the walls, and the light they throw.
     for (col, row) in [(1, 4), (1, 9), (22, 4), (22, 10), (11, 12)] {
         let lamp = kit::lantern(true);
@@ -329,18 +332,22 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     stand(cv, &super::rescues::sprite_of("maud"), x, y);
 }
 
+/// A living knight within `reach` of the middle of tiles `(c, r, w, h)`.
+fn near(run: &Run, (c, r, w, h): (i32, i32, i32, i32), reach: f32) -> bool {
+    let (cx, cy) = ((c as f32 + w as f32 / 2.0) * 2.0, (r as f32 + h as f32 / 2.0) * 2.0);
+    run.players.values().any(|p| p.hp > 0 && (p.x - cx).hypot(p.y - cy) < reach)
+}
+
+/// A knight stands below the rumour board, so it is read out over the
+/// room (`boards`), over Brasswake's sign: the sign keeps out of its way.
+pub(super) fn reading_rumours(run: &Run) -> bool {
+    run.room().kind == RoomKind::Tavern && near(run, BOARD, 4.5)
+}
+
 /// To a knight below the rumour board, the rumours; to one at the Siege
 /// Perilous, its plaque.
-pub(super) fn boards(cv: &mut Img, run: &Run) {
-    let near = |(c, r, w, h): (i32, i32, i32, i32), reach: f32| {
-        let (cx, cy) = (
-            (c as f32 + w as f32 / 2.0) * 2.0,
-            (r as f32 + h as f32 / 2.0) * 2.0,
-        );
-        run.players
-            .values()
-            .any(|p| p.hp > 0 && (p.x - cx).hypot(p.y - cy) < reach)
-    };
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    let near = |rect, reach| near(run, rect, reach);
     if near(BOARD, 4.5) {
         let mut lines = vec![("RUMOURS".to_string(), '9')];
         lines.extend(run.rumours().into_iter().map(|line| (line, 'h')));
@@ -349,11 +356,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         let bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
         cv.stamp(&board, bx, r * TILE + 26);
     }
-    // A knight at a tap: what it pours, what it costs, and the hold.
+    // The seat's own knight at a tap (`shoppers`): what it pours, what it
+    // costs, and the hold.
     if run.home.residents.contains("maud")
-        && let Some((hero, tap)) = run
-            .players
-            .values()
+        && let Some((hero, tap)) = super::shoppers(run, focus)
+            .map(|(_, h)| h)
             .filter(|h| h.hp > 0)
             .find_map(|h| Some((h, tap_at(h.x, h.y)?)))
     {

@@ -158,12 +158,12 @@ fn realm_keyboard_and_mouse_choose_landmarks() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     app.scryglass.surface = crate::ui::scryglass::StageSurface::WorldMap;
-    app.world
+    app.realm.world
         .select_landmark(crate::stage::world_viz::Building::Keep);
 
     app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     assert_eq!(
-        app.world.destination(),
+        app.realm.world.destination(),
         crate::stage::world_viz::Building::Scriptorium
     );
 
@@ -178,7 +178,7 @@ fn realm_keyboard_and_mouse_choose_landmarks() {
         hit.y + 1,
     ));
     assert_eq!(
-        app.world.destination(),
+        app.realm.world.destination(),
         crate::stage::world_viz::Building::Observatory
     );
     assert_eq!(

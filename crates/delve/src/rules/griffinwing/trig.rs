@@ -4,7 +4,7 @@
 //! in the last place, and a frame's hash would then differ). Everything is
 //! done in `f64` with the operations IEEE fixes exactly (add, subtract,
 //! multiply, divide, square root); the result is rounded to `f32` once.
-const HALF_PI_HI: f64 = 1.570_796_326_794_896_6;
+const HALF_PI_HI: f64 = std::f64::consts::FRAC_PI_2;
 const HALF_PI_LO: f64 = 6.123_233_995_736_766e-17;
 
 fn sin_cos_f64(x: f64) -> (f64, f64) {

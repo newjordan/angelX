@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.2.5"
+version = "0.2.7"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -12,11 +12,11 @@ autotests = false
 
 [features]
 default = ["scryglass-video", "glass"]
-scryglass-video = ["dotmax/video"]
+scryglass-video = ["dotmax/video-playback"]
 # angelX's own window: `ANGEL_GLASS=1` opens the cockpit in a GPU window
 # instead of the terminal (docs/RENDER_FOUNDATION.md). The launcher sets it on
 # any desktop; `--no-default-features` leaves the window out.
-glass = ["dep:angel-glass"]
+glass = ["dep:angel-glass", "angel-glass/remote"]
 
 [[bin]]
 name = "angel"
@@ -24,8 +24,9 @@ path = "src/main.rs"
 
 # Tiny sibling helper for sandboxed tool spawns: same `--sandbox-exec`
 # contract as the cockpit binary without linking its full shared-object
-# set (the default scryglass-video feature pulls ffmpeg through
-# dotmax/video, which makes every per-call re-exec pay the dynamic loader).
+# set (the default scryglass-video feature still links file-video decoding
+# through dotmax/video-playback; the cockpit/self-helper fallback pays that
+# loader cost, while a deployed sibling or explicit helper pin can avoid it).
 [[bin]]
 name = "angel-sandbox"
 path = "src/sandbox_main.rs"
@@ -36,6 +37,11 @@ path = "src/sandbox_main.rs"
 name = "spend_coin_preview"
 required-features = ["glass"]
 
+# The loop card's offline shots, from its production composer.
+[[example]]
+name = "loop_card_preview"
+required-features = ["glass"]
+
 # Ship-speed profile: thin LTO + one codegen unit buys cross-crate inlining
 # (serde_json/ureq/ratatui hot paths) for a modest compile-time cost; fat LTO
 # was rejected — v8's static archive makes it minutes-slow for ~1% more.
@@ -44,11 +50,66 @@ lto = "thin"
 codegen-units = 1
 strip = "symbols"
 
+# Working builds: optimized dependencies without the release build's
+# single codegen unit and link-time pass, so a fresh target directory
+# compiles on every core. `cargo build --profile fast`; ship with release.
+[profile.fast]
+inherits = "release"
+lto = false
+codegen-units = 256
+incremental = true
+
+# The cockpit is a large, frequently edited orchestration crate. LLVM's opt=1
+# pass dominated semantic host edits; leave it unoptimized in the working profile.
+# Delve is lightly optimized below; the remaining engine and window dependencies
+# stay optimized. Release and qualification builds are unchanged.
+# See docs/performance/dev-loop-20261028.md.
+[profile.fast.package.angelX-cockpit]
+opt-level = 0
+# Finer host-only partitions reduce leaf edit codegen without repartitioning
+# optimized dependencies or release. Measured trade-offs and rollback criteria:
+# docs/performance/host-codegen-partitions-20261028.md
+codegen-units = 1024
+
+# Dependency manifests' profiles do not apply to this build. Keep the same
+# working optimization as crates/Cargo.toml when the game builds here.
+[profile.fast.package.angel-delve]
+opt-level = 1
+
+# Optimized development semantics for the test loop; fast remains the launcher default.
+[profile.devfast]
+inherits = "dev"
+opt-level = 1
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[profile.devfast.package."*"]
+opt-level = 2
+
+[profile.devfast.package.angelX-cockpit]
+opt-level = 1
+
+# The realm host is cut out of the cockpit's game code: the same working
+# optimization as the cockpit's own.
+[profile.fast.package.angel-realm-host]
+opt-level = 1
+
 [dependencies]
+# Independent Cargo object/fingerprint: host edits do not recompile browser bytes.
+angel-web-bundle = { path = "web-bundle" }
+# Independent Cargo fingerprint: native edits do not rebuild browser assets,
+# and browser/cartridge/HOME changes do not recompile these C modules.
+angel-native = { path = "native" }
+angel-live = { path = "../crates/live", features = ["v8"] }
 # The engine: protocol, commands, clocks and replication (docs/ENGINE.md).
 angel-net = { path = "../crates/net" }
 # The Delve: its rules, renderer and world (docs/ENGINE.md).
-angel-delve = { path = "../crates/delve" }
+angel-delve = { path = "../crates/delve", features = ["bend-engine"] }
+# The realm's host side, cut out of this crate: the Delve's browser page (its
+# build script builds and embeds it) and the host modules that need nothing of
+# the cockpit.
+angel-realm-host = { path = "../crates/realm-host" }
 # The marks a picture cell carries, the same table the window reads.
 angel-stage = { path = "../crates/stage" }
 # The engine's server, which hosts the Delve, and the native client a
@@ -92,6 +153,8 @@ ratatui-image = { version = "11.0.6", default-features = false, features = ["cro
 image = "0.25.10"
 # Palette frames for browser seats (the version image already uses).
 png = "0.18"
+# Already in the image/HTTP graph; lazily unpack lossless embedded web assets.
+miniz_oxide = "0.8.9"
 # Runtime module/layout profiles and local Codex configuration parsing.
 toml = "0.8"
 tui-term = "=0.3.4"
@@ -107,7 +170,8 @@ unicode-width = "0.2"
 # and unnecessarily enlarge both the release graph and its advisory surface.
 pulldown-cmark = { version = "0.13", default-features = false, features = ["simd"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-onig", "default-syntaxes", "default-themes"] }
-v8 = "150.0.0"
+# V8 generics are compiled once behind a small host-callback boundary.
+angel-code-mode = { path = "code-mode" }
 terrain-forge = "0.7.0"
 unicode-segmentation = "=1.13.3"
 # Process-group signalling (killpg) for the sandboxed shell tool: a command that
@@ -125,7 +189,14 @@ landlock = "0.4"
 
 [dev-dependencies]
 # The Delve's test helpers, for the cockpit's own tests.
-angel-delve = { path = "../crates/delve", features = ["testing"] }
+angel-delve = { path = "../crates/delve", features = ["testing", "bend-engine"] }
+# The atomic writers' one-shot fault hooks (host::workspace_store::fault), for
+# the storage regression tests only; a shipped build carries none.
+angel-live = { path = "../crates/live", features = ["fault-hooks"] }
+# The realm host's test-only helpers (`*_for_test`, the ride-compose counter,
+# the grant runners' scripted model) and the source tree it lends the Kernel's
+# paths, for the cockpit's own tests.
+angel-realm-host = { path = "../crates/realm-host", features = ["testing"] }
 
 [[test]]
 name = "harness_rollout_persistence"
@@ -138,3 +209,7 @@ path = "../tests/cockpit/integration/interactive_terminal_smoke.rs"
 [[test]]
 name = "process_ownership"
 path = "../tests/cockpit/integration/process_ownership.rs"
+
+[[test]]
+name = "build_fast"
+path = "../tests/cockpit/build_fast.rs"

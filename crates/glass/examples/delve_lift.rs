@@ -23,7 +23,7 @@ use std::sync::Arc;
 use angel_delve::render::overworld::arena::{self, UNIT, stage_frame::StageMaker};
 use angel_delve::rules::{Pack, Rng, Room, RoomKind, Run, Tile, layout};
 use angel_delve::world3d::lift::{self, Ripple, Times};
-use angel_delve::world3d::{self, plain, rooms_lit};
+use angel_delve::world3d::{self, rooms_lit};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
 /// The stage's picture id, as the cockpit names the Delve's.
@@ -82,7 +82,7 @@ fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
             lit.near(rect).iter().flat_map(|p| p.set.shapes.clone()).collect()
         })
         .unwrap_or_default();
-    let tall = |c: i32, r: i32| plain::over_tile(&shapes, (c, r)).map_or(0.0, |s| s.at[1] + s.size[1]);
+    let tall = |c: i32, r: i32| rooms_lit::over_tile(&shapes, (c, r)).map_or(0.0, |s| s.at[1] + s.size[1]);
     let (nc, nr) = ((near.0 / TILE) as i32, (near.1 / TILE) as i32);
     let mut best: Option<(f32, i32, i32)> = None;
     for r in (nr - reach).max(1)..(nr + reach).min(room.rows as i32 - 2) {
@@ -219,7 +219,7 @@ fn run() -> Result<(), String> {
         arena::props_meshes(true);
         let scene = Arc::new(arena::seat_scene(&case.run, w as i32, h as i32, Some(1)));
         let world = scene.world.as_ref().ok_or_else(|| format!("{id}: no world in 3D"))?;
-        let lit = world.lit().ok_or_else(|| format!("{id}: not lit"))?;
+        let lit = world.lit();
         let room = lit.room();
         let (rw, rh) = (room.cols as f32 * TILE, room.rows as f32 * TILE);
         let door_tiles: Vec<[f32; 2]> = (0..room.rows as i32)

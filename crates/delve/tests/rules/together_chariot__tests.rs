@@ -575,6 +575,41 @@ fn the_race_board_stays_up_from_the_gate_to_the_flag() {
     assert!(board_up(&run), "and it stays up mid-race, wherever the driver is");
 }
 
+/// This thread's own CPU time. Wall time counts the machine; a frame's
+/// budget is the work.
+#[cfg(target_os = "linux")]
+fn thread_cpu() -> std::time::Duration {
+    unsafe extern "C" {
+        fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
+    }
+    let mut at = [0i64; 2];
+    // CLOCK_THREAD_CPUTIME_ID: this thread, not the process and not the wall.
+    assert_eq!(unsafe { clock_gettime(3, &mut at) }, 0, "thread cpu clock");
+    std::time::Duration::new(at[0] as u64, at[1] as u32)
+}
+
+/// Elsewhere the clock id differs: the wall, from a fixed start, and the
+/// cheapest trial still leaves out most of the machine.
+#[cfg(not(target_os = "linux"))]
+fn thread_cpu() -> std::time::Duration {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START.get_or_init(std::time::Instant::now).elapsed()
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn a_sleep_is_not_counted_in_the_frame_budget() {
+    let wall = std::time::Instant::now();
+    let cpu = thread_cpu();
+    std::thread::sleep(std::time::Duration::from_millis(40));
+    let cpu = thread_cpu().saturating_sub(cpu);
+    assert!(wall.elapsed() >= std::time::Duration::from_millis(40));
+    assert!(
+        cpu < std::time::Duration::from_millis(15),
+        "a sleep is the machine, not the frame: cpu {cpu:?}"
+    );
+}
+
 #[test]
 fn successive_hippodrome_frames_move_and_render_fast() {
     use crate::render::overworld::arena;
@@ -583,13 +618,21 @@ fn successive_hippodrome_frames_move_and_render_fast() {
         run.step(&keys(0, false, false));
     }
     let a = arena::frame(&run, 384, 224);
-    let start = std::time::Instant::now();
+    // The cheapest trial is the frame's cost; the rest is the machine.
+    let mut per_frame = std::time::Duration::MAX;
     let mut frames = Vec::new();
-    for _ in 0..30 {
-        run.step(&keys(0, true, false));
-        frames.push(arena::frame(&run, 384, 224));
+    for trial in 0..4 {
+        let start = thread_cpu();
+        let mut drawn = Vec::new();
+        for _ in 0..30 {
+            run.step(&keys(0, true, false));
+            drawn.push(arena::frame(&run, 384, 224));
+        }
+        per_frame = per_frame.min(thread_cpu().saturating_sub(start) / 30);
+        if trial == 0 {
+            frames = drawn;
+        }
     }
-    let per_frame = start.elapsed() / 30;
     let moved = frames.windows(2).any(|pair| {
         (0..pair[0].h).any(|y| (0..pair[0].w).any(|x| pair[0].get(x, y) != pair[1].get(x, y)))
     });

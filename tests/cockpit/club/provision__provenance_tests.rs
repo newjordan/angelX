@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+fn provision_cache_keys_the_same_ask_by_book_generation() {
+    let _lock = crate::tests::env_lock();
+    let _url = crate::tests::TestEnvGuard::set("ANGEL_PROVISION_URL", "http://127.0.0.1:1");
+    let _enabled = crate::tests::TestEnvGuard::set("ANGEL_PROVISION_JUDGE", "1");
+    let _minimum = crate::tests::TestEnvGuard::set("ANGEL_PROVISION_MIN_CHARS", "0");
+    let mut first = crate::agent::harness::book::catalog::Catalog::baseline();
+    let mut second = first.clone();
+    let route = crate::agent::harness::book::Route::new('⠣', '⠁');
+    first.set_test_page(route, 0, "generation A");
+    second.set_test_page(route, 0, "generation B");
+    let first = std::sync::Arc::new(first);
+    let second = std::sync::Arc::new(second);
+    let ask = "unique book-generation cache fixture";
+    let key_a = {
+        let _scope = crate::agent::harness::book::catalog::enter(first.clone());
+        ask_hash(ask)
+    };
+    let key_b = {
+        let _scope = crate::agent::harness::book::catalog::enter(second.clone());
+        ask_hash(ask)
+    };
+    assert_ne!(key_a, key_b);
+    let a = ProvisionDirective { max_tokens: Some(11), ..Default::default() };
+    let b = ProvisionDirective { max_tokens: Some(22), ..Default::default() };
+    {
+        let mut cache = JUDGE_CACHE.lock().unwrap();
+        cache.push((key_a, Some(a.clone())));
+        cache.push((key_b, Some(b.clone())));
+    }
+    let messages = [ChatMsg::user(ask)];
+    {
+        let _scope = crate::agent::harness::book::catalog::enter(first);
+        assert_eq!(judge_directive("fixture", &messages), Some(a));
+    }
+    {
+        let _scope = crate::agent::harness::book::catalog::enter(second);
+        assert_eq!(judge_directive("fixture", &messages), Some(b));
+    }
+    JUDGE_CACHE.lock().unwrap().retain(|(key, _)| *key != key_a && *key != key_b);
+}
+
+#[test]
 fn provenance_provisioning_ignores_background_harness_asks() {
     let extraction = "return only the JSON fields, no explanation";
     let mut messages = vec![ChatMsg::user("Explain the parser tradeoffs in detail")];

@@ -20,7 +20,7 @@ impl Scarecrow { pub fn active(&self, tick: u64) -> bool { tick < self.until } }
 pub(super) fn idle(n: &u32) -> bool { *n == 0 }
 impl Hero {
     pub fn peasant(&self) -> bool { classes::of(self).is_some_and(|c| c.kit == "peasant") }
-    pub fn targetable(&self) -> bool { self.hp > 0 && !self.stone && self.flee_ticks == 0 }
+    pub fn targetable(&self) -> bool { self.hp > 0 && !self.stone && self.flee_ticks == 0 && !self.aloft }
 }
 /// Start before the cast tick's movement. own_keys consumes the extra tick,
 /// leaving sixty movement/damage/targeting ticks including this one.

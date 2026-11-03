@@ -476,6 +476,10 @@ impl Craft {
     pub fn flying(&self) -> bool {
         self.down == 0
     }
+    /// Whether its roll turns bolts round just now.
+    pub fn reflecting(&self, reflect: u32) -> bool {
+        self.roll > 0 && self.roll_len - self.roll < reflect
+    }
     pub fn valid(&self) -> bool {
         let far = |v: i32, m: i32| (-m..=m).contains(&v);
         far(self.x, dm(160))
@@ -581,10 +585,9 @@ impl Beast {
             && (-dm(200)..=dm(200)).contains(&self.x)
             && (-dm(200)..=dm(200)).contains(&self.z)
             && self.marks.len() <= 8
-            && self
-                .marks
-                .iter()
-                .all(|&(x, z)| (-dm(300)..=dm(300)).contains(&x) && (-dm(300)..=dm(300)).contains(&z))
+            && self.marks.iter().all(|&(x, z)| {
+                (-dm(300)..=dm(300)).contains(&x) && (-dm(300)..=dm(300)).contains(&z)
+            })
             && (-dm(200)..=dm(200)).contains(&self.gap)
             && (-1..=1).contains(&self.side)
             && (-dm(200)..=dm(200)).contains(&self.col)
@@ -665,25 +668,7 @@ impl Medal {
     }
 }
 
-// ─── the little arithmetic the sim shares ───────────────────────────────────
-
-/// A whole-number length of the vector `d`, rounded down.
-pub fn norm(d: (i32, i32, i32)) -> i64 {
-    let n = i64::from(d.0).pow(2) + i64::from(d.1).pow(2) + i64::from(d.2).pow(2);
-    // A correctly rounded square root, the same on every machine.
-    (n as f64).sqrt() as i64
-}
-
-/// `d` turned to a length of `len`, along the same way (straight ahead for
-/// a zero vector).
-pub fn scale3(d: (i32, i32, i32), len: i32) -> (i32, i32, i32) {
-    let m = norm(d);
-    if m == 0 {
-        return (len, 0, 0);
-    }
-    let f = |v: i32| (i64::from(v) * i64::from(len) / m) as i32;
-    (f(d.0), f(d.1), f(d.2))
-}
+// ─── the little arithmetic the pictures share ──────────────────────────────
 
 /// A triangle wave through `-amp..=amp` over `period` ticks.
 pub fn tri(t: u32, period: u32, amp: i32) -> i32 {
@@ -692,36 +677,4 @@ pub fn tri(t: u32, period: u32, amp: i32) -> i32 {
     let half = i64::from(p / 2).max(1);
     let up = if k < half { k } else { i64::from(p) - k };
     ((up * 2 - half) * i64::from(amp) / half) as i32
-}
-
-/// Whether the segment from `a` to `b` passes within `r` of `p`: the swept
-/// test every bolt, dive and latch is judged by (no free 3D collision, only
-/// this, in rail space).
-pub fn near(a: (i32, i32, i32), b: (i32, i32, i32), p: (i32, i32, i32), r: i32) -> bool {
-    let d = (
-        i64::from(b.0) - i64::from(a.0),
-        i64::from(b.1) - i64::from(a.1),
-        i64::from(b.2) - i64::from(a.2),
-    );
-    let w = (
-        i64::from(p.0) - i64::from(a.0),
-        i64::from(p.1) - i64::from(a.1),
-        i64::from(p.2) - i64::from(a.2),
-    );
-    let len2 = d.0 * d.0 + d.1 * d.1 + d.2 * d.2;
-    let t = if len2 == 0 {
-        0
-    } else {
-        (w.0 * d.0 + w.1 * d.1 + w.2 * d.2).clamp(0, len2)
-    };
-    let c = |dv: i64, wv: i64| {
-        if len2 == 0 { wv } else { wv - dv * t / len2 }
-    };
-    let (ex, ey, ez) = (c(d.0, w.0), c(d.1, w.1), c(d.2, w.2));
-    ex * ex + ey * ey + ez * ez <= i64::from(r) * i64::from(r)
-}
-
-/// How far two points are apart across and up (the plane's own distance).
-pub fn flat(ax: i32, az: i32, bx: i32, bz: i32) -> i64 {
-    norm((0, ax - bx, az - bz))
 }

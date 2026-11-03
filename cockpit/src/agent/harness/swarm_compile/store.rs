@@ -75,12 +75,10 @@ impl RunStore {
         fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
         secure_tree(&self.root, &dir)?;
         let path = dir.join("run.json");
-        let tmp = dir.join("run.json.tmp");
         let body = crate::platform::secrets::to_redacted_vec_pretty(run)
             .map_err(|e| format!("serialize run: {e}"))?;
-        fs::write(&tmp, body).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-        secure_file(&tmp)?;
-        fs::rename(&tmp, &path).map_err(|e| format!("replace {}: {e}", path.display()))?;
+        crate::platform::workspace_store::write_private_atomic(&path, &body)?;
+        secure_file(&path)?;
         Ok(path)
     }
 

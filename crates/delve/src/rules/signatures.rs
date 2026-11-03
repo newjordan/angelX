@@ -83,7 +83,11 @@ pub struct State {
     pub blow: u32,
     /// Something of its latest charge-up is still about — a shot, its
     /// beam, a ring — so it winds up no other (`Run`, each tick).
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub lingering: bool,
 }
 impl State {
@@ -500,6 +504,11 @@ pub(super) fn wind(
         }
         DASH => {
             let stopped = dash_for(enemy, grid, up.speed, false, up.damage, enemy.signature.blow, deeds);
+            if stopped && up.breaks {
+                // Into the stone that stopped it, as wide as it is.
+                let front = (enemy.x + enemy.dir.0 * enemy.radius(), enemy.y + enemy.dir.1 * enemy.radius());
+                deeds.shatters.push((front, enemy.radius() + rubble::SHATTER_PAST / 2.0));
+            }
             let arrived = enemy
                 .signature
                 .rails
@@ -523,11 +532,14 @@ pub(super) fn wind(
                 ring(enemy, boss, up, deeds);
                 deeds.sounds.push("rock_land");
                 deeds.shake = 10;
+                if up.breaks {
+                    deeds.shatters.push((b, LANDING + rubble::SHATTER_PAST));
+                }
                 stage(enemy, DAZED);
             }
         }
         DAZED => {
-            if enemy.timer >= spent_for(up) {
+            if enemy.timer >= spent_for(up) + furnace::vent_for(boss, up) {
                 enemy.signature.rails.clear();
                 stage(enemy, 0);
             }
@@ -638,6 +650,9 @@ fn strike(enemy: &mut Enemy, boss: &Boss, up: &ChargeUp, deeds: &mut Deeds) {
         }
         Windup::Slam => {
             deeds.shake = 10;
+            if up.breaks {
+                deeds.shatters.push(((enemy.x, enemy.y), enemy.radius() + rubble::SHATTER_PAST));
+            }
             stage(enemy, DAZED);
         }
         Windup::Beam => {
@@ -649,7 +664,7 @@ fn strike(enemy: &mut Enemy, boss: &Boss, up: &ChargeUp, deeds: &mut Deeds) {
         }
         Windup::Inhale => {
             ring(enemy, boss, up, deeds);
-            deeds.sounds.push("gas_release");
+            deeds.sounds.push(if furnace::is(boss) { "crack_open" } else { "gas_release" });
             deeds.shake = 6;
             stage(enemy, DAZED);
         }
@@ -805,7 +820,27 @@ fn engine(
         _ => {}
     }
 }
+/// A guardian's rule taught on first meeting: the first `HINTS` times the
+/// rule bites, a hint word beside it for `HINT_SHOW` ticks, each at least
+/// `HINT_EVERY` after the last (`Enemy::hint`).
+pub const HINTS: u32 = 3;
+pub const HINT_SHOW: u32 = 3 * HZ / 2;
+pub const HINT_EVERY: u32 = 6 * HZ;
+/// The rule bit it this tick: show its word, if it is still to be taught.
+pub(super) fn teach(enemy: &mut Enemy) {
+    if enemy.hint == 0 && enemy.hints < HINTS {
+        enemy.hint = HINT_EVERY;
+        enemy.hints += 1;
+    }
+}
+/// Its hint word is up.
+pub fn hinting(enemy: &Enemy) -> bool {
+    enemy.hint > HINT_EVERY - HINT_SHOW
+}
 pub fn rear_bonus(enemy: &Enemy, bosses: &[Boss], from: (f32, f32), damage: u32) -> u32 {
+    if let Some(boss) = enemy.boss.and_then(|i| bosses.get(i as usize)).filter(|b| court::is(b)) {
+        return court::rear_extra(enemy, boss, from, damage);
+    }
     if enemy.stage == DAZED
         && enemy
             .boss
@@ -886,9 +921,12 @@ impl Run {
                     continue;
                 }
                 let throw = |from: (f32, f32), (ux, uy): (f32, f32), far: f32| {
-                    // In steps, so stone stops it where it stands.
-                    (0..8).fold(from, |at, _| {
-                        grid.slide(at, (ux * far / 8.0, uy * far / 8.0), HERO_RADIUS, Mover::Hero)
+                    // Short steps, so a barred door or a wall stops the toss
+                    // the way walking does, instead of one long hop jumping it.
+                    let steps = (far / 0.35).ceil().max(8.0) as i32;
+                    let hop = far / steps as f32;
+                    (0..steps).fold(from, |at, _| {
+                        grid.slide(at, (ux * hop, uy * hop), HERO_RADIUS, Mover::Hero)
                     })
                 };
                 let out = if d > 0.01 { unit(h.x - b.0, h.y - b.1) } else { back };

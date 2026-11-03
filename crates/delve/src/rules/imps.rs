@@ -190,7 +190,7 @@ impl Run {
                     let goal = match target {
                         Some((d, _, _, r)) if d <= r + 0.4 => {
                             // It bursts: one stroke.
-                            let damage = hero.scaled(SWARM_BURST);
+                            let damage = hero.spell_damage(&imp.card, SWARM_BURST);
                             let at = (imp.x, imp.y);
                             aoe::strike(&mut self.enemies, at, damage, |e| {
                                 (e.x - at.0).hypot(e.y - at.1) <= SWARM_REACH + e.radius()
@@ -264,7 +264,7 @@ impl Run {
                             hostile: false,
                             kind: Shot::Bolt,
                             look,
-                            damage: hero.scaled(TURRET_DAMAGE),
+                            damage: hero.spell_damage(&imp.card, TURRET_DAMAGE),
                             pierce: 0,
                             last_hit: None,
                             empowered: false,

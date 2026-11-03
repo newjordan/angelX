@@ -1,0 +1,132 @@
+# crates/delve/src/rules/rescues.rs — rescues: someone in a cage, who goes home up the stair and
+# stays. Written in bendx (delve/rules/core/_tools/bendx.py). A Captive is
+# {who, room, x, y, freed: tick|null}; a Resident is a J object {id, name, pack, gives, home_at}.
+
+def rescues.resident_row(id: String, name: String, pack: String, gives: String, x: F32, y: F32) -> J.Val:
+    return J.set(J.set(J.set(J.set(J.set(J.obj(), "id", J.JS{id}), "name", J.JS{name}), "pack", J.JS{pack}), "gives", J.JS{gives}), "home_at", J.JA{[J.JF{x}, J.JF{y}]})
+
+def rescues.RESIDENTS() -> [J.Val]:
+    return [rescues.resident_row("mabel", "Mabel", "cavern", "her stew: 15 more health for every knight", 9.0, 11.6), rescues.resident_row("anselm", "Brother Anselm", "crypt", "his blessing: one more second wind a delve", 3.9, 8.7), rescues.resident_row("pip", "Pip", "archive", "his maps: every floor drawn whole on arrival", 15.4, 2.8), rescues.resident_row("maud", "Maud", "fungal", "her ale: a potion for every knight on the way down", 16.2, 11.4)]
+
+# The resident with this id, or null.
+def rescues.resident(id: String) -> J.Val:
+    for r: J.Val in rescues.RESIDENTS():
+        if String.eq(core.s(r, "id"), id):
+            return r
+    return J.JNull{}
+
+def rescues.CAGE_REACH() -> F32:
+    return 3.0
+
+# The home's residents (a set of ids, as an array), does it hold this one.
+def rescues.lives_here(run: J.Val, id: String) -> Bool:
+    return home.util.str_has(J.get(J.get(run, "home"), "residents"), id)
+
+# `Run::residents_help`: what the people at home do for a delve, at the top of the stair:
+# Anselm's blessing and Maud's ale.
+def rescues.Run.residents_help(run: J.Val) -> J.Val:
+    blessed: Bool = rescues.lives_here(run, "anselm")
+    ale: Bool = rescues.lives_here(run, "maud")
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        if blessed:
+            h = core.set_u(h, "winds", U32.min(core.uadd(core.u(h, "winds"), 1), 255))
+        if Bool.and(ale, U32.is_lt(J.len(J.get(h, "hand")), cards.HAND())):
+            h = J.set(h, "hand", J.push(J.get(h, "hand"), J.JS{"potion"}))
+        players = J.set(players, k, h)
+    return J.set(run, "players", players)
+
+# `Run::pips_map`: Pip's maps: a floor drawn whole as the party arrives.
+def rescues.Run.pips_map(run: J.Val) -> J.Val:
+    if Bool.not(rescues.lives_here(run, "pip")):
+        return run
+    dungeon: J.Val = J.get(run, "dungeon")
+    rooms: [J.Val] = []
+    for r: J.Val in J.items(J.get(dungeon, "rooms")):
+        rooms = List.append(&2, J.Val, rooms, [core.set_b(r, "visited", True{})])
+    return J.set(run, "dungeon", J.set(dungeon, "rooms", J.JA{rooms}))
+
+# `Run::greet_residents`: the people at home speak as a knight walks up to them, once per
+# approach.
+def rescues.Run.greet_residents(run: J.Val) -> J.Val:
+    near: U32 = 0
+    dug: Bool = False{}
+    for r: J.Val in J.items(J.get(J.get(run, "dungeon"), "rooms")):
+        if String.eq(core.s(r, "kind"), "tavern"):
+            dug = True{}
+    bit: U32 = 0
+    met: U32 = core.u(run, "met")
+    for resident: J.Val in rescues.RESIDENTS():
+        id: String = core.s(resident, "id")
+        if Bool.and(rescues.lives_here(run, id), Bool.not(Bool.and(dug, String.eq(id, "maud")))):
+            rx: F32 = F32.mul(core.nf(J.get(resident, "home_at"), 0), layout.TILE_UNITS())
+            ry: F32 = F32.mul(core.nf(J.get(resident, "home_at"), 1), layout.TILE_UNITS())
+            close: Bool = False{}
+            for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+                if Bool.and(U32.is_gt(core.u(h, "hp"), 0), Bool.and(Bool.not(core.b(h, "stone")), F32.is_lt(RS.f_hypot(F32.sub(core.f(h, "x"), rx), F32.sub(core.f(h, "y"), ry)), 4.0))):
+                    close = True{}
+            if close:
+                near = (near .|. (1 << U32.to_nat(bit)) : U32)
+                if U32.is_zero((met .&. (1 << U32.to_nat(bit)) : U32)):
+                    run = J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{"npc:" ++ id}))
+        bit = (bit + 1 : U32)
+    return J.set(run, "met", J.JU{near})
+
+# `Run::tick_cage`: the cage each tick: holding E beside it frees whoever is inside.
+def rescues.Run.tick_cage(run: J.Val, inputs: J.Val) -> J.Val:
+    captive: J.Val = J.get(run, "captive")
+    if J.is_null(captive):
+        return run
+    if Bool.not(U32.is_eq(core.u(captive, "room"), core.u(run, "at"))):
+        return run
+    if Bool.not(J.is_null(J.get(captive, "freed"))):
+        return run
+    players: J.Val = J.get(run, "players")
+    cx: F32 = core.f(captive, "x")
+    cy: F32 = core.f(captive, "y")
+    at_room: J.Val = J.nth(J.get(J.get(run, "dungeon"), "rooms"), core.u(run, "at"))
+    # The Mire King holds the pen while he stands.
+    if Bool.and(String.eq(core.s(captive, "who"), swamp.HORSE()), Bool.not(core.b(at_room, "cleared"))):
+        trying: U32 = 0
+        for (k: String, h: J.Val) in J.int_fields(players):
+            input: J.Val = J.get(inputs, k)
+            if Bool.and(U32.is_zero(trying), Bool.and(U32.is_gt(core.u(h, "hp"), 0), Bool.and(Bool.not(core.b(h, "stone")), Bool.and(F32.is_lt(RS.f_hypot(F32.sub(core.f(h, "x"), cx), F32.sub(core.f(h, "y"), cy)), rescues.CAGE_REACH()), Bool.and(Bool.not(J.is_null(input)), Bool.and(rules.Input.valid(input), core.b(input, "interact"))))))):
+                trying = combos.num(k)
+        found: J.Val = J.get(run, "found")
+        quiet: Bool = J.is_null(found)
+        if Bool.not(quiet):
+            quiet = Bool.or(Bool.not(String.eq(J.str(J.nth(found, 2)), swamp.PEN_HELD())), W.gt(W.sat_sub(W.of_j(J.get(run, "tick")), W.of_j(J.nth(found, 0))), W.of_u32(60)))
+        if Bool.and(U32.is_gt(trying, 0), quiet):
+            run = J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{trying}, J.JS{swamp.PEN_HELD()}]})
+        for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+            players = J.set(players, k, core.set_u(h, "buying", 0))
+        return J.set(run, "players", players)
+    freed: Bool = False{}
+    by: U32 = 0
+    for (k: String, h: J.Val) in J.int_fields(players):
+        near: Bool = Bool.and(U32.is_gt(core.u(h, "hp"), 0), Bool.and(Bool.not(core.b(h, "stone")), F32.is_lt(RS.f_hypot(F32.sub(core.f(h, "x"), cx), F32.sub(core.f(h, "y"), cy)), rescues.CAGE_REACH())))
+        input: J.Val = J.get(inputs, k)
+        pressing: Bool = Bool.and(Bool.not(J.is_null(input)), Bool.and(rules.Input.valid(input), core.b(input, "interact")))
+        if Bool.or(Bool.not(near), Bool.not(pressing)):
+            if near:
+                h = core.set_u(h, "buying", 0)
+                players = J.set(players, k, h)
+        else:
+            h = core.set_u(h, "buying", core.uadd(core.u(h, "buying"), 1))
+            if U32.is_ge(core.u(h, "buying"), 22):
+                h = core.set_u(h, "buying", 0)
+                freed = True{}
+                by = combos.num(k)
+            players = J.set(players, k, h)
+    run = J.set(run, "players", players)
+    if freed:
+        who: String = core.s(captive, "who")
+        run = J.set(run, "captive", J.set(captive, "freed", J.get(run, "tick")))
+        marks: J.Val = J.get(run, "marks")
+        run = J.set(run, "marks", J.set(marks, "rescue:" ++ who, J.JU{(core.u(marks, "rescue:" ++ who) + 1 : U32)}))
+        run = J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{"rescued:" ++ who}))
+        run = J.set(run, "sounds", J.push(J.get(run, "sounds"), J.JS{"door_open"}))
+        run = rules.Run.notice(run, "rescuer")
+        if String.eq(who, swamp.HORSE()):
+            run = swamp.Run.horse_freed(run, by)
+    return run

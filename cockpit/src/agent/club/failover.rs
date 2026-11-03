@@ -2,6 +2,11 @@
 
 use super::*;
 
+mod preferences;
+pub(crate) use preferences::{MoaPreferences, moa_preferences};
+#[cfg(test)]
+pub(crate) use preferences::{baseline_preferences, test_preferences};
+
 type GatedClub = (Arc<dyn Club>, Option<Arc<AtomicBool>>);
 
 // ---------------------------------------------------------------------------
@@ -51,7 +56,9 @@ impl FallbackClub {
 
     /// The chain filtered by live availability bits. If the prober currently
     /// marks *everything* down (a stale sweep, a cold start), fall back to the
-    /// whole chain — the bits are an optimization, never a brick.
+    /// whole chain — the bits are an optimization, never a brick. This is the
+    /// oracle the `seat-order` leg is checked against: test builds only.
+    #[cfg(test)]
     fn live_chain(&self) -> Vec<&Arc<dyn Club>> {
         let live: Vec<&Arc<dyn Club>> = self
             .chain
@@ -67,23 +74,14 @@ impl FallbackClub {
         }
     }
 
+    /// The leg's parity oracle: test builds only.
+    #[cfg(test)]
     fn compatible_chat_chain(
         &self,
         messages: &[ChatMsg],
         tools: &[ToolDef],
     ) -> Vec<&Arc<dyn Club>> {
-        let required_tokens = messages
-            .iter()
-            .map(|message| message.content.chars().count().div_ceil(4) + 8)
-            .sum::<usize>()
-            + tools
-                .iter()
-                .map(|tool| {
-                    (tool.name.len() + tool.description.len() + tool.params.to_string().len())
-                        .div_ceil(4)
-                        + 8
-                })
-                .sum::<usize>();
+        let required_tokens = required_tokens(messages, tools);
         self.live_chain()
             .into_iter()
             .filter(|club| {
@@ -110,6 +108,182 @@ impl FallbackClub {
         if let Ok(mut resolved) = self.resolved.lock() {
             *resolved = Some(club.resolved_route_identity());
         }
+    }
+
+    /// The per-link features a walk decision is made from: gate presence and
+    /// position, and the detected metadata `compatible_chat_chain` consults.
+    fn walk_input(
+        &self,
+        chat: bool,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+    ) -> serde_json::Value {
+        // Only the links this walk can reach are worth a probe, exactly as
+        // before: an unreachable link reports whatever is already cached, so a
+        // shut gate costs nothing and the native read pattern is unchanged.
+        let open: Vec<bool> = (0..self.chain.len())
+            .map(|index| {
+                self.gates
+                    .get(index)
+                    .and_then(|gate| gate.as_ref())
+                    .is_none_or(|gate| gate.load(Ordering::Relaxed))
+            })
+            .collect();
+        let any_open = open.iter().any(|open| *open);
+        let metadata: Vec<Option<Metadata>> = self
+            .chain
+            .iter()
+            .enumerate()
+            .map(|(index, club)| {
+                if any_open && !open[index] {
+                    club.metadata_cached()
+                } else {
+                    club.metadata()
+                }
+            })
+            .collect();
+        let chain: Vec<serde_json::Value> = (0..self.chain.len())
+            .map(|index| {
+                let gate = self.gates.get(index).and_then(|gate| gate.as_ref());
+                let detected = metadata[index];
+                serde_json::json!({
+                    "index": index,
+                    "gated": gate.is_some(),
+                    "gate_open": gate.is_some_and(|gate| gate.load(Ordering::Relaxed)),
+                    "has_metadata": detected.is_some(),
+                    "supports_tools": detected.is_some_and(|metadata| metadata.supports_tools),
+                    "context_window": detected.map_or(0, |metadata| metadata.context_window),
+                })
+            })
+            .collect();
+        serde_json::json!({
+            "mode": "walk",
+            "chat": chat,
+            "has_tools": !tools.is_empty(),
+            "required_tokens": required_tokens(messages, tools).min(u32::MAX as usize),
+            "chain": chain,
+        })
+    }
+
+    /// The chain positions this walk will attempt, as decided by the
+    /// `seat-order` leg (newest live generation, else the shipped one): a
+    /// generation that names an attempt outside the chain, or out of order,
+    /// keeps the shipped walk.
+    fn walk_plan(
+        &self,
+        chat: bool,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+    ) -> Vec<usize> {
+        self.walk_plan_decided(chat, messages, tools).0
+    }
+
+    /// The same decision with its source, so a test can see which generation
+    /// answered when no live one was offered.
+    fn walk_plan_decided(
+        &self,
+        chat: bool,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+    ) -> (Vec<usize>, crate::agent::harness::live_policy::LegSource) {
+        let input = self.walk_input(chat, messages, tools);
+        let limit = self.chain.len();
+        let (plan, source) = crate::agent::harness::live_policy::decide_shipped::<SeatPlan>(
+            SEAT_ORDER_LEG,
+            &input,
+            move |plan| seat_plan_check(&plan.plan, limit, true),
+        );
+        (plan.plan, source)
+    }
+
+    /// The plan's club handles, for the walk and its transition notes.
+    fn plan_chain(&self, plan: &[usize]) -> Vec<&Arc<dyn Club>> {
+        plan.iter()
+            .filter_map(|&index| self.chain.get(index))
+            .collect()
+    }
+
+    /// A failed attempt: note the transition and ask the `seat-order` leg which
+    /// link is next. `abort` carries the attempt's own error back untouched —
+    /// the stream already spoke, or the user cancelled.
+    fn after_failure<E>(
+        &self,
+        chain: &[&Arc<dyn Club>],
+        step: usize,
+        failure: String,
+        streaming: bool,
+        emitted: bool,
+        cancelled: bool,
+    ) -> Walk<E> {
+        let decided = self.next_step(step, chain.len(), streaming, emitted, cancelled);
+        if decided.abort {
+            // A partially streamed reply or a cancel surfaces this attempt's own
+            // error, unprefixed: it is not a chain failure to route around.
+            return Walk::Stop(Err(failure));
+        }
+        Self::note_transition(chain, step, &failure);
+        let error = Err(format!("[{}] {failure}", chain[step].label()));
+        if decided.proceed {
+            Walk::Retry {
+                error,
+                next: decided.next,
+            }
+        } else {
+            Walk::Stop(error)
+        }
+    }
+
+    /// Today's walk, unchanged, as the leg's parity oracle: test builds only.
+    #[cfg(test)]
+    fn walk_plan_native(
+        &self,
+        chat: bool,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+    ) -> Vec<usize> {
+        let chain = if chat {
+            self.compatible_chat_chain(messages, tools)
+        } else {
+            self.live_chain()
+        };
+        chain
+            .iter()
+            .filter_map(|club| {
+                self.chain
+                    .iter()
+                    .position(|candidate| Arc::ptr_eq(candidate, club))
+            })
+            .collect()
+    }
+
+    /// Which link to try after a failure, as decided by the `seat-order` leg:
+    /// continue with `next`, stop and report the last failure, or abort the
+    /// attempt's own error because the stream already spoke or the user
+    /// cancelled. A generation that does not move forward inside the plan keeps
+    /// the shipped step.
+    fn next_step(
+        &self,
+        step: usize,
+        plan_len: usize,
+        streaming: bool,
+        emitted: bool,
+        cancelled: bool,
+    ) -> AdvanceStep {
+        let input = serde_json::json!({
+            "mode": "advance",
+            "step": step,
+            "plan_len": plan_len,
+            "streaming": streaming,
+            "emitted": emitted,
+            "cancelled": cancelled,
+        });
+        let (decision, _source) =
+            crate::agent::harness::live_policy::decide_shipped::<AdvanceStep>(
+                SEAT_ORDER_LEG,
+                &input,
+                move |decision| advance_check(decision, step, plan_len),
+            );
+        decision
     }
 }
 
@@ -208,17 +382,25 @@ impl Club for FallbackClub {
             self as *const Self as usize,
             Default::default(),
         );
+        let plan = self.walk_plan(false, &[], &[]);
+        let chain = self.plan_chain(&plan);
         let mut last = Err("fallback chain is empty".to_string());
-        let chain = self.live_chain();
-        for (index, club) in chain.iter().enumerate() {
+        let mut step = 0;
+        while step < chain.len() {
+            let club = chain[step];
             match club.respond(prompt) {
                 Ok(v) => {
-                    self.note_resolved(&***club);
+                    self.note_resolved(&**club);
                     return Ok(v);
                 }
                 Err(e) => {
-                    Self::note_transition(&chain, index, &e);
-                    last = Err(format!("[{}] {e}", club.label()));
+                    match self.after_failure(&chain, step, e, false, false, false) {
+                        Walk::Retry { error, next } => {
+                            last = error;
+                            step = next;
+                        }
+                        Walk::Stop(error) => return error,
+                    }
                 }
             }
         }
@@ -230,17 +412,25 @@ impl Club for FallbackClub {
             self as *const Self as usize,
             Default::default(),
         );
+        let plan = self.walk_plan(true, messages, tools);
+        let chain = self.plan_chain(&plan);
         let mut last = Err("fallback chain is empty".to_string());
-        let chain = self.compatible_chat_chain(messages, tools);
-        for (index, club) in chain.iter().enumerate() {
+        let mut step = 0;
+        while step < chain.len() {
+            let club = chain[step];
             match club.chat(messages, tools) {
                 Ok(v) => {
-                    self.note_resolved(&***club);
+                    self.note_resolved(&**club);
                     return Ok(v);
                 }
                 Err(e) => {
-                    Self::note_transition(&chain, index, &e);
-                    last = Err(format!("[{}] {e}", club.label()));
+                    match self.after_failure(&chain, step, e, false, false, false) {
+                        Walk::Retry { error, next } => {
+                            last = error;
+                            step = next;
+                        }
+                        Walk::Stop(error) => return error,
+                    }
                 }
             }
         }
@@ -260,17 +450,25 @@ impl Club for FallbackClub {
             self as *const Self as usize,
             Default::default(),
         );
+        let plan = self.walk_plan(true, messages, tools);
+        let chain = self.plan_chain(&plan);
         let mut last = Err("fallback chain is empty".to_string());
-        let chain = self.compatible_chat_chain(messages, tools);
-        for (index, club) in chain.iter().enumerate() {
+        let mut step = 0;
+        while step < chain.len() {
+            let club = chain[step];
             match club.chat_with_effort(messages, tools, effort) {
                 Ok(v) => {
-                    self.note_resolved(&***club);
+                    self.note_resolved(&**club);
                     return Ok(v);
                 }
                 Err(e) => {
-                    Self::note_transition(&chain, index, &e);
-                    last = Err(format!("[{}] {e}", club.label()));
+                    match self.after_failure(&chain, step, e, false, false, false) {
+                        Walk::Retry { error, next } => {
+                            last = error;
+                            step = next;
+                        }
+                        Walk::Stop(error) => return error,
+                    }
                 }
             }
         }
@@ -299,12 +497,15 @@ impl Club for FallbackClub {
             self as *const Self as usize,
             Default::default(),
         );
+        let plan = self.walk_plan(true, messages, tools);
+        let chain = self.plan_chain(&plan);
         let mut last = Err("fallback chain is empty".to_string());
-        let chain = self.compatible_chat_chain(messages, tools);
-        for (index, club) in chain.iter().enumerate() {
+        let mut step = 0;
+        while step < chain.len() {
             if cancel.load(Ordering::Relaxed) {
                 return Err("cancelled".to_string());
             }
+            let club = chain[step];
             let mut emitted = false;
             let mut wrapped = |d: StreamDelta| {
                 // Only visible content counts as a committed partial reply (a club
@@ -316,17 +517,20 @@ impl Club for FallbackClub {
             };
             match club.chat_streaming_with_effort(messages, tools, effort, cancel, &mut wrapped) {
                 Ok(v) => {
-                    self.note_resolved(&***club);
+                    self.note_resolved(&**club);
                     return Ok(v);
                 }
                 Err(e) => {
                     // A partially-streamed reply can't be replayed onto the next
                     // club, and a cancel isn't a failure worth routing around.
-                    if emitted || cancel.load(Ordering::Relaxed) {
-                        return Err(e);
+                    let cancelled = cancel.load(Ordering::Relaxed);
+                    match self.after_failure(&chain, step, e, true, emitted, cancelled) {
+                        Walk::Retry { error, next } => {
+                            last = error;
+                            step = next;
+                        }
+                        Walk::Stop(error) => return error,
                     }
-                    Self::note_transition(&chain, index, &e);
-                    last = Err(format!("[{}] {e}", club.label()));
                 }
             }
         }
@@ -415,203 +619,9 @@ impl Club for FallbackClub {
     }
 }
 
-/// The single canonical intelligence ranking for every SOTA MoA seat, smartest
-/// first. Every seat — and above all the aggregate seat, the tool-capable
-/// DRIVER and final synthesizer (the deep thinker) — defaults to the smartest
-/// configured link; a free/breadth-tier model never out-ranks a frontier one.
-/// Local fleet models are absent from this table by design: a local model must
-/// never hold a deep-think seat (docs/plans/sota-moa-smartest-first.md).
-///
-///   1. openai / codex-run — GPT-5.x-class via ChatGPT OAuth
-///   2. kimi               — Kimi K3 via Moonshot API
-///   3. deepseek           — deepseek-v4-pro
-///   4. glm                — configurable/default glm-5.3, with glm-5.3-flash
-///      and glm-5.2 as additional explicit options (z.ai coding plan)
-///   5. qwen               — qwen3.7-plus (Alibaba coding plan)
-///   6. grok               — account OAuth HTTP to api.x.ai (Grok 4-family)
-///   7. longcat            — LongCat-2.0
-///   8. meta               — Muse Spark 1.3 (Meta Model API, metered per token;
-///      late seat by design so it is not burned on every MoA fan-out)
-///   9. openrouter         — stealth/ox-alpha (breadth tier; extra :free
-///      catalog seats sit beside it)
-///  10. cerebras           — speed-first host, model varies
-pub(crate) const SOTA_MOA_INTELLIGENCE_ORDER: &[&str] = &[
-    "codex-run",
-    "codex",
-    "openai",
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna-high",
-    "chatgpt-luna",
-    "luna",
-    "kimi",
-    "kimi-k3",
-    "moonshot",
-    "deepseek",
-    "deepseek-v4-pro",
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "qwen",
-    "qwen3.7-plus",
-    "grok",
-    "grok-research",
-    "grok-4",
-    "grok-4-latest",
-    "grok-4.7",
-    "grok-4.5",
-    "grok-4.3",
-    "grok-4.20",
-    "grok-4.20-fast",
-    "grok-4.20-mini",
-    "longcat",
-    "LongCat-2.0",
-    // Metered per-token (no plan): auto-seated only after the plan/OAuth and
-    // cheap metered seats above are taken, never in the cheap profile.
-    "meta",
-    "muse-spark-1.3",
-    "muse-spark-1.2",
-    "openrouter",
-    "stealth/union-alpha",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "hy",
-    "tencent/hy3:free",
-    "tencent/hy3-preview:free",
-    "hy3",
-    "hy3-preview",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "cerebras",
-];
-pub(crate) const SOTA_MOA_PROPOSE_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
-pub(crate) const SOTA_MOA_JUDGE_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
-pub(crate) const SOTA_MOA_VERIFY_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
-pub(crate) const SOTA_MOA_AGG_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
-
-/// A deliberately bounded everyday MoA. OpenRouter's free route verifies, and
-/// LongCat/DeepSeek-Flash/Luna perform synthesis/proposal. Frontier/token-plan links are intentionally absent:
-/// choosing this profile is a spend boundary, not merely a preference hint.
-pub(crate) const SOTA_MOA_CHEAP_PROPOSE_PREFS: &[&str] = &[
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna",
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "longcat",
-    "LongCat-2.0",
-    "openrouter",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "tencent/hy3:free",
-];
-pub(crate) const SOTA_MOA_CHEAP_JUDGE_PREFS: &[&str] = &[
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna",
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "longcat",
-    "LongCat-2.0",
-    "openrouter",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "tencent/hy3:free",
-];
-pub(crate) const SOTA_MOA_CHEAP_VERIFY_PREFS: &[&str] = &[
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna",
-    "openrouter",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "tencent/hy3:free",
-    "longcat",
-    "LongCat-2.0",
-];
-pub(crate) const SOTA_MOA_CHEAP_AGG_PREFS: &[&str] = &[
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna",
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "longcat",
-    "LongCat-2.0",
-    "openrouter",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "tencent/hy3:free",
-];
-const SOTA_MOA_CHEAP_FALLBACK_ORDER: &[&str] = &[
-    "deepseek-v4-flash",
-    "deepseek-flash",
-    "glm",
-    "glm-5.3-flash",
-    "glm-5.2",
-    "chatgpt-luna-on-high",
-    "luna-on-high",
-    "luna",
-    "openrouter",
-    "stealth/ox-alpha",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/free",
-    "poolside/laguna-s-2.1:free",
-    "cohere/north-mini-code:free",
-    "z-ai/glm-5.2:free",
-    "longcat",
-];
+// Baseline intelligence and cheap-profile orders live in one versioned
+// preference generation. Native validation permits reordering only, so the
+// cheap pool and its explicit spend boundary cannot grow through an override.
 
 fn cheap_link_allowed(entry: &(String, Arc<dyn Club>, Arc<AtomicBool>)) -> bool {
     let Ok(raw) = std::env::var("ANGEL_SOTA_MOA_CHEAP_LINKS") else {
@@ -641,34 +651,208 @@ fn link_matches(entry: &(String, Arc<dyn Club>, Arc<AtomicBool>), wanted: &str) 
             .is_some_and(|model| model.eq_ignore_ascii_case(wanted))
 }
 
+/// The live policy leg that seats links and steps the failover walk.
+const SEAT_ORDER_LEG: &str = "seat-order";
+
+/// The seating/walk decision the `seat-order` leg returns: link positions.
+#[derive(Clone, serde::Deserialize)]
+struct SeatPlan {
+    plan: Vec<usize>,
+}
+
+/// One after-failure step, decided by the `seat-order` leg.
+#[derive(Clone, serde::Deserialize)]
+struct AdvanceStep {
+    proceed: bool,
+    next: usize,
+    abort: bool,
+}
+
+/// What a failed attempt means for the chain walk.
+enum Walk<E> {
+    /// Try the link at `next`; `error` is what the chain reports if nothing else answers.
+    Retry {
+        error: Result<E, String>,
+        next: usize,
+    },
+    /// Stop the walk and surface `error`: the chain is exhausted, the stream
+    /// already spoke, or the user cancelled.
+    Stop(Result<E, String>),
+}
+
+/// The context a chat's tool schemas and messages owe the model, in tokens.
+fn required_tokens(messages: &[ChatMsg], tools: &[ToolDef]) -> usize {
+    messages
+        .iter()
+        .map(|message| message.content.chars().count().div_ceil(4) + 8)
+        .sum::<usize>()
+        + tools
+            .iter()
+            .map(|tool| {
+                (tool.name.len() + tool.description.len() + tool.params.to_string().len())
+                    .div_ceil(4)
+                    + 8
+            })
+            .sum::<usize>()
+}
+
+/// What a loaded generation may return: positions inside the chain, once each,
+/// and in walk order when the decision is a plan.
+fn seat_plan_check(plan: &Vec<usize>, limit: usize, ordered: bool) -> Result<(), String> {
+    let mut previous = None;
+    for (position, &index) in plan.iter().enumerate() {
+        if index >= limit {
+            return Err(format!("live seat-order named link {index} of {limit}"));
+        }
+        if plan[..position].contains(&index) {
+            return Err(format!("live seat-order named link {index} twice"));
+        }
+        if ordered && previous.is_some_and(|previous: usize| index <= previous) {
+            return Err("live seat-order reordered the failover chain".into());
+        }
+        previous = Some(index);
+    }
+    Ok(())
+}
+
+fn advance_check(decision: &AdvanceStep, step: usize, plan_len: usize) -> Result<(), String> {
+    if decision.proceed {
+        if decision.next <= step || decision.next >= plan_len {
+            return Err("live seat-order stepped outside the remaining chain".into());
+        }
+    } else if decision.next != 0 {
+        return Err("live seat-order stopped on a non-zero link".into());
+    }
+    Ok(())
+}
+
+/// The per-link features a seating decision is made from. Both text questions
+/// stay here: which cheap-order slots a link matches, and whether the allowlist
+/// admits it. Links sharing an alias share a group id, which is the seating's
+/// case-insensitive de-duplication.
+#[cfg(test)]
+const SOTA_MOA_CHEAP_FALLBACK_ORDER: &[&str] = &[
+    "deepseek-v4-flash",
+    "deepseek-flash",
+    "glm",
+    "glm-5.3-flash",
+    "glm-5.2",
+    "chatgpt-luna-on-high",
+    "luna-on-high",
+    "luna",
+    "openrouter",
+    "stealth/ox-alpha",
+    "thinkingmachines/inkling:free",
+    "thinkingmachines/inkling-small:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openrouter/free",
+    "poolside/laguna-s-2.1:free",
+    "cohere/north-mini-code:free",
+    "z-ai/glm-5.2:free",
+    "longcat",
+];
+
+#[cfg(test)]
+fn seat_order_input(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)]) -> serde_json::Value {
+    seat_order_input_with(links, &moa_preferences())
+}
+
+fn seat_order_input_with(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)], preferences: &MoaPreferences) -> serde_json::Value {
+    let features: Vec<serde_json::Value> = links
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            let matches: Vec<usize> = preferences.cheap_fallback
+                .iter()
+                .enumerate()
+                .filter(|(_, wanted)| link_matches(entry, wanted))
+                .map(|(slot, _)| slot)
+                .collect();
+            let group = links
+                .iter()
+                .position(|earlier| earlier.0.eq_ignore_ascii_case(&entry.0))
+                .unwrap_or(index);
+            serde_json::json!({
+                "index": index,
+                "group": group,
+                "allowed": cheap_link_allowed(entry),
+                "matches": matches,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "mode": "order",
+        "order": (0..preferences.cheap_fallback.len()).collect::<Vec<usize>>(),
+        "links": features,
+    })
+}
+
+/// The cheap-profile seating, decided by the `seat-order` leg. Rust keeps the
+/// club objects, their availability gates and the two text questions (which
+/// cheap-order slots a link's alias/label/live model name matches, and whether
+/// the allowlist admits it); the leg owns the order and the de-duplication.
 pub(crate) fn ordered_cheap_links(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
-    let mut ordered = Vec::new();
-    for wanted in SOTA_MOA_CHEAP_FALLBACK_ORDER {
-        for entry in links
+    let preferences = moa_preferences();
+    ordered_cheap_links_with(links, &preferences)
+}
+
+fn ordered_cheap_links_with(
+    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
+    preferences: &MoaPreferences,
+) -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    let input = seat_order_input_with(links, preferences);
+    let limit = links.len();
+    let (plan, _source) = crate::agent::harness::live_policy::decide_shipped::<SeatPlan>(
+        SEAT_ORDER_LEG,
+        &input,
+        move |plan| seat_plan_check(&plan.plan, limit, false),
+    );
+    plan.plan
+        .into_iter()
+        .filter_map(|index| links.get(index))
+        .map(|(alias, club, gate)| (alias.clone(), Arc::clone(club), Arc::clone(gate)))
+        .collect()
+}
+
+/// Today's seating as chain positions, which is what the leg returns: the
+/// parity oracle for [`ordered_cheap_links`], test builds only.
+#[cfg(test)]
+fn ordered_cheap_plan_native(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)]) -> Vec<usize> {
+    let mut ordered: Vec<usize> = Vec::new();
+    for wanted in &moa_preferences().cheap_fallback {
+        for (index, entry) in links
             .iter()
-            .filter(|entry| cheap_link_allowed(entry) && link_matches(entry, wanted))
+            .enumerate()
+            .filter(|(_, entry)| cheap_link_allowed(entry) && link_matches(entry, wanted))
         {
             if !ordered
                 .iter()
-                .any(|(alias, _, _): &(String, Arc<dyn Club>, Arc<AtomicBool>)| {
-                    alias.eq_ignore_ascii_case(&entry.0)
-                })
+                .any(|seated| links[*seated].0.eq_ignore_ascii_case(&entry.0))
             {
-                ordered.push((entry.0.clone(), Arc::clone(&entry.1), Arc::clone(&entry.2)));
+                ordered.push(index);
             }
         }
     }
     ordered
 }
 
+#[cfg(test)]
+pub(crate) fn ordered_cheap_links_for_test(
+    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
+    preferences: &MoaPreferences,
+) -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    ordered_cheap_links_with(links, preferences)
+}
+
 fn cheap_role_with_fallbacks(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
     env_key: &str,
-    preferences: &[&str],
+    order: &[String],
+    preferences: &MoaPreferences,
 ) -> Arc<dyn Club> {
-    let primary = pick_sota_role(links, env_key, preferences);
+    let primary = pick_sota_role(links, env_key, order);
     let mut chain = vec![Arc::clone(&primary)];
     let mut gates = vec![
         links
@@ -676,7 +860,7 @@ fn cheap_role_with_fallbacks(
             .find(|(_, club, _)| Arc::ptr_eq(club, &primary))
             .map(|(_, _, gate)| Arc::clone(gate)),
     ];
-    for (_, club, gate) in ordered_cheap_links(links) {
+    for (_, club, gate) in ordered_cheap_links_with(links, preferences) {
         if chain.iter().any(|candidate| Arc::ptr_eq(candidate, &club)) {
             continue;
         }
@@ -721,10 +905,10 @@ pub(crate) fn extra_sota_proposers(
     out
 }
 
-pub(crate) fn pick_sota_role(
+pub(crate) fn pick_sota_role<T: AsRef<str>>(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
     env_key: &str,
-    preferred_aliases: &[&str],
+    preferred_aliases: &[T],
 ) -> Arc<dyn Club> {
     if let Some(wanted) = env_first(&[env_key]) {
         if let Some((_, club, _)) = links.iter().find(|(alias, club, _)| {
@@ -739,6 +923,7 @@ pub(crate) fn pick_sota_role(
         eprintln!("[sota-moa] {env_key}={wanted:?} did not match a SOTA link");
     }
     for preferred in preferred_aliases {
+        let preferred = preferred.as_ref();
         if let Some((_, club, _)) = links.iter().find(|(alias, club, _)| {
             alias.eq_ignore_ascii_case(preferred)
                 || club.label().eq_ignore_ascii_case(preferred)
@@ -765,9 +950,10 @@ pub(crate) fn sota_moa_club(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Option<Arc<dyn Club>> {
     let cheap = cheap_moa_enabled();
+    let preferences = moa_preferences();
     let mut role_links = links.to_vec();
     if cheap {
-        role_links = ordered_cheap_links(&role_links);
+        role_links = ordered_cheap_links_with(&role_links, &preferences);
     }
     if role_links.is_empty() {
         return None;
@@ -790,30 +976,34 @@ pub(crate) fn sota_moa_club(
             cheap_role_with_fallbacks(
                 &role_links,
                 "ANGEL_SOTA_MOA_PROPOSE_CLUB",
-                SOTA_MOA_CHEAP_PROPOSE_PREFS,
+                &preferences.cheap_propose,
+                &preferences,
             ),
             cheap_role_with_fallbacks(
                 &role_links,
                 "ANGEL_SOTA_MOA_JUDGE_CLUB",
-                SOTA_MOA_CHEAP_JUDGE_PREFS,
+                &preferences.cheap_judge,
+                &preferences,
             ),
             cheap_role_with_fallbacks(
                 &role_links,
                 "ANGEL_SOTA_MOA_VERIFY_CLUB",
-                SOTA_MOA_CHEAP_VERIFY_PREFS,
+                &preferences.cheap_verify,
+                &preferences,
             ),
             cheap_role_with_fallbacks(
                 &role_links,
                 "ANGEL_SOTA_MOA_AGG_CLUB",
-                SOTA_MOA_CHEAP_AGG_PREFS,
+                &preferences.cheap_aggregate,
+                &preferences,
             ),
         )
     } else {
         (
-            pick_sota_role(links, "ANGEL_SOTA_MOA_PROPOSE_CLUB", SOTA_MOA_PROPOSE_PREFS),
-            pick_sota_role(links, "ANGEL_SOTA_MOA_JUDGE_CLUB", SOTA_MOA_JUDGE_PREFS),
-            pick_sota_role(links, "ANGEL_SOTA_MOA_VERIFY_CLUB", SOTA_MOA_VERIFY_PREFS),
-            pick_sota_role(links, "ANGEL_SOTA_MOA_AGG_CLUB", SOTA_MOA_AGG_PREFS),
+            pick_sota_role(links, "ANGEL_SOTA_MOA_PROPOSE_CLUB", &preferences.standard),
+            pick_sota_role(links, "ANGEL_SOTA_MOA_JUDGE_CLUB", &preferences.standard),
+            pick_sota_role(links, "ANGEL_SOTA_MOA_VERIFY_CLUB", &preferences.standard),
+            pick_sota_role(links, "ANGEL_SOTA_MOA_AGG_CLUB", &preferences.standard),
         )
     };
     // Normal mode carries every configured SOTA link in intelligence order.
@@ -866,3 +1056,7 @@ pub(crate) fn sota_moa_fallbacks(
     let source = if cheap { role_links } else { links };
     source.iter().map(|(_, club, _)| Arc::clone(club)).collect()
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/failover__seat_order_tests.rs"]
+mod seat_order_tests;

@@ -46,7 +46,7 @@ Fresh uses the stock Percival, Lynette, Gareth and Galahad loadouts. Mid and won
 
 ## Validation
 
-Commands run from `cockpit/`, always with `CARGO_TARGET_DIR=/work/build-cache/angelx-feel TMPDIR=/work/tmp`:
+Commands run from `cockpit/`, always with `CARGO_TARGET_DIR=<build-cache>/angelx-feel TMPDIR=<scratch>`:
 
 ```sh
 cargo test -p angelX-cockpit --bin angel together_shooter -- --nocapture
@@ -54,7 +54,7 @@ cargo test -p angelX-cockpit --bin angel app::control::dungeon::tests -- --nocap
 cargo test -p angelX-cockpit --bin angel stage::world_viz::overworld::arena::tests -- --nocapture
 cargo test -p angelX-cockpit --bin angel party_size_sim -- --ignored --nocapture
 ANGEL_DELVE_FEEL=1 cargo test -p angelX-cockpit --bin angel together_shooter::feel::tests -- --nocapture
-ANGEL_ARENA_SHOTS=/work/tmp/review-shots/feel cargo test -p angelX-cockpit --bin angel write_feel_shots -- --ignored --nocapture
+ANGEL_ARENA_SHOTS=<scratch>/review-shots/feel cargo test -p angelX-cockpit --bin angel write_feel_shots -- --ignored --nocapture
 ```
 
 The filename-shaped `together_balance` filter matches zero test names; `together_shooter` includes both `balance_tests` and `balance_sim_tests`. The shooter suite passed 591 tests (49 ignored), including both balance modules and all 30 new feel tests. The targeted control suite passed 51 tests (5 ignored); the arena suite passed 12 (40 ignored). With the ledger enabled, all 30 feel tests passed (1 render writer ignored). The render writer passed separately and produced all 13 PNGs. Existing unrelated unused-code warnings remain.
@@ -63,11 +63,11 @@ The filename-shaped `together_balance` filter matches zero test names; `together
 
 The ignored writer captures actual simulated shots in an open fight room and asserts that streams, impact sparks and room-end coins exist. Frames are 768×448, inspected visually.
 
-- `/work/tmp/review-shots/feel/stream.png`
-- `/work/tmp/review-shots/feel/rail_03.png`, `rail_10.png`, `rail_26.png`
-- `/work/tmp/review-shots/feel/fan_00.png`, `fan_02.png`, `fan_03.png`
-- `/work/tmp/review-shots/feel/sparks.png`
-- `/work/tmp/review-shots/feel/death_1.png`, `death_5.png`
-- `/work/tmp/review-shots/feel/coins_00.png`, `coins_01.png`, `coins_10.png`
+- `<scratch>/review-shots/feel/stream.png`
+- `<scratch>/review-shots/feel/rail_03.png`, `rail_10.png`, `rail_26.png`
+- `<scratch>/review-shots/feel/fan_00.png`, `fan_02.png`, `fan_03.png`
+- `<scratch>/review-shots/feel/sparks.png`
+- `<scratch>/review-shots/feel/death_1.png`, `death_5.png`
+- `<scratch>/review-shots/feel/coins_00.png`, `coins_01.png`, `coins_10.png`
 
-Raw local outputs: `/work/tmp/feel-balance-before.log`, `/work/tmp/feel-balance-after.log`, `/work/tmp/feel-tests-final.log`, `/work/tmp/feel-controls.log`, `/work/tmp/feel-viz-tests.log`, `/work/tmp/feel-ledger-tests.log`, `/work/tmp/feel-renders.log`.
+Raw local outputs: `<scratch>/feel-balance-before.log`, `<scratch>/feel-balance-after.log`, `<scratch>/feel-tests-final.log`, `<scratch>/feel-controls.log`, `<scratch>/feel-viz-tests.log`, `<scratch>/feel-ledger-tests.log`, `<scratch>/feel-renders.log`.

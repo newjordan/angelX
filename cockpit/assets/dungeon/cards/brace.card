@@ -1,0 +1,23 @@
+# The Lancer's third: the butt in the ground, the point at the charge.
+name   Brace
+kind   spell
+rarity relic
+text   Set for two seconds: half from blows, rushers thrown back.
+drop   0
+chest  0
+cooldown 14
+feat 1
+art
+..........xx.
+.........xHx.
+........xHix.
+.......xhHx..
+..xxx.xBhx...
+.xHiHxBbx....
+.xHihBbx.....
+.xhhBbxx.....
+..xBbx.......
+.xBbx........
+xBbx.........
+GJJGJJGJJGJJG
+.GJJGGJJGGJJ.

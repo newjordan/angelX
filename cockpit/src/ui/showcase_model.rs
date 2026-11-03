@@ -23,6 +23,7 @@ const MOST_TRIANGLES: usize = 400_000;
 pub(crate) struct Model {
     pub(crate) mesh: MeshData,
     pub(crate) nodes: Vec<Node>,
+    #[allow(dead_code)] // showcase tests read the count
     pub(crate) triangles: usize,
     pub(crate) textures: Vec<(u32, u32, u32, Vec<u8>)>,
 }
@@ -115,6 +116,8 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
         colors: Vec::with_capacity(tris.len() * 3),
         indices: Vec::with_capacity(tris.len() * 3),
         groups: Vec::new(),
+        joints: Vec::new(),
+        weights: Vec::new(),
     };
     let mut materials = Vec::new();
     for (index, name) in parts.iter().enumerate() {
@@ -203,6 +206,8 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
         colors: Vec::new(),
         indices: Vec::new(),
         groups: Vec::new(),
+        joints: Vec::new(),
+        weights: Vec::new(),
     };
     let mut materials = Vec::new();
     let mut textures: Vec<(usize, u32)> = Vec::new();

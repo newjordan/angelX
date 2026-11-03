@@ -14,6 +14,6 @@
   },
   "prepared_sha256": "d85707cc5df356e59b3082a951d16fb5e15c0a3d7cad7686b773f86e4894a9c4",
   "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.sidedoor.crypt.vertical-1/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.sidedoor.crypt.vertical-1/v01/source-sheet.png",
   "source_sha256": "5f23f43903caa41fadf1daf5e77224554eedd21102f8752ecd39eff26f6158ad"
 }

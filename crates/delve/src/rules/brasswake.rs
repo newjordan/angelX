@@ -183,7 +183,7 @@ pub struct Cask {
     pub burst: u32,
     pub from: u32,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct Sample {
     tick: u64,
     wave: u8,
@@ -227,7 +227,11 @@ pub struct Lane {
     pub fire_key: bool,
     pub key: bool,
     pub last_strike: Option<u64>,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     history: VecDeque<Sample>,
 }
 impl Lane {

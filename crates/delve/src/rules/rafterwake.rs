@@ -199,7 +199,7 @@ impl Keeper {
         false
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct Sample {
     tick: u64,
     ground: bool,
@@ -241,7 +241,11 @@ pub struct Lane {
     pub brick_burst: u32,
     pub last_jump: Option<u64>,
     pub cooldown: u32,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     history: VecDeque<Sample>,
 }
 impl Lane {

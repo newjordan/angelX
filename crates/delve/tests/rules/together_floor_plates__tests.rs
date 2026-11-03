@@ -28,6 +28,7 @@ fn together_floor_plates_arrive_after_the_real_descent_and_expire() {
                     run.dungeon.rooms[g.guardian].cleared = true;
                 }
                 run.descend();
+                crate::rules::crossroads::testing::finish(&mut run);
             }
         }
         // The floor behind's results, then the title.

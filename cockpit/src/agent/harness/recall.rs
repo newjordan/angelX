@@ -31,22 +31,7 @@ impl Tool for RecallTool {
         "recall"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "recall".to_string(),
-            description: "Search long-term memory (notes distilled from this and earlier \
-                          sessions: decisions, files changed, durable facts, open threads) and \
-                          return the most relevant. Args: `query` (string, required), \
-                          `limit` (int, optional, default 5). ⠡⠚"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": { "type": "string", "description": "⠡⠚⠃" },
-                    "limit": { "type": "integer", "description": "⠡⠚⠉" }
-                },
-                "required": ["query"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("recall")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let query = args
@@ -353,7 +338,6 @@ impl ToolActivations {
 /// log a caller (or a test) reads to see *why* something moved.
 impl ToolActivations {
     /// Forget a tool entirely: its declaration, its intent, its advertisement.
-    #[allow(dead_code)]
     pub(crate) fn withdraw(&self, name: &str) -> bool {
         self.requirements
             .lock()
@@ -398,7 +382,6 @@ impl ToolActivations {
     /// Retract one name from the active set. A provider that departs takes its
     /// schema with it: leaving the name behind would keep
     /// `activated_schema_failures` non-zero on the next request.
-    #[allow(dead_code)]
     pub(crate) fn retract(&self, name: &str) -> bool {
         let removed = self
             .names
@@ -515,14 +498,23 @@ impl Tool for ToolSearchTool {
         }
     }
     fn call(&self, args: &Value) -> Result<String, String> {
+        let projected = super::core_catalog::current()
+            .filter(|generation| !generation.is_baseline())
+            .map(|generation| {
+                let mut entries = self.entries.clone();
+                for entry in &mut entries {
+                    generation.overlay(entry);
+                }
+                entries
+            });
+        let entries = projected.as_deref().unwrap_or(&self.entries);
         let query = args["query"].as_str().ok_or("missing 'query'")?;
         let limit = args
             .get("limit")
             .and_then(|l| l.as_u64())
             .unwrap_or(5)
             .clamp(1, 25) as usize;
-        let docs: Vec<(usize, String)> = self
-            .entries
+        let docs: Vec<(usize, String)> = entries
             .iter()
             .enumerate()
             .filter(|(_, definition)| self.activations.admits(&definition.name))
@@ -534,7 +526,7 @@ impl Tool for ToolSearchTool {
         }
         let activation_max = tool_search_activation_limit();
         let activated = self.activations.activate(
-            hits.iter().map(|index| self.entries[*index].name.as_str()),
+            hits.iter().map(|index| entries[*index].name.as_str()),
             activation_max,
         );
         let active = self.activations.snapshot();
@@ -552,13 +544,13 @@ impl Tool for ToolSearchTool {
         );
         if hits
             .iter()
-            .any(|index| !active.contains(&self.entries[*index].name))
+            .any(|index| !active.contains(&entries[*index].name))
         {
             out.push_str(&crate::agent::harness::book::u_skills::ACTIVATION_CAP.cells());
             out.push('\n');
         }
         for i in hits {
-            let d = &self.entries[i];
+            let d = &entries[i];
             let status = if active.contains(&d.name) {
                 "active next request"
             } else {

@@ -140,3 +140,48 @@ fn a_censer_mends_every_knight_near_and_not_those_far() {
     play(&mut run, "censer");
     assert_eq!(run.players[&2].hp, 30, "too far for the pulse");
 }
+
+#[test]
+fn a_thunder_scroll_is_seen_and_heard_where_it_strikes() {
+    let mut run = quiet_room(false);
+    run.spawn_at_for_test(EnemyKind::Wraith, 20.0, 10.0);
+    let (wx, wy) = (run.enemies.last().unwrap().x, run.enemies.last().unwrap().y);
+    play(&mut run, "thunder-scroll");
+    let bolts = &run.feel.bolts;
+    // A bolt onto each monster it struck (the frozen bat too), and the
+    // crackle round the knight who read it.
+    assert_eq!(bolts.iter().filter(|b| !b.call).count(), 2, "{bolts:?}");
+    assert!(bolts.iter().any(|b| !b.call && (b.x, b.y) == (wx, wy)));
+    let hero = &run.players[&1];
+    assert!(bolts.iter().any(|b| b.call && (b.x - hero.x).hypot(b.y - hero.y) < 0.1), "{bolts:?}");
+    assert!(run.feel.valid());
+    for sound in ["play_card", "cast_storm", "impact_storm"] {
+        assert!(run.sounds.contains(&sound), "{sound}: {:?}", run.sounds);
+    }
+    // In an empty room it still crackles, with no thunder.
+    let mut run = quiet_room(false);
+    run.enemies.clear();
+    play(&mut run, "thunder-scroll");
+    assert_eq!(run.feel.bolts.len(), 1);
+    assert!(run.feel.bolts[0].call);
+    assert!(run.sounds.contains(&"cast_storm") && !run.sounds.contains(&"impact_storm"));
+    // A bomb is no lightning.
+    let mut run = quiet_room(false);
+    run.players.get_mut(&1).unwrap().bombs = 1;
+    run.step(&BTreeMap::from([(1, Input { bomb: true, ..Default::default() })]));
+    assert!(run.feel.bolts.is_empty());
+}
+
+#[test]
+fn a_scroll_dropped_shimmers_and_nothing_else_does() {
+    let book = cards::Book::builtin();
+    for (id, scroll) in [("thunder-scroll", true), ("cabbage-storm", true), ("hedge-maze", true), ("potion", false), ("fae-dagger", false)] {
+        assert_eq!(book.get(id).unwrap().scroll(), scroll, "{id}");
+        let mut run = quiet_room(false);
+        run.sounds.clear();
+        run.drop_item(id.into(), 30.0, 14.0, None);
+        assert_eq!(run.sounds.contains(&"wish_grant"), scroll, "{id}: {:?}", run.sounds);
+        let item = run.room().items.last().unwrap();
+        assert_eq!((item.card.as_str(), item.dropped), (id, run.tick), "it lands now, for the drawer");
+    }
+}

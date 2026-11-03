@@ -1,0 +1,42 @@
+{
+  "api_version": 1,
+  "id": "frontier",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "rows": [
+      {
+        "index": 0,
+        "score": 2,
+        "rank_hi": 0,
+        "rank_lo": 0,
+        "id": 1,
+        "personal": false,
+        "source": false
+      },
+      {
+        "index": 1,
+        "score": 2,
+        "rank_hi": 0,
+        "rank_lo": 3,
+        "id": 0,
+        "personal": true,
+        "source": false
+      },
+      {
+        "index": 2,
+        "score": 2,
+        "rank_hi": 0,
+        "rank_lo": 1,
+        "id": 2,
+        "personal": false,
+        "source": true
+      }
+    ]
+  },
+  "bend": {
+    "entry": "frontier.bend",
+    "proof": "PROOF.bend",
+    "output": "frontier.compiled.js"
+  }
+}

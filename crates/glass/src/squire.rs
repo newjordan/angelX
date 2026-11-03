@@ -132,6 +132,7 @@ fn legs(frame: Frame) -> [&'static str; 5] {
 /// A house's colours, as its knights wear them: the field on plume and
 /// tabard, the charge on the emblem (docs/CASTLES.md).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct Livery {
     pub field: [u8; 3],
     pub shadow: [u8; 3],
@@ -248,10 +249,6 @@ fn kick_spot(rect: [f32; 4], px: f32) -> [f32; 2] {
 /// (the hips, 15) on the top edge, legs over the front.
 pub(crate) fn seat(rect: [f32; 4], seat_x: f32, px: f32) -> [f32; 2] {
     [rect[0] + seat_x, rect[1] - 16.0 * px]
-}
-
-pub(crate) fn entrance(t: f32, rect: [f32; 4], seat_x: f32, px: f32, scale: f32) -> Pose {
-    follow(t, rect, seat_x, px, scale, 0)
 }
 
 /// A squire of the retinue, `place` places behind the lead (0 is the
@@ -423,18 +420,18 @@ mod tests {
     fn he_kicks_the_corner_and_ends_on_the_roof() {
         let rect = [400.0, 200.0, 600.0, 400.0];
         let px = 3.0;
-        let kick = entrance(IMPACT, rect, 300.0, px, 1.0);
+        let kick = follow(IMPACT, rect, 300.0, px, 1.0, 0);
         assert_eq!(kick.frame, Frame::Kick);
         // The toe (the last column) is on the corner's x, his feet on its bottom.
         assert_eq!(kick.at[0] + (W as f32 - 1.0) * px, rect[0]);
         assert_eq!(kick.at[1] + H as f32 * px, rect[1] + rect[3]);
-        let sat = entrance(5.0, rect, 300.0, px, 1.0);
+        let sat = follow(5.0, rect, 300.0, px, 1.0, 0);
         assert_eq!(sat.frame, Frame::Sit);
         assert_eq!(sat.at, seat(rect, 300.0, px));
-        let start = entrance(0.0, rect, 300.0, px, 1.0);
+        let start = follow(0.0, rect, 300.0, px, 1.0, 0);
         assert!(start.at[0] < kick.at[0], "he walks in from the left");
         // The hop lands where he sits.
-        let landing = entrance(INTRO_END - 1e-4, rect, 300.0, px, 1.0);
+        let landing = follow(INTRO_END - 1e-4, rect, 300.0, px, 1.0, 0);
         // The retinue lines up behind and never kicks.
         let behind = follow(IMPACT + 0.12, rect, 250.0, px, 1.0, 1);
         assert!(behind.at[0] < kick.at[0] && behind.frame != Frame::Kick);

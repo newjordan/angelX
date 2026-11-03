@@ -1,0 +1,92 @@
+{
+  "classification_transient": [
+    "HTTP 500: internal error",
+    "connection reset by peer",
+    "transport error after 2 attempt(s): Connection Failed: Connect error: Connection refused (os error 111)",
+    "transport error after 2 attempt(s): Dns Failed: resolve dns name 'api.example:443': failed to lookup address information"
+  ],
+  "permanent": [
+    "HTTP 400: malformed messages",
+    "HTTP 401: Unauthorized",
+    "HTTP 402: payment required",
+    "HTTP 403: invalid_api_key",
+    "HTTP 404: model not found",
+    "HTTP 406: unacceptable response format",
+    "HTTP 415: unsupported media type",
+    "HTTP 422: unsupported parameter",
+    "HTTP 424: failed dependency",
+    "HTTP 429: weekly quota exhausted",
+    "HTTP 503 [x-should-retry: false]: overloaded",
+    "HTTP 429 [x-should-retry: false]: rate limited",
+    "HTTP 500 [x-should-retry: false]: request content",
+    "transport error after 1 attempt(s): https://api.example/v1/chat/completions: Connection Failed: tls connection init failed: invalid peer certificate: UnknownIssuer",
+    "muse responses: transport: Connection Failed: tls connection init failed: invalid peer certificate: NotValidForName"
+  ],
+  "retry_transient": [
+    "HTTP 408: timeout",
+    "HTTP 425: too early",
+    "HTTP 429: rate limited"
+  ],
+  "veto_holdout": [
+    [
+      "HTTP 408: provider said \"[x-should-retry: false]\" after a read timeout",
+      false
+    ],
+    [
+      "HTTP 425: {\"error\":\"too early: [x-should-retry: false]\"}",
+      false
+    ],
+    [
+      "HTTP 429: [x-should-retry: false]: rate-limit diagnostic only",
+      false
+    ],
+    [
+      "HTTP 500: échec côté fournisseur — \"[x-should-retry: false]\": réessayer",
+      false
+    ],
+    [
+      "HTTP 503: upstream unavailable\nHTTP 503 [x-should-retry: false]: copied diagnostic",
+      false
+    ],
+    [
+      "HTTP 504: upstream: \"HTTP 504 [x-should-retry: false]: timed out\": retry later",
+      false
+    ],
+    [
+      "HTTP 529: overloaded\r\nquoted header: \"x-should-retry: false\"\r\n\"[x-should-retry: false]\"",
+      false
+    ],
+    [
+      "HTTP 408 [x-should-retry: false]: read timeout",
+      true
+    ],
+    [
+      "HTTP 425 [x-should-retry: false]: ",
+      true
+    ],
+    [
+      "HTTP 429 [x-should-retry: false]: quota exceeded; retry-after: 1",
+      true
+    ],
+    [
+      "HTTP 500 [x-should-retry: false]: échec côté fournisseur — réessayer",
+      true
+    ],
+    [
+      "HTTP 503 [x-should-retry: false]: unavailable\nquoted advice: \"x-should-retry: true\"",
+      true
+    ],
+    [
+      "HTTP 504 [x-should-retry: false]: upstream: timeout: retry later",
+      true
+    ],
+    [
+      "HTTP 529 [x-should-retry: false]: {\"error\":\"overloaded: retry later\"}",
+      true
+    ],
+    [
+      "HTTP 503: ",
+      false
+    ]
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "api_version": 1,
+  "id": "verify-plan",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "requested": "auto",
+    "entrypoint": "none",
+    "kind": "tests",
+    "has_cargo_toml": false,
+    "has_package_json": true,
+    "has_pyproject_toml": false,
+    "has_python_setup": false,
+    "has_pytest_config": false
+  },
+  "bend": {
+    "entry": "verify-plan.bend",
+    "proof": "PROOF.bend",
+    "output": "verify-plan.compiled.js"
+  }
+}

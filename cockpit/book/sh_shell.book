@@ -1,0 +1,132 @@
+@@book-page 1@@
+Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, and discover optional dependencies from real errors.
+@@book-page 1@@
+Do not score failed input as zero performance.
+@@book-page 1@@
+Never use shell `sleep` to poll a job or submission; keep doing useful work and use one later status snapshot.
+@@book-page 1@@
+Omit scope options for builds, benchmarks, installs and background jobs.
+@@book-page 1@@
+Act on actual errors: keep the earliest prerequisite failure, check usable input before dependent measurements, use allowed scratch, and do not score failed input as zero performance.
+@@book-page 1@@
+Explicit restrictions stay authoritative; report a concrete blocker if no permitted approach works.
+@@book-page 1@@
+Judge from actual exit status and output; quoted text, a quiet success, and a valid `$url` are not empty-input or zero-frame evidence.
+@@book-page 1@@
+This sealed task requires foreground process ownership: run long builds directly; nohup/disown/setsid and unmanaged `&` jobs are rejected.
+@@book-page 1@@
+This sealed task permits read-only Git inspection only; edit files directly and do not stash/add/reset/restore/checkout/clean/commit/switch/fetch/merge/rebase/push.
+@@book-page 1@@
+YOLO is active for this headless coding task: writes/network are unrestricted, but default cwd is the task workspace — start with local `ls`/`find .`/`tests` there.
+@@book-page 2@@
+Use this to pull crates and build/calibrate code.
+@@book-page 2@@
+Pass subcommand + flags as `args`, e.g. build or test.
+@@book-page 2@@
+Use available local dependencies; network fetches are unavailable in this confined experiment.
+@@book-page 2@@
+cargo subcommand + flags
+@@book-page 3@@
+Select runtime explicitly for mixed roots.
+@@book-page 3@@
+Runtime selection.
+@@book-page 3@@
+Auto requires one root language; mixed projects need explicit selection.
+@@book-page 3@@
+Extra cargo clippy arguments on the Rust route; other lint adapters are unsupported.
+@@book-page 4@@
+Do not redirect output: proc_status reads the captured log.
+@@book-page 4@@
+Use for daemons and slow jobs — an inference server (llama-server, vllm serve), a dev server, a long build — then keep working.
+@@book-page 4@@
+Take one proc_status snapshot only when its result can change your next action; if no independent work remains, use proc_wait for a bounded wait that returns early on completion rather than shell sleep.
+@@book-page 4@@
+Use `shell` for commands that finish quickly.
+@@book-page 4@@
+command line (sh -c)
+@@book-page 4@@
+short label for the handle/log (default: first word)
+@@book-page 4@@
+working directory (default: the workspace)
+@@book-page 4@@
+persistent service: detach to outlive this Angel process (operator-enabled runs only; untracked by proc_status/proc_stop)
+@@book-page 5@@
+If still running, do useful independent work.
+@@book-page 5@@
+If all remaining work depends on this job, use proc_wait instead of shell sleep.
+@@book-page 5@@
+Use contains with an id to search captured compiler errors by literal substring; captured host logs are not workspace files for grep/read_file.
+@@book-page 5@@
+handle id from proc_run
+@@book-page 5@@
+log lines to show for a single id (default 40)
+@@book-page 5@@
+With id only: literal case-sensitive log filter, 1–256 UTF-8 bytes, no newlines.
+@@book-page 5@@
+Searches trailing 8 MiB of each retained log file; tail_lines limits matching lines.
+@@book-page 5@@
+ignored (legacy).
+@@book-page 5@@
+Snapshot only; never parks the turn.
+@@book-page 6@@
+Wait for one background job when no useful independent work remains.
+@@book-page 6@@
+Use instead of shell sleep; use proc_status for an immediate snapshot.
+@@book-page 6@@
+handle id from proc_run
+@@book-page 6@@
+captured log lines (default 40, maximum 400)
+@@book-page 7@@
+Call only when the user has explicitly asked to investigate or fix a broken tool in this session.
+@@book-page 7@@
+Diagnose-only by default; pass repair=true only after the user approves making changes.
+@@book-page 7@@
+Set true ONLY after the user approves making changes.
+@@book-page 7@@
+command/profile to repair, e.g. auto or gh (default auto)
+@@book-page 7@@
+apply local repairs (mutates ~/.local/bin symlinks and global git config); default false — diagnose only.
+@@book-page 8@@
+Continue ordinary work, inspect status/results, stop when desired, and apply/verify useful patches yourself.
+@@book-page 8@@
+suggest: optional unmeasured ideas; no fabricated rewards
+@@book-page 8@@
+Defaults to loop objective; selects a separate learning scope if changed
+@@book-page 8@@
+Defaults to loop verifier; explicit null explores without learning rewards
+@@book-page 8@@
+suggest: choose any methods; defaults to all
+@@book-page 8@@
+suggest: deterministic exploration seed; default 0
+@@book-page 8@@
+run: the experimental approach to try
+@@book-page 8@@
+run: stable label for bandit comparisons; default direct
+@@book-page 8@@
+run: opt into baseline plus candidate (two attempts); default false
+@@book-page 8@@
+run: include retrieved experimental snippets as task context; default true
+@@book-page 9@@
+Continue useful work while it runs; results retains artifacts across iterations and resumes.
+@@book-page 9@@
+Use real checks, inspect candidates, and submit a verified winner when ready.
+@@book-page 9@@
+Optional research objective; defaults to loop task
+@@book-page 9@@
+Actual verifier command; defaults to loop acceptance command
+@@book-page 9@@
+Campaign rounds; default 1
+@@book-page 9@@
+Samples per training group; default 3
+@@book-page 9@@
+Samples per measured comparison case; at least 2, default 2
+@@book-page 9@@
+Existing verifier-owned paths relative to each case source
+@@book-page 9@@
+Existing independently authored held-out source workspace
+@@book-page 9@@
+results: optional exact campaign id, within this workspace
+@@book-page 0@@
+Samples must be nonnegative and matched in order; separate diagnostic, full-development and official cohorts.
+@@book-page 0@@
+Metric and unit, e.g. kernel latency (ms).

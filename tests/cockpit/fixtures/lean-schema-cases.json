@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cases": [
+    {"name":"apply_patch","full_marker":"SWAP.BLK","lean_marker":"[path#tag]","page_key":"stage","page_marker":"no disk write","registry_page":true,"schema":"full","equal_property":null,"maximum_property":null,"registry_schema_marker":null},
+    {"name":"read_file","full_marker":"Merge conflict markers","lean_marker":"[path#tag]","page_key":"offset","page_marker":"truncated page","registry_page":false,"schema":"full","equal_property":null,"maximum_property":"limit","registry_schema_marker":"⠡⠁"},
+    {"name":"write_file","full_marker":"conflict://*","lean_marker":"conflict://N","page_key":"path","page_marker":"conflict://*","registry_page":true,"schema":"full","equal_property":null,"maximum_property":null,"registry_schema_marker":null},
+    {"name":"list_dir","full_marker":"workspace root","lean_marker":"Directories end with /","page_key":"path","page_marker":"workspace-relative","registry_page":false,"schema":"full","equal_property":null,"maximum_property":null,"registry_schema_marker":null},
+    {"name":"str_replace","full_marker":"smart quotes","lean_marker":"unique","page_key":"expect_tag","page_marker":"no longer matches","registry_page":true,"schema":"full","equal_property":null,"maximum_property":null,"registry_schema_marker":null},
+    {"name":"grep","full_marker":"deterministic and diverse","lean_marker":"after_file","page_key":"after_file","page_marker":"lexically after","registry_page":true,"schema":"lean_grep","equal_property":"after_file","maximum_property":"paths","registry_schema_marker":null}
+  ]
+}

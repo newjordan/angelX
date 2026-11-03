@@ -415,7 +415,7 @@ impl App {
             return;
         }
         for _ in 0..ticks {
-            self.world.tick();
+            self.realm.world.tick();
         }
         self.world_ticked_at = if dropped_backlog {
             now
@@ -643,6 +643,7 @@ impl App {
     }
 
     pub(crate) fn advance(&mut self) {
+        self.advance_live_modules();
         // The showcase's buttons: its arrows step to the showing asked
         // for; its copy button hands over what to copy, sent between draws.
         if let Some(payload) = crate::ui::showcase::poll() {
@@ -659,11 +660,7 @@ impl App {
         }
         self.advance_launch_input();
         self.advance_setup();
-        self.advance_dungeon_guest();
-        self.watch_delve_gate();
-        self.tune_audio();
-        self.watch_reforge();
-        self.advance_joined();
+        self.tick_realm();
         self.drain_background_process_completions();
         self.flush_pending_atlas_harvest();
         self.poll_shell_status();
@@ -723,12 +720,12 @@ impl App {
         // (ANGEL_BACKDROP=off / shell / image / compact Core). Comp / lean
         // keeps chrome but must not pay the badge/classify tax.
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
-            self.world.note_memory_health(self.tools.store.health());
+            self.realm.world.note_memory_health(self.tools.store.health());
             let atlas_status = self.atlas.status();
-            self.world
+            self.realm.world
                 .note_atlas_status(atlas_status.health, atlas_status.review_count);
             let clerk_status = clerk.status();
-            self.world.note_backplane_status(
+            self.realm.world.note_backplane_status(
                 clerk_status.health,
                 clerk_status.queue_depth,
                 usize::from(
@@ -741,7 +738,7 @@ impl App {
         // castle, and the Delve names its party from those houses.
         let serving = self.serving_houses();
         crate::stage::houses::note_serving(&serving);
-        self.world.note_serving(&serving);
+        self.realm.world.note_serving(&serving);
         match self.session.save_status() {
             crate::knowledge::session::SessionSaveStatus::Failed(error) => {
                 if !self.session_warning_notified {
@@ -797,15 +794,15 @@ impl App {
         if self.loop_active() {
             self.note_ops_loop(self.loop_ctl.iteration);
         } else {
-            self.dungeon.ops_loop = 0;
+            self.realm.dungeon.ops_loop = 0;
         }
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
             let active = self.loop_active();
             let iteration = self.loop_ctl.iteration;
             // Share the visual inactivity/blocker interpretation with the quest.
             // Objective-comparison absence is not evidence of an idle party.
-            let agitated =
-                active && crate::stage::world_viz::LoopMirror::stall_level(&self.loop_ctl) >= 2;
+            let agitated = active
+                && crate::stage::world_viz::LoopMirror::stall_level(&self.loop_ctl.summary()) >= 2;
             let done = self.loop_ctl.status == crate::drive::loop_ctl::LoopStatus::Done;
             let loop_budget = active.then(|| {
                 let now_ms = SystemTime::now()
@@ -825,9 +822,9 @@ impl App {
                     deadline_secs: self.loop_ctl.deadline_secs,
                 }
             });
-            self.world
+            self.realm.world
                 .note_loop(active, iteration, agitated, done, loop_budget);
-            let visiting_quintain = self.world.visiting_quintain();
+            let visiting_quintain = self.realm.world.visiting_quintain();
             if visiting_quintain
                 && !self.quintain_route_presented
                 && self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Realm
@@ -949,7 +946,7 @@ impl App {
                                     self.system_msg(format!(
                                         "{message}; operator task/answer contract retained"
                                     ));
-                                    self.dungeon.ops.note(
+                                    self.realm.dungeon.ops.note(
                                         crate::drive::together_shooter::holdings::Op::Compactions,
                                     );
                                 } else {
@@ -1223,7 +1220,7 @@ impl App {
                     {
                         crate::ui::showcase::open_chart(chart);
                     }
-                    self.world.note_graph_event(&id, &event);
+                    self.realm.world.note_graph_event(&id, &event);
                     self.request_redraw("graph crop data");
                 }
                 TurnEvent::Heartbeat => {}
@@ -1253,7 +1250,7 @@ impl App {
                         let destination =
                             crate::stage::world_viz::classify_tool_activity(&name, &args_summary)
                                 .building;
-                        self.world
+                        self.realm.world
                             .note_tool_call_event(id.clone(), &name, &args_summary);
                         self.reset_world_yaw();
                         self.scryglass.begin_journey(
@@ -1283,12 +1280,12 @@ impl App {
                     self.research.result(&id, &name, &summary, outcome);
                     self.note_ops_result(&id.0, outcome.attributable_success());
                     if name == "graph" {
-                        self.world.settle_graph_call(&id, outcome);
+                        self.realm.world.settle_graph_call(&id, outcome);
                     }
                     // A2: Stage-only result sparks — strip/trace still update.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
                     {
-                        self.world
+                        self.realm.world
                             .note_tool_result_event(&id, &name, &summary, outcome);
                     }
                     if self.transcript_mode == crate::app::TranscriptMode::Trace {
@@ -1313,12 +1310,12 @@ impl App {
                 TurnEvent::Notice(note) | TurnEvent::RolloutCaptureError(note) => {
                     // The scriptorium copies a scroll for every compaction.
                     if note.starts_with("compacting context") {
-                        self.dungeon.ops.note(crate::drive::together_shooter::holdings::Op::Compactions);
+                        self.realm.dungeon.ops.note(crate::drive::together_shooter::holdings::Op::Compactions);
                     }
                     // A2: world notice banners are Stage chrome.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
                     {
-                        self.world.note_notice(&note);
+                        self.realm.world.note_notice(&note);
                     }
                     // Routine murmurs ride the strip's in-place note line; a
                     // repeating guard holds ONE gauge row that bumps its
@@ -1361,7 +1358,7 @@ impl App {
                     ));
                 }
                 TurnEvent::ResearchEvidence(evidence) => {
-                    self.world
+                    self.realm.world
                         .note_school(crate::stage::world_viz::SchoolSnapshot {
                             active: evidence.active,
                             observations: evidence.observations,
@@ -1385,31 +1382,31 @@ impl App {
                         let id = slot.id.as_deref().unwrap_or("unknown");
                         let board = crate::agent::harness::cartridges::active()
                             .map_or("Board", |cartridge| cartridge.label());
-                        let label = format!("{board} submission {}", &id[..id.len().min(8)]);
+                        let label = format!("{board} submission {}", id.chars().take(8).collect::<String>());
                         match slot.phase {
                             SubmissionSlotPhase::InFlight if new_flight => {
-                                self.world.competition_test_started(&label);
+                                self.realm.world.competition_test_started(&label);
                             }
                             SubmissionSlotPhase::InFlight => {
-                                self.world.competition_test_pending(&label);
+                                self.realm.world.competition_test_pending(&label);
                             }
                             SubmissionSlotPhase::Accepted => {
                                 if let Some(score) = slot.score.as_deref() {
-                                    self.world.competition_test_reported_score(&label, score);
+                                    self.realm.world.competition_test_reported_score(&label, score);
                                 } else {
-                                    self.world.competition_test_complete(&format!(
+                                    self.realm.world.competition_test_complete(&format!(
                                         "{label} · accepted; score not reported"
                                     ));
                                 }
                             }
                             SubmissionSlotPhase::Rejected => {
-                                self.world.competition_test_error(
+                                self.realm.world.competition_test_error(
                                     &label,
                                     &format!("{board} rejected the submission"),
                                 );
                             }
                             SubmissionSlotPhase::TimedOut => {
-                                self.world.competition_test_timeout(&label);
+                                self.realm.world.competition_test_timeout(&label);
                             }
                             SubmissionSlotPhase::Empty | SubmissionSlotPhase::Dormant => {}
                         }
@@ -1610,6 +1607,10 @@ impl App {
                 if !reused && !reply.trim().is_empty() {
                     self.messages
                         .push(Message::new(Role::Angel, Arc::clone(&reply)));
+                }
+                // Evidence the reply links to opens in the glass showcase.
+                if !reply.trim().is_empty() {
+                    self.show_reply_evidence(&reply);
                 }
                 // Handoff RL: charge reply tokens, then demand a forced
                 // clear/inject restart only after a submission *result* is in
@@ -1820,7 +1821,7 @@ impl App {
             let Ok(pulse) = rx.try_recv() else {
                 break;
             };
-            self.world.note_village(pulse);
+            self.realm.world.note_village(pulse);
             drained += 1;
         }
         drained
@@ -1833,21 +1834,16 @@ impl App {
     pub(crate) fn adventure_mirror_drain(&mut self) {
         // The loop log is persisted by loop_ctl. Iteration boundaries alone
         // are not receipts (resume may first observe iteration 200).
+        let summary = self.loop_ctl.summary();
         if !self.loop_ctl.id.is_empty() {
-            let player = self.host_name();
-            let tavern = self
-                .realm()
-                .home
-                .level(crate::drive::together_shooter::home::Station::Wing)
-                >= 1;
-            self.world.sync_settlement(&self.loop_ctl, &player, tavern);
+            self.realm.sync_loop(&summary);
         }
         let party = self.adventure_party_size();
         let events = self
             .loop_mirror
-            .drain(&self.loop_ctl, self.world.tool_mix(), party);
+            .drain(&summary, self.realm.world.tool_mix(), party);
         for ev in events {
-            self.world.note_adventure(ev);
+            self.realm.world.note_adventure(ev);
         }
     }
 
@@ -1887,7 +1883,7 @@ impl App {
             match result {
                 Ok(snapshot) => {
                     if snapshot.failed_benchmarks > 0 {
-                        self.world.competition_test_error(
+                        self.realm.world.competition_test_error(
                             &format!("{label} status poll"),
                             &format!("{} benchmark queries failed", snapshot.failed_benchmarks),
                         );
@@ -1899,7 +1895,7 @@ impl App {
                                 | crate::agent::harness::cartridges::fleet::SubmissionPhase::Unknown
                         )
                     }) {
-                        self.world.competition_test_pending(&format!(
+                        self.realm.world.competition_test_pending(&format!(
                             "{} · {} · no score yet",
                             entry.benchmark, entry.status
                         ));
@@ -1907,7 +1903,7 @@ impl App {
                         entry.phase
                             == crate::agent::harness::cartridges::fleet::SubmissionPhase::TimedOut
                     }) {
-                        self.world.competition_test_timeout(&format!(
+                        self.realm.world.competition_test_timeout(&format!(
                             "{} · {}",
                             entry.benchmark, entry.status
                         ));
@@ -1921,17 +1917,17 @@ impl App {
                         if entry.phase
                             == crate::agent::harness::cartridges::fleet::SubmissionPhase::Rejected
                         {
-                            self.world.competition_test_error(
+                            self.realm.world.competition_test_error(
                                 &entry.benchmark,
                                 &format!("{label} status {}", entry.status),
                             );
                         } else if let Some(score) = entry.score.as_deref() {
-                            self.world.competition_test_reported_score(
+                            self.realm.world.competition_test_reported_score(
                                 &entry.benchmark,
                                 score,
                             );
                         } else {
-                            self.world.competition_test_complete(&format!(
+                            self.realm.world.competition_test_complete(&format!(
                                 "{} · {} · score not reported",
                                 entry.benchmark, entry.status
                             ));
@@ -1940,7 +1936,7 @@ impl App {
                     self.comp_fleet.apply(snapshot);
                 }
                 Err(error) => {
-                    self.world
+                    self.realm.world
                         .competition_test_error(&format!("{label} status poll"), &error);
                     self.comp_fleet.fail(error);
                 }
@@ -2033,7 +2029,7 @@ impl App {
         if lead.is_none() && seated.is_empty() {
             return;
         }
-        let realm = self.realm();
+        let realm = self.realm.economy();
         if let Some(house) = lead {
             realm
                 .home
@@ -2508,7 +2504,7 @@ impl App {
         // operator's route. Its camera gets the same controls as Explore.
         let adventure_camera = self.scryglass.surface
             == crate::ui::scryglass::StageSurface::WorldMap
-            && self.world.live_adventure_view();
+            && self.realm.world.live_adventure_view();
         let camera_active = adventure_camera
             || matches!(
                 self.scryglass.controller.route(),
@@ -2876,14 +2872,14 @@ impl App {
             if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson
                 || adventure_camera
             {
-                if self.world.interior_building()
+                if self.realm.world.interior_building()
                     == Some(crate::stage::world_viz::Building::Observatory)
                     && matches!(code, KeyCode::Enter | KeyCode::Char('a'))
                 {
                     self.apply_world_button(WorldButton::Assets);
                     return true;
                 }
-                if self.world.interior_building()
+                if self.realm.world.interior_building()
                     == Some(crate::stage::world_viz::Building::Scriptorium)
                     && matches!(code, KeyCode::Enter | KeyCode::Char('c'))
                 {
@@ -2897,8 +2893,8 @@ impl App {
                     self.system_msg(crate::stage::world_viz::world3d::status_line());
                     return true;
                 }
-                if !self.world.inside_interior()
-                    && !self.world.riding()
+                if !self.realm.world.inside_interior()
+                    && !self.realm.world.riding()
                     && matches!(code, KeyCode::Enter)
                 {
                     self.enter_world_interior();
@@ -2912,11 +2908,11 @@ impl App {
         {
             match code {
                 KeyCode::Left | KeyCode::Char('h') => {
-                    self.world.cycle_landmark(-1);
+                    self.realm.world.cycle_landmark(-1);
                     return true;
                 }
                 KeyCode::Right | KeyCode::Char('l') => {
-                    self.world.cycle_landmark(1);
+                    self.realm.world.cycle_landmark(1);
                     return true;
                 }
                 KeyCode::Enter => {
@@ -2986,8 +2982,8 @@ impl App {
             }
             return;
         }
-        if self.world.inside_interior() {
-            if self.world.leave_interior() {
+        if self.realm.world.inside_interior() {
+            if self.realm.world.leave_interior() {
                 self.reset_world_yaw();
             }
             return;
@@ -3066,23 +3062,14 @@ impl App {
         if let Some(pa) = self.pending_approval.take() {
             match crate::ui::views::approval_view::decision_for_key(key.code) {
                 Some(d) => {
-                    let _ = pa.reply.send(d);
-                    // The call's own row in the tool strip shows what the
-                    // decision did; only `/trace` keeps an echo of the key.
-                    if self.transcript_mode == crate::app::TranscriptMode::Trace {
-                        self.messages.push(Message {
-                            role: Role::Activity,
-                            text: format!(
-                                "{} approval: {}",
-                                Glyph::Approval.token(),
-                                crate::ui::views::approval_view::decision_text(d)
-                            )
-                            .into(),
-                        });
-                    }
+                    self.pending_approval = Some(pa);
+                    self.answer_approval(d);
                 }
                 None => self.pending_approval = Some(pa), // keep waiting for a valid key
             }
+            return;
+        }
+        if self.browser_picker.is_some() && self.browser_picker_key(key.code) {
             return;
         }
         if self.loop_dialog.is_some() && self.loop_dialog_key(key.code) {
@@ -3641,6 +3628,28 @@ impl App {
     ///   4. Left button down/drag/up drives a transcript-confined freeform
     ///      selection. Other panes remain focusable and scrollable, but can
     ///      never become clipboard sources.
+    /// Answer the waiting approval, by key or by a click on the card.
+    pub(crate) fn answer_approval(&mut self, d: crate::approval::Decision) {
+        let Some(pa) = self.pending_approval.take() else {
+            return;
+        };
+        let _ = pa.reply.send(d);
+        self.approval_hits.clear();
+        // The call's own row in the tool strip shows what the decision
+        // did; only `/trace` keeps an echo of the answer.
+        if self.transcript_mode == crate::app::TranscriptMode::Trace {
+            self.messages.push(Message {
+                role: Role::Activity,
+                text: format!(
+                    "{} approval: {}",
+                    Glyph::Approval.token(),
+                    crate::ui::views::approval_view::decision_text(d)
+                )
+                .into(),
+            });
+        }
+    }
+
     pub(crate) fn on_mouse(&mut self, ev: event::MouseEvent) {
         use crate::ui::mouse;
         use event::{MouseButton, MouseEventKind};
@@ -3703,6 +3712,14 @@ impl App {
         }
         if self.pending_approval.is_some() {
             self.viewer.inspector.drag = None;
+            if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left))
+                && let Some(&(_, d)) = self
+                    .approval_hits
+                    .iter()
+                    .find(|(rect, _)| mouse::point_in(*rect, ev.column, ev.row))
+            {
+                self.answer_approval(d);
+            }
             return;
         }
         let (x, y) = (ev.column, ev.row);
@@ -3946,21 +3963,7 @@ impl App {
                 }
                 // Only the rendered dungeon sprite is an entrance, never the
                 // pane, its border, or a different stage surface.
-                if self.delve_map_hit(x, y)
-                    && self.dungeon.intro.is_none()
-                    && !self.dungeon_view_active()
-                {
-                    if !self.world.delve_called {
-                        self.call_delve();
-                    }
-                    if self.dungeon.shooter.is_some() || self.delve_at_gate() {
-                        self.open_intro();
-                    } else {
-                        self.messages.push(Message {
-                            role: Role::System,
-                            text: "Your knight is still on the road to the Delve.".into(),
-                        });
-                    }
+                if self.gate_click(x, y) {
                     return;
                 }
                 if self.scryglass_camera_hit(x, y) {
@@ -4088,7 +4091,7 @@ impl App {
 
     fn scryglass_map_hit(&self, x: u16, y: u16) -> bool {
         self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldMap
-            && !self.world.live_adventure_view()
+            && !self.realm.world.live_adventure_view()
             && self
                 .panes
                 .rect_of(crate::ui::mouse::PaneId::Artifacts)
@@ -4097,16 +4100,16 @@ impl App {
 
     fn toggle_world_camera(&mut self) {
         self.reset_world_yaw();
-        if self.world.toggle_adventure_map() {
+        if self.realm.world.toggle_adventure_map() {
             self.scryglass.return_to_world();
             self.scryglass.follow();
-        } else if !self.world.visiting_school() && !self.world.inside_interior() {
-            self.scryglass.toggle_world_route(self.world.destination());
+        } else if !self.realm.world.visiting_school() && !self.realm.world.inside_interior() {
+            self.scryglass.toggle_world_route(self.realm.world.destination());
         }
     }
 
     fn enter_world_interior(&mut self) {
-        if self.world.enter_interior() {
+        if self.realm.world.enter_interior() {
             self.reset_world_yaw();
             if matches!(
                 self.scryglass.controller.overlay(),
@@ -4126,7 +4129,7 @@ impl App {
             .unwrap_or(shelf.title)
             .to_string();
         if self.scryglass.begin_selected_lesson() {
-            self.world.begin_teaching_lesson(&topic);
+            self.realm.world.begin_teaching_lesson(&topic);
             self.focus_module("artifacts");
         } else {
             self.system_msg("Librarium is behind another active Scryglass surface.".to_string());
@@ -4246,7 +4249,7 @@ impl App {
             }
             WorldButton::Tower => {
                 while self.scryglass.back_overlay() {}
-                self.world.visit_scrying_tower();
+                self.realm.world.visit_scrying_tower();
                 self.scryglass
                     .navigate(crate::ui::scryglass::StageRoute::Explore(
                         crate::stage::world_viz::Building::Observatory,
@@ -4295,6 +4298,7 @@ impl App {
                 }
             }
             WorldButton::StageFormationEffort(index) => self.stage_moa_effort(index),
+            WorldButton::BrowserPick(index) => self.commit_browser_pick(index),
             WorldButton::ArmFormationTurn => self.play_selected_moa_card(false),
             WorldButton::ArmFormationSession => self.play_selected_moa_card(true),
             WorldButton::ClearFormation => self.clear_moa_cards(),
@@ -4307,7 +4311,7 @@ impl App {
             }
             WorldButton::ScryglassLibrary => {
                 self.scryglass.back_overlay();
-                self.world.begin_teaching_lesson("open shelves");
+                self.realm.world.begin_teaching_lesson("open shelves");
                 self.scryglass
                     .navigate(crate::ui::scryglass::StageRoute::Explore(
                         crate::stage::world_viz::Building::Scriptorium,
@@ -4335,12 +4339,12 @@ impl App {
                 self.enter_world_interior();
             }
             WorldButton::ScryglassLeave => {
-                if self.world.leave_interior() {
+                if self.realm.world.leave_interior() {
                     self.reset_world_yaw();
                 }
             }
             WorldButton::ScryglassCatalog => {
-                if self.world.interior_building()
+                if self.realm.world.interior_building()
                     == Some(crate::stage::world_viz::Building::Scriptorium)
                 {
                     self.scryglass.open_catalog();
@@ -4350,21 +4354,21 @@ impl App {
             WorldButton::ScryglassAskTutor => self.draft_current_lesson_for_tutor(),
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
-                if self.walk.on {
+                if self.realm.walk.on {
                     self.stop_walk();
-                } else if self.world.visiting_scrying_tower() {
-                    self.world.follow_overworld();
+                } else if self.realm.world.visiting_scrying_tower() {
+                    self.realm.world.follow_overworld();
                     self.scryglass.return_to_world();
-                } else if self.world.live_adventure_view() {
+                } else if self.realm.world.live_adventure_view() {
                     self.reset_world_yaw();
                     self.scryglass.follow();
                 } else if self.scryglass.controller.route()
                     == crate::ui::scryglass::StageRoute::Realm
                 {
-                    if self.world.overworld_view_label().is_some() {
-                        self.world.follow_overworld();
+                    if self.realm.world.overworld_view_label().is_some() {
+                        self.realm.world.follow_overworld();
                     } else {
-                        self.world.cycle_camera_zoom();
+                        self.realm.world.cycle_camera_zoom();
                     }
                 } else {
                     self.scryglass.follow();
@@ -4372,7 +4376,7 @@ impl App {
             }
             WorldButton::ScryglassLandmark(building) => {
                 self.reset_world_yaw();
-                self.world.select_landmark(building);
+                self.realm.world.select_landmark(building);
                 self.scryglass.return_to_world();
             }
             WorldButton::ScryglassVideoToggle => self.scryglass.toggle_video(),
@@ -4447,7 +4451,7 @@ impl App {
             if self.scryglass.begin_lesson(term) {
                 // A2: knight walk to Scriptorium is Stage presentation only.
                 if crate::ui::surfaces::BackdropMode::from_env().paints_in_process() {
-                    self.world.begin_teaching_lesson(&world_term);
+                    self.realm.world.begin_teaching_lesson(&world_term);
                 }
                 self.focus_module("artifacts");
             } else {
@@ -4469,9 +4473,9 @@ impl App {
         if crate::ui::surfaces::BackdropMode::from_env().paints_in_process()
             && crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
         {
-            self.world.turn_ended(ok);
+            self.realm.world.turn_ended(ok);
         } else {
-            self.world.turn_ended_hidden_stage(ok);
+            self.realm.world.turn_ended_hidden_stage(ok);
         }
     }
 

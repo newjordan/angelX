@@ -6,7 +6,7 @@
 
 use super::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Fx {
     /// Shake the screen for at least this many ticks.
     Shake(u32),
@@ -32,6 +32,7 @@ pub fn ground_pace(
 ) -> f32 {
     let mut pace = tune.hero_speed * (100 + hero.bonus.speed) as f32 / 100.0 * hero.pit.pace();
     if hero.peasant() { pace *= peasant::PACE; }
+    pace *= hero.curio_pace();
     if hero.immune == 0 && Run::webbed(webs, hero.x, hero.y) {
         pace *= hunters::WEB_PACE;
     }
@@ -95,6 +96,7 @@ impl Run {
             spark.ttl = spark.ttl.saturating_sub(1);
         }
         self.sparks.retain(|s| s.ttl > 0);
+        self.age_gore();
     }
 
     /// Shakes take the strongest; sparks come in under the cap (also as the

@@ -1,0 +1,8 @@
+{
+ "name": "goblin_raider",
+ "body": "goblin",
+ "equip": [
+  "leather_vest",
+  "dagger"
+ ]
+}

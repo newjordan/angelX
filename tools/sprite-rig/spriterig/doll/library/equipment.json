@@ -1,0 +1,520 @@
+{
+ "materials": {
+  "outline": [
+   "k",
+   "k"
+  ],
+  "skin": [
+   "c",
+   "$"
+  ],
+  "hair": [
+   "B",
+   "b"
+  ],
+  "primary": [
+   "7",
+   "8"
+  ],
+  "secondary": [
+   "u",
+   "x"
+  ],
+  "metal": [
+   "V",
+   "v"
+  ],
+  "gold": [
+   "5",
+   "a"
+  ],
+  "wood": [
+   "R",
+   "B"
+  ],
+  "leather": [
+   "r",
+   "I"
+  ],
+  "boots": [
+   "b",
+   "n"
+  ],
+  "dark": [
+   "X",
+   "k"
+  ],
+  "light": [
+   "W",
+   "V"
+  ],
+  "trail": [
+   "W",
+   "w"
+  ],
+  "eye": [
+   "k",
+   "k"
+  ],
+  "bone": [
+   "T",
+   "O"
+  ]
+ },
+ "items": {
+  "sword": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "sword",
+   "hand": "Right",
+   "rows": [
+    "..L..",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    ".LMm.",
+    "GGGGG",
+    "..W..",
+    "..W..",
+    "..G.."
+   ],
+   "pivot": [
+    2,
+    17.5
+   ],
+   "length_m": 0.8
+  },
+  "dagger": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "dagger",
+   "hand": "Right",
+   "rows": [
+    ".L.",
+    "LMm",
+    "LMm",
+    "LMm",
+    "LMm",
+    "LMm",
+    "LMm",
+    "GGG",
+    ".W.",
+    ".G."
+   ],
+   "pivot": [
+    1,
+    8.5
+   ],
+   "length_m": 0.35
+  },
+  "greatsword": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "greatsword",
+   "hand": "Right",
+   "rows": [
+    "...L...",
+    "..LMm..",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    "..LMMm.",
+    ".GGGGG.",
+    "GGGGGGG",
+    "...W...",
+    "...W...",
+    "...W...",
+    "...W...",
+    "...G..."
+   ],
+   "pivot": [
+    3,
+    26.5
+   ],
+   "length_m": 1.15,
+   "twohand": true
+  },
+  "axe": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "axe",
+   "hand": "Right",
+   "rows": [
+    "..MMk.",
+    ".MMMWk",
+    "MMMmW.",
+    "MMmmW.",
+    ".MmkW.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....W.",
+    "....G."
+   ],
+   "pivot": [
+    4,
+    18.5
+   ],
+   "length_m": 0.75
+  },
+  "spear": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "spear",
+   "hand": "Right",
+   "rows": [
+    "..L..",
+    ".LMm.",
+    ".LMm.",
+    "LMMmm",
+    ".LMm.",
+    "..G..",
+    "..P..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W..",
+    "..W.."
+   ],
+   "pivot": [
+    2,
+    30.5
+   ],
+   "length_m": 1.25,
+   "twohand": true
+  },
+  "staff": {
+   "slot": "main",
+   "kind": "weapon",
+   "type": "staff",
+   "hand": "Right",
+   "rows": [
+    ".2.",
+    "232",
+    "233",
+    "232",
+    ".G.",
+    ".G.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".W.",
+    ".G."
+   ],
+   "pivot": [
+    1,
+    26.5
+   ],
+   "length_m": 1.0
+  },
+  "bow": {
+   "slot": "off",
+   "kind": "weapon",
+   "type": "bow",
+   "hand": "Left",
+   "rows": [
+    "..W..",
+    "..Ww.",
+    "...Ww",
+    "...Ww",
+    "....W",
+    "....W",
+    "....W",
+    "....W",
+    "....W",
+    "...GW",
+    "...GW",
+    "....W",
+    "....W",
+    "....W",
+    "....W",
+    "....W",
+    "...Ww",
+    "...Ww",
+    "..Ww.",
+    "..W.."
+   ],
+   "pivot": [
+    4,
+    9.5
+   ],
+   "length_m": 0.4,
+   "string": "W"
+  },
+  "round_shield": {
+   "slot": "off",
+   "kind": "shield",
+   "type": "shield",
+   "hand": "Left",
+   "rows": [
+    "..kkkkk..",
+    ".kPPGPPk.",
+    "kPPPGPPpk",
+    "kPPPGPPpk",
+    "kGGGMGGGk",
+    "kPPPGPPpk",
+    "kPPPGPPpk",
+    ".kPPGPpk.",
+    "..kPGpk..",
+    "...kpk...",
+    "....k...."
+   ],
+   "pivot": [
+    4,
+    5
+   ],
+   "size_m": 0.42
+  },
+  "helm_knight": {
+   "slot": "head",
+   "kind": "helm",
+   "material": "metal",
+   "visor": "slit",
+   "trim": "gold"
+  },
+  "helm_open": {
+   "slot": "head",
+   "kind": "helm",
+   "material": "metal",
+   "visor": "open",
+   "trim": "gold"
+  },
+  "plume": {
+   "slot": "crest",
+   "kind": "plume",
+   "material": "primary",
+   "length_m": 0.42,
+   "radii_px": [
+    3.2,
+    3.4,
+    2.8,
+    2.0,
+    1.2
+   ],
+   "rest": [
+    0,
+    0.6,
+    -0.8
+   ]
+  },
+  "horns": {
+   "slot": "crest",
+   "kind": "headsprite",
+   "rows": [
+    "T.........T",
+    "Tt.......tT",
+    ".Tt.....tT.",
+    "..tt...tt.."
+   ],
+   "pivot": [
+    5,
+    3.5
+   ],
+   "size_m": 0.3
+  },
+  "wizard_hat": {
+   "slot": "head",
+   "kind": "headsprite",
+   "rows": [
+    "....P....",
+    "...PP....",
+    "...PPp...",
+    "..PPPp...",
+    "..PPPp...",
+    ".PPPPpp..",
+    ".GGGGGG..",
+    "PPPPPPPPp"
+   ],
+   "pivot": [
+    4.5,
+    7
+   ],
+   "size_m": 0.45,
+   "hides_hair": true
+  },
+  "crown": {
+   "slot": "head",
+   "kind": "headsprite",
+   "rows": [
+    "G.G.G.G",
+    "GGGGGGG",
+    "GgGgGgG"
+   ],
+   "pivot": [
+    3.5,
+    2.5
+   ],
+   "size_m": 0.22
+  },
+  "pauldrons": {
+   "slot": "shoulders",
+   "kind": "pauldron",
+   "material": "metal",
+   "trim": "gold",
+   "r_m": 0.13
+  },
+  "chest_plate": {
+   "slot": "chest",
+   "kind": "chest",
+   "material": "metal",
+   "trim": "gold"
+  },
+  "leather_vest": {
+   "slot": "chest",
+   "kind": "chest",
+   "material": "leather",
+   "trim": "dark"
+  },
+  "gauntlets": {
+   "slot": "hands",
+   "kind": "limb",
+   "segments": [
+    "fore",
+    "hand"
+   ],
+   "material": "leather",
+   "grow_m": 0.012
+  },
+  "greaves": {
+   "slot": "legs",
+   "kind": "limb",
+   "segments": [
+    "shin"
+   ],
+   "material": "metal",
+   "grow_m": 0.012
+  },
+  "cape": {
+   "slot": "back",
+   "kind": "cape",
+   "material": "primary",
+   "length_m": 0.85,
+   "width_m": 0.36
+  },
+  "robe": {
+   "slot": "chest",
+   "kind": "robe",
+   "material": "primary",
+   "trim": "gold"
+  },
+  "helm_great": {
+   "slot": "head",
+   "kind": "helm",
+   "material": "metal",
+   "shape": "bucket",
+   "visor": "slit",
+   "trim": "gold"
+  },
+  "tabard": {
+   "slot": "tabard",
+   "kind": "tabard",
+   "material": "primary",
+   "trim": "gold"
+  }
+ }
+}

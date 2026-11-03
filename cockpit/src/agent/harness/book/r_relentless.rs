@@ -10,6 +10,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/r_relentless.book");
 pub(crate) const CELL: char = '⠗';
 pub(crate) const ARMED: Route = Route::new(CELL, '⠁');
 pub(crate) const GOAL: Route = Route::new(CELL, '⠃');
@@ -45,12 +47,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             action: "",
             ideas: "- Every action should benefit the user; ground the output in evidence.\n\
                 - Status prose is not progress; deliver a useful final answer, then the mode ends.",
-            pages: &[
-                "[relentless execution active]",
-                "Relentless execution to the details: keep taking concrete tool-backed actions until the user's request is actually advanced; ensure every action benefits the user; produce logical, evidence-grounded output.",
-                "Do not stop at status prose.",
-                "Deliver a useful final answer, then this mode can turn off.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'1'),
         },
         Sub {
             route: GOAL,
@@ -58,18 +55,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator's standing goal, fenced (each field's value beside its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "[goal — standing objective; keep every action aligned to it]",
-                "objective: {objective}",
-                "acceptance criteria:",
-                "verifiable check (must pass): {command}",
-                "progress state: {state}",
-                "round budget: {rounds}/{cap}",
-                "blocked ({streak}/{min_rounds}): {reason}",
-                "progress so far:",
-                "goal ({status}): {text}",
-                "progress: round {rounds}/{cap}",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'2'),
         },
         Sub {
             route: SOLO,
@@ -77,14 +63,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator armed solo mode",
             action: "",
             ideas: "",
-            pages: &[
-                "[solo mode active] You own this workload.",
-                "Do the work yourself with local tools.",
-                "Do not consult_model, code_review, delegate, or spawn to openai, codex, chatgpt, grok, sota-moa, sota-swarm, or any other paid/remote SOTA seat.",
-                "Self-test: mutate, run the smallest relevant verifier, read diagnostics, fix from evidence.",
-                "Outsourcing reasoning is a failure of this mode.",
-                "If blocked, name the blocker — do not call Codex.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'3'),
         },
         Sub {
             route: ULTRATHINK,
@@ -92,9 +71,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator wrote ultrathink",
             action: "",
             ideas: "",
-            pages: &[
-                "[magic-keywords]\nultrathink: take careful multi-step reasoning; prefer the highest available thinking effort; do not rush to a final answer.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'4'),
         },
         Sub {
             route: ORCHESTRATE,
@@ -102,9 +79,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator wrote orchestrate",
             action: "",
             ideas: "",
-            pages: &[
-                "orchestrate: fan substantial independent work through parallel subagents (spawn/delegate), verify each phase, and merge only after checks pass.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'5'),
         },
         Sub {
             route: WORKFLOWZ,
@@ -112,9 +87,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator wrote workflowz",
             action: "",
             ideas: "",
-            pages: &[
-                "workflowz: build a deterministic multi-subagent workflow with ordered phases and explicit handoffs; prefer structured yields over free-form prose between workers.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'6'),
         },
         Sub {
             route: HANDOFF_RL,
@@ -122,10 +95,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator wrote handoff_rl",
             action: "",
             ideas: "",
-            pages: &[
-                "handoff_rl: compete using cockpit tools/resources; place victories on the board (check board before submitting); poll live candidate score, promote/reset from evidence, isolate next hot-path hypothesis on newest winning baseline, run focused correctness checks, and immediately submit next candidate.",
-                "After a submission RESULT is in (score/status), the cockpit DEMANDS handoff: it wipes conversation context and prompt-injects a forced restart starting with 'hit it chewy' — not optional.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: BOUNDS,
@@ -133,10 +103,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the goal or memory block was cut to fit (the count beside the page)",
             action: "",
             ideas: "",
-            pages: &[
-                "[harness omitted {omitted} goal field(s) outside the bounded context]",
-                "[harness omitted {omitted} memory item(s) outside the bounded context]",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'8'),
         },
         Sub {
             route: GRADER,
@@ -144,11 +111,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the reinforcement loop's grader (the task and the response below)",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a strict grader.",
-                "Rate from 0 to 10 how well the RESPONSE accomplishes the TASK.",
-                "Reply with ONLY the number.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'9'),
         },
         Sub {
             route: OPTIMIZER,
@@ -156,15 +119,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the reinforcement loop's prompt optimizer (the task, the prompt and two rollouts below)",
             action: "",
             ideas: "",
-            pages: &[
-                "You optimize system prompts for an AI assistant.",
-                "TASK the assistant must do:",
-                "CURRENT system prompt:",
-                "A HIGH-scoring response:",
-                "A LOW-scoring response:",
-                "Write an improved system prompt that steers the assistant toward the high-scoring style.",
-                "Reply with ONLY the new system prompt.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'0'),
         },
     ],
 };

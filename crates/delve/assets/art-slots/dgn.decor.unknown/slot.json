@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.decor.unknown",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.decor.unknown/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.decor.unknown/v01/source-sheet.png",
   "source_sha256": "32b594b332e45b1c3c23ed126b101a024fea9eb46b4544a4ef0a0016b8109db8",
   "tool_version": 2
 }

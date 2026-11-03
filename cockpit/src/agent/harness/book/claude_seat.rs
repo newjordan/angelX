@@ -1,5 +1,5 @@
-//! The Claude seat profile: pages the first-party Anthropic seat
-//! (`ANGEL_DRIVER=anthropic`) is never sent.
+//! The Claude seat profile: pages the first-party Anthropic seats
+//! (`ANGEL_DRIVER=anthropic` and `claude-opus-5-5`) are never sent.
 //!
 //! Claude declines a request that orders its reasoning written out as visible
 //! text (`stop_reason: refusal`, category `reasoning_extraction`), and two
@@ -11,7 +11,7 @@
 //! reworded, and the pages after it keep their addresses. Every other seat
 //! hears the book unchanged. `ANGEL_SEAT_PROFILE=0` sends the pages.
 
-use super::{Route, Sub, ledger, m_method, w_workflow};
+use super::{ResolvedSub, Route, ledger, m_method, w_workflow};
 use crate::agent::club::{ChatMsg, ChatRole};
 use std::cell::Cell;
 
@@ -51,11 +51,8 @@ pub(crate) fn omitted(route: Route, text: &str) -> bool {
 }
 
 /// A route's pages as rendered here, in order.
-pub(crate) fn kept(sub: &Sub) -> impl Iterator<Item = &'static str> + '_ {
-    sub.pages
-        .iter()
-        .copied()
-        .filter(|page| !omitted(sub.route, page))
+pub(crate) fn kept(sub: &ResolvedSub) -> impl Iterator<Item = &str> + '_ {
+    sub.pages.iter().filter(|page| !omitted(sub.route, page))
 }
 
 fn book_page(route: Route, index: usize) -> Option<&'static str> {

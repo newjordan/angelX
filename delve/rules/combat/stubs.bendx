@@ -1,0 +1,195 @@
+# bendx-out: ../../stubs/combat.bend
+# Names the combat group calls that other groups own. Each is the faithful
+# Rust behaviour where the port needs it to prove its own cases, so a stub
+# here is only a fallback: the build keeps it while no fragment defines the
+# name, and drops it the moment the owner lands the real one.
+
+# --- rules.rs: mix
+
+def rules.mix(x: W.W) -> W.W:
+  h: W.W = W.xor(x, W.shr(x, 33))
+  h = W.mul(h, W.W{4283543511, 3981806797})
+  h = W.xor(h, W.shr(h, 33))
+  h = W.mul(h, W.W{3301882366, 444984403})
+  W.xor(h, W.shr(h, 33))
+
+
+# --- wishcraft.rs: how a knight's shot is sized
+
+def wishcraft.Projectile.sized(shot: Projectile) -> Bool:
+  Bool.and(Bool.and(Bool.not(shot.hostile), U32.is_gt(shot.traits.owner, 0)), Bool.not(shot.traits.borrowed))
+
+def wishcraft.rate_pct(beat: U32) -> U32:
+  if U32.is_eq(beat, 0):
+    return 100
+  RS.u_clamp(RS.u_isqrt((10000 * beat / wishcraft.BEAT_REF() : U32)), wishcraft.RATE_MIN_PCT(), wishcraft.RATE_MAX_PCT())
+
+def wishcraft.Projectile.scale(shot: Projectile) -> F32:
+  if Bool.not(wishcraft.Projectile.sized(shot)):
+    return 1.0
+  size: U32 = (100 + wishcraft.SIZE_STEP_PCT() * RS.u_min(shot.traits.size, 3) : U32)
+  pct: U32 = (wishcraft.BASE_PCT() * wishcraft.rate_pct(shot.traits.beat) * size : U32)
+  (cb.f(RS.u_max(pct, (wishcraft.FLOOR_PCT() * 10000 : U32))) / 1000000.0 : F32)
+
+def wishcraft.Projectile.reach(shot: Projectile) -> F32:
+  if Bool.not(wishcraft.Projectile.sized(shot)):
+    return (wishcraft.SIZE_REACH() * cb.f(RS.u_min(shot.traits.size, 3)) : F32)
+  (wishcraft.HIT_REACH() * RS.f_max((wishcraft.Projectile.scale(shot) - (cb.f(wishcraft.BASE_PCT()) / 100.0 : F32) : F32), 0.0) : F32)
+
+# --- desperate.rs: a boss's last stand
+
+def desperate.last_stand(enemy: Enemy, target: (F32, F32)?, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  d: F32 = desperate.Enemy.desperation(enemy)
+  if Bool.not((d > 0.0 : F32)):
+    enemy.dread = 0
+    return (enemy, shots, deeds)
+  if U32.is_eq(enemy.dread, 0):
+    deeds = foes.cue(deeds, "last_stand")
+  enemy.dread = (enemy.dread + 1 : U32)
+  match (target : (F32, F32)?):
+    case None{}:
+      return (enemy, shots, deeds)
+    case Some{tg: (F32, F32)}:
+      (tx: F32, ty: F32) = tg
+      t: U32 = U32.mod(enemy.dread, desperate.CYCLE())
+      if U32.is_eq(t, desperate.RING_WARN()):
+        aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+        step: F32 = (cb.TAU() / cb.f(desperate.RING_SHOTS()) : F32)
+        for i: U32 in cb.range(desperate.RING_SHOTS()):
+          angle: F32 = (aim + (cb.f(i) + 0.5 : F32) * step : F32)
+          off: F32 = RS.f_abs(RS.f_atan2(F32.sin((angle - aim : F32)), F32.cos((angle - aim : F32))))
+          if Bool.not((off < (step * cb.f(desperate.RING_LANE()) / 2.0 : F32) : F32)):
+            shots = J.push(shots, desperate.bolt(enemy, angle, 5.0, 14, "ember"))
+        deeds = foes.cue(deeds, "last_stand_ring")
+      if Bool.and(Bool.and((d >= desperate.ARMS_AT() : F32), Bool.and(U32.is_ge(t, desperate.ARMS_FROM()), U32.is_lt(t, desperate.ARMS_TO()))), U32.is_eq(U32.mod((t - desperate.ARMS_FROM() : U32), 6), 0)):
+        turn: F32 = (cb.f((t - desperate.ARMS_FROM() : U32)) * 0.16 : F32)
+        for arm: U32 in cb.range(3):
+          angle: F32 = (turn + cb.f(arm) * cb.TAU() / 3.0 : F32)
+          shots = J.push(shots, desperate.bolt(enemy, angle, 4.5, 10, "orb"))
+      return (enemy, shots, deeds)
+
+# --- the hunters' (flesher, silkmother), the hexer's and the lich's steps
+
+def hunters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, deeds: Deeds) -> (Enemy, Deeds, Bool):
+  (enemy, deeds, False{})
+
+def hexer.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Val) -> J.Val & (J.Val & Bool):
+  (enemy, (shots, False{}))
+
+def lich.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Val, deeds: J.Val) -> J.Val & (J.Val & (J.Val & Bool)):
+  (enemy, (shots, (deeds, False{})))
+
+def outlaw.act(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  (enemy, shots, deeds)
+
+# --- peasant.rs: Scarecrows taunt this room while standing, else the knights are seen
+
+def peasant.sights(tick: W.W, scarecrows: J.Val, enemy: Enemy, knights: J.Val, images: J.Val) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  for d: J.Val in J.items(scarecrows):
+    if W.lt(tick, W.of_j(J.get(d, "until"))):
+      out = J.push(out, cb.of_pair(J.f32(J.get(d, "x")), J.f32(J.get(d, "y"))))
+  if U32.is_eq(J.len(out), 0):
+    return press.sights(enemy, knights, images)
+  out
+
+# --- tune.rs: a foe's step stretched or shortened by the room's pace
+
+def tune.foe_step(enemy: Enemy, fx: F32, fy: F32, pace: F32, room: Room, barred: Bool) -> Enemy:
+  dx: F32 = (enemy.x - fx : F32)
+  dy: F32 = (enemy.y - fy : F32)
+  d: F32 = cb.hyp(dx, dy)
+  if Bool.or(F32.is_eq(d, 0.0), (d > tune.LONGEST_STEP() : F32)):
+    return enemy
+  if (pace > 1.0 : F32):
+    &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((dx * (pace - 1.0 : F32) : F32), (dy * (pace - 1.0 : F32) : F32)), monsters.Enemy.radius(enemy), foes.mover(enemy.kind))
+    enemy.x = nx
+    enemy.y = ny
+    return enemy
+  enemy.x = (fx + dx * pace : F32)
+  enemy.y = (fy + dy * pace : F32)
+  enemy
+
+# --- wishcraft.rs: a chilled monster's step
+
+def wishcraft.slow(enemy: Enemy, fx: F32, fy: F32, room: Room, barred: Bool) -> Enemy:
+  if U32.is_eq(enemy.chilled, 0):
+    return enemy
+  enemy.chilled = (enemy.chilled - 1 : U32)
+  tune.foe_step(enemy, fx, fy, 0.6, room, barred)
+
+# --- skills.rs: foes cannot walk through a standing barricade
+
+def skills.shove(enemy: Enemy, barricades: J.Val) -> Enemy:
+  for w: J.Val in J.items(barricades):
+    if J.is_null(J.get(w, "fall")):
+      (ax: F32, ay: F32) = cb.pair(J.get(w, "a"))
+      (bx: F32, by: F32) = cb.pair(J.get(w, "b"))
+      dx0: F32 = (bx - ax : F32)
+      dy0: F32 = (by - ay : F32)
+      length: F32 = (dx0 * dx0 + dy0 * dy0 : F32)
+      t: F32 = 0.0
+      if (length > 0.0 : F32):
+        t = RS.f_clamp((((enemy.x - ax : F32) * dx0 + (enemy.y - ay : F32) * dy0 : F32) / length : F32), 0.0, 1.0)
+      px: F32 = (ax + t * dx0 : F32)
+      py: F32 = (ay + t * dy0 : F32)
+      reach: F32 = (monsters.Enemy.radius(enemy) * 0.7 + 0.5 : F32)
+      dx: F32 = (enemy.x - px : F32)
+      dy: F32 = (enemy.y - py : F32)
+      d: F32 = cb.hyp(dx, dy)
+      if (d < reach : F32):
+        ux: F32 = (dx / d : F32)
+        uy: F32 = (dy / d : F32)
+        if Bool.not((d > 0.001 : F32)):
+          &(wx: F32, wy: F32) = rules.unit(RS.f_neg((by - ay : F32)), (bx - ax : F32))
+          ux = wx
+          uy = wy
+        enemy.x = (px + ux * reach : F32)
+        enemy.y = (py + uy * reach : F32)
+  enemy
+
+# --- ledge.rs: a walker side-on keeps the ground it walks on (not yet ported)
+
+def ledge.fall(enemy: Enemy, room: Room, barred: Bool) -> Enemy:
+  enemy
+
+# --- hireling.rs
+
+def hireling.ROAR_REACH() -> F32:
+  7.0
+
+# --- stakes.rs: a deep floor's extra shots in a fan
+
+def stakes.fan_out(fury: U32, shots: [J.Val], from: U32) -> [J.Val]:
+  fired: [Projectile] = Nil{}
+  i: U32 = 0
+  for s: Projectile in shots:
+    if Bool.and(U32.is_ge(i, from), Bool.and(J.is_null(s.traits.path.beam), U32.is_lt(U32.from_nat(List.length(&2, J.Val, fired)), 12))):
+      fired = List.append(&2, J.Val, fired, [s])
+    i = (i + 1 : U32)
+  out: [J.Val] = shots
+  for shot: Projectile in fired:
+    for k0: U32 in cb.range(fury):
+      turn: F32 = (0.2 * cb.f((k0 + 1 : U32)) : F32)
+      for sign: F32 in [1.0, F32.neg(1.0)]:
+        t: F32 = (turn * sign : F32)
+        c: F32 = F32.cos(t)
+        s2: F32 = F32.sin(t)
+        copy: Projectile = shot
+        copy.vx = (shot.vx * c - shot.vy * s2 : F32)
+        copy.vy = (shot.vx * s2 + shot.vy * c : F32)
+        out = List.append(&2, J.Val, out, [copy])
+  out
+
+# --- rules.rs
+
+def rules.Run.foes_left(run: Run) -> Bool:
+  for e: Enemy in J.items(run.enemies):
+    if Bool.not(String.eq(e.kind, "dummy")):
+      return True{}
+  False{}
+
+# --- the default ShotTraits (rules.rs), which core's desperate.bolt builds shots with
+
+def projectile.ShotTraits.default() -> J.Val:
+  patterns.ShotTraits.default()

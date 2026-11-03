@@ -62,7 +62,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/cinderjaw",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/cinderjaw",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -193,7 +193,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/the-index",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/the-index",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -302,7 +302,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/mother-of-spores",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/mother-of-spores",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -440,7 +440,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/waxen-warden",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/waxen-warden",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -549,7 +549,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/the-bone-choir",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/the-bone-choir",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -658,7 +658,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/crypt-tithe-marshal",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/crypt-tithe-marshal",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_socket": {
       "projectile": [
@@ -817,7 +817,7 @@
         54
       ]
     ],
-    "source": "crates/delve/assets/boss-effect-src/crypt-tax-keeper",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/crypt-tax-keeper",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -956,7 +956,7 @@
         81
       ]
     ],
-    "source": "crates/delve/assets/boss-effect-src/crypt-relic-liege",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/crypt-relic-liege",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1045,7 +1045,7 @@
         ]
       ]
     },
-    "source": "crates/delve/assets/boss-effect-src/iron-tusk-chief",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/iron-tusk-chief",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "cell_warning_inks": [
       [
@@ -1211,7 +1211,7 @@
         99
       ]
     ],
-    "source": "crates/delve/assets/boss-effect-src/red-pick-chief",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/red-pick-chief",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1350,7 +1350,7 @@
         59
       ]
     ],
-    "source": "crates/delve/assets/boss-effect-src/the-foreman",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/the-foreman",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1489,7 +1489,7 @@
         208
       ]
     ],
-    "source": "crates/delve/assets/boss-effect-src/late-fee-leviathan",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/late-fee-leviathan",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1628,7 +1628,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/archive-bellkeeper",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/archive-bellkeeper",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1767,7 +1767,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/fungal-rootwarden",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/fungal-rootwarden",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -1906,7 +1906,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/fungal-spore-crown",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/fungal-spore-crown",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2045,7 +2045,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/grinwick",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/grinwick",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2184,7 +2184,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/hellforge-ash-castellan",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/hellforge-ash-castellan",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2323,7 +2323,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/hellforge-chain-keeper",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/hellforge-chain-keeper",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2464,7 +2464,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/hellforge-free-captain",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/hellforge-free-captain",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts"
   },
   "hellforge-fuel-reeve": {
@@ -2580,7 +2580,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/hellforge-fuel-reeve",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/hellforge-fuel-reeve",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2721,7 +2721,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/hellforge-slag-sovereign",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/hellforge-slag-sovereign",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts"
   },
   "salvage-claimant": {
@@ -2838,7 +2838,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/salvage-claimant",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/salvage-claimant",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -2977,7 +2977,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/shoggoth-heart",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/shoggoth-heart",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -3116,7 +3116,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/the-big-ripper",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/the-big-ripper",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -3255,7 +3255,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/unknown-memory-warden",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/unknown-memory-warden",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [
@@ -3394,7 +3394,7 @@
       ]
     ],
     "anchor": "centre; registered source body/contact socket",
-    "source": "crates/delve/assets/boss-effect-src/unknown-silence-warden",
+    "source": "angelX-archive/2026-10-20/source-art/boss-effect-src/unknown-silence-warden",
     "unwired": "all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts",
     "source_point_rim": true,
     "point_rim": [

@@ -1,0 +1,21 @@
+# TEMPLATE: a pastime, the kingdom's tiny arcade: model-free, host-
+# authoritative, co-operative; feet, F and a clock are enough. Rounds pay score
+# only, never gold. Write its spec first and check it, then its code (docs/
+# TEMPLATES.md, "Pastimes", lists the files a game touches).
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Change: everything below. `room` is the kingdom room kind it is played in
+#   (snake_case, `RoomKind`); `start` where the knights stand, in arena units
+#   (a room is 48 by 28); `time` a round in seconds; `need` what a round asks.
+# Keep: `pays score`; the banner (name and the seconds beside it) within 200
+#   pixels; `how` a few words; a round 15 to 300 seconds.
+# The bar: learnable in one round (the board says how in its `how` line), a
+#   reason for another go (a best to beat), the medieval homage, never an
+#   imported character or asset.
+name  BUCKET BRIGADE
+how   PASS, POUR, PUT OUT
+room  village
+start 3 7
+time  40
+need  5
+pays  score

@@ -14,28 +14,7 @@ pub(crate) struct ClerkRoute {
     pub(crate) club: Arc<dyn Club>,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum ClerkHealth {
-    #[default]
-    Idle,
-    Running,
-    WaitingForRoute,
-    ResourceConflict,
-    Degraded,
-}
-
-impl ClerkHealth {
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            Self::Idle => "idle",
-            Self::Running => "running",
-            Self::WaitingForRoute => "waiting",
-            Self::ResourceConflict => "conflict",
-            Self::Degraded => "degraded",
-        }
-    }
-}
+pub(crate) use crate::telemetry::ClerkHealth;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct ClerkStatus {
@@ -139,10 +118,21 @@ impl AtlasClerkWorker {
         drop(state);
 
         let worker = Arc::clone(self);
+        // The idle scheduler can run on the UI thread. Capture an inherited
+        // catalog there, but do any fresh catalog I/O in the worker itself.
+        let inherited_catalog = crate::agent::harness::book::catalog::current();
         let spawn_result = std::thread::Builder::new()
             .name("atlas-clerk".to_string())
             .spawn(move || {
                 let result = crate::ui::term::catch_background_unwind(|| {
+                    let catalog = match inherited_catalog {
+                        Some(catalog) => catalog,
+                        None => Arc::new(
+                            crate::agent::harness::book::catalog::Catalog::fresh()
+                                .map_err(|error| format!("Atlas clerk book catalog: {error}"))?,
+                        ),
+                    };
+                    let _catalog = crate::agent::harness::book::catalog::enter(catalog);
                     run_one(&worker.atlas, &route, &lease, &harvest)
                 })
                 .unwrap_or_else(|_| Err("atlas clerk worker panicked".to_string()));

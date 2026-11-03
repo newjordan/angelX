@@ -1,0 +1,26 @@
+name Kilnwing Reprieve
+kind spell
+rarity rare
+text Burning wings: a 20-damage nova and one second of ward.
+drop 2
+chest 3
+cooldown 14
+nova 20
+ward 1
+art
+................
+..hh........hh..
+.hYYh......hYYh.
+.hYeYh....hYeYh.
+.hYeeYh..hYeeYh.
+..hYeYhYYhYeYh..
+..hYYehWWheYYh..
+...hYeWWWeYh....
+...hYYWWWWYYh...
+..hYeYhWWhYeYh..
+..hYYh.YY.hYYh..
+...hh..YY..hh...
+.......ee.......
+.......ee.......
+................
+................

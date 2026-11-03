@@ -1,0 +1,312 @@
+# Struct schemas for bendx: `var.field` reads and `var.field = v` writes on
+# J.Val objects, by the serde shape (kind; then a skip rule when serde omits
+# the key at its default: skip0, skipf, skipnull, skipempty, skipnone).
+#
+# kinds: f32 u32 bool str w64 pair json, u32? f32? str? pair? w64? (Option),
+# or the name of a struct declared above.
+
+struct Sig
+  active bool
+  cycle u32
+  left u32
+  bounces u32
+  rails json
+  rail u32
+  jump_from pair
+  babies bool
+  windup u32
+  mark pair
+  spent u32
+  blow u32 skip0
+  lingering bool
+
+struct Wits
+  foe u32
+  held u32
+  steady u32
+  flinch u32
+
+struct Enemy
+  hoard json skipempty
+  faction u32?
+  camp_slot u32?
+  x f32
+  y f32
+  hp u32
+  max_hp u32
+  kind str
+  age u32
+  id u32
+  origin_x f32
+  origin_y f32
+  boss u32?
+  size f32?
+  base_hp u32?
+  raged bool
+  frozen u32
+  sleep_until w64 skip0
+  stage u32
+  timer u32
+  dir pair
+  guard u32 skip0
+  hurt u32
+  seen_hp u32
+  dread u32
+  elite bool
+  fury u32
+  stash json
+  loot json
+  cry u32
+  rung u32
+  chilled u32 skip0
+  pattern_volleys u32
+  wits Wits skipfn=press.Wits.calm
+  signature Sig skipfn=signatures.State.quiet
+  home u32? skipnone
+  dormant bool skipf
+
+struct Room
+  kind str
+  cols u32
+  rows u32
+
+struct Grid
+  room Room
+  barred bool
+
+struct Beam
+  angle f32
+  reach f32
+  sweep f32
+  warn u32
+  burn u32
+  struck u32
+
+struct Path
+  age u32
+  wait u32
+  held bool
+  mark bool
+  accel f32
+  top f32
+  turn f32
+  seek f32
+  wave f32
+  wave_rate f32
+  fuse u32
+  then json
+  beam json
+  form str skip=plain
+
+struct Traits
+  module_origin json skipnull
+  bounce u32
+  homing u32
+  chain u32
+  mend u32
+  back u32
+  owner u32
+  out u32
+  burst u32
+  struck u32
+  stun u32
+  path Path
+  once bool skipf
+  temper u32 skip0
+  fire bool skipf
+  arm bool skipf
+  stone bool skipf
+  pierced json skipempty
+  fork u32 skip0
+  fart u32 skip0
+  size u32 skip0
+  beat u32 skip0
+  knock u32 skip0
+  burn u32 skip0
+  chill u32 skip0
+  poison u32 skip0
+  boomerang bool skipf
+  velocity u32 skip0
+  blow u32 skip0
+  borrowed bool skipf
+
+struct Projectile
+  x f32
+  y f32
+  vx f32
+  vy f32
+  hostile bool
+  kind str
+  look json
+  damage u32
+  pierce u32
+  last_hit u32?
+  ttl u32
+  empowered bool
+  traits Traits
+
+struct Aim
+  from pair
+  at pair
+  pace pair
+  grid Grid
+  count u32
+  salt w64
+  step u32
+  kind str
+  damage u32
+  guardian u32?
+  shield_line bool
+
+struct Attack
+  pattern json
+  shots u32
+  arc f32
+  speed f32
+  every u32
+  damage u32
+  bolt str
+  from str
+
+struct Phases
+  chain json
+  every u32
+  volleys u32
+  damage u32
+  bolt str
+  from str
+
+struct ChargeUp
+  kind str
+  wind u32
+  every u32
+  damage u32
+  shots u32
+  speed f32
+  arc f32
+  from str
+  bolt str
+  cry str
+
+struct Boss
+  id str
+  only_in str
+  hp u32
+  radius f32
+  moves str
+  speed f32
+  attacks json
+  phases json
+  rage f32
+  windups json
+  drops json
+
+struct Feel
+  control w64?
+
+struct Spectacle
+  circle u32
+
+struct Run
+  rng w64
+  phase str
+  rocks json
+  spectacle Spectacle
+  tick w64
+  at u32
+  seed w64
+  next_id u32
+  enemies json
+  projectiles json
+  players json
+  cues json
+  sounds json
+  feel Feel
+  bosses json
+  dungeon json
+  tune json
+
+struct Deeds
+  clouds json
+  pulls json
+  sweeps json
+  sounds json
+  shake u32
+  spawns json
+  kegs json
+  lobs json
+  flings json
+  wells json
+  rams json
+  escaped json
+  cues json
+  hooks json
+  webs json
+  rot json
+  slams json
+  ravages json
+  bursts json
+  holes json
+  crit json
+  swamp json
+
+struct Hero
+  x f32
+  y f32
+  hp u32
+  max_hp u32
+  stone bool
+  flee_ticks u32
+  aloft bool
+  invulnerable u32
+  rune json
+
+struct Sortie
+  side bool
+  barred bool
+  depth u32
+  shots json
+  stood json
+
+struct FoeCtx
+  knights json
+  decoys json
+  paces json
+  heads u32
+  holding bool
+  leashes json
+  standing u32
+  wanted bool
+  lingering json
+  tick w64
+  seed w64
+  bosses json
+  foe_pace f32
+  pack str
+  depth u32
+  side bool
+  room Room
+  barred bool
+  barricades json
+  scarecrows json
+  raised json
+
+struct Minions
+  raised json
+  stones json
+
+struct Rail
+  a pair
+  b pair
+
+struct Ravage
+  x f32
+  y f32
+  rings u32
+  lane f32
+  width f32
+  step u32
+  damage u32
+  age u32
+  boss_art str? skipnone
+  blow u32 skip0

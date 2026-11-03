@@ -1,0 +1,116 @@
+@@book-page 1@@
+use the skill tool or edit the skill files on disk
+@@book-page 1@@
+use gh CLI or the browser to mutate
+@@book-page 1@@
+read skill://NAME for full body
+@@book-page 2@@
+read a conflicted file first so conflict:// ids are assigned
+@@book-page 2@@
+read a conflicted file first, or call read_file path=conflict:// to list active ids
+@@book-page 2@@
+write conflict://N or conflict://* with a resolution
+@@book-page 2@@
+read the conflicted file first
+@@book-page 2@@
+use conflict://N/ours|theirs|base
+@@book-page 2@@
+use ours, theirs, or base
+@@book-page 2@@
+re-read
+@@book-page 2@@
+re-read and resolve carefully
+@@book-page 2@@
+resolve with write_file path=conflict://N content=@ours|@theirs|@base|custom:
+@@book-page 2@@
+Resolve: write_file path=conflict://{} content=@ours|@theirs|@base|@both|custom
+@@book-page 3@@
+re-read the file and retry
+@@book-page 3@@
+add more context that distinguishes the target.
+@@book-page 3@@
+Include surrounding unique lines (e.g. the enclosing function) in `old`.
+@@book-page 3@@
+Add unique surrounding context.
+@@book-page 3@@
+Re-read the file before editing.
+@@book-page 3@@
+Copy the exact indentation shown above.
+@@book-page 3@@
+Correct `old` to the exact lines above (they may have changed since your last read).
+@@book-page 3@@
+add more context
+@@book-page 4@@
+a line id is the bare 1-based number shown in the read_file hashline gutter (e.g. `255`), and a range is `A.=B` (e.g. `255.=257`); `=`, `-`, `:` and `#hash` suffixes are not ranges
+@@book-page 4@@
+Re-read the file before REM.
+@@book-page 4@@
+Re-read the file and rebuild the edit.
+@@book-page 4@@
+re-read the file and rebuild the edit
+@@book-page 4@@
+use plain SWAP/DEL/INS
+@@book-page 4@@
+re-read and use plain line ranges, or point at a real block opener ({, [, (, heading, or indented suite)
+@@book-page 5@@
+Accept: resolve_edit id={} action=accept
+@@book-page 5@@
+Reject: resolve_edit id={} action=reject
+@@book-page 5@@
+apply_patch with stage=true to propose one
+@@book-page 5@@
+resolve_edit action=list
+@@book-page 5@@
+re-stage
+@@book-page 5@@
+combine its hunks into one operation
+@@book-page 5@@
+use accept, reject, or list
+@@book-page 5@@
+stage=true is only supported for hashline patches (sections with [path#tag])
+@@book-page 5@@
+stage=true is only supported for hashline patches
+@@book-page 6@@
+Use a literal editable workspace path or a literal /tmp/... path for scratch output.
+@@book-page 6@@
+use a literal /tmp/... path for scratch output
+@@book-page 6@@
+Use a literal /tmp/... path for scratch output.
+@@book-page 7@@
+raise/disable via ANGEL_TOOL_TIMEOUT
+@@book-page 7@@
+cd to a live directory and retry
+@@book-page 8@@
+restart Angel to re-pin the toolchain
+@@book-page 8@@
+Fallback: run `cargo test` through the `shell` tool (the toolchain on PATH is not affected by this pin)
+@@book-page 8@@
+omit that flag
+@@book-page 8@@
+Inspect for an infinite loop or a blocking wait; legitimate slow tests may need a larger timeout.
+@@book-page 8@@
+use rust|js|python|go|swift
+@@book-page 8@@
+Run the suite with `shell` and its own command.
+@@book-page 8@@
+run the suite with `shell`
+@@book-page 9@@
+Select the required package; unrelated packages need not be rebuilt.
+@@book-page 9@@
+This result is useful command-local evidence; repeating a check or selecting another package cannot attest those earlier writes.
+@@book-page 9@@
+Report the scope limitation or use independently pinned task acceptance.
+@@book-page 9@@
+Use read_only/write_paths for future commands; neither resets prior uncertainty.
+@@book-page 9@@
+Keep this result command-local and report the scope limitation; package selection alone cannot restore missing inventory evidence.
+@@book-page 9@@
+Keep this result command-local and report the evidence limitation; do not repeat unchanged checks as a cure.
+@@book-page 0@@
+retained process handle/receipt requires proc_status.
+@@book-page 0@@
+Automatic completion notification is unavailable for this session.
+@@book-page 0@@
+captured output: proc_status id={id}, optional contains filter
+@@book-page 0@@
+inspect with proc_status id={}

@@ -36,3 +36,9 @@ HANDOFF.md
 
 # Research-map state that `/labyrinth init` writes into this checkout.
 /labyrinth/
+cockpit/systems/*/engine
+cockpit/systems/*/*.pending
+# Locally harvested art/code datasets (licences recorded per item in their own
+# manifest/; nothing here is distributable from this repo).
+/datasets/
+delve/build/

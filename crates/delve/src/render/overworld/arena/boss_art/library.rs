@@ -7,7 +7,6 @@ struct Policy {
     #[serde(default = "enabled")]
     active: bool,
     v1: [i32; 2],
-    v2: [i32; 2],
     study: BTreeMap<String, Vec<[i32; 2]>>,
     grade: BTreeMap<String, [u32; 2]>,
     cell_moss_mix: u32,
@@ -85,16 +84,15 @@ pub(crate) fn in_cells<T>(cells: bool, draw: impl FnOnce() -> T) -> T {
     draw()
 }
 
-fn dimensions(art: Art, modern: bool) -> Option<([i32; 2], usize)> {
+fn dimensions(art: Art) -> Option<([i32; 2], usize)> {
     let policy = policies().get(art.id())?;
     if !available(policy) { return None; }
-    let kit = if modern { "v2" } else { "v1" };
-    let index = sample().min(policy.study[kit].len());
+    let index = sample().min(policy.study["v1"].len());
     Some((
         if index == 0 {
-            if modern { policy.v2 } else { policy.v1 }
+            policy.v1
         } else {
-            policy.study[kit][index - 1]
+            policy.study["v1"][index - 1]
         },
         index,
     ))
@@ -102,7 +100,6 @@ fn dimensions(art: Art, modern: bool) -> Option<([i32; 2], usize)> {
 
 struct Bank {
     poses: [[Arc<Img>; 4]; 3],
-    logical: [[Arc<Img>; 4]; 3],
 }
 
 /// Reflected light stays inside the delivered alpha. Only the outer two
@@ -142,9 +139,9 @@ fn variants(rest: Img) -> [Arc<Img>; 4] {
     frames.map(Arc::new)
 }
 
-fn bank(art: Art, modern: bool, cells: bool) -> Option<Arc<Bank>> {
-    let ([w, h], sample) = dimensions(art, modern)?;
-    type Banks = Mutex<BTreeMap<(&'static str, bool, bool, usize), Arc<Bank>>>;
+fn bank(art: Art, cells: bool) -> Option<Arc<Bank>> {
+    let ([w, h], sample) = dimensions(art)?;
+    type Banks = Mutex<BTreeMap<(&'static str, bool, usize), Arc<Bank>>>;
     static BANKS: OnceLock<Banks> = OnceLock::new();
     let mut cache = BANKS
         .get_or_init(|| Mutex::new(BTreeMap::new()))
@@ -152,9 +149,9 @@ fn bank(art: Art, modern: bool, cells: bool) -> Option<Arc<Bank>> {
         .unwrap();
     Some(
         cache
-            .entry((art.id(), modern, cells, sample))
+            .entry((art.id(), cells, sample))
             .or_insert_with(|| {
-                let kit = if modern { "v2" } else { "v1" };
+                let kit = "v1";
                 let suffix = if sample == 0 {
                     String::new()
                 } else {
@@ -186,7 +183,7 @@ fn bank(art: Art, modern: bool, cells: bool) -> Option<Arc<Bank>> {
                             }
                         }
                     }
-                    rim(&im, if modern { 2 } else { 1 })
+                    rim(&im, 1)
                 };
                 let rest = load("rest");
                 assert_eq!(
@@ -198,31 +195,18 @@ fn bank(art: Art, modern: bool, cells: bool) -> Option<Arc<Bank>> {
                 let mut breath = Img::new(w, h);
                 breath.stamp(&resize(&rest, w, h - 1), 0, 1);
                 let poses = [variants(rest), variants(breath), variants(windup)];
-                let logical = std::array::from_fn(|p| {
-                    std::array::from_fn(|hit| {
-                        if modern {
-                            Arc::new(resize(&poses[p][hit], (w + 1) / 2, (h + 1) / 2))
-                        } else {
-                            poses[p][hit].clone()
-                        }
-                    })
-                });
-                Arc::new(Bank {
-                    poses,
-                    logical,
-                })
+                Arc::new(Bank { poses })
             })
             .clone(),
     )
 }
 
-pub(super) fn warm(art: Art, modern: bool) {
-    if let Some(([w,h],_)) = dimensions(art,modern) {
-        let _ = receiver(w,h,if modern {2} else {1});
+pub(super) fn warm(art: Art) {
+    if let Some(([w,h],_)) = dimensions(art) {
+        let _ = receiver(w,h,1);
     }
     for cells in [false, true] {
-        let _ = bank(art, modern, cells);
-        let _ = bank(art, false, cells);
+        let _ = bank(art, cells);
     }
 }
 
@@ -246,12 +230,12 @@ fn receiver(w: i32, h: i32, k: i32) -> Arc<Vec<(i32, i32, u16)>> {
     }).clone()
 }
 
-fn receivers(run: &Run, modern: bool, mut shade: impl FnMut(i32,i32,u16)) {
+fn receivers(run: &Run, mut shade: impl FnMut(i32,i32,u16)) {
     if !super::super::dungeon_art::supported(run) { return; }
-    let k = if modern {2} else {1};
+    let k = 1;
     for enemy in &run.enemies {
         let Some(art) = enemy.boss.and_then(|i|run.bosses.get(i as usize)).and_then(|b|Art::for_id(&b.id)) else {continue;};
-        let Some(([w,h],_)) = dimensions(art,modern) else {continue;};
+        let Some(([w,h],_)) = dimensions(art) else {continue;};
         let (fx,fy) = ((enemy.x*super::super::UNIT*k as f32).round() as i32,((enemy.y+super::super::signatures::foot_lift(run,enemy))*super::super::UNIT*k as f32).round() as i32);
         for &(dx,dy,gain) in receiver(w,h,k).iter() {
             let (x,y) = (fx+dx,fy+dy);
@@ -261,20 +245,9 @@ fn receivers(run: &Run, modern: bool, mut shade: impl FnMut(i32,i32,u16)) {
 }
 
 pub(crate) fn ground(cv: &mut Img, run: &Run, origin: (i32,i32)) {
-    receivers(run,false,|x,y,gain| {
+    receivers(run,|x,y,gain| {
         let (x,y)=(x-origin.0,y-origin.1);
         if let Some(c)=cv.get(x,y) {cv.set(x,y,c.map(|v|(u16::from(v)*gain/256) as u8));}
-    });
-}
-
-pub(crate) fn ground_v2(cv: &mut super::super::art_v2::paint::Canvas, run: &Run) {
-    let origin = ((cv.origin.0*2.0) as i32,(cv.origin.1*2.0) as i32);
-    receivers(run,true,|x,y,gain| {
-        let (x,y)=(x-origin.0,y-origin.1);
-        if x>=0 && y>=0 && (x as usize)<cv.w && (y as usize)<cv.h {
-            let c=&mut cv.px[y as usize*cv.w+x as usize];
-            *c=c.map(|v|(u16::from(v)*gain/256) as u8);
-        }
     });
 }
 
@@ -292,10 +265,8 @@ pub(super) fn figure(
     run: &Run,
     enemy: &Enemy,
     art: Art,
-    modern: bool,
-    logical: bool,
 ) -> Option<Arc<Img>> {
-    let bank = bank(art, modern, CELLS.with(|c| c.get()))?;
+    let bank = bank(art, CELLS.with(|c| c.get()))?;
     let hit = if enemy.hurt >= 4 {
         2
     } else if enemy.hurt > 0 {
@@ -306,28 +277,7 @@ pub(super) fn figure(
         0
     };
     let pose = pose(enemy, run.tick, art);
-    Some(if logical { &bank.logical } else { &bank.poses }[pose][hit].clone())
-}
-
-pub(super) fn paint(
-    cv: &mut super::super::art_v2::paint::Canvas,
-    run: &Run,
-    enemy: &Enemy,
-    art: Art,
-    cells: bool,
-) -> bool {
-    let Some(im) = in_cells(cells, || figure(run, enemy, art, true, false)) else {
-        return false;
-    };
-    let x0 = ((enemy.x * super::super::UNIT - cv.origin.0) * 2.0).round() as i32 - im.w / 2;
-    let y0 = (((enemy.y + super::super::signatures::foot_lift(run,enemy)) * super::super::UNIT - cv.origin.1) * 2.0).round() as i32 - im.h + 2;
-    for y in 0..im.h { for x in 0..im.w {
-        let (tx,ty)=(x0+x,y0+y);
-        if tx>=0 && ty>=0 && tx<cv.w as i32 && ty<cv.h as i32 {
-            if let Some(c)=im.get(x,y) {cv.px[ty as usize*cv.w+tx as usize]=c;}
-        }
-    }}
-    true
+    Some(bank.poses[pose][hit].clone())
 }
 
 #[cfg(test)]
@@ -335,60 +285,47 @@ mod tests {
     use super::*;
     #[test]
     fn reflected_edges_keep_alpha_and_interior_material() {
-        for modern in [false,true] {
-            let k=if modern {2} else {1};
-            let mut im=Img::new(12*k,12*k);
-            for y in 0..im.h {for x in 0..im.w {im.set(x,y,[25,17,14]);}}
-            let out=rim(&im,k);
-            assert_eq!(out.get(5*k,5*k),im.get(5*k,5*k));
-            assert!(out.get(0,0).unwrap()[0]>im.get(0,0).unwrap()[0]);
-            assert_eq!(out.get(-1,0),None);
-            assert_eq!(out.pixels().count(),im.pixels().count());
-        }
+        let mut im=Img::new(12,12);
+        for y in 0..im.h {for x in 0..im.w {im.set(x,y,[25,17,14]);}}
+        let out=rim(&im,1);
+        assert_eq!(out.get(5,5),im.get(5,5));
+        assert!(out.get(0,0).unwrap()[0]>im.get(0,0).unwrap()[0]);
+        assert_eq!(out.get(-1,0),None);
+        assert_eq!(out.pixels().count(),im.pixels().count());
     }
     #[test]
     fn receivers_follow_feet_without_darkening_hazards_or_changing_the_run() {
-        let mut run=super::super::super::art_v2::testing::boss("iron-tusk-chief");
+        let mut run=super::super::super::testing::boss("iron-tusk-chief");
         if !registered(Art::IronTusk) {return;}
         run.dungeon.rooms[run.at].set_for_test(12,8,Tile::Hazard);
         let original=serde_json::to_vec(&run).unwrap();
-        receivers(&run,false,|x,y,_|assert_ne!(run.room().tile(x.div_euclid(16),y.div_euclid(16)),Tile::Hazard));
+        receivers(&run,|x,y,_|assert_ne!(run.room().tile(x.div_euclid(16),y.div_euclid(16)),Tile::Hazard));
         let mut before=Img::new(384,224);
         before.rect(0,0,384,224,'2');
         let mut shaded=before.clone();ground(&mut shaded,&run,(0,0));
         assert_ne!(before,shaded);
         assert_eq!(original,serde_json::to_vec(&run).unwrap());
-        run.enemies[0].x=-100.0;run.enemies[0].y=-100.0;
+        run.enemies[0].x = -100.0; run.enemies[0].y = -100.0;
         let mut offscreen=before.clone();ground(&mut offscreen,&run,(0,0));
         assert_eq!(before,offscreen);
         assert!(Arc::ptr_eq(&receiver(46,54,1),&receiver(46,54,1)));
     }
     #[test]
     fn labels_follow_the_actual_projection_even_when_the_preference_falls_back() {
-        let mut run=super::super::super::art_v2::testing::boss("iron-tusk-chief");
-        let draw=|modern| {
-            let mut img=Img::new(384,224);
-            super::super::super::wanted::nameplates(&mut img,&run,(0,0),modern);
-            img.content_hash()
-        };
-        crate::settings::set(crate::settings::Settings {art_v2:false,feel_ledger:false,open_floors:false});
-        let native=draw(false);
-        crate::settings::set(crate::settings::Settings {art_v2:true,feel_ledger:false,open_floors:false});
-        assert_eq!(native,draw(false));
+        let mut run=super::super::super::testing::boss("iron-tusk-chief");
         if !registered(Art::IronTusk) {
-            assert_eq!(native,draw(true), "retained body uses the same projection in both kits");
-            assert!(figure(&run,&run.enemies[0],Art::IronTusk,false,true).is_none());
-            crate::settings::set(Default::default());
+            assert!(figure(&run,&run.enemies[0],Art::IronTusk).is_none());
             return;
         }
-        assert_ne!(native,draw(true));
-        crate::settings::set(Default::default());
         run.enemies[0].y=1.0;
         let enemy=&run.enemies[0];
-        let im=figure(&run,enemy,Art::IronTusk,false,true).unwrap();
+        let im=figure(&run,enemy,Art::IronTusk).unwrap();
         let mut bars=Img::new(384,224);
-        super::super::super::marks::enemy_bar(&mut bars,&run,enemy,192,8,&im,(0,0));
-        assert!(bars.get(192,17).is_some(), "clipped art must retain its health bar");
+        let _ = im;
+        // Its health is its name plate's fill (`wanted::nameplates`).
+        super::super::super::wanted::nameplates(&mut bars,&run,(0,0));
+        let fill = crate::render::overworld::ink::ink('7');
+        assert!(bars.pixels().any(|p| Some(p) == fill), "clipped art must retain its health bar");
     }
     #[test]
     fn warning_ink_wins_reduction_without_matching_library_material() {
@@ -396,7 +333,7 @@ mod tests {
         for (id, policy) in policies() {
             let art = Art::for_id(id).unwrap();
             if !available(policy) { continue; }
-            let bank = bank(art, false, true).unwrap();
+            let bank = bank(art, true).unwrap();
             for pose in &bank.poses { for im in pose {
                 for y in 0..im.h { for x in 0..im.w {
                     if let Some(c) = im.get(x,y) { assert!(!inks.contains(&c), "{id}: material cannot claim warning priority"); }
@@ -426,34 +363,32 @@ mod tests {
             let art = Art::for_id(id).unwrap();
             if !available(policy) {
                 assert!(!registered(art));
-                assert!(dimensions(art, false).is_none());
+                assert!(dimensions(art).is_none());
                 continue;
             }
-            let mut run = super::super::super::art_v2::testing::boss(id);
+            let mut run = super::super::super::testing::boss(id);
             let original = run.clone();
-            for modern in [false, true] {
-                let a = figure(&run, &run.enemies[0], art, modern, false).unwrap();
-                let ([w, h], _) = dimensions(art, modern).unwrap();
-                assert_eq!((a.w, a.h), (w, h));
-                assert!(Arc::ptr_eq(
-                    &a,
-                    &figure(&run, &run.enemies[0], art, modern, false).unwrap()
-                ));
-                let index = run.enemies[0].boss.unwrap() as usize;
-                run.bosses[index].radius *= 2.0;
-                assert!(Arc::ptr_eq(
-                    &a,
-                    &figure(&run, &run.enemies[0], art, modern, false).unwrap()
-                ));
-                run = original.clone();
-            }
-            let before = figure(&run, &run.enemies[0], art, true, false).unwrap();
+            let a = figure(&run, &run.enemies[0], art).unwrap();
+            let ([w, h], _) = dimensions(art).unwrap();
+            assert_eq!((a.w, a.h), (w, h));
+            assert!(Arc::ptr_eq(
+                &a,
+                &figure(&run, &run.enemies[0], art).unwrap()
+            ));
+            let index = run.enemies[0].boss.unwrap() as usize;
+            run.bosses[index].radius *= 2.0;
+            assert!(Arc::ptr_eq(
+                &a,
+                &figure(&run, &run.enemies[0], art).unwrap()
+            ));
+            run = original.clone();
+            let before = figure(&run, &run.enemies[0], art).unwrap();
             run.enemies[0].hp = run.enemies[0].max_hp / 4;
             run.enemies[0].dread = 1;
             assert_eq!(pose(&run.enemies[0], run.tick, art), 2);
             assert_ne!(
                 before.content_hash(),
-                figure(&run, &run.enemies[0], art, true, false)
+                figure(&run, &run.enemies[0], art)
                     .unwrap()
                     .content_hash()
             );

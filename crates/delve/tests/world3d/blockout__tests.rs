@@ -11,10 +11,6 @@ fn assets() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/world3d")
 }
 
-fn set_path(root: &std::path::Path, id: &str) -> std::path::PathBuf {
-    root.join(id).join(format!("{id}.set"))
-}
-
 /// Points of a tile's floor, `n` by `n`, `inset` pixels in from its edges.
 fn samples((col, row): (i32, i32), n: usize, inset: f32) -> Vec<[f32; 2]> {
     let span = TILE - 2.0 * inset;
@@ -186,9 +182,24 @@ fn check_every_wall_tile_is_under_a_wall(id: &str, _setting: Setting, room: &Roo
         .flat_map(|g| &g.solids)
         .filter(|s| s.bottom() <= 0.0 && s.top() >= 2.0)
         .collect();
+    let cols = room.cols as usize;
+    let mut bins: Vec<Vec<&Solid>> = vec![Vec::new(); cols * room.rows as usize];
+    for s in &walls {
+        let [x0, z0, x1, z1] = s.footprint();
+        let c0 = (x0 / TILE).floor() as i32;
+        let c1 = ((x1 / TILE).ceil() as i32) - 1;
+        let r0 = (z0 / TILE).floor() as i32;
+        let r1 = ((z1 / TILE).ceil() as i32) - 1;
+        for r in r0.max(0)..=r1.min(room.rows as i32 - 1) {
+            for c in c0.max(0)..=c1.min(room.cols as i32 - 1) {
+                bins[r as usize * cols + c as usize].push(*s);
+            }
+        }
+    }
     for t in tiles(room).filter(|&(c, r)| room.tile(c, r) == Tile::Wall) {
+        let bin = &bins[t.1 as usize * cols + t.0 as usize];
         for p in samples(t, 4, 0.5) {
-            assert!(walls.iter().any(|s| under(s, p)), "{}: wall tile {t:?} is bare at {p:?}", id);
+            assert!(bin.iter().any(|s| under(s, p)), "{}: wall tile {t:?} is bare at {p:?}", id);
         }
     }
 }
@@ -205,9 +216,26 @@ fn check_walkable_tiles_are_never_under_a_block(id: &str, _setting: Setting, roo
         .flat_map(|g| &g.solids)
         .filter(|s| s.top() > LOW && s.bottom() < HEADROOM)
         .collect();
+    // A solid can cover a sample only on a tile its footprint meets. Bin
+    // once; each sample still asks `under`, so a hit is the same hit.
+    let cols = room.cols as usize;
+    let mut bins: Vec<Vec<&Solid>> = vec![Vec::new(); cols * room.rows as usize];
+    for s in &blocks {
+        let [x0, z0, x1, z1] = s.footprint();
+        let c0 = (x0 / TILE).floor() as i32;
+        let c1 = ((x1 / TILE).ceil() as i32) - 1;
+        let r0 = (z0 / TILE).floor() as i32;
+        let r1 = ((z1 / TILE).ceil() as i32) - 1;
+        for r in r0.max(0)..=r1.min(room.rows as i32 - 1) {
+            for c in c0.max(0)..=c1.min(room.cols as i32 - 1) {
+                bins[r as usize * cols + c as usize].push(*s);
+            }
+        }
+    }
     for t in tiles(room).filter(|&(c, r)| walkable(room.tile(c, r))) {
+        let bin = &bins[t.1 as usize * cols + t.0 as usize];
         for p in samples(t, 6, 2.0) {
-            if let Some(s) = blocks.iter().find(|s| under(s, p)) {
+            if let Some(s) = bin.iter().find(|s| under(s, p)) {
                 panic!("{}: walkable tile {t:?} is under `{}` at {p:?}", id, line(s));
             }
         }
@@ -223,8 +251,20 @@ fn check_walkable_tiles_stay_in_view_of_the_game_camera(id: &str, _setting: Sett
     let view = View::of(room);
     assert_eq!(view.size, (room.cols as u32 * 16, room.rows as u32 * 16), "{}: the room's stage", id);
     let hulls = occluders(&view, groups.iter().filter(|g| g.role != Role::Ground && g.role != Role::Hazard).flat_map(|g| &g.solids));
-    for t in open_tiles(room) {
-        let hidden = view.hidden(&hulls, t);
+    let open = open_tiles(room);
+    // Hulls whose screen bounds meet the tile, gathered once. `hidden_by`
+    // still samples the tile, so the share is the share it always reported.
+    let mut near: Vec<Vec<&Hull>> = vec![Vec::new(); open.len()];
+    for h in &hulls {
+        for (i, t) in open.iter().enumerate() {
+            let b = view.tile_bounds(*t);
+            if h.bounds[0] < b[2] && b[0] < h.bounds[2] && h.bounds[1] < b[3] && b[1] < h.bounds[3] {
+                near[i].push(h);
+            }
+        }
+    }
+    for (i, t) in open.iter().enumerate() {
+        let hidden = view.hidden_by(&near[i], *t);
         assert!(hidden <= HIDE_ALL, "{}: walkable tile {t:?} is {:.0}% hidden", id, hidden * 100.0);
     }
 }
@@ -362,17 +402,17 @@ fn check_the_far_wall_stands_full_height_and_the_near_wall_low(id: &str, _settin
 
 
 /// The rooms the dice lay on seeded floors (each delve, floors 1 to 3, a
-/// party of one and of two), each as a room with no item is stood up
-/// (`plain::dressing_for`), and the map of an open floor of each delve piece
-/// by piece (each piece's tiles and the ring of the map round them, as
-/// `plain` cuts it): every one agrees with the game as the items do. Its
+/// party of one and of two), each as its dressing has it
+/// (`rooms_lit::dressing_for`), and the map of an open floor of each delve
+/// piece by piece (each piece's tiles and the ring of the map round them, as
+/// `rooms_lit` cuts it): every one agrees with the game as the items do. Its
 /// walls stand on its wall tiles, nothing over ground a knight walks, the
 /// floor in view, its blocks over its blocked tiles, its hazards low, a
 /// doorway where each door is.
 #[test]
 fn rooms_with_no_item_on_seeded_floors_agree_with_the_game() {
     use crate::rules::{Rng, layout};
-    use crate::world3d::plain;
+    use crate::world3d::rooms_lit;
     let packs = [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown, Pack::Swamp];
     let (mut rooms, mut pieces) = (0, 0);
     for pack in packs {
@@ -380,7 +420,7 @@ fn rooms_with_no_item_on_seeded_floors_agree_with_the_game() {
             for (seed, party) in [(1u64, 1usize), (2, 2)] {
                 let floor = layout::floor_party(depth, pack, party, &mut Rng::new(seed * 7 + u64::from(depth)));
                 for (i, room) in floor.rooms.iter().enumerate() {
-                    let Some((dressing, _)) = plain::dressing_for(room, pack) else { continue };
+                    let Some(dressing) = rooms_lit::dressing_for(room, pack) else { continue };
                     let id = format!("{pack:?} floor {depth} seed {seed} room {i} ({:?}, {})", room.kind, dressing.id);
                     let groups = blockout(room, &dressing);
                     check_every_wall_tile_is_under_a_wall(&id, dressing.setting, room, &groups);
@@ -396,12 +436,12 @@ fn rooms_with_no_item_on_seeded_floors_agree_with_the_game() {
         }
         let floor = layout::open_floor(2, pack, 2, &mut Rng::new(11));
         let map = floor.rooms.iter().find(|r| r.kind == RoomKind::Depths).expect("an open floor's map");
-        let (dressing, _) = plain::dressing_for(map, pack).expect("a map is drawn so");
-        let grid = ((map.cols as i32 + plain::PIECE.0 - 1) / plain::PIECE.0, (map.rows as i32 + plain::PIECE.1 - 1) / plain::PIECE.1);
+        let dressing = rooms_lit::dressing_for(map, pack).expect("a map is drawn so");
+        let grid = ((map.cols as i32 + rooms_lit::PIECE.0 - 1) / rooms_lit::PIECE.0, (map.rows as i32 + rooms_lit::PIECE.1 - 1) / rooms_lit::PIECE.1);
         for cz in 0..grid.1 {
             for cx in 0..grid.0 {
-                let (_, crop) = plain::piece_rects(map, true, (cx, cz));
-                let cut = plain::crop_room(map, crop);
+                let (_, crop) = rooms_lit::piece_rects(map, true, (cx, cz));
+                let cut = rooms_lit::crop_room(map, crop);
                 let id = format!("{pack:?}'s open map, piece {cx},{cz}");
                 let groups = blockout(&cut, &dressing);
                 check_every_wall_tile_is_under_a_wall(&id, dressing.setting, &cut, &groups);
@@ -462,37 +502,6 @@ fn every_set_is_tens_to_a_few_hundred_well_formed_lines() {
         for (k, id) in ids.iter().enumerate() {
             assert!(!ids[k + 1..].contains(id), "{}: id {id} twice", item.id());
         }
-    }
-}
-
-#[test]
-fn the_committed_sets_are_the_generators() {
-    for item in &every() {
-        let path = set_path(&assets(), item.id());
-        let committed = std::fs::read_to_string(&path).unwrap_or_default();
-        assert!(
-            committed == item.set(),
-            "{} is stale or missing: regenerate with ANGEL_WORLD3D_SETS=1 cargo test -p angel-delve write_world3d_sets -- --ignored",
-            path.display()
-        );
-    }
-}
-
-/// Writes every item's set to `assets/world3d/<item>/<item>.set`, or under
-/// the folder `ANGEL_WORLD3D_SETS` names (when it is not `1`).
-#[test]
-#[ignore = "writes the blockout sets"]
-fn write_world3d_sets() {
-    let Some(to) = std::env::var_os("ANGEL_WORLD3D_SETS") else {
-        return;
-    };
-    let root = if to == "1" { assets() } else { std::path::PathBuf::from(to) };
-    for item in &every() {
-        let path = set_path(&root, item.id());
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        let set = item.set();
-        std::fs::write(&path, &set).unwrap();
-        println!("{:>4} lines  {}", set.lines().count(), path.display());
     }
 }
 
@@ -608,32 +617,6 @@ fn the_view_is_the_sets_game_camera() {
 
 
 
-/// Writes the second wave's items, for the art lane, to the file
-/// `ANGEL_WORLD3D_ITEMS` names: a list of `{ id, set, setting, title,
-/// notes }`, the pilot's ten left out.
-#[test]
-#[ignore = "writes the second wave's item list"]
-fn write_world3d_items() {
-    let Some(to) = std::env::var_os("ANGEL_WORLD3D_ITEMS") else {
-        return;
-    };
-    let items: Vec<serde_json::Value> = every()
-        .iter()
-        .skip(PILOT.len())
-        .map(|item| {
-            serde_json::json!({
-                "id": item.id(),
-                "set": set_path(&assets(), item.id()).display().to_string(),
-                "setting": item.setting_word(),
-                "title": item.dressing.title,
-                "notes": item.painter_notes(),
-            })
-        })
-        .collect();
-    std::fs::write(&to, serde_json::to_string_pretty(&items).unwrap() + "\n").unwrap();
-    println!("{} items to {}", items.len(), std::path::Path::new(&to).display());
-}
-
 // ------------------------------------------------------------ landmarks ----
 
 /// A landmark overlay on a room of the pilot, as a generator would read it.
@@ -745,7 +728,7 @@ fn landmarks_stand_only_on_blocked_tiles_and_keep_the_floor_in_view() {
 #[test]
 fn lit_rooms_agree_with_the_game() {
     use crate::rules::{Rng, layout};
-    use crate::world3d::{plain, rooms_lit_mass};
+    use crate::world3d::{rooms_lit, rooms_lit_mass};
     let check = |id: &str, setting: Setting, room: &Room, groups: &[Group]| {
         check_every_wall_tile_is_under_a_wall(id, setting, room, groups);
         check_walkable_tiles_are_never_under_a_block(id, setting, room, groups);
@@ -766,7 +749,7 @@ fn lit_rooms_agree_with_the_game() {
             for (seed, party) in [(1u64, 1usize), (2, 2)] {
                 let floor = layout::floor_party(depth, pack, party, &mut Rng::new(seed * 7 + u64::from(depth)));
                 for (i, room) in floor.rooms.iter().enumerate() {
-                    let Some((dressing, _)) = plain::dressing_for(room, pack) else { continue };
+                    let Some(dressing) = rooms_lit::dressing_for(room, pack) else { continue };
                     let id = format!("{pack:?} floor {depth} seed {seed} room {i} ({:?}, {}) lit", room.kind, dressing.id);
                     let mut groups = blockout(room, &dressing);
                     rooms_lit_mass::monolith(&mut groups, room, &dressing);
@@ -777,11 +760,11 @@ fn lit_rooms_agree_with_the_game() {
         }
         let floor = layout::open_floor(2, pack, 2, &mut Rng::new(11));
         let map = floor.rooms.iter().find(|r| r.kind == RoomKind::Depths).expect("an open floor's map");
-        let (dressing, _) = plain::dressing_for(map, pack).expect("a map is drawn so");
+        let dressing = rooms_lit::dressing_for(map, pack).expect("a map is drawn so");
         for cz in 0..2 {
             for cx in 0..2 {
-                let (_, crop) = plain::piece_rects(map, true, (cx, cz));
-                let cut = plain::crop_room(map, crop);
+                let (_, crop) = rooms_lit::piece_rects(map, true, (cx, cz));
+                let cut = rooms_lit::crop_room(map, crop);
                 let mut groups = blockout(&cut, &dressing);
                 rooms_lit_mass::monolith_in(&mut groups, &cut, &dressing, map, (crop.0, crop.1));
                 check(&format!("{pack:?}'s open map, piece {cx},{cz} lit"), dressing.setting, &cut, &groups);

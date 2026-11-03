@@ -48,7 +48,7 @@ pub const RAMP: [[u8; 3]; 7] = [
 pub const MOON: [u8; 3] = [0xf2, 0xe4, 0x8e];
 
 /// The knight's sprite, committed with the Delve's art.
-const KNIGHT_PNG: &[u8] = include_bytes!("../../../cockpit/assets/dungeon/art-v2/knight-run.png");
+const KNIGHT_PNG: &[u8] = include_bytes!("../assets/knight-run.png");
 
 /// The scene's look at `rows` internal rows: the ramp, the moon, a 4x4 Bayer
 /// dither, fog toward the dark end.
@@ -341,6 +341,10 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         patch: None,
         role: Default::default(),
         ceiling: 0,
+        normals: None,
+        chrome: 0.0,
+        liquid: 0.0,
+        glow: 0.0,
     };
     let mut knight = Node::new(id(), MeshRef::Quad, sprite);
     knight.transform = Transform {

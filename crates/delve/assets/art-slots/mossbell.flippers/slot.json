@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "mossbell.flippers",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.flippers/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.flippers/v01/source-sheet.png",
   "source_sha256": "5deeb6d2abcd485546667666712f81c13a0a805756f95e9375cc31d1aa13cf36",
   "tool_version": 2
 }

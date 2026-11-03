@@ -734,24 +734,7 @@ impl Tool for WriteFileTool {
         "write_file"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "write_file".to_string(),
-            description: "Create or overwrite a text file in the workspace (creates parent \
-                          directories as needed). Returns the new content tag for guarded \
-                          follow-up edits without a reread. Also resolves \
-                          `conflict://N` (and `conflict://*` bulk): content may be \
-                          `@ours`, `@theirs`, `@base`, `@both`, or a custom body that \
-                          replaces the marker region. ⠷⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": "⠷⠁⠁" },
-                    "content": { "type": "string", "description": "⠷⠁⠃" },
-                },
-                "required": ["path", "content"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("write_file")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {
@@ -799,25 +782,7 @@ impl Tool for StrReplaceTool {
         "str_replace"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "str_replace".to_string(),
-            description: "Replace an exact, unique substring in a workspace file. Fails if 'old' is absent or appears more than once. If the exact text isn't \
-                          found, falls back to a whole-line match tolerant of trailing \
-                          whitespace, CRLF, and smart quotes/dashes (indentation must still \
-                          match — it never silently re-indents). Returns the new content tag \
-                          for a guarded follow-up edit without a reread. An indentation-only miss can return exact `old` and `expect_tag` recovery fields. ⠡⠃"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": "⠡⠃⠉" },
-                    "old": { "type": "string", "description": "⠡⠃⠙" },
-                    "new": { "type": "string", "description": "⠡⠃⠑" },
-                    "expect_tag": { "type": "string", "description": "⠡⠃⠋⠡⠃⠛" },
-                },
-                "required": ["path", "old", "new"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("str_replace")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {
@@ -865,34 +830,7 @@ impl Tool for MultiEditTool {
         "multi_edit"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "multi_edit".to_string(),
-            description: "Apply an ordered list of exact str-replace edits to ONE file, \
-                          atomically (all-or-nothing). Edits apply in sequence; each 'old' \
-                          must be unique in the file's current state. Returns the new \
-                          content tag for a guarded follow-up edit without a reread. ⠷⠃"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": "⠷⠃⠃" },
-                    "expect_tag": { "type": "string", "description": "⠷⠃⠉⠷⠃⠙" },
-                    "edits": {
-                        "type": "array",
-                        "description": "⠷⠃⠑",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "old": { "type": "string" },
-                                "new": { "type": "string" },
-                            },
-                            "required": ["old", "new"],
-                        },
-                    },
-                },
-                "required": ["path", "edits"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("multi_edit")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {
@@ -1780,32 +1718,7 @@ impl Tool for ResolveEditTool {
         "resolve_edit"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "resolve_edit".to_string(),
-            description: "Accept or reject a staged edit batch created by apply_patch \
-                          with stage=true (oh-my-pi preview/accept). action=list shows \
-                          pending proposals; accept writes transactionally; reject drops \
-                          the proposal. Disk is untouched until accept. ⠷⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "⠷⠙⠁"
-                    },
-                    "id": {
-                        "type": "integer",
-                        "description": "⠷⠙⠃"
-                    },
-                    "reason": {
-                        "type": "string",
-                        "description": "⠷⠙⠉"
-                    },
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("resolve_edit")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {
@@ -1850,41 +1763,7 @@ impl Tool for ApplyPatchTool {
         "apply_patch"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "apply_patch".to_string(),
-            description: "Apply a preflight-validated patch to the workspace (multi-file). Accepts a unified \
-                          diff (applied via `git apply`/`patch`), the freeform envelope \
-                          (`*** Begin Patch` / `*** Add File:` / `*** Update File:` with `@@` \
-                          hunks of ` `/`+`/`-` lines / `*** End Patch`, whitespace-tolerant), OR \
-                          the token-cheap hashline format: `*** Begin Patch`, then per file a \
-                          `[path#tag]` header (tag = the content hash shown by read_file), then \
-                          line-addressed ops — `SWAP A[.=B]:` / `SWAP.BLK A:` / `INS.PRE A:` / \
-                          `INS.POST A:` / `INS.BLK.POST A:` / `INS.HEAD:` / `INS.TAIL:` each \
-                          followed by `+`-prefixed new rows; `DEL A[.=B]` / `DEL.BLK A`; whole-file \
-                          `REM`; rename `MV DEST` (optionally after line edits) — then `*** End Patch`. \
-                          Block ops resolve the multi-line construct beginning on line A (brace, \
-                          markdown heading, or indent suite). Hashline emits only the NEW lines \
-                          (no retyping the old). If `tag` no longer matches the live file, the \
-                          patcher first tries session-snapshot recovery (remap anchors through \
-                          unchanged lines); only an unrecoverable drift rejects. Receipts return \
-                          each file's new tag so the next edit can chain without a reread. Every \
-                          target path must stay inside the workspace; every edit is checked before \
-                          the first write. Hashline also supports stage=true: preflight and queue \
-                          the plan without writing. ⠷⠉"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "diff": { "type": "string", "description": "⠷⠉⠃" },
-                    "strip": { "type": "integer", "description": "⠷⠉⠉" },
-                    "stage": {
-                        "type": "boolean",
-                        "description": "⠷⠉⠙"
-                    },
-                },
-                "required": ["diff"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("apply_patch")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {

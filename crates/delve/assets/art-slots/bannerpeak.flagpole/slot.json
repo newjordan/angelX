@@ -272,7 +272,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "bannerpeak.flagpole",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.flagpole/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.flagpole/v01/source-sheet.png",
   "source_sha256": "50cf3e16f99fb9c1b0667d2d94dda566b8daf5c90edc7e6de0a491974bb2ff04",
   "tool_version": 2
 }

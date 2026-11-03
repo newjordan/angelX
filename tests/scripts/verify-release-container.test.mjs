@@ -18,14 +18,14 @@ const IMAGE = {
   name: 'clean_release_builder',
   reference: DIGEST,
   digest: DIGEST,
-  local_tag: 'angelX-clean-builder:rust-1.95.0-bookworm-v1',
+  local_tag: 'angelX-clean-builder:rust-1.99.0-bookworm-v1',
   base_reference: `docker.io/library/rust@${`sha256:${'5'.repeat(64)}`}`,
   base_digest: `sha256:${'5'.repeat(64)}`,
   dockerfile_sha256: '4'.repeat(64),
   operating_system: 'linux',
   architecture: 'amd64',
   distribution: 'Debian GNU/Linux 12 (bookworm)',
-  rust_version: '1.95.0',
+  rust_version: '1.99.0',
   native_packages: [
     'libavcodec-dev:amd64=7:5.1.9-0+deb12u1',
     'libavdevice-dev:amd64=7:5.1.9-0+deb12u1',
@@ -42,7 +42,7 @@ const IMAGE = {
 
 function manifest(image = IMAGE) {
   return {
-    support: { rust: '1.95.0' },
+    support: { rust: '1.99.0' },
     dependencies: { rust: { clean_build_container_images: [image] } },
   }
 }
@@ -75,7 +75,7 @@ function phase(t, name) {
     phase: name,
     image: IMAGE,
     ...paths,
-    rustVersion: '1.95.0',
+    rustVersion: '1.99.0',
     sourceIdentity: 'a'.repeat(64),
     uid: 1234,
     gid: 5678,
@@ -97,7 +97,7 @@ test('container policy requires a digest-only derived image matching the release
 test('Docker inspection must match digest, platform, registry identity, and a minimal image environment', () => {
   const inspection = {
     Id: DIGEST,
-    RepoTags: ['angelX-clean-builder:rust-1.95.0-bookworm-v1'],
+    RepoTags: ['angelX-clean-builder:rust-1.99.0-bookworm-v1'],
     Os: 'linux',
     Architecture: 'amd64',
     Config: {
@@ -105,7 +105,7 @@ test('Docker inspection must match digest, platform, registry identity, and a mi
         'PATH=/usr/local/cargo/bin:/usr/bin:/bin',
         'RUSTUP_HOME=/usr/local/rustup',
         'CARGO_HOME=/usr/local/cargo',
-        'RUST_VERSION=1.95.0',
+        'RUST_VERSION=1.99.0',
         'DEBIAN_FRONTEND=noninteractive',
       ],
       Labels: { 'org.opencontainers.image.base.name': IMAGE.base_reference },

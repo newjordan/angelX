@@ -33,7 +33,7 @@ enabled identically. Returned tools were not executed.
 
 The original recorded and current Qwen configuration files are byte-identical;
 the resolved original configuration also matches the exact local endpoint and
-model `toymaker`. The source task is the pinned public Aider Polyglot benchmark.
+model alias (`<local-route>`). The source task is the pinned public Aider Polyglot benchmark.
 Same-destination proof, paths, and hashes are in
 `artifacts/qwen-continuation-probe-provenance-20260926.json`.
 

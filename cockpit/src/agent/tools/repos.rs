@@ -17,36 +17,9 @@ impl Tool for RepoSearchTool {
         "repo_search"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "repo_search".to_string(),
-            description: "Surface the latest/best code repositories for a topic via GitHub \
-                          repository search. Returns a cited shortlist — owner/name, stars, \
-                          last-push date, primary language, description, and a validated \
-                          github.com link — ranked by reputation (stars) or recency. `mode:\"latest\"` favours recently-pushed repos; `mode:\"best\"` \
-                          (default) favours established, high-star ones. ⠱⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": crate::knowledge::repos::MAX_QUERY_CHARS,
-                        "description": "⠱⠙⠃"
-                    },
-                    "mode": {
-                        "type": "string",
-                        "enum": ["best", "latest"],
-                        "description": "⠱⠙⠉"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "⠱⠙⠙"
-                    },
-                },
-                "required": ["query"],
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("repo_search");
+        *definition.params.pointer_mut("/properties/query/maxLength").expect("embedded tool schema") = serde_json::json!(crate::knowledge::repos::MAX_QUERY_CHARS);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let query = args["query"].as_str().ok_or("missing 'query'")?;
@@ -79,7 +52,7 @@ impl Tool for RepoSearchTool {
                 )
             ));
         }
-        Ok(set.brief(mode, limit.min(15)))
+        set.brief(mode, limit.min(15))
     }
 }
 

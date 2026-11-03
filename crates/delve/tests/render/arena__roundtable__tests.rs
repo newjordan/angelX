@@ -2,7 +2,7 @@
 //! native route and the terminal's, one box per seat, and a door on the
 //! kingdom map. `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve
 //! write_roundtable_review -- --ignored` writes the pictures to open.
-use super::super::{art_v2, frame_for};
+use super::super::frame_for;
 use super::*;
 use crate::rules::{MAX_PLAYERS, Run, roundtable::ADVENTURES};
 use std::collections::BTreeMap;
@@ -64,7 +64,7 @@ fn each_stub_draws_its_own_scene_on_both_routes() {
             assert_eq!(cells.content_hash(), base.content_hash(), "{}", a.slug);
         }
         assert!(
-            art_v2::terminal_layers(&r, Some(1)).is_some(),
+            super::super::terminal_layers(&r, Some(1)).is_some(),
             "{} reaches the cell painter",
             a.slug
         );
@@ -194,7 +194,7 @@ fn write_roundtable_review() {
             &format!("{}-seats4-768", a.slug),
             &frame_for(&r, 768, 448, Some(2)),
         );
-        let (base, fx) = art_v2::terminal_layers(&r, Some(1)).unwrap();
+        let (base, fx) = super::super::terminal_layers(&r, Some(1)).unwrap();
         let mut both = base.clone();
         both.stamp(&fx, 0, 0);
         save(&format!("{}-terminal-layers", a.slug), &both);

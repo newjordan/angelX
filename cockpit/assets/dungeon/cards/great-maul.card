@@ -1,0 +1,19 @@
+# The Hammerer's own: a smith's maul for a giant. Too heavy for anyone else.
+name   Great Maul
+kind   arm
+rarity relic
+text   Hold F: a wide, slow, crushing swing that clears the ground.
+drop   0
+chest  0
+look   steel blade
+melee  damage=44 reach=3.8 arc=170 every=24
+art
+.HHHHHH.
+HWWWWWWh
+HWiiiiWh
+HWWWWWWh
+.hhBBhh.
+...BB...
+...BB...
+...Bb...
+...bb...

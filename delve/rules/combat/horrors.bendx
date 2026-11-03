@@ -1,0 +1,110 @@
+# crates/delve/src/rules/horrors.rs: the swamp's company (bog hands, the
+# drowned, wisps).
+import Base
+
+def horrors.EnemyKind.horror(kind: String) -> Bool:
+  Bool.or(Bool.or(String.eq(kind, "bog_hand"), String.eq(kind, "drowned")), String.eq(kind, "wisp"))
+
+# Mover::Wader is 3.
+def horrors.walk(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, dx: F32, dy: F32, speed: F32) -> Enemy:
+  (e2: Enemy, moved: F32) = foes.walk(enemy, room, barred, mover, r, dx, dy, speed)
+  e2
+
+def horrors.swamp_push(deeds: Deeds, key: String, v: J.Val) -> Deeds:
+  deeds.swamp = J.set(deeds.swamp, key, J.push(J.get(deeds.swamp, key), v))
+  deeds
+
+# One of the swamp company's steps. False for any other monster.
+def horrors.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
+  kind: String = enemy.kind
+  if Bool.not(horrors.EnemyKind.horror(kind)):
+    return (enemy, shots, deeds, False{})
+  target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
+  seen: Bool = Maybe.is_some(&2, Sigma<&2, &2, F32, _ => F32>, target)
+  tx: F32 = enemy.x
+  ty: F32 = (enemy.y + 1.0 : F32)
+  match (target : (F32, F32)?):
+    case Some{t: (F32, F32)}:
+      (tx, ty) = t
+    case None{}:
+      tx = tx
+  &(cx: F32, cy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+  dist: F32 = cb.hyp((tx - enemy.x : F32), (ty - enemy.y : F32))
+  mover: U32 = Bool.pick(U32, monsters.EnemyKind.flies(kind), 2, 3)
+  r: F32 = monsters.Enemy.radius(enemy)
+  enemy.timer = (enemy.timer + 1 : U32)
+  if String.eq(kind, "bog_hand"):
+    if U32.is_eq(enemy.stage, 0):
+      if seen:
+        enemy = horrors.walk(enemy, room, barred, mover, r, cx, cy, horrors.HAND_SWIM())
+      if Bool.and(seen, Bool.or((dist < 1.0 : F32), U32.is_ge(enemy.timer, horrors.HAND_SWIM_TICKS()))):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_ge(enemy.timer, horrors.HAND_TELL()):
+        deeds = horrors.swamp_push(deeds, "grabs", cb.of_pair(enemy.x, enemy.y))
+        deeds = foes.cue(deeds, "bog_grab")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, horrors.HAND_UP()):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "drowned"):
+    if U32.is_eq(enemy.stage, 0):
+      if seen:
+        enemy.dir = (cx, cy)
+        if (dist > horrors.DROWNED_KEEP() : F32):
+          enemy = horrors.walk(enemy, room, barred, mover, r, cx, cy, horrors.DROWNED_PACE())
+      if Bool.and(Bool.and(seen, (dist < horrors.DROWNED_NEAR() : F32)), U32.is_ge(enemy.timer, 30)):
+        enemy.stage = 1
+        enemy.timer = 0
+        enemy.dir = (cx, cy)
+    elif U32.is_eq(enemy.stage, 1):
+      if Bool.and(U32.is_lt(enemy.timer, horrors.DROWNED_LOCK()), seen):
+        enemy.dir = (cx, cy)
+      if U32.is_ge(enemy.timer, horrors.DROWNED_WINDUP()):
+        (dx: F32, dy: F32) = enemy.dir
+        deeds.rams = J.push(deeds.rams, J.JA{[J.of_f32((enemy.x + dx * 1.4 : F32)), J.of_f32((enemy.y + dy * 1.4 : F32)), J.of_f32(horrors.DROWNED_REACH()), J.of_u32(horrors.DROWNED_HIT()), cb.of_pair(dx, dy)]})
+        deeds = foes.cue(deeds, "drowned_cleave")
+        deeds.sounds = J.push(deeds.sounds, J.JS{"swing"})
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, horrors.DROWNED_STUCK()):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "wisp"):
+    if U32.is_eq(enemy.stage, 0):
+      side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
+      wx: F32 = (RS.f_neg(cy) * side : F32)
+      wy: F32 = (cx * side : F32)
+      if Bool.not(seen):
+        wx = 0.0
+        wy = 0.0
+      elif (dist < horrors.WISP_NEAR() : F32):
+        wx = RS.f_neg(cx)
+        wy = RS.f_neg(cy)
+      elif (dist > horrors.WISP_FAR() : F32):
+        wx = cx
+        wy = cy
+      enemy = horrors.walk(enemy, room, barred, mover, r, wx, wy, horrors.WISP_DRIFT())
+      if Bool.and(Bool.and(seen, (dist < 14.0 : F32)), U32.is_ge(enemy.timer, (horrors.WISP_REST() + U32.mod(enemy.id, 4) * 12 : U32))):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      deeds = horrors.swamp_push(deeds, "lures", cb.of_pair(enemy.x, enemy.y))
+      if U32.is_ge(enemy.timer, horrors.WISP_LURE()):
+        for k: U32 in cb.range(horrors.WISP_RING()):
+          a: F32 = (cb.f(k) * cb.TAU() / cb.f(horrors.WISP_RING()) + cb.f(U32.mod(enemy.id, 8)) * 0.2 : F32)
+          shots = J.push(shots, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(a) * horrors.WISP_SHOT_SPEED() : F32), (F32.sin(a) * horrors.WISP_SHOT_SPEED() : F32), True{}, "wisp", horrors.WISP_HIT(), (4 * rules.HZ() : U32), patterns.ShotTraits.default()))
+        deeds = foes.cue(deeds, "wisp_burst")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if Bool.and(seen, (dist < horrors.WISP_FAR() : F32)):
+        enemy = horrors.walk(enemy, room, barred, mover, r, RS.f_neg(cx), RS.f_neg(cy), horrors.WISP_DRIFT())
+      if U32.is_ge(enemy.timer, horrors.WISP_DIM()):
+        enemy.stage = 0
+        enemy.timer = 0
+  (enemy, shots, deeds, True{})

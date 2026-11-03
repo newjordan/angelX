@@ -144,11 +144,13 @@ fn spawn(
 ) -> Digesting {
     let (send, reply) = mpsc::channel();
     let helper = Arc::clone(helper);
+    let book_catalog = super::book::catalog::current();
     // A thread that cannot spawn drops `send`; that reads as a miss. Nobody
     // joins these threads: one still running at exit never holds the process.
     let _ = std::thread::Builder::new()
         .name("treebeard-digest".into())
         .spawn(move || {
+            let _book_catalog = book_catalog.map(super::book::catalog::enter);
             let answer = super::book::connect::chat(
                 &*helper,
                 &workspace,

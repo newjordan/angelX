@@ -37,12 +37,18 @@ fn light_stats_no_armour_and_shared_rosters() {
     assert_eq!(classes::next_class(&r.players[&1]).name,"Bard");
 }
 #[test]
-fn homecoming_banner_selects_peasant_and_has_its_own_stone() {
-    let mut r=classes::testing::kingdom();
-    let geo=map::geography(&r.kingdom.wishes); let stones=classes::stones(&geo);
-    assert_eq!(stones.len(),classes::CLASSES.len());
-    let (_, (x,y))=stones.into_iter().find(|&(i,_)|classes::CLASSES[i].name=="Peasant").unwrap();
-    let h=r.players.get_mut(&1).unwrap(); (h.x,h.y)=((x as f32+0.5)*TILE_UNITS,(y as f32+1.2)*TILE_UNITS);
+fn the_peasant_at_the_tavern_table_selects_peasant_and_keeps_its_lot() {
+    let mut r=Run::at_home(41,1,Some("Friend"),Default::default(),Default::default());
+    r.walk_alehouse(); r.floor_plates.clear();
+    let geo=map::geography(&r.kingdom.wishes);
+    assert_eq!(classes::stones(&geo).len(),classes::CLASSES.len());
+    use crate::rules::alehouse::{self, PATRONS, patron_visible, Spot};
+    let i = PATRONS.iter().position(|p| p.kit == "peasant").unwrap();
+    assert!(patron_visible(r.alehouse.company_page, i), "the peasant sits in the hall");
+    let at = PATRONS[i].at;
+    assert_eq!(alehouse::spot_near_in(alehouse::patron_room(i), at.0 * TILE_UNITS, (at.1 - 1.0) * TILE_UNITS, r.tick, r.alehouse.company_page), Some(Spot::Patron(i)));
+    let h=r.players.get_mut(&1).unwrap(); (h.x,h.y)=(at.0*TILE_UNITS,(at.1-1.0)*TILE_UNITS);
+    step(&mut r,Input::default());
     step(&mut r,Input{interact:true,..Default::default()});
     assert!(r.players[&1].peasant()); assert_eq!(r.players[&1].weapon,Weapon::Stones);
 }
@@ -167,7 +173,6 @@ fn two_four_bot_runs_are_byte_identical_with_wire_roundtrip_mid_desertion() {
 #[test]
 #[ignore = "writes four-seat rule states and a live browser-start snapshot"]
 fn write_peasant_review() {
-    crate::settings::set(crate::settings::Settings { art_v2:true, feel_ledger:false, open_floors:false });
     let dir=std::path::PathBuf::from(std::env::var_os("ANGEL_ARENA_SHOTS").unwrap());std::fs::create_dir_all(&dir).unwrap();
     let mut r=arena(EnemyKind::Demon,19.0,14.0);
     r.spawn_at_for_test(EnemyKind::Skeleton,20.0,18.0);r.spawn_at_for_test(EnemyKind::Wraith,23.0,10.0);

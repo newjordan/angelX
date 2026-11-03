@@ -323,27 +323,7 @@ impl Tool for SwarmCompilerTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "swarm_compile".to_string(),
-            description: "Compile a green-base coding goal into a durable proof graph: isolated investigator, independent regression-test author, implementer, adversarial reviewer, differential/full verification, causal credit, and learned routing. A verified result is parked on a branch and never auto-merged. Actions: run, resume, status, policy. ⠹⠃"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": {"type":"string", "enum":["run","resume","status","policy"], "default":"run"},
-                    "run_id": {"type":"string", "description":"⠹⠃⠃"},
-                    "goal": {"type":"string", "description":"⠹⠃⠉"},
-                    "task_type": {"type":"string", "description":"⠹⠃⠙"},
-                    "targeted_test_cmd": {"type":"string", "description":"⠹⠃⠑"},
-                    "accept_cmd": {"type":"string", "description":"⠹⠃⠋"},
-                    "quality_cmds": {"type":"array", "items":{"type":"string"}, "description":"⠹⠃⠛"},
-                    "test_scope": {"type":"array", "items":{"type":"string"}, "description":"⠹⠃⠓"},
-                    "club": {"type":"string", "default":"auto", "description":"⠹⠃⠊"},
-                    "routes": {"type":"object", "description":"⠹⠃⠚"}
-                },
-                "required": []
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("swarm_compile")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {

@@ -1529,7 +1529,7 @@ impl Viewer {
         compose: impl FnOnce() -> crate::stage::world_viz::overworld::Img,
     ) -> bool {
         self.place_game(frame, area, sequence, size, |cols, rows| {
-            Some(scaled_png(&compose(), size, cols, rows))
+            Some(scaled_png(&compose(), cols, rows))
         })
     }
 
@@ -1564,7 +1564,7 @@ impl Viewer {
             key,
             Box::new(move || {
                 let img = compose();
-                Some(scaled_png(&img, size, cols, rows))
+                Some(scaled_png(&img, cols, rows))
             }),
         );
         // The first picture at a size is waited for; after that the last
@@ -2310,19 +2310,11 @@ fn bottom_right_protocol_area(proto: &Pic, available: Rect) -> Rect {
 /// the picture stays small enough to send sixty times a second.
 fn scaled_png(
     img: &crate::stage::world_viz::overworld::Img,
-    size: (u32, u32),
     cols: u16,
     rows: u16,
 ) -> Vec<u8> {
     let (cw, ch) = cell_shape();
     let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
-    if size.0 == crate::stage::world_viz::overworld::arena::art_v2::WIDTH as u32 {
-        // The 2x art tier (whatever height the seat adds, the party band)
-        // has its own coverage samples. Fit its RGB picture to the
-        // terminal's actual pixels without a second whole-multiple upload
-        // that wastes the frame budget.
-        return nearest_png(img, tw.round().max(1.0) as u32, th.round().max(1.0) as u32);
-    }
     let k = (tw / img.w.max(1) as f32)
         .max(th / img.h.max(1) as f32)
         .ceil()

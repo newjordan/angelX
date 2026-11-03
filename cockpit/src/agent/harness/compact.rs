@@ -381,7 +381,7 @@ pub(crate) fn age_tool_results(
     excerpt_hops: usize,
 ) -> InspectionAging {
     let _span = super::turn::background::span("aging_ms");
-    let result = age_tool_results_measured(
+    let (result, rewritten) = age_tool_results_measured(
         history,
         keep_hops,
         protect_tokens,
@@ -389,7 +389,9 @@ pub(crate) fn age_tool_results(
         age_effects,
         excerpt_hops,
     );
-    super::turn::background::observe(history);
+    if rewritten {
+        super::turn::background::observe(history);
+    }
     result
 }
 
@@ -400,7 +402,7 @@ fn age_tool_results_measured(
     min_bytes: usize,
     age_effects: bool,
     excerpt_hops: usize,
-) -> InspectionAging {
+) -> (InspectionAging, bool) {
     let protected = protected_tool_result_indices(history);
     let mut pending = HashMap::<String, (Option<(String, bool)>, usize)>::new();
     let mut completed = Vec::<(usize, Option<(String, bool)>, usize)>::new();
@@ -471,6 +473,7 @@ fn age_tool_results_measured(
     }
 
     let mut aged = InspectionAging::default();
+    let mut changed = false;
     for (index, identity, is_effect) in age_indices {
         let original_bytes = history[index].content.len();
         let mut bounded_identity = identity.chars().take(200).collect::<String>();
@@ -509,6 +512,7 @@ fn age_tool_results_measured(
             .bytes_saved
             .saturating_add(original_bytes.saturating_sub(receipt.len()) as u64);
         history[index].content = receipt.into();
+        changed = true;
     }
 
     // Second stage over messages that already carry an excerpt receipt: drop
@@ -549,9 +553,10 @@ fn age_tool_results_measured(
                 .bytes_saved
                 .saturating_add(receipt_len.saturating_sub(stripped.len()) as u64);
             history[index].content = stripped.into();
+            changed = true;
         }
     }
-    aged
+    (aged, changed)
 }
 
 /// Replace older exact copies of the same read/search result with a compact
@@ -564,15 +569,17 @@ pub(crate) fn dedupe_identical_inspection_results(
     min_bytes: usize,
 ) -> InspectionDedup {
     let _span = super::turn::background::span("aging_ms");
-    let result = dedupe_identical_inspection_results_measured(history, min_bytes);
-    super::turn::background::observe(history);
+    let (result, rewritten) = dedupe_identical_inspection_results_measured(history, min_bytes);
+    if rewritten {
+        super::turn::background::observe(history);
+    }
     result
 }
 
 fn dedupe_identical_inspection_results_measured(
     history: &mut [ChatMsg],
     min_bytes: usize,
-) -> InspectionDedup {
+) -> (InspectionDedup, bool) {
     let protected = protected_tool_result_indices(history);
     let mut pending: HashMap<String, (String, usize)> = HashMap::new();
     let mut completed = Vec::<(usize, String, usize)>::new();
@@ -615,6 +622,7 @@ fn dedupe_identical_inspection_results_measured(
 
     let mut newest = HashMap::<(usize, String, u64, usize), usize>::new();
     let mut dedup = InspectionDedup::default();
+    let mut changed = false;
     for (index, identity, epoch) in completed.into_iter().rev() {
         if protected.contains(&index) {
             continue;
@@ -655,8 +663,9 @@ fn dedupe_identical_inspection_results_measured(
             .bytes_saved
             .saturating_add(original_bytes.saturating_sub(receipt.len()) as u64);
         history[index].content = receipt.into();
+        changed = true;
     }
-    dedup
+    (dedup, changed)
 }
 
 fn tool_body(content: &str) -> &str {
@@ -1215,6 +1224,10 @@ pub(crate) fn refresh_knowledge_broker_with_prefix(
     let project_key = registry.atlas().project_key().to_string();
     let mut candidates =
         crate::agent::backplane::KnowledgeBroker::existing_candidates(history, &project_key);
+    // The Caddy card is re-rendered live below every turn; its digest moves
+    // with `dirty=`/`head=`, so a carried-over card would ride alongside the
+    // fresh one as a near-duplicate. Only the live card may nominate itself.
+    candidates.retain(|item| !item.source_id.starts_with("caddy:"));
     // Atlas is a live, revocable store. Conversation copies cannot nominate
     // themselves after a source changes, a review revokes them, or Atlas is off.
     let previous_atlas = history
@@ -1610,11 +1623,13 @@ fn recalled_notes_mark(omitted: usize) -> String {
     )
 }
 
-pub(crate) fn remove_auto_recall_notes(history: &mut Vec<ChatMsg>) {
+pub(crate) fn remove_auto_recall_notes(history: &mut Vec<ChatMsg>) -> bool {
+    let before = history.len();
     history.retain(|m| {
         !(matches!(m.role, ChatRole::System | ChatRole::Harness)
             && m.content.starts_with(AUTO_RECALL_NOTE_PREFIX))
     });
+    history.len() != before
 }
 
 const TASK_ANCHOR_MAX_TOKENS: usize = 8_000;
@@ -1928,6 +1943,7 @@ fn compaction_replacement(
 /// request. Best effort: an empty/too-small window or any summarizer failure is a
 /// no-op and the turn proceeds uncompacted.
 /// Returns whether it compacted.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn maybe_compact(
     club: &dyn Club,
@@ -1939,25 +1955,52 @@ pub(crate) fn maybe_compact(
     registry: &ToolRegistry,
     events: &mpsc::Sender<TurnEvent>,
 ) -> bool {
+    maybe_compact_measured(
+        club,
+        history,
+        budget,
+        keep_recent,
+        keep_recent_tokens,
+        tools,
+        registry,
+        events,
+    )
+    .0
+}
+
+/// [`maybe_compact`] reporting `(compacted, rewritten)`. A failed pass can still
+/// have stripped an auto-recall note, and the caller must observe that rewrite
+/// even though the history length alone may not move.
+#[allow(clippy::too_many_arguments)]
+fn maybe_compact_measured(
+    club: &dyn Club,
+    history: &mut Vec<ChatMsg>,
+    budget: usize,
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+    tools: &[ToolDef],
+    registry: &ToolRegistry,
+    events: &mpsc::Sender<TurnEvent>,
+) -> (bool, bool) {
     let store = &registry.store;
     let session_id = &registry.session_id;
     // Count the tool schemas as part of the request — they ride along on every
     // call and can be a large, otherwise-invisible slice of the window.
     if budget == 0 || estimate_tokens(history) + estimate_tool_tokens(tools) <= budget {
-        return false;
+        return (false, false);
     }
     // Over budget → we're about to summarize the window. Strip any auto-recall note
     // first: now that select_window folds a prior compaction note into the window,
     // a recall note sitting just after that old note would otherwise land inside
     // the window and get baked into the durable summary. Recall is background
     // reference (refreshed per turn by maybe_auto_recall), not summary material.
-    remove_auto_recall_notes(history);
+    let rewritten = remove_auto_recall_notes(history);
     let Some((sys_end, window_end)) = crate::agent::compaction::select_window_with_token_tail(
         history,
         keep_recent,
         keep_recent_tokens,
     ) else {
-        return false; // only preamble + protected tail, or too small to be worth it
+        return (false, rewritten); // only preamble + protected tail, or too small to be worth it
     };
     // Anti-thrash: don't spend a summarizer call to reclaim a trivial slice. If the
     // compactable middle is a small fraction of the budget (e.g. a huge protected
@@ -1965,7 +2008,7 @@ pub(crate) fn maybe_compact(
     let window_tokens = estimate_tokens(&history[sys_end..window_end]);
     let min_yield = (budget / 10).max(256);
     if window_tokens < min_yield {
-        return false;
+        return (false, rewritten);
     }
     let _ = events.send(TurnEvent::Notice("compacting context…".to_string()));
     // Keep the dedicated summarizer's per-call ceiling independent of the much
@@ -2010,7 +2053,7 @@ pub(crate) fn maybe_compact(
         budget,
         live,
     ) else {
-        return false; // best effort: leave history untouched on any failure
+        return (false, rewritten); // best effort: leave history untouched on any failure
     };
     // Splice the inline note in place of the window first — that alone preserves
     // the turn's thread. Then persist the drawers *off-thread*: a slow or hung
@@ -2021,7 +2064,7 @@ pub(crate) fn maybe_compact(
     let book_memory = book::continuity::compaction_memory(&history[sys_end..window_end]);
     let Ok(note) = park_compaction_window(&history[sys_end..window_end], &result.inline_note)
     else {
-        return false;
+        return (false, rewritten);
     };
     let note = constraint_retention_note(
         note,
@@ -2056,7 +2099,26 @@ pub(crate) fn maybe_compact(
     let _ = events.send(TurnEvent::Notice(format!(
         "{done}; operator task/answer contract retention recorded"
     )));
-    true
+    (true, true)
+}
+
+#[cfg(test)]
+std::thread_local! {
+    static COMPACTION_ENTRIES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+}
+
+/// Count boundary entries into the compaction pass, so tests can pin that an
+/// under-budget hop skips it while a pending model request still enters.
+#[cfg(test)]
+pub(crate) fn count_compaction_entries<T>(run: impl FnOnce() -> T) -> (T, usize) {
+    COMPACTION_ENTRIES.with(|probe| {
+        let prior = probe.replace(0);
+        let result = run();
+        let entries = probe.replace(prior);
+        (result, entries)
+    })
 }
 
 /// Hard-latency compaction used on the live turn boundary. The richer LLM
@@ -2076,7 +2138,7 @@ pub(crate) fn maybe_compact_for_turn(
     events: &mpsc::Sender<TurnEvent>,
 ) -> bool {
     let _span = super::turn::background::span("compaction_ms");
-    let result = maybe_compact_for_turn_measured(
+    let (compacted, rewritten) = maybe_compact_for_turn_measured(
         club,
         history,
         budget,
@@ -2086,8 +2148,10 @@ pub(crate) fn maybe_compact_for_turn(
         registry,
         events,
     );
-    super::turn::background::observe(history);
-    result
+    if rewritten {
+        super::turn::background::observe(history);
+    }
+    compacted
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2100,11 +2164,14 @@ fn maybe_compact_for_turn_measured(
     tools: &[ToolDef],
     registry: &ToolRegistry,
     events: &mpsc::Sender<TurnEvent>,
-) -> bool {
+) -> (bool, bool) {
+    #[cfg(test)]
+    COMPACTION_ENTRIES.with(|entries| entries.set(entries.get().saturating_add(1)));
     speak_cache_budget_lift(events);
     let model_requested = crate::agent::compaction::sync_compaction_uses_model();
-    if model_requested
-        && maybe_compact(
+    let mut rewritten = false;
+    if model_requested {
+        let (compacted, changed) = maybe_compact_measured(
             club,
             history,
             budget,
@@ -2113,29 +2180,32 @@ fn maybe_compact_for_turn_measured(
             tools,
             registry,
             events,
-        )
-    {
-        return true;
+        );
+        rewritten |= changed;
+        if compacted {
+            return (true, true);
+        }
     }
     if budget == 0 || estimate_tokens(history) + estimate_tool_tokens(tools) <= budget {
-        return false;
+        return (false, rewritten);
     }
-    remove_auto_recall_notes(history);
+    rewritten |= remove_auto_recall_notes(history);
     let Some((sys_end, window_end)) = crate::agent::compaction::select_window_with_token_tail(
         history,
         keep_recent,
         keep_recent_tokens,
     ) else {
-        return false;
+        return (false, rewritten);
     };
     let window_tokens = estimate_tokens(&history[sys_end..window_end]);
     if window_tokens < (budget / 10).max(256) {
-        return false;
+        return (false, rewritten);
     }
 
     if cache_stable_mode(club) {
         // Age while the window still holds full tool bodies.
-        let _ = age_tool_results_at_boundary(history);
+        let aged = age_tool_results_at_boundary(history);
+        rewritten |= aged.results > 0 || aged.excerpts_dropped > 0;
     }
     let started = Instant::now();
     let _ = events.send(TurnEvent::Notice(
@@ -2158,14 +2228,14 @@ fn maybe_compact_for_turn_measured(
         budget,
         live,
     ) else {
-        return false;
+        return (false, rewritten);
     };
     let n = result.drawers.len();
     let recovery_context = crate::agent::club::recovery_context_refs(&history[sys_end..window_end]);
     let book_memory = book::continuity::compaction_memory(&history[sys_end..window_end]);
     let Ok(note) = park_compaction_window(&history[sys_end..window_end], &result.inline_note)
     else {
-        return false;
+        return (false, rewritten);
     };
     let note = constraint_retention_note(
         note,
@@ -2201,7 +2271,7 @@ fn maybe_compact_for_turn_measured(
     let _ = events.send(TurnEvent::Notice(format!(
         "{done}; operator task/answer contract retention recorded"
     )));
-    true
+    (true, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -2340,6 +2410,20 @@ fn bg_compact_pct() -> usize {
     env_usize("ANGEL_COMPACT_BG_PCT", 80)
 }
 
+/// Whether the early background pass should arm at this usage. Mirrors the
+/// legacy gate exactly: `ANGEL_COMPACT_BG_PCT=0` (or any value ≥100) disables
+/// the pass, and a mid value arms at `used >= budget * pct / 100`. The hop
+/// boundary makes this decision before calling the pass, so an under-threshold
+/// hop pays no full-history rescan; the pass itself re-checks with its own
+/// estimate before snapshotting anything.
+pub(crate) fn bg_compact_due(used: usize, budget: usize) -> bool {
+    let pct = bg_compact_pct();
+    if budget == 0 || pct == 0 || pct >= 100 {
+        return false;
+    }
+    used >= budget.saturating_mul(pct) / 100
+}
+
 /// Owned summarizer for a background pass: the explicit `ANGEL_COMPACT_URL`
 /// club, else the first reachable local fleet club. `None` when the only
 /// candidate would be the in-hand club — it is borrowed for the turn and busy
@@ -2387,7 +2471,7 @@ pub(crate) fn maybe_start_bg_compact(
         return;
     }
     let used = estimate_tokens(history) + estimate_tool_tokens(tools);
-    if used < budget.saturating_mul(pct) / 100 {
+    if !bg_compact_due(used, budget) {
         return;
     }
     let mut state = registry
@@ -2435,9 +2519,11 @@ pub(crate) fn maybe_start_bg_compact(
     };
     registry.auxiliary.utility_entered("background_compaction");
     let worker_span = super::turn::background::span("compaction_ms");
+    let book_catalog = book::catalog::current();
     let spawned = std::thread::Builder::new()
         .name("bg-compact".into())
         .spawn(move || {
+            let _book_catalog = book_catalog.map(book::catalog::enter);
             let _worker_span = worker_span;
             // A third-party/local club implementation can panic. Convert that
             // into an ordinary failed pass so the registry slot is released at
@@ -2492,15 +2578,16 @@ pub(crate) fn try_splice_bg_compact(
     events: &mpsc::Sender<TurnEvent>,
 ) {
     let _span = super::turn::background::span("compaction_ms");
-    try_splice_bg_compact_measured(registry, history, events);
-    super::turn::background::observe(history);
+    if try_splice_bg_compact_measured(registry, history, events) {
+        super::turn::background::observe(history);
+    }
 }
 
 fn try_splice_bg_compact_measured(
     registry: &ToolRegistry,
     history: &mut Vec<ChatMsg>,
     events: &mpsc::Sender<TurnEvent>,
-) {
+) -> bool {
     let mut state = registry
         .bg_compact
         .lock()
@@ -2524,13 +2611,13 @@ fn try_splice_bg_compact_measured(
             // next attempt instead of respawning at the next boundary.
             state.note_failure(Instant::now());
         }
-        return;
+        return false;
     }
     let Some(bg) = state.slot.as_ref() else {
-        return;
+        return false;
     };
     if !bg.done.load(Ordering::Acquire) {
-        return; // still summarizing
+        return false; // still summarizing
     }
     let Some(outcome) = bg
         .result
@@ -2538,7 +2625,7 @@ fn try_splice_bg_compact_measured(
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .take()
     else {
-        return;
+        return false;
     };
     let bg = state.slot.take().expect("slot checked non-empty above");
     let Some(result) = outcome else {
@@ -2552,7 +2639,7 @@ fn try_splice_bg_compact_measured(
             bg.summarizer_label,
             cooldown.as_secs()
         )));
-        return;
+        return false;
     };
     // The summarizer produced a result — the route is healthy either way the
     // splice goes, so clear any failure backoff now.
@@ -2562,7 +2649,7 @@ fn try_splice_bg_compact_measured(
         let _ = events.send(TurnEvent::Notice(
             "background compaction discarded — history changed under it".to_string(),
         ));
-        return;
+        return false;
     };
     let n = result.drawers.len();
     let newer_user_survives = history[start + bg.window.len()..]
@@ -2591,7 +2678,7 @@ fn try_splice_bg_compact_measured(
     let recovery_context = crate::agent::club::recovery_context_refs(&bg.window);
     let book_memory = book::continuity::compaction_memory(&bg.window);
     let Ok(note) = park_compaction_window(&bg.window, &result.inline_note) else {
-        return;
+        return false;
     };
     let note = constraint_retention_note(
         note,
@@ -2626,6 +2713,7 @@ fn try_splice_bg_compact_measured(
     let _ = events.send(TurnEvent::Notice(format!(
         "{done}; operator task/answer contract retention recorded"
     )));
+    true
 }
 
 /// Locate `window` as a contiguous run inside `history` (first match).

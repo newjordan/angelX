@@ -1,0 +1,417 @@
+# crates/delve/src/rules/crossroads.rs — three cards between every third floor and the next.
+# Game is its snake_case name; Stage is "voting" | "playing" | "results".
+
+def crossroads.VOTE_TIME() -> U32:
+  (20 * rules.HZ() : U32)
+
+def crossroads.RESULTS_TIME() -> U32:
+  (5 * rules.HZ() : U32)
+
+def crossroads.DEATHMATCH_TIME() -> U32:
+  (180 * rules.HZ() : U32)
+
+def crossroads.Game.ALL(+i: U32) -> String:
+  gc.nth_s(["powder", "gander", "shaft", "griffin", "touge", "deathmatch"], i)
+
+def crossroads.Game.name(+g: String) -> String:
+  if String.eq(g, "powder"):
+    "POWDER KEG"
+  else:
+    if String.eq(g, "gander"):
+      "GANDER JOUST"
+    else:
+      if String.eq(g, "shaft"):
+        "SHAFT RUN"
+      else:
+        if String.eq(g, "griffin"):
+          "GRIFFIN RUN"
+        else:
+          if String.eq(g, "touge"):
+            "TORCHLIGHT TOUGE"
+          else:
+            "KNIGHTS WISH"
+
+def crossroads.Game.words(+g: String) -> String:
+  if String.eq(g, "powder"):
+    "DROP DODGE OUTLAST"
+  else:
+    if String.eq(g, "gander"):
+      "FLAP CLIMB STOMP"
+    else:
+      if String.eq(g, "shaft"):
+        "ROLL DON'T FALL"
+      else:
+        if String.eq(g, "griffin"):
+          "FLY AND SHOOT"
+        else:
+          if String.eq(g, "touge"):
+            "DRIFT THEN BOOST"
+          else:
+            "TEN KILLS WINS"
+
+# Game::course(): the race3d course for the race games, "" for the rest.
+def crossroads.Game.course(+g: String) -> String:
+  if Bool.or(String.eq(g, "shaft"), Bool.or(String.eq(g, "griffin"), String.eq(g, "touge"))):
+    g
+  else:
+    ""
+
+# pub fn gold(place)
+def crossroads.gold(+place: U32) -> U32:
+  if U32.is_eq(place, 0):
+    100
+  else:
+    gc.pu(U32.is_eq(place, 1), 60, 30)
+
+def crossroads.State.voting(+c: J.Val) -> Bool:
+  String.eq(gc.s(c, "stage"), "voting")
+
+# Run::crossroads_voting()
+def crossroads.Run.crossroads_voting(+run: J.Val) -> Bool:
+  if J.is_null(J.get(run, "crossroads")):
+    False{}
+  else:
+    crossroads.State.voting(J.get(run, "crossroads"))
+
+# State::counts(): how many votes each of the three cards has.
+def crossroads.State.count(+c: J.Val, +i: U32) -> U32:
+  crossroads.count_votes(gc.vals_any(J.get(c, "votes")), i)
+
+def crossroads.count_votes(+vs: List<&2, J.Val>, +i: U32) -> U32:
+  match vs as List<&2, J.Val>:
+    case Nil{}:
+      0
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      (gc.pu(U32.is_eq(J.u32(h), i), 1, 0) + crossroads.count_votes(t, i) : U32)
+
+# State::winner(): most votes wins; equal counts keep the earlier card, even at zero.
+def crossroads.State.winner(+c: J.Val) -> U32:
+  crossroads.winner.go(crossroads.State.count(c, 0), crossroads.State.count(c, 1), crossroads.State.count(c, 2))
+
+def crossroads.winner.go(+n0: U32, +n1: U32, +n2: U32) -> U32:
+  if Bool.and(U32.is_ge(n0, n1), U32.is_ge(n0, n2)):
+    0
+  else:
+    gc.pu(U32.is_ge(n1, n2), 1, 2)
+
+# The seated ids: every player who is not absent.
+def crossroads.seats(+players: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      gc.ifx_us(Bool.not(gc.b(gc.seat(players, id), "absent")), id, crossroads.seats(players, t))
+
+# The cards dealt: Game::ALL (minus the deathmatch with fewer than two seats), shuffled from the back.
+def crossroads.pool(+deathmatch: Bool) -> List<&2, String>:
+  if deathmatch:
+    ["powder", "gander", "shaft", "griffin", "touge", "deathmatch"]
+  else:
+    ["powder", "gander", "shaft", "griffin", "touge"]
+
+def crossroads.swap(+xs: List<&2, String>, +i: U32, +j: U32) -> List<&2, String>:
+  a: String = gc.nth_s(xs, i)
+  b: String = gc.nth_s(xs, j)
+  crossroads.set_at(crossroads.set_at(xs, i, b), j, a)
+
+def crossroads.set_at(+xs: List<&2, String>, +i: U32, +v: String) -> List<&2, String>:
+  match xs as List<&2, String>:
+    case Nil{}:
+      Nil{}
+    case Con{h: String, t: List<&2, String>}:
+      if U32.is_zero(i):
+        v <> t
+      else:
+        h <> crossroads.set_at(t, (i - 1 : U32), v)
+
+# for i in (1..len).rev() { j = rng.next() % (i + 1); pool.swap(i, j) }
+def crossroads.shuffle(+xs: List<&2, String>, +rng: W.W, +i: U32) -> List<&2, String>:
+  if U32.is_zero(i):
+    xs
+  else:
+    r: W.W & W.W = loot.Rng.next(rng)
+    (rng2: W.W, out: W.W) = r
+    crossroads.shuffle(crossroads.swap(xs, i, W.rem_u32(out, (i + 1 : U32))), rng2, (i - 1 : U32))
+
+# fn begin_crossroads(&mut self, depth, pack)
+def crossroads.Run.begin_crossroads(+run: J.Val, +depth: U32, +pack: J.Val) -> J.Val:
+  seats: List<&2, U32> = crossroads.seats(J.get(run, "players"), gc.ids(J.get(run, "players")))
+  rng: W.W = loot.Rng.new(rules.mix(W.xor(W.xor(W.of_j(J.get(run, "seed")), W.rotl(W.of_j(J.get(run, "raid_id")), 17)), W.of_u32(gc.u(J.get(run, "dungeon"), "depth")))))
+  n: U32 = gc.pu(U32.is_ge(gc.len_u(seats), 2), 6, 5)
+  pool: List<&2, String> = crossroads.shuffle(crossroads.pool(U32.is_ge(gc.len_u(seats), 2)), rng, (n - 1 : U32))
+  r1: J.Val = crossroads.arrive_all(run, gc.ids(J.get(run, "players")))
+  r2: J.Val = J.set(r1, "floor_plates", J.obj())
+  r3: J.Val = hitstop.State.put(r2, J.obj())
+  r4: J.Val = fellowship.State.clear(r3)
+  c: J.Val = crossroads.State.new(depth, pack, pool, seats)
+  gc.sound(J.set(r4, "crossroads", c), "card_pickup")
+
+def crossroads.State.new(+depth: U32, +pack: J.Val, +pool: List<&2, String>, +seats: List<&2, U32>) -> J.Val:
+  c0: J.Val = gc.su(J.set(J.obj(), "pack", pack), "depth", depth)
+  c1: J.Val = J.set(c0, "choices", J.JA{[J.JS{gc.nth_s(pool, 0)}, J.JS{gc.nth_s(pool, 1)}, J.JS{gc.nth_s(pool, 2)}]})
+  c2: J.Val = J.set(c1, "seats", gc.of_us(seats))
+  c3: J.Val = gc.ss(J.set(c2, "votes", J.obj()), "stage", "voting")
+  c4: J.Val = gc.snull(gc.su(c3, "left", crossroads.VOTE_TIME()), "chosen")
+  J.set(c4, "order", J.JA{Nil{}})
+
+# playtest.arrive for every player, then the seat's menu shut.
+def crossroads.arrive_all(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      crossroads.arrive_all(crossroads.arrive_one(run, id), t)
+
+def crossroads.arrive_one(+run: J.Val, +id: U32) -> J.Val:
+  pt: J.Val = votes.State.arrive(J.get(run, "playtest"), id, gc.s(gc.seat(J.get(run, "players"), id), "name"))
+  seat: J.Val = gc.sb(gc.su(gc.su(gc.seat(J.get(pt, "seats"), id), "selected", 0), "hint", 0), "open", False{})
+  J.set(run, "playtest", J.set(pt, "seats", gc.put_seat(J.get(pt, "seats"), id, seat)))
+
+# fn crossroads_command(&mut self, id, command)
+def crossroads.Run.crossroads_command(+run: J.Val, +id: U32, +cmd: J.Val) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  if Bool.or(Bool.not(votes.Command.valid(cmd)), Bool.not(Bool.and(Bool.and(Bool.not(J.is_null(c)), crossroads.State.voting(c)), gc.has_u(id, gc.us(J.get(c, "seats")))))):
+    run
+  else:
+    hero: J.Val = gc.seat(J.get(run, "players"), id)
+    if Bool.or(J.is_null(hero), Bool.or(gc.b(hero, "absent"), rules.Run.away(run, id))):
+      run
+    else:
+      crossroads.command.seat(crossroads.arrive_name(run, id, gc.s(hero, "name")), id, cmd)
+
+# playtest.arrive(id, name) only.
+def crossroads.arrive_name(+run: J.Val, +id: U32, +name: String) -> J.Val:
+  J.set(run, "playtest", votes.State.arrive(J.get(run, "playtest"), id, name))
+
+def crossroads.command.seat(+run: J.Val, +id: U32, +cmd: J.Val) -> J.Val:
+  seat: J.Val = gc.seat(J.get(J.get(run, "playtest"), "seats"), id)
+  if W.le(W.of_j(J.get(cmd, "serial")), W.of_j(J.get(seat, "serial"))):
+    run
+  else:
+    sel: U32 = gc.umin(gc.u(seat, "selected"), 2)
+    act: String = votes.Action.name(J.get(cmd, "action"))
+    crossroads.command.act(run, id, J.get(cmd, "serial"), sel, act, votes.Action.rate(J.get(cmd, "action")))
+
+def crossroads.command.act(+run: J.Val, +id: U32, +serial: J.Val, +sel: U32, +act: String, +n: U32) -> J.Val:
+  if Bool.and(String.eq(act, "rate"), Bool.and(U32.is_ge(n, 1), U32.is_le(n, 3))):
+    crossroads.command.put(crossroads.command.vote(run, id, J.JU{(n - 1 : U32)}), id, serial, (n - 1 : U32))
+  else:
+    if Bool.or(String.eq(act, "left"), String.eq(act, "up")):
+      crossroads.command.put(run, id, serial, U32.mod((sel + 2 : U32), 3))
+    else:
+      if Bool.or(String.eq(act, "right"), String.eq(act, "down")):
+        crossroads.command.put(run, id, serial, U32.mod((sel + 1 : U32), 3))
+      else:
+        if String.eq(act, "clear"):
+          crossroads.command.put(J.set(run, "crossroads", J.set(J.get(run, "crossroads"), "votes", J.del(J.get(J.get(run, "crossroads"), "votes"), gc.key(id)))), id, serial, sel)
+        else:
+          crossroads.command.put(run, id, serial, sel)
+
+def crossroads.command.vote(+run: J.Val, +id: U32, +v: J.Val) -> J.Val:
+  J.set(run, "crossroads", J.set(J.get(run, "crossroads"), "votes", J.set(J.get(J.get(run, "crossroads"), "votes"), gc.key(id), v)))
+
+# seat.serial = command.serial; seat.selected = sel
+def crossroads.command.put(+run: J.Val, +id: U32, +serial: J.Val, +sel: U32) -> J.Val:
+  J.set(run, "playtest", votes.State.put(votes.State.put(J.get(run, "playtest"), id, "serial", serial), id, "selected", J.JU{sel}))
+
+# fn tick_crossroads(&mut self, inputs)
+def crossroads.Run.tick_crossroads(+run: J.Val, +inputs: J.Val) -> J.Val:
+  r1: J.Val = J.set(run, "tick", W.to_j(W.add_u32(gc.tick(run), 1)))
+  r2: J.Val = hitstop.State.put(r1, J.obj())
+  stage: String = gc.s(J.get(r2, "crossroads"), "stage")
+  if String.eq(stage, "voting"):
+    crossroads.tick.voting(r2, inputs)
+  else:
+    if String.eq(stage, "playing"):
+      crossroads.tick.playing(r2, inputs)
+    else:
+      crossroads.tick.results(r2)
+
+def crossroads.tick.voting(+run: J.Val, +inputs: J.Val) -> J.Val:
+  seats: List<&2, U32> = crossroads.seats(J.get(run, "players"), gc.ids(J.get(run, "players")))
+  c: J.Val = J.get(run, "crossroads")
+  c1: J.Val = J.set(J.set(c, "seats", gc.of_us(seats)), "votes", gc.retain_seats(J.get(c, "votes"), crossroads.set_of(seats)))
+  r1: J.Val = J.set(run, "crossroads", c1)
+  r2: J.Val = crossroads.tick.votes(r1, inputs, gc.ids(inputs))
+  c2: J.Val = J.get(r2, "crossroads")
+  pending: Bool = crossroads.pending(r2, gc.us(J.get(c2, "seats")))
+  left: U32 = gc.ssub(gc.u(c2, "left"), 1)
+  r3: J.Val = J.set(r2, "crossroads", gc.su(c2, "left", left))
+  if Bool.or(Bool.not(pending), U32.is_zero(left)):
+    crossroads.Run.launch_crossroads(r3)
+  else:
+    r3
+
+# An object keyed by id whose keys are `seats`.
+def crossroads.set_of(+ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      J.obj()
+    case Con{id: U32, t: List<&2, U32>}:
+      J.set(crossroads.set_of(t), gc.key(id), J.JBool{True{}})
+
+# for (id, input) in inputs.filter(valid) { if let Some(command) = input.vote { vote_command } }
+def crossroads.tick.votes(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      i: J.Val = gc.seat(inputs, id)
+      if Bool.and(rules.Input.valid(i), Bool.not(J.is_null(J.get(i, "vote")))):
+        crossroads.tick.votes(votes.Run.vote_command(run, id, J.get(i, "vote")), inputs, t)
+      else:
+        crossroads.tick.votes(run, inputs, t)
+
+# any seat present, not absent, not away, with no vote cast
+def crossroads.pending(+run: J.Val, +seats: List<&2, U32>) -> Bool:
+  match seats as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{id: U32, t: List<&2, U32>}:
+      here: Bool = Bool.and(gc.has_seat(J.get(run, "players"), id), Bool.not(gc.b(gc.seat(J.get(run, "players"), id), "absent")))
+      Bool.or(Bool.and(here, Bool.and(Bool.not(rules.Run.away(run, id)), Bool.not(gc.has_seat(J.get(J.get(run, "crossroads"), "votes"), id)))), crossroads.pending(run, t))
+
+def crossroads.tick.playing(+run: J.Val, +inputs: J.Val) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  game: String = J.str(J.nth(J.get(c, "choices"), gc.u(c, "chosen")))
+  if String.eq(game, "deathmatch"):
+    crossroads.tick.deathmatch(deathmatch.Run.tick_deathmatch(run, inputs))
+  else:
+    if Bool.not(String.is_empty(crossroads.Game.course(game))):
+      r1: J.Val = race3d.Run.tick_race3d(run, inputs)
+      r: J.Val = J.get(r1, "race3d")
+      if Bool.and(Bool.not(J.is_null(r)), gc.b(r, "done")):
+        crossroads.Run.finish_crossroads(r1, race3d.Race3d.order(r))
+      else:
+        r1
+    else:
+      r1: J.Val = pastimes.Run.tick_pastimes(run, inputs)
+      if Bool.and(String.eq(gc.s(J.get(r1, "crossroads"), "stage"), "playing"), J.is_null(J.get(J.get(r1, "pastimes"), "heat"))):
+        crossroads.Run.finish_crossroads(r1, Nil{})
+      else:
+        r1
+
+def crossroads.tick.deathmatch(+run: J.Val) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  left: U32 = gc.ssub(gc.u(c, "left"), 1)
+  r1: J.Val = J.set(run, "crossroads", gc.su(c, "left", left))
+  s: J.Val = J.get(r1, "deathmatch")
+  if J.is_null(s):
+    crossroads.Run.finish_crossroads(r1, Nil{})
+  else:
+    if Bool.or(Bool.not(J.is_null(J.get(s, "winner"))), U32.is_zero(left)):
+      crossroads.Run.finish_crossroads(r1, deathmatch.Session.order(s))
+    else:
+      r1
+
+def crossroads.tick.results(+run: J.Val) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  left: U32 = gc.ssub(gc.u(c, "left"), 1)
+  if U32.is_zero(left):
+    r1: J.Val = J.set(J.set(run, "crossroads", J.JNull{}), "pastimes", pastimes.State.leave(J.get(run, "pastimes")))
+    floors.Run.finish_descent(J.set(r1, "race3d", J.JNull{}), gc.u(c, "depth"), J.get(c, "pack"), False{})
+  else:
+    J.set(run, "crossroads", gc.su(c, "left", left))
+
+# fn launch_crossroads(&mut self)
+def crossroads.Run.launch_crossroads(+run: J.Val) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  seats: List<&2, U32> = crossroads.present(J.get(run, "players"), gc.us(J.get(c, "seats")))
+  w: U32 = crossroads.State.winner(c)
+  chosen: U32 = crossroads.chosen(J.get(c, "choices"), w, gc.len_u(seats))
+  game: String = J.str(J.nth(J.get(c, "choices"), chosen))
+  c1: J.Val = gc.su(gc.ss(gc.su(J.set(c, "seats", gc.of_us(seats)), "chosen", chosen), "stage", "playing"), "left", gc.pu(String.eq(game, "deathmatch"), crossroads.DEATHMATCH_TIME(), 0))
+  r1: J.Val = crossroads.clear_arenas(J.set(run, "crossroads", c1))
+  r2: J.Val = crossroads.start_game(r1, game, seats)
+  if J.is_null(J.get(r2, "crossroads")):
+    r2
+  else:
+    if U32.is_zero(gc.len(J.items(J.get(J.get(r2, "crossroads"), "seats")))):
+      crossroads.Run.finish_crossroads(r2, Nil{})
+    else:
+      r2
+
+# c.seats.retain(|id| players has id && !absent)
+def crossroads.present(+players: J.Val, +seats: List<&2, U32>) -> List<&2, U32>:
+  match seats as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      gc.ifx_us(Bool.and(gc.has_seat(players, id), Bool.not(gc.b(gc.seat(players, id), "absent"))), id, crossroads.present(players, t))
+
+# The winner, but the deathmatch with fewer than two seats gives way to the leftmost playable card.
+def crossroads.chosen(+choices: J.Val, +w: U32, +n: U32) -> U32:
+  if Bool.and(String.eq(J.str(J.nth(choices, w)), "deathmatch"), U32.is_lt(n, 2)):
+    gc.pu(Bool.not(String.eq(J.str(J.nth(choices, 0)), "deathmatch")), 0, gc.pu(Bool.not(String.eq(J.str(J.nth(choices, 1)), "deathmatch")), 1, 2))
+  else:
+    w
+
+def crossroads.clear_arenas(+run: J.Val) -> J.Val:
+  r0: J.Val = J.set(run, "pastimes", pastimes.State.leave(J.get(run, "pastimes")))
+  r1: J.Val = J.set(J.set(J.set(J.set(r0, "race3d", J.JNull{}), "deathmatch", J.JNull{}), "folly", J.JNull{}), "bats", J.JNull{})
+  r2: J.Val = J.set(J.set(J.set(J.set(r1, "powder", J.JNull{}), "hop", J.JNull{}), "gantry", J.JNull{}), "joust", J.JNull{})
+  r3: J.Val = J.set(J.set(J.set(J.set(r2, "chariot", J.JNull{}), "window", J.JNull{}), "light", J.JNull{}), "rune", J.JNull{})
+  r4: J.Val = J.set(J.set(J.set(J.set(r3, "enemies", J.JA{Nil{}}), "projectiles", J.JA{Nil{}}), "traps", J.JA{Nil{}}), "rocks", J.JA{Nil{}})
+  J.set(J.set(r4, "gore", J.JA{Nil{}}), "spectacle", J.set(J.get(r4, "spectacle"), "corpses", J.JA{Nil{}}))
+
+def crossroads.start_game(+run: J.Val, +game: String, +seats: List<&2, U32>) -> J.Val:
+  if String.eq(game, "deathmatch"):
+    J.set(run, "deathmatch", deathmatch.Session.new(crossroads.pick_players(J.get(run, "players"), seats), J.get(run, "book")))
+  else:
+    if Bool.not(String.is_empty(crossroads.Game.course(game))):
+      race3d.Run.start_race3d_course(run, gc.u(run, "at"), game)
+    else:
+      crossroads.start_pastime(run, gc.nth_s(["powder", "gander"], gc.pu(String.eq(game, "powder"), 0, 1)))
+
+# players.filter(|id| seats.contains(id))
+def crossroads.pick_players(+players: J.Val, +seats: List<&2, U32>) -> J.Val:
+  match seats as List<&2, U32>:
+    case Nil{}:
+      J.obj()
+    case Con{id: U32, t: List<&2, U32>}:
+      J.set(crossroads.pick_players(players, t), gc.key(id), gc.seat(players, id))
+
+def crossroads.start_pastime(+run: J.Val, +game: String) -> J.Val:
+  room: J.Val = rules.Run.room(run)
+  cell: J.Val = J.get(room, "cell")
+  at: U32 = gc.u(run, "at")
+  made: J.Val = colosseum.room(colosseum.arena(game), gc.nu(cell, 0), gc.nu(cell, 1))
+  rooms: J.Val = J.set_nth(J.get(J.get(run, "dungeon"), "rooms"), at, J.set(made, "cleared", J.JBool{True{}}))
+  pastimes.Run.start_crossroads_pastime(J.set(run, "dungeon", J.set(J.get(run, "dungeon"), "rooms", rooms)), game)
+
+# pub(super) fn finish_crossroads(&mut self, order)
+def crossroads.Run.finish_crossroads(+run: J.Val, +order0: List<&2, U32>) -> J.Val:
+  c: J.Val = J.get(run, "crossroads")
+  if Bool.or(J.is_null(c), Bool.not(String.eq(gc.s(c, "stage"), "playing"))):
+    run
+  else:
+    seats: List<&2, U32> = gc.us(J.get(c, "seats"))
+    order: List<&2, U32> = crossroads.keep_order(order0, seats, J.get(run, "players"))
+    c1: J.Val = gc.su(gc.ss(J.set(c, "order", gc.of_us(order)), "stage", "results"), "left", crossroads.RESULTS_TIME())
+    r1: J.Val = J.set(J.set(run, "crossroads", c1), "deathmatch", J.JNull{})
+    gc.sound(crossroads.pay(r1, order, 0), "gold")
+
+def crossroads.keep_order(+order: List<&2, U32>, +seats: List<&2, U32>, +players: J.Val) -> List<&2, U32>:
+  match order as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      gc.ifx_us(Bool.and(gc.has_u(id, seats), gc.has_seat(players, id)), id, crossroads.keep_order(t, seats, players))
+
+# for (place, id) in order: a bank haul of crossroads gold; the winner wears the laurel and gains a wish.
+def crossroads.pay(+run: J.Val, +order: List<&2, U32>, +place: U32) -> J.Val:
+  match order as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      haul: J.Val = J.set(J.set(J.set(J.obj(), "hero", J.JU{id}), "spoils", gc.su(J.obj(), "gold", crossroads.gold(place))), "why", J.JS{"crossroads prize"})
+      r1: J.Val = gc.push(run, "bank", haul)
+      crossroads.pay(crossroads.pay.hero(r1, id, place), t, (place + 1 : U32))
+
+def crossroads.pay.hero(+run: J.Val, +id: U32, +place: U32) -> J.Val:
+  if gc.has_seat(J.get(run, "players"), id):
+    h: J.Val = gc.sb(gc.seat(J.get(run, "players"), id), "laurel", U32.is_zero(place))
+    h1: J.Val = gc.ifj(U32.is_zero(place), _ => gc.su(h, "wishes", gc.umin(gc.sadd(gc.u(h, "wishes"), 1), overclass.MOST_WISHES())), _ => h)
+    J.set(run, "players", gc.put_seat(J.get(run, "players"), id, h1))
+  else:
+    run

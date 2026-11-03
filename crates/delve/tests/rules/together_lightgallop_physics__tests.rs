@@ -1,9 +1,9 @@
 //! Lightgallop's momentum physics, proved on grey curves before any level is
 //! built: the flat, the hill, the half-pipe and the full loop. Integer
 //! throughout, so every run here replays exactly.
-use super::math::{Q, atan2};
-use super::rider::*;
-use super::terrain::{Builder, Kind, Path, Terrain, attach_ring, ring};
+use super::oracle::math::{Q, atan2};
+use super::oracle::rider::*;
+use super::oracle::terrain::{Builder, Kind, Path, Terrain, attach_ring, ring};
 
 const GROUND: i32 = 500;
 

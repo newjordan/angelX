@@ -4,7 +4,7 @@ use crate::agent::{
     harness::{Tool, book::labyrinth_campaign as legend},
 };
 use crate::drive::labyrinth;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::{
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
@@ -24,17 +24,10 @@ impl Tool for LabyrinthCampaignTool {
         "labyrinth_campaign"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: self.name().into(),
-            description: legend::CAMPAIGN.cells(),
-            params: json!({
-                "type":"object","properties":{
-                    "action":{"type":"string","enum":["start","run","status","cancel","check","recover","recheck"]},
-                    "id":{"type":"string","maxLength":80},"spec":labyrinth::entry::spec_schema(),
-                    "bundle":{"type":"string","maxLength":512}
-                },"required":["action"],"additionalProperties":false
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("labyrinth_campaign");
+        definition.description = legend::CAMPAIGN.cells();
+        definition.params["properties"]["spec"] = labyrinth::entry::spec_schema();
+        definition
     }
     fn workspace_write_scope_is_opaque(&self, args: &Value) -> bool {
         matches!(
@@ -59,4 +52,9 @@ impl Tool for LabyrinthCampaignTool {
         )
         .map(|value| value.to_string())
     }
+}
+
+#[cfg(test)]
+pub(crate) fn catalog_current_labyrinth_campaign() -> ToolDef {
+    LabyrinthCampaignTool::new(PathBuf::new(), None).def()
 }

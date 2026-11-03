@@ -1,29 +1,49 @@
 //! The surface arcade uses cached scenery. Only pads, six course markers and
 //! a tiny nuisance move per frame. Browser friends see the host's same picture.
 
-use super::super::ink::Img;
+use super::super::ink::{Img, text_width};
 use super::super::material as m;
-use super::{TILE, at, home};
+use super::{TILE, at};
 use crate::rules::{
     HZ, RoomKind, Run,
     pastimes::{self, Game},
 };
 
+/// One glyph onto the canvas without a heap `String`, for the per-frame
+/// pad/flag/gate labels the arcade draws every tick.
+fn glyph1(cv: &mut Img, x: i32, y: i32, c: char, ink: char) {
+    let mut buf = [0u8; 4];
+    cv.text(x, y, c.encode_utf8(&mut buf), ink);
+}
+
 fn ring(cv: &mut Img, x: i32, y: i32, radius: f32, ink: char) {
-    for n in 0..40 {
-        let a = n as f32 * std::f32::consts::TAU / 40.0;
-        cv.put(
-            x + (a.cos() * radius) as i32,
-            y + (a.sin() * radius) as i32,
-            ink,
-        );
+    // The 40 unit vectors are fixed; a ring only scales them by `radius`, so
+    // compute the trig once rather than 40 sin+cos per ring per frame.
+    static UNIT: std::sync::OnceLock<[(f32, f32); 40]> = std::sync::OnceLock::new();
+    let unit = UNIT.get_or_init(|| {
+        std::array::from_fn(|n| {
+            let a = n as f32 * std::f32::consts::TAU / 40.0;
+            (a.cos(), a.sin())
+        })
+    });
+    for (c, s) in unit {
+        cv.put(x + (*c * radius) as i32, y + (*s * radius) as i32, ink);
     }
 }
 
 fn cottage(cv: &mut Img, c: i32, r: i32, w: i32, h: i32, k: usize) {
     let (x, y, w, h) = (c * TILE, r * TILE, w * TILE, h * TILE);
     let roof = [m::ramp::THATCH, m::ramp::TILE, m::ramp::SLATE][k % 3];
-    m::house(cv, (x + 3, y - 6, w - 6, h + 4), &m::House { roof, stone: k % 2 == 0, windows: (w / 24).max(1) }, 100 + k as u32);
+    m::house(
+        cv,
+        (x + 3, y - 6, w - 6, h + 4),
+        &m::House {
+            roof,
+            stone: k % 2 == 0,
+            windows: (w / 24).max(1),
+        },
+        100 + k as u32,
+    );
 }
 
 pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
@@ -49,7 +69,13 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
             for (k, (c, r, w)) in [(3, 1, 5), (17, 1, 4)].into_iter().enumerate() {
                 let (x, y) = (c * TILE, r * TILE);
                 // A stall: striped awning over a boarded counter.
-                m::block(cv, (x + 3, y + 12, w * TILE - 6, 18), m::ramp::TIMBER, true, 110 + k as u32);
+                m::block(
+                    cv,
+                    (x + 3, y + 12, w * TILE - 6, 18),
+                    m::ramp::TIMBER,
+                    true,
+                    110 + k as u32,
+                );
                 for n in 0..w * TILE {
                     let stripe = (n / 8) % 2 == 0;
                     for d in 0..11 {
@@ -74,7 +100,13 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
                 cv.line(x + 10, 3 * TILE + 5, x + 20, 3 * TILE, 'P');
                 let ink = if x % 40 == 0 { 'R' } else { 'u' };
                 for d in 0..5 {
-                    cv.line(x + 7 + d / 2, 3 * TILE + 3 + d, x + 11 - d / 2, 3 * TILE + 3 + d, ink);
+                    cv.line(
+                        x + 7 + d / 2,
+                        3 * TILE + 3 + d,
+                        x + 11 - d / 2,
+                        3 * TILE + 3 + d,
+                        ink,
+                    );
                 }
             }
         }
@@ -122,8 +154,45 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             ('g', 'J')
         };
         ring(cv, x, y, 11.0, ring_ink);
-        let symbol = pad_letter(game).to_string();
-        cv.text(x - 2, y - 3, &symbol, letter_ink);
+        glyph1(cv, x - 2, y - 3, pad_letter(game), letter_ink);
+    }
+    if let Some(peal) = active
+        .filter(|r| r.game == Game::Peal)
+        .and_then(|r| r.peal.as_ref())
+    {
+        let (tx, ty) = Game::Peal.start();
+        let (x, y) = at(tx * 2.0, ty * 2.0);
+        // The rope up to the ringer's bell (drawn the tax bells' way), and
+        // the ring that closes on the bell as the beat comes: gold while a
+        // pull rings true, green once rung, red on a clanger. The ring's
+        // size is the time left in the swing.
+        let by = y - 3 * TILE;
+        let sway = (((peal.phase as f32 / peal.span() as f32) * std::f32::consts::TAU).sin() * 3.0) as i32;
+        let bell_ink = if peal.clang_flash > 0 { 'R' } else { 'O' };
+        // A timber A-frame carries the practice bell; the rope runs from
+        // the bell's mouth down to the ringer's hands at the pad.
+        cv.line(x - 8, by - 8, x - 15, y + 4, 'P');
+        cv.line(x + 8, by - 8, x + 15, y + 4, 'P');
+        cv.line(x - 8, by - 8, x + 8, by - 8, 'P');
+        cv.line(x + sway, by + 2, x, y - 2, 'P');
+        cv.ellipse((x + sway) as f32, by as f32, 7.0, 5.0, bell_ink);
+        cv.ellipse((x + sway) as f32, (by - 5) as f32, 4.0, 3.0, bell_ink);
+        cv.line(x + sway - 7, by + 5, x + sway + 7, by + 5, 'J');
+        cv.rect(x + sway - 1, by - 8, 2, 3, 'k');
+        cv.ellipse((x + sway) as f32, (by + 2) as f32, 2.0, 2.0, 'n');
+        cv.put(x + sway - 3, by - 2, 'H');
+        let left = peal.span().saturating_sub(peal.phase) as f32;
+        let radius = 8.0 + left * 12.0 / peal.span() as f32;
+        let ink = if peal.in_window() {
+            '4'
+        } else if peal.rung {
+            '2'
+        } else if peal.spoiled {
+            'R'
+        } else {
+            'g'
+        };
+        ring(cv, x + sway, by, radius, ink);
     }
     if kind == RoomKind::Village {
         for (i, (tx, ty)) in pastimes::MAILBOXES.into_iter().enumerate() {
@@ -132,57 +201,17 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 active.is_some_and(|r| r.game == Game::Broadsheet && r.recipients & (1 << i) != 0);
             let done =
                 active.is_some_and(|r| r.game == Game::Broadsheet && r.tried & (1 << i) != 0);
-            cv.rect(x - 2, y - 5, 4, 11, 'r');
-            cv.rect(x - 6, y - 11, 12, 8, 'B');
-            cv.line(x - 6, y - 11, x + 5, y - 11, if marked { 'O' } else { 'h' });
-            cv.rect(x - 3, y - 8, 6, 2, if done { 'g' } else { 'k' });
+            cv.rect(x - 1, y + 6, 2, 8, 'n');
+            cv.ellipse(x as f32, (y - 11) as f32, 6.0, 3.0, 'B');
+            cv.rect(x - 6, y - 11, 12, 10, 'B');
+            cv.rect(x - 3, y - 8, 6, 1, 'k');
+            cv.rect(x - 7, y - 1, 14, 2, 'n');
             if marked && !done {
-                cv.line(x + 6, y - 13, x + 6, y - 3, 'O');
-                cv.rect(x + 7, y - 13, 5, 4, 'O');
+                cv.line(x + 6, y - 13, x + 11, y - 11, 'O');
+                cv.line(x + 11, y - 11, x + 6, y - 9, 'O');
+                cv.line(x + 6, y - 9, x + 6, y - 13, 'O');
             }
         }
-    }
-    for game in [Game::Barrel, Game::Washtub]
-        .into_iter()
-        .filter(|g| g.room() == kind)
-    {
-        for i in 0..6 {
-            let (tx, ty) = if game == Game::Barrel {
-                pastimes::FLAGS[i]
-            } else {
-                pastimes::wake(i, run.tick)
-            };
-            let (x, y) = at(tx * 2.0, ty * 2.0);
-            let next = active.is_some_and(|r| r.game == game && usize::from(r.progress) == i);
-            let done = active.is_some_and(|r| r.game == game && usize::from(r.progress) > i);
-            let ink = if next {
-                'o'
-            } else if done {
-                'g'
-            } else {
-                'u'
-            };
-            ring(cv, x, y, if next { 12.0 } else { 8.0 }, ink);
-            if game == Game::Barrel {
-                cv.line(x, y - 14, x, y - 3, ink);
-                cv.rect(x + 1, y - 14, 7, 5, ink);
-            }
-            cv.text(x - 2, y - 2, &(i + 1).to_string(), ink);
-        }
-    }
-    if kind == RoomKind::Fairground {
-        let (tx, ty) = Game::Turnip.start();
-        let (x, y) = at(tx * 2.0, ty * 2.0);
-        let round = active.filter(|r| r.game == Game::Turnip);
-        let elapsed = round.map_or(0, |r| Game::Turnip.time() - r.left);
-        let phase = elapsed % HZ;
-        let height = ((phase as f32 / HZ as f32 * std::f32::consts::PI).sin() * 24.0) as i32;
-        // The catch cue lights only in a live round; at rest the turnip
-        // and its ring stand quiet.
-        let cue = round.is_some() && phase <= HZ / 5;
-        cv.rect(x - 4, y - height - 6, 8, 5, if cue { 'O' } else { 'h' });
-        cv.line(x, y - height - 8, x + 2, y - height - 11, 'g');
-        ring(cv, x, y, 14.0, if cue { '4' } else { 'r' });
     }
     super::coastal::put_figures(cv, run);
     super::woodland::cart_figures(cv, run);
@@ -209,10 +238,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         cv.line(x + 11, y, x + 11, y + 4, 'o');
         if let Some(cheese) = &round.cheese {
             let (x, y) = at(cheese.x as f32 / 256.0 * 2.0, cheese.y as f32 / 256.0 * 2.0);
-            cv.rect(x - 3, y - 3, 7, 7, 'O');
-            cv.rect(x - 2, y - 2, 5, 5, 'Y');
-            cv.rect(x - 1, y, 2, 1, 'o');
-            cv.rect(x + 1, y - 1, 1, 1, 'o');
+            cv.ellipse(x as f32, y as f32, 5.0, 4.0, 'O');
+            cv.ellipse(x as f32, y as f32, 4.0, 3.0, 'Y');
+            cv.put(x - 1, y - 1, 'o');
+            cv.put(x + 1, y, 'o');
+            cv.put(x, y + 1, 'o');
+            cv.line(x - 2, y + 2, x + 2, y - 2, 'o');
         }
     }
     if let Some(round) = active.filter(|r| r.game == Game::Powder) {
@@ -221,10 +252,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             // floor, stone posts on every other tile the way the trope has
             // them, bales on the rest, lanes open at each corner. Each
             // painter cell is half a tile.
-            let at_tile = |c: u8, r: u8| at(
-                f32::from(pastimes::POWDER_X0 + c) * 2.0,
-                f32::from(pastimes::POWDER_Y0 + r) * 2.0,
-            );
+            let at_tile = |c: u8, r: u8| {
+                at(
+                    f32::from(pastimes::POWDER_X0 + c) * 2.0,
+                    f32::from(pastimes::POWDER_Y0 + r) * 2.0,
+                )
+            };
             // The flagstone floor of its own: big pale slabs, cracks dark.
             for r in 0..pastimes::POWDER_H {
                 for c in 0..pastimes::POWDER_W {
@@ -331,7 +364,13 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let warm = f.left > pastimes::FIRE / 2;
                 // Signal inks: orange round a yellow heart while hot, red
                 // round orange as it burns, ember round red at the last.
-                let ink = if hot { '@' } else if warm { '7' } else { '8' };
+                let ink = if hot {
+                    '@'
+                } else if warm {
+                    '7'
+                } else {
+                    '8'
+                };
                 // The burst frame: a starburst where the keg stood.
                 if f.arm == 4 && f.left > pastimes::FIRE - 4 {
                     for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
@@ -343,7 +382,13 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
                 // The arm's own tile of flame, with tongues flickering.
                 cv.rect(x + 2, y + 2, 12, 12, ink);
-                let heart = if hot { '6' } else if warm { '@' } else { '7' };
+                let heart = if hot {
+                    '6'
+                } else if warm {
+                    '@'
+                } else {
+                    '7'
+                };
                 cv.rect(x + 5, y + 4, 6, 7, heart);
                 // Tongues licking up off every tile, flickering.
                 let lick = (run.tick + u64::from(f.col) * 5 + u64::from(f.row) * 7) % 3;
@@ -353,11 +398,79 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let flick = (run.tick + u64::from(f.col) * 3 + u64::from(f.row)) % 4;
                 let mut tongue = |tx: i32, ty: i32, ink: char| cv.put(tx, ty, ink);
                 match f.arm {
-                    0 => { tongue(x + 16 + flick as i32, y + 8, ink); tongue(x + 18, y + 6, ink); }
-                    1 => { tongue(x - 1 - flick as i32, y + 8, ink); tongue(x - 3, y + 10, ink); }
-                    2 => { tongue(x + 8, y + 16 + flick as i32, ink); tongue(x + 6, y + 18, ink); }
-                    3 => { tongue(x + 8, y - 1 - flick as i32, ink); tongue(x + 10, y - 3, ink); }
+                    0 => {
+                        tongue(x + 16 + flick as i32, y + 8, ink);
+                        tongue(x + 18, y + 6, ink);
+                    }
+                    1 => {
+                        tongue(x - 1 - flick as i32, y + 8, ink);
+                        tongue(x - 3, y + 10, ink);
+                    }
+                    2 => {
+                        tongue(x + 8, y + 16 + flick as i32, ink);
+                        tongue(x + 6, y + 18, ink);
+                    }
+                    3 => {
+                        tongue(x + 8, y - 1 - flick as i32, ink);
+                        tongue(x + 10, y - 3, ink);
+                    }
                     _ => {}
+                }
+            }
+            // Chain explosion visual: bright flash at both keg positions + connecting line.
+            if let Some((ticks, x1, y1, x2, y2)) = p.chain_flash {
+                if ticks > 0 {
+                    let (px1, py1) = at_tile(x1, y1);
+                    let (px2, py2) = at_tile(x2, y2);
+                    // Bright flash at both keg positions.
+                    let flash_ink = if ticks > 4 {
+                        'W'
+                    } else if ticks > 2 {
+                        '6'
+                    } else {
+                        '@'
+                    };
+                    cv.rect(px1 + 2, py1 + 2, 12, 12, flash_ink);
+                    cv.rect(px2 + 2, py2 + 2, 12, 12, flash_ink);
+                    cv.put(px1 + 8, py1 + 8, '9');
+                    cv.put(px2 + 8, py2 + 8, '9');
+                    // Connecting line between the two positions.
+                    let line_ink = if ticks > 3 { 'Y' } else { 'O' };
+                    let dx = px2 - px1;
+                    let dy = py2 - py1;
+                    let steps = dx.abs().max(dy.abs());
+                    if steps > 0 {
+                        for i in 0..=steps {
+                            let lx = px1 + dx * i / steps;
+                            let ly = py1 + dy * i / steps;
+                            cv.put(lx + 8, ly + 8, line_ink);
+                        }
+                    }
+                }
+            }
+            // Chain shockwave: expanding ring between the two keg positions.
+            if p.chain_shockwave > 0 {
+                if let Some((_, x1, y1, x2, y2)) = p.chain_flash {
+                    let (px1, py1) = at_tile(x1, y1);
+                    let (px2, py2) = at_tile(x2, y2);
+                    // Center point between the two kegs.
+                    let cx = (px1 + px2) / 2 + 8;
+                    let cy = (py1 + py2) / 2 + 8;
+                    // Expanding ring, fading out.
+                    let alpha = p.chain_shockwave as f32 / 6.0;
+                    let radius = 8.0 + (6.0 - p.chain_shockwave as f32) * 3.0;
+                    let ring_ink = if alpha > 0.6 {
+                        'O'
+                    } else if alpha > 0.3 {
+                        '6'
+                    } else {
+                        '@'
+                    };
+                    ring(cv, cx, cy, radius, ring_ink);
+                    // Inner bright ring on first few ticks.
+                    if p.chain_shockwave > 4 {
+                        ring(cv, cx, cy, radius * 0.6, 'W');
+                    }
                 }
             }
         }
@@ -370,26 +483,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.line(x, ly, x + 6, ly, 'g');
             cv.line(x, by, x + 6, by, 'g');
         }
+        // The hurdles themselves stand in the crowd (`pastimes::crowd`) so
+        // a window tilts them with the lane and shrinks them with distance.
         let current = active.filter(|r| r.game == Game::Hobbyhorse);
-        for (i, &fence) in pastimes::HURDLES.iter().enumerate() {
-            let (x, top) = at(fence * 2.0, pastimes::RIDING_LANE.0 * 2.0);
-            let (_, bottom) = at(fence * 2.0, pastimes::RIDING_LANE.1 * 2.0);
-            let ink = current.map_or('h', |r| {
-                if i < usize::from(r.progress) {
-                    'g'
-                } else if i == usize::from(r.progress) {
-                    'O'
-                } else {
-                    'h'
-                }
-            });
-            cv.line(x, top, x, bottom, ink);
-            for y in [top, bottom] {
-                cv.rect(x - 2, y - 4, 5, 8, 'o');
-                cv.put(x, y - 4, ink);
-            }
-            cv.text(x - 2, top - 10, &(i + 1).to_string(), ink);
-        }
         if let Some(round) = current {
             for (&id, rider) in &round.riders {
                 let Some(hero) = run
@@ -406,11 +502,18 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 } else {
                     0
                 };
-                // A very wooden hobbyhorse. The arc doesn't move collision.
-                cv.line(x + 5, y + 4, x + 11, y - 6 - lift, 'o');
-                cv.rect(x + 9, y - 11 - lift, 9, 6, 'O');
-                cv.rect(x + 10, y - 14 - lift, 3, 4, 'o');
-                cv.put(x + 16, y - 9 - lift, 'k');
+                // A hobbyhorse: stick, crossbar, horse-head silhouette.
+                let hx = x + 8;
+                let hy = y - 2 - lift;
+                cv.line(hx, hy + 2, hx, hy + 14, 'n'); // brown stick
+                cv.line(hx - 3, hy + 8, hx + 3, hy + 8, 'n'); // crossbar
+                cv.ellipse(hx as f32, (hy - 4) as f32, 3.0, 2.0, 'h'); // tan muzzle
+                cv.line(hx - 2, hy - 6, hx - 2, hy - 2, 'R'); // red mane
+                cv.put(hx + 1, hy - 3, 'k'); // nostril
+                cv.line(hx - 1, hy - 6, hx - 2, hy - 8, 'h'); // left ear
+                cv.line(hx + 1, hy - 6, hx + 2, hy - 8, 'h'); // right ear
+                cv.put(hx, hy - 5, 'k'); // eye
+                cv.line(hx + 2, hy - 4, hx + 3, hy - 4, 'o'); // mouth
                 if lift > 0 {
                     ring(cv, x, y - lift, 12.0, 'o');
                 }
@@ -418,40 +521,33 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         }
     }
     if kind == RoomKind::Crag {
+        // The six gates stand in the crowd (`pastimes::crowd`), each at
+        // its own row of the hill; the sled itself stays with the rider.
         let current = active.filter(|r| r.game == Game::Sled);
-        for (i, (gx, gy)) in pastimes::SLED_GATES.into_iter().enumerate() {
-            let (x, y) = at((gx * 2) as f32, (gy * 2) as f32);
-            let ink = if current.is_some_and(|r| usize::from(r.progress) == i) {
-                '5'
-            } else if current.is_some_and(|r| usize::from(r.progress) > i) {
-                '2'
-            } else {
-                'z'
-            };
-            for side in [-1, 1] {
-                for dx in -1..=1 {
-                    cv.line(x + dx, y + side * TILE, x + dx, y + side * (TILE + 12), ink);
-                }
-                cv.rect(x + 2, y + side * (TILE + 10), 8, 4, ink);
-            }
-            // The gate's number on a tag rimmed in the gate's own ink.
-            super::super::chrome::inset_panel(
-                cv,
-                (x - 6, y - 5, 13, 11),
-                super::super::chrome::Tone::SLATE.rimmed(super::super::chrome::rim_of(ink)),
-            );
-            cv.text(x - 2, y - 3, &(i + 1).to_string(), ink);
-        }
         if let Some(sled) = current.and_then(|r| r.sled.as_ref()) {
             let (x, y) = at(sled.x as f32 / 128.0, sled.y as f32 / 128.0);
-            cv.ellipse((x - 1) as f32, (y + 3) as f32, 10.0, 4.0, 's');
-            cv.line(x - 10, y + 3, x + 9, y + 3, '2');
-            cv.rect(x - 4, y - 7, 7, 9, 'u');
-            cv.rect(x - 3, y - 13, 6, 6, 'h');
-            cv.line(x - 2, y - 15, x + 7, y - 15, '5');
-            cv.line(x + 3, y - 7, x + 9, y - 1, 'h');
-            cv.put(x + 2, y - 11, 'k');
-            cv.line(x - 13, y + 6, x - 7, y + 6, 'h');
+            // Sled runners with curved fronts.
+            cv.line(x - 5, y, x - 3, y + 3, 's');
+            cv.line(x - 3, y + 3, x + 3, y + 3, 's');
+            cv.line(x + 5, y, x + 3, y + 3, 's');
+            cv.line(x + 3, y + 3, x - 3, y + 3, 's');
+            // Sled body as parallelogram (leaning posture).
+            cv.line(x - 3, y - 8, x + 3, y - 8, 'u');
+            cv.line(x - 4, y - 2, x + 2, y - 2, 'u');
+            cv.line(x - 3, y - 8, x - 4, y - 2, 'u');
+            cv.line(x + 3, y - 8, x + 2, y - 2, 'u');
+            // Round head.
+            cv.ellipse(x as f32, (y - 11) as f32, 3.0, 3.0, 'h');
+            // Bright visor.
+            cv.line(x - 2, y - 11, x + 2, y - 11, '2');
+            // Arms gripping reins.
+            cv.line(x - 4, y - 6, x - 7, y - 3, 'h');
+            cv.line(x + 2, y - 6, x + 5, y - 3, 'h');
+            // Orange scarf trailing behind.
+            cv.line(x + 3, y - 10, x + 7, y - 9, 'O');
+            cv.line(x + 7, y - 9, x + 10, y - 10, 'O');
+            // Motion blur line behind sled.
+            cv.line(x + 8, y - 5, x + 12, y - 5, 'j');
         }
     }
     if let Some(round) = active.filter(|r| {
@@ -489,12 +585,292 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
+/// The arcade's standing course markers join the room's crowd so a window
+/// tilts them with the floor and shrinks them with distance: Barrel flags,
+/// Washtub rings (their tile recomputes each tick) and the Turnip ball
+/// (feet on the ring, the bounce baked into its sprite). More games follow
+/// the same shape as they are pulled through.
+pub(super) fn crowd<'a>(
+    crowd: &mut Vec<(f32, u8, (f32, f32), Box<dyn FnOnce(&mut Img) + 'a>)>,
+    run: &'a Run,
+) {
+    let kind = run.room().kind;
+    let active = run.pastimes.round.as_ref();
+    if kind == Game::Barrel.room() {
+        for i in 0..6 {
+            let (tx, ty) = pastimes::FLAGS[i];
+            let next =
+                active.is_some_and(|r| r.game == Game::Barrel && usize::from(r.progress) == i);
+            let done =
+                active.is_some_and(|r| r.game == Game::Barrel && usize::from(r.progress) > i);
+            let ink = if next {
+                'o'
+            } else if done {
+                'g'
+            } else {
+                'u'
+            };
+            let radius = if next { 12.0 } else { 8.0 };
+            let frac = super::pixel_fraction(tx * 2.0, ty * 2.0);
+            let lift_px = if next { 3.0 } else { 0.0 };
+            crowd.push((
+                ty * 2.0,
+                2,
+                frac,
+                Box::new(move |cv| {
+                    super::super::arena::lift(lift_px);
+                    if lift_px > 0.0 {
+                        super::super::arena::glow();
+                    }
+                    let (x, y) = at(tx * 2.0, ty * 2.0);
+                    ring(cv, x, y, radius, ink);
+                    cv.line(x, y - 14, x, y - 3, ink);
+                    cv.rect(x + 1, y - 14, 7, 5, ink);
+                    glyph1(cv, x - 2, y - 2, char::from(b'1' + i as u8), ink);
+                }),
+            ));
+        }
+    }
+    if kind == Game::Washtub.room() {
+        for i in 0..6 {
+            let (tx, ty) = pastimes::wake(i, run.tick);
+            let next =
+                active.is_some_and(|r| r.game == Game::Washtub && usize::from(r.progress) == i);
+            let done =
+                active.is_some_and(|r| r.game == Game::Washtub && usize::from(r.progress) > i);
+            let ink = if next {
+                'o'
+            } else if done {
+                'g'
+            } else {
+                'u'
+            };
+            let radius = if next { 12.0 } else { 8.0 };
+            let frac = super::pixel_fraction(tx * 2.0, ty * 2.0);
+            let lift_px = if next { 3.0 } else { 0.0 };
+            crowd.push((
+                ty * 2.0,
+                2,
+                frac,
+                Box::new(move |cv| {
+                    super::super::arena::lift(lift_px);
+                    if lift_px > 0.0 {
+                        super::super::arena::glow();
+                    }
+                    let (x, y) = at(tx * 2.0, ty * 2.0);
+                    ring(cv, x, y, radius, ink);
+                    glyph1(cv, x - 2, y - 2, char::from(b'1' + i as u8), ink);
+                }),
+            ));
+        }
+    }
+    if kind == Game::Turnip.room() {
+        let (tx, ty) = Game::Turnip.start();
+        let round = active.filter(|r| r.game == Game::Turnip);
+        let elapsed = round.map_or(0, |r| Game::Turnip.time() - r.left);
+        let phase = elapsed % HZ;
+        let height = ((phase as f32 / HZ as f32 * std::f32::consts::PI).sin() * 24.0) as i32;
+        let cue = round.is_some() && phase <= HZ / 5;
+        let ring_ink = if cue { '4' } else { 'r' };
+        let ball_ink = if cue { 'O' } else { 'h' };
+        let frac = super::pixel_fraction(tx * 2.0, ty * 2.0);
+        let lift_px = if cue { 2.0 } else { 0.0 };
+        crowd.push((
+            ty * 2.0,
+            2,
+            frac,
+            Box::new(move |cv| {
+                super::super::arena::lift(lift_px);
+                if lift_px > 0.0 {
+                    super::super::arena::glow();
+                }
+                let (x, y) = at(tx * 2.0, ty * 2.0);
+                cv.ellipse(x as f32, (y - height) as f32, 5.0, 4.0, ball_ink);
+                cv.line(x - 2, y - height + 4, x - 3, y - height + 6, 'o');
+                cv.line(x, y - height + 4, x, y - height + 7, 'o');
+                cv.line(x + 2, y - height + 4, x + 3, y - height + 6, 'o');
+                cv.line(x, y - height - 4, x, y - height - 2, 'n');
+                cv.line(x - 1, y - height - 4, x - 2, y - height - 7, 'A');
+                cv.line(x, y - height - 4, x, y - height - 8, 'M');
+                cv.line(x + 1, y - height - 4, x + 2, y - height - 7, 'A');
+                cv.put(x - 2, y - height - 1, 'H');
+                ring(cv, x, y, 14.0, ring_ink);
+            }),
+        ));
+    }
+    if kind == RoomKind::Causeway {
+        // Six hurdles stand along the riding lane at the lane's foot, so a
+        // window leans them with the ground and a knight riding past reads
+        // as passing in front. The lane itself stays in scenery.
+        let current = active.filter(|r| r.game == Game::Hobbyhorse);
+        let foot = pastimes::RIDING_LANE.1 * 2.0;
+        for (i, &fence) in pastimes::HURDLES.iter().enumerate() {
+            let is_next = current.is_some_and(|r| i == usize::from(r.progress));
+            let is_cleared = current.is_some_and(|r| i < usize::from(r.progress));
+            let ink = current.map_or('h', |r| {
+                if i < usize::from(r.progress) {
+                    'g'
+                } else if i == usize::from(r.progress) {
+                    'O'
+                } else {
+                    'h'
+                }
+            });
+            let crossbar_ink = if is_next { 'Y' } else { ink };
+            let frac = super::pixel_fraction(fence * 2.0, foot);
+            let lift_px = if is_next { 2.0 } else { 0.0 };
+            crowd.push((
+                foot,
+                2,
+                frac,
+                Box::new(move |cv| {
+                    super::super::arena::lift(lift_px);
+                    if lift_px > 0.0 {
+                        super::super::arena::glow();
+                    }
+                    let (x, top) = at(fence * 2.0, pastimes::RIDING_LANE.0 * 2.0);
+                    let (_, bottom) = at(fence * 2.0, pastimes::RIDING_LANE.1 * 2.0);
+                    cv.rect(x - 8, top, 2, bottom - top, 'n');
+                    cv.rect(x + 6, top, 2, bottom - top, 'n');
+                    cv.rect(x - 8, (top + bottom) / 2 - 1, 16, 2, crossbar_ink);
+                    cv.rect(x - 9, bottom, 4, 2, 'n');
+                    cv.rect(x + 5, bottom, 4, 2, 'n');
+                    cv.line(x - 6, bottom - 2, x - 2, (top + bottom) / 2, 'n');
+                    cv.line(x + 6, bottom - 2, x + 2, (top + bottom) / 2, 'n');
+                    let glyph_ink = if is_cleared { 'g' } else { crossbar_ink };
+                    glyph1(cv, x - 2, top - 10, char::from(b'1' + i as u8), glyph_ink);
+                }),
+            ));
+        }
+    }
+    if kind == RoomKind::Crag {
+        // A Sled gate stands in its own row of the hill, alternating near
+        // and far, so each is tilted and scaled by its own depth. The
+        // slope and the sled itself stay flat (slope = floor, sled = rider).
+        let current = active.filter(|r| r.game == Game::Sled);
+        for (i, (gx, gy)) in pastimes::SLED_GATES.into_iter().enumerate() {
+            let ink = if current.is_some_and(|r| usize::from(r.progress) == i) {
+                '5'
+            } else if current.is_some_and(|r| usize::from(r.progress) > i) {
+                '2'
+            } else {
+                'z'
+            };
+            let depth = (gy * 2) as f32;
+            let frac = super::pixel_fraction((gx * 2) as f32, depth);
+            let is_next = current.is_some_and(|r| usize::from(r.progress) == i);
+            let lift_px = if is_next { 3.0 } else { 0.0 };
+            crowd.push((
+                depth,
+                2,
+                frac,
+                Box::new(move |cv| {
+                    super::super::arena::lift(lift_px);
+                    if lift_px > 0.0 {
+                        super::super::arena::glow();
+                    }
+                    let (x, y) = at((gx * 2) as f32, (gy * 2) as f32);
+                    for side in [-1, 1] {
+                        for dx in -1..=1 {
+                            cv.line(x + dx, y + side * TILE, x + dx, y + side * (TILE + 12), ink);
+                        }
+                        cv.rect(x + 2, y + side * (TILE + 10), 8, 4, ink);
+                    }
+                    super::super::chrome::inset_panel(
+                        cv,
+                        (x - 6, y - 5, 13, 11),
+                        super::super::chrome::Tone::SLATE.rimmed(super::super::chrome::rim_of(ink)),
+                    );
+                    glyph1(cv, x - 2, y - 3, char::from(b'1' + i as u8), ink);
+                }),
+            ));
+        }
+    }
+    if kind == RoomKind::Timberyard {
+        // The four jump-logs stand at the lane's foot so a window leans
+        // them and shrinks them with distance; the cart itself moves with
+        // the rider and stays in `woodland::cart_figures`.
+        let foot = 10.0 * 2.0;
+        for (i, &log) in pastimes::CART_LOGS.iter().enumerate() {
+            let x_px = log * TILE;
+            let frac = super::pixel_fraction((log * 2) as f32, foot);
+            crowd.push((
+                foot,
+                2,
+                frac,
+                Box::new(move |cv| {
+                    for y in 4 * TILE..10 * TILE {
+                        for (dx, ch) in [
+                            (-3, 'P'),
+                            (-2, 'r'),
+                            (-1, 'o'),
+                            (0, 'r'),
+                            (1, 'B'),
+                            (2, 'b'),
+                            (3, 'n'),
+                        ] {
+                            let ch = if super::super::ink::hash(x_px + dx, y / 3, 160) % 7 == 0 {
+                                'b'
+                            } else {
+                                ch
+                            };
+                            cv.put(x_px + dx, y, ch);
+                        }
+                        cv.put(x_px + 4, y + 1, 'K');
+                    }
+                    cv.ellipse(x_px as f32, (4 * TILE) as f32, 3.5, 2.0, 'o');
+                    cv.put(x_px, 4 * TILE, 'B');
+                    cv.text(x_px - 2, 10 * TILE + 5, &(i + 1).to_string(), 'O');
+                }),
+            ));
+        }
+    }
+}
+
+/// The arcade plaques, in a scrying glass rather than a sign: ink black
+/// under a steel rim (`chrome::Tone::GLASS`), lit along the top by a single
+/// diagonal specular streak so they read as frosted, not flat. Same 5x7 hand
+/// as `home::board`, so text metrics stay put.
+fn glass_board(lines: &[(String, char)]) -> Img {
+    let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
+    let h = lines.len() as i32 * 9 + 5;
+    let mut im = Img::new(w + 1, h + 1);
+    super::super::chrome::panel(&mut im, (0, 0, w, h), super::super::chrome::Tone::GLASS);
+    // The streak: a shallow diagonal across the upper-left of the panel,
+    // one pixel thick, drawn in the tone's own steel so it never overlights
+    // the letters that come after it.
+    for x in 2..(w - 2).max(2) {
+        let y = 1 + (x / 3).min(2);
+        if y < h - 2 {
+            im.put(x, y, 'u');
+        }
+    }
+    for (i, (text, ink)) in lines.iter().enumerate() {
+        let tw = text_width(text);
+        im.text(
+            (w - tw) / 2,
+            3 + i as i32 * 9,
+            text,
+            super::super::chrome::dusk_mark(*ink),
+        );
+    }
+    im
+}
+
 pub(super) fn boards(cv: &mut Img, run: &Run) {
-    if run.room().kind == RoomKind::GooseGreen {return;}
-    if super::mummers::travel_near(run) { return; }
+    if run.room().kind == RoomKind::GooseGreen {
+        return;
+    }
+    if super::mummers::travel_near(run) {
+        return;
+    }
     // The race circuit has its own controls, spectator card and quest board.
-    if kind_is_hippodrome(run) { return; }
-    if run.room().kind==RoomKind::GooseGreen {return;}
+    if kind_is_hippodrome(run) {
+        return;
+    }
+    if run.room().kind == RoomKind::GooseGreen {
+        return;
+    }
     let kind = run.room().kind;
     // The ledgers share a corner: survey while idle, game while playing.
     if run.pastimes.round.is_none() && super::countryside::survey_near(run).is_some() {
@@ -519,6 +895,40 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         return;
     }
     let playing = run.pastimes.round.as_ref().map(|r| r.game);
+    if let Some(r) = run
+        .pastimes
+        .round
+        .as_ref()
+        .filter(|r| r.game == Game::Volley)
+    {
+        if let Some(v) = &r.volley {
+            // One top strip, never a four-line board across the serve lane.
+            // The bell order lives on the court; the HUD only keeps score.
+            let x = 4;
+            let y = 13;
+            let w = 244;
+            super::super::chrome::panel(cv, (x, y, w, 15), super::super::chrome::Tone::SLATE);
+            cv.text(
+                x + 5,
+                y + 4,
+                &format!("BELL {}/4  {}S", r.progress, r.left.div_ceil(HZ)),
+                '9',
+            );
+            cv.text(x + 99, y + 4, &format!("RALLY {}", v.best_combo), '6');
+            cv.text(x + 174, y + 4, &format!("LIVES {}", v.lives), 'O');
+            return;
+        }
+    }
+    // The intro screen: controls and objective, shown while players are invulnerable.
+    if let Some(round) = &run.pastimes.round {
+        if round.intro_ticks > 0 {
+            let board = intro_board(round.game);
+            let x = (cv.w - board.w) / 2;
+            let y = (cv.h - board.h) / 2;
+            cv.stamp(&board, x, y);
+            return;
+        }
+    }
     for (n, game) in Game::ALL
         .into_iter()
         .filter(|g| g.room() == kind)
@@ -531,9 +941,19 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         let record = &run.home.countryside.games;
         let active = run.pastimes.round.as_ref().filter(|r| r.game == game);
         // Games played under the top board keep it to three lines.
-        let up_top = matches!(game, Game::Sled | Game::Pot | Game::Cart | Game::Surf | Game::Halfpipe | Game::Powder | Game::Gander);
+        let up_top = matches!(
+            game,
+            Game::Sled
+                | Game::Pot
+                | Game::Cart
+                | Game::Surf
+                | Game::Halfpipe
+                | Game::Powder
+                | Game::Gander
+                | Game::Peal
+        );
         let board = match active {
-            None => home::board(&[
+            None => glass_board(&[
                 (game.name().into(), '9'),
                 (format!("STEP ON {}", pad_letter(game)), 'O'),
                 (format!("BEST {}", record.best_for(game)), 'h'),
@@ -542,14 +962,26 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                 let score = format!("{} / {}", r.progress, game.need());
                 let mut lines = vec![
                     (format!("{}  {}S", game.name(), r.left.div_ceil(HZ)), '9'),
-                    (how(game).into(), 'O'),
+                    (
+                        if run.crossroads.is_some() {
+                            if game == Game::Powder {
+                                "MOVE   F DROP"
+                            } else {
+                                "MOVE   F FLAP"
+                            }
+                        } else {
+                            how(game)
+                        }
+                        .into(),
+                        'O',
+                    ),
                 ];
                 match live_cue(game, r) {
                     Some(cue) if up_top => lines.push((format!("{score}  {cue}"), '9')),
                     Some(cue) => lines.extend([(score, '9'), (cue, '6')]),
                     None => lines.push((score, '9')),
                 }
-                home::board(&lines)
+                glass_board(&lines)
             }
         };
         let x = if n == 0 { 4 } else { cv.w - board.w - 4 };
@@ -559,6 +991,24 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             cv.h - board.h - super::tray::max_height(run, cv.w - 8) - 16
         };
         cv.stamp(&board, x, y);
+        // Floating score popup: rises and fades over 8 ticks.
+        if let Some(r) = active.filter(|r| {
+            r.score_popup > 0 && !r.score_popup_text.is_empty() && r.game != Game::Volley
+        }) {
+            let popup = r.score_popup;
+            let rise = (8 - popup) as i32 * 2;
+            let px = x + board.w / 2 - (r.score_popup_text.len() as i32 * 3);
+            let py = y - 8 - rise;
+            // Bright ink for first 4 ticks, then fading to grey.
+            let ink = if popup > 4 {
+                'O'
+            } else if popup > 2 {
+                'Y'
+            } else {
+                'g'
+            };
+            cv.text(px, py, &r.score_popup_text, ink);
+        }
     }
 }
 
@@ -585,6 +1035,7 @@ fn pad_letter(game: Game) -> char {
         Game::Gander => 'G',
         // S for the Siege Trail; G stays Gander Joust's.
         Game::Siege => 'S',
+        Game::Peal => 'R',
     }
 }
 
@@ -601,7 +1052,7 @@ fn how(game: Game) -> &'static str {
         Game::Pot => "HOLD, THEN THROW",
         Game::Cart => "STEER, HOP LOGS",
         Game::Surf => "LEAN, CATCH GOLD",
-        Game::Volley => "BAT AT BELLS",
+        Game::Volley => "F SWING · ARROWS AIM",
         Game::Halfpipe => "PUMP, THEN TRICK",
         Game::Chariot => "RACE THREE LAPS",
         Game::Trencher => "TOSS TO GOOSE",
@@ -610,7 +1061,113 @@ fn how(game: Game) -> &'static str {
         Game::Powder => "DROP KEGS · LAST STANDS",
         Game::Gander => "FLAP, LAND ON TOP",
         Game::Siege => "AIM, LOB, SURVIVE",
+        Game::Peal => "RING ON GOLD",
     }
+}
+
+/// The intro screen: a title, the goal, the controls, and a "press F" hint.
+fn intro_board(game: Game) -> Img {
+    let (goal, keys): (&str, [&str; 3]) = match game {
+        Game::Broadsheet => (
+            "Deliver papers to the gold boxes",
+            ["Move to a box", "F: drop the paper", "Dodge the goose"],
+        ),
+        Game::Barrel => (
+            "Ride the flags in order",
+            ["Move to steer", "F: jump obstacles", "Flags 1 to 6"],
+        ),
+        Game::Turnip => (
+            "Keep the turnip aloft",
+            ["Stay under it", "F: kick on landing", "Time the kick"],
+        ),
+        Game::Washtub => (
+            "Paddle through the rings",
+            ["Move to steer", "F: paddle stroke", "Rings 1 to 6"],
+        ),
+        Game::Cheese => (
+            "Lob cheese at the goats",
+            ["Move to aim", "F: throw (hold=power)", "Hit the goat"],
+        ),
+        Game::Hobbyhorse => (
+            "Jump every hurdle",
+            ["Move to ride", "F: jump", "Three misses ends it"],
+        ),
+        Game::Sled => (
+            "Steer through the gates",
+            ["Move left/right", "Speed builds alone", "All six gates"],
+        ),
+        Game::Pot => (
+            "Put the pot on the mark",
+            [
+                "Move: set the angle",
+                "Hold F, then loose",
+                "Land on target",
+            ],
+        ),
+        Game::Cart => (
+            "Wheel the cart across",
+            ["Move to steer", "F: hop the logs", "Stay upright"],
+        ),
+        Game::Surf => (
+            "Ride the gold crest",
+            ["Move to lean", "F at the crest", "Mind the balance"],
+        ),
+        Game::Volley => (
+            "Ring the four bells in order",
+            [
+                "Move, then tap F to swing",
+                "Perfect timing: more speed",
+                "Arrows aim; a miss keeps bells",
+            ],
+        ),
+        Game::Halfpipe => (
+            "Land a trick on the lip",
+            ["Move to pump", "F at the lip", "Land three tricks"],
+        ),
+        Game::Chariot => (
+            "Race the laps home",
+            ["Move to steer", "F: throw cabbage", "First over wins"],
+        ),
+        Game::Trencher => (
+            "Toss plates to the goose",
+            ["Move to aim", "F: throw", "The goose must catch"],
+        ),
+        Game::DuckShoot => (
+            "Shoot the flying ducks",
+            ["Move to aim", "F: fire", "Far ducks count double"],
+        ),
+        Game::Longbow => (
+            "Shoot the popinjay",
+            [
+                "Move to aim",
+                "Hold F to draw, loose",
+                "Full draw flies true",
+            ],
+        ),
+        Game::Powder => (
+            "Drop kegs, last one stands",
+            ["Move to position", "F: drop a keg", "Outlast the yard"],
+        ),
+        Game::Gander => (
+            "Joust — stay on top",
+            ["Move to position", "F: flap up", "Unhorse your rivals"],
+        ),
+        Game::Siege => (
+            "Breach the far castle",
+            ["Move to aim", "F: loose a shot", "Five legs to win"],
+        ),
+        Game::Peal => ("Ring ten strikes true", ["Stand at the rope", "F: pull on gold", "Early is a clanger"]),
+    };
+    let mut lines = vec![
+        (game.name().to_string(), '9'),
+        (goal.to_string(), 'O'),
+        ("F: to play".to_string(), '6'),
+    ];
+    for (k, line) in keys.iter().enumerate() {
+        lines.push((format!("  {}. {}", k + 1, line), 'h'));
+    }
+    lines.push(("Press F to start".to_string(), 'O'));
+    glass_board(&lines)
 }
 
 /// The one thing to do right now, where a game has a moment.
@@ -620,11 +1177,28 @@ fn live_cue(game: Game, r: &crate::rules::pastimes::Round) -> Option<String> {
             let s = r.surf.as_ref()?;
             (s.phase >= pastimes::WAVE_TICKS - pastimes::CREST_WINDOW).then(|| "F NOW!".to_string())
         }
+        Game::Peal => {
+            let p = r.peal.as_ref()?;
+            if p.rung {
+                Some("RUNG TRUE".into())
+            } else if p.spoiled {
+                Some("CLANGER".into())
+            } else {
+                p.in_window().then(|| "F NOW!".to_string())
+            }
+        }
         Game::Pot => {
             let p = r.put.as_ref()?;
             Some(format!("POWER {}%", p.charge * 100 / HZ))
         }
-        Game::Volley => Some(format!("TURNIPS {}", r.volley.as_ref()?.lives)),
+        Game::Volley => {
+            let v = r.volley.as_ref()?;
+            let bell = v.next_bell().map_or(4, |i| i + 1);
+            Some(format!(
+                "NEXT BELL {}  TURNIPS {}  BEST RALLY {}",
+                bell, v.lives, v.best_combo
+            ))
+        }
         Game::Halfpipe => Some(format!("HELMETS {}", 3u8.saturating_sub(r.mistakes))),
         Game::DuckShoot => Some("FAR DUCK: TWO".into()),
         Game::Gander => Some(format!("TAR SPLASHES {}", r.mistakes)),
@@ -633,7 +1207,10 @@ fn live_cue(game: Game, r: &crate::rules::pastimes::Round) -> Option<String> {
             Some(if b.draw >= pastimes::LONGBOW_FULL_DRAW {
                 "FULL DRAW!".into()
             } else {
-                format!("ARROWS {}", pastimes::LONGBOW_ARROWS.saturating_sub(b.arrows))
+                format!(
+                    "ARROWS {}",
+                    pastimes::LONGBOW_ARROWS.saturating_sub(b.arrows)
+                )
             })
         }
         Game::Powder => {
@@ -654,7 +1231,9 @@ fn live_cue(game: Game, r: &crate::rules::pastimes::Round) -> Option<String> {
     }
 }
 
-fn kind_is_hippodrome(run: &Run) -> bool {run.room().kind == RoomKind::Hippodrome}
+fn kind_is_hippodrome(run: &Run) -> bool {
+    run.room().kind == RoomKind::Hippodrome
+}
 
 /// The Gander Joust hall, side-on: stone ledges with moss and torches over
 /// a tar pit, drawn in the realm inks the way the other side-on halls are
@@ -694,7 +1273,13 @@ fn gander_hall(cv: &mut Img, run: &Run) {
     // The tar pit: black glass with a slow skin, wall to wall below the
     // ledges.
     for row in TAR_ROW..(run.room().rows as i32 - 1) {
-        cv.rect(TILE, row * TILE, 22 * TILE, TILE, if row == TAR_ROW { 'K' } else { 'k' });
+        cv.rect(
+            TILE,
+            row * TILE,
+            22 * TILE,
+            TILE,
+            if row == TAR_ROW { 'K' } else { 'k' },
+        );
     }
     for n in 0..7i32 {
         let x = (2 + n * 3) * TILE + 4;
@@ -707,12 +1292,23 @@ fn gander_hall(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for x in [4, 12, 19] {
         let (tx, ty) = (x * TILE + 6, 3 * TILE);
-        cv.stamp(&crate::render::overworld::kit::torch(tick / 4, x as u32), tx, ty);
+        cv.stamp(
+            &crate::render::overworld::kit::torch(tick / 4, x as u32),
+            tx,
+            ty,
+        );
     }
-    let Some(round) = run.pastimes.round.as_ref().filter(|r| r.game == Game::Gander) else {
+    let Some(round) = run
+        .pastimes
+        .round
+        .as_ref()
+        .filter(|r| r.game == Game::Gander)
+    else {
         return;
     };
-    let Some(g) = round.gander.as_ref() else { return };
+    let Some(g) = round.gander.as_ref() else {
+        return;
+    };
     let count = g.tally.len();
     // The eggs: white, rolling on their ledge; a crack as hatching nears.
     for e in &g.eggs {
@@ -740,11 +1336,21 @@ fn gander_hall(cv: &mut Img, run: &Run) {
         let knight = i < count;
         // Each knight in their own colour — the same ink the standings
         // board uses for their seat. Rivals stay crow-dark.
-        let trim = if knight { super::knights::seat_mark(i as u32 + 1) } else { 'u' };
+        let trim = if knight {
+            super::knights::seat_mark(i as u32 + 1)
+        } else {
+            'u'
+        };
         let (body, bill) = if knight { ('h', 'O') } else { ('v', 'p') };
         if !tumbling {
             cv.ellipse(x as f32, y as f32 - 8.0, 13.0, 8.0, body);
-            cv.ellipse(x as f32, y as f32 - 10.0, 9.0, 4.0, if knight { '9' } else { 'u' });
+            cv.ellipse(
+                x as f32,
+                y as f32 - 10.0,
+                9.0,
+                4.0,
+                if knight { '9' } else { 'u' },
+            );
         } else {
             cv.ellipse(x as f32, y as f32 - 8.0, 13.0, 8.0, body);
         }

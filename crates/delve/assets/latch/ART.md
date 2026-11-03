@@ -8,7 +8,7 @@ Four 32x32 frames each: parry crescent, contact clash, riposte slash.
 
 Rebuild: `python3 scripts/latch-art.py <source-dir> --review <review-dir>`.
 Source directory has `clasp.png` and `effects.png`; retained at
-`/work/artifacts/boss-art-20261015/game-2/source/`.
+`artifacts/boss-art-20261015/game-2/source/`.
 The converter uses the existing Cinder converter's palette helpers and
 nearest sampling, 16 inks, connected-cluster cleanup, a coloured 1px contour,
 and hand placed rivet lights after cleanup. It retains dark neutral metal;

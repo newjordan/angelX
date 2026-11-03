@@ -8,52 +8,8 @@
 
 use std::sync::Mutex;
 
-/// One seat's lifecycle within the current stage. `Running` is the implied
-/// default for any seat without a published update, so `seat_states` can stay
-/// empty on publish and existing [`stage`] callers keep working unchanged.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SeatState {
-    #[default]
-    Running,
-    /// The seat came back with a usable result.
-    Returned,
-    /// The seat came back with an error.
-    Failed,
-    /// The seat was abandoned at the wave deadline/quorum/cancel barrier.
-    Cut,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct StageSnapshot {
-    /// Stable publish identity; seat updates change `seq`, not this identity.
-    pub stage_id: u64,
-    pub name: String,
-    pub agents: Vec<String>,
-    /// Per-seat lifecycle, index-aligned with `agents`. Starts empty on every
-    /// publish (all seats implicitly `Running`) and may stay shorter than
-    /// `agents`; read through [`StageSnapshot::seat_state`].
-    pub seat_states: Vec<SeatState>,
-    /// Monotonic per publish — the world re-musters when this moves. Seat
-    /// updates bump it too, so consumers keyed off the seq re-read for pips.
-    pub seq: u64,
-}
-
-impl StageSnapshot {
-    /// The state of seat `idx`; `Running` when no update has been published.
-    #[cfg(test)]
-    pub fn seat_state(&self, idx: usize) -> SeatState {
-        self.seat_states.get(idx).copied().unwrap_or_default()
-    }
-
-    /// How many seats have come back with a result (`Returned`) — the "3/6
-    /// back" count for status rows.
-    pub fn returned(&self) -> usize {
-        self.seat_states
-            .iter()
-            .filter(|s| matches!(s, SeatState::Returned))
-            .count()
-    }
-}
+// The snapshot is plain data the realm host reads too, so it lives in `telemetry`.
+pub use crate::telemetry::{SeatState, StageSnapshot};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActivitySnapshot {

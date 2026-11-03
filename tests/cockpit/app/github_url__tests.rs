@@ -31,3 +31,30 @@ fn rejects_garbage() {
     assert!(parse_github_uri("pr://not-a-number").is_err());
     assert!(parse_github_uri("file.rs").is_err());
 }
+
+#[test]
+fn gh_output_cap_preserves_utf8_at_and_across_the_limit() {
+    const NOTICE: &str = "\n…[truncated pr:// / issue:// body]\n";
+
+    for (prefix, character) in [(1, 'é'), (2, '€'), (3, '😀')] {
+        let mut text = "x".repeat(MAX_GH_OUT - prefix);
+        text.push(character);
+        text.push_str("remaining");
+        cap_gh_output(&mut text);
+        assert_eq!(text, format!("{}{NOTICE}", "x".repeat(MAX_GH_OUT - prefix)));
+    }
+
+    let mut exact = "x".repeat(MAX_GH_OUT - 4);
+    exact.push('😀');
+    let original = exact.clone();
+    cap_gh_output(&mut exact);
+    assert_eq!(exact, original);
+
+    let mut aligned = original;
+    aligned.push('x');
+    cap_gh_output(&mut aligned);
+    assert_eq!(
+        aligned,
+        format!("{}{NOTICE}", "x".repeat(MAX_GH_OUT - 4) + "😀")
+    );
+}

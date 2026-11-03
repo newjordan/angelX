@@ -285,11 +285,20 @@ fn the_iron_hymn_guards_and_the_red_ballad_mends_on_kills() {
     let mut run = singing("red", false);
     run.calm_for_test();
     run.step(&BTreeMap::new());
-    let hero = run.players.get_mut(&1).unwrap();
-    hero.hp = 40;
+    // The first floor's opening room is bare of foes now (the wishing room,
+    // 2026-11-02): bring two to slay, or the ballad has no kill to mend on.
+    let (hx, hy) = {
+        let hero = &run.players[&1];
+        (hero.x, hero.y)
+    };
+    run.spawn_at_for_test(EnemyKind::Skeleton, hx + 1.5, hy);
+    run.spawn_at_for_test(EnemyKind::Skeleton, hx - 1.5, hy);
     for enemy in &mut run.enemies {
         enemy.hp = 0;
+        enemy.age = TELEGRAPH + 1;
     }
+    let hero = run.players.get_mut(&1).unwrap();
+    hero.hp = 40;
     let slain = run.enemies.len() as u32;
     run.step(&BTreeMap::new());
     assert!(slain > 0);

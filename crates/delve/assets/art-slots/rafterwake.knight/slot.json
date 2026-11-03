@@ -556,7 +556,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "rafterwake.knight",
-  "source_path": "/work/artifacts/art-prod/slots/rafterwake.knight/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/rafterwake.knight/v01/source-sheet.png",
   "source_sha256": "c23d0b72fe5338aa2276ba6c4ac2140f6a148d93f45d2ad0fa85b90e0837ffaf",
   "tool_version": 2
 }

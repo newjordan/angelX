@@ -8,15 +8,24 @@ pub(super) struct ApiControls {
 }
 
 impl ApiControls {
-    pub(super) fn effort(&self, model: &str) -> Option<String> {
-        crate::agent::club::reasoning_env_var("ANGEL_OPENAI_API_REASONING_EFFORT")
-            .or_else(|| crate::agent::club::reasoning_env_var("ANGEL_REASONING_EFFORT"))
-            .or_else(|| {
-                crate::agent::club::model_defaults::entry(model)
-                    .and_then(|entry| entry.default_effort)
-            })
-            .map(|value| value.trim().to_ascii_lowercase())
-            .filter(|value| !value.is_empty() && value != "auto")
+    pub(super) fn effort(&self, model: &str) -> (Option<String>, &'static str) {
+        let explicit = crate::agent::club::reasoning_env_var("ANGEL_OPENAI_API_REASONING_EFFORT")
+            .or_else(|| crate::agent::club::reasoning_env_var("ANGEL_REASONING_EFFORT"));
+        let (value, source) = if let Some(value) = explicit {
+            (Some(value), "env")
+        } else if let Some(value) =
+            crate::agent::club::model_defaults::entry(model).and_then(|entry| entry.default_effort)
+        {
+            (Some(value), "table")
+        } else {
+            (None, "provider")
+        };
+        (
+            value
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty() && value != "auto"),
+            source,
+        )
     }
 
     pub(super) fn output_budget(&self) -> (OutputBudgetPolicy, Option<String>) {
@@ -70,4 +79,26 @@ pub(super) fn fit_and_reserve(
         requested,
     )?;
     Ok((bytes, Some(reservation)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calibration_and_explicit_effort_report_their_source() {
+        let _guard = crate::tests::env_lock();
+        let _global = crate::tests::TestEnvGuard::unset("ANGEL_REASONING_EFFORT");
+        let _api = crate::tests::TestEnvGuard::unset("ANGEL_OPENAI_API_REASONING_EFFORT");
+        crate::agent::club::resync_reasoning_effort_env_from_env();
+        let controls = ApiControls { error: None };
+        assert_eq!(controls.effort("grok-4.6").1, "table");
+        {
+            let _explicit =
+                crate::tests::TestEnvGuard::set("ANGEL_OPENAI_API_REASONING_EFFORT", "high");
+            crate::agent::club::resync_reasoning_effort_env_from_env();
+            assert_eq!(controls.effort("grok-4.6"), (Some("high".into()), "env"));
+        }
+        crate::agent::club::resync_reasoning_effort_env_from_env();
+    }
 }

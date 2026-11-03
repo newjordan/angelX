@@ -1173,11 +1173,7 @@ fn draw(run: &Run, focus: Option<u32>, with_text: bool) -> (Img, Img) {
             im.rect(284, y + 19, 88, 2, 's');
             im.rect(284, y + 19, 88 * r.x / 960, 2, 'o');
         }
-        let shake = if d.freeze > 0 {
-            if d.freeze % 2 == 0 { 1 } else { -1 }
-        } else {
-            0
-        };
+        let shake = super::camera::smooth_shake(run.tick, u32::from(d.freeze), run.tune.brass_stop, 1.5).0;
         let px = |x: i32| x - d.camera + 12 + shake;
         let py = |y: i32| y - STAGE_LIFT;
         // Danger rectangles are the rule rectangles, projected through this seat's camera.
@@ -1432,7 +1428,9 @@ pub(super) fn labels(run: &Run, focus: Option<u32>) -> Vec<(i32, i32, String)> {
     words
 }
 pub(super) fn sign(im: &mut Img, run: &Run) {
-    if run.room().kind != crate::rules::RoomKind::Tavern || run.brasswake.is_some() {
+    // Under the rumours, when a knight reads them, its E PLAY would stand
+    // alone below them as if the board were the game.
+    if run.room().kind != crate::rules::RoomKind::Tavern || run.brasswake.is_some() || super::tavern::reading_rumours(run) {
         return;
     }
     chrome::panel(im, (276, 88, 100, 30), chrome::Tone::BRASS);

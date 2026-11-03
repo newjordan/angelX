@@ -128,17 +128,17 @@ fn dotmax_room_plate_requires_explicit_entry_and_closes_on_leave() {
     let _view =
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
-    app.world = crate::stage::world_viz::World::new(71);
-    app.world
+    app.realm.world = crate::stage::world_viz::World::new(71);
+    app.realm.world
         .select_landmark(crate::stage::world_viz::Building::Smithy);
     for _ in 0..500 {
-        app.world.tick();
+        app.realm.world.tick();
     }
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(60, 20)).unwrap();
     terminal
         .draw(|frame| assert!(!render_dotmax_interior(frame, &mut app, frame.area())))
         .unwrap();
-    assert!(app.world.enter_interior());
+    assert!(app.realm.world.enter_interior());
     terminal
         .draw(|frame| assert!(render_dotmax_interior(frame, &mut app, frame.area())))
         .unwrap();
@@ -153,11 +153,11 @@ fn dotmax_room_plate_requires_explicit_entry_and_closes_on_leave() {
             .iter()
             .all(|cell| !cell.symbol().chars().any(|c| matches!(c, '▀' | '▄' | '█')))
     );
-    assert!(app.world.leave_interior());
+    assert!(app.realm.world.leave_interior());
     terminal
         .draw(|frame| assert!(!render_dotmax_interior(frame, &mut app, frame.area())))
         .unwrap();
-    assert!(!app.world.ambient_interior_visible());
+    assert!(!app.realm.world.ambient_interior_visible());
 }
 
 #[test]
@@ -185,12 +185,12 @@ fn dump_living_painting_stage_cells_for_review() {
         for (cols, rows) in [(60u16, 20u16), (40, 12)] {
             for phase in 0..16 {
                 let mut app = App::preview(crate::ui::viewer::Viewer::new());
-                app.world = crate::stage::world_viz::World::new(71);
-                app.world.settle_at_for_test(building);
-                assert!(app.world.enter_interior());
+                app.realm.world = crate::stage::world_viz::World::new(71);
+                app.realm.world.settle_at_for_test(building);
+                assert!(app.realm.world.enter_interior());
                 app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
                 for _ in 0..phase * 10 {
-                    app.world.tick();
+                    app.realm.world.tick();
                 }
                 let mut terminal =
                     ratatui::Terminal::new(ratatui::backend::TestBackend::new(cols, rows)).unwrap();

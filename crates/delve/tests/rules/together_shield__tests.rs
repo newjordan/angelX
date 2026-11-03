@@ -207,6 +207,8 @@ fn the_block_is_left_once_for_each_shot_stopped() {
     let mut blocks = 0;
     let mut clangs = 0;
     for n in 0..5 {
+        // Each to a shield unworn: five in a row would knock it aside.
+        run.players.get_mut(&1).unwrap().shield_wear = shield::Wear::default();
         let (at, v) = incoming(&run, (n as f32 - 2.0) * 20.0, 0.0, 12.0);
         run.projectiles.push(monster_shot(Shot::Wisp, at, v, 12));
         for _ in 0..HZ {
@@ -260,6 +262,7 @@ fn a_beam_stops_at_a_raised_shield_and_spares_the_knight_behind() {
         kind: Shot::Eye,
         damage: 20,
         guardian: None,
+        shield_line: false,
     };
     let mut shots = Vec::new();
     patterns::emit(patterns::Emitter::Laser, &aim, &mut shots);
@@ -292,6 +295,10 @@ fn every_path_a_shot_takes_asks_the_shield_the_same() {
     // copy of the facing rule is left anywhere else.
     for (name, source) in [
         ("rules.rs", include_str!("../../src/rules.rs")),
+        ("hero.rs", include_str!("../../src/rules/hero.rs")),
+        ("arms.rs", include_str!("../../src/rules/arms.rs")),
+        ("hunt.rs", include_str!("../../src/rules/hunt.rs")),
+        ("flight.rs", include_str!("../../src/rules/flight.rs")),
         ("patterns.rs", include_str!("../../src/rules/patterns.rs")),
         ("critters.rs", include_str!("../../src/rules/critters.rs")),
         ("hireling.rs", include_str!("../../src/rules/hireling.rs")),
@@ -299,7 +306,7 @@ fn every_path_a_shot_takes_asks_the_shield_the_same() {
         assert!(!source.contains("SHIELD_ARC"), "{name} keeps its own arc");
         assert!(!source.contains("hero.shielding &&"), "{name} keeps its own facing rule");
     }
-    assert!(include_str!("../../src/rules.rs").contains("shield::meets("));
+    assert!(include_str!("../../src/rules/flight.rs").contains("shield::meets("));
     assert!(include_str!("../../src/rules/patterns.rs").contains("shield::turns("));
     assert!(include_str!("../../src/rules/critters.rs").contains("shield::turns("));
     // And the two questions agree: what `turns` faces, `meets` stops.
@@ -313,4 +320,163 @@ fn every_path_a_shot_takes_asks_the_shield_the_same() {
         let met = shield::meets(&hero, (24.0, 14.0), from, to, HERO_RADIUS + 0.16).unwrap();
         assert_eq!(met.shield, shield::turns(&hero, way), "{a}");
     }
+}
+
+/// One shot of `damage` from straight ahead, the guard key held: whether
+/// the shield turned it, the health it cost, and whether it clanged as
+/// the shield was knocked aside.
+fn shoot(run: &mut Run, damage: u32) -> (bool, u32, bool) {
+    let full = run.players[&1].hp;
+    let (at, v) = incoming(run, 0.0, 0.0, 12.0);
+    run.projectiles.push(monster_shot(Shot::Ember, at, v, damage));
+    let (mut turned, mut clang) = (false, false);
+    for _ in 0..HZ {
+        if !run.projectiles.iter().any(|p| p.hostile) {
+            break;
+        }
+        run.sounds.clear();
+        run.step(&keys(true));
+        turned |= run.feel.blocks.iter().any(|b| b.age() == 0);
+        clang |= run.sounds.contains(&"clang");
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.x, hero.y) = (24.0, 14.0);
+    }
+    let hero = run.players.get_mut(&1).unwrap();
+    let lost = full - hero.hp;
+    (hero.hp, hero.invulnerable) = (hero.max_hp, 0);
+    (turned, lost, clang)
+}
+
+#[test]
+fn a_kite_shield_turns_a_third_of_its_knights_health_and_is_knocked_aside() {
+    // A pavise's rule (`critters::GUARD_BREAK`): 34 in a hundred-health
+    // knight's, 37.4 in a 110's, 44.2 in a 130's.
+    assert_eq!(shield::Wear::most(100), 3_400);
+    assert_eq!(shield::Wear::most(110), 3_740);
+    assert_eq!(shield::Wear::most(130), 4_420);
+    let mut run = guarded((1.0, 0.0));
+    assert_eq!(run.players[&1].max_hp, 100);
+    // Twelve, twenty-four: worn, and the meter shows it.
+    for n in 1..=2 {
+        assert_eq!(shoot(&mut run, 12), (true, 0, false), "shot {n}");
+        let hero = &run.players[&1];
+        assert_eq!(hero.shield_wear.worn, n * 1_200);
+        let left = hero.shield_wear.left(hero.max_hp);
+        assert!((left - (1.0 - n as f32 * 12.0 / 34.0)).abs() < 1e-3, "{left}");
+    }
+    // Thirty-six: turned, and the shield knocked aside with a clang.
+    assert_eq!(shoot(&mut run, 12), (true, 0, true), "the third is turned as it breaks");
+    let hero = &run.players[&1];
+    assert!(!hero.shielding, "it drops");
+    assert_eq!(hero.shield_wear.worn, 0, "its wear gone with it");
+    assert_eq!(hero.shield_wear.left(hero.max_hp), 0.0);
+    assert!(hero.shield_wear.down > shield::SHIELD_DOWN - 2, "{}", hero.shield_wear.down);
+    // Down: the key held raises nothing, and what comes meets the knight.
+    let (turned, lost, _) = shoot(&mut run, 12);
+    assert!(!turned && lost > 0, "through a shield knocked aside: {lost}");
+}
+
+#[test]
+fn a_shield_knocked_aside_stays_down_as_long_as_a_pavises_then_comes_back_unworn() {
+    assert_eq!(shield::SHIELD_DOWN, critters::GUARD_DOWN);
+    let mut run = guarded((1.0, 0.0));
+    let most = shield::Wear::most(100);
+    run.players.get_mut(&1).unwrap().shield_wear.worn = most - 100;
+    assert_eq!(shoot(&mut run, 12), (true, 0, true));
+    let mut ticks = 0;
+    while !run.players[&1].shielding {
+        run.step(&keys(true));
+        ticks += 1;
+        assert!(ticks <= 3 * HZ, "never came back");
+    }
+    // The tick it was knocked aside counted down the shot's flight, so
+    // from the next it is a second at most.
+    assert!((shield::SHIELD_DOWN - 2..=shield::SHIELD_DOWN).contains(&ticks), "{ticks}");
+    let hero = &run.players[&1];
+    assert!(hero.shield_wear.fresh(), "back unworn: {:?}", hero.shield_wear);
+    assert_eq!(shoot(&mut run, 12), (true, 0, false), "and it turns again");
+}
+
+#[test]
+fn a_shields_wear_holds_through_a_volley_and_drains_between_them() {
+    let mut run = guarded((1.0, 0.0));
+    let most = shield::Wear::most(100);
+    // Shots a little apart, as a volley comes: no mending between them.
+    shoot(&mut run, 6);
+    // The next is loosed with half the calm left, and lands inside it.
+    for _ in 0..shield::SHIELD_CALM / 2 {
+        run.step(&keys(true));
+    }
+    assert_eq!(run.players[&1].shield_wear.worn, 600, "held through the calm");
+    shoot(&mut run, 6);
+    let worn = run.players[&1].shield_wear.worn;
+    assert_eq!(worn, 1_200, "a volley's shots add up");
+    // Left alone: a second's calm, then drained, the key held or not.
+    for t in 0..shield::SHIELD_CALM {
+        run.step(&keys(t % 2 == 0));
+        assert_eq!(run.players[&1].shield_wear.worn, worn, "calm at {t}");
+    }
+    run.step(&keys(false));
+    assert!(run.players[&1].shield_wear.worn < worn, "draining");
+    // From its most to nothing in two seconds.
+    let hero = run.players.get_mut(&1).unwrap();
+    hero.shield_wear = shield::Wear { worn: most - 1, ..shield::Wear::default() };
+    for _ in 0..shield::SHIELD_MEND {
+        run.step(&keys(false));
+    }
+    assert!(run.players[&1].shield_wear.fresh(), "{:?}", run.players[&1].shield_wear);
+}
+
+#[test]
+fn a_pavises_bash_and_a_beam_wear_the_shield_too() {
+    // A bash turned counts its twenty; a beam its share of its shot.
+    let mut hero = Hero::new("Knight", 24.0, 14.0);
+    hero.guard = cards::Guard::Shield;
+    hero.shielding = true;
+    assert!(!hero.shield_turned(20));
+    assert_eq!(hero.shield_wear.worn, 2_000);
+    assert!(hero.shield_turned(14));
+    assert!(!hero.shielding);
+    // Another guard has no meter.
+    let mut rolled = Hero::new("Knight", 24.0, 14.0);
+    rolled.guard = cards::Guard::Roll;
+    assert!(!rolled.shield_turned(500));
+    assert!(rolled.shield_wear.fresh());
+    let src = include_str!("../../src/rules/critters.rs");
+    assert!(src.contains("hero.shield_turned(PAVISE_BASH)"));
+    let src = include_str!("../../src/rules/patterns.rs");
+    assert!(src.contains("hero.shield_turned(bullet.damage * BEAM_SHARE / 100)"));
+}
+
+#[test]
+fn the_guard_slot_and_plate_show_the_meter() {
+    let mut run = guarded((1.0, 0.0));
+    let keys_ = hud::Keys::FIRST;
+    let plate = |run: &Run| {
+        run.tray(1, &keys_).into_iter().find(|i| i.slot == tray::Slot::Guard).unwrap()
+    };
+    assert_eq!(plate(&run).wear, Some((1.0, false)));
+    shoot(&mut run, 17);
+    let slot = run.hud(1, &keys_).unwrap().guard;
+    assert!((slot.fill - 0.5).abs() < 1e-3 && slot.state == "50%", "{slot:?}");
+    assert_eq!(plate(&run).wear, Some((0.5, false)));
+    shoot(&mut run, 17);
+    let slot = run.hud(1, &keys_).unwrap().guard;
+    assert_eq!(slot.state, "broken");
+    let (back, down) = plate(&run).wear.unwrap();
+    assert!(down && back < 0.1, "{back}");
+}
+
+#[test]
+fn a_save_from_before_the_meter_loads_and_an_unworn_shield_sends_nothing() {
+    let mut hero = Hero::new("Knight", 24.0, 14.0);
+    hero.guard = cards::Guard::Shield;
+    let fresh = serde_json::to_value(&hero).unwrap();
+    assert!(fresh.get("shield_wear").is_none(), "nothing for an unworn shield");
+    let loaded: Hero = serde_json::from_value(fresh).unwrap();
+    assert!(loaded.shield_wear.fresh());
+    hero.shield_wear = shield::Wear { worn: 1_500, calm: 9, down: 0, turned: 40 };
+    let worn = serde_json::to_value(&hero).unwrap();
+    let back: Hero = serde_json::from_value(worn).unwrap();
+    assert_eq!((back.shield_wear.worn, back.shield_wear.calm, back.shield_wear.turned), (1_500, 9, 0));
 }

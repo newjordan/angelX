@@ -1,0 +1,42 @@
+# crates/delve/src/rules/hollow.rs: the Hollow One, stones round a void.
+import Base
+
+def hollow.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
+  if Bool.not(String.eq(enemy.kind, "hollow")):
+    return (enemy, shots, deeds, False{})
+  enemy.timer = (enemy.timer + 1 : U32)
+  if U32.is_eq(enemy.stage, 1):
+    if U32.is_ge(enemy.timer, (hollow.HOLE_WARN() + hollow.HOLE_PULL() : U32)):
+      enemy.stage = 0
+      enemy.timer = 0
+    return (enemy, shots, deeds, True{})
+  match (cb.nearest2(heroes, enemy.x, enemy.y) : (F32, F32)?):
+    case None{}:
+      return (enemy, shots, deeds, True{})
+    case Some{t: (F32, F32)}:
+      (tx: F32, ty: F32) = t
+      &(cx: F32, cy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+      dist: F32 = cb.hyp((tx - enemy.x : F32), (ty - enemy.y : F32))
+      side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
+      wx: F32 = (RS.f_neg(cy) * side : F32)
+      wy: F32 = (cx * side : F32)
+      if (dist < 9.0 : F32):
+        wx = RS.f_neg(cx)
+        wy = RS.f_neg(cy)
+      elif (dist > 13.0 : F32):
+        wx = cx
+        wy = cy
+      &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((wx * 1.6 * rules.DT() : F32), (wy * 1.6 * rules.DT() : F32)), monsters.Enemy.radius(enemy), 2)
+      enemy.x = nx
+      enemy.y = ny
+      beat: U32 = (enemy.timer + enemy.id * 17 : U32)
+      if Bool.and(U32.is_eq(U32.mod(beat, hollow.HOLE_EVERY()), (hollow.HOLE_EVERY() / 2 : U32)), (dist < 16.0 : F32)):
+        deeds.holes = J.push(deeds.holes, J.JA{[J.of_f32(tx), J.of_f32(ty), J.of_u32(enemy.id)]})
+        deeds = foes.cue(deeds, "black_hole")
+        enemy.stage = 1
+        enemy.timer = 0
+        return (enemy, shots, deeds, True{})
+      if U32.is_eq(U32.mod(beat, hollow.BOLT_EVERY()), 0):
+        aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+        shots = J.push(shots, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(aim) * 8.0 : F32), (F32.sin(aim) * 8.0 : F32), True{}, "orb", 11, (6 * rules.HZ() : U32), patterns.ShotTraits.default()))
+      return (enemy, shots, deeds, True{})

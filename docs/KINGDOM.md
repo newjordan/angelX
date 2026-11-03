@@ -56,7 +56,10 @@ where the region's name is lettered in grey. Every door gets a lane to the
 nearest road, drawn as road, so the regions hang off one network. An open
 plot in the town core (`OPEN_PLOT`, tiles 33 to 37 across and 35 to 39
 down, between the Keep and the Village on the north road) is kept clear
-for the King's court. The foreground adds twelve
+for the King's court. The kingdom's own halls (`HALLS`) are built by the
+countryside rule after every countryside place: the Lantern Hall, the
+Heartwright's, stands east of the open plot across the North Road, its
+door a realm hall's (`docs/HEART-QUEST.md`). The foreground adds twelve
 road walkers, eight birds and nearby chimney smoke. A walking frame crops
 one native 384 by 224 view and paints only visible live figures, ambient life and
 short nearby door labels. It must never allocate a full-map live figure
@@ -70,8 +73,8 @@ live packets carry the small return marker and each hero's own camera.
 
 ## Validation
 
-Run from `cockpit/` with `CARGO_TARGET_DIR=/work/build-cache/angelx-integration`
-and `TMPDIR=/work/tmp`.
+Run from `cockpit/` with `CARGO_TARGET_DIR=<build-cache>/angelx-integration`
+and `TMPDIR=<scratch>`.
 
 The targeted suites cover continuous movement over more than one old
 screen width without room/revision changes; independent, eased and clamped
@@ -123,7 +126,7 @@ part of continuous camera travel.
 ### Render review
 
 The ignored `write_kingdom_shots` test uses
-`ANGEL_ARENA_SHOTS=/work/tmp/review-shots/kingdom-integrated` and writes nine frames from a real
+`ANGEL_ARENA_SHOTS=<scratch>/review-shots/kingdom-integrated` and writes nine frames from a real
 collision-routed walk from the Keep through the southern model castles to
 the College, its arrival frame, College/ranch/gate door and return sequences,
 the College hall, the Artisan Quarter entrance, two distant seats, a terminal
@@ -131,7 +134,7 @@ frame and the full overview: 25 frames in total.
 Every frame was opened for review. The ranch uses its authored red barn;
 landmark silhouettes vary; nearby signs use short names; the College and
 pocket exits identify the kingdom. The contact sheets are
-`/work/tmp/review-shots/kingdom-integrated/contact-sheet-01.png` through
+`<scratch>/review-shots/kingdom-integrated/contact-sheet-01.png` through
 `contact-sheet-03.png`.
 
 ### Remaining boundaries

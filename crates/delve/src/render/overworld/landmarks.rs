@@ -73,6 +73,26 @@ pub fn chimney(kind: RoomKind) -> bool {
     )
 }
 
+/// The Lantern Hall (`world::kingdom::HALLS`): a small stone hall on the
+/// town green, the Heartwright's, a bench by its door and her six lanterns
+/// hung dark under the eaves. On the map they stay dark; inside, they burn
+/// as the campaign earns them (`arena::teachers`).
+pub fn lantern_hall() -> Img {
+    let mut im = sheet();
+    im.stamp(&house(44, 32, Wall::Stone, Roof::Slate, false), 10, 16);
+    for i in 0..6 {
+        let x = 13 + i * 7;
+        im.put(x, 29, 'g');
+        im.put(x, 30, 'K');
+        im.put(x, 31, 'g');
+    }
+    // A bench by the door.
+    im.rect(56, 42, 7, 1, 'B');
+    im.put(57, 43, 'b');
+    im.put(61, 43, 'b');
+    at_dusk(&im)
+}
+
 /// An anvil on its block, for a forge's yard.
 pub fn anvil() -> Img {
     Img::from_rows(&[

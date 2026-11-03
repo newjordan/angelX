@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "brasswake.contact",
-  "source_path": "/work/artifacts/art-prod/slots/brasswake.contact/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/brasswake.contact/v01/source-sheet.png",
   "source_sha256": "72198c08d18b43318a0b848b5cb6b3ff4491076d628b3c6ef95bf64d0183b7b2",
   "tool_version": 2
 }

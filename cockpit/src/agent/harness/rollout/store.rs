@@ -490,7 +490,6 @@ impl RolloutStore {
         Ok(path)
     }
 
-    #[allow(dead_code)] // used by explicit recovery/audit and its tests
     pub(crate) fn load_manifest(
         &self,
         rollout_id: &str,

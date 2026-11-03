@@ -517,6 +517,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
                 cv.line(hx + 1, 4 * TILE + 1, hx + 2, 4 * TILE + 6, 'M');
             }
         }
+        RoomKind::GnomeParty => super::garden::scenery(cv, run, lights),
         RoomKind::Loft => {
             // The beam the bells hang from, on two posts.
             for px_ in [3 * TILE, 21 * TILE - 4] {
@@ -755,6 +756,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
             }
         }
+        RoomKind::GnomeParty => super::garden::figures(cv, run, nook.garden.as_ref()),
         RoomKind::Loft => {
             let shown = n::show(nook);
             let ringing = match shown {
@@ -814,6 +816,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             lines.push(("PICK TWO JARS".into(), 'O'));
             lines.push(("BONE WAX ORE".into(), 'h'));
         }
+        RoomKind::GnomeParty => super::garden::board(&mut lines, nook.garden.as_ref()),
         RoomKind::Loft => {
             lines.push(("THE BELL LOFT".into(), '9'));
             lines.push(("RING THE TUNE".into(), 'O'));

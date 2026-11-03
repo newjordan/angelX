@@ -149,7 +149,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.scriptorium",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.scriptorium/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.scriptorium/v01/source-sheet.png",
   "source_sha256": "1085790f59c8a03f0223a70b35e880840686940426430b93f4ed1ce6f4e84eac",
   "tool_version": 2
 }

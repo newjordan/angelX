@@ -1,12 +1,17 @@
 from pathlib import Path
 from PIL import Image,ImageDraw
-import hashlib,json,importlib.util
-root=Path(__file__).resolve().parents[5];out=Path('/work/artifacts/boss-art-20261015/polish-a/prepared')
+import hashlib,json,importlib.util,os
+def env_dir(name):
+ value=os.environ.get(name)
+ if not value:raise SystemExit(f'set {name} to the art-production directory it names')
+ return Path(value)
+SLOTS=env_dir('ART_PROD_SLOTS')
+root=Path(__file__).resolve().parents[5];out=env_dir('POLISH_PREPARED')
 spec=importlib.util.spec_from_file_location('imp',root/'scripts/slot-art-import.py');imp=importlib.util.module_from_spec(spec);spec.loader.exec_module(imp)
 EXPECTED={'cinder.knight': 'd95cb92f22a8f9f7432ee3a20ed5561dc3449adbc35368ea8490407cb8a8fe60', 'latch.knight': '5aa3ed147d31f3e5519ead282f66a0bc64fca02e945a1a72998caa6b9cd4c4fd'}
 for slot in ['cinder.knight','latch.knight']:
- src=Path('/work/artifacts/art-prod/slots')/slot/'v01'; dst=out/slot;dst.mkdir(parents=True,exist_ok=True)
- status=json.loads(Path('/work/artifacts/art-prod/slots/status.json').read_text())[slot];assert status.startswith('OK') and '?' not in status
+ src=SLOTS/slot/'v01'; dst=out/slot;dst.mkdir(parents=True,exist_ok=True)
+ status=json.loads((SLOTS/'status.json').read_text())[slot];assert status.startswith('OK') and '?' not in status
  sheet=Image.open(src/'source-sheet.png').convert('RGBA');meta=json.loads((src/'source-sheet.json').read_text());notes=(src/'notes.md').read_text()
  original=hashlib.sha256((src/'source-sheet.png').read_bytes()).hexdigest()
  assert original==EXPECTED[slot], 'Delivery changed: inspect and remap before importing.'

@@ -40,6 +40,85 @@ fn run_call() -> ToolCall {
 }
 
 #[test]
+fn noncargo_report_keeps_exit_authoritative_and_speaks_when_module_is_missing() {
+    let _lock = crate::tests::env_lock();
+    let workspace = Fixture::new();
+    let _yolo = TestEnvGuard::set("ANGEL_YOLO", "1");
+    let _resource = TestEnvGuard::unset("ANGEL_RESOURCE_DIR");
+    let _node = TestEnvGuard::unset("ANGEL_NODE_BIN");
+    let tool = RunTestsTool::in_dir(workspace.0.clone());
+    let plan = |exit: u8| crate::platform::workspace_lang::TestPlan {
+        lang: crate::platform::workspace_lang::Lang::Js,
+        program: "sh",
+        args: vec![
+            "-c".into(),
+            format!("printf '# pass 2\\n# fail 0\\n'; exit {exit}"),
+        ],
+        dir: PathBuf::from("."),
+        label: "test fixture".into(),
+        because: "fixture".into(),
+        script: None,
+    };
+    let output = tool
+        .run_plan(&workspace.0, plan(0), &json!({}), None, None, None)
+        .unwrap();
+    assert!(output.starts_with("tests: 2 passed, 0 failed"), "{output}");
+    assert!(output.contains("reward unlabeled"), "{output}");
+
+    let _missing = TestEnvGuard::set("ANGEL_NODE_BIN", "/definitely-missing-angel-test-node");
+    let output = tool
+        .run_plan(&workspace.0, plan(0), &json!({}), None, None, None)
+        .unwrap();
+    assert!(output.contains("test summary is unavailable"), "{output}");
+    assert!(output.contains("Node.js unavailable"), "{output}");
+    assert!(!output.starts_with("tests:"), "{output}");
+    assert_eq!(
+        turn_event_outcome(&run_call(), &output, false).verification,
+        VerificationOutcome::Inconclusive
+    );
+    let error = tool
+        .run_plan(&workspace.0, plan(1), &json!({}), None, None, None)
+        .unwrap_err();
+    assert!(error.contains("failed (exit 1)"), "{error}");
+    assert!(!error.contains("summary is unavailable"), "{error}");
+}
+
+#[test]
+fn run_tests_python_suite_reports_counts_and_surfaces_missing_summary_runtime() {
+    let _lock = crate::tests::env_lock();
+    let workspace = Fixture::new();
+    let _yolo = TestEnvGuard::set("ANGEL_YOLO", "1");
+    let _resource = TestEnvGuard::unset("ANGEL_RESOURCE_DIR");
+    let _node = TestEnvGuard::unset("ANGEL_NODE_BIN");
+    workspace.write(
+        "test_example.py",
+        "import unittest\nclass Check(unittest.TestCase):\n    def test_example(self): self.assertTrue(True)\n",
+    );
+    let tool = RunTestsTool::in_dir(workspace.0.clone());
+    let args = json!({"runner": "python", "entrypoint": "unittest"});
+    let report = tool.call(&args).unwrap();
+    assert!(report.starts_with("tests: 1 passed, 0 failed"), "{report}");
+    assert!(report.contains("reward unlabeled"), "{report}");
+
+    let _missing = TestEnvGuard::set("ANGEL_NODE_BIN", "/definitely-missing-angel-test-node");
+    let report = tool.call(&args).unwrap();
+    assert!(report.contains("test summary is unavailable"), "{report}");
+    assert!(report.contains("Node.js unavailable"), "{report}");
+    assert_eq!(
+        turn_event_outcome(&run_call(), &report, false).verification,
+        VerificationOutcome::Inconclusive
+    );
+
+    workspace.write(
+        "test_example.py",
+        "import unittest\nclass Check(unittest.TestCase):\n    def test_example(self): self.fail('intentional')\n",
+    );
+    let report = tool.call(&args).unwrap_err();
+    assert!(report.contains("failed (exit 1)"), "{report}");
+    assert!(!report.contains("summary is unavailable"), "{report}");
+}
+
+#[test]
 fn custom_script_forged_counts_preserve_exit_and_never_write_verified_caddy_recipe() {
     let _lock = crate::tests::env_lock();
     if !crate::agent::sandbox::available() || resolve_on_path("npm").is_none() {
@@ -206,10 +285,12 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
     assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }
 
-/// A foreground process cap exists only when the operator sets one. Task mode
-/// does not install a default, and the new knob wins over the deprecated fallback.
+/// Interactive turns get a foreground process cap only when the operator sets
+/// one. Headless task mode defaults to 120 s so a hung command cannot hold the
+/// call until the evaluator's wall; the new knob wins over the deprecated
+/// fallback and `0` turns the cap off.
 #[test]
-fn task_call_budget_is_an_operator_cap_only() {
+fn task_call_budget_defaults_in_task_mode_only() {
     use std::time::Duration;
     let _env = crate::tests::env_lock();
     let _knob = crate::tests::TestEnvGuard::unset("ANGEL_TASK_CALL_TIMEOUT_SECS");
@@ -221,10 +302,10 @@ fn task_call_budget_is_an_operator_cap_only() {
         assert_eq!(super::task_call_budget(), Some(Duration::from_secs(17)));
     }
     let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    assert_eq!(super::task_call_budget(), None);
+    assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
     {
         let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "300");
-        assert_eq!(super::task_call_budget(), None);
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
     }
     {
         let _off = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "0");

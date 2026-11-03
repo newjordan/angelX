@@ -13,7 +13,7 @@ fn on_palette(tint: [f32; 4]) -> bool {
 
 fn lying(card: &crate::rules::cards::Card) -> ScenePickup {
     let recipe = recipe(card);
-    ScenePickup { x: 40.0, y: 40.0, kind: recipe.kind, plate: None, ink: recipe.ink, accent: recipe.accent, shine: recipe.shine, tick: 12 }
+    ScenePickup { x: 40.0, y: 40.0, kind: recipe.kind, plate: None, ink: recipe.ink, accent: recipe.accent, shine: recipe.shine, tick: 12, age: u32::MAX, seed: 0, pale: false }
 }
 
 #[test]
@@ -31,6 +31,9 @@ fn every_builtin_card_builds_inside_its_budget_in_palette_inks() {
             accent: recipe.accent,
             shine: recipe.shine,
             tick: 9,
+            age: u32::MAX,
+            seed: 0,
+            pale: false,
         };
         let mut nodes = Vec::new();
         assert!(build(&mut nodes, 0, &item, (0.0, 0.0)), "{}", card.id);
@@ -62,7 +65,7 @@ fn a_pickup_lies_in_the_dusk_and_only_the_rare_glow_and_faintly() {
     let mut glowing = 0;
     for card in &book.cards {
         let recipe = recipe(card);
-        let item = ScenePickup { x: 80.0, y: 60.0, kind: recipe.kind, plate: None, ink: recipe.ink, accent: recipe.accent, shine: recipe.shine, tick: 9 };
+        let item = ScenePickup { x: 80.0, y: 60.0, kind: recipe.kind, plate: None, ink: recipe.ink, accent: recipe.accent, shine: recipe.shine, tick: 9, age: u32::MAX, seed: 0, pale: false };
         let mut nodes = Vec::new();
         assert!(build(&mut nodes, 0, &item, (0.0, 0.0)), "{}", card.id);
         for node in &nodes {
@@ -121,7 +124,7 @@ fn room_with_card() -> (Run, String) {
     let mut run = Run::new(3, 1, Some("Friend"));
     let index = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight).unwrap_or(run.at);
     run.enter_for_test(index);
-    run.dungeon.rooms[run.at].items.push(Item { card: id.clone(), x: 8.0, y: 6.0, held_off: None, took: Vec::new() });
+    run.dungeon.rooms[run.at].items.push(Item { card: id.clone(), x: 8.0, y: 6.0, held_off: None, took: Vec::new(), dropped: 0, owner: None });
     (run, id)
 }
 
@@ -204,7 +207,7 @@ fn a_crowded_floor_and_an_empty_one_both_make_frames_with_their_own_nodes() {
     let room = &mut run.dungeon.rooms[run.at];
     room.items.clear();
     for n in 0..24 {
-        room.items.push(Item { card: id.clone(), x: 2.0 + (n % 8) as f32, y: 2.0 + (n / 8) as f32, held_off: None, took: Vec::new() });
+        room.items.push(Item { card: id.clone(), x: 2.0 + (n % 8) as f32, y: 2.0 + (n / 8) as f32, held_off: None, took: Vec::new(), dropped: 0, owner: None });
     }
     super::super::props_meshes(true);
     let crowded = std::sync::Arc::new(super::super::room_scene::scene_for(&run, w, h, Some(1)));

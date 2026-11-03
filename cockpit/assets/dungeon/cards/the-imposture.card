@@ -2,7 +2,7 @@
 name   The Imposture
 kind   spell
 rarity relic
-text   A counterfeit knight steps out of you. Monsters believe it. So will you, briefly.
+text   A counterfeit knight steps out of you. Monsters believe it.
 drop   8
 chest  4
 cooldown 30

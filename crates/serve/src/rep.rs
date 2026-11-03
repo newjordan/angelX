@@ -12,11 +12,12 @@
 //!   client's name table over.
 
 use crate::Replicate;
-use angel_net::doc::delta::diff;
+use angel_net::doc::delta::{Patch, diff};
 use angel_net::doc::value::Value;
 use angel_net::doc::wire::Writer;
 use angel_net::entity::{Interest, Viewer, World};
 use std::borrow::Cow;
+use std::sync::{Arc, Mutex};
 
 /// One tick in entity mode.
 pub struct EntityTick {
@@ -77,6 +78,33 @@ pub trait DocView: Send + Sync + 'static {
     }
 }
 
+/// The last patch worked out between two shared trees (`Value::Shared`),
+/// and the two: each seat of a party in one room is sent the tick's tree as
+/// it stands, and was sent the last tick's, so the seats after the first are
+/// sent its patch rather than each working one out (`patch_between`).
+type LastPatch = Option<(Arc<Value>, Arc<Value>, Option<Patch>)>;
+static LAST_PATCH: Mutex<LastPatch> = Mutex::new(None);
+
+/// What turns `old` into `new` (`diff`): the last patch again when it was
+/// between these very two trees.
+fn patch_between(old: &Value, new: &Value) -> Option<Patch> {
+    let (Value::Shared(a), Value::Shared(b)) = (old, new) else {
+        return diff(old, new);
+    };
+    let Ok(mut last) = LAST_PATCH.lock() else {
+        return diff(old, new);
+    };
+    if let Some((x, y, patch)) = last.as_ref()
+        && Arc::ptr_eq(a, x)
+        && Arc::ptr_eq(b, y)
+    {
+        return patch.clone();
+    }
+    let patch = diff(old, new);
+    *last = Some((Arc::clone(a), Arc::clone(b), patch.clone()));
+    patch
+}
+
 /// Every client sees the whole tree.
 pub struct Everything;
 
@@ -113,7 +141,7 @@ impl<V: DocView> Replicate for DocRep<V> {
                 true
             }
             Some(old) => {
-                if let Some(patch) = diff(old, &view) {
+                if let Some(patch) = patch_between(old, &view) {
                     viewer.names.patch(out, &patch);
                     viewer.last = Some(view.into_owned());
                 }
@@ -218,5 +246,35 @@ mod tests {
         out.clear();
         rep.snapshot(&DocTick { tree }, Some(0), &mut viewer, &mut out);
         assert!(out.is_empty(), "nothing more to send");
+    }
+
+    #[test]
+    fn seats_sent_the_same_shared_trees_are_sent_one_patch_and_each_reads_it() {
+        let rep = DocRep(Everything);
+        let shared = |gold| Value::shared(tree(gold));
+        let (first, second) = (shared(1), shared(2));
+        let mut readers: Vec<(DocViewer, Reader, Option<Value>)> =
+            (0..3).map(|_| (rep.viewer(Some(0)), Reader::default(), None)).collect();
+        for tick in [&first, &second] {
+            let mut sent = Vec::new();
+            for (viewer, reader, held) in &mut readers {
+                let mut out = Vec::new();
+                let whole = rep.snapshot(&DocTick { tree: tick.clone() }, Some(0), viewer, &mut out);
+                match held {
+                    None => *held = Some(reader.value(&mut Bytes::new(&out)).unwrap()),
+                    Some(held) => {
+                        assert!(!whole);
+                        apply(held, reader.patch(&mut Bytes::new(&out)).unwrap()).unwrap();
+                    }
+                }
+                assert_eq!(held.as_ref(), Some(tick), "each seat holds the tick's tree");
+                sent.push(out);
+            }
+            assert!(sent.windows(2).all(|w| w[0] == w[1]), "the same bytes to each");
+        }
+        let held = LAST_PATCH.lock().unwrap();
+        let (a, b, patch) = held.as_ref().unwrap();
+        let (Value::Shared(x), Value::Shared(y)) = (&first, &second) else { panic!() };
+        assert!(Arc::ptr_eq(a, x) && Arc::ptr_eq(b, y) && patch.is_some(), "worked out once, kept for the rest");
     }
 }

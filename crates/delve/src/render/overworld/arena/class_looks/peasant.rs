@@ -20,9 +20,16 @@ pub(super) fn views() -> &'static [View; 3] { &slots().views }
 pub(crate) fn stone_shot(cv: &mut Img, p: &Projectile, x: i32, y: i32) -> bool {
     if !peasant::stone(p) { return false; }
     let lift = (peasant::stone_height(p.ttl) * super::super::UNIT) as i32;
-    cv.line(x - 2, y, x + 2, y, 'O');
+    let size = p.scale();
+    let half = (2.0 * size).round().max(1.0) as i32;
+    cv.line(x - half, y, x + half, y, 'O');
     let im = &slots().stone;
-    cv.stamp(im, x - im.w / 2, y - im.h / 2 - lift);
+    if size == 1.0 {
+        cv.stamp(im, x - im.w / 2, y - im.h / 2 - lift);
+    } else {
+        let im = super::super::resized(im, size);
+        cv.stamp(&im, x - im.w / 2, y - im.h / 2 - lift);
+    }
     true
 }
 pub(crate) fn desertion(cv: &mut Img, run: &Run) {

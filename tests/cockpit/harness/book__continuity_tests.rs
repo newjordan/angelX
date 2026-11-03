@@ -9,6 +9,184 @@ fn route(model: &str) -> RouteIdentity {
 }
 
 #[test]
+fn catalog_binding_survives_save_and_compaction_without_changing_wire() {
+    let digest = "a".repeat(64);
+    let mut history = vec![ChatMsg::system("system"), ChatMsg::user("research")];
+    let wire = crate::agent::club::messages_to_json(&history, false);
+    bind_generation(&mut history, &digest).unwrap();
+    assert_eq!(crate::agent::club::messages_to_json(&history, false), wire);
+    assert_eq!(generation_digest(&history), Some(digest.as_str()));
+    let saved = serde_json::to_vec(&history).unwrap();
+    let restored: Vec<ChatMsg> = serde_json::from_slice(&saved).unwrap();
+    assert_eq!(generation_digest(&restored), Some(digest.as_str()));
+    let mut summary = ChatMsg::harness("summary without any book signals");
+    summary.book_memory = compaction_memory(&restored);
+    let mut compacted = vec![summary, ChatMsg::user("continue")];
+    assert_eq!(generation_digest(&compacted), Some(digest.as_str()));
+    let mut state = Continuity::new(&compacted);
+    state.prepare(&mut compacted, &route("a"));
+    assert_eq!(generation_digest(&compacted), Some(digest.as_str()));
+}
+
+#[test]
+fn catalog_binding_refuses_invalid_or_different_generations() {
+    let mut history = vec![ChatMsg::user("task")];
+    assert!(bind_generation(&mut history, "not-a-digest").is_err());
+    let a = "a".repeat(64);
+    let b = "b".repeat(64);
+    bind_generation(&mut history, &a).unwrap();
+    bind_generation(&mut history, &a).unwrap();
+    assert!(bind_generation(&mut history, &b).is_err());
+    assert_eq!(generation_digest(&history), Some(a.as_str()));
+    assert!(bind_generation(&mut [ChatMsg::system("only system")], &a).is_err());
+}
+
+#[test]
+fn saved_session_recovers_its_exact_published_generation() {
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("book-generation-resume");
+    let home = workspace.path().join("home");
+    let sessions = workspace.path().join("sessions");
+    std::fs::create_dir(&home).unwrap();
+    let store = home.join(".angelX/book-generations");
+    let _book_store = super::super::generation_store::TestRootGuard::enter(store.clone());
+    let _sessions =
+        crate::tests::TestEnvGuard::set("ANGEL_SESSION_DIR", sessions.to_str().unwrap());
+    let original = super::super::catalog::Catalog::baseline().bytes();
+    let edited = br#"{"schema":"angel.book-catalog/v1","chapter":"edited"}"#;
+    let digest = super::super::generation_store::publish(&original).unwrap();
+    let mut history = vec![ChatMsg::system("system"), ChatMsg::user("task")];
+    let session = crate::knowledge::session::Session::at_for(
+        sessions,
+        "generation-fixture".into(),
+        workspace.path(),
+    );
+    session.save(&history).unwrap();
+    // Exit checkpoint reuse must notice a change to local-only book metadata.
+    bind_generation(&mut history, &digest).unwrap();
+    session.checkpoint_for_exit(&history).unwrap();
+    assert_ne!(
+        super::super::generation_store::publish(edited).unwrap(),
+        digest
+    );
+    let restored =
+        crate::knowledge::session::load_for("generation-fixture", workspace.path()).unwrap();
+    let saved_digest = generation_digest(&restored).unwrap();
+    assert_eq!(
+        super::super::generation_store::load(saved_digest).unwrap(),
+        original
+    );
+    std::fs::write(store.join(format!("{digest}.json")), b"corrupted").unwrap();
+    let mut restored =
+        crate::knowledge::session::load_for("generation-fixture", workspace.path()).unwrap();
+    let error = super::super::catalog::bind_turn(&mut restored).unwrap_err();
+    assert!(error.contains("corrupt"), "{error}");
+}
+
+#[test]
+fn legacy_system_only_session_loads_without_a_writable_generation_store() {
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("book-legacy-empty");
+    let sessions = workspace.path().join("sessions");
+    let home_file = workspace.path().join("home-file");
+    std::fs::write(&home_file, b"not a directory").unwrap();
+    let unavailable = home_file.join("book-generations");
+    let _book_store = super::super::generation_store::TestRootGuard::enter(unavailable);
+    let _sessions =
+        crate::tests::TestEnvGuard::set("ANGEL_SESSION_DIR", sessions.to_str().unwrap());
+    let session = crate::knowledge::session::Session::at_for(
+        sessions,
+        "legacy-system".into(),
+        workspace.path(),
+    );
+    session.save(&[ChatMsg::system("system")]).unwrap();
+    let history = crate::knowledge::session::load_for("legacy-system", workspace.path()).unwrap();
+    assert!(generation_digest(&history).is_none());
+}
+
+#[test]
+fn legacy_session_binds_the_embedded_baseline_not_live_edits() {
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("book-legacy-baseline");
+    let home = workspace.path().join("home");
+    let sessions = workspace.path().join("sessions");
+    let resources = workspace.path().join("resources");
+    let chapter_dir = resources.join("cockpit/book");
+    std::fs::create_dir(&home).unwrap();
+    std::fs::create_dir_all(&chapter_dir).unwrap();
+    let shipped_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("book");
+    for entry in std::fs::read_dir(&shipped_dir).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            std::fs::copy(entry.path(), chapter_dir.join(entry.file_name())).unwrap();
+        }
+    }
+    let shipped = std::fs::read_to_string(shipped_dir.join("gh_navigation.tsv")).unwrap();
+    let edited = format!("{} edited\n", shipped.trim_end());
+    std::fs::write(
+        chapter_dir.join("gh_navigation.tsv"),
+        &edited,
+    )
+    .unwrap();
+    let manifest_path = chapter_dir.join("catalog-manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["chapters"]["gh_navigation.tsv"]["sha256"] =
+        crate::knowledge::cut::sha256_hex(edited.as_bytes()).into();
+    let mut bytes = serde_json::to_vec(&manifest).unwrap();
+    bytes.push(b'\n');
+    std::fs::write(manifest_path, bytes).unwrap();
+    let store = home.join(".angelX/book-generations");
+    let _book_store = super::super::generation_store::TestRootGuard::enter(store);
+    let _sessions =
+        crate::tests::TestEnvGuard::set("ANGEL_SESSION_DIR", sessions.to_str().unwrap());
+    let _resources =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", resources.to_str().unwrap());
+    let baseline = super::super::catalog::Catalog::baseline().bytes();
+    assert_ne!(
+        super::super::catalog::Catalog::live().unwrap().bytes(),
+        baseline
+    );
+    let session =
+        crate::knowledge::session::Session::at_for(sessions, "legacy".into(), workspace.path());
+    session.save(&[ChatMsg::user("old conversation")]).unwrap();
+    let mut history = crate::knowledge::session::load_for("legacy", workspace.path()).unwrap();
+    assert!(is_legacy(&history));
+    super::super::catalog::bind_turn(&mut history).unwrap();
+    let saved_digest = generation_digest(&history).unwrap();
+    assert_eq!(
+        super::super::generation_store::load(saved_digest).unwrap(),
+        baseline
+    );
+}
+
+#[test]
+fn legacy_conversation_reports_unavailable_generation_storage() {
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("book-legacy-unavailable");
+    let sessions = workspace.path().join("sessions");
+    let home_file = workspace.path().join("home-file");
+    std::fs::write(&home_file, b"not a directory").unwrap();
+    let unavailable = home_file.join("book-generations");
+    let _book_store = super::super::generation_store::TestRootGuard::enter(unavailable);
+    let _sessions =
+        crate::tests::TestEnvGuard::set("ANGEL_SESSION_DIR", sessions.to_str().unwrap());
+    let session = crate::knowledge::session::Session::at_for(
+        sessions,
+        "legacy-used".into(),
+        workspace.path(),
+    );
+    session.save(&[ChatMsg::user("old conversation")]).unwrap();
+    let mut history = crate::knowledge::session::load_for("legacy-used", workspace.path()).unwrap();
+    assert!(is_legacy(&history));
+    let mut summary = ChatMsg::harness("compacted legacy conversation");
+    summary.book_memory = compaction_memory(&history);
+    assert!(is_legacy(&[summary]));
+    let error = super::super::catalog::bind_turn(&mut history).unwrap_err();
+    assert!(error.contains("book generation"), "{error}");
+}
+
+#[test]
 fn swapping_models_reteaches_used_signals_and_keeps_the_cached_prefix() {
     let mut history = vec![
         ChatMsg::system("⠽⠙"),

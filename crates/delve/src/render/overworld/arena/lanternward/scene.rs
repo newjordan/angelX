@@ -49,14 +49,7 @@ pub(super) fn draw(run: &Run, focus: Option<u32>) -> Img {
         },
         |k| k.cam,
     );
-    // A shake is a few pixels either way, fixed by the tick.
-    let shake = if s.shake > 0 {
-        let h = hash(s.elapsed as i32, 7, 3);
-        let m = (s.shake as i32).min(4);
-        ((h & 7) as i32 % (2 * m + 1) - m, ((h >> 3) & 7) as i32 % (2 * m + 1) - m)
-    } else {
-        (0, 0)
-    };
+    let shake = super::super::camera::smooth_shake(u64::from(s.elapsed), u32::from(s.shake), 12, 4.0);
     let v = View {
         run,
         s,

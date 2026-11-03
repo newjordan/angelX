@@ -40,6 +40,7 @@ pub const MODEL_ROOT: u64 = 1;
 /// point. `rect` is where it answers and `anchor` where it is, both in
 /// the content's own pixels; `text` the lines its tip shows.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct Mark {
     pub rect: [f32; 4],
     pub anchor: [f32; 2],
@@ -48,6 +49,7 @@ pub struct Mark {
 
 /// How the content sits in the panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub enum Fit {
     /// Whole, aspect kept, letterboxed: pictures, video, scenes.
     Contain,
@@ -60,6 +62,7 @@ pub enum Fit {
 /// sits, who brings it in and in what colours, and whether there are
 /// showings before and after it to step to.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct Showing {
     pub title: String,
     pub size: (u32, u32),
@@ -91,11 +94,30 @@ impl Showing {
             forward: false,
         }
     }
+
+    /// Header-first showing: reserve the fitted layout box from a
+    /// [`crate::graphics::ServePlan`] without decoding pixels. `Some` when
+    /// the header parsed to a displayable box (direct stills); `None` when
+    /// the bytes are held (`ServePlan::is_held`: AVIF/HEIF/SVG/MP4/WebM
+    /// poster/video/rasterizer pipeline owns them, `routed_reason` says why),
+    /// unknown, or need a full decode to learn the size — the caller shows
+    /// the hold reason instead of an unbounded decode the way kitty's
+    /// per-frame base64 path would. Adapter-aware: build the plan with
+    /// `serve_plan_for_adapter` so this host's RTX 3090 reserves full 8K
+    /// while integrated reserves 4096.
+    pub fn from_serve_plan(
+        title: &str,
+        plan: crate::graphics::ServePlan,
+        fit: Fit,
+    ) -> Option<Self> {
+        plan.layout_box().map(|size| Self::new(title, size, fit))
+    }
 }
 
 /// Who brings the showing in: the squire, who kicks it open, or the
 /// wizard, who conjures it (charts).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub enum Herald {
     #[default]
     Squire,
@@ -187,6 +209,12 @@ impl Host {
         serial != 0 && self.shared.showcase_live.load(Ordering::Acquire) == serial
     }
 
+    /// Whether any showing is up: false before the first, and once the
+    /// operator or the producer closed it.
+    pub fn showcase_up(&self) -> bool {
+        self.shared.showcase_live.load(Ordering::Acquire) != 0
+    }
+
     /// The marks of the next showing (a chart's bars and points): hand
     /// them over before [`Host::showcase`].
     pub fn showcase_marks(&self, marks: Vec<Mark>) {
@@ -238,6 +266,13 @@ impl Host {
     /// what is showing.
     pub fn showcase_copies(&self) -> u32 {
         self.shared.showcase_copies.load(Ordering::Relaxed)
+    }
+
+    /// Times the operator has closed the showcase so far (its close
+    /// button, Escape over it); a producer's own close does not count. A
+    /// showing nobody asked for can hold back while one was just closed.
+    pub fn showcase_dismissals(&self) -> u32 {
+        self.shared.showcase_dismissals.load(Ordering::Relaxed)
     }
 
     /// Clicks on the showcase's content so far (a video pauses on one).
@@ -644,6 +679,7 @@ impl Popup {
             Ordering::AcqRel,
             Ordering::Relaxed,
         );
+        shared.showcase_dismissals.fetch_add(1, Ordering::Relaxed);
         self.close();
     }
 

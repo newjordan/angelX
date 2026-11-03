@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+*.fbx
+*.FBX
+out/
+# generated showcase output: regenerate with the CLIs; only curated GIFs are committed
+showcase/**
+!showcase/
+!showcase/BENCHMARK.md
+!showcase/curated/
+!showcase/curated/**

@@ -1,0 +1,33 @@
+{
+  "api_version": 1,
+  "id": "layout-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "undercroft",
+    "spots": [[2, 1, 4, 2], [18, 1, 4, 2], [2, 11, 4, 2], [18, 11, 4, 2], [1, 5, 1, 4]],
+    "bounty_board": [15, 9, 3, 1],
+    "stairwell": [10, 5, 4, 4],
+    "stair_mouth": [11, 8, 2, 1],
+    "wheel_stand": [9, 1, 6, 6],
+    "coffer": [3, 3, 2, 2],
+    "benches": [[3, 10, 7, 2], [14, 10, 7, 2]],
+    "stall": [17, 9, 6, 2],
+    "plinths": [
+      [4, 3, 2, 1],
+      [4, 8, 2, 1],
+      [18, 3, 2, 1],
+      [18, 8, 2, 1],
+      [4, 11, 2, 1],
+      [18, 11, 2, 1],
+      [18, 6, 2, 1],
+      [10, 5, 4, 2],
+      [11, 10, 2, 1]
+    ]
+  },
+  "bend": {
+    "entry": "layout-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "layout-rules.compiled.js"
+  }
+}

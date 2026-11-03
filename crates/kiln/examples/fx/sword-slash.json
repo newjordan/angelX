@@ -1,0 +1,9 @@
+{ "fx": 0, "name": "sword slash", "canvas": [48, 32], "pivot": [18, 18], "fps": 12, "seed": 5,
+  "beats": { "anticipation": 2, "action": 2, "follow": 3, "settle": 2 },
+  "layers": [
+    { "type": "star", "ramp": "steel", "x": -6, "y": -11, "r1": 3, "count": 4, "t0": 0, "t1": "action+1" },
+    { "type": "slash", "ramp": "steel", "r1": 16, "th": 6, "angle": -110, "arc": 170, "squash": 0.8, "t0": "action", "t1": "settle" },
+    { "type": "slash", "ramp": "frost", "r1": 12, "th": 2, "angle": -100, "arc": 150, "squash": 0.8, "gain": 0.6, "t0": "action", "t1": "settle-1" },
+    { "type": "particles", "form": "spark", "ramp": "spark", "x": 13, "y": 1, "count": 7, "angle": 0, "spread": 110,
+      "speed": [1.5, 3.5], "life": [3, 5], "t0": "action+1", "t1": "end" }
+  ] }

@@ -87,9 +87,9 @@ pub const STOCK_CHARM: u8 = 12;
 pub const FIRE: u8 = 45;
 /// How long a scorch mark lingers after its fire, in ticks.
 pub const SCORCH: u8 = 200;
-/// The four start corners of the shared courtyard, tiles: a knight per
-/// corner, each on a lane kept clear of bales and posts.
-pub const CORNERS: [(u8, u8); 4] = [(1, 1), (9, 7), (9, 1), (1, 7)];
+/// The shared courtyard's six starts: four corners, then the middle of
+/// the north and east lanes, all clear of bales and posts.
+pub const CORNERS: [(u8, u8); 6] = [(1, 1), (9, 7), (9, 1), (1, 7), (5, 0), (10, 4)];
 /// The stone posts: the classic pillar grid, only in the interior (odd
 /// rows one step in), so the outer ring stays a walkable lane and the four
 /// corners stand clear.
@@ -197,6 +197,12 @@ pub struct Powder {
     pub seed: u8,
     /// How many bales each seat has burned (their progress), by id.
     pub burned: BTreeMap<u32, u8>,
+    /// Chain explosion flash: (ticks, x1, y1, x2, y2) for the two kegs involved.
+    #[serde(default)]
+    pub chain_flash: Option<(u8, u8, u8, u8, u8)>,
+    /// Chain explosion shockwave: expanding ring between two keg positions.
+    #[serde(default)]
+    pub chain_shockwave: u8,
 }
 
 impl Powder {
@@ -227,6 +233,8 @@ impl Powder {
             bales: BALES.iter().map(|&(c, r)| r * W + c).collect(),
             seed,
             burned: ids.iter().map(|&id| (id, 0)).collect(),
+            chain_flash: None,
+            chain_shockwave: 0,
         }
     }
 
@@ -379,6 +387,7 @@ impl Powder {
             out.2 = true;
         }
         let mut burned: Vec<(u8, u32)> = Vec::new();
+        let mut chain_pair: Option<(u8, u8, u8, u8)> = None;
         for kg in boomed {
             let reach = self
                 .knights
@@ -438,6 +447,8 @@ impl Powder {
                             self.kegs.iter_mut().find(|k2| k2.col == c && k2.row == r)
                         {
                             k2.left = k2.left.min(1);
+                            // Record the chain pair for the shockwave visual.
+                            chain_pair = Some((kg.col, kg.row, c, r));
                         }
                         arms.push(Flame {
                             col: c,
@@ -466,6 +477,11 @@ impl Powder {
                 }
             }
             self.flames.extend(arms.iter().copied());
+        }
+        // Chain explosion visual: set flash and shockwave when a chain was detected.
+        if let Some((x1, y1, x2, y2)) = chain_pair {
+            self.chain_flash = Some((6, x1, y1, x2, y2));
+            self.chain_shockwave = 6;
         }
         if !burned.is_empty() {
             out.1 = true;
@@ -541,6 +557,15 @@ impl Powder {
             s.left -= 1;
         }
         self.scorch.retain(|s| s.left > 0);
+        // Decrement chain explosion visuals.
+        self.chain_shockwave = self.chain_shockwave.saturating_sub(1);
+        if let Some((ticks, x1, y1, x2, y2)) = self.chain_flash {
+            if ticks > 0 {
+                self.chain_flash = Some((ticks - 1, x1, y1, x2, y2));
+            } else {
+                self.chain_flash = None;
+            }
+        }
         (sooted_ids, out.1, out.2, picked)
     }
 
@@ -568,18 +593,12 @@ impl Powder {
             && self.charms.len() <= BALES.len()
             && self.charms.iter().all(|c| c.col < W && c.row < H && c.kind < 3)
             && self.bales.len() <= BALES.len()
+            && self.chain_shockwave <= 6
+            && self.chain_flash.map_or(true, |(t, x1, y1, x2, y2)| {
+                t <= 6 && x1 < W && y1 < H && x2 < W && y2 < H
+            })
     }
 
-    /// The charms left to find, for the board's live cue.
-    pub fn charms_left(&self) -> u8 {
-        u8::try_from(
-            self.drops()
-                .iter()
-                .filter(|&&t| self.bales.iter().any(|&b| b == t))
-                .count(),
-        )
-        .unwrap_or(0)
-    }
 }
 
 #[allow(dead_code)]
@@ -617,6 +636,7 @@ impl Run {
             self.found = Some((self.tick, 0, "The sappers left. Kegs parked.".into()));
             return false;
         };
+        let prev_kegs = p.kegs.len();
         let (sooted, burned, boom, picked) = p.step(inputs, tapped);
         // Each knight is drawn where they stand in the yard; a sooted knight
         // goes back to the bench by the start mark to watch.
@@ -634,8 +654,17 @@ impl Run {
         }
         // The yard's sounds are the delve's own: a keg's burst is a bomb's,
         // a bale's whoosh a vent's fire, a friend sooted a blast's hit.
+        // Keg drop sound: new kegs appeared this tick
+        if p.kegs.len() > prev_kegs {
+            self.sounds.push("bomb_toss");
+        }
         if boom {
             self.sounds.push("bomb");
+        }
+        // Chain explosion: stronger screen shake when one keg triggers another.
+        if p.chain_shockwave > 0 {
+            self.shake = self.shake.max(8);
+            self.sounds.push("boss_roar");
         }
         if burned {
             self.sounds.push("vent_fire");
@@ -645,7 +674,14 @@ impl Run {
             self.sounds.push("spoil_pickup");
         }
         // Each seat's progress is the bales burned while they stand.
+        let prev_progress = round.progress;
         round.progress = p.burned.get(&owner).copied().unwrap_or(0).min(Game::Powder.need());
+        if round.progress > prev_progress {
+            round.score_popup = 8;
+            round.score_popup_text = "BURN!".to_string();
+            round.score_popup_x = 12;
+            round.score_popup_y = 5;
+        }
         if !sooted.is_empty() {
             self.sounds.push("hit_blast");
             let who = if sooted.contains(&owner) {

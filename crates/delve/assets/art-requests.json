@@ -83,16 +83,16 @@
     "Forest Road and Old Oak (FOREST-1, 16 October 2026)": "The complete first siege slice uses **temporary block placeholders** behind\n[`forest-road/slots.json`](../crates/delve/assets/forest-road/slots.json).\nArt team: original, chunky 1990s arcade run-and-gun drawing, thick warm-dark\ncontours, hue-shifted 5–7-tone materials, our dark colours, no dithering/noise,\nno near-white cores. Side view, facing right, mirror left where appropriate.\nDo not reproduce any existing game's characters, machinery or frames.\n\n| Asset id | Identity and role | States / frames / ticks at 30 Hz | Native canvas / anchor / authoritative geometry |\n|---|---|---|---|\n| `forest.ent` | Old Oak, ancient, kind, mossy oak giant. Chained to captors' Feller; regains height, then speaks. Also kingdom forest-edge NPC, screen-facing three-quarter variant requested after side delivery. | chained 4×12 loop; freeing 4×6 (24 total); standing 6×11 (66 total); idle 4×12 loop; talk 4×6 loop during thanks/E dialogue. | 88×108; feet (44,108); no damage collider. Two independent chain targets x=7000, heights floor−48 and floor−24, each 240 HP; keep target sockets visible. |\n| `forest.ent-kingdom` | Old Oak as a kingdom NPC at the Dark Forest edge, overhead three-quarter view facing the screen; same character as `forest.ent`, small enough to stand among the buildings. | idle 4×12 loop; talk 4×6 loop while a knight speaks with him (E). | 28×36; feet (14,36), standing on the bottom of kingdom tile (13,8); no collider. Keep it inside its canvas so it never covers place labels or doors. |\n| `forest.scout` | Besieging army melee scout, light kit and readable aggressive stance. | idle/walk 4×6; tell 4 frames normalized across 60/53/46; strike 4×3; recover 3×15; hit 2×3; defeat 6×6. | 20×32; feet (10,32); centred 20×32 collider. Chase 2 px/tick; fixed forward strike danger up to 64×26. |\n| `forest.archer` | Army bowman. Distinct raised bow and arcing-arrow release. | idle 4×6; tell 4 normalized across 60/53/46; loose 4×3; recover 3×15; hit 2×3; defeat 6×6. | 20×32; (10,32); collider 20×32. One gravity arrow, ~30-tick arc to locked aim marker, at most 60-tick life, 12 damage. |\n| `forest.woodcutter` | Heavy army axeman, cutting the forest for siege timber. | idle 4×6; tell 4 normalized across 60/53/46; chop 4×3; recover 3×15; hit 2×3; defeat 6×6. | 20×32; (10,32); collider 20×32. Chop danger 128×44; keep art clipped to authoritative rectangle. |\n| `forest.war-wagon` | Mid-boss armoured wagon with mortar, distinct from Feller. | idle 4×6; mortar tell 4 normalized across 60/53/46; fire 4×3; recover 3×15; hit 2×3; defeat 6×6. | 76×52; (38,52); collider 76×52; locked 64×64 ground blast, 12 active ticks. |\n| `forest.feller` | Captors' siege sawmill on wheels. Ent is visibly tethered to it. | idle 4×6; saw/mortar/ram tell each 4 normalized across 60/53/46; each attack 4×3; recover 3×15; hit 2×3; defeat 6×6. Initial bank can share tell/attack slots, later keyed variants retain timings. | 104×76; (52,76); collider 104×76. Saw 210×17, mortar 80×72, wheel ram 208×34. All fixed warning/active masks are rules-owned; art must never imply a larger danger. |\n| `forest.layer-far` | Distant forest canopy silhouettes, original dark forest landscape. | 1 tile, static; quarter-speed parallax. | 192×80 repeat horizontally; bottom centre (96,80), no collision. |\n| `forest.layer-mid` | Middle woodland trunks and undergrowth. | 1 tile, static; half-speed parallax. | 192×72 repeat; (96,72), no collision. |\n| `forest.layer-near` | Roadside roots / forest floor strip, dark enough for shots. | 1 tile, static; world-speed parallax. | 192×24 repeat; (96,24), no collision. |\n| `forest.hurdle` | Fallen log traversal obstacle. | idle 1 frame. | 36×18; (18,18); solid 36×18 block, jump clears it. |\n\nAll actor attack anticipation is at least 46 ticks. Source sheets with measured\ncrop JSON, transparent native PNGs named `<state>-<index>.png`, manifest,\nproduction plan and SHA-256 provenance; register through the existing slot import\npipeline. Timings and hitboxes remain governed by rules. Arrow/impact/tell art\nis requested as a follow-up bank: arrow flight 2×4, axe impact 4×3,\nsaw/mortar/ram impact 4×3, chain snap 4×6. These effect slots are not wired yet;\ncurrent exact danger rectangles and seven-pixel hostile cores remain visible.",
     "Bard knight and effects (BARD-1, 15 October 2026)": "These are **temporary swappable placeholders**, not final designs. Runtime slot\nspecification: [`bard/slots.json`](../crates/delve/assets/bard/slots.json).\nThe class is available in the company chooser, at the Scriptorium banner and\nthrough the Sanctuary class cycle, for native and browser seats alike.\n\n| Asset id | Role, camera and identity | States and timing at 30 Hz | Native canvas, anchor and geometry |\n|---|---|---|---|\n| `bard-knight` | Delve Bard body and held instrument; overhead front, right (mirror left), back. Original knight in the dark 1990s arcade run-and-gun style: enormous helmet, heavy gloves and boots, squat body; the art team designs the instrument and costume. | Idle 1 frame; walk 4 frames driven by the existing 0.85-world-unit stride quarters; attack 1 frame for each 4-tick pull; song 1 frame for 60 ticks (idle fallback until delivery); hit 1 frame using existing struck/ward timers; defeat 1 frame using the existing fallen-knight state. Additional animation frames may subdivide these states, never extend them. | 20×16 placeholder including item margin, feet at (10,16); candidate delivered size 20×20, preserve feet and test real cells. Hero radius **0.42 world units**, unchanged. Also deliver mounted head 7×5 and coat 5×8 (centre bottom anchors), and chariot head 4×5 at (2,5). |\n| `bard-note` | Friendly, short-range cone projectile; overhead, readable in every travel direction. Simple note glyph placeholder; artist supplies the dark-contoured musical-note design. | 1 frame, projectile TTL 10 ticks. A pull every 4 ticks emits 3 notes across 30° at 18 units/s; 3 damage each, no base pierce. | 5×7, centre (2,3); candidate 5–7 px square. Existing friendly Arrow collision sweep; art never determines damage geometry. Travels 6 units after its 0.6-unit muzzle offset. |\n| `bard-sleep` | Status marker over a sleeping enemy; overhead, screen-facing `Zz` placeholder. Separate from icy stun art. | 1 frame for 60 ticks on normal enemies; 15 ticks on bosses. Damage never wakes early; a song affects an enemy once, without refresh. | 11×7, bottom centre (5,7), placed above enemy feet at y−24; no collision. Delivered size 9–12×7–9; retain the anchor and test tall bosses. |\n| `bard-song-ring` | Moving song boundary centred on the Bard; overhead floor layer. Plain circular boundary placeholder; art team supplies any musical ornament. Must show the exact reach. | 1 frame for 60 ticks. Enemy centres within **7 world units** in the current room are reached, through scenery, once per cast; late arrivals receive a full sleep. The Bard may move, attack and guard during the song. Already-fired enemy projectiles and laid hazards continue. | 113×113 at 8 px/world unit; centre (56,56), exact radius 56 px. No collision. Keep any delivered decoration inside this boundary, and preserve readable dangers beneath it. |\n\nDelivery for every slot: transparent RGBA source sheet and crop JSON, original\nsource SHA-256, frame/state, facing, duration, native canvas and common anchor,\nhard-edged native preview, palette/material masks, and detached instrument plus\nsocket/occlusion metadata. Use the delivery contract below. No source art was\ngenerated or imported for this task.\n\nSound placeholders reuse `shot_spark` for notes and `boss_rise` for the ultimate.\nNeeded: a muted plucked-note stream loop with a release tail, and a two-second\nlullaby phrase with a soft onset and ending. Normal ultimate charge rules apply:\n1 per fight tick plus damage/2, full at 1000, R consumes the charge. The primary's\nmaximum base DPS is **67.5**, below bow 72 and crossbow ≈71.7; spread and short\nreach limit practical single-target damage. Bosses sleep **0.5 seconds once per\ncast** so the song interrupts without suppressing their whole attack cycle.\n\nThis is the artist handoff for the game shelf at `ef42711a` (15 October 2026).\nDesign and drawing belong to the art team; importing, registration, animation\nwiring, performance and final QA belong to the implementation team. No art or\ngameplay changes accompany this specification.",
     "How to read this": "Each named asset is a delivery slot, sometimes containing a family of poses or\nprops. `Files` is relative to `crates/delve/assets/`; `none` means the renderer\ncurrently draws it. `States` lists existing source poses, with `*` selecting\nfilenames and `@` counting procedural poses (`@unknown` for inherited dynamic banks). Damage variants are appearances,\nnot animation frames. `Need` is requested coverage that is **not wired yet**;\nits frame count and playback timing are unknown until integration agrees them.\nDo not invent new gameplay states or extend a tell to fit an animation.\n\nAll times below are engine ticks at **30 Hz**, from\n[`rules.rs::HZ`](../crates/delve/src/rules.rs). They describe default tuning;\nlive F2 knobs can change the named tuned values. Freeze can extend wall time.\nCanvas sizes include transparent margins, not just the occupied silhouette.\nPixel coordinates start at the upper left; anchors may lie on the bottom edge.\nLarger safe canvases are **unknown, test** for every slot: image stamping can\nclip at the viewport, UI or neighbouring body, even when collision is unchanged.\nThere is no blanket permission to scale up or move an anchor.\n\nRun `python3 scripts/art-requests.py` after source changes; `--check` checks for\nstale JSON without writing. The standard-library-only generator measures PNG\nheaders, reads native recipe states/variants, extracts scalar constants, enums\nand timer expressions, and attaches source locations and SHA-256 hashes. Request\nblocks below supply editorial identity, anchors and geometry references. These\nremain human-audited: the script does not infer hitboxes from artwork or prove\nthat every loaded pose is actually selected. JSON is a specification, not a new\nruntime asset loader. Retained unused files are called out explicitly.",
-    "Delivery contract": "- Deliver original source sheets plus a neighbouring JSON for **each sheet**,\n  and a top-level `manifest.json` and `production-plan.json`. Follow the measured\n  irregular-crop convention in the read-only\n  [boss library handoff](./cockpit/assets/boss-library/HANDOFF.md).\n  Do not assume a regular grid. The library's roster production plan is under\n  `boss-library/existing/production-plan.json`; there is no root plan in this checkout.\n- Each frame record needs `asset_id`, `state`, `frame_index`, `camera`, `facing`,\n  `mirror_allowed`, `source_rect_xywh`, `native_canvas_wh`, `anchor_xy`,\n  `duration_ticks` (or `simulation_state`), `source_sha256`, palette/material\n  masks, and layer order. Record the source pivot and its native mapping; never\n  trim each pose independently and lose the common baseline.\n- Keep transparent RGBA around isolated subjects. Include measured alpha-core\n  bounds and alpha threshold; the boss source convention measures at 128, while\n  these mini-game PNG decoders accept any nonzero alpha. Supply hard-edged native\n  previews as well as high-resolution sources; integration owns final palette\n  reduction and cleanup. No resampling or floats in the per-frame draw path.\n- Every actor needs idle, anticipation, action and recovery coverage, plus hit,\n  damage and comic defeat where its rules support them. Preserve existing frame\n  counts first. Extra breathing, settling and follow-through frames go in the\n  production plan as unwired proposals, with unknown timing clearly marked.\n- Detach the listed weapons, lids, banners, limbs, pickups and VFX; include\n  socket coordinates, pivot, local layer/occlusion order and registration pose.\n  Supply complete registered pose composites too: current renderers mostly\n  consume whole bodies. Detached parts are future integration work, not present\n  skeletal support. Left/right banks must identify which asymmetric details\n  can mirror. No invented overhead bank for a side-only game.\n- Deliver seat-cloth/plume and metal/material masks separately. Latch/Brasswake\n  use the shared knight ink recolour mapping; Rafterwake/Pennon also expand a\n  four-step cloth ramp. All moving side knights have cached left/right copies;\n  Latch holds one facing. Mossbell currently selects four seat\n  colours directly; Cinder uses the hero's normal figure. Keep eyes, brass,\n  skin, leather and warning colours out of the seat mask.\n- Hit boxes, feet, support lips, paddle contacts and danger areas below are\n  **read-only simulation geometry**. Author decorative VFX separately from exact\n  marks. Integration draws reliable telegraphs and safe gaps from the rules;\n  never paint a larger implied threat, conceal the boundary or fill a safe gap.\n- Review at native size, enlarged nearest-neighbour, and the **actual terminal\n  half-block/braille writer**. The reference canvas is 384×224\n  (`arena.rs::NATIVE_W/NATIVE_H`, 24×14 tiles at 16 px). The 96-column review\n  path averages material into 4×4 half-cells; inspect at other supported sizes\n  too. Preserve readable faces, paired lights, feet and danger boundaries.\n  Solid bodies/contact cores use half blocks; atmosphere uses braille. Tagged\n  narrow details in Rafterwake/Pennon have special cached cell paths.\n- Style: original chunky 1990s arcade cartoon sprite principles, thick warm\n  brown/indigo contours, heroic squat proportions, expressive comic acting,\n  rich hue-shifted material ramps, tactile wear expressed by shapes. Keep dark\n  rooms and black terminal space. No dithering, noisy flecks, tiny mottled\n  patches, dense stripes, near-white cores or full-frame glow. Never copy SNK,\n  Mario, Sonic, Mega Man, Kirby, Castlevania or other commercial characters,\n  signature costumes, vehicles, bosses or frames. This restriction applies to\n  **every** slot, including props, VFX and UI.\n- The numeric ink mapping is\n  [`ink.rs::ink/PALETTE`](../crates/delve/src/render/overworld/ink.rs), exported in\n  the JSON; dark-room/material guidance is in [ART-V2.md](ART-V2.md). The current\n  operator brief overrides that document's older contour/style language.\n  Existing recipes can contain deliberately tested local colours: Rafterwake\n  has local keeper inks, and Pennon has its own recipe bank. These are not\n  permission to expand the shared palette. Richer ramps need measured native\n  and cell trials and an explicit integration proposal; never loosen tests.\n  UI keeps black-surrounded navy/brass plates, tonal text and reserved seat and\n  danger colours. Do not redraw labels into source sheets or change wording.\n- Knight anatomy must follow the art team's existing knight reference:\n  enormous helmet, nearly helmet-sized gloves, heavy boots, short limbs, round\n  belly, springy stance and repaired asymmetric kit. Read-only source assets\n  and onboarding stay untouched. If integration later copies source crops,\n  record their SHA-256; this documentation task copies no art.",
+    "Delivery contract": "- Deliver original source sheets plus a neighbouring JSON for **each sheet**,\n  and a top-level `manifest.json` and `production-plan.json`. Follow the measured\n  irregular-crop convention in the read-only\n  boss library handoff (`cockpit/assets/boss-library/HANDOFF.md`, not published).\n  Do not assume a regular grid. The library's roster production plan is under\n  `boss-library/existing/production-plan.json`; there is no root plan in this checkout.\n- Each frame record needs `asset_id`, `state`, `frame_index`, `camera`, `facing`,\n  `mirror_allowed`, `source_rect_xywh`, `native_canvas_wh`, `anchor_xy`,\n  `duration_ticks` (or `simulation_state`), `source_sha256`, palette/material\n  masks, and layer order. Record the source pivot and its native mapping; never\n  trim each pose independently and lose the common baseline.\n- Keep transparent RGBA around isolated subjects. Include measured alpha-core\n  bounds and alpha threshold; the boss source convention measures at 128, while\n  these mini-game PNG decoders accept any nonzero alpha. Supply hard-edged native\n  previews as well as high-resolution sources; integration owns final palette\n  reduction and cleanup. No resampling or floats in the per-frame draw path.\n- Every actor needs idle, anticipation, action and recovery coverage, plus hit,\n  damage and comic defeat where its rules support them. Preserve existing frame\n  counts first. Extra breathing, settling and follow-through frames go in the\n  production plan as unwired proposals, with unknown timing clearly marked.\n- Detach the listed weapons, lids, banners, limbs, pickups and VFX; include\n  socket coordinates, pivot, local layer/occlusion order and registration pose.\n  Supply complete registered pose composites too: current renderers mostly\n  consume whole bodies. Detached parts are future integration work, not present\n  skeletal support. Left/right banks must identify which asymmetric details\n  can mirror. No invented overhead bank for a side-only game.\n- Deliver seat-cloth/plume and metal/material masks separately. Latch/Brasswake\n  use the shared knight ink recolour mapping; Rafterwake/Pennon also expand a\n  four-step cloth ramp. All moving side knights have cached left/right copies;\n  Latch holds one facing. Mossbell currently selects four seat\n  colours directly; Cinder uses the hero's normal figure. Keep eyes, brass,\n  skin, leather and warning colours out of the seat mask.\n- Hit boxes, feet, support lips, paddle contacts and danger areas below are\n  **read-only simulation geometry**. Author decorative VFX separately from exact\n  marks. Integration draws reliable telegraphs and safe gaps from the rules;\n  never paint a larger implied threat, conceal the boundary or fill a safe gap.\n- Review at native size, enlarged nearest-neighbour, and the **actual terminal\n  half-block/braille writer**. The reference canvas is 384×224\n  (`arena.rs::NATIVE_W/NATIVE_H`, 24×14 tiles at 16 px). The 96-column review\n  path averages material into 4×4 half-cells; inspect at other supported sizes\n  too. Preserve readable faces, paired lights, feet and danger boundaries.\n  Solid bodies/contact cores use half blocks; atmosphere uses braille. Tagged\n  narrow details in Rafterwake/Pennon have special cached cell paths.\n- Style: original chunky 1990s arcade cartoon sprite principles, thick warm\n  brown/indigo contours, heroic squat proportions, expressive comic acting,\n  rich hue-shifted material ramps, tactile wear expressed by shapes. Keep dark\n  rooms and black terminal space. No dithering, noisy flecks, tiny mottled\n  patches, dense stripes, near-white cores or full-frame glow. Never copy SNK,\n  Mario, Sonic, Mega Man, Kirby, Castlevania or other commercial characters,\n  signature costumes, vehicles, bosses or frames. This restriction applies to\n  **every** slot, including props, VFX and UI.\n- The numeric ink mapping is\n  [`ink.rs::ink/PALETTE`](../crates/delve/src/render/overworld/ink.rs), exported in\n  the JSON; dark-room/material guidance is in [ART-V2.md](ART-V2.md). The current\n  operator brief overrides that document's older contour/style language.\n  Existing recipes can contain deliberately tested local colours: Rafterwake\n  has local keeper inks, and Pennon has its own recipe bank. These are not\n  permission to expand the shared palette. Richer ramps need measured native\n  and cell trials and an explicit integration proposal; never loosen tests.\n  UI keeps black-surrounded navy/brass plates, tonal text and reserved seat and\n  danger colours. Do not redraw labels into source sheets or change wording.\n- Knight anatomy must follow the art team's existing knight reference:\n  enormous helmet, nearly helmet-sized gloves, heavy boots, short limbs, round\n  belly, springy stance and repaired asymmetric kit. Read-only source assets\n  and onboarding stay untouched. If integration later copies source crops,\n  record their SHA-256; this documentation task copies no art.",
     "Cross-cutting delivery needs": "These are families to coordinate across the **67 request slots**, not extra\nuntracked assets. Counts are current pose/source counts, not a demand to create\nnew mechanics. The generator gives the exact filenames/canvases per slot.\n\n| Knight destination | Existing coverage | Missing visual coverage to plan |\n| --- | --- | --- |\n| Cinder | Shared dynamic hero figure, no puzzle pose bank | Watch, turn/drop, clear reaction, cough flinch, victory; count/timing unknown |\n| Latch | 2 guards + 3 counter bodies | Idle breath, miss collapse/recover, victory; count unknown |\n| Mossbell | 4 rear lever combinations | Swing/release, launch, nudge, drain slump, jackpot cheer; count unknown |\n| Brasswake | 12 bodies: idle, 2 walk, jab/cross/kick, grab/throw, hit/down, guard/rise | Breathing and victory; jump/climb/shoot not in game |\n| Rafterwake | 10 bodies: idle, 2 run, jump/fall/land, 2 climb, hit/victory | Anticipation/release, separate knockdown/rise; count unknown |\n| Pennon | 12 bodies: idle, 2 run, jump/fall/land, aim up/down, hit/victory, duck/shoot | Eight-direction weapon registration across run/air/duck, knockdown/rise, muzzle flash; count unknown |\n\nKeep one shared knight design/seat mask convention and separate game pose banks;\ndo not enlarge all bodies to Latch's presentation size. Existing body poses and\ntheir canvas margins are the registration target. The art team's knight design\nis authoritative; older source/converter prompts are identity evidence, not the\nnew style target.\n\n| Effect family | Current source count and scheduling | Gaps / delivery caution |\n| --- | --- | --- |\n| Cinder clear/slag/impact | Clear 3 (8 ticks), slag 1, impact 4×3 ticks, smoke 1 + terminal counterpart | 8 sampled pot flights and CHAIN glyph cache are procedural; no separate explosion/dust bank |\n| Latch parry/clash/strike | 4 each over 18-tick recover plus freeze; clash last frame also on miss | Three overlapping contact layers, no projectile/explosion/smoke bank |\n| Mossbell contact/jackpot | Impact 4 stored, ordinary contact uses last 3; jackpot 4×4 ticks | Bumper burst 4 stored but unused; 3 procedural target shapes×4 flash frames; steam procedural; no explosion bank |\n| Mossbell danger | Root 4, crown 4, tell 36/30 then action 12 | Marks must retain exact gate/band; ordinary VFX must not masquerade as danger |\n| Brasswake hit/slam/steam | 4 each; hit 12 ticks, foe action 9, cask burst 12 | No separate muzzle, explosion or ambient-smoke bank; cask is a targeted landing, not a travelling bullet |\n| Rafterwake drop/sweep/dust | 4 each; action 10, dust 12 plus freeze | No separate general hit/explosion bank; dust currently handles bump/fail/landing feedback |\n| Pennon drop/hook/impact/dust | 4 each; action 10, contact/dust 12 plus freeze | No muzzle-flash, explosion or smoke source bank; pickup/ward shares impact; bolts each 1 static orientation |\n\nThe named games need distinct tells, contact cores and payoff acting first.\nExplosion, smoke, dust and muzzle-flash requests with no current event/slot\nremain **unwired with unknown counts/timing**. Deliver separate optional source\nlayers only after their event/registration contract is agreed; no decorative\neffect should imply splash damage or obscure safe gaps. CHAIN/COMBO, jackpot\nstatus, live standings, title labels and result numbers remain rendered text.\n\nEnvironment delivery should contain far enclosure, middle identity props and\nnear trim as independently placeable crops. The per-game room blocks describe\nwhat exists and the empty areas to improve. Ground surfaces and playable\nsilhouettes must remain quiet enough for exact tells and players. Individual\nnew prop dimensions, slice margins, layer scroll rates and ambient animation\ncounts are unknown until layout trials. UI requests are empty skins for the\nexisting title/panel/podium geometry, not new copy or decorative baked scores.\nPickups are Brasswake bread/casks and Pennon repair shields; Cinder pots and\nMossbell target lights are rule objects, not gold pickups. Gold/crowns are\nresults; none of these games has an independently animated gold-drop field.",
     "3D requests for GLM in Blender / TRELLIS": "The repository has a shared triangle rasterizer and three true 3D race courses\n([race3d rules](../crates/delve/src/rules/race3d.rs),\n[race renderer](../crates/delve/src/render/overworld/arena/race3d.rs),\n[world3d mesh](../crates/delve/src/render/world3d/mesh.rs)). These six mini-game\nrenderers are 2D `Img` compositions and have **no 3D gameplay scene or per-game\n3D room asset loader**. The world3d code's old `docs/plans/world3d-spec.md`\nreference points to a file absent on this branch; do not use it as a delivered\nroom contract. Any 3D work below is a deferred source-kit request, not an\nimplemented room mode or a reason to block the sprite deliveries.\n\n| Building / game | Current 3D presence | Useful deferred kit | Measured size / units |\n| --- | --- | --- | --- |\n| Alchemy Lab / Cinder | None for this game | Kiln, pot racks, workbench, masonry bay | Actual 3D dimensions unknown; 2D board cells 24×20 px are not world metres |\n| Dented Anvil / Latch | None for this game | Practice alcove, beams, anvil, tool rack, bellows fixtures | Actual 3D dimensions unknown; 100 px Clasp presentation is not a 3D scale |\n| Bathhouse conservatory / Mossbell | None for this game | Table cabinet, plunger/levers, copper glazing, bath/plant fittings | Actual 3D dimensions unknown; 160×140 physics table is in 2D pixels |\n| Brewery / Brasswake | None for this game | Vat row, taps/pipes, barrel, timber aisle kit | Actual 3D dimensions unknown; 960 px rule aisle is not world metres |\n| Bellwright workshop / Rafterwake | None for this game | Modular scaffolds/ladders, hoist/chain/pulley, bell supports | Actual 3D dimensions unknown; deck spacing 36 native px, not a 3D unit contract |\n| Siege muster house / Pennon | None for this game | Rampart sections/endcaps, merlons, mast/pennants, braced recess | Actual 3D dimensions unknown; 1200 px stage is not a 3D room dimension |\n\nExisting `race3d.rs` states one world unit per map tile; `Mesh::Tri` has vertex\npositions, UVs, semantic material id and normal, with z-up rotation in\n`Mesh::rotated_z`. No automatic conversion from these mini-game pixels exists.\nPoly/triangle budget, texture budget, authoring-to-runtime import format, room\ndimensions and pivots are **unknown**; an integrator must measure/agree them\nbefore production. Keep a scale marker, named object pivots, separate moving\nparts, semantic material assignments and a collision-free decorative version\nin any proposed kit. Blender source/project plus a proposed mesh export can be\noffered, but no glTF/FBX loader is promised by this code. Author neutral material\nroles for the existing dark shader, not baked white lighting or an emissive\nfull-room fill. Cosmetic meshes never replace simulation collision.",
     "Delivery priority": "1. **Knights and their immediate contacts:** Pennon run/air/aim/duck/shoot,\n   Rafterwake jump/climb/land, Brasswake combo/grab/throw/guard, then Latch\n   guard/counter and Mossbell's operator. These show every input and determine\n   whether the shared knight identity survives the actual small cell grain.\n   Match existing source counts first, provide registered weapon/hand sockets.\n2. **Boss anticipation → action → recovery kits:** captain and hoist keeper\n   with four-stage tells and damage coverage; then vat keeper/porters, Clasp,\n   Keeper and Crock. Their distinct committed actions carry pressure without\n   more bullets. Deliver exact-geometry-compatible VFX beside the actors.\n3. **Hit, landing and payoff effects plus critical props:** existing contact,\n   slam, drop/hook/sweep, clear/jackpot strips; readable bolts, repair shield,\n   cask/bread, table targets and paddles. Fill the missing muzzle/ward/recovery\n   coverage after implementation agrees event slots. Preserve all boundaries.\n4. **Room depth kits and empty UI skins:** brewery vats, loft rigging and siege\n   parapet depth first (largest scrolling stage areas), then lab/smithy/\n   conservatory dressing. Quiet layered occupancy improves feel without masking\n   play. UI skins follow verified live text geometry.\n5. **Can wait:** unused Mossbell bumper strip, retained legacy impact and\n   unselected recovery files, optional atmospheric loops, additional facings\n   beyond current cameras, and all deferred 3D room kits. Confirm wiring first.",
     "Slot-readiness audit and implementation queue": "Every block's `Slot` is the asset-level audit. `png` means an embedded file can\nbe replaced at the existing size/name and recompiled; it does **not** mean a\nmanifest-driven scheduler. `recipe` means native rows/metadata are consumed;\nit does **not** mean arbitrary states, sizes, sockets or durations are wired.\n`mixed` splits these responsibilities. `hard-coded` needs an implementation\nslot before a mechanical art swap. No loader or renderer changes are made here.\n\n| Game | Data-backed now | Hard-coded / missing integration work |\n| --- | --- | --- |\n| Cinder | Crock/action/damage/seam PNGs, miniature, smoke/tell, slag RGB, clear, impact | Knight-specific pose bank; pot/ghost/slag-cell recipe; room/depth slots; exact danger marks; glyph/UI skin slots; body/face/damage sockets and terminal overrides; unused impact.png |\n| Latch | Clasp, 5 knight composites, 3 four-frame effect banks | Pose/eye/damage sockets, cached 80→100 resize, terminal face registration; room/depth and empty UI skins; missing idle/miss/recovery acting |\n| Mossbell | Keeper PNGs plus signature metadata, 8 vine stages, 3 effect banks | Knight, targets/flash rims, ball/trail, paddles, steam, room and UI slots; crop/x-projection/floor-layer schema; unused bumper bank; contact frame-0 policy |\n| Brasswake | 3 character PNG sets, face-anchor JSON, cask/bread, 3 effect strips | Body/weapon/foot sockets; pose scheduler/unused foe recovery; room/depth, exact marks and UI skins; shared-event effect variants |\n| Rafterwake | All actor/prop/effect rows in native.json, nested damage variants and tagged detail metadata | Fixed keys/pose arrays, 64×80 details plane, sockets, selectors; backdrop/depth/UI slots; collision-safe plank endcaps; new knockdown/rise coverage |\n| Pennon | All actor/prop/shot/effect rows and captain variants in native.json | Fixed keys/pose arrays, sockets; 8-direction weapon/bolt/muzzle coverage, ward visuals; backdrop/depth/UI slots; exact area/aim-line generation and cell masks |\n\nBefore final art integration, give the listed procedural families explicit\nasset recipes/manifests with registered pivots and optional layers, and keep\ndanger drawing bound to simulation geometry. Extend animation selection only\nwithin existing rule durations, baking tint/mirror/material/cell variants in\nOnceLock. After integration, inspect native and actual cells and measure smoke\nframe cost; historical report measurements do not certify a new art swap.\n\nOpen decisions for operator/art team: final source banks for these new rivals\nare not identified by this branch; use the existing knight art direction and\nretain documented game identities while the art team selects designs. Larger\ncanvases, extra animation frame counts, per-part sockets and 3D budgets remain\nunknown. The older ART.md dimensions/prompts sometimes predate polish (notably\nCinder, Latch and Brasswake); measured files and active code above take priority.",
     "Damage integration follow-up (2026-10-15)": "The reviewed supplemental sources are registered under `assets/art-slots/*-damaged`.\nRetain each delivered identity and camera; these requests repair gaps in those\nbanks. Deliver isolated RGBA PNG cells, measured crop JSON, source foot pivots\nand a labeled reading-order manifest. Use the established dark material ramps,\nwarm contours and original equipment. No effects may hide the exact rule marks.\n\n| Asset id / game | Missing states and frame count | Timing / native registration / geometry |\n| --- | --- | --- |\n| `latch.clasp-damaged` / Latch | Severe low windup, low swipe and settled recovery: 1 frame each | Existing 36-tick tell; attack/recovery share existing 18-tick Miss, Rest uses existing `latch_rest`; 80x80 at (40,80), displayed on the same floor. Copper hook rival faces the knight at left; high/low contact lanes remain 25x2 at y120/144. |\n| `mossbell.keeper-damaged` / Mossbell | Complete moderate and severe straight punches: 1 frame each; severe crown action: 1 | Root/Crown action remains 12 ticks, tell 36/30 by HP. 48x48 at (24,48). Keep the entire fist and leaf silhouette inside the source crop; current two punches have cut-off fingers. Jade leaf/pod guardian, amber eye and sap. Body is decorative; root y72..82 and crown x60..100,y20..43 remain authoritative. |\n| `brasswake.keeper-damaged` / Brasswake | Severe rush windup, rush, recovery after slam and recovery after rush: 1 each | Existing tell 23 ticks, action 9, Rest 28 with final 12 ticks for recovery. 80x80 at (40,80), same 3/2 display fit. Copper vat, blue lens, cup hands and hanging cloth; preserve exact rush 96x20/slam 48x28 danger rectangles and lane clipping. |\n| `rafterwake.keeper-damaged` / Rafterwake | Severe lowered-weight impact, sweep windup, sweep and two recoveries: 1 each | Existing tell 25, action 10, Rest 32 with final <12 ticks for recovery. 64x80 at (32,80); keep body feet fixed while the bucket/hook moves. Slate hoist armor, teal crest, apron, chain and weight; danger remains full-width sweep/drop from the rules. Existing severe raised weight is anticipation, not an impact. |\n| `mossbell.flippers` / Mossbell | Four complete registered pairs: both down, left up, right up, both up; 1 each | 114x26 source contract; floor pivots at rule (37,119)/(123,119), tips (70,130)/(90,130) down and (70,111)/(90,111) up. Independent five-tick presses; display x-projection is handled by integration. Every pair must retain both outer pivots. Current raised pair moves pivots inward and cannot register. |\n| `mossbell.root` / Mossbell | Four rightward and four mirrored leftward advance fronts: 1 each | 179x11 horizontal bands, bottom center anchor. Existing tell advances four stages across 36/30 ticks and action lasts 12; front must span x7..150 in projection, y72..82. Teal roots and amber leading bud; no tall curls requiring the whole strip to shrink horizontally. |\n| `mossbell.crown` / Mossbell | Open, half, near-shut, shut horizontal gate: 1 each | 51x24 source contract, center anchor; existing tell 36/30 ticks and action 12. Upper/lower leaves close vertically across the whole x60..100,y20..43 landing rectangle. Current square clusters shrink to a narrow column at aspect-preserving fit; preserve a wide horizontal gate. |\n\nCrock has no independent punch rule; its unused delivered punch drawings remain\nproposals. Pennon's existing standing damage and defeat remain active, with the\nsupplemental walk/limp/punch/recovery poses wired inside existing counters.\n\n# Art requests",
-    "Bosses": "These slots request the library artist's designs. Existing effects stay active until delivered and reviewed. This section is independent of mini-game requests. Camera: oblique overhead arena, orthographic screen sprites; projectile master faces east, with four cached quarter turns. No overhead cutout rotated into a side camera. All deliveries: lossless RGBA PNG, binary alpha at native grain, shared dark inks, no baked floor/background/text. Include source sheet, crop rectangles, SHA-256, centre socket, opaque bounds and material/identity regions. Supply v1 masters at the sizes below; v2 currently stamps the same simulation-space effect geometry at twice the sampling density. Higher density must not expand a danger footprint.\n\nThe runtime reads `scripts/boss-effect-slots.json`: per boss, 2 projectile / 4 tell / 5 impact filenames. Import and validate replacements, change those slots, rebuild. The build embeds files and tracks every manifest/file input; decode, turns, warning geometry and variants are cached. Sprite changes cannot change release rules, counts, damage, collision or warning duration.\n\n| Asset id | Game / role | Native v1 size, anchor and footprint | States / rule timing | Identity brief |\n| --- | --- | --- | --- | --- |\n| iron-tusk-chief/projectile | Delve / travelling shot | 24×24 transparent canvas; centre anchor; bone/ember shot collision unchanged (point shot expansion 0.16 units); visual stroke must stay compact around centre | 2 looping flight frames, 4 ticks each; real aimed 3-shot volley every 65 ticks at speed7; lead gap-wall every 98, 2 volleys; no invented aimed-volley tell | Heavy capped-iron/ore language matching tusks, spear and slab buckler; replace thin slashes with the artist's chunky readable projectile |\n| iron-tusk-chief/tell | Delve / outgoing rage directions | 24×24 author canvas, centre; cached 15×15 rotated motifs on the existing 72-direction table; outgoing marks at existing reach38px, stone clipped; safe lane untouched | 4 stages indexed by existing 36-tick ring progress (9 ticks/stage); existing desperate arms window66..90 =24 ticks; gap-wall wait 24 has mark=false, so no fabricated landing mark | Ore/steel anticipation motif that leaves the exact real lane open; include separate source anticipation decoration if needed, never imply an area larger than the rays |\n| iron-tusk-chief/impact | Delve / hit burst | 28×28; contact-centre; cosmetic, no collision | 5 frames over the existing 6-tick impact:2,1,1,1,1 ticks; no added hold | Weighty chipped iron/ore impact matching the buckler and spear |\n| cinderjaw/projectile | Delve / travelling shot | 9×9, centre; unchanged projectile centre/collision and trajectory | 2 flight frames×4 ticks; fan 5 arc 55 speed 5 every 95, spiral 2 speed 4 every 20; lead bounce/mines every 91, 2 volleys | Tactile furnace slag/ember with a substantial outlined body, matching oak/iron and the belly fire grate |\n| cinderjaw/tell | Delve / mine landing and rage rays | 24×24 author canvas; centre; runtime point-mark clips/resamples to 11×11 radius5px =ceil((HERO_RADIUS+0.16)×8); mine location is the actual discrete braking endpoint and stone reach | 4 warning stages; mines keep full 51-tick fuse, stages by floor(age×4/51); ring 36 ticks; arms 24 ticks; no ordinary-volley windup | Furnace pressure/iron jaw anticipation matching the delivered body; danger boundary remains the exact point-hit envelope |\n| cinderjaw/impact | Delve / hit burst | 28×28, contact-centre, cosmetic only | 5 frames over 6 ticks:2,1,1,1,1 | Chunky hot slag and outlined smoke rather than sparse sparks; restrained peak light, dark contours |\n| mother-of-spores/projectile | Delve / travelling shot | 9×9, centre; unchanged projectile/collision core | 2 flight frames×4 ticks; fan 7 arc 70 speed 7 every 70, aimed 2 speed 9 every 42; split/mines/crossfire every 78, 2 volleys | Match russet/cream cap, orange gills, moss and roots; replace mismatched purple-green body language while preserving threat readability |\n| mother-of-spores/tell | Delve / mine landing and rage rays | 24×24 author canvas; centre; same clipped 11×11 point-hit envelope/radius5px; marks read real held-shot position or braking endpoint, never body envelope | 4 stages; mine 51-tick fuse; held-shot warning 24 ticks (stage mapping wait 23..0); ring 36 ticks; arms 24 ticks; no invented aimed/fan advance window | The artist's cap/gill/root anticipation motif, with the danger boundary unobscured and distinct from the body |\n| mother-of-spores/impact | Delve / hit burst | 28×28, contact-centre, cosmetic only | 5 frames over 6 ticks:2,1,1,1,1 | Russet/cream/orange organic burst with outlined dust/spore lobes matching the library matron |\n| the-index/projectile | Delve / travelling shot | 9×9; centre; existing collision and quarter turns | 2 flight frames×4 ticks; spiral 3 speed5 every12; aimed 3 speed8 every55; curve/weave/seeker every65, 2 volleys | Match blue book bindings, brass corners and cream folded pages; clearly separate travelling shots from decorative bookmarks |\n| the-index/tell | Delve / held-shot lane and beam | 24×11 tile, centre; renderer repeats the tile along the authoritative stone-clipped lane, with its existing half-width; never paint a wider corridor | 4 progress stages; held-shot wait24; beam warn21, burn18; rage36 and arms24 retain their existing rules; no new ordinary-volley windup | Book/page/brass anticipation; preserve visible baseline, advancing fill, exact beam edge and safe lane. Source pose is decoration, not danger geometry |\n| the-index/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Outlined folded-page/ink burst matching the delivered tome; keep hostile ink distinct from the body |\n| waxen-warden/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; aimed1 speed6 every65; gap_ring/reaim/flower every78, 2 volleys | Candle/wax language matching ivory body, blue mantle and brass; substantial outlined silhouette |\n| waxen-warden/tell | Delve / outgoing rage rays | 11×11 master, centre; cached ring glyphs on authoritative stone-clipped outgoing rays; never a fabricated mine or landing circle | 4 stages over existing36-tick rage ring (9 each); arms24; reaim selects its target on release | Wax/candle anticipation; clear safe gap and outgoing directions; do not imply the hovering body envelope is a hit area |\n| waxen-warden/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Chunky wax lobes and outlined candle smoke matching the weary keeper |\n| the-bone-choir/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; ring12 speed4 every140; aimed3 speed6 every70; gap_ring/burst/flower every72, 2 volleys | Bone/music language matching three skulls, ribcage and red robe; no extra shot silhouettes that suggest more collisions |\n| the-bone-choir/tell | Delve / outgoing rage rays | 11×11 master, centre; exact simulation rays, stone clipping and safe gap | 4 stages over36-tick rage ring; arms24; existing volleys retain their own release cadence | Conductor/bone anticipation with readable directional gaps; decorative notes must not look like travelling damage |\n| the-bone-choir/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Outlined bone-note burst and dark red dust, matching the choir's delivered materials |\n| crypt-tithe-marshal/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; aimed3 speed6 every75; gap_ring/burst every98, 2 volleys | Bone/brass seal language matching square helm, staff and red tabard; keep projectile distinct from keys |\n| crypt-tithe-marshal/tell | Delve / outgoing rage rays | 11×11 master, centre; exact outgoing ray reach, stone clipping and safe gap | 4 stages over36-tick rage ring; arms24; no new aimed-volley windup | Staff/seal anticipation with clear outgoing directions; staff art does not grant melee reach |\n| crypt-tithe-marshal/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Chunky brass/bone seal impact with dark contours and restrained steel glints |\n\nDelivery BOSSFX-1: all 21 slots above are integrated through `fx-v1-*` filenames (and native `fx-v2-projectile-*` flight banks). The source crops, full-sheet/crop hashes, cell mappings, raw/prepared fidelity and old/new active-file hashes are retained in `crates/delve/assets/boss-effect-src/` and each boss's `effect-import.json`. Normal builds include Waxen/Choir effects independently of their inactive library bodies. Flight2×4 ticks, tell4 stages and impact2/1/1/1/1 are unchanged. Heavy Tusk flight cells6/8 replace the unreadable compact pair; no extra trails or shot count. Other variants stay unwired.\n\nNext effect requests follow the body rollout order below. Each row requests three separate assets `bossfx.<id>.{projectile,tell,impact}`: east-facing2×4-tick centre-registered flight; four warning stages only on the listed real patterns (36-tick rage,24-tick held shot,51-tick mine,21-tick beam as applicable); five contact-centred impact frames over6 ticks (2/1/1/1/1). Deliver rich transparent source + measured crop JSON/SHA, native v1/v2 masters, anchors and material regions. Projectile size is per-boss review data; point collision stays9×9/0.16. Tells must skin exact rays/stone clipping/safe gaps,11×11 point marks or24×11 lane tiles; impacts28×28 are cosmetic. Existing designs, `.boss` definitions and signatures own identity and timing; no new windup or danger circle.\n\n| Next asset id prefix | Existing attacks / real warning geometry | Library identity to retain |\n| --- | --- | --- |\n| crypt-tax-keeper | ring6 every95; burst/reaim91; outgoing rage rays | Reliquary tax lord, closed ward/seal materials |\n| crypt-relic-liege | ring6/85, aimed2/60; gap_ring/flower/reaim78; outgoing rays | Crown/reliquary bone and brass |\n| red-pick-chief | ring6/95; bounce/mines98; actual braking endpoints | Powder captain, pick/ore and iron |\n| the-foreman | fan5/85, aimed2/50; gap_wall/bounce/lead78; no mark for gap_wall | Harness, lamp, whip and quota equipment |\n| late-fee-leviathan | Ravage5/210, aimed2/45,fan5/95; weave/curve/laser72; exact Ravage bands50° gap and laser lane | Library debt collector; no invented collection radius |\n| fungal-rootwarden | fan5/95; split/mines104; actual mine endpoints | Library roots and fungal material |\n| fungal-spore-crown | ring6/85,aimed2/60; mines/split/crossfire/surge78; exact endpoints/held lanes | Library brood apex crown |\n| hellforge-ash-castellan | ring8/95; twin_spiral/sweep91; outgoing rays/beam edges | Library living iron and ash |\n| hellforge-chain-keeper | aimed3/80; lead/crossfire91; held-shot marks | Library chain/forge iron |\n| hellforge-free-captain | aimed2/60; surge/laser91; exact beam half-width | Library slag captain |\n| hellforge-fuel-reeve | fan4/80; rain/reaim91; real held points | Library fuel officer and slag |\n| hellforge-slag-sovereign | ring6/85,aimed2/60; twin_spiral/sweep/rain/laser72 | Library forge throne materials |\n| archive-bellkeeper | ring8/100; gap_ring/weave98; outgoing rays | Library drowned bell/brass |\n| shoggoth-heart | ring10/100,aimed2/80; gap_ring/sweep/surge/laser78 | Library threshold heart; explicit heart anchor |\n| grinwick | lead/bounce36 plus signature inhale/tell/dash/recovery; use signature tick constants | Library train/whistle/ore; no expanded track footprint |\n| the-big-ripper | flower/weave38 plus signature inhale/tell/dash/daze; use signature tick constants | Library comic fungal anatomy; no new gas radius |\n| salvage-claimant | fan4/80; bounce/split104; existing rays only | Library drowned stack-chief/brass |\n| unknown-memory-warden | spiral3/85; laser/gap_ring91; exact beam/rays | Library first-seal memory materials |\n| unknown-silence-warden | fan7/100; sweep/seeker/curve91; exact beam/rays | Library second-seal silence materials |\n\nAt 30 Hz, 4 ticks =0.133s, 6 ticks =0.200s, 24 ticks =0.800s, 36 ticks =1.200s, 51 ticks =1.700s. The ordinary attacks above already have their own cadences; these requests grant no new charge-up, projectile density, hitbox or damage. Side-on versions remain a separate camera-registration delivery with measured anchors before use in a hall.",
+    "Bosses": "These slots request the library artist's designs. Existing effects stay active until delivered and reviewed. This section is independent of mini-game requests. Camera: oblique overhead arena, orthographic screen sprites; projectile master faces east, with four cached quarter turns. No overhead cutout rotated into a side camera. All deliveries: lossless RGBA PNG, binary alpha at native grain, shared dark inks, no baked floor/background/text. Include source sheet, crop rectangles, SHA-256, centre socket, opaque bounds and material/identity regions. Supply v1 masters at the sizes below; v2 currently stamps the same simulation-space effect geometry at twice the sampling density. Higher density must not expand a danger footprint.\n\nThe runtime reads `scripts/boss-effect-slots.json`: per boss, 2 projectile / 4 tell / 5 impact filenames. Import and validate replacements, change those slots, rebuild. The build embeds files and tracks every manifest/file input; decode, turns, warning geometry and variants are cached. Sprite changes cannot change release rules, counts, damage, collision or warning duration.\n\n| Asset id | Game / role | Native v1 size, anchor and footprint | States / rule timing | Identity brief |\n| --- | --- | --- | --- | --- |\n| iron-tusk-chief/projectile | Delve / travelling shot | 24×24 transparent canvas; centre anchor; bone/ember shot collision unchanged (point shot expansion 0.16 units); visual stroke must stay compact around centre | 2 looping flight frames, 4 ticks each; real aimed 3-shot volley every 65 ticks at speed7; lead gap-wall every 98, 2 volleys; no invented aimed-volley tell | Heavy capped-iron/ore language matching tusks, spear and slab buckler; replace thin slashes with the artist's chunky readable projectile |\n| iron-tusk-chief/tell | Delve / outgoing rage directions | 24×24 author canvas, centre; cached 15×15 rotated motifs on the existing 72-direction table; outgoing marks at existing reach38px, stone clipped; safe lane untouched | 4 stages indexed by existing 36-tick ring progress (9 ticks/stage); existing desperate arms window66..90 =24 ticks; gap-wall wait 24 has mark=false, so no fabricated landing mark | Ore/steel anticipation motif that leaves the exact real lane open; include separate source anticipation decoration if needed, never imply an area larger than the rays |\n| iron-tusk-chief/impact | Delve / hit burst | 28×28; contact-centre; cosmetic, no collision | 5 frames over the existing 6-tick impact:2,1,1,1,1 ticks; no added hold | Weighty chipped iron/ore impact matching the buckler and spear |\n| cinderjaw/projectile | Delve / travelling shot | 9×9, centre; unchanged projectile centre/collision and trajectory | 2 flight frames×4 ticks; fan 5 arc 55 speed 5 every 95, spiral 2 speed 4 every 20; lead bounce/mines every 91, 2 volleys | Tactile furnace slag/ember with a substantial outlined body, matching oak/iron and the belly fire grate |\n| cinderjaw/tell | Delve / mine landing and rage rays | 24×24 author canvas; centre; runtime point-mark clips/resamples to 11×11 radius5px =ceil((HERO_RADIUS+0.16)×8); mine location is the actual discrete braking endpoint and stone reach | 4 warning stages; mines keep full 51-tick fuse, stages by floor(age×4/51); ring 36 ticks; arms 24 ticks; no ordinary-volley windup | Furnace pressure/iron jaw anticipation matching the delivered body; danger boundary remains the exact point-hit envelope |\n| cinderjaw/impact | Delve / hit burst | 28×28, contact-centre, cosmetic only | 5 frames over 6 ticks:2,1,1,1,1 | Chunky hot slag and outlined smoke rather than sparse sparks; restrained peak light, dark contours |\n| mother-of-spores/projectile | Delve / travelling shot | 9×9, centre; unchanged projectile/collision core | 2 flight frames×4 ticks; fan 7 arc 70 speed 7 every 70, aimed 2 speed 9 every 42; split/mines/crossfire every 78, 2 volleys | Match russet/cream cap, orange gills, moss and roots; replace mismatched purple-green body language while preserving threat readability |\n| mother-of-spores/tell | Delve / mine landing and rage rays | 24×24 author canvas; centre; same clipped 11×11 point-hit envelope/radius5px; marks read real held-shot position or braking endpoint, never body envelope | 4 stages; mine 51-tick fuse; held-shot warning 24 ticks (stage mapping wait 23..0); ring 36 ticks; arms 24 ticks; no invented aimed/fan advance window | The artist's cap/gill/root anticipation motif, with the danger boundary unobscured and distinct from the body |\n| mother-of-spores/impact | Delve / hit burst | 28×28, contact-centre, cosmetic only | 5 frames over 6 ticks:2,1,1,1,1 | Russet/cream/orange organic burst with outlined dust/spore lobes matching the library matron |\n| the-index/projectile | Delve / travelling shot | 9×9; centre; existing collision and quarter turns | 2 flight frames×4 ticks; spiral 3 speed5 every12; aimed 3 speed8 every55; curve/weave/seeker every65, 2 volleys | Match blue book bindings, brass corners and cream folded pages; clearly separate travelling shots from decorative bookmarks |\n| the-index/tell | Delve / held-shot lane and beam | 24×11 tile, centre; renderer repeats the tile along the authoritative stone-clipped lane, with its existing half-width; never paint a wider corridor | 4 progress stages; held-shot wait24; beam warn21, burn18; rage36 and arms24 retain their existing rules; no new ordinary-volley windup | Book/page/brass anticipation; preserve visible baseline, advancing fill, exact beam edge and safe lane. Source pose is decoration, not danger geometry |\n| the-index/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Outlined folded-page/ink burst matching the delivered tome; keep hostile ink distinct from the body |\n| waxen-warden/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; aimed1 speed6 every65; gap_ring/reaim/flower every78, 2 volleys | Candle/wax language matching ivory body, blue mantle and brass; substantial outlined silhouette |\n| waxen-warden/tell | Delve / outgoing rage rays | 11×11 master, centre; cached ring glyphs on authoritative stone-clipped outgoing rays; never a fabricated mine or landing circle | 4 stages over existing36-tick rage ring (9 each); arms24; reaim selects its target on release | Wax/candle anticipation; clear safe gap and outgoing directions; do not imply the hovering body envelope is a hit area |\n| waxen-warden/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Chunky wax lobes and outlined candle smoke matching the weary keeper |\n| the-bone-choir/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; ring12 speed4 every140; aimed3 speed6 every70; gap_ring/burst/flower every72, 2 volleys | Bone/music language matching three skulls, ribcage and red robe; no extra shot silhouettes that suggest more collisions |\n| the-bone-choir/tell | Delve / outgoing rage rays | 11×11 master, centre; exact simulation rays, stone clipping and safe gap | 4 stages over36-tick rage ring; arms24; existing volleys retain their own release cadence | Conductor/bone anticipation with readable directional gaps; decorative notes must not look like travelling damage |\n| the-bone-choir/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Outlined bone-note burst and dark red dust, matching the choir's delivered materials |\n| crypt-tithe-marshal/projectile | Delve / travelling shot | 9×9; centre; unchanged point collision | 2 flight frames×4 ticks; aimed3 speed6 every75; gap_ring/burst every98, 2 volleys | Bone/brass seal language matching square helm, staff and red tabard; keep projectile distinct from keys |\n| crypt-tithe-marshal/tell | Delve / outgoing rage rays | 11×11 master, centre; exact outgoing ray reach, stone clipping and safe gap | 4 stages over36-tick rage ring; arms24; no new aimed-volley windup | Staff/seal anticipation with clear outgoing directions; staff art does not grant melee reach |\n| crypt-tithe-marshal/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Chunky brass/bone seal impact with dark contours and restrained steel glints |\n\nDelivery BOSSFX-1: all 21 slots above are integrated through `fx-v1-*` filenames (and native `fx-v2-projectile-*` flight banks). The source crops, full-sheet/crop hashes, cell mappings, raw/prepared fidelity and old/new active-file hashes are retained in the source-art archive (`angelX-archive/2026-10-20/source-art/boss-effect-src/`) and each boss's `effect-import.json`. Normal builds include Waxen/Choir effects independently of their inactive library bodies. Flight2×4 ticks, tell4 stages and impact2/1/1/1/1 are unchanged. Heavy Tusk flight cells6/8 replace the unreadable compact pair; no extra trails or shot count. Other variants stay unwired.\n\nNext effect requests follow the body rollout order below. Each row requests three separate assets `bossfx.<id>.{projectile,tell,impact}`: east-facing2×4-tick centre-registered flight; four warning stages only on the listed real patterns (36-tick rage,24-tick held shot,51-tick mine,21-tick beam as applicable); five contact-centred impact frames over6 ticks (2/1/1/1/1). Deliver rich transparent source + measured crop JSON/SHA, native v1/v2 masters, anchors and material regions. Projectile size is per-boss review data; point collision stays9×9/0.16. Tells must skin exact rays/stone clipping/safe gaps,11×11 point marks or24×11 lane tiles; impacts28×28 are cosmetic. Existing designs, `.boss` definitions and signatures own identity and timing; no new windup or danger circle.\n\n| Next asset id prefix | Existing attacks / real warning geometry | Library identity to retain |\n| --- | --- | --- |\n| crypt-tax-keeper | ring6 every95; burst/reaim91; outgoing rage rays | Reliquary tax lord, closed ward/seal materials |\n| crypt-relic-liege | ring6/85, aimed2/60; gap_ring/flower/reaim78; outgoing rays | Crown/reliquary bone and brass |\n| red-pick-chief | ring6/95; bounce/mines98; actual braking endpoints | Powder captain, pick/ore and iron |\n| the-foreman | fan5/85, aimed2/50; gap_wall/bounce/lead78; no mark for gap_wall | Harness, lamp, whip and quota equipment |\n| late-fee-leviathan | Ravage5/210, aimed2/45,fan5/95; weave/curve/laser72; exact Ravage bands50° gap and laser lane | Library debt collector; no invented collection radius |\n| fungal-rootwarden | fan5/95; split/mines104; actual mine endpoints | Library roots and fungal material |\n| fungal-spore-crown | ring6/85,aimed2/60; mines/split/crossfire/surge78; exact endpoints/held lanes | Library brood apex crown |\n| hellforge-ash-castellan | ring8/95; twin_spiral/sweep91; outgoing rays/beam edges | Library living iron and ash |\n| hellforge-chain-keeper | aimed3/80; lead/crossfire91; held-shot marks | Library chain/forge iron |\n| hellforge-free-captain | aimed2/60; surge/laser91; exact beam half-width | Library slag captain |\n| hellforge-fuel-reeve | fan4/80; rain/reaim91; real held points | Library fuel officer and slag |\n| hellforge-slag-sovereign | ring6/85,aimed2/60; twin_spiral/sweep/rain/laser72 | Library forge throne materials |\n| archive-bellkeeper | ring8/100; gap_ring/weave98; outgoing rays | Library drowned bell/brass |\n| shoggoth-heart | ring10/100,aimed2/80; gap_ring/sweep/surge/laser78 | Library threshold heart; explicit heart anchor |\n| grinwick | lead/bounce36 plus signature inhale/tell/dash/recovery; use signature tick constants | Library train/whistle/ore; no expanded track footprint |\n| the-big-ripper | flower/weave38 plus signature inhale/tell/dash/daze; use signature tick constants | Library comic fungal anatomy; no new gas radius |\n| salvage-claimant | fan4/80; bounce/split104; existing rays only | Library drowned stack-chief/brass |\n| unknown-memory-warden | spiral3/85; laser/gap_ring91; exact beam/rays | Library first-seal memory materials |\n| unknown-silence-warden | fan7/100; sweep/seeker/curve91; exact beam/rays | Library second-seal silence materials |\n\nAt 30 Hz, 4 ticks =0.133s, 6 ticks =0.200s, 24 ticks =0.800s, 36 ticks =1.200s, 51 ticks =1.700s. The ordinary attacks above already have their own cadences; these requests grant no new charge-up, projectile density, hitbox or damage. Side-on versions remain a separate camera-registration delivery with measured anchors before use in a hall.",
     "Remaining library delivery integration (BOSS-ROLL-2)": "The nineteen rows above now have registered native effect banks. Fifty-five of\nthe 57 sheets are usable; the two tell replacements below remain requests.\nFlight is centre-registered, two frames ×4 ticks, with exposure 1.10 and cached\nsource-colour core/rim inks in both kits. The imported warning pigments use\nexisting alpha masks; authored alternatives, trails and extra impacts remain\nunwired. Grinwick's accepted wave17 impact is the retained source, not its\nrejected earlier delivery. Rules, radii, ray/lane clipping and timing stay exact.\n\n- `bossfx.hellforge-free-captain.tell.alpha-2` and\n  `bossfx.hellforge-slag-sovereign.tell.alpha-2`: Delve overhead, compact\n  centre warning; four urgency stages across the existing 36-tick rage ring,\n  24-tick held points and 21-tick beam warning. Preserve existing outgoing rays,\n  safe gaps, 11×11 point clip and actual beam width. Native master 24×24;\n  simulation-owned point collision is unchanged. Match the delivered captain's\n  slag/ember and sovereign's molten iron identity respectively. Both delivered\n  sheets have 100% opaque alpha, one border-touching merged component and a\n  painted checkerboard. Deliver genuine transparent RGBA with four independently\n  measured source crops and SHA-256, stable centre sockets and no backdrop;\n  keep hot values saturated below near-white. The shared old warning masks\n  remain byte-exact until a valid source arrives; projectile/impact art is active.\n- `bossbody.grinwick.floor-2`: Delve overhead staged engine body; v1 57×54,\n  v2 102×96; existing bottom-centre feet at centre+simulation radius, preserving\n  track/charge footprint, porcelain faceplate, boiler, jointed legs and funnel.\n  On the actual graded cavern floor including its existing contact glow, v1\n  rest presence is 63.82% (1000/1567 pixels), short 16.18 percentage points and 254\n  opaque samples of the 80% floor+15 L* requirement. Both median/edge tests and\n  the other kit/path/pose checks pass. Raise interior/leg material separation\n  while preserving alpha, contours, hues and the unchanged 75 inks; do not\n  enlarge or alter the contact glow. Keep existing signature stage ticks and\n  the two source keyposes; supply transparent source+measured JSON/SHA with\n  registered feet. The old engine body and staged tells remain active.\n- `bossbody.hellforge-slag-sovereign.palette-2`: Delve overhead guardian body,\n  rest and anticipation keyposes; v1 45×54, v2 80×96; bottom-centre feet,\n  unchanged `.boss` radius and footprint. Preserve the delivered five-prong crown,\n  molten belly, gauntlets and mantle silhouette. Anticipation colour agreement\n  under the unchanged 75-ink bank is 0.8921 (v1) and 0.8814 (v2), below 0.90 by\n  0.0079/0.0186. Supply source orange/fire ramps that fit the existing palette\n  within RGB distance 60 on at least 90% of visible samples, with edge agreement\n  ≥85% and alpha IoU≥98%; do not paint extra silhouette or lower thresholds.\n  Rest and windup must also retain local median floor contrast ≥15 L*, rest\n  presence ≥80% and edge coverage ≥50% at 10 L*. Deliver transparent lossless RGBA,\n  measured crop JSON/SHA and the same feet; timings remain existing 18-tick breath,\n  36-tick rage and24-tick arms warning. The old body remains active pending this\n  correction. See retained `library-import.json` and BOSS-ROLL-2 candidate metrics.",
-    "Bone Choir body value correction (VALUE-1)": "- Asset id: `bossbody.the-bone-choir.value-1`; Delve guardian body, oblique overhead arena camera. Revise the existing library design; retain its three skulls, ribcage, red conductor robe and dark contours.\n- Native masters: v1 49×54, v2 87×96; bottom-centre foot anchor. Preserve opaque alpha, footprint and the authoritative `.boss` radius1.4. Existing source/crop registration and palette/fidelity gates remain binding.\n- States: one rest and one anticipation master. Existing cached idle breath advances in18-tick steps; anticipation follows the existing36-tick rage ring and24-tick arms warning. Existing hurt/heat grades stay derived; no additional attack frames, release delay, hitbox or gameplay change.\n- Measured failure: in its generated Crypt guardian Stairs room (depth2, seed17), four seats, rest native v1 has1107/1395 samples at local floor+15 L* (79.35%); v2 has3272/4397 (74.41%). The retained threshold is80%: deficits9/246 samples, or0.65/5.59 percentage points. Native medians already pass at27.70 L* above the floor; decoded cells pass99.50%/95.00%.\n- Required value change: raise interior robe/bone-shadow values so at least9 additional v1 opaque samples and246 additional v2 samples reach **their own graded floor L*+15**, while retaining the outline, red hue family, source alpha and existing passing samples. These are measured native-sample requirements after import and the current grade, not permission to paint extra pixels. Retest the shared palette/fidelity and both poses. Keep the three native skulls distinct; their light cell mass currently merges, so separate readable value groups where the source geometry permits it.\n- Delivery: transparent lossless RGBA source sheet plus measured crop JSON, SHA-256, foot/socket and opaque bounds, and labelled skull/robe/contour material regions; native v1/v2 validation renders. No baked floor, labels or bars. Source library remains read-only to integration.\n- Evidence: `/work/artifacts/delve-int-20261015/value-1/review/the-bone-choir-rest-rooms.png`, `the-bone-choir-windup-rooms.png`, `the-bone-choir-identity.png`; complete measurements in `candidate-metrics.json` beside `review/`.\n\n### Merged guardian-floor value correction (INT-2)\n\n- Asset ids: `bossbody.{iron-tusk-chief,cinderjaw,mother-of-spores,the-index,waxen-warden,the-bone-choir,crypt-tithe-marshal}.int-2`; Delve guardian/chief bodies, existing oblique overhead arena camera. Revise the delivered library designs, preserving their identity props, hues and contours.\n- Preserve each `scripts/boss-library-registry.json` v1/v2 native size, bottom-centre anchor, alpha/footprint and authoritative `.boss` radius. Rest and anticipation masters retain existing 18-tick breathing, 36-tick rage ring and 24-tick arms warning; no timing or gameplay change.\n- The merged dungeon floor invalidates VALUE-1's black-floor measurements above. All seven candidates fail the unchanged local graded-floor rule. Native rest presence v1/v2: Tusk 46.17/50.09%, Cinder 47.56/51.66%, Mother 52.70/60.80%, Index 27.28/36.27%, Waxen 57.95/64.17%, Choir 26.74/34.00%, Marshal 34.09/43.14%. Full 56 measurements, per-kit pixel deficits and edge/median failures: `/work/artifacts/delve-int-20261015/int-2/candidate-metrics.json`.\n- Required: source-derived value grouping that passes local signed median ΔL* ≥15 in both poses, ≥80% rest opaque samples at their own floor+15 L*, and ≥50% outer-two-logical-pixel samples at absolute floor contrast ≥10 L*, native RGB and actual cells in both kits. Preserve existing source fidelity/palette limits; do not paint extra alpha or alter the floor to pass. All seven earlier production bodies remain selected pending acceptance.\n- Delivery: transparent lossless RGBA source sheets plus measured crop JSON, SHA-256, foot/socket and opaque bounds, labelled identity/material regions and native v1/v2 validation renders. No baked floor, labels or bars. Read-only source library is unchanged. Review sheets: `/work/artifacts/delve-int-20261015/int-2/contrast-review/`.",
-    "Dungeon integration follow-ups, 15 October evening": "| Asset | Role and geometry | States and timing | Delivery / remaining need |\n|---|---|---|---|\n| `dgn.floor.fungal-quiet` | Top-down Fungal background; 16x16 v1 / 32x32 v2, centre anchor (8,8)/(16,16), no collision or footprint changes. | Plain earth, worn earth, sparse roots: one held tile each, no animation. | Source PNG + SHA-bound measured crop JSON, binary alpha, existing dark palette. Broad low-contrast material areas that join across tile edges, without a root lattice or framed bevel on every tile. The current source still repeats visible roots after reduced variation, dressing and contrast. Design belongs to the art team. |\n| `dgn.odoor.<pack>.side` | Orthogonal west/east vertical strips, 16x32 / 32x64; bottom-centre pivot (8,32)/(16,64). Existing two-cell door collision stays authoritative. | West barred/open and east barred/open, one held frame each. Opening timing awaits a rules-owned age. | Separate complete measured objects with matched pivots, no angled pedestal; open must show a clear passage and barred must show bars at native size. Mines is angled; Keep and Fungal silhouettes remain ambiguous at native size. All six packs retain dim pack-coloured placeholders for those rejected states. |\n\nThe delivered `dgn.hud.chrome` ready/cooldown/disabled/pressed, health, stamina,\nboss, seat, floor, minimap, status and toast plates are registered. Pressed is\nstaged until an authoritative pressed-state signal exists; no new input clock\nor animation age was invented. Existing labels and numbers draw over the skins.\n\n`dgn.odoor.mines.south`: south barred/open top-down threshold, one held frame\neach; 32x16 / 64x32, bottom-centre pivot (16,16)/(32,32), existing two-cell door\ncollision. Deliver two separated measured PNG crops with matched pivots; the\nopen state needs a clearly empty passage instead of the current solid timber\ncrosspiece. Timing and collision stay unchanged.\n\n### BOSS-READ-1 value-request disposition\n\nThe VALUE-1 and INT-2 body-value requests above are superseded for the seven\nregistered production envelopes by the accepted boss-hall floor shade and\nsource-colour silhouette rim. All seven pass the unchanged contrast rule in\nboth kits, both poses and both output paths. No source redraw is required for\nthis integration. Source design, alpha, anchors, sizes and gameplay stay fixed.\nSee `docs/BOSS-LIBRARY-IMPORT.md` (BOSS-READ-1) and\n`/work/artifacts/delve-int-20261015/boss-read-1/after-metrics.json` for evidence.\nThe terminal still merges Choir's skulls and Waxen's small candle tips; passing\nfloor contrast does not claim those fine identity details survive reduction.\n\n### INT-4 ART-18 entrance and side-door disposition\n\nAccepted entrance masters for Cinder, Latch, Mossbell, Brasswake, Rafterwake\nand Pennon are integrated through SHA-bound supplemental `.entrance` slots,\nwith exact 384x224 / 768x448 registration and collision-aware masking. Extra\nmaster props never acquire collision. Source-only acceptance remains distinct\nfrom the native/cell review recorded in int-4/REPORT.md.\nCrypt, Mines, Keep, Fungal and Unknown vertical side-door sheets replace their\nplaceholders at 16x32 / 32x64, west/east closed/open/locked. Existing rule\nclosure states select the drawings; worn proposals remain staged. Archive's\nbaked-checkerboard sheet remains rejected and its placeholder is retained.\nNo new art was designed; the ART-18 sources remain read-only.",
+    "Bone Choir body value correction (VALUE-1)": "- Asset id: `bossbody.the-bone-choir.value-1`; Delve guardian body, oblique overhead arena camera. Revise the existing library design; retain its three skulls, ribcage, red conductor robe and dark contours.\n- Native masters: v1 49×54, v2 87×96; bottom-centre foot anchor. Preserve opaque alpha, footprint and the authoritative `.boss` radius1.4. Existing source/crop registration and palette/fidelity gates remain binding.\n- States: one rest and one anticipation master. Existing cached idle breath advances in18-tick steps; anticipation follows the existing36-tick rage ring and24-tick arms warning. Existing hurt/heat grades stay derived; no additional attack frames, release delay, hitbox or gameplay change.\n- Measured failure: in its generated Crypt guardian Stairs room (depth2, seed17), four seats, rest native v1 has1107/1395 samples at local floor+15 L* (79.35%); v2 has3272/4397 (74.41%). The retained threshold is80%: deficits9/246 samples, or0.65/5.59 percentage points. Native medians already pass at27.70 L* above the floor; decoded cells pass99.50%/95.00%.\n- Required value change: raise interior robe/bone-shadow values so at least9 additional v1 opaque samples and246 additional v2 samples reach **their own graded floor L*+15**, while retaining the outline, red hue family, source alpha and existing passing samples. These are measured native-sample requirements after import and the current grade, not permission to paint extra pixels. Retest the shared palette/fidelity and both poses. Keep the three native skulls distinct; their light cell mass currently merges, so separate readable value groups where the source geometry permits it.\n- Delivery: transparent lossless RGBA source sheet plus measured crop JSON, SHA-256, foot/socket and opaque bounds, and labelled skull/robe/contour material regions; native v1/v2 validation renders. No baked floor, labels or bars. Source library remains read-only to integration.\n- Evidence: `<artifacts>/delve-int-20261015/value-1/review/the-bone-choir-rest-rooms.png`, `the-bone-choir-windup-rooms.png`, `the-bone-choir-identity.png`; complete measurements in `candidate-metrics.json` beside `review/`.\n\n### Merged guardian-floor value correction (INT-2)\n\n- Asset ids: `bossbody.{iron-tusk-chief,cinderjaw,mother-of-spores,the-index,waxen-warden,the-bone-choir,crypt-tithe-marshal}.int-2`; Delve guardian/chief bodies, existing oblique overhead arena camera. Revise the delivered library designs, preserving their identity props, hues and contours.\n- Preserve each `scripts/boss-library-registry.json` v1/v2 native size, bottom-centre anchor, alpha/footprint and authoritative `.boss` radius. Rest and anticipation masters retain existing 18-tick breathing, 36-tick rage ring and 24-tick arms warning; no timing or gameplay change.\n- The merged dungeon floor invalidates VALUE-1's black-floor measurements above. All seven candidates fail the unchanged local graded-floor rule. Native rest presence v1/v2: Tusk 46.17/50.09%, Cinder 47.56/51.66%, Mother 52.70/60.80%, Index 27.28/36.27%, Waxen 57.95/64.17%, Choir 26.74/34.00%, Marshal 34.09/43.14%. Full 56 measurements, per-kit pixel deficits and edge/median failures: `<artifacts>/delve-int-20261015/int-2/candidate-metrics.json`.\n- Required: source-derived value grouping that passes local signed median ΔL* ≥15 in both poses, ≥80% rest opaque samples at their own floor+15 L*, and ≥50% outer-two-logical-pixel samples at absolute floor contrast ≥10 L*, native RGB and actual cells in both kits. Preserve existing source fidelity/palette limits; do not paint extra alpha or alter the floor to pass. All seven earlier production bodies remain selected pending acceptance.\n- Delivery: transparent lossless RGBA source sheets plus measured crop JSON, SHA-256, foot/socket and opaque bounds, labelled identity/material regions and native v1/v2 validation renders. No baked floor, labels or bars. Read-only source library is unchanged. Review sheets: `<artifacts>/delve-int-20261015/int-2/contrast-review/`.",
+    "Dungeon integration follow-ups, 15 October evening": "| Asset | Role and geometry | States and timing | Delivery / remaining need |\n|---|---|---|---|\n| `dgn.floor.fungal-quiet` | Top-down Fungal background; 16x16 v1 / 32x32 v2, centre anchor (8,8)/(16,16), no collision or footprint changes. | Plain earth, worn earth, sparse roots: one held tile each, no animation. | Source PNG + SHA-bound measured crop JSON, binary alpha, existing dark palette. Broad low-contrast material areas that join across tile edges, without a root lattice or framed bevel on every tile. The current source still repeats visible roots after reduced variation, dressing and contrast. Design belongs to the art team. |\n| `dgn.odoor.<pack>.side` | Orthogonal west/east vertical strips, 16x32 / 32x64; bottom-centre pivot (8,32)/(16,64). Existing two-cell door collision stays authoritative. | West barred/open and east barred/open, one held frame each. Opening timing awaits a rules-owned age. | Separate complete measured objects with matched pivots, no angled pedestal; open must show a clear passage and barred must show bars at native size. Mines is angled; Keep and Fungal silhouettes remain ambiguous at native size. All six packs retain dim pack-coloured placeholders for those rejected states. |\n\nThe delivered `dgn.hud.chrome` ready/cooldown/disabled/pressed, health, stamina,\nboss, seat, floor, minimap, status and toast plates are registered. Pressed is\nstaged until an authoritative pressed-state signal exists; no new input clock\nor animation age was invented. Existing labels and numbers draw over the skins.\n\n`dgn.odoor.mines.south`: south barred/open top-down threshold, one held frame\neach; 32x16 / 64x32, bottom-centre pivot (16,16)/(32,32), existing two-cell door\ncollision. Deliver two separated measured PNG crops with matched pivots; the\nopen state needs a clearly empty passage instead of the current solid timber\ncrosspiece. Timing and collision stay unchanged.\n\n### BOSS-READ-1 value-request disposition\n\nThe VALUE-1 and INT-2 body-value requests above are superseded for the seven\nregistered production envelopes by the accepted boss-hall floor shade and\nsource-colour silhouette rim. All seven pass the unchanged contrast rule in\nboth kits, both poses and both output paths. No source redraw is required for\nthis integration. Source design, alpha, anchors, sizes and gameplay stay fixed.\nSee `docs/BOSS-LIBRARY-IMPORT.md` (BOSS-READ-1) and\n`<artifacts>/delve-int-20261015/boss-read-1/after-metrics.json` for evidence.\nThe terminal still merges Choir's skulls and Waxen's small candle tips; passing\nfloor contrast does not claim those fine identity details survive reduction.\n\n### INT-4 ART-18 entrance and side-door disposition\n\nAccepted entrance masters for Cinder, Latch, Mossbell, Brasswake, Rafterwake\nand Pennon are integrated through SHA-bound supplemental `.entrance` slots,\nwith exact 384x224 / 768x448 registration and collision-aware masking. Extra\nmaster props never acquire collision. Source-only acceptance remains distinct\nfrom the native/cell review recorded in int-4/REPORT.md.\nCrypt, Mines, Keep, Fungal and Unknown vertical side-door sheets replace their\nplaceholders at 16x32 / 32x64, west/east closed/open/locked. Existing rule\nclosure states select the drawings; worn proposals remain staged. Archive's\nbaked-checkerboard sheet remains rejected and its placeholder is retained.\nNo new art was designed; the ART-18 sources remain read-only.",
     "Torchlight Touge (DRIFT-1, 16 October 2026)": "First-person chariot drift racing, all four seats at once. Implementation uses\nplain cached race3d road/barrier meshes, existing cart tubs, box horses and\nstatus plates. These are temporary placeholders; no new source art was drawn.\nSlot contract: [`drift/slots.json`](../crates/delve/assets/drift/slots.json).\nOriginal dark 1990s arcade style and knight anatomy from the read-only library\napply. Keep the road ahead clear; art never changes collisions or timing.\n\n| Asset id | Role and camera | States, frames and ticks at 30 Hz | Native size, anchor, placement and geometry |\n|---|---|---|---|\n| `touge-cockpit` | First-person cockpit rim, gloves and reins; art team designs the vehicle | Idle 1; drive 4×4 ticks; drift left/right 4×4 each; spin recovery 6×4 (24 total) | 160×64, bottom centre (80,64) in 384×224; chariot half-width 0.65 world units; do not obscure road centre or HUD |\n| `touge-horses-rear` | Pair of horses from behind, first-person and rival chariots; flat rear and rear three-quarter banks | Idle 1; gallop 6×3; slide left/right 4×4 each; gait is visual and follows speed | Pair 64×48, feet (32,48); centres 2.8 units ahead and ±0.55 across; height 1.55 units; no separate horse hitboxes |\n| `touge-torch` | Torch and support, road sides and tunnel; screen-facing billboard or material masks | Burn 4×4 looping | 12×32, foot (6,32); road sides ±4.65, every16 along course; top 2.3 units; no collision |\n| `touge-road` | Grimy mountain road, edge, tunnel road and lap stripe; perspective material tiles | Four static material states, 1 frame each | 32×32 seamless source tiles and material masks; 10-unit road; centre stripe must not suggest an obstacle; barriers authoritative |\n| `touge-mountains` | Night mountain backdrop; first-person horizon behind near geometry | Night 1 frame | 384×112, horizon anchor (192,112); dark silhouette with cool layered forms; no collision |\n| `touge-boost` | Blue, orange and purple wheel/boost signals; rear/three-quarter rivals and restrained cockpit-edge cue | Each stage 4×3 looping; charge at 18/42/72 eligible slide ticks (0.6/1.4/2.4s); release lasts 18/30/45 ticks (0.6/1/1.5s) | 32×24 each, centre (16,12); rear sockets ±0.55 across, z0.2; visual only, no impact or damage; stage colour is also stated numerically |\n\nDeliver transparent RGBA sheets plus measured crop JSON, source SHA-256,\nstate/frame/facing, frame duration, common anchors, native previews, palette and\nmaterial masks, and separate reins/horse/socket/occlusion metadata. No near-white\ncores, noise or dithering. Preserve the broad view needed to steer through the\nhairpins. Track, spin-out, boost and scoring rules remain authoritative."
   },
   "provenance": [
@@ -1618,7 +1618,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.bread/slot.json",
           "line": 1,
-          "sha256": "21e555ef3620ece25e3a227004ac8b194ec517f1dc380352c608cb2ae3adfe0c"
+          "sha256": "0ecb7a279412c76065e3691e032b62d653c686fe096123f4a914a5b409564fd0"
         }
       ]
     },
@@ -1647,7 +1647,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.cask/slot.json",
           "line": 1,
-          "sha256": "806b162c040946d6a00fe85e47b17bc3af1c1f30eec44534a2e9db5e2c7293ee"
+          "sha256": "17448092be95699c7466a2b4ed0e82705e29322d6e695cb27f72fd9eccdc728b"
         }
       ]
     },
@@ -1693,7 +1693,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.chrome/slot.json",
           "line": 1,
-          "sha256": "63986f8942485939655065a2905a2f9a871eaa753834196d7aa6afd86053a931"
+          "sha256": "e8000524f742565840adcd551559ac4f11394617061fa091b42cf62a18af72b8"
         }
       ]
     },
@@ -1758,7 +1758,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.contact/slot.json",
           "line": 1,
-          "sha256": "452b6838d1406d754032a431cc9f56bec2d501b0a88b64da905c3bad3e5065b5"
+          "sha256": "6f5255ad690ed32c57506dab0378184b0cb2cc72cdc480bac60b85eaacff9bf5"
         }
       ]
     },
@@ -1787,7 +1787,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.entrance/provenance.json",
           "line": 1,
-          "sha256": "f380219f90a229a9f5950141b5dde8296cdbf5abcc4c562888cf51b208d4db40"
+          "sha256": "498873ec9573f78962da87d5a616ddeb9bf502dfb4b0d3108f397c53b8d8fa9f"
         },
         {
           "path": "crates/delve/assets/art-slots/brasswake.entrance/request.json",
@@ -1797,7 +1797,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.entrance/slot.json",
           "line": 1,
-          "sha256": "673420d2d434059bacc4ef21abf9b58c5b07c8b36381ff220361a36c72eacd5c"
+          "sha256": "1aa133d96a2f0bdf6b4a840ce4bb6501168ff9beeedf3996dac726db7a7d9e90"
         }
       ]
     },
@@ -1963,7 +1963,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.keeper/slot.json",
           "line": 1,
-          "sha256": "f632d02f4a213b570997c6a32e31a81960d1344fb221cbeef21d3a9acb603074"
+          "sha256": "b1bfba26f4f898734bac3009fa6e74795b3aa25512c7df0bc15549934d5d0407"
         }
       ]
     },
@@ -2134,7 +2134,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.keeper-damaged/slot.json",
           "line": 1,
-          "sha256": "f1fb849dd2c1a09dd1cbc53514116ddb41dc3202a31d18249fa1cf2d0f4582ed"
+          "sha256": "aa8a462f2b85241e12d9f3badbab637b99d489275ded4216b34084628b80c624"
         }
       ]
     },
@@ -2312,7 +2312,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.knight/slot.json",
           "line": 1,
-          "sha256": "4d117d2dc39d1b0d59d93c105b75531f608da1ecddaf5a52f86e50deef031f24"
+          "sha256": "cb04917d2d6d05acbbc118e958dd319a736283cb0319c17f7ecb1071922243f9"
         }
       ]
     },
@@ -2449,7 +2449,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.porter/slot.json",
           "line": 1,
-          "sha256": "cfc99bd309b77fff860ba95d8f13a0b9d870b61e5812b8988cba0e9e65b45b93"
+          "sha256": "492c80050b5b8fad0f91bc5aa796fd1480bb0bea1173f7a0c577f0c053eb0e60"
         }
       ]
     },
@@ -2478,7 +2478,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.room/slot.json",
           "line": 1,
-          "sha256": "b1f7ff10d09d1f6f2563be9d3293f517ab64435cf8cb660e1920f04c94c6435c"
+          "sha256": "b9933840339960add2cc8867eb258a64f2a5968130a08c3b751bd0bac0d3cb99"
         }
       ]
     },
@@ -2543,7 +2543,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.slam/slot.json",
           "line": 1,
-          "sha256": "e3d8c1f77b5c27ead8e899b115be35b343addce8bae51250d84d7e4c36dfca03"
+          "sha256": "2aaa70f942fe3e9782efadede83186982e396e17dc5c7aad6cd82ff133a8ecb1"
         }
       ]
     },
@@ -2608,7 +2608,7 @@
         {
           "path": "crates/delve/assets/art-slots/brasswake.steam/slot.json",
           "line": 1,
-          "sha256": "96920bc380799077ddd389bff042ef42123988c85540a05de16eab7698148aad"
+          "sha256": "1b253603132620f346037c2d6cebe2fe99fc5309a4c4641cc5eaf6c0da75fb32"
         }
       ]
     },
@@ -2632,12 +2632,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/actors.py",
           "line": 1,
-          "sha256": "6d848653a27be6350e1c81b74f97219c1368841076a9d36a7d20853e654eeac1"
+          "sha256": "f45bf6a8ec3e92636b10f273a8d537d5db0b5d1f6a02c9442e20209c84b99ead"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/cinder.chrome.map.json",
           "line": 1,
-          "sha256": "18196a25e5c80a68bfbf447b2cc4199ddef7ebfb288563de686a0ff7b1c3a6e5"
+          "sha256": "f0dbf4dc6bb6c2c338d4698eccc0a3cdac6b6f8de0083d4247ad0238853c896a"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/masks.py",
@@ -2647,17 +2647,17 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/polish.py",
           "line": 1,
-          "sha256": "702e17921cfe6730c05e142e49bd9eaa6148bbd1da395b7b58ac19600c607ed6"
+          "sha256": "50bf42987f356e383e753869dc0b602655a702898ff6e51eb0538e6363689bae"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",
           "line": 1,
-          "sha256": "5e7b4ff577d6a0f319597cc5f2e327a1e71734d291124422252a8f72144773a0"
+          "sha256": "40f3f7d8f56c219b590c7e1ba8e485a1a7dadb7a833bf11209563ed55ddb1d2b"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.chrome/slot.json",
           "line": 1,
-          "sha256": "34ea3baedf040ecc2bfe9c1eb6c6c360104b8fecd4f73e0869316a7dd0dfba83"
+          "sha256": "6862b798fa20e738f00ee159452db4acb81fced1b4bb9747ef2db6fd2aa60306"
         }
       ]
     },
@@ -2705,12 +2705,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.clear/cinder.clear.map.json",
           "line": 1,
-          "sha256": "d77046336d91083d8d2ac2034593ced7571cc00f6313d5eb8a6182a009695a37"
+          "sha256": "e814d2edf135c703174340da3a852b76b80853af5c0df07fc5e90a3899524042"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.clear/slot.json",
           "line": 1,
-          "sha256": "38671535ad2ace584cb7826444618640464507a3a3d844baebc41629b4577da8"
+          "sha256": "d7df580934f97ffb27755520aab29d10883b134bb182e53767a779beeea8dbc3"
         }
       ]
     },
@@ -2818,12 +2818,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.crock/cinder.crock.map.json",
           "line": 1,
-          "sha256": "e37d3cdfe7e6b623edefe6e9841d0662909583174b2a7497351aa263757a689c"
+          "sha256": "5414b247b661d774f272406a6665e51ab5f2d7c3b1efce5c74d5581f3ebc555d"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.crock/slot.json",
           "line": 1,
-          "sha256": "7d3df2b6a1a6c210222411f3738b4ed3b2cfb1c5bc9aab3049e1234e9e68eddd"
+          "sha256": "b16b975126ea8ec6d3c619fe4dab89e3ac7a1c4eaa2adde95e2c4912de5e8728"
         }
       ]
     },
@@ -2931,12 +2931,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-damaged/cinder.crock-damaged.map.json",
           "line": 1,
-          "sha256": "ca144f36b5852bd8727b441b796d1b52fc937590b4d07843c3bcbe90cea74b34"
+          "sha256": "eead9676a20ccd81b07b9d2b069fa75311fdbd553073cbac495cc969c9574c97"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
           "line": 1,
-          "sha256": "2c2c60c2300283b0f85d0d94a313febfa92123ff6d156a778356fff5781896ea"
+          "sha256": "8afcb1f703f418a35b9dc5c26521235178b6674804e62bf1a8463584edf8f9d1"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-damaged/registrations.json",
@@ -2951,7 +2951,7 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-damaged/slot.json",
           "line": 1,
-          "sha256": "95f20d1b3fa9667ac2bd0a6d21ad318d4da4adc850263815147ba1ca766cfcbd"
+          "sha256": "7ea2da72900b6f17f1416dde4ec94deb9f9cb4b1dc7c0569b2782974ed2d5651"
         }
       ]
     },
@@ -2975,12 +2975,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-lab/cinder.crock-lab.map.json",
           "line": 1,
-          "sha256": "1d79dc6ed196c27b02d2c850b0b34a8836d8e0267af20447d755e55d694d4580"
+          "sha256": "816ae1ee274e38c9cca5140424792d5d94e462e47b764e8bb8c579643243a75e"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.crock-lab/slot.json",
           "line": 1,
-          "sha256": "05628b9f75c1364b67ced950bb9f79298f360c673cddfea8cbf445fad3defc6b"
+          "sha256": "3f25d1de6cb643733b48f809137cfa44f0d193f8abeba7f3dac8dae08bd52a05"
         }
       ]
     },
@@ -3009,7 +3009,7 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.entrance/provenance.json",
           "line": 1,
-          "sha256": "a4e865cfe392989ee4423468e51e0e69f5cad257ac1513f13a87dad6889305e7"
+          "sha256": "4ab1fb5d1024661f0b8fb8f60c477c253e18c9cf3cd4effb54838c77531f5658"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.entrance/request.json",
@@ -3019,7 +3019,7 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.entrance/slot.json",
           "line": 1,
-          "sha256": "4c4d7da001adcd025632b6b7bce209c77c355386f31d4477397cfa4b37b4fbce"
+          "sha256": "ca66044a3dc44b71adbc4fb6e433833230d2a364bdd6adad7bc5a1bab911952d"
         }
       ]
     },
@@ -3079,12 +3079,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.impact/cinder.impact.map.json",
           "line": 1,
-          "sha256": "df8466db2f45ee25671eb0a7caa9adb8740929260fdf2cfb9b928662c978790e"
+          "sha256": "6271ce1756a72078b8d80f42e55917f81102ca872c513328297c50e68e1f8521"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.impact/slot.json",
           "line": 1,
-          "sha256": "81df0e1879e595c8a452fb1aac9bfb3b916dc24f087250b1c9602a93cb2bb4e7"
+          "sha256": "ffedabb509120f7e69905f10774869df03fce552b98aaa60e013905ac7311d26"
         }
       ]
     },
@@ -3109,12 +3109,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.knight/cinder.knight.map.json",
           "line": 1,
-          "sha256": "980be20611e7c44c39010fce665a23dfe7de22b9e419a695346926eeb9c3f3b9"
+          "sha256": "a7cc04d57d60840deb5ae95e55c23217741bba5da8210ca8331d92f20749b4d0"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.knight/slot.json",
           "line": 1,
-          "sha256": "d86553f0f4ea0cff018c10c156f5b40a53462aa8be850186edb75a9510eda799"
+          "sha256": "dfee781a73b391108fdc68e1b79d56c37d1b1f28e779efce6678ed837f6ce886"
         }
       ]
     },
@@ -3162,12 +3162,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.pots/cinder.pots.map.json",
           "line": 1,
-          "sha256": "0033bc368c969890b7a64dae4087c23be982954ca29654907447e7facce5abf4"
+          "sha256": "1828735818c671ed0a1eeb76838db9e3901ad5c8ad16e1de27fa79891c43e284"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.pots/slot.json",
           "line": 1,
-          "sha256": "2167da420cf794711016c9b7de44b79f5a6cfc3b721e7dd0a41b3eb64fff90f6"
+          "sha256": "485da1aefc680cba059a674ee46c3ae61af67af884d5e8b115ee7b8d51fff449"
         }
       ]
     },
@@ -3191,12 +3191,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.room/cinder.room.map.json",
           "line": 1,
-          "sha256": "6c5569cc62813bc6ee9c92c8287e50fe3e788473bfd558fbd875532eca505133"
+          "sha256": "08241f059083e603465deac6c46669a30f4dd7914fd5d336befbe1cfc14f0e64"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.room/slot.json",
           "line": 1,
-          "sha256": "abdc8133e1d7779ad09a2be3f5d526f3c400cac49db5abc2d76c37cce63184be"
+          "sha256": "4b1c4d0999a2d1d92a282f65448d94a89a481caa0f3e6ac001245d8e6223e912"
         }
       ]
     },
@@ -3220,12 +3220,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.slag/cinder.slag.map.json",
           "line": 1,
-          "sha256": "bf5d03d6b1c6630c3d1e4dd5d602e7a65978f0c4264f6d0c6e3c29ef14536be2"
+          "sha256": "51acb202ee3811227b24bddb4d6d2e68532170a015d9498dfdca349f3eaeaa52"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.slag/slot.json",
           "line": 1,
-          "sha256": "55e173744f0a9e33261ee17cf2cb265aeb87ad5edc8402518896c227362eafe3"
+          "sha256": "da69a9f93cdcd4ab1cb1f8c199cb50bc3a29a25f8e4beee7451ebf8156866459"
         }
       ]
     },
@@ -3249,12 +3249,12 @@
         {
           "path": "crates/delve/assets/art-slots/cinder.tell/cinder.tell.map.json",
           "line": 1,
-          "sha256": "c8140de6f3c3e64c11caa063a1cd1ca4a66071fe95a1d2f23842681275ce6838"
+          "sha256": "1eb3a0c956982abe516c5882f70697994ca789862e3c0210993ed9dc9d1ce047"
         },
         {
           "path": "crates/delve/assets/art-slots/cinder.tell/slot.json",
           "line": 1,
-          "sha256": "dcae5b92ba61a668995577f0bae22959fc4c9712fc4be39ca6a26eb407934773"
+          "sha256": "776f96e7d53592a97733d635a70ebf1dc27418a5d36aa55ffb6e9ac1898cfed0"
         }
       ]
     },
@@ -3415,7 +3415,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.archive/slot.json",
           "line": 1,
-          "sha256": "a0c83fc3268599bf89db1d29d553341e690f01a242b58f6e34d232a2504d6e75"
+          "sha256": "efa1cf94240d9ae20cb50bc468b095ea71131b2b467c6451a4a36fc5ede12beb"
         }
       ]
     },
@@ -3576,7 +3576,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.crypt/slot.json",
           "line": 1,
-          "sha256": "05acdad33e6e75e1eb4de63dfa12dac608203b3e24012bbf66c3753552dc7c6a"
+          "sha256": "8deb056eb607d0907b4fdedea27e9359eabb2997c953ed882e2e2e48f6c26e68"
         }
       ]
     },
@@ -3737,7 +3737,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.fungal/slot.json",
           "line": 1,
-          "sha256": "637cd12f03613fb6957e88ebaf8b6528c622564916700b856fe1f47371ed53df"
+          "sha256": "5c57fb2ed67c7f053db8d79952613729409457c7a04a9e641384f4ab87af90a9"
         }
       ]
     },
@@ -3898,7 +3898,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.keep/slot.json",
           "line": 1,
-          "sha256": "b05df64fba281fda49893c6e174643484466d0cd357145662f8d535a1072c639"
+          "sha256": "3e8e0728ef152501a4b16a86e2e8301f396a0ec48764578aeaa8900b3ed176aa"
         }
       ]
     },
@@ -4059,7 +4059,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.mines/slot.json",
           "line": 1,
-          "sha256": "80a6b3095370c0ca3d2a862b6c753a8597b76e86b167beca2cf5d2ef9fc3e51b"
+          "sha256": "e3dc1dd9e24c755ca127ea399371d25eb3ecd62871597a6723d3095b8eb9bfd3"
         }
       ]
     },
@@ -4220,7 +4220,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.block.unknown/slot.json",
           "line": 1,
-          "sha256": "bde6a35ec60af21e322d79d3a301c250ad01f6d74ceac8ecb0817696932fc1f3"
+          "sha256": "2141dbb0f005d894d3f5bf0a6d5a1d302db90d91376affa3ee7846d0694dd82a"
         }
       ]
     },
@@ -4381,7 +4381,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.archive/slot.json",
           "line": 1,
-          "sha256": "b1488207b4d550a0eb6309845335162919dfc34d52562ab7a17bfad0c7c7a4ba"
+          "sha256": "ba780094f85ac0c789f8096fcc30ddb4432e1d17a8478c6c90a1b6d59d95c3fa"
         }
       ]
     },
@@ -4542,7 +4542,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.crypt/slot.json",
           "line": 1,
-          "sha256": "76b6ecc84fe6a75dd2fa6608135e53766d3e7e65bd92c057f953e362fa4a32bd"
+          "sha256": "0a54816871b8ec2477ca3ed2af361e3f3472222a446ab7693fecc76f3e70ae21"
         }
       ]
     },
@@ -4703,7 +4703,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.fungal/slot.json",
           "line": 1,
-          "sha256": "d0707058f89461f0a7b613bbf4819b1b4686c96695c9c8a09ca2e3bb041a25b9"
+          "sha256": "3882545f4c0200285e62ef3a7dcefad9be5a20e8855971cf51d3e5924f62d55f"
         }
       ]
     },
@@ -4864,7 +4864,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.keep/slot.json",
           "line": 1,
-          "sha256": "acd5a0c0f4456be99fbb78f9b2b148f8585a9b32077b9e63fabb7db146c6273e"
+          "sha256": "b1027b02dfc8759542f4173cb219d6ed14e97388623c28d8dc9d60b5259888c6"
         }
       ]
     },
@@ -5025,7 +5025,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.mines/slot.json",
           "line": 1,
-          "sha256": "6bd6225d58abe358116cb0725a5ef616e3930511b8b97f9aed789a9744331110"
+          "sha256": "cf307766ca29ab61ab889b423903185dbd542e57f1fc023850e7e7917dca9cff"
         }
       ]
     },
@@ -5186,7 +5186,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.decor.unknown/slot.json",
           "line": 1,
-          "sha256": "62284bb68305778939ba03495137ab0ea694b9828b26df060677e93cc29bc476"
+          "sha256": "09384ffc25f6f826cfcf9873c1828f24ee0b9e55a85d49829e5e759e80c75568"
         }
       ]
     },
@@ -5335,7 +5335,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.archive/slot.json",
           "line": 1,
-          "sha256": "7c7ede4d2f8744ff86440cb753bba50b53fe3d495c85db5f2c0066fdcfa41f4d"
+          "sha256": "e57fc1f0e5a0c07952e25e4e00184297a66bb1b490d6b0ee58c447061f3ab38d"
         }
       ]
     },
@@ -5496,7 +5496,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.crypt/slot.json",
           "line": 1,
-          "sha256": "ec78f4ff38f062a92e191e2dee0b82861ee7790c5e316a3d7249a00e650e59fc"
+          "sha256": "39b1f6aade6bb7faadb78d218bd831f7f0d90bf236eee520067b85adf84345e4"
         }
       ]
     },
@@ -5657,7 +5657,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.fungal/slot.json",
           "line": 1,
-          "sha256": "510a6ec98d3d50a1d577fe313c7b2994fe5ff3e0210e1aa027cf3478118cec5c"
+          "sha256": "f768646ade712a236795bca74a92a387ac8db89c7a988c5194afdf5de6f067d6"
         }
       ]
     },
@@ -5818,7 +5818,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.keep/slot.json",
           "line": 1,
-          "sha256": "6c07a50f3bbda930cb0da3dcc08f37534be9fab2157de866295a69444ac9d7d5"
+          "sha256": "91e1f8bc8f1b59153f83e494d9898f507a2da96578abd05e710e7d9f2847e89b"
         }
       ]
     },
@@ -5979,7 +5979,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.mines/slot.json",
           "line": 1,
-          "sha256": "168aa6c9ee368662ec35460f75155d43742b035df3c1f24d40dc5d598ac3b422"
+          "sha256": "266e8efdea3c5dce5354e7490eb41f0c6e3c5e0e961d6cbfd573c2078768f2e1"
         }
       ]
     },
@@ -6140,7 +6140,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.floor.unknown/slot.json",
           "line": 1,
-          "sha256": "302bfcc64860f16fd8d960bbd913cd66a1f0f201652a73cac56e3780a5d6c220"
+          "sha256": "ff23d6038907b7dc93677899b4a9ef2e01c382cb09758a2cd8d5c46121caf3b2"
         }
       ]
     },
@@ -6229,7 +6229,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.archive/slot.json",
           "line": 1,
-          "sha256": "a884931ecf51444fff5ae1437c2151c0c0b107b7161a3e23e80144a9c9958a05"
+          "sha256": "7c067f38361a60d1bc6f2910777bfc38cd684a7ff6e6b973fce5bb95b82ff95b"
         }
       ]
     },
@@ -6330,7 +6330,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.crypt/slot.json",
           "line": 1,
-          "sha256": "7096e3a9bc1664e3925b75ecabe5a541cfd40b472eeb3e3785946c49d63406a4"
+          "sha256": "fd0035f0a7810e00f28456f822b16c9838979cc1baea5cb6babb75008294f634"
         }
       ]
     },
@@ -6431,7 +6431,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.fungal/slot.json",
           "line": 1,
-          "sha256": "22346d82d13557aa916b5656680c892f8edce98bd4448328207d1c6686c94e88"
+          "sha256": "2b2fb7214e51bff6643da609e9cbadf9661a1f34cd5bacab747b18935024670a"
         }
       ]
     },
@@ -6520,7 +6520,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.keep/slot.json",
           "line": 1,
-          "sha256": "d885e9bde5d1f885a3ee68b1741a5c483586bc28aa0f043df527be7a0424fe98"
+          "sha256": "c04ace5677477c43578c7d2407d8abd3e75751e37de398499d9d5aa66c97c038"
         }
       ]
     },
@@ -6621,7 +6621,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.mines/slot.json",
           "line": 1,
-          "sha256": "72c328b664d1fcb9487dd48975badac16492f38a1377dcde1548025f9d293655"
+          "sha256": "2e4448bda146e9f065e5fadcf8c800fc05e194e03077ed19f2fe6e6905c488c5"
         }
       ]
     },
@@ -6710,7 +6710,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.gate.unknown/slot.json",
           "line": 1,
-          "sha256": "8783fb60b35ae0ab5304e96930f0a4f01b0aa9df27b393685ea3eea1f97f9dec"
+          "sha256": "17e27da0ae53b1f0289f1d256dcbfcc0c061bad5bdd8a4104d57f89a1997354d"
         }
       ]
     },
@@ -6871,7 +6871,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.archive/slot.json",
           "line": 1,
-          "sha256": "5ec53817db0e454d6544fb46ec9f35f0bb30be67a81fbb713696f58b0dd5acd6"
+          "sha256": "802539d47fab3fa0c20a270f0c4e0af65c78d57ddd828917cf1f0608c3a916d5"
         }
       ]
     },
@@ -7032,7 +7032,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.crypt/slot.json",
           "line": 1,
-          "sha256": "24645d72d20846f843f582a675d869ec63ba1bb2f1e1d21db2848e1f67e92148"
+          "sha256": "fb72b5dd41c731b2d262f970fb994321a9713f85c77918d59eb866c7f7ce8651"
         }
       ]
     },
@@ -7193,7 +7193,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.fungal/slot.json",
           "line": 1,
-          "sha256": "b5b74c44741a37865eed9e6421c0ddfed3a0aab6ec269686deef69a59310abc4"
+          "sha256": "c9a0a9dc090804285bd726a99b4a2647413218f1977919a2cfe256f16eb06192"
         }
       ]
     },
@@ -7354,7 +7354,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.keep/slot.json",
           "line": 1,
-          "sha256": "7338c4f83f81f9dea24ef3708cbbc304394cceb103ba294133859ae2f8c1dc34"
+          "sha256": "3a42ecba14622f9756712cdd3016cebbde1545d7f0e60f62716becaedac911e7"
         }
       ]
     },
@@ -7515,7 +7515,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.mines/slot.json",
           "line": 1,
-          "sha256": "bdda6597b3aac3769b83646a77964bf6ac49d27cbedbc972368299c57bdf2f07"
+          "sha256": "4f0bfac29eb209e4a0aeff163ee3cecb141d9538fb20d47b7fb8f9151837748f"
         }
       ]
     },
@@ -7676,7 +7676,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.hazard.unknown/slot.json",
           "line": 1,
-          "sha256": "d4a89f23e95b1d741beb63aa7a4619bafc6d0fce00d28e83f21e01c62d1cdf61"
+          "sha256": "5683fa7e63af749b1c2e45dc482452e24faab232df574723d8706d2904b14957"
         }
       ]
     },
@@ -7950,7 +7950,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.odoor.archive/slot.json",
           "line": 1,
-          "sha256": "e479b8e31e681a6f58f13bfb4022d1a0daeeb20a1cc9d12fcdf312d6339cb425"
+          "sha256": "a58a01bd9e59f50834d64bafbcfde64629f2250e1497645d8ab3c54b84ad979a"
         }
       ]
     },
@@ -8063,7 +8063,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.odoor.crypt/slot.json",
           "line": 1,
-          "sha256": "ce90bda3cc3f604a7ee73932e38afb903aa48c1b93353e1b3d82b230798f2d4d"
+          "sha256": "68e01b2d23c395857d27e1278dc76eecb8ef27b4658244c688341185cccf95e8"
         }
       ]
     },
@@ -8491,7 +8491,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.odoor.unknown/slot.json",
           "line": 1,
-          "sha256": "8973da8e70bed7df2d447da778102663e4098deabc52d18f9b5079c9088136b4"
+          "sha256": "3296eebbfacb7a5e860ab288f4f4b850301f0a1e6b741fed23ede2293414b549"
         }
       ]
     },
@@ -8652,7 +8652,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.archive/slot.json",
           "line": 1,
-          "sha256": "d2cca16ac712de620974cd93971a65cfef8ec82e02fedbc21dd9cc1b97c04470"
+          "sha256": "c3b4b90889d2353306d9666dfd8c2b3f1ea2bbb5e4c300d08798a4659507d2c0"
         }
       ]
     },
@@ -8813,7 +8813,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.crypt/slot.json",
           "line": 1,
-          "sha256": "7953597f05a267cb3871c7cc8035b11cb4365421ba91ef3ce8714ea5c91d09ae"
+          "sha256": "d93c9a9a19fc59cabdd96bd7a1a9f22aeab671b5037bb2b6eb5acebfacc7f673"
         }
       ]
     },
@@ -8974,7 +8974,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.fungal/slot.json",
           "line": 1,
-          "sha256": "7f8554937ea9802017f8aeb126c725162eb493dbb4d5c4e244abf2f32e900d73"
+          "sha256": "e343818eddc23a9585b635ab5bb16cc9d07913596187dfee6b289c10888f4b57"
         }
       ]
     },
@@ -9135,7 +9135,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.keep/slot.json",
           "line": 1,
-          "sha256": "fecd32b2f4d18390f266447f62c8cb2890f1b464c873f04d7a7cfb2162e0a6ac"
+          "sha256": "6682e083709e494f470a963406732621ea03df31fcd428e2a1a394deb097cba3"
         }
       ]
     },
@@ -9296,7 +9296,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.mines/slot.json",
           "line": 1,
-          "sha256": "d0adda8162cb367f19f846e760f69725e2e8af18585cf33acc21ee1f9b9b3b36"
+          "sha256": "4c196064d21facc16768a1667889858fdd757fcf0ab094002c9870b1fd316b05"
         }
       ]
     },
@@ -9457,7 +9457,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.owall.unknown/slot.json",
           "line": 1,
-          "sha256": "1d123779de79c8022233ed1ef9ed96925931e16db56726e08a2917c459327442"
+          "sha256": "439ca788104302bddf5193137fb65490942cd700e3c9d7eab47653ccf9e17955"
         }
       ]
     },
@@ -9486,7 +9486,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.archive/slot.json",
           "line": 1,
-          "sha256": "d3315ba6f1bc992db8e6cbebeb787e249fbd51161786485f33913466e53a4e16"
+          "sha256": "ec2e54c44a54fa0499e0cef2199bd85e45f4a9e19adf15834592774a350a89f6"
         }
       ]
     },
@@ -9515,7 +9515,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.crypt/slot.json",
           "line": 1,
-          "sha256": "0137e5af7539fbd01287c216cb79ccf15fcd66b531cc279f5f692c83678f7fed"
+          "sha256": "e136ecaf48bce93724422b0fa301a9cc4db4774743a487aa00adca44c748891f"
         }
       ]
     },
@@ -9544,7 +9544,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.fungal/slot.json",
           "line": 1,
-          "sha256": "0e19618ec02ecfcc5d5d8735b16bff25b3100dc5f6462f3d9980eae62253a584"
+          "sha256": "7b71a54be76d4db6ab8fbd361067a7eb125db150be335e22f4b725018f9f1633"
         }
       ]
     },
@@ -9573,7 +9573,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.gate/slot.json",
           "line": 1,
-          "sha256": "867db4fc4fc8897a77cc6d0193c12f51c1c557011a3b182bb26dc9c07d2f7450"
+          "sha256": "bf29f06d476a1a17fe2eded5a5489760d138c6ace74759b979c5bb61d39259df"
         }
       ]
     },
@@ -9602,7 +9602,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.keep/slot.json",
           "line": 1,
-          "sha256": "b7a2fbdca3450e3d6ac4429298aafe12e17bc98c326f179d5397381a087fa2ce"
+          "sha256": "b44fe4894347449b82ba1ca5c4ef7d6f5b136a7ef830dbed7fe41398fff63b50"
         }
       ]
     },
@@ -9631,7 +9631,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.mines/slot.json",
           "line": 1,
-          "sha256": "5bf3d73738dc9aaf0ce8945c360ed93ba92e72fb965a14e13c20c8b9e9d243b3"
+          "sha256": "e62af7c37663703c5241cbc5d197fba183daf684c0ad785cab705284b6cbf951"
         }
       ]
     },
@@ -9660,7 +9660,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.plate.unknown/slot.json",
           "line": 1,
-          "sha256": "86b15de73ad67eafdfb73f30a263aa6ea20d9b029eace665533840ff30acd024"
+          "sha256": "9e06344bc8db5bc7cdc81ff84771f85fbf2435414fde1d6149864bb772aaa48b"
         }
       ]
     },
@@ -9749,7 +9749,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-crypt/provenance.json",
           "line": 1,
-          "sha256": "714c225197964382cb6da59e57c4672499939d53f45a3d75b0732dde547fd51f"
+          "sha256": "e8ca277dc2e439060c3e1110892f0884f3a9a9d54227b1bd57f65dd0aa8199ea"
         },
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-crypt/request.json",
@@ -9759,7 +9759,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-crypt/slot.json",
           "line": 1,
-          "sha256": "a4c58f6fbf47313b2474a42c7e1dc179ad78acb617285b0fff011f8df931649f"
+          "sha256": "ad011504ae684796aaf2632d66cef5430b71679525896061b62df9e5d5b071c6"
         }
       ]
     },
@@ -9848,7 +9848,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-fungal/provenance.json",
           "line": 1,
-          "sha256": "c69d96bf01035ec41d6beaf0a51c9fb97610d10ddf16e89ee7ec5e2c8091d1b9"
+          "sha256": "1ec8910a3d70325ed72ad9a29e3c00c918ff4d35096de333ce0a3b2cc6d8a325"
         },
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-fungal/request.json",
@@ -9858,7 +9858,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-fungal/slot.json",
           "line": 1,
-          "sha256": "21bd874a352bbaba33543234d2fd68a46f7a8e7556dbbebc08de80f70f452e42"
+          "sha256": "c3a92e4645ec78bfc43c9ba8d4b1b56758d2b71b5bbf5adfd61dced0abd0236c"
         }
       ]
     },
@@ -9947,7 +9947,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-keep/provenance.json",
           "line": 1,
-          "sha256": "67931f1d312f49232ab3e6d74fa48b3ebf9bdea6cda0b8f94cff9c4818231cb6"
+          "sha256": "6640d5dde00feffe6e85e3c5386492e4409630c8c3c8aa9ac564b6c2dc873b7b"
         },
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-keep/request.json",
@@ -9957,7 +9957,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-keep/slot.json",
           "line": 1,
-          "sha256": "c4f97e91dbd2e5a7157985d996a3806c832c287a87125740fbf50c95fbbcf8ac"
+          "sha256": "2b71874f34d1d31c69aacc221c8ffd40bfcb1188c332f45f76844b31d2b521c5"
         }
       ]
     },
@@ -10046,7 +10046,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-mines/provenance.json",
           "line": 1,
-          "sha256": "02e9a8e54d7f3ca0ab8f7a197fd69527cc313cee649eb27c18e0331147b2b223"
+          "sha256": "74e69f0985a158d8921c867d35d30b3afd5159451ab45884aaf457a0e6823c04"
         },
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-mines/request.json",
@@ -10056,7 +10056,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-mines/slot.json",
           "line": 1,
-          "sha256": "147c8ea183b2e8ad10895425fc46a16b3da3e4327c988cf6e95d04ca62705b9e"
+          "sha256": "e2c3ecfc4377c841302c8cb9ab05bdbff75c5f1bc78c9116e5f4faa249484597"
         }
       ]
     },
@@ -10145,7 +10145,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-unknown/provenance.json",
           "line": 1,
-          "sha256": "18ba493e377e4763617672aee87813f4b33b804d3b455266e05dde421db4dba8"
+          "sha256": "a3d6011e80eb241f8ffc75a717e078d4a5178f5af6cdb23f5506264833db647b"
         },
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-unknown/request.json",
@@ -10155,7 +10155,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.sidedoor-unknown/slot.json",
           "line": 1,
-          "sha256": "cb1226a4d1eaff02237e348577635524de4b7e5d284a0bd7100635504462cde7"
+          "sha256": "2b919ec3138639ab0c2da47c8b2901f248cf0142513636f94c83a3a641357247"
         }
       ]
     },
@@ -10268,7 +10268,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.archive/slot.json",
           "line": 1,
-          "sha256": "f9cb09847157cee07b75267e8e7d4411a09d00dbcad979e43e340c1f7316dfa4"
+          "sha256": "feb4e0dab047f5976cc584e8ce75e783df96d3577a5538e5bd4223de882e835d"
         }
       ]
     },
@@ -10381,7 +10381,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.crypt/slot.json",
           "line": 1,
-          "sha256": "eb5bc6fa797a6bad2366c5a4ab15bb3745c64d381a2e7c66e581fa9084ada135"
+          "sha256": "b43a910e395cd4c1ff72483561b4a08659a87a38ebdb1a5232cd09e986c05e7c"
         }
       ]
     },
@@ -10470,7 +10470,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.fungal/slot.json",
           "line": 1,
-          "sha256": "ce193e417c90f3fab208ceb371aeb7c8bf1e6483e612daa65865e8c3062fcf8c"
+          "sha256": "3740376c3ba72ebb6f37772fb4c04fad257b43e8b3f192054d7604a0ee936ab4"
         }
       ]
     },
@@ -10583,7 +10583,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.keep/slot.json",
           "line": 1,
-          "sha256": "ee986f36311596f57f2959bd1f4f6023168c75e4adaae2a00da744843db4e882"
+          "sha256": "ee15d2ff2da80704876c9ce121d6e4994046ba45c3a809975ae58b49de8742e0"
         }
       ]
     },
@@ -10672,7 +10672,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.mines/slot.json",
           "line": 1,
-          "sha256": "7b35b7a937174edb482792f7be917cb8f7dc796c754e0f873b8a41420ad58f9b"
+          "sha256": "58a92d2e925e5a2edbd201e005a370d674158865ab1d06a3d7c7185080b7eaf7"
         }
       ]
     },
@@ -10785,7 +10785,7 @@
         {
           "path": "crates/delve/assets/art-slots/dgn.wall.unknown/slot.json",
           "line": 1,
-          "sha256": "944c713bc3b47335022ca2d49c309ce352fda87b3c2b05060c4473925b8083cb"
+          "sha256": "0e229d09c46bdc173131eeb8b3cd8c9532e7c60788d9f34246d0806061c9bdac"
         }
       ]
     },
@@ -10809,12 +10809,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.chrome/latch.chrome.map.json",
           "line": 1,
-          "sha256": "305c6357821b373f6502773b1dc93116fdba869c072767cdb97d34d82ab0397e"
+          "sha256": "ae4c0b60e6478a2ad16ffef2895690b33c729e57f911649fb1bd388fcb352837"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.chrome/slot.json",
           "line": 1,
-          "sha256": "cf09a84adb978f16aa5ad4e173487f0a44a696d9ed18d9d2d4aee2bf86aac57e"
+          "sha256": "e9abf93dd5648500af39d14ddb95ca173708a815a21ce989e2d68eae0854d2b7"
         }
       ]
     },
@@ -10874,12 +10874,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.clash/latch.clash.map.json",
           "line": 1,
-          "sha256": "6bddbca34cbf8f4021439823c595609990eab117a7aefcc40ceae9663f4bde79"
+          "sha256": "c2d3b0cc614fd3f77acc926c8e5a2b750e1961b9748983c8fefb0dcdf824354a"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.clash/slot.json",
           "line": 1,
-          "sha256": "f65a1fe05dd5351511717f3d8d210776bb5fbffa99b25742789d442184d64032"
+          "sha256": "472a9721c2a315b6d4783e7f79e7be30c99fe4a456064c1037443d1b6c8a9ddc"
         }
       ]
     },
@@ -10999,12 +10999,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.clasp/latch.clasp.map.json",
           "line": 1,
-          "sha256": "bcc8ebe22b8eb1a606d09859610b2092112c693363f86c5d83030639d09e15c8"
+          "sha256": "5dc964c9c09152eb6ae87a9a4ab3782117453e202a2149832c2b2136b25f9d9e"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.clasp/slot.json",
           "line": 1,
-          "sha256": "27c9dc216aeca2d1df93f819516f2557f60c8187c1615312137d2abf3fe88d54"
+          "sha256": "0fa4cddae1740d9123752f3d6b8ac385211650832b2cc85c8805286214cc1ddb"
         }
       ]
     },
@@ -11160,7 +11160,7 @@
         {
           "path": "crates/delve/assets/art-slots/latch.clasp-damaged/latch.clasp-damaged.map.json",
           "line": 1,
-          "sha256": "dd03a05315224c59fd51badf15e76f8745ba305079b02fb2fe9cadcbebfa685b"
+          "sha256": "b4890f742a9ff41dc5d893dfa41c5f99ecc930f43f706a75859395351d14d234"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.clasp-damaged/request.json",
@@ -11170,7 +11170,7 @@
         {
           "path": "crates/delve/assets/art-slots/latch.clasp-damaged/slot.json",
           "line": 1,
-          "sha256": "ad857390280eae5abf9a173892edfce94972e0ee62d6aac83842a83ebfbee4ae"
+          "sha256": "465edeb8bc222e147a41a5c449a243aacfac68b67ad2a360cd97aee620299c1a"
         }
       ]
     },
@@ -11199,7 +11199,7 @@
         {
           "path": "crates/delve/assets/art-slots/latch.entrance/provenance.json",
           "line": 1,
-          "sha256": "dba04f589843a1db9d771501d0dc7d7e08a7e59224d112af068b21103df2eea9"
+          "sha256": "8842edea962d138fc4d552edaad38525afe415e9985254ff1d252fa3ac8b2d91"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.entrance/request.json",
@@ -11209,7 +11209,7 @@
         {
           "path": "crates/delve/assets/art-slots/latch.entrance/slot.json",
           "line": 1,
-          "sha256": "1420c19d7f077863941cdad9171b9930dd1e9532555a0cc5d49782d9ef8aa43c"
+          "sha256": "53b8660e03a18979f97097f7bba7aee248fbe29dff8b313cb82b6bc88d136e49"
         }
       ]
     },
@@ -11286,12 +11286,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.knight/latch.knight.map.json",
           "line": 1,
-          "sha256": "690c7dfd94834161497fbf44329fbf39c14be6114419229fe2568b12467119e7"
+          "sha256": "e2c4b576a9b51135aff873d231acc8bc30960bcb1bea0998164c15daa6433510"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.knight/slot.json",
           "line": 1,
-          "sha256": "c32f3dd43cd3e2e1d2d250aab1922b9e04a18b39666da02db06fd2013cbc7e1a"
+          "sha256": "74dc7e5f7a011ca1175757085a94bc28aaf666a21c65301c27e2f1daa07c03f7"
         }
       ]
     },
@@ -11351,12 +11351,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.parry/latch.parry.map.json",
           "line": 1,
-          "sha256": "f9a76efa8f3fc4559e20b7d88bebfba63b5989a6389aae82641c3610abf51e8c"
+          "sha256": "bd9f94d0fb77f8a2ec5d4ee1d7bf597bccc5c869fa31ff2a337e056ef07b0ecd"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.parry/slot.json",
           "line": 1,
-          "sha256": "44cff0fb63e18d517ae538fa505218dcb0b0e502d9b3192b9ac1aa1a23c10e8c"
+          "sha256": "99fc85951ec97e869303a5b9f85e52239ca47a34e5aa7fb2f01357154daa97fe"
         }
       ]
     },
@@ -11380,12 +11380,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.room/latch.room.map.json",
           "line": 1,
-          "sha256": "4b53763107a2c2a4ea7d467fd8ef38c4b97c50a293a6fdafdce6a2ba27cdadb4"
+          "sha256": "469b77d8e27835e062c0efd3e2ceed285e7a01c27048e83e5ec5d8616816611c"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.room/slot.json",
           "line": 1,
-          "sha256": "01c502671e9ef84177620c467734480d80ebb33b9755a2c211f53d9763b5bc14"
+          "sha256": "5654815ef01350f89e7a700db8ce92f19c4fa6c9ff753c1246c4faac0d8c1fe9"
         }
       ]
     },
@@ -11445,12 +11445,12 @@
         {
           "path": "crates/delve/assets/art-slots/latch.strike/latch.strike.map.json",
           "line": 1,
-          "sha256": "9db2776d798db2d814f1e6a6881ed1f85b0693b8d0892fd0ebb6b92c18077888"
+          "sha256": "2caa224dca35e0e138ceb51ad15c1a9ecadd158946c5439444736107031fc9a5"
         },
         {
           "path": "crates/delve/assets/art-slots/latch.strike/slot.json",
           "line": 1,
-          "sha256": "d57c4c74b1409b285fa5b2dcfcb544fddfc94031e4b431905468e8367b93064e"
+          "sha256": "71d5b1233eaf0e5fee5df3faeebb366e2cfaa4f9f876608061aa28d3f625b35e"
         }
       ]
     },
@@ -11479,7 +11479,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.ball/slot.json",
           "line": 1,
-          "sha256": "a6bc458b2b7d79d9b04758026f28bdd92ce594445d05420e0a9d84656582e7be"
+          "sha256": "661c04433fc013c0692ce7bd6e765704dc4337497c44fb8037d5108f244fc763"
         }
       ]
     },
@@ -11525,7 +11525,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.chrome/slot.json",
           "line": 1,
-          "sha256": "bef62dac0f899076bd86dfda680e09a2bab6a99d3935cf194c965d05765a3259"
+          "sha256": "bd8cb589261aaf78a08d3daf389458baf1b354ee362e2d066c325d8c2b90bb20"
         }
       ]
     },
@@ -11554,7 +11554,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.entrance/provenance.json",
           "line": 1,
-          "sha256": "d085d3556f167509541901bf62f34bd20a34b4dd3c32f11ea9b8b88a5e949ae4"
+          "sha256": "3913688937a634b116031e6becb96197f60f1b71fc27ec992d0608656a8bea2f"
         },
         {
           "path": "crates/delve/assets/art-slots/mossbell.entrance/request.json",
@@ -11564,7 +11564,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.entrance/slot.json",
           "line": 1,
-          "sha256": "89f1628a0cedceceb8ee290769dfbb6fdbeb2bfa6e0a3e86eed9873d8867aa86"
+          "sha256": "4e3a5df05cf8d2eab5d7e9b0c0bb36f611a6b6dc6b6de81720f8cbae4cacedd0"
         }
       ]
     },
@@ -11629,7 +11629,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.impact/slot.json",
           "line": 1,
-          "sha256": "679bf2e19c9d773082b78f5e49ae7826f81a2e32cdd75aa3f209a79935a54409"
+          "sha256": "ffdc9fc97bf6e486d1aa21ae5418bfb359114b5726ae13a34fdbbc8f8d93b806"
         }
       ]
     },
@@ -11694,7 +11694,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.jackpot/slot.json",
           "line": 1,
-          "sha256": "7073f21f2da466925639162a4a9cf8f2cb30ef9763b21b22688850d5291423f6"
+          "sha256": "8dbfa2adf8bf29b747e1a4bb459f9657d57e62d7806d704555968b4fda5dc109"
         }
       ]
     },
@@ -11819,7 +11819,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.keeper/slot.json",
           "line": 1,
-          "sha256": "4b61b9d026947583f21a574d0a33f4dc79c967254bd6a2f957edb50b434b1b31"
+          "sha256": "2cd127bf9736827331b703ef6806e100706ade744755231d4556afcbc76941bc"
         }
       ]
     },
@@ -11939,7 +11939,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.keeper-damaged/mossbell.keeper-damaged.map.json",
           "line": 1,
-          "sha256": "73b06f133fb9f3b72d74419efbf6a55cd182a602f55e472dae7b843cd03f892f"
+          "sha256": "f636129ea092a959d39193442848e75dbc91453132dc9a2bb5a6813d4d41d97b"
         },
         {
           "path": "crates/delve/assets/art-slots/mossbell.keeper-damaged/request.json",
@@ -11949,7 +11949,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.keeper-damaged/slot.json",
           "line": 1,
-          "sha256": "ce54d6ee6b52663b5bc0164178b045f41e66b62d8ec5f3fdbf7c5f66fd57c3fc"
+          "sha256": "818ab0ea56d7d8929dd9721844514b4958534640e42acbc6503f84df75d08f5f"
         }
       ]
     },
@@ -12023,7 +12023,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.knight/slot.json",
           "line": 1,
-          "sha256": "eb011ace4474e63985f9c85794f119b22a38c49b9f31c92e81c8cd2161db817d"
+          "sha256": "397f5b90921b6f1c87fc0907c78632f7ff7ad8b8f66a96839ae96cfde311a618"
         }
       ]
     },
@@ -12052,7 +12052,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.room/slot.json",
           "line": 1,
-          "sha256": "83bb1ea39d1e0657f17488e05dc4c6ddc91496a1054deac4efcb231144af77ef"
+          "sha256": "5d297190fd4ee784247a5c883d7c5de4763dcae1bc1ad8426b87e4c78255448d"
         }
       ]
     },
@@ -12081,7 +12081,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.steam/slot.json",
           "line": 1,
-          "sha256": "6c515fd0a190b384d28485d4e485f0ab68f46c6015c6cfa285ca90e38348698f"
+          "sha256": "33f033d2f222cfd72d5ca8ea7ce102febc7963995f61307dcb20a24e772f753d"
         }
       ]
     },
@@ -12134,7 +12134,7 @@
         {
           "path": "crates/delve/assets/art-slots/mossbell.targets/slot.json",
           "line": 1,
-          "sha256": "6ad2037d26a9806a2972c92705887f5d0ece9f01fe90d7e1f56c551d264a87b4"
+          "sha256": "7fc5f4e6146d3a06758dee2039fb5248caf5cbf15d62fbbc2ed7b2560a43b745"
         }
       ]
     },
@@ -12163,7 +12163,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.bolt/slot.json",
           "line": 1,
-          "sha256": "1b8b424ea4d3d27820bae2aa42bb9e5ded8b84f6d75f67dc370c884a99bc546a"
+          "sha256": "4a79f628b773d44255a52efcc7b3bf07c1f3b3cb9252bcf51bd52088ba2e0369"
         }
       ]
     },
@@ -12192,7 +12192,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.brick/slot.json",
           "line": 1,
-          "sha256": "45cdbb35d9ba329e931d1f79b171e56eb52f45168c7fefcd9dbd85e7be1cfc9d"
+          "sha256": "7fade4f12189ecca1cfe714a8ce2665d981d6333648f5cbfa9c6668279cba4a1"
         }
       ]
     },
@@ -12348,17 +12348,17 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.captain/pennon.captain.map.json",
           "line": 1,
-          "sha256": "da30079b37655bc4b7f6b82b53fe03010af23580ba62d8f9d24c27535ab2a466"
+          "sha256": "50915bd642e490a9bb46edb36dc14225da920ec9a92a06b16dee8291cd276997"
         },
         {
           "path": "crates/delve/assets/art-slots/pennon.captain/prepare.py",
           "line": 1,
-          "sha256": "06f59901b54b99e2061ba804295dae5f478f5785a6c01552a9530886fe5c6f6b"
+          "sha256": "b8a2e10d7753f816f6bfc2864dd2a524da0c86b82e78040433f7f9ef3768a04e"
         },
         {
           "path": "crates/delve/assets/art-slots/pennon.captain/slot.json",
           "line": 1,
-          "sha256": "f125e6b98e9dfdce306a7d7d6c632eb5791a19f129e2930787784803058e3611"
+          "sha256": "4c86b2d6a96a15e4bcd3de5ffa12fbd9f703e23945480a3753ac68d2331462e6"
         }
       ]
     },
@@ -12423,7 +12423,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.chrome/slot.json",
           "line": 1,
-          "sha256": "1b6e6651e9a7ba2a453f2f5ef94fede8b04da0237c541ece1e7140e7ed20abd9"
+          "sha256": "b5a54b18afe4845f475a2605f4746d0e07e68043f3c55e21b7e0f41d3ae896b1"
         }
       ]
     },
@@ -12488,7 +12488,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.drop/slot.json",
           "line": 1,
-          "sha256": "675b44e663c1054caacad2070a4e9d58e5d27f06939a9cd691fa1b44c05e58c2"
+          "sha256": "fa23910d7feaf3733dec2e29cf08f2dc09d3b058d6ac628f00a3a9c994b15b7b"
         }
       ]
     },
@@ -12553,7 +12553,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.dust/slot.json",
           "line": 1,
-          "sha256": "9bbcd140c2f47512bb4089f201677172ffd83799d643f904b9ef434dd417c92b"
+          "sha256": "cba135aaf299078c0c93aa753bd92c058b054eb4ff3340ac2467442a09f9b2b1"
         }
       ]
     },
@@ -12582,7 +12582,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.enemy-bolt/slot.json",
           "line": 1,
-          "sha256": "9689153fe7aebc7ca99d840ee31675e588704f0f973fce6c575b25e6f8d2cf6b"
+          "sha256": "d4f131fd65de2a3885e471f3ddedb3ae362da7f80ee039153b866ffdf8faac50"
         }
       ]
     },
@@ -12611,7 +12611,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.entrance/provenance.json",
           "line": 1,
-          "sha256": "b07e3301a0ff2a03a8d45cdf5ff2e3fdb0c7dc6be0f9f3a0d1da66031c3b0ed8"
+          "sha256": "4cddd0caa3a1f62caa9eea8139046bcff6600d6a8bc54bb1549cd58f1cbf6fde"
         },
         {
           "path": "crates/delve/assets/art-slots/pennon.entrance/request.json",
@@ -12621,7 +12621,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.entrance/slot.json",
           "line": 1,
-          "sha256": "a2c713917de03e9e55c01b5abdd08481efc686b9ffb56bd44779ee2d17d3409f"
+          "sha256": "1d1e997d4ed648224b357e6029013bcee3a28a383ca8127e55386a73aad96177"
         }
       ]
     },
@@ -12686,7 +12686,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.hook/slot.json",
           "line": 1,
-          "sha256": "01324b9f55dad272a5e4cfafcf48c6808a185d57b52b65ef3e3634072ce0cabd"
+          "sha256": "a42b0a24fc1f93eb2b4b69b2cd73c72729afa854fa8c344a98f1c3d766c67480"
         }
       ]
     },
@@ -12751,7 +12751,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.impact/slot.json",
           "line": 1,
-          "sha256": "a27d53339154accc998d4fa9b50c6ab2b1c1d34011c85b927e459756811593fd"
+          "sha256": "a0e9a5bd8682a3499e2f34c971945d170823fa4a63c5ef8e7186730178d5dde6"
         }
       ]
     },
@@ -12929,7 +12929,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.knight/slot.json",
           "line": 1,
-          "sha256": "ccacfbae05c18af6713743a20a707c573c25e9f4db679e324b013316d9387192"
+          "sha256": "a84f38bda5c73012fe976dab64a024fc1cfb324b0f16a758ce6b3c4eead229da"
         }
       ]
     },
@@ -12958,7 +12958,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.merlon/slot.json",
           "line": 1,
-          "sha256": "1c0e24856a157f08434d99c63afebb933985b69c7be4ffaa4bbad0ccf6355e24"
+          "sha256": "91b62a86d75eee84a2679c6b0cd4fc1489f6bf2d6d5f92c24e9d17d4fc05f287"
         }
       ]
     },
@@ -12987,7 +12987,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.pennant/slot.json",
           "line": 1,
-          "sha256": "9c2323349c2f144a2d90f66173a2ff93ba239759ac0cf61f3dac1f24a8d2faee"
+          "sha256": "5a7c2829c206b3419d1c769220b6e2fbdaaefb18bb087505808ce772ac1d1511"
         }
       ]
     },
@@ -13016,7 +13016,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.repair/slot.json",
           "line": 1,
-          "sha256": "7bd53183101efa9edc0af9ba9b5e3666e413066799c69118f7837a91f53f70c5"
+          "sha256": "6c2889698cdac2eb7bc4f776cec41ac1deddda9464e11acd7b6d958af6c0c261"
         }
       ]
     },
@@ -13045,7 +13045,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.room/slot.json",
           "line": 1,
-          "sha256": "a2a95efda63beac7da0d13825e47118ae7fe19e2295509cd2fd0590e8d242726"
+          "sha256": "189fda87874b54d4cc8a0521531044af37f3ab772b32cb4b6611c117213ae764"
         }
       ]
     },
@@ -13201,12 +13201,12 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.sentry/pennon.sentry.map.json",
           "line": 1,
-          "sha256": "a8a8fb277b7faaf4e054d3af195ac20b87589056d2e27b64e4fdca3f5acec052"
+          "sha256": "0a7319aaf5d8193d49b61435f03ecdee147eef3bb9702383201f2e1e8121e318"
         },
         {
           "path": "crates/delve/assets/art-slots/pennon.sentry/slot.json",
           "line": 1,
-          "sha256": "fca089f9bd56553428f9dab79fe2567f1a4893b30641206b4c695334e4274044"
+          "sha256": "b030837fbe6eb3b8944ca73006e65517b7a473225f944603216de3bfbe2c2091"
         }
       ]
     },
@@ -13338,7 +13338,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.sentry-damaged/pennon.sentry-damaged.map.json",
           "line": 1,
-          "sha256": "309529b7d0bbddaa42119f55340d4f1c86704ac5e859244e1fde67ece1f44f4d"
+          "sha256": "d25ab78d72b7906740b97d0a2666aba5d470954e3028219b2bf46fe138ae1d81"
         },
         {
           "path": "crates/delve/assets/art-slots/pennon.sentry-damaged/request.json",
@@ -13348,7 +13348,7 @@
         {
           "path": "crates/delve/assets/art-slots/pennon.sentry-damaged/slot.json",
           "line": 1,
-          "sha256": "f593308aace18da0597a306b55c3d82be87714e2db66bbd2cd2be6aff744cd18"
+          "sha256": "0d91c92e3a5b4205718ad68e7d89930fa37e80c8d9177a09450d030a7a975207"
         }
       ]
     },
@@ -13377,7 +13377,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.brick/slot.json",
           "line": 1,
-          "sha256": "a902206998294bf8698087271920a1e9a37cff9fdea40b249862492c116a81f8"
+          "sha256": "f9e3ec862a271600f5c3fbb79775fe9b045de97683c9ec41793b273e1f1ceb8e"
         }
       ]
     },
@@ -13447,7 +13447,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.chrome/slot.json",
           "line": 1,
-          "sha256": "8e98a735d6229fd3a7ed06d442442f2f1a9c0f1c34e48dfc2fddc58bc36b262e"
+          "sha256": "d34135a764a36da53821319e795fde44b4d01b7b1301672d6a01f1e660d877a4"
         }
       ]
     },
@@ -13512,7 +13512,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.drop/slot.json",
           "line": 1,
-          "sha256": "083f960bd0061c838e3ab126199471a1c3f4dacbff03aa29f39bc779db171b91"
+          "sha256": "cb068c95d837c3d7db802c1ec01dd8cfe62949a335d8bc4e8142e6debbc979b7"
         }
       ]
     },
@@ -13577,7 +13577,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.dust/slot.json",
           "line": 1,
-          "sha256": "c27ed42d0085ac254c3b4f074c8ced01b8a50c898529d19b8b6c1fa0a5b7c699"
+          "sha256": "620899e219aead912e77c352c9593b5e700a569527ea77ccda8ce0784ebd0f65"
         }
       ]
     },
@@ -13601,7 +13601,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.entrance/provenance.json",
           "line": 1,
-          "sha256": "05e49c01c4d4e5bc2eb0e47a8463d98d5cc93a1ecf220cc094b4a90602cd77e8"
+          "sha256": "c4ea571e1f132af4ff2eb5f2043addfe7ba06faac5cebb3e602c56bf2ee6fe98"
         },
         {
           "path": "crates/delve/assets/art-slots/rafterwake.entrance/rafterwake.entrance.map.json",
@@ -13616,7 +13616,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.entrance/slot.json",
           "line": 1,
-          "sha256": "bb5e0bd42b4b76f08f77b6dd3683d7864f3b7ebd4ffb2ef12f490b4fa6887b30"
+          "sha256": "248fbe3f5e6e505df8a8be96f4ead447e81bc98864d776368da9fb41d17acb33"
         }
       ]
     },
@@ -13777,7 +13777,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.keeper/slot.json",
           "line": 1,
-          "sha256": "a7ddfe0aff1010fdfc66f9fac86313810524e69f8e753910c9df0d4340d95cba"
+          "sha256": "352911666881670c444b89599b317a14415c59c6be3c16e354c17715e80a1734"
         }
       ]
     },
@@ -13921,7 +13921,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.keeper-damaged/rafterwake.keeper-damaged.map.json",
           "line": 1,
-          "sha256": "b5c4184e4a38cf24196baf537788698956a7e933443461d0fe1c924eebfb2d65"
+          "sha256": "a596987d98deed5144dc776fad995e716fe2ecbed4d77d1aadfa0a09d5291ece"
         },
         {
           "path": "crates/delve/assets/art-slots/rafterwake.keeper-damaged/request.json",
@@ -13931,7 +13931,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.keeper-damaged/slot.json",
           "line": 1,
-          "sha256": "ed782ef68cb16557608d6a3a7603a24d054b7456a709db489967bbd9b06a08a2"
+          "sha256": "93ae897b0d0a3eb640d939bf360ab138ef1f9ec23d50e253d83ba1d6e5584832"
         }
       ]
     },
@@ -14083,7 +14083,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.knight/slot.json",
           "line": 1,
-          "sha256": "0e35fa970fef77ee34cf2f29385deb28ffb19990d85a5bbcc68ef099fae813ce"
+          "sha256": "4a2dd67b6171a5e2d8915f08440682295c76304c7690b37e98d9414d1d3f5aaa"
         }
       ]
     },
@@ -14112,7 +14112,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.ladder/slot.json",
           "line": 1,
-          "sha256": "99a2c841c0ab8d8b4e9d3088b86bb085a359c2004e5239fda5f0e84d305fc15d"
+          "sha256": "4b4860ed465c3925829b40ed0b564552a9e504c4795f0b78e8799f7b3da0c5b0"
         }
       ]
     },
@@ -14141,7 +14141,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.plank/slot.json",
           "line": 1,
-          "sha256": "80ab2dab6fb97dc9c46ae674f5f481556b47eacc87adb8473b3118e07a375eeb"
+          "sha256": "4caea28dc69335b514ba58f68c80142c8692a7d0b38038c4b8bb1c23f803bea4"
         }
       ]
     },
@@ -14170,7 +14170,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.post/slot.json",
           "line": 1,
-          "sha256": "a40ab33eec2e7db93d44b2c8cb2bdad03e734488e0582d448217b69f540ef00a"
+          "sha256": "f8ec9f0b36b656683772607890518ad2c175f91231da8b3db51f6e5a95be5f1b"
         }
       ]
     },
@@ -14199,7 +14199,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.room/slot.json",
           "line": 1,
-          "sha256": "96116cfcda6d291631aebcb053e906fe27ef16ca2bda3ff65c86d9daec36b4fb"
+          "sha256": "a84e2269c659c7d9749a76717f574724d6457808a475f2b31793360cf8c9bd96"
         }
       ]
     },
@@ -14264,7 +14264,7 @@
         {
           "path": "crates/delve/assets/art-slots/rafterwake.sweep/slot.json",
           "line": 1,
-          "sha256": "64f9b055c1780482adf47aa957599750acde2e3a379111b75c5d2ff1b9aad7c1"
+          "sha256": "a0d0f1c94edddf9b63e3e5e0076351d081782dd313170ca3a07c0c64440f74cf"
         }
       ]
     }

@@ -18,27 +18,11 @@ const COMP_ON: u8 = 2;
 
 static CACHED_COMP_MODE: AtomicU8 = AtomicU8::new(COMP_UNCACHED);
 
-/// Parse boolean string representations for comp/lean mode flags.
-pub(crate) fn parse(raw: Option<&str>) -> bool {
-    match raw {
-        Some(value) => {
-            let value = value.trim().to_ascii_lowercase();
-            !matches!(
-                value.as_str(),
-                "" | "0" | "false" | "no" | "off" | "disable" | "disabled"
-            )
-        }
-        None => false,
-    }
-}
-
-fn from_env_uncached() -> bool {
-    parse(std::env::var("ANGEL_COMP_MODE").ok().as_deref())
-        || parse(std::env::var("ANGEL_TURBO").ok().as_deref())
-        || parse(std::env::var("ANGEL_TURBO_MODE").ok().as_deref())
-        || parse(std::env::var("ANGEL_LEAN_MODE").ok().as_deref())
-        || parse(std::env::var("ANGEL_LEAN").ok().as_deref())
-}
+// The environment reading is shared with the realm host, which falls back on it
+// when no live posture was lent (`angel_live::host::posture`).
+pub(crate) use angel_live::host::posture::from_env_uncached;
+#[cfg(test)]
+pub(crate) use angel_live::host::posture::parse;
 
 /// Whether Lean / Comp / Turbo Mode is currently active.
 pub(crate) fn enabled() -> bool {

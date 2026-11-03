@@ -1,15 +1,25 @@
 use super::*;
-use crate::render::overworld::arena::art_v2::testing::fight;
+use crate::render::overworld::arena::testing::fight;
 use crate::render::overworld::kingdom as geography;
 use crate::rules::{home, world};
 use angel_net::doc::delta::diff;
 use angel_net::doc::wire::Writer;
 use angel_net::proto::PROTOCOL;
 
-/// The host's half, for feeding a client: a run, and what one client was
-/// last sent of it.
+#[path = "client_down__tests.rs"]
+mod down_tests;
+
+#[path = "client_crossroads__tests.rs"]
+mod crossroads_tests;
+
+#[path = "client_hd__tests.rs"]
+mod hd_tests;
+
+/// The host's half, for feeding a client: a run, its publisher (as a
+/// host keeps one), and what one client was last sent of it.
 struct Host {
     run: Run,
+    publisher: wire::Publisher,
     names: Writer,
     last: Option<Value>,
     tick: u32,
@@ -17,13 +27,13 @@ struct Host {
 
 impl Host {
     fn new(run: Run) -> Host {
-        Host { run, names: Writer::default(), last: None, tick: 0 }
+        Host { run, publisher: wire::Publisher::default(), names: Writer::default(), last: None, tick: 0 }
     }
 
     /// The next snapshot for `seat`: (tick, whole, body).
     fn snapshot(&mut self, seat: Option<u32>) -> (u32, bool, Vec<u8>) {
         self.tick += 1;
-        let tree = wire::publish(&self.run).unwrap();
+        let tree = self.publisher.publish(&self.run).unwrap();
         let view = wire::seat_tree(&tree, seat).into_owned();
         let mut out = Vec::new();
         let whole = match &self.last {
@@ -87,8 +97,8 @@ fn tap(bits: u32) -> Hands {
 }
 
 #[test]
-fn the_welcome_sets_the_art_and_a_stale_page_is_turned_away() {
-    let c = DelveClient::boot(&welcome(Some(1), &Params { art_v2: false, world3d: false, deep3d: false }.encode())).unwrap();
+fn the_welcome_sets_the_size_and_a_stale_page_is_turned_away() {
+    let c = DelveClient::boot(&welcome(Some(1), &Params { world3d: false, deep3d: false, atari: false }.encode())).unwrap();
     // The party's band over the room's view.
     assert_eq!((c.size(), c.seat()), ((384, 224 + (arena::BAND_H + arena::HUD_H) as u32), Some(1)));
     assert!(DelveClient::boot(&welcome(Some(1), &[9, 0])).is_err());
@@ -142,7 +152,7 @@ fn wish_notices_follow_authoritative_windows_for_each_seat_once() {
         lines.into_iter().filter(|l| l.starts_with("notice ")).collect::<Vec<_>>()
     };
     for (h, c) in &mut clients {
-        assert_eq!(read(h, c, &host.run), ["notice Wishes given. Press T."]);
+        assert_eq!(read(h, c, &host.run), ["notice Wishes given. Rub the genie's lamp (E) and wish."]);
         assert!(read(h, c, &host.run).is_empty());
     }
     // Learning also spends a wish before a card is granted.
@@ -382,6 +392,16 @@ fn a_frame_is_the_seats_own_view_at_its_art_size() {
     lines.clear();
     c.lines(&mut lines);
     assert!(lines.is_empty(), "said once");
+    // Cards in hand: the page is told where their plates are, to drag.
+    host.run.players.get_mut(&1).unwrap().hand = vec!["potion".into(), "holy-water".into()];
+    host.step(&[]);
+    host.send(&mut c);
+    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut frame);
+    c.lines(&mut lines);
+    let plates = arena::seat_hand_plates(c.newest().unwrap(), Some(1), 384, 224 + arena::BAND_H + arena::HUD_H);
+    assert_eq!(plates.len(), 2);
+    let quads: Vec<String> = plates.iter().map(|&(i, (x, y, w, h))| format!("[{i},{x},{y},{w},{h}]")).collect();
+    assert_eq!(lines, vec![format!("slots [{}]", quads.join(","))]);
 }
 
 #[test]
@@ -640,15 +660,6 @@ fn on_a_fallen_runs_board_enter_asks_to_go_back_and_the_board_says_so() {
 #[test]
 fn the_tab_sheet_shows_held_cards_totals_and_every_wish_with_its_level() {
     let mut run = Run::new(4, 1, Some("Gawain"));
-    // The school's locks: the sheet wishes the fork, an Adept tier.
-    let key = crate::rules::home::Home::school_key(&run.players[&1]);
-    run.home.school.knights.insert(
-        key,
-        crate::rules::school::Standing {
-            rank: crate::rules::school::Rank::Adept,
-            ..Default::default()
-        },
-    );
     run.players.get_mut(&1).unwrap().wishes = 1;
     run.wish(1, &crate::rules::phrasebook::get("fork").unwrap()).unwrap();
     let shown = sheet(&run, 1);
@@ -657,10 +668,41 @@ fn the_tab_sheet_shows_held_cards_totals_and_every_wish_with_its_level() {
     }
     assert!(shown.contains("HELD CARDS"));
     assert!(shown.contains("fork 1"), "the totals carry the fork");
-    assert!(shown.contains("Awakened Fork      1/3"), "the wish shows its level");
-    assert!(shown.contains("Fart Bombs         0/3"));
+    assert!(shown.contains("Awakened Fork      1/5"), "the wish shows its level");
+    assert!(shown.contains("Fart Bombs         0/5"));
     assert!(shown.contains("No wishes held"));
     assert!(sheet(&run, 9).is_empty(), "no knight, no sheet");
+}
+
+#[test]
+fn the_sheet_locks_exactly_the_tier_the_grant_refuses() {
+    // A fresh knight at every step of every wish's ladder: the sheet says
+    // LOCKED where the grant refuses, and nowhere else. No rank and no
+    // teacher holds a tier back; only the floor keeps the fourth and fifth
+    // (`overclass::top_tier`), the third open everywhere.
+    let fresh = Run::new(4, 1, Some("Gawain"));
+    for depth in [1, 2, crate::rules::FLOORS] {
+        let top = crate::rules::overclass::top_tier(depth);
+        for wish in crate::rules::phrasebook::book().iter() {
+            for level in 0..wish.tiers.len() {
+                let mut run = fresh.clone();
+                run.dungeon.depth = depth;
+                let hero = run.players.get_mut(&1).unwrap();
+                for t in 0..level {
+                    hero.deck.push(wish.card_id(t));
+                }
+                let shown = sheet(&run, 1);
+                let line = shown
+                    .lines()
+                    .find(|l| l.starts_with(&format!("  {:<18} {level}/", wish.name)))
+                    .unwrap_or_else(|| panic!("{} on the sheet:\n{shown}", wish.name));
+                let refused = run.grant(1, wish).is_err_and(|why| why.contains("climbs no higher here"));
+                assert_eq!(line.contains("LOCKED"), refused, "{} at {level}, floor {depth}: {line}", wish.name);
+                assert_eq!(refused, level > top, "{} tier {} on floor {depth}", wish.name, level + 1);
+                assert!(level > 2 || !refused, "{} tier {} is open to every knight", wish.name, level + 1);
+            }
+        }
+    }
 }
 
 #[test]
@@ -703,6 +745,20 @@ fn brasswake_punch_and_cask_stamp_the_drawn_tick() {
     let seen=host.run.tick;let v=view(&c,&[],0,Hands::default(),0.0);c.draw(&v,&mut Frame::default());
     for _ in 0..4{host.run.step(&BTreeMap::new());}host.send(&mut c);
     for key in [button::FIRE,button::USE]{let cmd=c.command(&Hands{held:key,pressed:key,..Hands::default()});assert_eq!(cmd.input().latch_tick,Some(seen));assert_ne!(cmd.input().latch_tick,Some(host.run.tick));}
+}
+
+#[test]
+fn the_pages_windows_keep_off_the_seats_bands() {
+    let controls: serde_json::Value = serde_json::from_str(CONTROLS).unwrap();
+    use crate::render::overworld::arena::party;
+    assert_eq!(controls["view"]["top"], party::BAND_H);
+    assert_eq!(controls["view"]["bottom"], party::HUD_H);
+    let (_, h) = party::seat_size();
+    assert_eq!(h as i32, crate::render::overworld::arena::NATIVE_H + party::BAND_H + party::HUD_H);
+    for field in ["key", "hint", "title", "placeholder", "send", "cancel"] {
+        assert!(controls["text"][field].is_string(), "{field}");
+    }
+    assert!(controls["choices"]["back"].is_string());
 }
 
 #[test]
@@ -1080,59 +1136,12 @@ fn over_a_150_ms_link_a_running_knights_arrow_leaves_it_at_once_and_flies_on_unb
     }
 }
 
-#[test]
-fn a_page_that_draws_scenes_is_sent_a_room_in_3d_by_its_sets_reference() {
-    use angel_stage::wire::{TAG_WORLD, decode};
-    // The painted path (`ANGEL_WORLD3D_PLATES=1`).
-    crate::world3d::rooms_lit::set_plates(true);
-    // The welcome turns rooms in 3D on for this seat's page.
-    let mut c = DelveClient::boot(&welcome(Some(1), &Params { art_v2: false, world3d: true, deep3d: false }.encode())).unwrap();
-    assert!(crate::world3d::enabled());
-    let mut host = Host::new(crate::world3d::room::proof_run());
-    host.send(&mut c);
-    c.stage_props(true);
-    let mut out = Vec::new();
-    // The first stage turns frames into parts; the next draw makes them.
-    let _ = c.stage(1000.0, &mut out);
-    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut Frame::default());
-    assert!(c.stage(1000.0, &mut out), "a stage frame");
-    assert_eq!(&out[..4], TAG_WORLD);
-    let first = decode(&out).expect("it reads");
-    let world = first.frame.props.as_ref().and_then(|p| p.world.clone()).expect("the room in 3D");
-    // The blocks are not on the wire: the set is, with the plate as its PNG,
-    // once (never its pixels).
-    assert!(world.floor.is_empty() && world.blocks.is_empty());
-    let set = world.set.clone().unwrap();
-    assert!(set.text.is_some());
-    let item = crate::world3d::assets::item("village").unwrap();
-    assert_eq!(set.png.as_deref(), Some(&item.png[..]));
-    assert_eq!(set.plate, arena::stage_frame::plate_picture(&item));
-    let plates = arena::stage_frame::WORLD_PLATE..arena::stage_frame::WORLD_CARDS;
-    assert!(first.frame.pictures.iter().all(|p| !plates.contains(&p.id)), "no plate pixels on the wire");
-    assert_eq!(world.figures.len(), 2, "both knights stand in it");
-    assert!(world.figures_at <= first.quads.len() && world.at <= world.figures_at);
-    // The page makes them from it, as the window has them.
-    let mut sets = angel_stage::set::Sets::default();
-    let mut made = world.clone();
-    assert!(sets.fill(&mut made));
-    assert_eq!(made.blocks.len() + made.floor.len(), item.set.shapes.len());
-    // The next frame names the set by its key alone, and makes the same.
-    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut Frame::default());
-    assert!(c.stage(1016.0, &mut out));
-    let next = decode(&out).unwrap().frame.props.unwrap().world.unwrap();
-    assert_eq!(next.set.as_ref().map(|s| (s.key, s.text.is_none(), s.png.is_none())), Some((set.key, true, true)));
-    let mut again = next.clone();
-    assert!(sets.fill(&mut again));
-    assert_eq!((again.floor, again.blocks), (made.floor, made.blocks));
-    crate::world3d::set_enabled(false);
-}
-
 /// A lit room (`world3d::rooms_lit`, the default 3D) goes to a page as its
 /// set's text and its look, no plate: the page makes the same lit blocks.
 #[test]
 fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
     use angel_stage::wire::{TAG_LOOK, decode};
-    let mut c = DelveClient::boot(&welcome(Some(1), &Params { art_v2: false, world3d: true, deep3d: false }.encode())).unwrap();
+    let mut c = DelveClient::boot(&welcome(Some(1), &Params { world3d: true, deep3d: false, atari: false }.encode())).unwrap();
     let run = crate::world3d::room::proof_run();
     let mut host = Host::new(run.clone());
     host.send(&mut c);
@@ -1151,15 +1160,18 @@ fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
     assert!(set.text.is_some() && set.png.is_none(), "its text, no plate");
     assert!(first.frame.pictures.iter().all(|p| p.width * p.height < 512 * 512), "no plate's pixels either");
     assert_eq!(world.figures.len(), 2, "both knights stand in it");
-    // The page makes the lit blocks from it, the room's own.
+    // The page makes the lit blocks from it, the room's own, baked.
     let mut sets = angel_stage::set::Sets::default();
     let mut made = world.clone();
     assert!(sets.fill(&mut made));
     let lit = crate::world3d::rooms_lit::lit_for(run.room(), run.dungeon.pack).expect("lit");
     let piece = lit.piece((0, 0)).unwrap();
     assert_eq!(set.key, piece.key);
-    assert_eq!(made.blocks.len() + made.floor.len(), piece.set.shapes.len() + 1, "its shapes and its ground");
-    assert_eq!(made.meshes.len(), 1, "its ground's mesh");
+    // Baking reduces the node count: the page has far fewer nodes than the set's shapes.
+    assert!(made.blocks.len() + made.floor.len() < piece.set.shapes.len() + 1,
+        "baking reduces nodes: page {} vs set {}",
+        made.blocks.len() + made.floor.len(), piece.set.shapes.len() + 1);
+    assert!(made.meshes.len() >= 1, "its ground's mesh plus baked meshes");
     // The next frame names the set by its key alone.
     c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut Frame::default());
     assert!(c.stage(1016.0, &mut out));
@@ -1178,7 +1190,7 @@ fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
 fn a_page_stands_up_only_the_floors_its_host_says_are_deep() {
     use angel_stage::wire::decode;
     use crate::world3d::room::{self, Mode};
-    let mut c = DelveClient::boot(&welcome(Some(1), &Params::with_mode(false, Mode::Deep).encode())).unwrap();
+    let mut c = DelveClient::boot(&welcome(Some(1), &Params::with_mode(Mode::Deep).encode())).unwrap();
     assert_eq!(room::mode(), Mode::Deep);
     assert!(!crate::world3d::enabled(), "the kingdom and the upper floors stay 2D");
     let frame = |run: crate::rules::Run, c: &mut DelveClient| {
@@ -1200,18 +1212,1198 @@ fn a_page_stands_up_only_the_floors_its_host_says_are_deep() {
         deep.descend_for_test();
     }
     deep.calm_for_test();
+    // Past the beat of coming down into the deep, which leans the camera in.
+    deep.deep_beat = None;
     let (x, y) = deep.players.values().next().map(|h| (h.x + 3.0, h.y)).unwrap();
     let at = deep.at;
-    let card = deep.book.cards.iter().find(|c| c.id != "gold").map(|c| c.id.clone()).expect("a card");
-    deep.dungeon.rooms[at].items.push(crate::rules::Item { card, x, y, held_off: None, took: vec![] });
-    let mut c = DelveClient::boot(&welcome(Some(1), &Params::with_mode(false, Mode::Deep).encode())).unwrap();
+    // A bow has no model: it turns as a card. A sword is its model.
+    deep.dungeon.rooms[at].items.push(crate::rules::Item::lying("bow".into(), x, y, 0));
+    deep.dungeon.rooms[at].items.push(crate::rules::Item::lying("knights-blade".into(), x + 3.0, y, 0));
+    let mut c = DelveClient::boot(&welcome(Some(1), &Params::with_mode(Mode::Deep).encode())).unwrap();
+    let knights = deep.players.values().filter(|h| h.hp > 0).count();
     let shown = frame(deep, &mut c);
     let props = shown.props.expect("props");
     let world = props.world.expect("floor 4 stands up");
-    assert!(world.look.is_some_and(|l| l.lights()), "lit");
+    let look = world.look.expect("its look");
+    assert!(look.lights(), "lit");
+    // A lit delve lights its play where it stands: a pool at each knight, a
+    // glow over each of the two things on its floor (reach in stage pixels).
+    let pools = |reach: f32| look.lamps.iter().filter(|l| (l.reach - reach).abs() < 1e-3).count();
+    assert_eq!(pools(arena::stage_frame::LOOT_POOL.0), 2, "a glow over the bow and the blade");
+    assert_eq!(pools(arena::stage_frame::KNIGHT_POOL.0), knights, "a pool round each standing knight");
     let faces = arena::stage_frame::PICKUP_FACES..arena::stage_frame::PICKUP_FACES + 0x100;
     let card = |n: &angel_stage::scene::Node| matches!(n.material.source, angel_stage::scene::TextureSource::Picture(id) if faces.contains(&id));
     assert!(props.nodes.iter().any(card), "what lies on the floor turns as a card");
+    let model = |n: &angel_stage::scene::Node| matches!(n.mesh, Some(angel_stage::scene::MeshRef::Uploaded(_)));
+    assert!(props.nodes.iter().any(model), "or lies as its model, across the wire");
     assert!(props.nodes.iter().all(|n| n.face_materials.is_empty()), "plain nodes, which the wire carries");
     room::set_mode(Mode::Off);
+}
+
+#[test]
+fn a_rub_of_the_lamp_opens_that_seats_wish_line_and_its_grant_is_said_to_it() {
+    let mut host = Host::new(Run::new(7, 1, Some("Ada")));
+    let mut mine = (Host::new(host.run.clone()), client(Some(0)));
+    let mut theirs = (Host::new(host.run.clone()), client(Some(1)));
+    let read = |h: &mut Host, c: &mut DelveClient, run: &Run| {
+        h.run = run.clone();
+        h.send(c);
+        let mut lines = Vec::new();
+        c.lines(&mut lines);
+        lines.into_iter().filter(|l| l == "ask" || l.starts_with("notice Your wish")).collect::<Vec<_>>()
+    };
+    read(&mut mine.0, &mut mine.1, &host.run);
+    read(&mut theirs.0, &mut theirs.1, &host.run);
+    // Knight 1 rubs the lamp: only its seat opens its line, and once.
+    host.run.lamp.rubbed.insert(1, host.run.tick + 1);
+    host.run.step(&BTreeMap::new());
+    assert_eq!(read(&mut mine.0, &mut mine.1, &host.run), ["ask"]);
+    assert!(read(&mut mine.0, &mut mine.1, &host.run).is_empty());
+    assert!(read(&mut theirs.0, &mut theirs.1, &host.run).is_empty());
+    // Its wish lands mid-play: said to that seat, in short.
+    host.run.lamp_sent(1, "bouncy arrows");
+    host.run.step(&BTreeMap::new());
+    host.run.lamp_landed(1, "bouncy arrows", "Fine Ricochet I. Bounce waits on Swift");
+    host.run.step(&BTreeMap::new());
+    assert_eq!(read(&mut mine.0, &mut mine.1, &host.run), ["notice Your wish is granted: Fine Ricochet I"]);
+    assert!(read(&mut theirs.0, &mut theirs.1, &host.run).is_empty());
+}
+
+
+/// Six knights, a full room of foes and a few hundred shots, as the host
+/// would send it: a whole tree, then a patch a tick (or nothing, when the
+/// tree did not change).
+fn crowded_stream(ticks: u32) -> (Vec<(u32, bool, Vec<u8>)>, usize, usize) {
+    use crate::rules::{EnemyKind, RoomKind, TILE_UNITS};
+    let mut run = Run::new(11, 1, Some("Percival"));
+    for (id, name) in [(2, "Lynette"), (3, "Gareth"), (4, "Galahad"), (5, "Gawain"), (6, "Kay")] {
+        run.join_seat(id, name);
+    }
+    let index = run
+        .dungeon
+        .rooms
+        .iter()
+        .position(|room| room.kind == RoomKind::Fight && !room.great())
+        .expect("a fight room");
+    run.enter_for_test(index);
+    run.enemies.clear();
+    let (cols, rows) = {
+        let room = &run.dungeon.rooms[run.at];
+        (room.cols.max(4), room.rows.max(4))
+    };
+    let place = |run: &mut Run, n: usize| {
+        for i in 0..n {
+            let span = (cols - 2).max(1);
+            let c = 1 + (i % span);
+            let r = 1 + ((i / span) % (rows - 2).max(1));
+            run.spawn_at_for_test(EnemyKind::Slime, (c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
+        }
+    };
+    place(&mut run, 96);
+    let volley = |run: &mut Run, salt: f32| {
+        let (x, y) = run.players.values().next().map(|hero| (hero.x, hero.y)).unwrap_or((4.0, 4.0));
+        for turn in 0..18 {
+            run.volley_for_test(x, y, turn as f32 * 0.35 + salt);
+        }
+    };
+    volley(&mut run, 0.0);
+    let foes = run.enemies.len();
+    let shots = run.projectiles.len();
+    let mut publisher = crate::wire::Publisher::default();
+    let mut names = Writer::default();
+    let mut last = None;
+    let mut frames = Vec::new();
+    for n in 0..ticks {
+        if n > 0 {
+            if run.enemies.len() < 80 {
+                let need = 96 - run.enemies.len();
+                place(&mut run, need);
+            }
+            if run.projectiles.len() < 200 {
+                volley(&mut run, n as f32);
+            }
+            run.step(&BTreeMap::new());
+        }
+        let tree = publisher.publish(&run).expect("the crowded run publishes");
+        let view = crate::wire::pace(crate::wire::seat_tree(&tree, Some(1)), last.as_ref()).into_owned();
+        let mut body = Vec::new();
+        let whole = last.is_none();
+        if whole {
+            names.value(&mut body, &view);
+        } else if let Some(patch) = diff(last.as_ref().unwrap(), &view) {
+            names.patch(&mut body, &patch);
+        }
+        last = Some(view);
+        frames.push(((n + 1) as u32, whole, body));
+    }
+    (frames, foes, shots)
+}
+
+/// The apply this seat used to do: decode, patch the tree, read the run whole.
+fn old_apply(names: &mut Reader, tree: &mut Option<Value>, whole: bool, body: &[u8]) -> Result<Option<Run>, String> {
+    if whole {
+        *names = Reader::default();
+        let mut bytes = Bytes::new(body);
+        *tree = Some(names.value(&mut bytes).map_err(|_| "malformed")?);
+        bytes.end().map_err(|_| "malformed")?;
+    } else if body.is_empty() {
+        return Ok(None);
+    } else {
+        let held = tree.as_mut().ok_or("a patch before the whole tree")?;
+        let mut bytes = Bytes::new(body);
+        let patch = names.patch(&mut bytes).map_err(|_| "malformed")?;
+        bytes.end().map_err(|_| "malformed")?;
+        delta::apply(held, patch).map_err(|_| "mismatch")?;
+    }
+    let run = crate::wire::read(tree.as_ref().unwrap()).map_err(|e| e.to_string())?;
+    Ok(Some(run))
+}
+
+fn guest_diff(got: &Run, old: &Run) -> Result<(), String> {
+    if got.marks != old.marks {
+        return Err("marks".into());
+    }
+    if got.pot_shards != old.pot_shards {
+        return Err("pot shards".into());
+    }
+    let left = angel_net::doc::value::to_value(got).map_err(|e| e.to_string())?;
+    let right = angel_net::doc::value::to_value(old).map_err(|e| e.to_string())?;
+    if left == right && got.campaign == old.campaign {
+        return Ok(());
+    }
+    if got.campaign != old.campaign {
+        return Err("campaign".into());
+    }
+    let (Value::Struct(a), Value::Struct(b)) = (left.get(), right.get()) else {
+        return Err("the runs are not structs".into());
+    };
+    for (name, field) in a {
+        let other = b.iter().find(|(n, _)| n == name);
+        match other {
+            Some((_, of)) if of == field => {}
+            Some(_) => return Err(format!("field {name}")),
+            None => return Err(format!("only the new run has {name}")),
+        }
+    }
+    for (name, _) in b {
+        if !a.iter().any(|(n, _)| n == name) {
+            return Err(format!("only the old run has {name}"));
+        }
+    }
+    Err("the runs differ".into())
+}
+
+#[test]
+fn crowded_apply_matches_old_read() {
+    let (frames, foes, shots) = crowded_stream(24);
+    assert!(foes >= 90, "foes {foes}");
+    assert!(shots >= 200, "shots {shots}");
+    let mut client = DelveClient::new(Some(1), Params::default());
+    let mut names = Reader::default();
+    let mut tree = None;
+    let mut old = None;
+    for (tick, whole, body) in &frames {
+        client.snapshot(*tick, *whole, body).expect("the seat takes the snapshot");
+        match old_apply(&mut names, &mut tree, *whole, body).expect("the old apply") {
+            Some(run) => old = Some(run),
+            None => {}
+        }
+        let got = client.newest().expect("a run");
+        let old = old.as_ref().expect("the old run");
+        if let Err(diff) = guest_diff(got, old) {
+            let (fast, full, miss) = client.guest.stats();
+            panic!("tick {tick} ({diff}); fast {fast} full {full} miss {miss}");
+        }
+    }
+    let (fast, full, miss) = client.guest.stats();
+    assert!(fast > full, "the crowded stream was read whole too often: fast {fast} full {full} miss {miss}");
+}
+
+/// Mean and p95 microseconds to decode and apply one tick of a crowded fight.
+#[test]
+#[ignore]
+fn bench_crowded_apply() {
+    let (frames, foes, shots) = crowded_stream(48);
+    let time_old = |frames: &[(u32, bool, Vec<u8>)]| {
+        let mut names = Reader::default();
+        let mut tree = None;
+        let mut samples = Vec::with_capacity(frames.len());
+        for (tick, whole, body) in frames {
+            let started = std::time::Instant::now();
+            old_apply(&mut names, &mut tree, *whole, body).expect("old");
+            let _ = tick;
+            samples.push(started.elapsed().as_micros());
+        }
+        samples
+    };
+    let time_new = |frames: &[(u32, bool, Vec<u8>)]| {
+        let mut client = DelveClient::new(Some(1), Params::default());
+        let mut samples = Vec::with_capacity(frames.len());
+        for (tick, whole, body) in frames {
+            let started = std::time::Instant::now();
+            client.snapshot(*tick, *whole, body).expect("new");
+            samples.push(started.elapsed().as_micros());
+        }
+        let (fast, full, miss) = client.guest.stats();
+        (samples, fast, full, miss.to_string())
+    };
+    // A warm pass, then the one the numbers come from.
+    let _ = time_old(&frames);
+    let _ = time_new(&frames);
+    let old = time_old(&frames);
+    let (new, fast, full, miss) = time_new(&frames);
+    let report = |samples: &[u128]| {
+        let mut sorted = samples.to_vec();
+        sorted.sort_unstable();
+        let mean = sorted.iter().sum::<u128>() / sorted.len() as u128;
+        let p95 = sorted[(sorted.len() * 95 / 100).min(sorted.len() - 1)];
+        (mean, p95)
+    };
+    let (old_mean, old_p95) = report(&old);
+    let (new_mean, new_p95) = report(&new);
+    println!(
+        "crowded apply: foes={foes} shots={shots} ticks={} old mean {old_mean}us p95 {old_p95}us new mean {new_mean}us p95 {new_p95}us fast {fast} full {full} miss {miss}",
+        frames.len()
+    );
+}
+
+/// A knight raised in a monster's body (a skull's possession) mid-stream:
+/// that knight's own browser seat keeps reading the run and sees the body.
+/// A seat that could not read it froze its player as a "tiny jelly".
+#[test]
+fn a_possessed_knights_seat_keeps_reading_the_run() {
+    use crate::rules::{EnemyKind, RoomKind};
+    let mut run = Run::new(11, 1, Some("Percival"));
+    run.join_seat(2, "Shlurm");
+    let index = run
+        .dungeon
+        .rooms
+        .iter()
+        .position(|room| room.kind == RoomKind::Fight && !room.great())
+        .expect("a fight room");
+    run.enter_for_test(index);
+    let mut publisher = crate::wire::Publisher::default();
+    let mut names = Writer::default();
+    let mut last = None;
+    let mut client = DelveClient::new(Some(2), Params::default());
+    for n in 0..40u32 {
+        if n == 10 {
+            run.players.get_mut(&2).unwrap().possessed = Some(EnemyKind::Slime);
+        }
+        if n > 0 {
+            run.step(&BTreeMap::new());
+        }
+        let tree = publisher.publish(&run).expect("the run publishes");
+        let seen_view = crate::wire::pace(crate::wire::seat_tree(&tree, Some(2)), last.as_ref()).into_owned();
+        let mut body = Vec::new();
+        let whole = last.is_none();
+        if whole {
+            names.value(&mut body, &seen_view);
+        } else if let Some(patch) = diff(last.as_ref().unwrap(), &seen_view) {
+            names.patch(&mut body, &patch);
+        }
+        last = Some(seen_view);
+        client.snapshot(n + 1, whole, &body).unwrap_or_else(|why| panic!("tick {}: the seat refused its stream: {why:?}", n + 1));
+        // Its own knight drawn as the page draws it, walking.
+        let mut frame = Frame::default();
+        let walk = Hands { held: 1, ..Hands::default() };
+        client.draw(&view(&client, &[], 0, walk, 0.0), &mut frame);
+    }
+    let seen = client.newest().expect("a run");
+    assert_eq!(seen.players[&2].possessed, Some(EnemyKind::Slime), "the seat sees its knight in the slime");
+}
+
+#[test]
+fn wish_upgrade_picks_follow_each_seats_deck_and_update_from_patches() {
+    let mut run = Run::new(7, 1, Some("Ada"));
+    run.players.get_mut(&1).unwrap().wishes = 2;
+    run.join_seat(2, "Bea");
+    let spell = crate::rules::phrasebook::get("firebolt").unwrap();
+    let hold = crate::rules::phrasebook::get("volley").unwrap();
+    run.grant(1, &hold).unwrap();
+    run.grant(1, &spell).unwrap();
+    let mut host = Host::new(run);
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    let lines = c.picks();
+    let lines: Vec<_> = lines.lines().collect();
+    assert_eq!(lines[0], "Upgrade what you hold");
+    assert_eq!(lines[1], format!("1\tFirebolt\tI → II\t{}\tupgrade Firebolt", spell.tiers[1].1));
+    assert_eq!(lines[2], format!("2\tTriple Volley\tI → II\t{}\tupgrade Triple Volley", hold.tiers[1].1));
+    host.run.players.get_mut(&1).unwrap().wishes = 0;
+    host.send(&mut c);
+    assert!(c.picks().contains("No wishes held: each floor brings two"));
+    assert!(c.picks().lines().skip(1).filter(|l| l.contains('\t')).all(|l| l.ends_with('\t')));
+    host.run.players.get_mut(&1).unwrap().wishes = 1;
+    host.run.grant(1, &spell).unwrap();
+    host.run.grant(1, &spell).unwrap();
+    host.send(&mut c);
+    // The first floor's top is the third: the fourth is shown, faint, with
+    // the floor it waits for; at the fifth, deep enough down, MAX.
+    assert!(c.picks().contains("\tFirebolt\tIII → IV\tIts tier IV waits for floor 2\t\n"), "{}", c.picks());
+    host.run.dungeon.depth = crate::rules::FLOORS;
+    host.run.grant(1, &spell).unwrap();
+    host.run.grant(1, &spell).unwrap();
+    host.send(&mut c);
+    assert!(c.picks().contains("\tFirebolt\tV\tMAX\t"), "{}", c.picks());
+    let mut other = client(Some(1));
+    Host::new(host.run.clone()).send(&mut other);
+    assert!(!other.picks().contains("Firebolt"), "another seat sees its own wishes");
+    assert!(client(None).picks().is_empty(), "spectators have no picks");
+}
+
+#[test]
+fn learned_wish_upgrade_lines_arrive_in_the_browser_on_a_run_patch() {
+    let mut host = Host::new(Run::new(7, 1, Some("Ada")));
+    host.run.players.get_mut(&1).unwrap().wishes = 1;
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    let mut wish = crate::rules::phrasebook::get("firebolt").unwrap();
+    wish.id = "silver-bolt".into();
+    wish.name = "Silver Bolt".into();
+    wish.learned = true;
+    host.run.grant(1, &wish).unwrap();
+    host.send(&mut c);
+    assert!(c.picks().contains(&format!("1\tSilver Bolt\tI → II\t{}\tupgrade Silver Bolt", wish.tiers[1].1)));
+}
+
+#[test]
+fn spell_upgrades_picks_hud_and_saves_patch_only_the_owning_seat() {
+    let mut run = Run::new(7, 1, Some("Ada"));
+    run.players.get_mut(&1).unwrap().wishes = 3;
+    run.join_seat(2, "Bea");
+    assert!(run.take_up(1, "gravecaller"));
+    assert!(run.take_up(2, "hammerer"));
+    let mut host = Host::new(run);
+    let mut own = client(Some(0));
+    host.send(&mut own);
+    assert!(own.picks().contains("Soul Rip\tI → II\t"));
+    assert!(!own.picks().contains("Storm Hammer"));
+    let words = host.run.upgrades(1).into_iter().find(|u| u.name == "Soul Rip").unwrap().words();
+    host.run.offer_wish(1, &words, None).unwrap();
+    host.send(&mut own);
+    assert_eq!(own.newest().unwrap().players[&1].offer.as_ref().unwrap().choices[0].gives, "Soul Rip II");
+    host.run.choose(1, 0).unwrap();
+    host.send(&mut own);
+    let run = own.newest().unwrap();
+    assert_eq!(run.players[&1].spell_tier("soul-rip"), 1);
+    assert!(own.picks().contains("Soul Rip\tII → III\t"));
+    assert_eq!(run.hud(1, &crate::rules::hud::Keys::FIRST).unwrap().spells[3].as_ref().unwrap().name, "Soul Rip II");
+    assert!(own.sheet().contains("Soul Rip II"));
+    assert!(run.players[&2].spell_tiers.is_empty());
+    let mut friend = client(Some(1));
+    Host::new(host.run.clone()).send(&mut friend);
+    assert!(friend.picks().contains("Storm Hammer\tI → II\t"));
+    assert!(!friend.picks().contains("Soul Rip"));
+    host.run.offer_wish(1, &words, None).unwrap();
+    host.run.choose(1, 0).unwrap();
+    host.send(&mut own);
+    assert!(own.picks().contains("\tSoul Rip\tIII\tMAX\t"));
+}
+
+/// Times, for one tick, as the bench in the cockpit does.
+struct BenchStats(Vec<std::time::Duration>);
+
+impl BenchStats {
+    fn new() -> Self {
+        BenchStats(Vec::new())
+    }
+    fn time<T>(&mut self, f: impl FnOnce() -> T) -> T {
+        let at = std::time::Instant::now();
+        let out = f();
+        self.0.push(at.elapsed());
+        out
+    }
+    fn line(&mut self, what: &str) -> String {
+        self.0.sort();
+        let n = self.0.len().max(1);
+        let ms = |d: std::time::Duration| d.as_secs_f64() * 1000.0;
+        let mean = self.0.iter().map(|d| ms(*d)).sum::<f64>() / n as f64;
+        let p50 = self.0.get(n / 2).map_or(0.0, |d| ms(*d));
+        let p95 = self.0.get(n * 95 / 100).map_or(0.0, |d| ms(*d));
+        let max = self.0.last().map_or(0.0, |d| ms(*d));
+        format!("{what}: mean {mean:.3} ms, p50 {p50:.3} ms, p95 {p95:.3} ms, max {max:.3} ms (n={})", self.0.len())
+    }
+}
+
+/// A four-knight fight on the third floor, kept at full pressure: the
+/// heroes cannot fall and the foes mend each tick, so the counts a real
+/// fight reaches stay up for the whole bench.
+fn floor3_fight() -> Run {
+    net_perf_fight(3, 4, false)
+}
+
+fn net_perf_fight(depth: u32, seats: u32, reduced: bool) -> Run {
+    let mut run = Run::new(3, 1, Some("One"));
+    for seat in 2..=seats {
+        run.join_seat(seat, &format!("Knight {seat}"));
+    }
+    while run.dungeon.depth < depth {
+        run.descend_for_test();
+    }
+    let fight = (0..run.dungeon.rooms.len())
+        .filter(|&i| run.dungeon.rooms[i].kind == RoomKind::Fight)
+        .max_by_key(|&i| run.dungeon.rooms[i].roster.len())
+        .expect("a fight room on the third floor");
+    run.enter_for_test(fight);
+    for hero in run.players.values_mut() {
+        hero.invulnerable = 1_000_000;
+    }
+    if reduced {
+        run.tune.foe_shots = 50;
+        run.tune.foe_shot_speed = 1.5;
+    }
+    run
+}
+
+/// Opt-in final-build fixture: one selected, fully trained companion per seat.
+/// All five kinds are represented; a sixth ninja fills the real six-seat party.
+fn net_perf_squad(run: &mut Run) {
+    use crate::rules::squires_lodge::{self as squires, Kind, Member, Roster};
+    for (&seat, hero) in &run.players {
+        let member = Member {
+            id: u64::from(seat), name: format!("Squire {seat}"),
+            kind: Kind::ALL[(seat as usize - 1) % Kind::ALL.len()], level: 8,
+        };
+        run.home.squires_lodge.rosters.insert(squires::owner_key(hero), Roster {
+            active: Some(member.id), members: vec![member],
+        });
+    }
+}
+
+fn net_perf_keep_squad(run: &mut Run) {
+    for hero in run.players.values_mut() {
+        if let Some(s) = &mut hero.squire {
+            s.body.hp = s.body.max_hp;
+        }
+    }
+}
+
+#[test]
+fn net_perf_squad_fixture_survives_real_six_seat_wire() {
+    use crate::rules::squires_lodge::Kind;
+    for depth in 3..=6 {
+        for reduced in [false, true] {
+            let mut run = net_perf_fight(depth, 6, reduced);
+            net_perf_squad(&mut run);
+            run.step(&BTreeMap::new());
+            assert_eq!(run.squire_views().len(), 6);
+            for kind in Kind::ALL { assert!(run.squire_views().iter().any(|s| s.kind == kind)); }
+            for seat in 0..6 {
+                let mut host = Host::new(run.clone());
+                let mut c = client(Some(seat));
+                host.send(&mut c);
+                let decoded = c.newest().unwrap();
+                assert_eq!(decoded.squire_views().len(), 6);
+                assert!(decoded.players.values().all(|h| h.squire.as_ref().is_some_and(|s| !s.down())));
+            }
+        }
+    }
+}
+
+fn bench_inputs(run: &Run, i: usize) -> BTreeMap<u32, Input> {
+    run.players
+        .iter()
+        .map(|(&id, hero)| {
+            let nearest = run
+                .enemies
+                .iter()
+                .min_by(|a, b| {
+                    let da = (a.x - hero.x).hypot(a.y - hero.y);
+                    let db = (b.x - hero.x).hypot(b.y - hero.y);
+                    da.total_cmp(&db)
+                });
+            let (aim_x, aim_y) = nearest.map_or((1, 0), |e| {
+                let (dx, dy) = (e.x - hero.x, e.y - hero.y);
+                if dx.abs() >= dy.abs() {
+                    (dx.signum() as i8, 0)
+                } else {
+                    (0, dy.signum() as i8)
+                }
+            });
+            let turn = (i / 20 + id as usize) % 4;
+            let (move_x, move_y) = [(1, 0), (0, 1), (-1, 0), (0, -1)][turn];
+            (
+                id,
+                Input { move_x, move_y, aim_x, aim_y, fire: true, ..Default::default() },
+            )
+        })
+        .collect()
+}
+
+/// One browser seat's frame, end to end, on the third floor with four
+/// knights: the step, the snapshot copy and the tree on the host's sim;
+/// each seat's share diffed and encoded on its writer; one seat's client
+/// reading each tick, drawing a frame, and (with `stage`) making the
+/// stage frame a page draws.
+/// `cargo test -p angel-delve --release floor3_bench -- --ignored --nocapture`
+fn floor3_scene(name: &str, stage: bool) {
+    net_perf_scene(name, stage, floor3_fight());
+}
+
+fn net_perf_scene(name: &str, stage: bool, mut run: Run) {
+    let seats = run.players.len();
+    let depth = run.dungeon.depth;
+    let mut publisher = wire::Publisher::default();
+    let mut viewers: Vec<(Writer, Option<Value>)> =
+        (0..seats).map(|_| (Writer::default(), None)).collect();
+    let squad = !run.home.squires_lodge.rosters.is_empty();
+    let mut clients: Vec<_> = (0..seats).map(|seat| client(Some(seat as u32))).collect();
+    if stage { clients[1].stage_props(true); }
+    let (mut step, mut snap, mut tree, mut encode, mut read, mut draw, mut staged) = (
+        BenchStats::new(),
+        BenchStats::new(),
+        BenchStats::new(),
+        BenchStats::new(),
+        BenchStats::new(),
+        BenchStats::new(),
+        BenchStats::new(),
+    );
+    let mut frame = Frame::default();
+    let (mut bytes, mut stage_bytes) = (0usize, 0usize);
+    let mut wire_sizes = Vec::new();
+    let mut stage_sizes = Vec::new();
+    let mut windows = vec![Vec::new(); seats];
+    let mut stage_pictures: std::collections::BTreeMap<u32, (usize, usize)> = Default::default();
+    let (mut foes, mut shots, mut worst_shots) = (0usize, 0usize, 0usize);
+    let (warm, ticks) = (30usize, 300usize);
+    for i in 0..warm + ticks {
+        let timed = i >= warm;
+        for e in &mut run.enemies {
+            e.hp = e.max_hp.max(1);
+        }
+        if squad { net_perf_keep_squad(&mut run); }
+        let inputs = bench_inputs(&run, i);
+        if timed {
+            step.time(|| run.step(&inputs));
+        } else {
+            run.step(&inputs);
+        }
+        let copy = if timed { snap.time(|| run.clone()) } else { run.clone() };
+        let doc = if timed {
+            tree.time(|| publisher.publish(&copy).unwrap())
+        } else {
+            publisher.publish(&copy).unwrap()
+        };
+        for (seat, (names, last)) in viewers.iter_mut().enumerate() {
+            let mut out = Vec::new();
+            let put = |names: &mut Writer, last: &mut Option<Value>, out: &mut Vec<u8>| {
+                let view = wire::pace(wire::seat_tree(&doc, Some(seat as u32)), last.as_ref());
+                let whole = match &*last {
+                    None => {
+                        names.value(out, &view);
+                        true
+                    }
+                    Some(old) => {
+                        if let Some(patch) = diff(old, &view) {
+                            names.patch(out, &patch);
+                        }
+                        false
+                    }
+                };
+                *last = Some(view.into_owned());
+                whole
+            };
+            let whole = if timed {
+                encode.time(|| put(names, last, &mut out))
+            } else {
+                put(names, last, &mut out)
+            };
+            if timed {
+                bytes += out.len();
+                wire_sizes.push(out.len());
+                windows[seat].push(out.len());
+            }
+            if squad || seat == 1 {
+                let client = &mut clients[seat];
+                let tick = (i + 1) as u32;
+                if timed {
+                    read.time(|| client.snapshot(tick, whole, &out).unwrap());
+                } else {
+                    client.snapshot(tick, whole, &out).unwrap();
+                }
+            }
+        }
+        if squad {
+            assert_eq!(run.squire_views().iter().filter(|s| !s.downed).count(), seats);
+            for c in &clients { assert_eq!(c.newest().unwrap().squire_views().len(), seats); }
+        }
+        let client = &mut clients[1];
+        let v = view(client, &[], 0, Hands::default(), 0.5);
+        if timed {
+            draw.time(|| client.draw(&v, &mut frame));
+            if stage {
+                let mut out = Vec::new();
+                staged.time(|| client.stage(i as f64 * 33.3, &mut out));
+                stage_bytes += out.len();
+                stage_sizes.push(out.len());
+                if let Ok(decoded) = angel_stage::wire::decode(&out) {
+                    for p in &decoded.frame.pictures {
+                        let e = stage_pictures.entry(p.id).or_insert((0, 0));
+                        e.0 += 1;
+                        e.1 += p.rgba.len();
+                    }
+                }
+            }
+            foes += run.enemies.len();
+            shots += run.projectiles.len();
+            worst_shots = worst_shots.max(run.projectiles.len());
+        } else {
+            client.draw(&v, &mut frame);
+            if stage {
+                let mut out = Vec::new();
+                client.stage(i as f64 * 33.3, &mut out);
+            }
+        }
+    }
+    // These phases are separate from the client's read/draw. Sum their
+    // unsorted samples to report the host's six-seat work for each tick.
+    let mut host_work = BenchStats((0..ticks).map(|i| {
+        step.0[i] + snap.0[i] + tree.0[i]
+            + encode.0[i * seats..(i + 1) * seats].iter().sum::<std::time::Duration>()
+    }).collect());
+    println!(
+        "FLOOR{depth} BENCH {name}: {ticks} ticks, {seats} seats, frame {}x{}, foes {:.1}, shots {:.1} (worst {worst_shots})",
+        frame.w,
+        frame.h,
+        foes as f64 / ticks as f64,
+        shots as f64 / ticks as f64,
+    );
+    println!("{}", host_work.line("host work (step + copy + publish + seat encodes)"));
+    println!("{}", step.line("step (sim)"));
+    println!("{}", snap.line("snapshot copy (sim)"));
+    println!("{}", tree.line("tick tree (sim)"));
+    println!("{}", encode.line("one seat diffed and encoded (writer)"));
+    println!("{}", read.line("a client reads a tick"));
+    println!("{}", draw.line("a client draws a frame"));
+    if stage {
+        println!("{}", staged.line("a client makes its stage frame"));
+        println!("stage bytes per frame: {}", stage_bytes / ticks);
+        let mut by_bytes: Vec<_> = stage_pictures.iter().collect();
+        by_bytes.sort_by_key(|(_, (_, b))| std::cmp::Reverse(*b));
+        for (id, (n, b)) in by_bytes.into_iter().take(8) {
+            println!("stage picture {id}: sent {n}x, {} bytes a frame", b / ticks);
+        }
+        let base = angel_stage::LAYER_PICTURES;
+        for (name, range) in [
+            ("ground tiles", base + 0x1000..base + 0x1400),
+            ("under tiles", base + 0x1400..base + 0x1800),
+            ("over tiles", base + 0x1800..base + 0x1c00),
+            ("screen tiles", base + 0x1c00..base + 0x2000),
+            ("whole room pictures", base + 0x21..base + 0x28),
+        ] {
+            let (n, b) = stage_pictures
+                .iter()
+                .filter(|(id, _)| range.contains(id))
+                .fold((0, 0), |(n, b), (_, (pn, pb))| (n + pn, b + pb));
+            if n > 0 {
+                println!("stage {name}: {n} sends, {} bytes a frame", b / ticks);
+            }
+        }
+    }
+    println!("bytes per tick per seat: {}", bytes / ticks / seats);
+    wire_sizes.sort_unstable();
+    stage_sizes.sort_unstable();
+    let mut seconds: Vec<usize> = windows.iter().flat_map(|v| v.windows(crate::rules::HZ as usize).map(|w| w.iter().sum())).collect();
+    seconds.sort_unstable();
+    println!("NET PERF {name} floor={depth} seats={seats} wire_mean={} wire_p95={} rolling_1s_p95_mbps={:.4} stage_mean={} stage_p95={}",
+        bytes / ticks / seats, wire_sizes[wire_sizes.len() * 95 / 100],
+        seconds[seconds.len() * 95 / 100] as f64 * 8.0 / 1_000_000.0,
+        stage_bytes / ticks, stage_sizes.get(stage_sizes.len() * 95 / 100).unwrap_or(&0));
+    println!("NET MEDIAN {name} floor={depth} seats={seats} wire_p50={} rolling_1s_p50_Bps={} rolling_1s_p95_Bps={} stage_p50={}",
+        wire_sizes[wire_sizes.len() / 2], seconds[seconds.len() / 2], seconds[seconds.len() * 95 / 100],
+        stage_sizes.get(stage_sizes.len() / 2).unwrap_or(&0));
+}
+
+#[test]
+#[ignore]
+fn floor3_bench() {
+    floor3_scene("pixels", false);
+    floor3_scene("stage", true);
+}
+
+#[test]
+fn net_perf_plain_projectiles_omit_empty_traits_and_still_read() {
+    let mut run = fight();
+    run.projectiles.truncate(1);
+    run.projectiles[0].traits = Default::default();
+    let tree = wire::publish(&run).unwrap();
+    let Value::Seq(shots) = tree.field("projectiles").unwrap().get() else { panic!("shots"); };
+    assert!(shots[0].field("traits").is_none(), "empty gifts cost a field for every projectile birth");
+    let seen = wire::read(&tree).unwrap();
+    assert_eq!(seen.projectiles[0].traits, run.projectiles[0].traits);
+    assert_eq!(seen.projectiles[0].ttl, run.projectiles[0].ttl);
+}
+
+#[test]
+fn net_perf_wire_figures_do_not_resend_a_whole_sheet_when_one_changes() {
+    use crate::render::overworld::arena::stage_frame::{StageMaker, FIGURES};
+    use std::sync::Arc;
+    let run = fight();
+    let mut scene = crate::render::overworld::arena::scene_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
+    scene.world = None;
+    assert!(scene.figures.len() > 1);
+    let mut maker = StageMaker::for_wire();
+    let first = maker.make(&Arc::new(scene.clone()), |_| None);
+    scene.figures[0].img.set(0, 0, [190, 100, 40]);
+    let next = maker.make(&Arc::new(scene), |_| None);
+    assert!(next.pictures.iter().all(|p| p.id != FIGURES), "one moving figure must not invalidate the crowd atlas");
+    assert!(next.pictures.iter().map(|p| p.rgba.len()).sum::<usize>() < first.pictures.iter().map(|p| p.rgba.len()).sum::<usize>());
+}
+
+#[test]
+fn net_perf_wire_torches_animate_without_new_ground_pixels() {
+    arena::draw_parts_outside(true);
+    let run = net_perf_fight(3, 6, false);
+    let mut host = Host::new(run);
+    let mut c = client(Some(0));
+    c.stage_props(true);
+    let mut out = Vec::new();
+    let mut frame = Frame::default();
+    // Read a new tick whole so interpolation cannot keep showing tick zero.
+    for tick in [0, 12] {
+        host.run.tick = tick;
+        let mut publisher = wire::Publisher::default();
+        let tree = publisher.publish(&host.run).unwrap();
+        let mut names = Writer::default();
+        let mut body = Vec::new();
+        names.value(&mut body, &tree);
+        c.snapshot(tick as u32 + 1, true, &body).unwrap();
+        c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut frame);
+        out.clear();
+        assert!(c.stage(tick as f64 * 1000.0 / HZ as f64, &mut out));
+        if tick > 0 {
+            let decoded = angel_stage::wire::decode(&out).unwrap();
+            assert!(decoded.frame.pictures.iter().all(|p| !(angel_stage::LAYER_PICTURES + 0x1000..angel_stage::LAYER_PICTURES + 0x1400).contains(&p.id)), "torch flicker must be an animated light, not a room upload");
+        }
+    }
+}
+
+/// Export repeatable real-wire soak inputs and a pixel proof without a host.
+/// DELVE_NET_FIXTURES=/owned/path cargo test ... net_perf_export -- --ignored
+#[test]
+#[ignore]
+fn net_perf_export() {
+    let dir = std::path::PathBuf::from(std::env::var("DELVE_NET_FIXTURES").expect("set DELVE_NET_FIXTURES"));
+    std::fs::create_dir_all(&dir).unwrap();
+    for depth in 3..=6 {
+        for reduced in [false, true] {
+            let mut run = net_perf_fight(depth, 6, reduced);
+            for foe in &mut run.enemies {
+                foe.hp = 100_000_000;
+                foe.max_hp = foe.hp;
+            }
+            let name = format!("heavy-f{depth}-{}.json", if reduced { "reduced" } else { "default" });
+            std::fs::write(dir.join(name), serde_json::to_vec(&run).unwrap()).unwrap();
+        }
+    }
+    if std::env::var("DELVE_NET_SQUIRES").as_deref() == Ok("1") {
+        for depth in 3..=6 {
+            for reduced in [false, true] {
+                let mut run = net_perf_fight(depth, 6, reduced);
+                net_perf_squad(&mut run);
+                run.step(&BTreeMap::new());
+                let label = if reduced { "reduced" } else { "default" };
+                std::fs::write(dir.join(format!("squad-f{depth}-{label}.json")), serde_json::to_vec(&run).unwrap()).unwrap();
+                for i in 0..90 {
+                    for foe in &mut run.enemies { foe.hp = foe.max_hp.max(1); }
+                    net_perf_keep_squad(&mut run);
+                    run.step(&bench_inputs(&run, i));
+                }
+                assert_eq!(run.squire_views().iter().filter(|s| !s.downed).count(), 6);
+                // Publish/read before painting: proof of the client's actual replicated fight.
+                let mut host = Host::new(run);
+                let mut c = client(Some(0));
+                host.send(&mut c);
+                let decoded = c.newest().unwrap();
+                assert_eq!(decoded.squire_views().len(), 6);
+                let img = arena::in_seat(|| arena::frame_for(decoded, arena::NATIVE_W, arena::NATIVE_H, Some(1)));
+                let rgba: Vec<u8> = img.pixels().flat_map(|[r,g,b]| [r,g,b,255]).collect();
+                image::save_buffer(dir.join(format!("squad-f{depth}-{label}.png")), &rgba, img.w as u32, img.h as u32, image::ColorType::Rgba8).unwrap();
+                println!("SQUAD PNG floor={depth} tune={label} seats={} squires={} foes={} shots={}", decoded.players.len(), decoded.squire_views().len(), decoded.enemies.len(), decoded.projectiles.len());
+            }
+        }
+    }
+    let mut run = net_perf_fight(3, 6, false);
+    for i in 0..90 {
+        for foe in &mut run.enemies { foe.hp = foe.max_hp.max(1); }
+        run.step(&bench_inputs(&run, i));
+    }
+    let img = arena::in_seat(|| arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1)));
+    let rgba = arena::stage_frame::rgba_of(&img);
+    image::save_buffer(dir.join("floor3-heavy-six.png"), &rgba, img.w as u32, img.h as u32, image::ColorType::Rgba8).unwrap();
+}
+
+/// Same seeded heavy fight, six seats, all client phases and stage upload bytes.
+/// Wire Mbps is the p95 of rolling one-second windows (30 Hz), not stage uploads.
+/// Preserve floor3_bench above as the historical four-seat control.
+#[test]
+#[ignore]
+fn net_perf_six_seat_bench() {
+    for depth in 3..=6 {
+        for reduced in [false, true] {
+            let name = if reduced { "50pct-1.5x" } else { "default" };
+            let mut run = net_perf_fight(depth, 6, reduced);
+            if std::env::var("DELVE_NET_SQUIRES").as_deref() == Ok("1") {
+                net_perf_squad(&mut run);
+                net_perf_scene(&format!("squad-{name}"), true, run);
+            } else {
+                net_perf_scene(name, true, run);
+            }
+        }
+    }
+}
+
+#[test]
+fn alehouse_lamp_opens_only_the_claimants_existing_client_wish_input() {
+    let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    run.walk_alehouse();
+    run.floor_plates.clear();
+    run.step(&BTreeMap::new());
+    let mut mine = (Host::new(run.clone()), client(Some(0)));
+    let mut theirs = (Host::new(run.clone()), client(Some(1)));
+    let read = |h: &mut Host, c: &mut DelveClient, run: &Run| {
+        h.run = run.clone();
+        h.send(c);
+        let mut lines = Vec::new();
+        c.lines(&mut lines);
+        lines.into_iter().filter(|l| l == "ask").collect::<Vec<_>>()
+    };
+    read(&mut mine.0, &mut mine.1, &run);
+    read(&mut theirs.0, &mut theirs.1, &run);
+    let h = run.players.get_mut(&1).unwrap();
+    let at = crate::rules::alehouse::LAMP_STAND;
+    (h.x, h.y) = (at.0 * crate::rules::TILE_UNITS, at.1 * crate::rules::TILE_UNITS);
+    for _ in 0..crate::rules::home::BUY_HOLD {
+        run.step(&BTreeMap::from([(1, crate::rules::Input { interact: true, ..Default::default() })]));
+    }
+    assert_eq!(read(&mut mine.0, &mut mine.1, &run), ["ask"]);
+    assert!(read(&mut mine.0, &mut mine.1, &run).is_empty());
+    assert!(read(&mut theirs.0, &mut theirs.1, &run).is_empty());
+}
+
+#[test]
+fn team_h_key_is_separate_from_dash_and_survives_client_command() {
+    let mut host = Host::new(fight());
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    let controls: serde_json::Value = serde_json::from_str(CONTROLS).unwrap();
+    assert_eq!(controls["keys"]["KeyH"],"TEAM");
+    let bits = angel_net::input::button::named("TEAM").unwrap();
+    let cmd = c.command(&Hands { held:bits|button::RIGHT,pressed:bits,x:127,..Hands::default() });
+    assert!(cmd.input().team);
+    assert!(!cmd.input().dash);
+    assert_eq!(cmd.input().move_x,1);
+    assert!(!c.command(&held(button::OK)).input().team);
+    assert!(!c.command(&held(button::SHIFT)).input().team);
+}
+
+#[test]
+fn calm_screen_is_a_local_viewer_preference_not_a_command() {
+    let mut a = client(Some(0));
+    let b = client(Some(1));
+    assert!(!a.viewer.calm_screen && !b.viewer.calm_screen);
+    assert_eq!(a.set_knob("calm_screen", 1.0), Some(1.0));
+    assert!(a.viewer.calm_screen && !b.viewer.calm_screen);
+    let knob = a.knobs().into_iter().find(|k| k.name == "calm_screen").unwrap();
+    assert_eq!(knob.side, Side::Client);
+    let mut hands = held(button::SHIFT | key::MAP_KEY);
+    hands.pressed = key::MAP_KEY;
+    let cmd = a.command(&hands);
+    assert!(!a.viewer.calm_screen);
+    assert_eq!(cmd, DelveCmd::neutral());
+}
+
+#[test]
+fn calm_screen_draws_only_its_own_flat_frame_and_scene() {
+    let mut run = crate::rules::feel::testing::quiet();
+    run.shake = 12;
+    run.tick = 3;
+    run.feel.deaths.push(crate::rules::feel::Death { x: 20.0, y: 14.0, r: 2.0,
+        ttl: crate::rules::feel::DEATH_TICKS, kind: Some(crate::rules::EnemyKind::Skeleton) });
+    let mut host = Host::new(run);
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    c.exact = true;
+    let mut loud = Frame::default();
+    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut loud);
+    c.set_knob("calm_screen", 1.0);
+    let mut calm = Frame::default();
+    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut calm);
+    assert_ne!(loud.px, calm.px);
+    assert!(calm.px.iter().all(|p| [p >> 16 & 255, p >> 8 & 255, p & 255].into_iter().all(|c| c <= 150)));
+    c.set_knob("calm_screen", 0.0);
+    let mut back = Frame::default();
+    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut back);
+    assert_eq!(back.px, loud.px, "the art caches must not retain calm tints");
+    c.set_knob("calm_screen", 1.0);
+    arena::draw_parts_outside(true);
+    c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut calm);
+    let scene = c.scene.as_ref().unwrap();
+    assert_eq!(scene.impact, 0.0);
+    assert!(scene.figures.iter().all(|f| !f.additive && f.bodies.is_empty() && f.paints.is_empty()));
+    assert!(!crate::render::viewer::calm(), "scope ends after the picture");
+    arena::draw_parts_outside(false);
+}
+
+#[test]
+fn mirror_creator_owns_navigation_confirm_close_and_never_gameplay_or_menus() {
+    let mut host = Host::new(fight());
+    host.run.players.get_mut(&1).unwrap().mirror.open = true;
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    // Even stale UI requests cannot escape into an activity menu or ballot.
+    c.menu = true;
+    c.leaving = 3;
+    c.skipping = 3;
+    c.ballot.open = true;
+    c.vote(Action::Toggle);
+    for (bits, action) in [
+        (button::UP, 1), (button::DOWN, 2),
+        (button::LEFT, 3), (button::RIGHT, 4),
+        (button::AIM_UP, 1), (button::AIM_DOWN, 2),
+        (button::AIM_LEFT, 3), (button::AIM_RIGHT, 4),
+        (button::USE, 5), (button::OK, 5), (button::MENU, 6),
+        (button::FIRE | key::BALLOT, 0),
+    ] {
+        let cmd = c.command(&Hands { held: bits, pressed: bits, ..Hands::default() });
+        assert_eq!(cmd.held, Input::default());
+        assert_eq!(cmd.input(), Input { mirror: action, ..Input::default() });
+        assert!(!c.menu && !c.ballot.open && c.ballot.queue.is_empty());
+        assert_eq!((c.leaving, c.skipping), (0, 0));
+    }
+    for (hands, axes) in [
+        (Hands { y: -STICK_LEAN, ..Hands::default() }, (0, -1, 0, 0)),
+        (Hands { y: STICK_LEAN, ..Hands::default() }, (0, 1, 0, 0)),
+        (Hands { x: -STICK_LEAN, ..Hands::default() }, (-1, 0, 0, 0)),
+        (Hands { x: STICK_LEAN, ..Hands::default() }, (1, 0, 0, 0)),
+        (Hands { aim_y: -STICK_LEAN, ..Hands::default() }, (0, 0, 0, -1)),
+        (Hands { aim_y: STICK_LEAN, ..Hands::default() }, (0, 0, 0, 1)),
+        (Hands { aim_x: -STICK_LEAN, ..Hands::default() }, (0, 0, -1, 0)),
+        (Hands { aim_x: STICK_LEAN, ..Hands::default() }, (0, 0, 1, 0)),
+        (Hands { x: STICK_LEAN - 1, y: 1 - STICK_LEAN,
+            aim_x: STICK_LEAN - 1, aim_y: 1 - STICK_LEAN, ..Hands::default() }, (0, 0, 0, 0)),
+    ] {
+        let (move_x, move_y, aim_x, aim_y) = axes;
+        let expected = Input { move_x, move_y, aim_x, aim_y, ..Input::default() };
+        for _ in 0..3 {
+            let cmd = c.command(&Hands {
+                held: button::FIRE | button::ALT | button::SHIFT | key::BALLOT,
+                ..hands
+            });
+            assert_eq!(cmd.held, expected, "only navigation axes are held");
+            assert_eq!(cmd.pressed, Input::default(), "a hold is not a mirror tap");
+            assert_eq!(cmd.input(), expected);
+            assert_eq!(cmd.held_only().input(), expected, "transport guesses keep the repeat axes");
+        }
+        let cmd = c.command(&Hands { pressed: button::LEFT, ..hands });
+        assert_eq!(cmd.held, expected);
+        assert_eq!(cmd.pressed, Input { mirror: 3, ..Input::default() }, "true taps stay explicit");
+        assert_eq!(cmd.held_only().input(), expected, "transport guesses never replay taps");
+    }
+    assert_eq!(c.command(&tap(button::MENU | button::OK)).input().mirror, 6, "close wins");
+}
+
+#[test]
+fn mirror_creator_suppresses_prediction_and_names_only_its_own_seats_ui() {
+    let mut host = Host::new(fight());
+    host.run.join_seat(2, "Other");
+    {
+        let hero = host.run.players.get_mut(&1).unwrap();
+        hero.mirror.open = true;
+        hero.mirror.row = 9;
+    }
+    let mut c = client(Some(0));
+    host.send(&mut c);
+    let origin = host.run.players[&1].clone();
+    let pending = [(1, DelveCmd {
+        held: Input { move_x: 1, fire: true, ..Input::default() }, ..Default::default()
+    })];
+    let hands = held(button::RIGHT | button::FIRE);
+    assert!(c.walk(&hands).is_none());
+    assert!(c.coming(&hands).is_none());
+    let v = view(&c, &pending, 0, hands, 0.9);
+    let drawn = c.own(&v).unwrap();
+    assert_eq!((drawn.x, drawn.y), (origin.x, origin.y));
+    assert!(c.loosed.is_empty());
+    assert!(c.picks().contains("short name"));
+    let metadata: serde_json::Value = serde_json::from_str(c.controls()).unwrap();
+    assert_eq!(metadata["text"]["title"], "Mirror name");
+    assert_eq!(metadata["text"]["kind"], 2);
+    let mut lines = Vec::new();
+    c.lines(&mut lines);
+    assert!(lines.iter().any(|line| line.contains("press T, type a short name")));
+
+    let mut other = client(Some(1));
+    let mut other_host = Host::new(host.run.clone());
+    other_host.send(&mut other);
+    assert!(!other.picks().contains("Mirror name"));
+    assert_eq!(other.controls(), CONTROLS);
+    let cmd = other.command(&tap(button::USE));
+    assert!(cmd.input().interact && cmd.input().mirror == 0, "only the owning seat is captured");
+
+    host.run.players.get_mut(&1).unwrap().mirror.open = false;
+    host.send(&mut c);
+    assert!(!c.picks().contains("Mirror name"));
+    assert_eq!(c.controls(), CONTROLS);
+    assert!(c.command(&tap(button::USE)).input().interact, "normal controls resume");
+}
+
+#[test]
+fn mirror_creator_player_two_uses_its_own_controls_and_name_ui() {
+    let mut host = Host::new(fight());
+    host.run.join_seat(2, "Other");
+    let hero = host.run.players.get_mut(&2).unwrap();
+    hero.mirror.open = true;
+    hero.mirror.row = 9;
+    let mut c = client(Some(1));
+    host.send(&mut c);
+    assert!(c.sheet().contains("P2 couch: IJKL move · \\ choose · Delete close"));
+    assert!(c.sheet().contains("arrows/WASD move"), "joined P2 keeps ordinary controls");
+    assert!(c.picks().contains("Mirror name"));
+    assert_eq!(c.controls(), NAME_CONTROLS);
+    assert_eq!(c.command(&tap(button::OK)).pressed.mirror, 5);
+    assert_eq!(c.command(&tap(button::MENU)).pressed.mirror, 6);
+    let cmd = c.command(&held(button::DOWN | button::FIRE));
+    assert_eq!(cmd.held, Input { move_y: 1, ..Input::default() });
+    assert_eq!(cmd.pressed, Input::default());
+
+    host.run.players.get_mut(&2).unwrap().mirror.open = false;
+    host.send(&mut c);
+    assert_eq!(c.controls(), CONTROLS);
+    assert!(!c.sheet().contains("MIRROR  "));
+    assert!(c.command(&tap(button::USE)).input().interact);
+}
+
+#[test]
+fn mirror_creator_shared_screen_prioritizes_open_panels_then_room_location() {
+    let mut run = fight();
+    run.join_seat(2, "Other");
+    for (one_outside, two_outside) in [(false, false), (true, false), (false, true), (true, true)] {
+        for (id, outside) in [(1, one_outside), (2, two_outside)] {
+            if outside {
+                run.exits.outside.insert(id, crate::rules::exits::Entry { at: 0, party: BTreeMap::new() });
+            } else {
+                run.exits.outside.remove(&id);
+            }
+        }
+        for (one, two, expected) in [
+            (false, false, if one_outside && !two_outside { 2 } else { 1 }),
+            (true, false, 1),
+            (false, true, 2),
+            (true, true, 1),
+        ] {
+            run.players.get_mut(&1).unwrap().mirror.open = one;
+            run.players.get_mut(&2).unwrap().mirror.open = two;
+            assert_eq!(screen_knight(&run, true), expected);
+            assert_eq!(screen_knight(&run, false), 1, "solo/hosted never selects a couch knight");
+        }
+    }
+    run.players.remove(&2);
+    run.exits.outside.remove(&2);
+    run.players.get_mut(&1).unwrap().mirror.open = false;
+    assert_eq!(screen_knight(&run, true), 1, "no missing P2 panel");
+}
+
+#[test]
+fn squires_same_kind_shot_does_not_take_the_owners_prediction_ghost() {
+    let (mut host, mut c) = at_the_range();
+    let key = home::Home::knight_key(&host.run.players[&1]);
+    host.run.home.squire_hall.rosters.insert(
+        key,
+        crate::realm::squires::Roster {
+            active: Some(1),
+            squires: vec![crate::realm::squires::Squire {
+                id: 1,
+                name: "Pip".into(),
+                kind: crate::realm::squires::Kind::Ranger,
+                level: 1,
+                talent: 1,
+            }],
+        },
+    );
+    host.run.enter_for_test(host.run.at);
+    host.run.calm_for_test();
+    let h = host.run.players[&1].clone();
+    let companion = &mut host.run.squire_hall.companions[0];
+    companion.body.x = h.x;
+    companion.body.y = h.y;
+    companion.body.cooldown = 0;
+    // A frozen target north: the ranger and the bow fire the same kind,
+    // close enough to compete for the same answered ghost.
+    host.run
+        .spawn_at_for_test(crate::rules::EnemyKind::Slime, h.x, h.y - 6.0);
+    host.run.enemies.last_mut().unwrap().frozen = 1000;
+    host.send(&mut c);
+    let mut frame = Frame::default();
+    c.draw(
+        &view(&c, &[(1, aim_up())], 0, Hands::default(), 0.5),
+        &mut frame,
+    );
+    assert_eq!(own_drawn(&c).len(), 1);
+    host.step(&[(0, aim_up())]);
+    let companion_shot = host
+        .run
+        .projectiles
+        .iter()
+        .position(|p| p.traits.squire)
+        .unwrap();
+    assert_eq!(
+        host.run.projectiles[companion_shot].kind,
+        crate::rules::Shot::Arrow
+    );
+    // Publish the companion first: a bad classification would steal the
+    // ghost before the actual bow shot has a chance to take it over.
+    host.run.projectiles.swap(0, companion_shot);
+    host.send(&mut c);
+    c.draw(&view(&c, &[], 1, Hands::default(), 0.5), &mut frame);
+    assert_eq!(own_drawn(&c).len(), 1, "only the knight's arm is predicted");
+    let other = c
+        .newest()
+        .unwrap()
+        .projectiles
+        .iter()
+        .find(|p| p.traits.squire)
+        .unwrap();
+    assert_eq!(other.traits.owner, 1);
+    assert!(!other.loosed_by(1));
+    assert_eq!(
+        c.drawn_all.iter().filter(|s| !s.0).count(),
+        1,
+        "companion is drawn once as an ordinary server shot"
+    );
+    let mut counts = Vec::new();
+    c.dev_stats(&mut counts);
+    assert!(
+        counts.contains(&("shot_handovers", 1.0)) && counts.contains(&("shot_ghosts", 0.0)),
+        "{counts:?}"
+    );
+}
+
+/// Replay a saved run (`REPLAY_RUN=<run.json>`) through a page at every seat
+/// for thirty seconds, every knight walking, each frame drawn as a browser
+/// seat draws it: a panic here is one a player's page would stop on.
+#[test]
+#[ignore]
+fn replay_a_saved_run_through_every_seats_page() {
+    let Some(path) = std::env::var_os("REPLAY_RUN") else {
+        return;
+    };
+    let run: Run = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let ids: Vec<u32> = run.players.keys().copied().collect();
+    let mut hosts: Vec<(Host, DelveClient)> = (0..crate::rules::MAX_PLAYERS)
+        .map(|seat| (Host::new(run.clone()), client(Some(seat)).exact()))
+        .collect();
+    let mut frame = Frame::default();
+    for t in 0..30 * HZ {
+        let inputs: BTreeMap<u32, crate::rules::Input> = ids
+            .iter()
+            .map(|&id| (id, crate::rules::Input { move_y: if (t / 45) % 2 == 0 { -1 } else { 1 }, ..Default::default() }))
+            .collect();
+        for (host, c) in &mut hosts {
+            host.run.step(&inputs);
+            host.send(c);
+            c.draw(&view(c, &[], 0, Hands::default(), 0.0), &mut frame);
+        }
+    }
 }

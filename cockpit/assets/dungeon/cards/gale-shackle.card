@@ -1,0 +1,22 @@
+name Twin Reed Bind
+kind spell
+rarity relic
+text Root two enemies together; they can still attack.
+drop 0
+chest 0
+cooldown 10
+feat 1
+art
+..fff...fff..
+.fCYf...fYCf.
+.fYlf...flYf.
+fCYlf...flYCf
+flYlf...flYlf
+.fYlffffflYf.
+..fCYllYlYf..
+...fCYllYf...
+..fflYYllff..
+.fCYlfflYlCf.
+fCYlf..flYlCf
+fllf....fllf.
+.ff......ff..

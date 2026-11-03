@@ -107,6 +107,8 @@ const SLOW_BYTES: usize = 256;
 /// ...at most this often: 1 KB/s, well under what the muster sends.
 const SLOW_EVERY: Duration = Duration::from_millis(250);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a leaving bot waits for the server's close frame.
+pub const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// A deterministic random walk for the bots' thumbs.
 pub struct Rng(pub u64);
@@ -289,6 +291,20 @@ pub fn run<G: Muster>(cfg: &BotConfig, until: Instant) -> (Report, Runtime<G>) {
             let _ = ws.send(&out);
         }
         ws.close(code::NORMAL);
+        // Finish the close handshake before dropping the socket. A goodbye
+        // still in the server's receive buffer when the socket resets would
+        // leave the seat held for a resume.
+        let deadline = Instant::now() + CLOSE_TIMEOUT;
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            match ws.recv(remaining) {
+                Ok(Some(Message::Close(_))) | Ok(None) | Err(_) => break,
+                Ok(Some(_)) => {}
+            }
+        }
     }
     (report, rt)
 }

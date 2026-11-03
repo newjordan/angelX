@@ -227,7 +227,7 @@ impl Stable {
             sire: s.name,
             dam: d.name,
             blood,
-            mare: seed % 2 == 0,
+            mare: seed.is_multiple_of(2),
             ..Horse::default()
         });
         self.herd.last()
@@ -270,7 +270,7 @@ impl Bloodline {
             &mut self.nerve,
         ];
         let at = (seed % 4) as usize;
-        let up = seed / 4 % 2 == 0;
+        let up = (seed / 4).is_multiple_of(2);
         for (i, gift) in gifts.into_iter().enumerate() {
             if i == at {
                 *gift = if up {
@@ -357,7 +357,7 @@ impl Horse {
             name: foal_name(seed, house, ""),
             house: house.into(),
             blood,
-            mare: seed % 2 == 0,
+            mare: seed.is_multiple_of(2),
             ..Self::default()
         }
     }

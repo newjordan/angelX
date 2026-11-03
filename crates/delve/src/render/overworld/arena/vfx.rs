@@ -23,6 +23,15 @@
 //! - **A find** (`feel::Glint`): a star where it lay, a ring on the floor
 //!   and motes rising, in its rarity's colours; a rare card on the floor
 //!   twinkles now and then.
+//! - **A Thunder Scroll** (`feel::Bolt`): a jagged bolt down out of the
+//!   dark onto each monster it struck, forking, struck twice in three
+//!   ticks; a star and a splash where it lands, the room lit cold round it
+//!   (`bolt_lights`); then the afterglow: a scorch ring and static
+//!   crawling where it hit. Round the knight who read it, a ring of static
+//!   and arcs climbing off the scroll.
+//! - **A scroll landing** (`Card::scroll`, `loot::Item::dropped`): a
+//!   parchment fleck fluttering down onto it with a teal trail, a star and
+//!   a ring where it lands, and motes rising.
 //!
 //! Every effect here keys on what the run holds (`Run::feel`), so a
 //! friend's mirror, a browser and the window draw it alike, and on nothing
@@ -35,7 +44,8 @@ use super::fx;
 use super::knights::Struck;
 use super::{UNIT, sprites};
 use crate::rules::feel::{
-    Block, DEATH_HOLD, DEATH_TICKS, DUST_TICKS, FLASH_TICKS, GLINT_TICKS, IMPACT_TICKS, KICK, LAND, SMOKE_TICKS,
+    BOLT_TICKS, Block, Bolt, DEATH_HOLD, DEATH_TICKS, DUST_TICKS, FLASH_TICKS, GLINT_TICKS, IMPACT_TICKS, KICK, LAND,
+    SMOKE_TICKS,
 };
 use crate::rules::{BLAST_TICKS, BOMB_REARM, EnemyKind, Run, Shot};
 use std::f32::consts::{PI, TAU};
@@ -194,15 +204,18 @@ fn behind(run: &Run, b: &Block) -> bool {
 
 /// The fight's bursts, over the figures and under the shots: newest and
 /// nearest a knight's own guard first, should a frame run out of motes.
-pub(super) fn under_shots(cv: &mut Img, run: &Run) {
+pub(super) fn under_shots(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let mut budget = Budget::new();
     blocks(cv, run, &mut budget, false);
     impacts(cv, run, &mut budget);
     muzzles(cv, run, &mut budget);
+    super::volleys::accents(cv, run);
     deaths(cv, run, &mut budget);
     blasts(cv, run, &mut budget);
+    bolts(cv, run, &mut budget);
     glints(cv, run, &mut budget);
-    twinkles(cv, run, &mut budget);
+    landings(cv, run, &mut budget, focus);
+    twinkles(cv, run, &mut budget, focus);
 }
 
 /// What happens behind the figures: a block on a shield held away, a
@@ -349,6 +362,7 @@ fn hit_ramp(kind: Shot) -> Ramp {
 fn impacts(cv: &mut Img, run: &Run, budget: &mut Budget) {
     let mut drawn: Vec<(f32, f32, u8)> = Vec::new();
     for i in run.feel.impacts.iter().rev() {
+        if run.feel.melee.hits.iter().any(|h| h.ttl > 0 && (h.x-i.x).hypot(h.y-i.y) < 0.35) { continue; }
         // A library boss's shot bursts in its own delivered bank.
         if let Some(art) = i.boss_art {
             let (x, y) = ((i.x * UNIT).floor() as i32, (i.y * UNIT).floor() as i32);
@@ -360,6 +374,10 @@ fn impacts(cv: &mut Img, run: &Run, budget: &mut Budget) {
             .iter()
             .any(|&(x, y, a)| a.abs_diff(age) <= 1 && (x - i.x).hypot(y - i.y) * UNIT < 6.0);
         drawn.push((i.x, i.y, age));
+        if i.note {
+            note_burst(cv, budget, i, age, crowded);
+            continue;
+        }
         let ramp = hit_ramp(i.kind);
         let [hot, core, rim, cool, _] = ramp.inks;
         let (px, py) = (i.x * UNIT, i.y * UNIT);
@@ -406,9 +424,21 @@ fn impacts(cv: &mut Img, run: &Run, budget: &mut Budget) {
                 put(cv, budget, (px + sx * 1.6).round() as i32, (py + sy * 1.6).round() as i32, rim);
             }
             chunk(cv, budget, ix - 1, iy - 1, hot);
-        } else if age <= 2 && !crowded {
-            // Then a ring off it, dotted.
-            let r = 1.0 + f32::from(age) * 1.8;
+        } else if age == 1 && !crowded {
+            // The star held a second tick, a step smaller and cooler: a
+            // hit's one frame is a flicker, its two a blow (`motion::impact`).
+            let long = if heavy { 4 } else { 3 };
+            for (sx, sy, reach) in [(-dy, dx, long), (dy, -dx, long), (-dx, -dy, long - 1)] {
+                for r in 2..=reach {
+                    let ink = if r == reach { cool } else { rim };
+                    put(cv, budget, (px + sx * r as f32).round() as i32, (py + sy * r as f32).round() as i32, ink);
+                }
+            }
+            put(cv, budget, ix, iy, core);
+        }
+        if (1..=3).contains(&age) && !crowded {
+            // Then a ring off it, dotted, opening fast and slowing.
+            let r = 1.5 + 5.0 * crate::motion::ease::out(f32::from(age) / 3.0);
             for k in 0..10 {
                 if (k + i32::from(age)) % 2 == 0 {
                     let a = back - PI * 0.6 + PI * 1.2 * k as f32 / 9.0;
@@ -429,9 +459,10 @@ fn impacts(cv: &mut Img, run: &Run, budget: &mut Budget) {
             let p = Piece {
                 o: (px, py),
                 angle: if through { dy.atan2(dx) + (r(1) - 0.5) * 1.0 } else { back + (r(1) - 0.5) * 2.2 },
-                speed: (1.5 + 1.8 * r(2)) * if heavy { 1.25 } else { 1.0 },
+                speed: (1.7 + 2.0 * r(2)) * if heavy { 1.25 } else { 1.0 },
                 fall: 0.22,
-                life: 3.0 + (r(3) * 3.0).floor(),
+                // Gone with the impact itself (`IMPACT_TICKS`), never cut off.
+                life: 3.5 + r(3) * 2.5,
             };
             let t = f32::from(age) + 0.6;
             if k % 3 == 0 && age == 1 {
@@ -440,6 +471,49 @@ fn impacts(cv: &mut Img, run: &Run, budget: &mut Budget) {
                 chunk(cv, budget, x.round() as i32, y.round() as i32, core);
             } else {
                 piece(cv, budget, p, t, ramp, if k == 0 { hot } else { core });
+            }
+        }
+    }
+}
+
+/// A Bard's note landing (`feel::Impact::note`): a white-hot flash with a
+/// gold cross, a ring of mint opening off it, and little notes thrown back
+/// up out of it, floating as they cool. One of a volley landing together
+/// flashes and throws a single note.
+fn note_burst(cv: &mut Img, budget: &mut Budget, i: &crate::rules::feel::Impact, age: u8, crowded: bool) {
+    let (px, py) = (i.x * UNIT, i.y * UNIT);
+    let (ix, iy) = (px.floor() as i32, py.floor() as i32);
+    if age == 0 {
+        fx::glow(cv, ix, iy, fx::Hue::Warm);
+        chunk(cv, budget, ix - 1, iy - 1, 'w');
+        for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2)] {
+            put(cv, budget, ix + dx, iy + dy, '6');
+        }
+        if !crowded {
+            for (dx, dy) in [(-3, -3), (3, -3), (-3, 3), (3, 3)] {
+                put(cv, budget, ix + dx, iy + dy, '4');
+            }
+        }
+    } else if age <= 3 && !crowded {
+        let r = 2.0 + f32::from(age) * 2.2;
+        for k in 0..12 {
+            if (k + i32::from(age)) % 2 == 0 {
+                let a = k as f32 / 12.0 * TAU;
+                let ink = if age <= 1 { '3' } else { '2' };
+                put(cv, budget, (px + a.cos() * r).round() as i32, (py + a.sin() * r * 0.8).round() as i32, ink);
+            }
+        }
+    }
+    if age >= 1 {
+        let back = (-i.dy).atan2(-i.dx);
+        let seed = hash(ix, iy, 91) as i32;
+        let t = f32::from(age);
+        for k in 0..if crowded { 1 } else { 3 } {
+            let a = back + (k as f32 - 1.0) * 0.9 + (unit_hash(k, seed, 1) - 0.5) * 0.5;
+            let d = 2.0 + t * (1.6 + unit_hash(k, seed, 2));
+            let (x, y) = (px + a.cos() * d, py + a.sin() * d * 0.7 - t * 1.4);
+            if budget.take() {
+                super::class_looks::bard::burst_note(cv, x.round() as i32, y.round() as i32, age);
             }
         }
     }
@@ -454,7 +528,7 @@ std::thread_local! {
 
 /// The colours a monster of `kind` comes apart in: the three its sprite
 /// wears most, brightest first.
-fn colours_of(kind: EnemyKind) -> [Rgb; 3] {
+pub(super) fn colours_of(kind: EnemyKind) -> [Rgb; 3] {
     if let Some(found) = COLOURS.with(|c| c.borrow().iter().find(|(k, _)| *k == kind).map(|(_, c)| *c)) {
         return found;
     }
@@ -481,6 +555,10 @@ fn colours_of(kind: EnemyKind) -> [Rgb; 3] {
 /// Every monster that fell: its flash, then its pieces, dust and smoke.
 fn deaths(cv: &mut Img, run: &Run, budget: &mut Budget) {
     for d in run.feel.deaths.iter().rev() {
+        // A finisher has its own flash and pieces (`gore`).
+        if super::gore::owns(run, d.x, d.y) {
+            continue;
+        }
         let (px, py) = (d.x * UNIT, d.y * UNIT);
         let (x, y) = (px.floor() as i32, py.floor() as i32);
         let r = (d.r * UNIT).max(2.0);
@@ -490,6 +568,11 @@ fn deaths(cv: &mut Img, run: &Run, budget: &mut Budget) {
             let ri = r.round() as i32;
             let held = fx::stamp(fx::Stamp::Death, ri, ri, age);
             cv.stamp(&held, x - ri, y - ri);
+            continue;
+        }
+        // A garden guest goes in its own colours, and the Lawn Flamingo
+        // in its own feathers (`garden`).
+        if super::garden::owns_death(run, d.kind) || super::garden::flamingo_owns_fall(run, d.x, d.y) {
             continue;
         }
         let k = f32::from(age - DEATH_HOLD);
@@ -688,19 +771,22 @@ fn blasts(cv: &mut Img, run: &Run, budget: &mut Budget) {
     }
 }
 
-/// A knight's bomb: its wave through the room (a bright edge, a dark ring
+/// A knight's bomb: its wave to the floor's reach (a bright edge, a dark ring
 /// behind it) and the fire where they stand, behind them: the knight is
 /// never lost in their own bomb.
 fn bombs(cv: &mut Img, run: &Run, budget: &mut Budget) {
     let feet = if run.side_on() { crate::rules::ledge::FOOT } else { 0.0 };
+    let reach = crate::rules::bombs::at(run.dungeon.depth).radius * UNIT;
     for hero in run.players.values().filter(|h| h.hp > 0 && h.privy == 0 && h.bomb_cooldown > BOMB_REARM - 12) {
         let age = BOMB_REARM - hero.bomb_cooldown;
         let k = age as f32;
         let (px, py) = (hero.x * UNIT, (hero.y + feet) * UNIT);
         let (cx, cy) = (px.floor() as i32, py.floor() as i32);
         // The wave: its bright edge, a darker ring a step behind.
-        let r = (3.0 + k * 3.2) * UNIT;
-        let n = (r * 2.2) as i32;
+        let r = reach * (k + 1.0) / 12.0;
+        // Deep rings get wider, not dearer: leave room in the same mote
+        // budget for the fire and for a friend's bomb beside this one.
+        let n = ((r * 2.2) as i32).clamp(24, 160);
         for i in 0..n {
             let a = i as f32 / n as f32 * TAU;
             let (ca, sa) = (a.cos(), a.sin() * 0.85);
@@ -715,7 +801,7 @@ fn bombs(cv: &mut Img, run: &Run, budget: &mut Budget) {
         if age < 4 {
             fx::glow(cv, cx, cy - 6, fx::Hue::Warm);
         }
-        explosion(cv, budget, (px, py - 4.0), 22.0, age as u8, hash(cx, cy, 33));
+        explosion(cv, budget, (px, py - 4.0), 14.0 + reach * 0.2, age as u8, hash(cx, cy, 33));
     }
 }
 
@@ -725,6 +811,7 @@ fn bombs(cv: &mut Img, run: &Run, budget: &mut Budget) {
 /// a spark or two thrown on.
 fn muzzles(cv: &mut Img, run: &Run, budget: &mut Budget) {
     for p in run.feel.puffs.iter().rev().filter(|p| !p.smoke && p.dust == 0) {
+        if super::volleys::muzzle(cv, run, p) { continue; }
         let age = (FLASH_TICKS - 1).saturating_sub(p.ttl);
         let (px, py) = (p.x * UNIT, p.y * UNIT - 1.0);
         let (x, y) = (px.floor() as i32, py.floor() as i32);
@@ -873,6 +960,51 @@ fn glints(cv: &mut Img, run: &Run, budget: &mut Budget) {
                 chunk(cv, budget, x - 1, y - 5, hot);
             }
         }
+        // The find itself, flying home: up off the floor into the knight
+        // who took it along a short arc, faster as it nears them, turning
+        // edge-on as it goes; then a ring snapping out round them, past
+        // its size and back, and a star where it went in.
+        if let Some(hero) = run.feel.takes.iter().find(|k| k.x == g.x && k.y == g.y).and_then(|k| run.players.get(&k.by)) {
+            use crate::motion::{arc, ease, share};
+            const FLY: f32 = 7.0;
+            const LAND: f32 = 6.0;
+            let chest = (hero.x * UNIT, hero.y * UNIT - 9.0);
+            if t < FLY {
+                let k = ease::in_quad(t / FLY);
+                let (cx, cy) = arc((px, py - 4.0), chest, 9.0, k);
+                let turn = crate::motion::math::cos(t * 1.1).abs();
+                let hw = ((2.5 * (1.0 - 0.6 * k)) * turn).round() as i32;
+                let hh = (3.5 * (1.0 - 0.45 * k)).round() as i32;
+                let (cx, cy) = (cx.round() as i32, cy.round() as i32);
+                for yy in -hh..=hh {
+                    for xx in -hw..=hw {
+                        let edge = yy.abs() == hh || xx.abs() == hw;
+                        put(cv, budget, cx + xx, cy + yy, if edge { rim } else { core });
+                    }
+                }
+                put(cv, budget, cx, cy, hot);
+            } else if t < FLY + LAND {
+                let u = share(t, FLY, LAND);
+                let r = 2.0 + 7.0 * ease::back(share(t, FLY, LAND * 0.6));
+                let (hx, hy) = chest;
+                for i in 0..14 {
+                    if u > 0.5 && (i + i32::from(age)) % 2 == 1 {
+                        continue;
+                    }
+                    let a = i as f32 / 14.0 * TAU;
+                    put(cv, budget, (hx + a.cos() * r).round() as i32, (hy + a.sin() * r * 0.8).round() as i32, if u < 0.4 { core } else if u < 0.7 { rim } else { cool });
+                }
+                let arm = (3.0 * (1.0 - ease::out(u))).round() as i32;
+                for d in 1..=arm {
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        put(cv, budget, hx as i32 + dx * d, hy as i32 + dy * d, if d == 1 { hot } else { core });
+                    }
+                }
+                if u < 0.3 {
+                    chunk(cv, budget, hx as i32 - 1, hy as i32 - 1, hot);
+                }
+            }
+        }
         // A ring opening on the floor.
         if age <= 7 {
             let r = 3.0 + t * 1.5;
@@ -902,8 +1034,8 @@ fn glints(cv: &mut Img, run: &Run, budget: &mut Budget) {
 
 /// A rare or relic card on the floor catches the light now and then: a
 /// small star at its corner.
-fn twinkles(cv: &mut Img, run: &Run, budget: &mut Budget) {
-    for item in &run.room().items {
+fn twinkles(cv: &mut Img, run: &Run, budget: &mut Budget, focus: Option<u32>) {
+    for item in run.room().items.iter().filter(|item| run.lies_for(item, focus)) {
         let Some(card) = run.book.get(&item.card) else {
             continue;
         };
@@ -929,6 +1061,285 @@ fn twinkles(cv: &mut Img, run: &Run, budget: &mut Budget) {
             }
         }
         put(cv, budget, x, y, ink);
+    }
+}
+
+// ─── lightning ───────────────────────────────────────────────────────────────
+
+/// Lightning's colours: the white core, its teal edge, the glow, the
+/// afterglow and the scorch it dies to (the Thunder Scroll's own inks).
+const BOLT_INKS: [char; 5] = ['w', '3', '2', '1', '0'];
+/// How far above what it strikes a bolt comes out of the dark, in pixels,
+/// and how long each of its jags is.
+const BOLT_DROP: i32 = 64;
+const BOLT_JAG: i32 = 7;
+
+/// A line from `a` to `b`, a pixel at a time; `every` 2 breaks it to dots.
+fn line(cv: &mut Img, a: (i32, i32), b: (i32, i32), ink: char, every: i32) {
+    let steps = (b.0 - a.0).abs().max((b.1 - a.1).abs()).max(1);
+    for i in (0..=steps).filter(|i| i % every == 0) {
+        cv.put(a.0 + (b.0 - a.0) * i / steps, a.1 + (b.1 - a.1) * i / steps, ink);
+    }
+}
+
+/// A bolt's joints from the dark down to `(x, y)`: each jag sideways by
+/// the seed, the last on the mark. The same bolt keeps its shape as it
+/// flickers and fades.
+fn bolt_path(x: i32, y: i32, seed: u32) -> Vec<(i32, i32)> {
+    let n = BOLT_DROP / BOLT_JAG;
+    let lean = (hash(x, y, seed) % 9) as i32 - 4;
+    (0..=n)
+        .map(|i| {
+            let left = n - i;
+            let jag = if left == 0 { 0 } else { (hash(i, x ^ y, seed) % 9) as i32 - 4 };
+            (x + lean * left / 2 + jag, y - left * BOLT_JAG)
+        })
+        .collect()
+}
+
+/// Every Thunder Scroll's lightning, newest first. A bolt is a line, as a
+/// rail's tracer is, so it draws whole; its splash and afterglow are motes.
+fn bolts(cv: &mut Img, run: &Run, budget: &mut Budget) {
+    let feet = if run.side_on() { crate::rules::ledge::FOOT } else { 0.0 };
+    for (n, b) in run.feel.bolts.iter().enumerate().rev() {
+        if b.call {
+            call(cv, b, feet, budget);
+        } else {
+            bolt(cv, b, n as u32, budget);
+        }
+    }
+}
+
+/// One bolt onto a monster: struck at once and again two ticks on, then
+/// its line breaking up, then the scorch and the static.
+fn bolt(cv: &mut Img, b: &Bolt, n: u32, budget: &mut Budget) {
+    let [core, edge, glow, after, scorch] = BOLT_INKS;
+    let age = b.age();
+    let t = f32::from(age);
+    let (px, py) = (b.x * UNIT, b.y * UNIT);
+    let (x, y) = (px.floor() as i32, py.floor() as i32);
+    // It strikes the body, a little over the floor point.
+    let hit = (x, y - 5);
+    let seed = hash(x, y, 71 + n);
+    let path = bolt_path(hit.0, hit.1, seed);
+    match age {
+        // The stroke, and its return two ticks on: white, its teal edge
+        // beside it, and a fork or two off its upper half.
+        0 | 2 => {
+            for w in path.windows(2) {
+                line(cv, (w[0].0 + 1, w[0].1), (w[1].0 + 1, w[1].1), edge, 1);
+                line(cv, w[0], w[1], core, 1);
+            }
+            for f in 0..2u32 {
+                let at = 1 + (hash(f as i32, x, seed) % 4) as usize;
+                let (fx0, fy0) = path[at.min(path.len() - 2)];
+                let side = if (seed >> f) & 1 == 0 { -1 } else { 1 };
+                let mid = (fx0 + side * 4, fy0 + 5);
+                let end = (mid.0 + side * 3, mid.1 + 4 + (f as i32) * 2);
+                line(cv, (fx0, fy0), mid, edge, 1);
+                line(cv, mid, end, glow, 1);
+            }
+        }
+        // Between the strokes: the line in the glow, no forks.
+        1 => {
+            for w in path.windows(2) {
+                line(cv, w[0], w[1], glow, 1);
+            }
+        }
+        // The line breaking up as it goes out.
+        3 | 4 => {
+            for w in path.windows(2) {
+                line(cv, w[0], w[1], if age == 3 { glow } else { after }, 2);
+            }
+        }
+        _ => {}
+    }
+    // Where it lands: a star, a splash opening on the floor, the cold
+    // glow round it.
+    if age <= 2 {
+        let reach = 5 - i32::from(age);
+        for r in 1..=reach {
+            let ink = if r <= 1 { core } else if r < reach { edge } else { glow };
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                put(cv, budget, hit.0 + dx * r, hit.1 + dy * r, ink);
+            }
+        }
+    }
+    if age <= 3 {
+        fx::glow(cv, hit.0, hit.1, fx::Hue::Cold);
+    }
+    if age <= 6 {
+        let r = 3.0 + t * 1.6;
+        for i in 0..16 {
+            if (i + i32::from(age)) % 2 == 1 {
+                continue;
+            }
+            let a = i as f32 / 16.0 * TAU;
+            let ink = if age < 3 { edge } else { glow };
+            put(cv, budget, (px + a.cos() * r).round() as i32, (py + a.sin() * r * 0.45).round() as i32, ink);
+        }
+    }
+    // The afterglow: a scorch where it hit, and static crawling over it,
+    // thinning out.
+    if age >= 3 {
+        let k = (t - 3.0) / f32::from(BOLT_TICKS - 3);
+        let ring = if k < 0.4 { after } else { scorch };
+        for i in 0..10 {
+            if (i + i32::from(age) / 2) % 3 == 0 {
+                continue;
+            }
+            let a = i as f32 / 10.0 * TAU;
+            put(cv, budget, (px + a.cos() * 3.5).round() as i32, (py + a.sin() * 1.6).round() as i32, ring);
+        }
+        for s in 0..3 {
+            if (i32::from(age) + s * 2) % 4 >= 2 || f32::from(s as u8) > 3.0 * (1.0 - k) {
+                continue;
+            }
+            let sx = hit.0 + (hash(s, i32::from(age), seed) % 11) as i32 - 5;
+            let sy = hit.1 + (hash(s, i32::from(age), seed ^ 5) % 7) as i32 - 2;
+            let ink = if k < 0.3 { edge } else if k < 0.7 { glow } else { after };
+            put(cv, budget, sx, sy, ink);
+            put(cv, budget, sx + 1, sy - 1, ink);
+            put(cv, budget, sx + 2, sy, if k < 0.5 { glow } else { after });
+        }
+    }
+}
+
+/// Round the knight who read the scroll: a ring of static opening at
+/// their feet and arcs climbing off the scroll in their hands.
+fn call(cv: &mut Img, b: &Bolt, feet: f32, budget: &mut Budget) {
+    let [core, edge, glow, after, _] = BOLT_INKS;
+    let age = b.age();
+    let t = f32::from(age);
+    let (px, py) = (b.x * UNIT, (b.y + feet) * UNIT);
+    let (x, y) = (px.floor() as i32, py.floor() as i32);
+    if age <= 6 {
+        let r = 4.0 + t * 2.4;
+        let n = (r * 2.0) as i32 + 8;
+        for i in 0..n {
+            // Broken: short dashes of static, not a solid ring.
+            if (i + i32::from(age)) % 3 == 0 {
+                continue;
+            }
+            let a = i as f32 / n as f32 * TAU;
+            let ink = if age < 2 { edge } else if age < 4 { glow } else { after };
+            put(cv, budget, (px + a.cos() * r).round() as i32, (py + a.sin() * r * 0.5).round() as i32, ink);
+        }
+    }
+    if age <= 2 {
+        let seed = hash(x, y, 97 + u32::from(age));
+        let hand = (x, y - 12);
+        for arc in 0..3 {
+            let mut at = hand;
+            for j in 0..3 {
+                let next = (at.0 + (hash(arc, j, seed) % 5) as i32 - 2 + (arc - 1) * 2, at.1 - 4);
+                line(cv, at, next, if j == 0 && age != 1 { core } else { edge }, 1);
+                at = next;
+            }
+        }
+        fx::glow(cv, hand.0, hand.1, fx::Hue::Cold);
+    }
+}
+
+/// The window's light off each fresh bolt: the flash where it lands,
+/// gone in a few ticks, cold.
+pub(super) fn bolt_lights(run: &Run) -> impl Iterator<Item = (f32, f32, f32, f32)> + '_ {
+    let feet = if run.side_on() { crate::rules::ledge::FOOT } else { 0.0 };
+    run.feel.bolts.iter().filter(|b| b.age() < 4).map(move |b| {
+        let k = 1.0 - f32::from(b.age()) / 4.0;
+        // The second stroke lights the room again.
+        let k = if b.age() == 2 { k.max(0.85) } else { k };
+        // A strike lights round what it hit; a call, the reader's hands.
+        let (y, radius, strength) = if b.call {
+            ((b.y + feet) * UNIT - 12.0, 28.0, 0.6)
+        } else {
+            (b.y * UNIT - 5.0, 44.0, 1.0)
+        };
+        (b.x * UNIT, y, radius, strength * k)
+    })
+}
+
+// ─── scrolls landing ─────────────────────────────────────────────────────────
+
+/// Ticks a scroll takes to flutter down, and its landing's whole show.
+const LAND_FALL: u32 = 9;
+const LAND_TICKS: u32 = 24;
+/// How far over its place a scroll is let go of, in pixels.
+const LAND_DROP: f32 = 28.0;
+
+/// Every scroll just dropped where this seat sees it: a parchment fleck
+/// fluttering down with a teal trail, then a star, a ring and motes.
+fn landings(cv: &mut Img, run: &Run, budget: &mut Budget, focus: Option<u32>) {
+    let [core, edge, glow, after, _] = BOLT_INKS;
+    for item in run.room().items.iter().filter(|item| item.dropped > 0 && run.lies_for(item, focus)) {
+        let age = run.tick.saturating_sub(item.dropped);
+        if age >= u64::from(LAND_TICKS) || !run.book.get(&item.card).is_some_and(|c| c.scroll()) {
+            continue;
+        }
+        let age = age as u32;
+        let t = age as f32;
+        let (px, py) = (item.x * UNIT, item.y * UNIT);
+        let seed = hash(px as i32, py as i32, 61);
+        let phase = (seed % 7) as f32;
+        // Where the fleck is `a` ticks in: down at an even pace, swaying.
+        let fleck = |a: f32| {
+            let k = (a / LAND_FALL as f32).min(1.0);
+            (px + (a * 0.9 + phase).sin() * 3.0 * (1.0 - k), py - 6.0 - LAND_DROP * (1.0 - k))
+        };
+        if age < LAND_FALL {
+            for (back, ink) in [(3.0, after), (2.0, glow), (1.0, edge)] {
+                if t >= back {
+                    let (tx, ty) = fleck(t - back);
+                    put(cv, budget, tx.round() as i32, ty.round() as i32, ink);
+                }
+            }
+            // The scroll turning as it falls: across, its roll's shadow
+            // under it, then end on.
+            let (lx, ly) = fleck(t);
+            let (lx, ly) = (lx.round() as i32, ly.round() as i32);
+            let page: &[(i32, i32, char)] = if (t * 0.9 + phase).cos() > 0.0 {
+                &[(-2, 0, '$'), (-1, 0, 'T'), (0, 0, 'T'), (1, 0, '$'), (-1, 1, 'o'), (0, 1, 'o')]
+            } else {
+                &[(0, -1, 'T'), (0, 0, '$'), (1, -1, '$'), (1, 0, 'o')]
+            };
+            for &(dx, dy, ink) in page {
+                put(cv, budget, lx + dx, ly + dy, ink);
+            }
+            continue;
+        }
+        let since = age - LAND_FALL;
+        let (x, y) = (px.floor() as i32, py.floor() as i32 - 6);
+        if since <= 3 {
+            let reach = 4 - since as i32;
+            for r in 1..=reach {
+                let ink = if r <= 1 { if since == 0 { core } else { edge } } else if r < reach { edge } else { glow };
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    put(cv, budget, x + dx * r, y + dy * r, ink);
+                }
+            }
+        }
+        if since <= 7 {
+            let r = 3.0 + since as f32 * 1.4;
+            for i in 0..14 {
+                if (i + since as i32) % 2 == 1 {
+                    continue;
+                }
+                let a = i as f32 / 14.0 * TAU;
+                put(cv, budget, (px + a.cos() * r).round() as i32, (py + a.sin() * r * 0.45).round() as i32, if since < 4 { glow } else { after });
+            }
+        }
+        let rest = (LAND_TICKS - LAND_FALL) as f32;
+        for m in 0..4 {
+            let start = (m % 2) as f32;
+            let s = since as f32 - start;
+            if s < 0.0 {
+                continue;
+            }
+            let a = m as f32 * 1.6 + s * 0.5;
+            let (mx, my) = (px + a.cos() * (3.0 + m as f32 * 0.6), py - 4.0 - s * 1.2);
+            let k = s / rest;
+            put(cv, budget, mx.round() as i32, my.round() as i32, if k < 0.35 { edge } else if k < 0.7 { glow } else { after });
+        }
     }
 }
 
@@ -961,3 +1372,7 @@ pub(super) fn block_lights(run: &Run) -> impl Iterator<Item = (f32, f32, f32, su
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__vfx__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__bombs__tests.rs"]
+mod bomb_tests;

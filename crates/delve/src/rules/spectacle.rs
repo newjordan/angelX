@@ -24,6 +24,12 @@ const STRIDE: f32 = 3.4;
 /// Footsteps are off: a party's steps drowned out the shots, in the host's
 /// mixer and in a browser's few-at-a-time.
 pub const FOOTSTEPS: bool = false;
+/// The fewest ticks between two of one weapon's landed-hit sounds: a volley
+/// landing tick after tick sounds as a run of hits, not a buzz. Four
+/// archers' arrows landed thirteen times in their busiest second, five
+/// ticks running, and a hit's take runs 0.26 s: one each 4 ticks keeps at
+/// most two of it sounding.
+const LANDED_EVERY: u64 = 4;
 
 // ─── the demon hand ──────────────────────────────────────────────────────────
 
@@ -119,7 +125,8 @@ const GATE_REACH: f32 = 1.9;
 /// The circle's title card shows this long.
 pub const CARD_TICKS: u32 = 6 * HZ;
 /// Each circle's monsters carry this much more health, in percent; the
-/// knights take this much more from a hit.
+/// knights take this much more from a hit. The rest of what a circle does to
+/// a fight (its hordes, champions, embers and burnt draughts) is `hell`'s.
 const CIRCLE_HP: u32 = 18;
 const CIRCLE_HURT: u32 = 12;
 
@@ -170,6 +177,9 @@ pub fn circle_title(n: u32) -> &'static str {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Spectacle {
+    /// The latest guardian changing its pattern; a picture, never an input hold.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase: Option<PhaseMark>,
     pub corpses: Vec<Corpse>,
     pub gate: Option<Gate>,
     /// 0 above; each gate passed is one circle deeper.
@@ -179,9 +189,25 @@ pub struct Spectacle {
     /// Monsters up to this id already carry their circle's strength.
     pub scaled_id: u32,
     /// The descent now under way is into the next circle, not a floor down.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub circling: bool,
 }
+
+/// A brief guardian cue, timestamped like its corpse and the circle card.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PhaseMark {
+    pub x: f32,
+    pub y: f32,
+    pub born: u64,
+    pub room: usize,
+    pub rage: bool,
+}
+
+pub const PHASE_MARK: u64 = 30;
 
 // ─── the watcher ─────────────────────────────────────────────────────────────
 
@@ -231,11 +257,11 @@ impl Run {
                     booby: h.booby.is_some(),
                 })
                 .collect(),
-            foes: self
-                .enemies
-                .iter()
-                .map(|e| (e.id, e.hp, e.raged))
-                .collect(),
+            foes: {
+                let mut foes = super::scratch::take_seen_foes();
+                foes.extend(self.enemies.iter().map(|e| (e.id, e.hp, e.raged)));
+                foes
+            },
             items: self
                 .dungeon
                 .rooms
@@ -253,6 +279,9 @@ impl Run {
     /// Once a tick, after the tick: poses, bones, claims, the gate, circles
     /// and sounds, from what changed.
     pub(super) fn watch(&mut self, seen: Seen) {
+        if self.spectacle.phase.is_some_and(|p| p.room != self.at || self.tick.saturating_sub(p.born) >= PHASE_MARK) {
+            self.spectacle.phase = None;
+        }
         self.strength_of_circles();
         self.watch_heroes(&seen);
         self.watch_foes(&seen);
@@ -263,6 +292,7 @@ impl Run {
         }
         self.watch_items(&seen);
         self.chatter(seen.cued);
+        super::scratch::give_seen_foes(seen.foes);
     }
 
     /// The nearest thing that might have struck the knight at `(x, y)`: a
@@ -334,7 +364,10 @@ impl Run {
                 }
                 let lost = before.hp - hero.hp;
                 hero.struck = STRUCK;
-                hero.struck_big = lost * 100 >= hero.max_hp.max(1) * HEAVY_HIT;
+                // A damaged save can carry an hp past any kit. The compare must
+                // not overflow; mend also keeps that hp from reaching play.
+                hero.struck_big = lost.saturating_mul(100)
+                    >= hero.max_hp.max(1).saturating_mul(HEAVY_HIT);
                 hero.struck_dir = strikers
                     .iter()
                     .find(|(id, _)| *id == before.id)
@@ -451,7 +484,15 @@ impl Run {
                 self.sounds.truncate(seen.sounded);
                 self.sounds.extend(kept);
             }
-            self.sounds.push(sound);
+            // A stroke that already rang its own hit (`arms`), as heavy as
+            // it landed (`melee::CONTACT_SOUNDS`), or a spell that broke in
+            // its own family's way (`vfx::IMPACT_SOUNDS`) is not rung twice.
+            let rung = self.sounds[seen.sounded..]
+                .iter()
+                .any(|s| *s == sound || melee::CONTACT_SOUNDS.contains(s) || vfx::IMPACT_SOUNDS.contains(s));
+            if !rung {
+                self.sound_every(sound, LANDED_EVERY);
+            }
         }
         for e in &self.enemies {
             let before = seen.foes.iter().find(|f| f.0 == e.id);
@@ -486,9 +527,14 @@ impl Run {
         Some(if hero.spin > 0 && close {
             "hit_axe"
         } else if hero.swing > 0 && close {
-            "hit_blade"
+            if !hero.sword && matches!(hero.arm.as_deref(), Some("twin-axes" | "grave-axes" | "reaver-axes")) { "hit_axe" } else { "hit_blade" }
         } else if hero.forged.as_ref().is_some_and(|w| w.melee.is_some() && w.bolt.is_none()) {
             "hit_blade"
+        } else if hero.forged.is_none()
+            && (hero.weapon == Weapon::Notes || super::classes::of(hero).is_some_and(|c| c.name == "Bard"))
+        {
+            // The Bard's notes land on an open hi-hat, over the groove.
+            super::bard::HIT
         } else if hero.forged.as_ref().is_some_and(|w| w.bolt.is_some())
             || super::classes::shot_look(hero).is_some()
         {
@@ -497,7 +543,8 @@ impl Run {
             match hero.weapon {
                 Weapon::Fists => "hit",
                 Weapon::Bow => "hit_arrow",
-                Weapon::Notes | Weapon::Stones => "hit_magic",
+                Weapon::Notes => super::bard::HIT,
+                Weapon::Stones => "hit_magic",
                 Weapon::Crossbow => "hit_bolt",
                 Weapon::Handgonne => "hit_blast",
             }
@@ -540,6 +587,10 @@ impl Run {
         fallen: &[(EnemyKind, f32, f32)],
         guardians: &[(usize, f32, f32)],
     ) {
+        if !guardians.is_empty() || fallen.iter().any(|f| matches!(f.0,
+            EnemyKind::Dragon | EnemyKind::PitTyrant | EnemyKind::Risen)) {
+            self.spectacle.phase = None;
+        }
         for &(index, x, y) in guardians {
             let radius = self.bosses.get(index).map_or(1.5, |b| b.radius);
             self.spectacle.corpses.push(Corpse {
@@ -673,7 +724,7 @@ impl Run {
         let floor = self.dungeon.depth;
         self.descend();
         self.spectacle.circling = false;
-        if self.dungeon.depth != floor {
+        if self.dungeon.depth != floor || self.crossroads.is_some() {
             // A circle is the delve begun again: its privies (and the toll
             // for passing them by) are new too.
             for hero in self.players.values_mut() {
@@ -740,11 +791,8 @@ impl Run {
         self.watch(seen);
     }
 
-    /// A guardian stands in the room, struck dead before the next step.
-    pub fn guardian_falls_for_test(&mut self) {
-        self.spawn_boss(0);
-        for enemy in &mut self.enemies {
-            enemy.hp = 0;
-        }
-    }
 }
+
+#[cfg(test)]
+#[path = "../../tests/rules/polish_feel__tests.rs"]
+mod polish_feel_tests;

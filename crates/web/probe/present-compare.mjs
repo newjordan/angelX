@@ -36,6 +36,7 @@
 // line of numbers. Node built-ins only.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -201,7 +202,7 @@ await new Promise(resolve => server.listen(PORT, '127.0.0.1', resolve));
 
 // ---- the browser ----
 
-const profile = `${process.env.TMPDIR || '/work/tmp'}/angel-web-compare-${process.pid}`;
+const profile = `${process.env.TMPDIR || os.tmpdir()}/angel-web-compare-${process.pid}`;
 const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${CDP_PORT}`,
   `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--window-size=1600,1000',
   // WebGPU and WebGL on the machine's GPU through Vulkan, as the probe's --webgpu.

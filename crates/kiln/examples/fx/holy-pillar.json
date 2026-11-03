@@ -1,0 +1,12 @@
+{ "fx": 0, "name": "holy pillar", "canvas": [32, 48], "pivot": [16, 42], "fps": 12, "seed": 51,
+  "beats": { "anticipation": 4, "action": 2, "follow": 5, "settle": 4 },
+  "layers": [
+    { "type": "glyph", "ramp": "holy", "r1": 11, "squash": 0.4, "count": 6, "spin": 2, "z": "back", "t0": 0, "t1": "settle+3" },
+    { "type": "particles", "form": "mote", "ramp": "holy", "spawn": "ring", "area": [9, 3.5], "motion": "rise", "angle": -90,
+      "speed": [0.3, 0.8], "rate": 2, "count": 0, "life": [6, 10], "size": 0.9, "t0": 0, "t1": "settle" },
+    { "type": "pillar", "ramp": "holy", "r1": 46, "th": 3.6, "t0": "action", "t1": "settle+2" },
+    { "type": "star", "ramp": "holy", "r1": 8, "count": 8, "t0": "action", "t1": "action+2" },
+    { "type": "ring", "ramp": "holy", "r0": 3, "r1": 15, "th": 1.1, "squash": 0.38, "t0": "action", "t1": "follow+3" },
+    { "type": "particles", "form": "star", "ramp": "holy", "y": -20, "spawn": "box", "area": [12, 36], "count": 3, "rate": 1.4,
+      "speed": 0, "life": [4, 6], "size": 1.1, "t0": "action", "t1": "settle" }
+  ] }

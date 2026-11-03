@@ -70,6 +70,38 @@ pub fn pillar(x: i32, y: i32) -> bool {
 }
 
 impl Run {
+    /// A finished or abandoned powder board must not block the floor's doors.
+    /// This also repairs older saves where the activity ended before its
+    /// temporary pillars and crates were removed.
+    pub(super) fn clear_finished_powder_board(&mut self) {
+        let Some(index) = self.folly_room else { return };
+        if self.dungeon.depth % 6 != 3 || self.at != index {
+            return;
+        }
+        let Some(room) = self.dungeon.rooms.get(index) else { return };
+        if !room.visited || !room.cleared || self.powder.as_ref().is_some_and(|p| p.room == index && !p.done) {
+            return;
+        }
+        self.clear_powder_board(index);
+    }
+
+    /// Remove only the board's interior blocks; doors and outer walls stay.
+    pub(super) fn clear_powder_board(&mut self, index: usize) {
+        let Some(room) = self.dungeon.rooms.get_mut(index) else { return };
+        let mut changed = false;
+        for y in 1..room.rows as i32 - 1 {
+            for x in 1..room.cols as i32 - 1 {
+                if room.tile(x, y) == Tile::Block {
+                    room.set(x as usize, y as usize, Tile::Floor);
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
+        }
+    }
+
     /// Into the powder store: pillars, crates, a corner each, and the antes.
     pub(super) fn start_powder(&mut self, index: usize) {
         let room = &mut self.dungeon.rooms[index];
@@ -249,6 +281,7 @@ impl Run {
             self.cues.push("pastime_won".into());
         }
         self.powder = Some(p);
+        self.clear_finished_powder_board();
     }
 }
 

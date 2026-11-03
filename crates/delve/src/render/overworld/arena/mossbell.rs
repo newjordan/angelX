@@ -1192,11 +1192,8 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             }
         }
     } else {
-        let shake = if b.freeze > 0 || b.burst > 12 {
-            if run.tick % 2 == 0 { 1 } else { -1 }
-        } else {
-            0
-        };
+        let left = u32::from(b.freeze).max(u32::from(b.burst.saturating_sub(12)));
+        let shake = super::camera::smooth_shake(run.tick, left, 6, 1.5).0;
         let x = OX + shake;
         let target = |im: &mut Img, i: usize| {
             let (bx, by, _) = BUMPERS[i];

@@ -1,0 +1,717 @@
+# crates/delve/src/rules/spectacle.rs — what the step shows: sounds, shakes, falling corpses and the Hell Gate.
+# `Seen` (the snapshot taken before the tick) is a J object: {sounded, cued, at, heroes: [..], foes: [[id, hp, raged]..], items: [..]}.
+
+def spectacle.STRUCK() -> U32:
+  16
+
+def spectacle.HEAVY_HIT() -> U32:
+  22
+
+def spectacle.STRIDE() -> F32:
+  3.4
+
+def spectacle.LOOT_WAIT() -> U32:
+  (4 * rules.HZ() : U32)
+
+def spectacle.CRACK() -> U32:
+  36
+
+def spectacle.RISE() -> U32:
+  45
+
+def spectacle.GRAB() -> U32:
+  18
+
+def spectacle.PULL() -> U32:
+  66
+
+def spectacle.CLOSE() -> U32:
+  30
+
+def spectacle.CLAIM() -> U32:
+  (spectacle.LOOT_WAIT() + spectacle.CRACK() + spectacle.RISE() + spectacle.GRAB() + spectacle.PULL() + spectacle.CLOSE() : U32)
+
+def spectacle.GATE_RISE() -> U32:
+  (3 * rules.HZ() : U32)
+
+def spectacle.GATE_REACH() -> F32:
+  1.9
+
+def spectacle.CARD_TICKS() -> U32:
+  (6 * rules.HZ() : U32)
+
+def spectacle.CIRCLE_HP() -> U32:
+  18
+
+def spectacle.CIRCLE_HURT() -> U32:
+  12
+
+# Beat::of(age): which beat of a corpse's claim it is, and how far through: (index, share).
+# 0 Lying, 1 Cracking, 2 Rising, 3 Grabbing, 4 Pulling, 5 Closing, 6 Gone.
+def spectacle.Beat.of(+age: W.W) -> U32 & F32:
+  spectacle.Beat.go(age, 0, spectacle.beat_len(0))
+
+def spectacle.beat_len(+i: U32) -> U32:
+  gc.nth_u([spectacle.LOOT_WAIT(), spectacle.CRACK(), spectacle.RISE(), spectacle.GRAB(), spectacle.PULL(), spectacle.CLOSE()], i)
+
+def spectacle.Beat.go(+left: W.W, +i: U32, +len: U32) -> U32 & F32:
+  if U32.is_ge(i, 6):
+    (6, 0.0)
+  else:
+    if W.lt(left, W.of_u32(len)):
+      (i, (W.as_f32(left) / RS.u_as_f32(len) : F32))
+    else:
+      spectacle.Beat.go(W.sub(left, W.of_u32(len)), (i + 1 : U32), spectacle.beat_len((i + 1 : U32)))
+
+# Corpse::beat(tick)
+def spectacle.Corpse.beat(+c: J.Val, +tick: W.W) -> U32 & F32:
+  spectacle.Beat.of(W.sat_sub(tick, W.of_j(J.get(c, "born"))))
+
+# Gate::risen(tick)
+def spectacle.Gate.risen(+g: J.Val, +tick: W.W) -> F32:
+  RS.f_min((W.as_f32(W.sat_sub(tick, W.of_j(J.get(g, "born")))) / RS.u_as_f32(spectacle.GATE_RISE()) : F32), 1.0)
+
+# pub fn circle_name(n)
+def spectacle.circle_name(+n: U32) -> String:
+  if Bool.and(U32.is_ge(n, 1), U32.is_le(n, 12)):
+    gc.nth_s(["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth", "Eleventh", "Twelfth"], (n - 1 : U32)) ++ " Circle"
+  else:
+    "Circle " ++ U32.show(n)
+
+# pub fn circle_title(n)
+def spectacle.circle_title(+n: U32) -> String:
+  if Bool.and(U32.is_ge(n, 1), U32.is_le(n, 9)):
+    gc.nth_s(["Limbo", "Lust", "Gluttony", "Greed", "Wrath", "Heresy", "Violence", "Fraud", "Treachery"], (n - 1 : U32))
+  else:
+    "The Bottomless Pit"
+
+# pub(super) fn seen(&self) -> Seen
+def spectacle.Run.seen(+run: J.Val) -> J.Val:
+  s0: J.Val = gc.su(gc.su(gc.su(J.obj(), "sounded", gc.len(J.items(J.get(run, "sounds")))), "cued", gc.len(J.items(J.get(run, "cues")))), "at", gc.u(run, "at"))
+  s1: J.Val = J.set(s0, "heroes", J.JA{spectacle.seen_heroes(J.get(run, "players"), gc.ids(J.get(run, "players")))})
+  s2: J.Val = J.set(s1, "foes", J.JA{spectacle.seen_foes(J.items(J.get(run, "enemies")))})
+  J.set(s2, "items", J.JA{spectacle.seen_items(J.items(J.get(J.nth(J.get(J.get(run, "dungeon"), "rooms"), gc.u(run, "at")), "items")))})
+
+def spectacle.seen_heroes(+hs: J.Val, +ids: List<&2, U32>) -> List<&2, J.Val>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(hs, id)
+      e0: J.Val = gc.sf(gc.sf(gc.su(J.obj(), "id", id), "x", gc.f(h, "x")), "y", gc.f(h, "y"))
+      e1: J.Val = gc.su(gc.su(gc.su(e0, "hp", gc.u(h, "hp")), "pop", gc.u(h, "pop")), "spin", gc.u(h, "spin"))
+      e2: J.Val = gc.sb(gc.sb(gc.su(e1, "bombs", gc.u(h, "bombs")), "shielding", gc.b(h, "shielding")), "booby", Bool.not(J.is_null(J.get(h, "booby"))))
+      J.set(e2, "hand", J.get(h, "hand")) <> spectacle.seen_heroes(hs, t)
+
+def spectacle.seen_foes(+es: List<&2, J.Val>) -> List<&2, J.Val>:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      J.JA{[J.get(e, "id"), J.JU{gc.u(e, "hp")}, J.JBool{gc.b(e, "raged")}]} <> spectacle.seen_foes(t)
+
+def spectacle.seen_items(+items: List<&2, J.Val>) -> List<&2, J.Val>:
+  match items as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{i: J.Val, t: List<&2, J.Val>}:
+      J.get(i, "card") <> spectacle.seen_items(t)
+
+# pub fn circle(&self) -> u32
+def spectacle.Run.circle(+run: J.Val) -> U32:
+  gc.u(J.get(run, "spectacle"), "circle")
+
+# pub(super) fn watch(&mut self, seen)
+def spectacle.Run.watch(+run: J.Val, +seen: J.Val) -> J.Val:
+  r1: J.Val = spectacle.Run.strength_of_circles(run)
+  r2: J.Val = spectacle.Run.watch_heroes(r1, seen)
+  r3: J.Val = spectacle.Run.watch_foes(r2, seen)
+  r4: J.Val = spectacle.Run.tick_gate(spectacle.Run.tick_claims(r3))
+  r5: J.Val = gc.ifj(Bool.and(U32.is_ne(gc.u(r4, "at"), gc.u(seen, "at")), Bool.not(spectacle.has_sound(gc.drop_front(J.get(r4, "sounds"), gc.u(seen, "sounded")), "descend"))), _ => gc.sound(r4, "door_pass"), _ => r4)
+  r6: J.Val = spectacle.Run.watch_items(r5, seen)
+  chatter.Run.chatter(r6, gc.u(seen, "cued"))
+
+def spectacle.has_sound(+ss: J.Val, +name: String) -> Bool:
+  spectacle.has_s(J.items(ss), name)
+
+def spectacle.has_s(+xs: List<&2, J.Val>, +name: String) -> Bool:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      Bool.or(String.eq(J.str(h), name), spectacle.has_s(t, name))
+
+# fn striker(&self, x, y) -> Option<(f32, f32)>: the nearest living foe or hostile shot within 8.
+def spectacle.Run.striker(+run: J.Val, +x: F32, +y: F32) -> Maybe<&2, GcPt>:
+  a: Maybe<&2, GcPt> = spectacle.nearest(J.items(J.get(run, "enemies")), x, y, False{}, None{}, 8.0)
+  spectacle.nearest_b(J.items(J.get(run, "projectiles")), x, y, a)
+
+# Over foes (hp > 0): the one closest, strictly under `best`.
+def spectacle.nearest(+es: List<&2, J.Val>, +x: F32, +y: F32, +shots: Bool, +found: Maybe<&2, GcPt>, +best: F32) -> Maybe<&2, GcPt>:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      found
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      d: F32 = RS.f_hypot((x - gc.f(e, "x") : F32), (y - gc.f(e, "y") : F32))
+      if Bool.and(U32.is_gt(gc.u(e, "hp"), 0), F32.is_lt(d, best)):
+        spectacle.nearest(t, x, y, shots, Some{GcPt{gc.f(e, "x"), gc.f(e, "y")}}, d)
+      else:
+        spectacle.nearest(t, x, y, shots, found, best)
+
+def spectacle.best_of(+m: Maybe<&2, GcPt>, +x: F32, +y: F32) -> F32:
+  match m as Maybe<&2, GcPt>:
+    case None{}:
+      8.0
+    case Some{p: GcPt}:
+      RS.f_hypot((x - gc.f_pt_x(p) : F32), (y - gc.f_pt_y(p) : F32))
+
+def spectacle.nearest_b(+ps: List<&2, J.Val>, +x: F32, +y: F32, +found: Maybe<&2, GcPt>) -> Maybe<&2, GcPt>:
+  spectacle.nearest_hostile(ps, x, y, found, spectacle.best_of(found, x, y))
+
+def spectacle.nearest_hostile(+ps: List<&2, J.Val>, +x: F32, +y: F32, +found: Maybe<&2, GcPt>, +best: F32) -> Maybe<&2, GcPt>:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      found
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      d: F32 = RS.f_hypot((x - gc.f(p, "x") : F32), (y - gc.f(p, "y") : F32))
+      if Bool.and(gc.b(p, "hostile"), F32.is_lt(d, best)):
+        spectacle.nearest_hostile(t, x, y, Some{GcPt{gc.f(p, "x"), gc.f(p, "y")}}, d)
+      else:
+        spectacle.nearest_hostile(t, x, y, found, best)
+
+# fn floor_step(&self) -> &'static str
+def spectacle.Run.floor_step(+run: J.Val) -> String:
+  if home.Run.at_home_now(run):
+    k: String = J.str(J.get(rules.Run.room(run), "kind"))
+    gc.ps(Bool.or(String.eq(k, "tavern"), Bool.or(String.eq(k, "stables"), Bool.or(String.eq(k, "lists"), Bool.or(String.eq(k, "hall"), String.eq(k, "quarters"))))), "step_wood", "step_stone")
+  else:
+    pack: String = gc.s(J.get(run, "dungeon"), "pack")
+    if String.eq(pack, "crypt"):
+      "step_stone"
+    else:
+      if String.eq(pack, "cavern"):
+        "step_gravel"
+      else:
+        if Bool.or(String.eq(pack, "hellforge"), String.eq(pack, "unknown")):
+          "step_ash"
+        else:
+          gc.ps(Bool.or(String.eq(pack, "archive"), String.eq(pack, "swamp")), "step_wet", "step_moss")
+
+# Fx::Shake(n) onto the run's fx list.
+def spectacle.shake(+run: J.Val, +n: U32) -> J.Val:
+  gc.push(run, "fx", J.set(J.obj(), "Shake", J.JU{n}))
+
+# fn watch_heroes(&mut self, seen)
+def spectacle.Run.watch_heroes(+run: J.Val, +seen: J.Val) -> J.Val:
+  heroes: List<&2, J.Val> = J.items(J.get(seen, "heroes"))
+  strikers: J.Val = spectacle.strikers(run, heroes)
+  r: J.Val & J.Val = spectacle.heroes_each(run, seen, heroes, strikers, J.JA{Nil{}}, 0)
+  (run2: J.Val, sounds: J.Val) = r
+  r3: J.Val = spectacle.shake(run2, gc.u(sounds, "shake"))
+  gc.sounds_extend(r3, gc.strs(J.items(J.get(sounds, "list"))))
+
+def gc.strs(+xs: List<&2, J.Val>) -> List<&2, String>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      J.str(h) <> gc.strs(t)
+
+# For each hero that lost health: its id and the nearest striker, as {id, has, x, y}.
+def spectacle.strikers(+run: J.Val, +hs: List<&2, J.Val>) -> J.Val:
+  match hs as List<&2, J.Val>:
+    case Nil{}:
+      J.obj()
+    case Con{before: J.Val, t: List<&2, J.Val>}:
+      id: U32 = gc.u(before, "id")
+      hero: J.Val = gc.seat(J.get(run, "players"), id)
+      if Bool.and(Bool.not(J.is_null(hero)), U32.is_lt(gc.u(hero, "hp"), gc.u(before, "hp"))):
+        J.set(spectacle.strikers(run, t), gc.key(id), spectacle.pt_json(spectacle.Run.striker(run, gc.f(hero, "x"), gc.f(hero, "y"))))
+      else:
+        spectacle.strikers(run, t)
+
+def spectacle.pt_json(+m: Maybe<&2, GcPt>) -> J.Val:
+  match m as Maybe<&2, GcPt>:
+    case None{}:
+      J.JNull{}
+    case Some{p: GcPt}:
+      gc.pairf(gc.f_pt_x(p), gc.f_pt_y(p))
+
+# The heroes in order. `acc` collects {list: [sounds], shake}; `k` unused counter.
+def spectacle.heroes_each(+run: J.Val, +seen: J.Val, +hs: List<&2, J.Val>, +strikers: J.Val, +acc0: J.Val, +k: U32) -> J.Val & J.Val:
+  match hs as List<&2, J.Val>:
+    case Nil{}:
+      (run, J.set(gc.su(J.obj(), "shake", gc.u(acc0, "shake")), "list", gc.ifj(J.is_null(J.get(acc0, "list")), _ => J.JA{Nil{}}, _ => J.get(acc0, "list"))))
+    case Con{before: J.Val, t: List<&2, J.Val>}:
+      id: U32 = gc.u(before, "id")
+      if gc.has_seat(J.get(run, "players"), id):
+        r: J.Val & J.Val = spectacle.hero_turn(run, seen, before, strikers, gc.ifj(J.is_null(J.get(acc0, "list")), _ => J.set(acc0, "list", J.JA{Nil{}}), _ => acc0))
+        (run2: J.Val, acc: J.Val) = r
+        spectacle.heroes_each(run2, seen, t, strikers, acc, k)
+      else:
+        spectacle.heroes_each(run, seen, t, strikers, acc0, k)
+
+# acc.push(sound)
+def spectacle.say(+acc: J.Val, +s: String) -> J.Val:
+  J.set(acc, "list", J.push(J.get(acc, "list"), J.JS{s}))
+
+def spectacle.hero_turn(+run: J.Val, +seen: J.Val, +before: J.Val, +strikers: J.Val, +acc: J.Val) -> J.Val & J.Val:
+  id: U32 = gc.u(before, "id")
+  hero: J.Val = gc.seat(J.get(run, "players"), id)
+  h0: J.Val = gc.su(hero, "struck", gc.ssub(gc.u(hero, "struck"), 1))
+  tick: W.W = gc.tick(run)
+  circle: U32 = gc.u(J.get(run, "spectacle"), "circle")
+  if Bool.and(U32.is_gt(gc.u(before, "hp"), 0), U32.is_lt(gc.u(h0, "hp"), gc.u(before, "hp"))):
+    r: J.Val & J.Val = spectacle.hurt_hero(run, h0, before, J.get(strikers, gc.key(id)), tick, circle, acc)
+    (h1: J.Val, acc1: J.Val) = r
+    spectacle.hero_rest(run, seen, before, h1, tick, acc1)
+  else:
+    if Bool.and(U32.is_gt(gc.u(before, "hp"), 0), U32.is_zero(gc.u(h0, "hp"))):
+      spectacle.hero_rest(run, seen, before, J.set(h0, "fell", W.to_j(W.max(tick, W.of_u32(1)))), tick, spectacle.say(acc, "knight_fall"))
+    else:
+      spectacle.hero_rest(run, seen, before, h0, tick, acc)
+
+# A knight that lost health this tick: a deeper circle hurts more, the blow's weight and direction, the sounds.
+def spectacle.hurt_hero(+run: J.Val, +h0: J.Val, +before: J.Val, +striker: J.Val, +tick: W.W, +circle: U32, +acc: J.Val) -> J.Val & J.Val:
+  bhp: U32 = gc.u(before, "hp")
+  hp1: U32 = gc.pu(U32.is_gt(circle, 0), spectacle.circled_hp(bhp, gc.u(h0, "hp"), gc.u(h0, "max_hp"), circle), gc.u(h0, "hp"))
+  lost: U32 = (bhp - hp1 : U32)
+  big: Bool = U32.is_ge(gc.sat_mul(lost, 100), gc.sat_mul(gc.umax(gc.u(h0, "max_hp"), 1), spectacle.HEAVY_HIT()))
+  dir: J.Val = spectacle.struck_dir(h0, striker)
+  h1: J.Val = J.set(gc.sb(gc.su(gc.su(h0, "hp", hp1), "struck", spectacle.STRUCK()), "struck_big", big), "struck_dir", dir)
+  a1: J.Val = gc.ifj(U32.is_gt(hp1, 0), _ => spectacle.say(acc, gc.ps(big, "knight_hit_big", "knight_hit")), _ => acc)
+  a2: J.Val = gc.ifj(big, _ => gc.su(a1, "shake", gc.umax(gc.u(a1, "shake"), 7)), _ => a1)
+  if U32.is_zero(hp1):
+    h2: J.Val = gc.su(J.set(h1, "fell", W.to_j(W.max(tick, W.of_u32(1)))), "struck", 0)
+    a3: J.Val = gc.su(spectacle.say(a2, "knight_fall"), "shake", gc.umax(gc.u(a2, "shake"), 10))
+    (h2, gc.ifj(String.eq(gc.s(run, "phase"), "wiped"), _ => spectacle.say(a3, "bones_clatter"), _ => a3))
+  else:
+    (h1, a2)
+
+# hero.hp.saturating_sub(more).max(least.min(hero.hp)), with more = lost * CIRCLE_HURT * circle / 100
+def spectacle.circled_hp(+bhp: U32, +hp: U32, +max_hp: U32, +circle: U32) -> U32:
+  more: U32 = U32.div(((bhp - hp : U32) * spectacle.CIRCLE_HURT() * circle : U32), 100)
+  least: U32 = gc.ssub(bhp, U32.div((max_hp * hero.ONE_HIT_MOST() : U32), 100))
+  gc.umax(gc.ssub(hp, more), gc.umin(least, hp))
+
+def gc.sat_mul(+a: U32, +b: U32) -> U32:
+  RS.u_sat_mul(a, b)
+
+# struck_dir: away from the striker, else against the aim; each axis rounded to -1, 0 or 1.
+def spectacle.struck_dir(+h: J.Val, +striker: J.Val) -> J.Val:
+  if J.is_null(striker):
+    gc.ipair(F32.neg(gc.f(h, "aim_x")), F32.neg(gc.f(h, "aim_y")))
+  else:
+    dx: F32 = (gc.f(h, "x") - gc.nf(striker, 0) : F32)
+    dy: F32 = (gc.f(h, "y") - gc.nf(striker, 1) : F32)
+    len: F32 = RS.f_max(RS.f_hypot(dx, dy), 0.01)
+    gc.ipair((dx / len : F32), (dy / len : F32))
+
+# A pair of f32 rounded to i8 values.
+def gc.ipair(+x: F32, +y: F32) -> J.Val:
+  J.JA{[J.of_i32(RS.f_as_i32(RS.f_round(x))), J.of_i32(RS.f_as_i32(RS.f_round(y)))]}
+
+# The rest of a knight's turn: falls, helmets, shields, strides, cards played.
+def spectacle.hero_rest(+run: J.Val, +seen: J.Val, +before: J.Val, +h0: J.Val, +tick: W.W, +acc0: J.Val) -> J.Val & J.Val:
+  id: U32 = gc.u(before, "id")
+  acc1: J.Val = gc.ifj(Bool.and(U32.is_zero(gc.u(h0, "hp")), Bool.and(Bool.not(W.eq(W.of_j(J.get(h0, "fell")), W.zero())), W.eq(tick, W.add_u32(W.of_j(J.get(h0, "fell")), 9)))), _ => spectacle.say(acc0, "bones_clatter"), _ => acc0)
+  h1: J.Val = gc.ifj(U32.is_gt(gc.u(h0, "hp"), 0), _ => J.set(h0, "fell", J.JU{0}), _ => h0)
+  a2: J.Val = gc.ifj(Bool.and(U32.is_zero(gc.u(before, "pop")), Bool.and(U32.is_gt(gc.u(h1, "pop"), 0), Bool.and(U32.is_zero(gc.u(h1, "gear_was")), U32.is_ge(gc.u(h1, "gear"), 1)))), _ => spectacle.say(acc1, "helmet_pop"), _ => acc1)
+  a3: J.Val = gc.ifj(Bool.and(U32.is_ge(gc.u(h1, "gear"), 2), Bool.and(U32.is_lt(gc.u(h1, "gear_was"), 2), U32.is_eq(gc.u(h1, "pop"), (gear.POP_TICKS() - 5 : U32)))), _ => spectacle.say(a2, "armour_fall"), _ => a2)
+  a4: J.Val = gc.ifj(Bool.and(Bool.not(gc.b(before, "shielding")), gc.b(h1, "shielding")), _ => spectacle.say(a3, "shield_up"), _ => a3)
+  a5: J.Val = gc.ifj(Bool.and(U32.is_zero(gc.u(before, "spin")), U32.is_gt(gc.u(h1, "spin"), 0)), _ => spectacle.say(a4, "axe_spin"), _ => a4)
+  a6: J.Val = gc.ifj(Bool.and(gc.b(before, "booby"), Bool.and(J.is_null(J.get(h1, "booby")), U32.is_gt(gc.u(h1, "invulnerable"), 0))), _ => spectacle.say(spectacle.say(a5, "helmet_pop"), "clang"), _ => a5)
+  a7: J.Val = gc.ifj(U32.is_lt(gc.u(h1, "bombs"), gc.u(before, "bombs")), _ => spectacle.say(a6, "bomb_toss"), _ => a6)
+  moved: F32 = RS.f_hypot((gc.f(h1, "x") - gc.f(before, "x") : F32), (gc.f(h1, "y") - gc.f(before, "y") : F32))
+  walking: Bool = Bool.and(U32.is_gt(gc.u(h1, "hp"), 0), Bool.and(Bool.not(gc.b(h1, "stone")), Bool.and(U32.is_zero(gc.u(h1, "dash_ticks")), Bool.and(U32.is_zero(gc.u(h1, "tossed")), Bool.and(U32.is_zero(gc.u(h1, "privy")), Bool.and(F32.is_gt(moved, 0.02), Bool.and(F32.is_lt(moved, 2.5), U32.is_eq(gc.u(run, "at"), gc.u(seen, "at")))))))))
+  stride: F32 = gc.ifm(walking, (gc.f(h1, "stride") + moved : F32), 0.0)
+  stride2: F32 = gc.pf(Bool.and(walking, F32.is_ge(stride, spectacle.STRIDE())), (stride - spectacle.STRIDE() : F32), stride)
+  h2: J.Val = gc.sf(h1, "stride", stride2)
+  a8: J.Val = spectacle.played(run, before, h2, a7)
+  (J.set(run, "players", gc.put_seat(J.get(run, "players"), id, h2)), a8)
+
+def gc.ifm(+c: Bool, +a: F32, +b: F32) -> F32:
+  Bool.pick(F32, c, a, b)
+
+# A card played from the hand: the first card whose count fell, by its book entry.
+def spectacle.played(+run: J.Val, +before: J.Val, +h: J.Val, +acc: J.Val) -> J.Val:
+  if U32.is_lt(gc.len(J.items(J.get(h, "hand"))), gc.len(J.items(J.get(before, "hand")))):
+    id: String = spectacle.lost_card(J.items(J.get(before, "hand")), J.get(before, "hand"), J.get(h, "hand"))
+    card: J.Val = gc.ifj(String.is_empty(id), _ => J.JNull{}, _ => gc.book_get(J.get(run, "book"), id))
+    gc.ifj(J.is_null(card), _ => acc, _ => spectacle.say(acc, spectacle.played_sound(card)))
+  else:
+    acc
+
+# find(|c| now.count(c) < before.count(c)).and_then(book.get): the first such card present in the book.
+def spectacle.lost_card(+xs: List<&2, J.Val>, +before: J.Val, +now: J.Val) -> String:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      ""
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      if U32.is_lt(spectacle.count(J.items(now), J.str(c)), spectacle.count(J.items(before), J.str(c))):
+        J.str(c)
+      else:
+        spectacle.lost_card(t, before, now)
+
+def spectacle.count(+xs: List<&2, J.Val>, +name: String) -> U32:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      0
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      (gc.pu(String.eq(J.str(c), name), 1, 0) + spectacle.count(t, name) : U32)
+
+# fn played_sound(card)
+def spectacle.played_sound(+card: J.Val) -> String:
+  if String.contains(String.to_lower(gc.s(card, "name")), "holy"):
+    "holy_water"
+  else:
+    gc.ps(spectacle.any_effect(J.items(J.get(card, "effects")), "heal"), "potion", "play_card")
+
+def spectacle.any_effect(+es: List<&2, J.Val>, +name: String) -> Bool:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      Bool.or(J.has(e, name), spectacle.any_effect(t, name))
+
+# fn watch_foes(&mut self, seen)
+def spectacle.Run.watch_foes(+run: J.Val, +seen: J.Val) -> J.Val:
+  struck: Bool = spectacle.any_struck(J.items(J.get(seen, "foes")), J.items(J.get(run, "enemies")))
+  r1: J.Val = gc.ifj(struck, _ => spectacle.landed(run, seen), _ => run)
+  spectacle.roars(r1, J.items(J.get(r1, "enemies")), J.items(J.get(seen, "foes")))
+
+# Some seen foe is gone or has less health now.
+def spectacle.any_struck(+foes: List<&2, J.Val>, +es: List<&2, J.Val>) -> Bool:
+  match foes as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      e: J.Val = spectacle.find_enemy(es, J.nth(f, 0))
+      Bool.or(Bool.or(J.is_null(e), U32.is_lt(gc.u(e, "hp"), J.u32(J.nth(f, 1)))), spectacle.any_struck(t, es))
+
+def spectacle.find_enemy(+es: List<&2, J.Val>, +id: J.Val) -> J.Val:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      gc.ifj(U32.is_eq(gc.u(e, "id"), J.u32(id)), _ => e, _ => spectacle.find_enemy(t, id))
+
+# A hit landed: its sound replaces the plain "hit" sounds of this tick.
+def spectacle.landed(+run: J.Val, +seen: J.Val) -> J.Val:
+  m: String = spectacle.landed_sound(run, seen)
+  if String.is_empty(m):
+    run
+  else:
+    sounded: U32 = gc.u(seen, "sounded")
+    fresh: J.Val = gc.drop_front(J.get(run, "sounds"), sounded)
+    plain: Bool = spectacle.has_s(J.items(fresh), "hit")
+    r1: J.Val = gc.ifj(Bool.or(plain, U32.is_zero(gc.len(J.items(fresh)))), _ => J.set(run, "sounds", J.JA{List.append(&2, J.Val, J.items(J.truncate(J.get(run, "sounds"), sounded)), spectacle.not_hit(J.items(fresh)))}), _ => run)
+    gc.sound(r1, m)
+
+def spectacle.not_hit(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      gc.ifx_j(Bool.not(String.eq(J.str(h), "hit")), h, spectacle.not_hit(t))
+
+# fn landed_sound(&self, seen) -> Option<&'static str> ("" for none)
+def spectacle.landed_sound(+run: J.Val, +seen: J.Val) -> String:
+  hurt: J.Val = spectacle.first_hurt(J.items(J.get(seen, "foes")), J.items(J.get(run, "enemies")))
+  if J.is_null(hurt):
+    ""
+  else:
+    fx: F32 = gc.nf(hurt, 0)
+    fy: F32 = gc.nf(hurt, 1)
+    hid: U32 = spectacle.closest_hero(J.get(run, "players"), gc.ids(J.get(run, "players")), fx, fy, 0, 0.0)
+    if U32.is_zero(hid):
+      ""
+    else:
+      hero: J.Val = gc.seat(J.get(run, "players"), hid)
+      close: Bool = F32.is_lt(RS.f_hypot((gc.f(hero, "x") - fx : F32), (gc.f(hero, "y") - fy : F32)), 4.2)
+      forged: J.Val = J.get(hero, "forged")
+      if Bool.and(U32.is_gt(gc.u(hero, "spin"), 0), close):
+        "hit_axe"
+      else:
+        if Bool.and(U32.is_gt(gc.u(hero, "swing"), 0), close):
+          "hit_blade"
+        else:
+          if Bool.and(Bool.not(J.is_null(forged)), Bool.and(Bool.not(J.is_null(J.get(forged, "melee"))), J.is_null(J.get(forged, "bolt")))):
+            "hit_blade"
+          else:
+            if Bool.or(Bool.and(Bool.not(J.is_null(forged)), Bool.not(J.is_null(J.get(forged, "bolt")))), classes.shot_look_some(hero)):
+              "hit_magic"
+            else:
+              spectacle.weapon_hit(gc.s(hero, "weapon"))
+
+def spectacle.weapon_hit(+w: String) -> String:
+  if String.eq(w, "fists"):
+    "hit"
+  else:
+    if String.eq(w, "bow"):
+      "hit_arrow"
+    else:
+      if Bool.or(String.eq(w, "notes"), String.eq(w, "stones")):
+        "hit_magic"
+      else:
+        gc.ps(String.eq(w, "crossbow"), "hit_bolt", "hit_blast")
+
+# The position [x, y] of the first seen foe that now has less health.
+def spectacle.first_hurt(+foes: List<&2, J.Val>, +es: List<&2, J.Val>) -> J.Val:
+  match foes as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      e: J.Val = spectacle.find_enemy(es, J.nth(f, 0))
+      gc.ifj(Bool.and(Bool.not(J.is_null(e)), U32.is_lt(gc.u(e, "hp"), J.u32(J.nth(f, 1)))), _ => gc.pairf(gc.f(e, "x"), gc.f(e, "y")), _ => spectacle.first_hurt(t, es))
+
+# The living, unstoned knight closest to (fx, fy) (the lowest id among equals); 0 for none.
+def spectacle.closest_hero(+hs: J.Val, +ids: List<&2, U32>, +fx: F32, +fy: F32, +best: U32, +bestd: F32) -> U32:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      best
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(hs, id)
+      d: F32 = RS.f_hypot((gc.f(h, "x") - fx : F32), (gc.f(h, "y") - fy : F32))
+      if Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), Bool.or(U32.is_zero(best), F32.is_lt(d, bestd)))):
+        spectacle.closest_hero(hs, t, fx, fy, id, d)
+      else:
+        spectacle.closest_hero(hs, t, fx, fy, best, bestd)
+
+# A boss showing up roars; one that has raged since the snapshot rages.
+def spectacle.roars(+run: J.Val, +es: List<&2, J.Val>, +foes: List<&2, J.Val>) -> J.Val:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      run
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      before: J.Val = spectacle.find_seen(foes, gc.u(e, "id"))
+      if Bool.and(monsters.Enemy.is_boss(e), Bool.and(J.is_null(before), U32.is_lt(gc.u(e, "age"), (2 * rules.HZ() : U32)))):
+        spectacle.roars(gc.sound(run, "boss_roar"), t, foes)
+      else:
+        if Bool.and(gc.b(e, "raged"), Bool.and(Bool.not(J.is_null(before)), Bool.not(J.bool(J.nth(before, 2))))):
+          spectacle.roars(gc.sound(run, "boss_rage"), t, foes)
+        else:
+          spectacle.roars(run, t, foes)
+
+def spectacle.find_seen(+foes: List<&2, J.Val>, +id: U32) -> J.Val:
+  match foes as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      gc.ifj(U32.is_eq(J.u32(J.nth(f, 0)), id), _ => f, _ => spectacle.find_seen(t, id))
+
+# fn watch_items(&mut self, seen): gold picked up sounds as gold.
+def spectacle.Run.watch_items(+run: J.Val, +seen: J.Val) -> J.Val:
+  if U32.is_ne(gc.u(run, "at"), gc.u(seen, "at")):
+    run
+  else:
+    now: List<&2, J.Val> = spectacle.seen_items(J.items(J.get(rules.Run.room(run), "items")))
+    taken: J.Val = spectacle.taken_card(J.items(J.get(seen, "items")), J.items(J.get(seen, "items")), now, J.get(run, "book"))
+    gold: Bool = Bool.and(Bool.not(J.is_null(taken)), Bool.or(String.eq(gc.s(taken, "id"), "gold"), spectacle.any_effect(J.items(J.get(taken, "effects")), "gold")))
+    if gold:
+      gc.sound(J.set(run, "sounds", J.JA{spectacle.drop_pickups(J.items(J.get(run, "sounds")))}), "gold")
+    else:
+      run
+
+def spectacle.taken_card(+xs: List<&2, J.Val>, +seen: List<&2, J.Val>, +now: List<&2, J.Val>, +book: J.Val) -> J.Val:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      card: J.Val = gc.book_get(book, J.str(c))
+      if Bool.and(U32.is_lt(spectacle.count(now, J.str(c)), spectacle.count(seen, J.str(c))), Bool.not(J.is_null(card))):
+        card
+      else:
+        spectacle.taken_card(t, seen, now, book)
+
+def spectacle.drop_pickups(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      gc.ifx_j(Bool.not(Bool.or(String.eq(J.str(h), "card_pickup"), String.eq(J.str(h), "spoil_pickup"))), h, spectacle.drop_pickups(t))
+
+# pub(super) fn leave_corpses(&mut self, fallen: [[kind, x, y]], guardians: [[index, x, y]])
+def spectacle.Run.leave_corpses(+run: J.Val, +fallen: J.Val, +guardians: J.Val) -> J.Val:
+  r1: J.Val = spectacle.guardian_corpses(run, J.items(guardians))
+  r2: J.Val = spectacle.fallen_corpses(r1, J.items(fallen))
+  sp: J.Val = J.get(r2, "spectacle")
+  r3: J.Val = J.set(r2, "spectacle", J.set(sp, "corpses", J.truncate(J.get(sp, "corpses"), 8)))
+  gc.ifj(Bool.or(Bool.not(U32.is_zero(gc.len(J.items(guardians)))), spectacle.any_big(J.items(fallen))), _ => gc.sound(r3, "boss_death"), _ => r3)
+
+def spectacle.big_kind(+k: String) -> Bool:
+  Bool.or(String.eq(k, "dragon"), Bool.or(String.eq(k, "pit_tyrant"), String.eq(k, "risen")))
+
+def spectacle.any_big(+fs: List<&2, J.Val>) -> Bool:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      Bool.or(spectacle.big_kind(J.str(J.nth(f, 0))), spectacle.any_big(t))
+
+def spectacle.corpse(+run: J.Val, +kind: String, +boss: J.Val, +x: F32, +y: F32, +radius: F32) -> J.Val:
+  c0: J.Val = gc.sf(gc.sf(gc.ss(J.set(J.obj(), "boss", boss), "kind", kind), "x", x), "y", y)
+  c1: J.Val = gc.sf(gc.su(J.set(c0, "born", J.get(run, "tick")), "room", gc.u(run, "at")), "radius", radius)
+  J.set(run, "spectacle", gc.push(J.get(run, "spectacle"), "corpses", c1))
+
+def spectacle.guardian_corpses(+run: J.Val, +gs: List<&2, J.Val>) -> J.Val:
+  match gs as List<&2, J.Val>:
+    case Nil{}:
+      run
+    case Con{g: J.Val, t: List<&2, J.Val>}:
+      index: U32 = J.u32(J.nth(g, 0))
+      b: J.Val = J.nth(J.get(run, "bosses"), index)
+      radius: F32 = gc.ifm(J.is_null(b), 1.5, gc.f(b, "radius"))
+      spectacle.guardian_corpses(spectacle.corpse(run, "boss", J.JU{index}, gc.nf(g, 1), gc.nf(g, 2), radius), t)
+
+def spectacle.fallen_corpses(+run: J.Val, +fs: List<&2, J.Val>) -> J.Val:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      run
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      kind: String = J.str(J.nth(f, 0))
+      if spectacle.big_kind(kind):
+        spectacle.fallen_corpses(spectacle.corpse(run, kind, J.JNull{}, gc.nf(f, 1), gc.nf(f, 2), monsters.EnemyKind.radius(kind)), t)
+      else:
+        spectacle.fallen_corpses(run, t)
+
+# fn tick_claims(&mut self)
+def spectacle.Run.tick_claims(+run: J.Val) -> J.Val:
+  tick: W.W = gc.tick(run)
+  at: U32 = gc.u(run, "at")
+  kept: List<&2, J.Val> = spectacle.claims_keep(J.items(J.get(J.get(run, "spectacle"), "corpses")), tick, at)
+  r1: J.Val = J.set(run, "spectacle", J.set(J.get(run, "spectacle"), "corpses", J.JA{kept}))
+  r: J.Val & U32 = spectacle.claims_each(kept, tick, Nil{}, 0)
+  (sounds: J.Val, shake: U32) = r
+  gc.sounds_extend(spectacle.shake(r1, shake), gc.strs(J.items(sounds)))
+
+def spectacle.claims_keep(+cs: List<&2, J.Val>, +tick: W.W, +at: U32) -> List<&2, J.Val>:
+  match cs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      gc.ifx_j(Bool.and(U32.is_eq(gc.u(c, "room"), at), W.lt(W.sat_sub(tick, W.of_j(J.get(c, "born"))), W.of_u32((spectacle.CLAIM() + 1 : U32)))), c, spectacle.claims_keep(t, tick, at))
+
+def spectacle.claims_each(+cs: List<&2, J.Val>, +tick: W.W, +sounds: List<&2, J.Val>, +shake: U32) -> J.Val & U32:
+  match cs as List<&2, J.Val>:
+    case Nil{}:
+      (J.JA{sounds}, shake)
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      age: W.W = W.sat_sub(tick, W.of_j(J.get(c, "born")))
+      s1: List<&2, J.Val> = List.append(&2, J.Val, sounds, spectacle.claim_marks(age))
+      b: U32 & F32 = spectacle.Corpse.beat(c, tick)
+      (bi: U32, bt: F32) = b
+      sh: U32 = gc.pu(U32.is_eq(bi, 1), 2, gc.pu(U32.is_eq(bi, 2), 3, gc.pu(U32.is_eq(bi, 3), 4, gc.pu(U32.is_eq(bi, 4), 5, gc.pu(Bool.and(U32.is_eq(bi, 5), F32.is_lt(bt, 0.3)), 7, 0)))))
+      spectacle.claims_each(t, tick, s1, gc.umax(shake, sh))
+
+# The sound at each mark of the claim, when the age is exactly on it.
+def spectacle.claim_marks(+age: W.W) -> List<&2, J.Val>:
+  m1: U32 = spectacle.LOOT_WAIT()
+  m2: U32 = (m1 + spectacle.CRACK() : U32)
+  m3: U32 = (m2 + spectacle.RISE() : U32)
+  m4: U32 = (m3 + spectacle.GRAB() : U32)
+  m5: U32 = (m4 + spectacle.PULL() : U32)
+  List.append(&2, J.Val, gc.ifl(W.eq(age, W.of_u32(m1)), J.JS{"crack_open"}), List.append(&2, J.Val, gc.ifl(W.eq(age, W.of_u32(m2)), J.JS{"hand_rise"}), List.append(&2, J.Val, gc.ifl(W.eq(age, W.of_u32(m3)), J.JS{"hand_grab"}), List.append(&2, J.Val, gc.ifl(W.eq(age, W.of_u32(m4)), J.JS{"hand_drag"}), gc.ifl(W.eq(age, W.of_u32(m5)), J.JS{"ground_close"})))))
+
+def gc.ifl(+c: Bool, +v: J.Val) -> List<&2, J.Val>:
+  match c:
+    case True{}:
+      [v]
+    case False{}:
+      Nil{}
+
+# pub(super) fn raise_hell_gate(&mut self)
+def spectacle.Run.raise_hell_gate(+run: J.Val) -> J.Val:
+  room: J.Val = rules.Run.room(run)
+  x: F32 = ((layout.Room.width(room) / 2.0 : F32) + 11.0 : F32)
+  y: F32 = ((layout.Room.height(room) / 2.0 : F32) + 6.0 : F32)
+  gate: J.Val = gc.su(J.set(gc.sf(gc.sf(J.obj(), "x", x), "y", y), "born", J.get(run, "tick")), "room", gc.u(run, "at"))
+  r1: J.Val = J.set(run, "spectacle", J.set(J.get(run, "spectacle"), "gate", gate))
+  spectacle.shake(gc.cue(gc.sound(r1, "hell_gate_rise"), "hell_gate"), 14)
+
+# fn tick_gate(&mut self)
+def spectacle.Run.tick_gate(+run: J.Val) -> J.Val:
+  sp: J.Val = J.get(run, "spectacle")
+  g: J.Val = J.get(sp, "gate")
+  r1: J.Val = gc.ifj(Bool.and(Bool.not(J.is_null(g)), U32.is_ne(gc.u(g, "room"), gc.u(run, "at"))), _ => J.set(run, "spectacle", gc.snull(sp, "gate")), _ => run)
+  g2: J.Val = J.get(J.get(r1, "spectacle"), "gate")
+  if Bool.and(Bool.not(J.is_null(g2)), W.lt(W.sat_sub(gc.tick(r1), W.of_j(J.get(g2, "born"))), W.of_u32(spectacle.GATE_RISE()))):
+    spectacle.shake(r1, 3)
+  else:
+    r1
+
+# pub(super) fn step_into_gate(&mut self) -> bool
+def spectacle.Run.step_into_gate(+run: J.Val) -> J.Val & Bool:
+  g: J.Val = J.get(J.get(run, "spectacle"), "gate")
+  if J.is_null(g):
+    (run, False{})
+  else:
+    if Bool.or(F32.is_lt(spectacle.Gate.risen(g, gc.tick(run)), 1.0), Bool.not(spectacle.anyone_at(J.get(run, "players"), gc.ids(J.get(run, "players")), gc.f(g, "x"), gc.f(g, "y")))):
+      (run, False{})
+    else:
+      (spectacle.Run.enter_circle(run), True{})
+
+def spectacle.anyone_at(+hs: J.Val, +ids: List<&2, U32>, +x: F32, +y: F32) -> Bool:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(hs, id)
+      Bool.or(Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), F32.is_lt(RS.f_hypot((gc.f(h, "x") - x : F32), (gc.f(h, "y") - y : F32)), spectacle.GATE_REACH()))), spectacle.anyone_at(hs, t, x, y))
+
+# fn enter_circle(&mut self)
+def spectacle.Run.enter_circle(+run: J.Val) -> J.Val:
+  sp0: J.Val = gc.su(gc.snull(J.get(run, "spectacle"), "gate"), "circle", (gc.u(J.get(run, "spectacle"), "circle") + 1 : U32))
+  sp1: J.Val = gc.sb(J.set(sp0, "corpses", J.JA{Nil{}}), "circling", True{})
+  floor: U32 = gc.u(J.get(run, "dungeon"), "depth")
+  r1: J.Val = floors.Run.descend(J.set(run, "spectacle", sp1))
+  r2: J.Val = J.set(r1, "spectacle", gc.sb(J.get(r1, "spectacle"), "circling", False{}))
+  r3: J.Val = gc.ifj(Bool.or(U32.is_ne(gc.u(J.get(r2, "dungeon"), "depth"), floor), Bool.not(J.is_null(J.get(r2, "crossroads")))), _ => spectacle.relieve(r2, gc.ids(J.get(r2, "players"))), _ => r2)
+  circle: U32 = gc.u(J.get(r3, "spectacle"), "circle")
+  r4: J.Val = J.set(r3, "spectacle", J.set(J.get(r3, "spectacle"), "card", gc.pair(J.get(r3, "tick"), J.JU{circle})))
+  spectacle.shake(gc.cue(gc.sound(gc.sound(r4, "hell_gate_enter"), "circle_toll"), "circle:" ++ U32.show(circle)), 18)
+
+# for hero: relieved = None, pit.visits = 0
+def spectacle.relieve(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(J.get(run, "players"), id)
+      h1: J.Val = J.set(gc.snull(h, "relieved"), "pit", gc.su(J.get(h, "pit"), "visits", 0))
+      spectacle.relieve(J.set(run, "players", gc.put_seat(J.get(run, "players"), id, h1)), t)
+
+# fn strength_of_circles(&mut self)
+def spectacle.Run.strength_of_circles(+run: J.Val) -> J.Val:
+  sp: J.Val = J.get(run, "spectacle")
+  circle: U32 = gc.u(sp, "circle")
+  from: U32 = gc.u(sp, "scaled_id")
+  r1: J.Val = J.set(run, "spectacle", gc.su(sp, "scaled_id", gc.u(run, "next_id")))
+  if U32.is_zero(circle):
+    r1
+  else:
+    J.set(r1, "enemies", J.JA{spectacle.strengthen(J.items(J.get(r1, "enemies")), from, circle)})
+
+def spectacle.strengthen(+es: List<&2, J.Val>, +from: U32, +circle: U32) -> List<&2, J.Val>:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if U32.is_gt(gc.u(e, "id"), from):
+        k: U32 = (100 + (spectacle.CIRCLE_HP() * circle : U32) : U32)
+        hp: U32 = U32.div((gc.u(e, "hp") * k : U32), 100)
+        gc.su(gc.su(gc.su(e, "max_hp", U32.div((gc.u(e, "max_hp") * k : U32), 100)), "hp", hp), "seen_hp", hp) <> spectacle.strengthen(t, from, circle)
+      else:
+        e <> spectacle.strengthen(t, from, circle)
+
+# pub fn circle_card(&self) -> Option<(circle, share)>: (circle, share), circle 0 for none
+def spectacle.Run.circle_card(+run: J.Val) -> U32 & F32:
+  card: J.Val = J.get(J.get(run, "spectacle"), "card")
+  if J.is_null(card):
+    (0, 0.0)
+  else:
+    age: W.W = W.sat_sub(gc.tick(run), W.of_j(J.nth(card, 0)))
+    if W.lt(age, W.of_u32(spectacle.CARD_TICKS())):
+      (J.u32(J.nth(card, 1)), (W.as_f32(age) / RS.u_as_f32(spectacle.CARD_TICKS()) : F32))
+    else:
+      (0, 0.0)

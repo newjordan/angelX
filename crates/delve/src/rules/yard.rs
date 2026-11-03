@@ -110,7 +110,23 @@ impl Run {
 
     /// The yard each tick: quintains count what they took and stand up
     /// again; the stall's plates take orders.
+    /// The Squire Hall's room: its plates, held as they were in the Yard.
+    pub(super) fn tick_squire_hall_room(&mut self, inputs: &BTreeMap<u32, Input>) {
+        for (&id, hero) in &mut self.players {
+            if super::squire_hall::plate_at(hero.x, hero.y).is_none()
+                && self.squire_hall.holds.remove(&id).is_some()
+            {
+                hero.buying = 0;
+            }
+        }
+        self.tick_squire_hall(inputs);
+    }
+
     pub(super) fn tick_yard(&mut self, inputs: &BTreeMap<u32, Input>) {
+        self.tick_countryside_squire_yard(inputs);
+        // Sir Ector's squires; the Academy and the Squire Hall have rooms of
+        // their own off the Yard (`squire_rooms`).
+        self.tick_squire_yard(inputs);
         let mut thwacks = Vec::new();
         for dummy in self
             .enemies
@@ -133,6 +149,8 @@ impl Run {
                 dummy.timer = 0;
             }
         }
+        let barred = self.barred();
+        let at = self.at;
         for (x, y) in thwacks {
             let nearest = self
                 .players
@@ -144,12 +162,11 @@ impl Run {
                 let d = dx.hypot(dy).max(0.01);
                 let to = (hero.x + dx / d * TILE_UNITS * 1.2, hero.y + dy / d * TILE_UNITS * 1.2);
                 let grid = Grid {
-                    room: &self.dungeon.rooms[self.at],
-                    barred: false,
+                    room: &self.dungeon.rooms[at],
+                    barred,
                 };
-                if grid.clear(to.0, to.1, HERO_RADIUS, Mover::Hero) {
-                    (hero.x, hero.y) = to;
-                }
+                let was = (hero.x, hero.y);
+                (hero.x, hero.y) = grid.halted(was, (to.0 - was.0, to.1 - was.1));
                 self.sounds.push("swing");
                 self.sounds.push(super::chatter::clip(id, "oof", 0));
                 self.found = Some((self.tick, id, "THWACK!".into()));
@@ -161,6 +178,9 @@ impl Run {
         }
         let mut asked = Vec::new();
         for (&id, hero) in self.players.iter_mut() {
+            if super::squire_hall::plate_at(hero.x, hero.y).is_some() {
+                continue;
+            }
             let pressing = inputs
                 .get(&id)
                 .copied()

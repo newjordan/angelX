@@ -1,0 +1,63 @@
+# crates/delve/src/rules/lich.rs — the Lich: an ice-crowned skeleton who throws cold bolts and Rimeleap.
+
+# The Lich's step. (enemy, (shots, (deeds, whether this was a Lich))). `deeds` is the
+# foes' Deeds object: its `cues` list takes "rimeleap".
+def lich.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Val, deeds: J.Val) -> (J.Val, (J.Val, (J.Val, Bool))):
+    if Bool.not(String.eq(core.s(enemy, "kind"), "lich")):
+        return (enemy, (shots, (deeds, False{})))
+    ex: F32 = core.f(enemy, "x")
+    ey: F32 = core.f(enemy, "y")
+    target: J.Val = core.nearest_hand(heroes, ex, ey)
+    enemy = core.set_u(enemy, "timer", core.uadd(core.u(enemy, "timer"), 1))
+    if J.is_null(target):
+        return (enemy, (shots, (deeds, True{})))
+    tx: F32 = J.f32(J.nth(target, 0))
+    ty: F32 = J.f32(J.nth(target, 1))
+    (cx: F32, cy: F32) = rules.unit((tx - ex : F32), (ty - ey : F32))
+    dist: F32 = RS.f_hypot((tx - ex : F32), (ty - ey : F32))
+    # Keep between ten and fourteen steps off, drifting sideways between.
+    side: F32 = Bool.pick(F32, U32.is_zero(U32.mod(core.u(enemy, "id"), 2)), 1.0, F32.neg(1.0))
+    wx: F32 = 0.0
+    wy: F32 = 0.0
+    if F32.is_lt(dist, 10.0):
+        wx = F32.neg(cx)
+        wy = F32.neg(cy)
+    elif F32.is_gt(dist, 14.0):
+        wx = cx
+        wy = cy
+    else:
+        wx = (F32.neg(cy) * side : F32)
+        wy = (cx * side : F32)
+    (nx: F32, ny: F32) = rules.Grid.slide(room, barred, (ex, ey), (((wx * 1.8 : F32) * rules.DT() : F32), ((wy * 1.8 : F32) * rules.DT() : F32)), monsters.Enemy.radius(enemy), 1)
+    enemy = core.set_f(core.set_f(enemy, "x", nx), "y", ny)
+    beat: U32 = (core.u(enemy, "timer") + core.u(enemy, "id") * 13 : U32)
+    aim: F32 = F32.atan2((ty - ny : F32), (tx - nx : F32))
+    # His bolt is plain cold: only Rimeleap chills, and leaps.
+    if U32.is_eq(U32.mod(beat, lich.CHAIN_EVERY()), U32.div(lich.CHAIN_EVERY(), 2)):
+        deeds = J.set(deeds, "cues", J.push(J.get(deeds, "cues"), J.JS{"rimeleap"}))
+        shot: J.Val = core.hostile_shot(nx, ny, (F32.cos(aim) * 5.0 : F32), (F32.sin(aim) * 5.0 : F32), "frost", 16, lich.BOUNCES(), (6 * rules.HZ() : U32))
+        return (enemy, (J.push(shots, shot), (deeds, True{})))
+    if U32.is_zero(U32.mod(beat, lich.BOLT_EVERY())):
+        shot: J.Val = core.hostile_shot(nx, ny, (F32.cos(aim) * 8.0 : F32), (F32.sin(aim) * 8.0 : F32), "orb", 10, 0, (6 * rules.HZ() : U32))
+        return (enemy, (J.push(shots, shot), (deeds, True{})))
+    return (enemy, (shots, (deeds, True{})))
+
+# Rimeleap's next link: the nearest knight within reach other than the one just struck.
+# `hands` is an array of [id, x, y]; the answer is that triple, or null.
+def lich.next_link(hands: J.Val, struck: U32, x: F32, y: F32) -> J.Val:
+    best: J.Val = J.JNull{}
+    best_d: F32 = 0.0
+    for p: J.Val in J.items(hands):
+        d: F32 = RS.f_hypot((J.f32(J.nth(p, 1)) - x : F32), (J.f32(J.nth(p, 2)) - y : F32))
+        if Bool.and(Bool.not(U32.is_eq(J.u32(J.nth(p, 0)), struck)), F32.is_lt(d, lich.BOUNCE_REACH())):
+            if Bool.or(J.is_null(best), F32.is_lt(d, best_d)):
+                best = p
+                best_d = d
+    return best
+
+# Chills wear off.
+def lich.Run.tick_chill(run: J.Val) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        players = J.set(players, k, core.set_u(h, "chilled", core.usub(core.u(h, "chilled"), 1)))
+    return J.set(run, "players", players)

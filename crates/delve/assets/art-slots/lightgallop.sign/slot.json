@@ -57,7 +57,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "lightgallop.sign",
-  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.sign/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lg/prepared/lightgallop.sign/source-sheet.png",
   "source_sha256": "0363a56d5c751f5dc770b505468dcd38af2c42b8cb9b1cedee65c7974875eb9f",
   "tool_version": 2
 }

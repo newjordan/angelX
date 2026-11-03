@@ -17,11 +17,18 @@ sheet: seven identical windows so one scale and one pixel grid register the
 tower the same in every frame) and notes.md. The original delivery is never
 written; its SHA-256 is checked first. Prepared sheets stay outside git.
 """
-import argparse, hashlib, io, json
+import argparse, hashlib, io, json, os
 from pathlib import Path
 from PIL import Image, ImageChops, ImageFilter
 
-SOURCE = Path('/work/artifacts/art-prod-rt/slots/lanternward.beacon/v01')
+def env_dir(name):
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(f'set {name} to the art-production directory it names')
+    return Path(value)
+
+
+SOURCE = env_dir('ART_PROD_RT_SLOTS') / 'lanternward.beacon/v01'
 SOURCE_SHA256 = '8fcf7a94f0a98977638482d6de3140adb2d4c2289f835213d2327252cb420fda'
 CANVAS = (320, 520)        # tower space: cell 1 pasted with its base centre at (160, 500)
 PIVOT = (160, 500)

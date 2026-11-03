@@ -46,30 +46,8 @@ impl Tool for ToolRepairTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "tool_repair".to_string(),
-            description: "Diagnose a broken CLI surface (gh, git auth, PATH, snap launchers). Diagnose-only by default. It checks PATH resolution, \
-                          detects snap launchers that fail in sandboxed agents, links usable \
-                          payload binaries into ~/.local/bin, and runs profile probes. Built-in \
-                          profiles: auto, gh. ⠩⠛"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "tool": {
-                        "type": "string",
-                        "description": "⠩⠛⠙"
-                    },
-                    "repair": {
-                        "type": "boolean",
-                        "description": "⠩⠛⠑⠩⠛⠉"
-                    }
-                },
-                "required": []
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("tool_repair")
     }
-
     fn call(&self, args: &Value) -> Result<String, String> {
         // Session call budget: even once the user has approved a repair, cap the
         // number of attempts so a drifted model can't loop on it. Default 2;

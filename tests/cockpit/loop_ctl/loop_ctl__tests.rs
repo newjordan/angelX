@@ -451,6 +451,22 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
             .contains("SUBMISSION OVERDUE")
     );
 
+    // A new measured winner after a submission re-arms the clock: one upload
+    // must not retire submission steering for the rest of the run.
+    app.loop_harvest_with_tools("DIRECTION: new winner".into(), measured("c"));
+    assert!(app.loop_ctl.first_measured_iteration.is_some(), "re-armed");
+    assert!(!app.loop_submission_overdue());
+    for i in 1..=4 {
+        app.loop_harvest(format!("DIRECTION: sit {i}"));
+    }
+    assert!(app.loop_submission_overdue(), "unsent winner is overdue again");
+    assert_eq!(app.loop_ctl.status, LoopStatus::Running, "podrace never stops");
+    assert!(app
+        .loop_ctl
+        .last_setback
+        .as_deref()
+        .is_some_and(|s| s.starts_with(crate::agent::harness::book::d45_iteration::SUBMIT_DUE)));
+
     // Knob 0: never fires.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
@@ -1623,7 +1639,7 @@ fn linked_worktree_state_survives_recreated_link_path() {
 fn adventure_quest_walks_the_regions_end_to_end() {
     let mut app = crate::seed_preview_app();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::CastleTown
     );
 
@@ -1637,7 +1653,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     };
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::TheMines
     );
 
@@ -1648,7 +1664,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     }
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::Swamp
     );
 
@@ -1664,10 +1680,10 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     );
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::TheMines
     );
-    assert_eq!(app.world.quest().treasures(), 0);
+    assert_eq!(app.realm.world.quest().treasures(), 0);
 
     // Submitting puts the hero in the Dragon Keep.
     app.loop_harvest_with_tools(
@@ -1680,7 +1696,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     );
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::DragonKeep
     );
 
@@ -1688,14 +1704,14 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.loop_finish(LoopStatus::Done, "findings goal met");
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::Homecoming
     );
     for _ in 0..120 {
-        app.world.tick();
+        app.realm.world.tick();
     }
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         crate::stage::world_viz::Region::CastleTown
     );
 }
@@ -2238,4 +2254,280 @@ fn stop_and_pause_report_checkpoint_publication_failures() {
     assert!(pause_message.contains("checkpoint failed"), "{pause_message}");
     assert_eq!(pause_app.loop_ctl.status, LoopStatus::Paused);
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn truncated_loop_checkpoint_is_an_error_not_absent() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-trunc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let truncated = br#"{"status":"Paused","task":"keep this""#;
+    std::fs::write(&path, truncated).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let error = load_for_session(Path::new("/tmp/angel-loop-trunc-ws"), "session").unwrap_err();
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(error.contains("unreadable"), "{error}");
+    assert!(error.contains("set aside at"), "{error}");
+    assert!(
+        error.contains(&aside.display().to_string()),
+        "{error} missing {}",
+        aside.display()
+    );
+    assert!(
+        !error.contains("does not belong"),
+        "a parse failure must not be reported as a project mismatch: {error}"
+    );
+    assert!(!path.exists(), "the corrupt file must not keep wedging the checkpoint path");
+    assert_eq!(std::fs::read(&aside).unwrap(), truncated);
+    let startup = format!("saved loop checkpoint unreadable: {error}");
+    assert!(startup.contains(&aside.display().to_string()), "{startup}");
+    assert!(
+        load_for_session(Path::new("/tmp/angel-loop-trunc-ws"), "session")
+            .unwrap()
+            .is_none(),
+        "a second load carries on as if no checkpoint exists"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn malformed_loop_checkpoint_is_not_another_project() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-bad-json-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let raw = b"{not json";
+    std::fs::write(&path, raw).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let mut state = LoopState::default();
+    state.status = LoopStatus::Paused;
+    state.workspace = Some(dir.clone());
+    state.task = "do not clobber".into();
+    let notice = save_checkpoint(&state)
+        .unwrap()
+        .expect("corrupt checkpoint is set aside, then the new state is saved");
+    assert!(notice.contains("set aside at"), "{notice}");
+    assert!(
+        !notice.contains("does not belong"),
+        "a parse failure must not be reported as a project mismatch: {notice}"
+    );
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(notice.contains(&aside.display().to_string()), "{notice}");
+    assert_eq!(std::fs::read(&aside).unwrap(), raw);
+    assert_ne!(std::fs::read(&path).unwrap(), raw);
+    let loaded = load_for_session(&dir, "session")
+        .unwrap()
+        .expect("the replacement checkpoint loads");
+    assert_eq!(loaded.task, "do not clobber");
+    let cleared = clear_file_for(Some(&dir), Some("session")).unwrap();
+    assert!(cleared.is_none(), "{cleared:?}");
+    assert_eq!(
+        std::fs::read(&aside).unwrap(),
+        raw,
+        "clearing the replacement must not delete the set-aside bytes"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn non_utf8_loop_checkpoint_is_an_error_not_absent() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-utf8-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let raw = [0xff, 0xfe, b'{', b'"'];
+    std::fs::write(&path, raw).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let error = load_for_session(Path::new("/tmp/angel-loop-utf8-ws"), "session").unwrap_err();
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(error.contains("set aside at"), "{error}");
+    assert!(error.contains(&aside.display().to_string()), "{error}");
+    assert!(!error.contains("truncated or malformed"), "{error}");
+    assert!(!path.exists());
+    assert_eq!(std::fs::read(&aside).unwrap(), raw);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn missing_loop_checkpoint_stays_absent() {
+    let _lock = crate::tests::env_lock();
+    let path = std::env::temp_dir().join(format!(
+        "angel-loop-missing-{}.json",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&path);
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    assert!(
+        load_for_session(Path::new("/tmp/angel-loop-missing-ws"), "session")
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn resume_on_corrupt_checkpoint_reports_set_aside_path() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-resume-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let truncated = br#"{"status":"Paused","task":"keep this""#;
+    std::fs::write(&path, truncated).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let mut app = crate::seed_preview_app();
+    let message = app.loop_command(Some("resume".into()));
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(message.contains("unreadable"), "{message}");
+    assert!(message.contains("set aside at"), "{message}");
+    assert!(message.contains(&aside.display().to_string()), "{message}");
+    assert!(message.contains("no paused loop to resume"), "{message}");
+    assert!(!message.contains("loop resume refused"), "{message}");
+    assert!(!path.exists());
+    assert_eq!(std::fs::read(&aside).unwrap(), truncated);
+    assert_eq!(app.loop_ctl.status, LoopStatus::Idle);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn clear_reports_set_aside_checkpoint() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-clear-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let raw = b"{not json";
+    std::fs::write(&path, raw).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let mut app = crate::seed_preview_app();
+    let message = app.loop_command(Some("clear".into()));
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(message.contains("set aside at"), "{message}");
+    assert!(message.contains(&aside.display().to_string()), "{message}");
+    assert!(!path.exists());
+    assert_eq!(std::fs::read(&aside).unwrap(), raw);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn start_message_reports_set_aside_checkpoint() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-start-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let raw = b"{not json";
+    std::fs::write(&path, raw).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let mut app = crate::seed_preview_app();
+    let message = app.loop_start_immediate("keep going".into(), 30, false, false);
+    let aside = sole_corrupt_aside(&dir, "loop.json");
+    assert!(message.contains("set aside at"), "{message}");
+    assert!(message.contains(&aside.display().to_string()), "{message}");
+    assert!(!message.contains("checkpoint failed"), "{message}");
+    assert_eq!(std::fs::read(&aside).unwrap(), raw);
+    let workspace = app
+        .loop_ctl
+        .workspace
+        .clone()
+        .expect("start records a workspace");
+    let loaded = load_for_session(&workspace, "session")
+        .unwrap()
+        .expect("the new checkpoint loads after the corrupt file is set aside");
+    assert_eq!(loaded.task, "keep going");
+    let _ = app.loop_command(Some("stop".into()));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn corrupt_checkpoint_rename_failure_refuses_without_overwrite() {
+    let _lock = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-loop-ro-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("loop.json");
+    let raw = b"{not json";
+    std::fs::write(&path, raw).unwrap();
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
+    let _mode = DirModeGuard::readonly(&dir);
+    let mut state = LoopState::default();
+    state.status = LoopStatus::Paused;
+    state.workspace = Some(dir.clone());
+    state.task = "must not clobber".into();
+    let error = save_checkpoint(&state).unwrap_err();
+    assert!(error.contains("truncated or malformed"), "{error}");
+    assert!(!error.contains("set aside at"), "{error}");
+    assert_eq!(std::fs::read(&path).unwrap(), raw);
+    assert!(
+        corrupt_asides(&dir, "loop.json").is_empty(),
+        "a failed rename must leave the corrupt file in place"
+    );
+    let mut app = crate::seed_preview_app();
+    let resume = app.loop_command(Some("resume".into()));
+    assert!(resume.contains("loop resume refused"), "{resume}");
+    assert!(resume.contains("truncated or malformed"), "{resume}");
+    assert!(!resume.contains("set aside at"), "{resume}");
+    assert_eq!(std::fs::read(&path).unwrap(), raw);
+    let started = app.loop_start_immediate("fresh".into(), 30, false, false);
+    assert!(started.contains("checkpoint failed"), "{started}");
+    assert!(!started.contains("set aside at"), "{started}");
+    assert_eq!(std::fs::read(&path).unwrap(), raw);
+    drop(_mode);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+fn sole_corrupt_aside(dir: &Path, file_name: &str) -> PathBuf {
+    let found = corrupt_asides(dir, file_name);
+    assert_eq!(
+        found.len(),
+        1,
+        "expected one set-aside checkpoint, found {found:?}"
+    );
+    found.into_iter().next().unwrap()
+}
+
+fn corrupt_asides(dir: &Path, file_name: &str) -> Vec<PathBuf> {
+    let prefix = format!("{file_name}.corrupt-");
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Some(stamp) = name.strip_prefix(&prefix) else {
+            continue;
+        };
+        assert!(
+            !stamp.is_empty() && stamp.chars().all(|c| c.is_ascii_digit()),
+            "aside name must be {prefix}<unix_ms>, got {name}"
+        );
+        found.push(path);
+    }
+    found
+}
+
+struct DirModeGuard {
+    path: PathBuf,
+    mode: u32,
+}
+
+impl DirModeGuard {
+    fn readonly(path: &Path) -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(path).unwrap().permissions().mode();
+        let mut perms = std::fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o555);
+        std::fs::set_permissions(path, perms).unwrap();
+        Self {
+            path: path.to_path_buf(),
+            mode,
+        }
+    }
+}
+
+impl Drop for DirModeGuard {
+    fn drop(&mut self) {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(&self.path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(self.mode);
+            let _ = std::fs::set_permissions(&self.path, perms);
+        }
+    }
 }

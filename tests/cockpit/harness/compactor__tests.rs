@@ -51,6 +51,45 @@ fn scratch(tag: &str) -> PathBuf {
     root
 }
 
+/// Opt-in flight through the real connected Treebeard digest machinery.
+#[test]
+#[ignore]
+fn local_model_treebeard_digest_flight() {
+    use crate::agent::club::HttpClub;
+    let url = std::env::var("ANGEL_TREEBEARD_FLIGHT_URL").expect("explicit endpoint required");
+    let model = std::env::var("ANGEL_TREEBEARD_FLIGHT_MODEL").expect("explicit model required");
+    let out = std::path::PathBuf::from(
+        std::env::var_os("ANGEL_TREEBEARD_FLIGHT_OUT").expect("output path required"),
+    );
+    let helper: Arc<dyn Club> = Arc::new(HttpClub::new("compact", url, model, None));
+    let root = scratch("local-flight");
+    let body = "Build receipt: task lantern. Ran cargo test -p lantern on commit c82a9d. Result: FAILED, exit 101. tests/cache.rs:73 expected 7 but got 9. Artifact path /tmp/lantern/report.json. No source files were changed after this failure. Next action: inspect tests/cache.rs:73; do not claim tests passed.";
+    let mut pending = vec![start(
+        &helper,
+        root.clone(),
+        0,
+        "hnd_flight",
+        "shell|lantern-test",
+        body,
+    )];
+    let started = Instant::now();
+    settle(&mut pending);
+    let mut history = vec![ChatMsg::tool("flight", "[handle receipt: hnd_flight]")];
+    let (landed, rolling) = attach_ready(&mut history, pending);
+    let text = format!(
+        "elapsed: {:?}\nlanded: {} missed: {} rolling: {}\n{}\n",
+        started.elapsed(),
+        landed.landed,
+        landed.missed,
+        rolling.len(),
+        history[0].content
+    );
+    std::fs::write(&out, &text).unwrap();
+    println!("{text}");
+    assert_eq!(landed.landed, 1, "digest did not land");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 const RECEIPT: &str = "[handle receipt: hnd_1 kind=tool_result producer=read_file identity=read_file|src/lib.rs bytes=40000 lines=900]\n⠥⠑";
 
 fn digest(helper: &Arc<dyn Club>, root: &std::path::Path, index: usize) -> Digesting {

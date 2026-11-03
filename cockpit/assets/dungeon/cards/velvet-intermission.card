@@ -1,0 +1,26 @@
+name Velvet Intermission
+kind spell
+rarity rare
+text Draw the stage curtains: shelter and mend before the encore.
+drop 1
+chest 2
+cooldown 22
+ward 2
+heal 10
+art
+................
+.hYYYYYYYYYYYYh.
+.hYhhhhhhhhhhYh.
+..rRRr....rRRr..
+..rR5Rr..rR5Rr..
+..rR55r..r55Rr..
+..rR5r....r5Rr..
+..rRr..WW..rRr..
+..hYh.WCCW.hYh..
+..rRr..CC..rRr..
+..r5r......r5r..
+..rRr......rRr..
+..r5r......r5r..
+..rr........rr..
+...hhhhhhhhhh...
+................

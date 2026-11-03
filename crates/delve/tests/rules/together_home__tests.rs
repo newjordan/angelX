@@ -261,7 +261,8 @@ fn the_winding_stair_goes_down_to_the_landing_with_the_kit() {
     );
     let hero = &run.players[&1];
     assert!(hero.hand.contains(&"potion".to_string()));
-    assert_eq!(hero.bombs, bombs + 1);
+    let provision = super::super::bombs::at(2);
+    assert_eq!(hero.bombs, (bombs + 1 + provision.restock).min(provision.cap), "rack gift plus landing restock");
     assert_eq!(hero.winds, 1);
     assert!(
         run.bank.is_empty() && run.reclaimed.is_empty(),
@@ -347,4 +348,59 @@ fn the_undercroft_survives_a_checkpoint_and_the_mirror() {
     assert_eq!(copy.home, run.home);
     assert_eq!(copy.treasury, run.treasury);
     assert_eq!(copy.players[&2].bonus.damage, 16);
+}
+
+/// What a realm save carried while the school kept ranks: each knight's
+/// rank by name, the trials' progress and finished trials, and the gear a
+/// master had handed over.
+const SAVE_WITH_RANKS: &str = r#"{
+    "wardrobe": {},
+    "knights": {},
+    "goblins": 7,
+    "school": {
+        "knights": {
+            "percival": {
+                "rank": "master",
+                "deeds": {"archer-novice": 3, "archer-adept": 1, "shield-hold": 20},
+                "done": ["archer-novice", "archer-adept", "archer-master"],
+                "gear": ["crescent-quiver", "rookery-longbow"]
+            },
+            "lynette": {"rank": "adept"}
+        }
+    }
+}"#;
+
+#[test]
+fn a_save_from_the_days_of_ranks_loads_and_lets_the_ranks_go() {
+    let home: Home = serde_json::from_str(SAVE_WITH_RANKS).expect("an old save loads");
+    // What else the save held comes through.
+    assert_eq!(home.goblins, 7);
+    // The ranks, trials and gear are read past, and are not written back.
+    let written = serde_json::to_string(&home).unwrap();
+    for gone in ["school", "rank", "master", "crescent-quiver", "archer-novice"] {
+        assert!(!written.contains(gone), "{gone} is not kept: {written}");
+    }
+    let again: Home = serde_json::from_str(&written).unwrap();
+    assert_eq!(again, home);
+}
+
+#[test]
+fn a_run_saved_with_a_masters_board_open_loads() {
+    // A whole run as it was written with the school in it: the home's
+    // standings, and the run's own board (the reading knight, the class,
+    // those who fell this floor).
+    let run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    let mut value = serde_json::to_value(&run).unwrap();
+    let old_home: serde_json::Value = serde_json::from_str(SAVE_WITH_RANKS).unwrap();
+    value["home"]["school"] = old_home["school"].clone();
+    value["school"] = serde_json::json!({"owner": 1, "class": 2, "fallen": [1]});
+    let back: Run = serde_json::from_value(value).expect("an old run loads");
+    assert_eq!(serde_json::to_value(&back).unwrap(), serde_json::to_value(&run).unwrap());
+}
+
+#[test]
+fn old_home_saves_restore_an_empty_squire_company() {
+    let home: Home = serde_json::from_str("{}").unwrap();
+    let saved = serde_json::to_value(home).unwrap();
+    assert_eq!(saved.get("squires").and_then(|v| v.get("companies")), Some(&serde_json::json!({})));
 }

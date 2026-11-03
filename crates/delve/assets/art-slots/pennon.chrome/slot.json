@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.chrome",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.chrome/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.chrome/v01/source-sheet.png",
   "source_sha256": "7a2b4e653b5fb9ae9c152b0dbc7c957b4f8ab77d4a2dcd65822991e81e0a78aa",
   "tool_version": 2
 }

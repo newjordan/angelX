@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "mossbell.steam",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.steam/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.steam/v01/source-sheet.png",
   "source_sha256": "197d213df5a1e5b370be83e205514843633b256af350624d7cb80737c8f335ba",
   "tool_version": 2
 }

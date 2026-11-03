@@ -1,0 +1,13 @@
+name   College Orb
+kind   hold
+rarity relic
+text   A pale orb that remembers its lessons.
+drop   1
+chest  1
+chain  1
+art
+..zzz..
+.zZZZz.
+zZWWWZz
+.zZZZz.
+..zzz..

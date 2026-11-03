@@ -128,3 +128,7 @@ pub fn settle(country:&mut countryside::Country, treasury:&mut Spoils, marks:&BT
         }
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-c"))]
+#[path = "../../tests/rules/race_wagers_bend_cases__tests.rs"]
+mod race_wagers_bend_cases_tests;

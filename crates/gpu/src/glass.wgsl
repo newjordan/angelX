@@ -7,6 +7,8 @@
 // kind 11: curved foreground parchment with fixed material coordinates
 // kind 12: one textured mesh triangle in window pixels
 // kinds 16..22: the seven ray-marched solids (LayerKind::Primitive)
+// kind 23: a ring stroke, kind 24: a line stroke (LayerKind::Stroke), drawn
+//   by their distance; uv is half the width, the glow and the quad's size
 // Every texture is stored premultiplied; the target blends premultiplied.
 
 struct Globals {
@@ -140,6 +142,10 @@ fn vs_main(@builtin(vertex_index) vertex: u32, instance: Instance) -> Varyings {
     out.color = instance.color;
     out.kind = instance.kind;
     out.surface = instance.uv;
+    if instance.kind == 23u || instance.kind == 24u {
+        // Pixels from the quad's middle, before its turn.
+        out.uv = (corner - vec2<f32>(0.5)) * instance.uv.zw;
+    }
     if instance.kind >= 16u && instance.kind <= 22u {
         let aspect = instance.uv.z;
         out.uv = (corner - vec2<f32>(0.5)) * 2.8
@@ -217,6 +223,31 @@ fn solid_object(in: Varyings) -> vec4<f32> {
     return vec4<f32>(rgb * in.color.a, in.color.a);
 }
 
+// A ring or a line by its distance: a sharp core the stroke's width, and a
+// glow round it falling off as a gaussian. The pad matches
+// angel_stage::stroke_pad: half the width, three glows, a pixel.
+fn stroke(in: Varyings) -> vec4<f32> {
+    let half_width = in.surface.x;
+    let glow = in.surface.y;
+    let size = in.surface.zw;
+    let pad = half_width + glow * 3.0 + 1.0;
+    var d: f32;
+    if in.kind == 23u {
+        let r = max(min(size.x, size.y) * 0.5 - pad, 0.0);
+        d = abs(length(in.uv) - r);
+    } else {
+        let reach = max(size.x * 0.5 - pad, 0.0);
+        d = length(vec2<f32>(max(abs(in.uv.x) - reach, 0.0), in.uv.y));
+    }
+    let core = clamp(half_width + 0.5 - d, 0.0, 1.0);
+    var halo = 0.0;
+    if glow > 0.0 {
+        let x = max(d - half_width, 0.0) / glow;
+        halo = exp(-x * x) * 0.55;
+    }
+    return in.color * max(core, halo);
+}
+
 @fragment
 fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
     // The texel coordinates back from over the depth (`vs_main`).
@@ -240,6 +271,9 @@ fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
     }
     if in.kind >= 16u && in.kind <= 22u {
         return solid_object(in);
+    }
+    if in.kind == 23u || in.kind == 24u {
+        return stroke(in);
     }
     if in.kind == 0u {
         return in.color;

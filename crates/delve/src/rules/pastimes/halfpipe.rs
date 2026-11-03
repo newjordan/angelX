@@ -16,10 +16,22 @@ pub struct Halfpipe {
     pub momentum: u8,
     pub flight: u8,
     pub spin: u16,
+    /// Ticks of sparkle animation remaining after a successful trick landing.
+    #[serde(default)]
+    pub trick_sparkle: u8,
+    /// Screen shake magnitude remaining after a hard landing.
+    #[serde(default)]
+    pub landing_shake: u8,
+    /// Ticks of bright flash remaining at the lip edge after a successful launch.
+    #[serde(default)]
+    pub lip_flash: u8,
+    /// Ticks of stumble/wobble animation remaining after a failed launch.
+    #[serde(default)]
+    pub wobble: u8,
 }
 impl Halfpipe {
     pub fn new(owner: u32) -> Self {
-        Self { owner, phase: 0, momentum: 20, flight: 0, spin: 0 }
+        Self { owner, phase: 0, momentum: 20, flight: 0, spin: 0, trick_sparkle: 0, landing_shake: 0, lip_flash: 0, wobble: 0 }
     }
     pub fn direction(progress: u8, mistakes: u8) -> i8 {
         if (progress + mistakes).is_multiple_of(2) { 1 } else { -1 }
@@ -35,6 +47,10 @@ impl Halfpipe {
             && (self.flight != 0 || self.spin == 0)
             && (self.flight == 0 || (self.phase >= LIP_OPEN && self.momentum >= 60))
             && self.spin <= u16::from(self.flight.saturating_sub(1)) * SPIN_STEP
+            && self.trick_sparkle <= 10
+            && self.landing_shake <= 3
+            && self.lip_flash <= 4
+            && self.wobble <= 6
             && round.mistakes < 3
     }
     fn next_pass(&mut self) {
@@ -56,7 +72,14 @@ impl Halfpipe {
             if self.flight == FLIGHT_TICKS {
                 // A full rotation is not enough: release arrows to straighten.
                 let landed = (320..=400).contains(&self.spin) && axis == 0;
+                let flight_height = self.flight;
                 self.next_pass();
+                if landed {
+                    self.trick_sparkle = 10;
+                    if flight_height > 5 {
+                        self.landing_shake = 3;
+                    }
+                }
                 return Some(landed);
             }
             return None;
@@ -66,9 +89,11 @@ impl Halfpipe {
         if tapped {
             if self.phase >= LIP_OPEN && self.phase < LIP_CLOSE && self.momentum >= 60 {
                 self.flight = 1;
+                self.lip_flash = 4;
                 return None;
             }
             self.next_pass();
+            self.wobble = 6;
             return Some(false);
         }
         if axis == direction {
@@ -82,5 +107,12 @@ impl Halfpipe {
             return Some(false);
         }
         None
+    }
+    /// Decrement sparkle, shake, flash and wobble counters; called once per tick by the host.
+    pub fn tick_vfx(&mut self) {
+        self.trick_sparkle = self.trick_sparkle.saturating_sub(1);
+        self.landing_shake = self.landing_shake.saturating_sub(1);
+        self.lip_flash = self.lip_flash.saturating_sub(1);
+        self.wobble = self.wobble.saturating_sub(1);
     }
 }

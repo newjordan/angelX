@@ -65,7 +65,7 @@
   "flags": [
     "delivery crop warnings"
   ],
-  "map_sha256": "dd03a05315224c59fd51badf15e76f8745ba305079b02fb2fe9cadcbebfa685b",
+  "map_sha256": "b4890f742a9ff41dc5d893dfa41c5f99ecc930f43f706a75859395351d14d234",
   "metadata_sha256": "b76ec45848dc10d49ca11a631457f04b3b5afe72973fe0c90c6b0e644a0545f6",
   "notes_sha256": "2604c954a43b8a9b3f748fb1446f03703f0b1a17665ed2df954b4cae7df9d401",
   "outputs": {
@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.clasp-damaged",
-  "source_path": "/work/artifacts/boss-art-20261015/damage-1/prepared/latch.clasp-damaged/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/damage-1/prepared/latch.clasp-damaged/source-sheet.png",
   "source_sha256": "ac28d27fa670c56847d5ecfc465cc9358be729e2b562c7a933c3d68451bc0425",
   "tool_version": 2
 }

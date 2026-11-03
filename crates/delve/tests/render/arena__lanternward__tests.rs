@@ -2,18 +2,12 @@
 //! both routes, and `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve
 //! write_lanternward_review -- --ignored` writes the pictures to open.
 use super::super::super::ink::ink;
-use super::super::{art_v2, frame_for};
+use super::super::frame_for;
 use super::*;
-use crate::rules::{Input, MAX_PLAYERS, Run, lanternward as lw};
-use std::collections::BTreeMap;
+use crate::rules::{MAX_PLAYERS, Run, lanternward as lw};
 
 fn party(seats: u32) -> Run {
-    let mut r = Run::lanternward_for_test();
-    for id in 2..=seats {
-        r.join_seat(id, &format!("Knight {id}"));
-    }
-    r.step(&BTreeMap::new());
-    r
+    Run::lanternward_at_for_test("stair", seats)
 }
 
 fn save(dir: &std::path::Path, name: &str, img: &Img) {
@@ -32,7 +26,7 @@ fn the_stage_draws_on_both_routes_at_every_size() {
         assert!(base.pixels().any(|p| p != [0, 0, 0]));
         let (cells, _) = terminal_layers(&r, Some(1));
         assert_eq!((cells.w, cells.h), (384, 224));
-        assert!(art_v2::terminal_layers(&r, Some(1)).is_some());
+        assert!(super::super::terminal_layers(&r, Some(1)).is_some());
         for (w, h) in [(384, 224), (768, 448), (1152, 672), (96, 56)] {
             let img = frame_for(&r, w, h, Some(1));
             assert_eq!((img.w, img.h), (w, h));
@@ -55,47 +49,12 @@ const MOMENTS: &[(&str, u32)] = &[
 #[test]
 fn every_moment_draws_without_panicking() {
     for &(m, seats) in MOMENTS {
-        let r = Run::lanternward_review_for_test(m, seats);
+        let r = Run::lanternward_at_for_test(m, seats);
         let (base, _) = layers(&r, Some(1));
         assert!(base.pixels().any(|p| p != [0, 0, 0]), "{m}");
         let (cells, _) = terminal_layers(&r, Some(1));
         assert_eq!((cells.w, cells.h), (384, 224), "{m}");
     }
-}
-
-/// A knight's verb frame by frame: the 64 by 48 pixels about them, three
-/// times over, a tick apiece, side by side.
-fn film(name: &str, mut r: Run, script: &[(u32, Input)], dir: &std::path::Path) {
-    let mut frames = Vec::new();
-    for &(ticks, input) in script {
-        for _ in 0..ticks {
-            r.step(&BTreeMap::from([(1, input)]));
-            let s = r.lanternward.as_ref().unwrap();
-            let k = &s.seats[&1];
-            let full = layers(&r, Some(1)).0;
-            let (cx, cy) = (k.x / lw::world::Q - (k.cam.0 / lw::world::Q - 192), k.y / lw::world::Q - (k.cam.1 / lw::world::Q - 112));
-            let mut crop = Img::black(56, 44);
-            for y in 0..44 {
-                for x in 0..56 {
-                    if let Some(c) = full.get(cx - 28 + x, cy - 28 + y) {
-                        crop.set(x, y, c);
-                    }
-                }
-            }
-            frames.push(crop);
-            eprintln!("{name} {}: {:?} t{} n{} z{} inv{}", frames.len() - 1, k.act, k.t, k.n, k.z / lw::world::Q, k.inv);
-        }
-    }
-    let cols = 6usize;
-    let rows = frames.len().div_ceil(cols);
-    let mut sheet = Img::black((cols * 56 * 3 + cols * 2) as i32, (rows * 44 * 3 + rows * 2) as i32);
-    for (i, f) in frames.iter().enumerate() {
-        let (x, y) = ((i % cols) as i32 * (56 * 3 + 2), (i / cols) as i32 * (44 * 3 + 2));
-        let mut big = Img::black(56 * 3, 44 * 3);
-        big.stamp_times(f, 0, 0, 3);
-        sheet.stamp(&big, x, y);
-    }
-    save(dir, &format!("film-{name}"), &sheet);
 }
 
 #[test]
@@ -111,30 +70,17 @@ fn write_lanternward_review() {
         if only.as_deref().is_some_and(|o| !o.split(',').any(|x| x == m)) {
             continue;
         }
-        let r = Run::lanternward_review_for_test(m, seats);
+        let r = Run::lanternward_at_for_test(m, seats);
         save(&dir, &format!("{m}-1x"), &frame_for(&r, 384, 224, Some(1)));
         save(&dir, &format!("{m}-2x"), &frame_for(&r, 768, 448, Some(1)));
         save(&dir, &format!("{m}-3x"), &frame_for(&r, 1152, 672, Some(1)));
     }
     // Two screens of the same party, side by side: each seat's own camera.
-    let r = Run::lanternward_review_for_test("warden-open", 4);
+    let r = Run::lanternward_at_for_test("warden-open", 4);
     let mut both = Img::black(768, 224);
     both.stamp(&frame_for(&r, 384, 224, Some(1)), 0, 0);
     both.stamp(&frame_for(&r, 384, 224, Some(3)), 384, 0);
     save(&dir, "two-screens", &both);
-    let sword = Input { swing: true, ..Default::default() };
-    let lock = Input { ult: true, ..Default::default() };
-    let none = Input::default();
-    let duel = |d| Run::lanternward_duel_for_test(d);
-    film("slash", duel(24), &[(1, sword), (11, none), (1, sword), (11, none), (1, sword), (14, none)], &dir);
-    film("spin", duel(30), &[(26, sword), (1, none), (16, none)], &dir);
-    film("lunge", duel(40), &[(3, lock), (1, Input { swing: true, ult: true, move_x: 1, ..Default::default() }), (20, lock)], &dir);
-    let e = |i: Input| Input { interact: true, ult: true, ..i };
-    film("hop", duel(50), &[(3, lock), (1, e(Input { move_y: -1, ..Default::default() })), (20, lock)], &dir);
-    film("flip", duel(50), &[(3, lock), (1, e(Input::default())), (20, lock)], &dir);
-    film("plunge", duel(50), &[(3, lock), (1, e(Input { move_x: 1, ..Default::default() })), (7, lock), (1, Input { ult: true, swing: true, ..Default::default() }), (10, lock)], &dir);
-    film("roll", duel(0), &[(1, Input { interact: true, move_x: 1, ..Default::default() }), (18, none)], &dir);
-    film("lock", duel(70), &[(2, none), (1, lock), (12, lock)], &dir);
     let _ = (lw::NAME, party(1));
 }
 
@@ -186,7 +132,7 @@ fn a_painted_brazier_burns_down_through_its_dying_flame_once_and_in_order() {
     if !bank::painted("brazier", "gutter") {
         return;
     }
-    let mut r = Run::lanternward_review_for_test("lamp-lit", 1);
+    let mut r = Run::lanternward_at_for_test("lamp-lit", 1);
     let spot = brazier_spot(&r);
     let shows = |r: &mut Run, t: u16, state: &str, tick: u32| {
         for p in r.lanternward.as_mut().unwrap().props.iter_mut().filter(|p| p.kind == lw::Pk::Brazier) {
@@ -222,7 +168,7 @@ fn write_lanternward_brazier_strip() {
     };
     let dir = std::path::PathBuf::from(dir).join("lanternward");
     std::fs::create_dir_all(&dir).unwrap();
-    let mut r = Run::lanternward_review_for_test("lamp-lit", 1);
+    let mut r = Run::lanternward_at_for_test("lamp-lit", 1);
     let (w, h, k) = (28, 34, 6);
     let mut frames = Vec::new();
     let grab = |r: &Run, frames: &mut Vec<Img>| {
@@ -248,14 +194,22 @@ fn write_lanternward_brazier_strip() {
     };
     set_t(&mut r, 0);
     grab(&r, &mut frames);
+    // The brazier burns a tick at a time as the rules' tick would burn it.
+    let burn = |r: &mut Run| {
+        let s = r.lanternward.as_mut().unwrap();
+        s.elapsed += 1;
+        for p in s.props.iter_mut().filter(|p| p.kind == lw::Pk::Brazier) {
+            p.t = p.t.saturating_sub(1);
+        }
+    };
     set_t(&mut r, 400);
     for _ in 0..16 {
-        r.step(&BTreeMap::new());
+        burn(&mut r);
         grab(&r, &mut frames);
     }
     set_t(&mut r, 15);
     for _ in 0..16 {
-        r.step(&BTreeMap::new());
+        burn(&mut r);
         grab(&r, &mut frames);
     }
     let cols = 9usize;
@@ -266,7 +220,7 @@ fn write_lanternward_brazier_strip() {
     }
     save(&dir, "brazier-strip", &sheet);
     // The terminal's cell size, through the same fitter the cells use.
-    let r = Run::lanternward_review_for_test("lamp-lit", 1);
+    let r = Run::lanternward_at_for_test("lamp-lit", 1);
     save(&dir, "lamp-lit-cells", &frame_for(&r, 96, 56, Some(1)));
 }
 
@@ -305,7 +259,7 @@ fn a_painted_prop_stamps_its_own_frames_and_the_code_adds_no_art_of_its_own() {
         ("beacon", Pk::Beacon, 0, &[(0, 0, "cold", &[0]), (0, 9, "kindling", &[0, 6]), (1, 0, "lit", &[0, 4, 8, 12])]),
     ];
     for (moment, kind, nth, states) in cases {
-        let mut r = Run::lanternward_review_for_test(moment, 1);
+        let mut r = Run::lanternward_at_for_test(moment, 1);
         let (i, spot) = camera_on(&mut r, kind, nth);
         let id = format!("{kind:?}").to_lowercase();
         let id = id.as_str();
@@ -341,7 +295,7 @@ fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
         if !bank::painted(id, state) {
             continue;
         }
-        let mut r = Run::lanternward_review_for_test(moment, 1);
+        let mut r = Run::lanternward_at_for_test(moment, 1);
         let (i, spot) = camera_on(&mut r, kind, 0);
         let cold = above(&draw_prop(&mut r, i, unlit.0, unlit.1, 0), spot, tall);
         let burning = above(&draw_prop(&mut r, i, lit.0, lit.1, 0), spot, tall);
@@ -350,7 +304,7 @@ fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
     // An open painted chest has its own mouth: the block's black one is not
     // drawn over its lid.
     if bank::painted("chest", "open") {
-        let mut r = Run::lanternward_review_for_test("stair", 1);
+        let mut r = Run::lanternward_at_for_test("stair", 1);
         let (i, (x, foot)) = camera_on(&mut r, Pk::Chest, 0);
         let screen = draw_prop(&mut r, i, 1, 0, 0);
         let pic = bank::frame("chest", "open", 0);
@@ -366,7 +320,7 @@ fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
 
 #[test]
 fn a_gate_opened_is_the_painted_open_arch_and_the_blocks_posts_only_without_one() {
-    let mut r = Run::lanternward_review_for_test("gallery", 1);
+    let mut r = Run::lanternward_at_for_test("gallery", 1);
     let (i, (x, foot)) = camera_on(&mut r, lw::Pk::Gate, 0);
     let spot = (x, foot);
     let closed = draw_prop(&mut r, i, 0, 0, 0);
@@ -425,7 +379,7 @@ fn write_lanternward_prop_strips() {
         ("chest-vault", "vault", Pk::Chest, 0, &[(0, 0, 0, "closed"), (1, 0, 0, "open")]),
     ];
     for (name, moment, kind, nth, states) in cases {
-        let mut r = Run::lanternward_review_for_test(moment, 1);
+        let mut r = Run::lanternward_at_for_test(moment, 1);
         let (i, (x, foot)) = camera_on(&mut r, kind, nth);
         // The dark vault shows what its knight's own light reaches: stand beside.
         if moment == "vault" {
@@ -483,11 +437,11 @@ fn write_lanternward_prop_floors() {
         let (w, h) = (64, 56);
         let mut sheet = Img::black(states.len() as i32 * (w * 3 + 2), rooms.len() as i32 * (h * 3 + 2));
         for (row, moment) in rooms.iter().enumerate() {
-            let mut r = Run::lanternward_review_for_test(moment, 1);
+            let mut r = Run::lanternward_at_for_test(moment, 1);
             let s = r.lanternward.as_mut().unwrap();
             // A room with none of the kind borrows one: a prop to stand on its floor.
             let i = s.props.iter().position(|p| p.kind == kind).unwrap_or_else(|| {
-                s.props.push(lw::props::Prop::new(kind, 0, 0, 0));
+                s.props.push(lw::props::Prop { kind, tx: 0, ty: 0, id: 0, on: 0, t: 0, x: 0, y: 0 });
                 s.props.len() - 1
             });
             let seat = s.seats.get(&1).unwrap();
@@ -518,17 +472,64 @@ fn write_lanternward_prop_floors() {
     }
 }
 
+/// This thread's own CPU time. Wall time counts the machine; a frame's
+/// budget is the work.
+#[cfg(target_os = "linux")]
+fn thread_cpu() -> std::time::Duration {
+    unsafe extern "C" {
+        fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
+    }
+    let mut at = [0i64; 2];
+    // CLOCK_THREAD_CPUTIME_ID: this thread, not the process and not the wall.
+    assert_eq!(unsafe { clock_gettime(3, &mut at) }, 0, "thread cpu clock");
+    std::time::Duration::new(at[0] as u64, at[1] as u32)
+}
+
+/// Elsewhere the clock id differs: the wall, from a fixed start, and the
+/// cheapest trial still leaves out most of the machine.
+#[cfg(not(target_os = "linux"))]
+fn thread_cpu() -> std::time::Duration {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START.get_or_init(std::time::Instant::now).elapsed()
+}
+
+/// The cheapest of `trials` runs of `body`. The minimum is the cost; the
+/// rest is the machine.
+fn cheapest(trials: u32, mut body: impl FnMut()) -> std::time::Duration {
+    let mut best = std::time::Duration::MAX;
+    for _ in 0..trials {
+        let t = thread_cpu();
+        body();
+        best = best.min(thread_cpu().saturating_sub(t));
+    }
+    best
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn a_sleep_is_not_this_thread_s_work() {
+    let wall = std::time::Instant::now();
+    let cpu = thread_cpu();
+    std::thread::sleep(std::time::Duration::from_millis(40));
+    let cpu = thread_cpu().saturating_sub(cpu);
+    assert!(wall.elapsed() >= std::time::Duration::from_millis(40));
+    assert!(
+        cpu < std::time::Duration::from_millis(15),
+        "a sleep is the machine, not the frame: cpu {cpu:?}"
+    );
+}
+
 #[test]
 fn a_frame_is_cheap_even_in_the_dark_with_six_knights_and_a_beam_up() {
     for (moment, seats) in [("vault-flare", 6), ("warden-dark", 6), ("warden-slam", 6), ("lamp-wave", 6)] {
-        let r = Run::lanternward_review_for_test(moment, seats);
+        let r = Run::lanternward_at_for_test(moment, seats);
         // Warm any cache, then time ten frames of the native route.
         let _ = layers(&r, Some(1));
-        let t = std::time::Instant::now();
-        for _ in 0..10 {
-            let _ = layers(&r, Some(1));
-        }
-        let each = t.elapsed() / 10;
+        let each = cheapest(4, || {
+            for _ in 0..10 {
+                let _ = layers(&r, Some(1));
+            }
+        }) / 10;
         eprintln!("FRAME {moment}: {each:?}");
         assert!(each < std::time::Duration::from_millis(60), "{moment}: {each:?} a frame");
     }

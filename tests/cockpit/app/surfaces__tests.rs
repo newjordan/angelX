@@ -14,6 +14,32 @@ fn base_input(area: Rect) -> CockpitLayoutInput {
 }
 
 #[test]
+fn live_composition_reorders_and_resizes_panels_with_matching_copy_geometry() {
+    let area = Rect::new(2, 4, 180, 45);
+    let mut policy = angel_live::UiPolicy::default();
+    policy.agent_first = false;
+    policy.bands.last_mut().unwrap().side_width = 55;
+    let mut input = base_input(area);
+    input.side_width = policy.side_width(area.width);
+    input.reasoning_visible = true;
+    policy.reasoning_percent = 55;
+    let plan = plan_cockpit_surfaces_with_policy(input, None, &policy);
+    let agent = plan.agent_frame().unwrap();
+    let artifacts = plan.artifacts_frame().unwrap();
+    assert_eq!(agent.width, 55);
+    assert_eq!(artifacts.y, area.y);
+    assert!(agent.y > artifacts.y);
+    assert_eq!(agent.y + agent.height, area.y + area.height);
+    assert!(plan.transcript_copy_rect().unwrap().right() < agent.x);
+    policy.show_agent = false;
+    policy.show_artifacts = false;
+    let text_only = plan_cockpit_surfaces_with_policy(input, None, &policy);
+    assert_eq!(text_only.transcript_frame(), Some(area));
+    assert!(text_only.agent_frame().is_none());
+    assert!(text_only.artifacts_frame().is_none());
+}
+
+#[test]
 fn backdrop_off_gives_transcript_full_body() {
     let area = Rect::new(0, 0, 160, 40);
     let mut input = base_input(area);

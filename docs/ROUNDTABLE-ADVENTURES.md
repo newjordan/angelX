@@ -151,39 +151,39 @@ integration branch, once, in a block of its own. Do not make it on your branch.
 
 ## Building and testing
 
-Always set `TMPDIR=/work/tmp`; builds are slow, so run them in the background
+Always set `TMPDIR=<scratch>`; builds are slow, so run them in the background
 and do not poll. Name your target directory after your branch.
 
 ```
 # the Delve crate's whole suite
-cd crates && CARGO_TARGET_DIR=/work/build-cache/<name> TMPDIR=/work/tmp cargo test -p angel-delve
+cd crates && CARGO_TARGET_DIR=<build-cache>/<name> TMPDIR=<scratch> cargo test -p angel-delve
 
 # just your adventure (and the shared shell's checks)
-cd crates && CARGO_TARGET_DIR=/work/build-cache/<name> TMPDIR=/work/tmp \
+cd crates && CARGO_TARGET_DIR=<build-cache>/<name> TMPDIR=<scratch> \
   cargo test -p angel-delve --lib -- <slug> roundtable escape_hold
 
 # look at your render: native, 768, terminal layers and the kingdom door, for
 # 1, 2, 4 and 6 seats; open every picture before it counts as done
-cd crates && ANGEL_ARENA_SHOTS=/work/tmp/<name>-shots CARGO_TARGET_DIR=/work/build-cache/<name> \
-  TMPDIR=/work/tmp cargo test -p angel-delve --lib write_roundtable_review -- --ignored
+cd crates && ANGEL_ARENA_SHOTS=<scratch>/<name>-shots CARGO_TARGET_DIR=<build-cache>/<name> \
+  TMPDIR=<scratch> cargo test -p angel-delve --lib write_roundtable_review -- --ignored
 
 # the cockpit's terminal route (a separate crate and target dir, a cold build
 # of several minutes): the cells as `paint_picture_ui` draws them, the journal
 # and the dungeon's controls
-cd cockpit && CARGO_TARGET_DIR=/work/build-cache/<name>-cockpit TMPDIR=/work/tmp \
-  ANGEL_CARTRIDGES=/work/tmp/empty-cartridges cargo test --bin angel -- roundtable dungeon world_viz
+cd cockpit && CARGO_TARGET_DIR=<build-cache>/<name>-cockpit TMPDIR=<scratch> \
+  ANGEL_CARTRIDGES=<scratch>/empty-cartridges cargo test --bin angel -- roundtable dungeon world_viz
 # and its pictures (a .png of the cells and a .txt of the text), open them too
-cd cockpit && ANGEL_ARENA_SHOTS=/work/tmp/<name>-shots CARGO_TARGET_DIR=/work/build-cache/<name>-cockpit \
-  TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges \
+cd cockpit && ANGEL_ARENA_SHOTS=<scratch>/<name>-shots CARGO_TARGET_DIR=<build-cache>/<name>-cockpit \
+  TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges \
   cargo test --bin angel write_roundtable_terminal_review -- --ignored
 
 # the wasm smoke: the same renderer in wasm under node, scenes 39 to 43
-cd crates && CARGO_TARGET_DIR=/work/build-cache/<name>-wasm TMPDIR=/work/tmp \
+cd crates && CARGO_TARGET_DIR=<build-cache>/<name>-wasm TMPDIR=<scratch> \
   cargo build -p angel-delve-smoke --target wasm32-unknown-unknown --release
-node crates/delve/smoke/smoke.mjs /work/build-cache/<name>-wasm/wasm32-unknown-unknown/release/angel_delve_smoke.wasm
-node crates/delve/smoke/parity.mjs /work/build-cache/<name>-wasm/wasm32-unknown-unknown/release/angel_delve_smoke.wasm <slug>
+node crates/delve/smoke/smoke.mjs <build-cache>/<name>-wasm/wasm32-unknown-unknown/release/angel_delve_smoke.wasm
+node crates/delve/smoke/parity.mjs <build-cache>/<name>-wasm/wasm32-unknown-unknown/release/angel_delve_smoke.wasm <slug>
 # the native run of the same scene must print the same lines as the wasm one
-cd crates && CARGO_TARGET_DIR=/work/build-cache/<name> TMPDIR=/work/tmp cargo run -p angel-delve-smoke --bin parity -- <slug>
+cd crates && CARGO_TARGET_DIR=<build-cache>/<name> TMPDIR=<scratch> cargo run -p angel-delve-smoke --bin parity -- <slug>
 
 # the dev host: your scene in a browser or with bots (never the angel binary)
 cd crates && cargo run -p angel-delve-dev-host --bin delve-dev-host -- --scene <slug> --bots 3
@@ -194,39 +194,13 @@ library, all in `rules/pastimes.rs`, `rules/pastimes/gander.rs` and
 `rules/pastimes/siege.rs`; five more in its test build, in `arena/rescues.rs`,
 `arena/teachers.rs` and two rules tests). Add none.
 
-Four tests on `dev` are load-sensitive and fail now and then with or without
+Three tests on `dev` are load-sensitive and fail now and then with or without
 this work, so a red run on one of them alone is not yours: in the Delve crate
 `arena::tests::the_still_art_is_the_same_while_nothing_changes` ("one upload for
-the room"), `art_v2::tests::v2_is_deterministic_rgb_and_small_frames_use_v1` and
-`chariot::tests::successive_hippodrome_frames_move_and_render_fast` (a timing
+the room") and `chariot::tests::successive_hippodrome_frames_move_and_render_fast` (a timing
 check); in the cockpit `app::control::dungeon::tests::dungeon_n_held_lays_the_floor_over_the_first_knights_screen_and_moves_no_one`.
 Each passes when run alone, or fails the same way on `dev`; rerun it alone before
 you chase it.
-
-### The pins (the hidden gate)
-
-`crates/delve/build.rs` panics with `arcade cell gate: stale renderer
-evidence: <file>` when any file listed under `"sources"` in
-`crates/delve/assets/arcade/cell-proof.json` no longer matches its pin
-(`arcade_gate::validate_cells`: FNV-1a 64 over the file's bytes). The list is
-`render/arcade.rs`, `render/art.rs`, `render/braille.rs`,
-`render/overworld/ink.rs`, `render/overworld/arena.rs`,
-`render/overworld/arena/boss_art.rs`, `cockpit/src/stage/world_viz/art.rs`,
-`cockpit/src/stage/world_viz/art/cells.rs`, `tests/cockpit/world_viz/arcade__tests.rs`
-and the arcade's two manifests and palette. **Builders touch none of them.**
-
-After the integrator merges anything that edits one (the prep commit did, for
-`arena.rs` and `art.rs`), recompute and commit the proof file:
-
-```
-python3 scripts/cell-proof-pins.py          # rewrites the stale pins, prints each
-python3 scripts/cell-proof-pins.py --check  # lists stale pins, changes nothing, exit 1 if any
-```
-
-It moves only the `"sources"` hashes. A change that alters how the arcade
-knight or effect frames themselves draw needs the full evidence export instead
-(`arcade-review`, [ART-ARCADE.md](ART-ARCADE.md)); never use that feature for a
-release.
 
 ## The co-op rules (the Forest Road's)
 
@@ -282,7 +256,5 @@ What can still collide, and what to do:
   lines into its own file.
 - **Art requests** (`assets/art-requests.json`) are generated; list yours in
   `assets/<slug>/ART.md`.
-- **After merging all five**, run `python3 scripts/cell-proof-pins.py --check`
-  (nothing a builder touches is pinned, so it should be clean), the whole
-  Delve suite, the cockpit's `world_viz` and `app::control::dungeon` tests, the
+- **After merging all five**, run the whole Delve suite, the cockpit's `world_viz` and `app::control::dungeon` tests, the
   wasm smoke and the parity script for each slug.

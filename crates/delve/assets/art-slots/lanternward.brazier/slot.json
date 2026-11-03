@@ -360,7 +360,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lanternward.brazier",
-  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.brazier/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/lanternward.brazier/v01/source-sheet.png",
   "source_sha256": "a136b50af74f9629bc3f01e2de6597f96f974f7bd38e1128e67dec9c4e9005f0",
   "tool_version": 2
 }

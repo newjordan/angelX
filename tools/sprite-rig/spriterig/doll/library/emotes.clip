@@ -1,0 +1,176 @@
+# Emote / joke library. Each one is a handful of key poses; the DSL eases between them.
+
+clip idle
+fps 8
+tags idle
+# weapon held upright at the hip (delve guard stance), shield arm relaxed
+0   larm=10,0,22 rarm=30,0,22 lfore=30 rfore=40 bob=0
+4   ease=inout  larm=11,0,23 rarm=32,0,23 lfore=33 rfore=44 chest=-3 bob=-0.012
+8   =0
+
+clip walk
+fps 12
+tags locomotion
+0   lleg=28 lknee=5 rleg=-22 rknee=20 larm=-22 rarm=25 lfore=20 rfore=25 bob=-0.02
+3   lleg=5 lknee=8 rleg=10 rknee=55 larm=0 rarm=0 bob=0.01
+6   lleg=-22 lknee=20 rleg=28 rknee=5 larm=25 rarm=-22 lfore=25 rfore=20 bob=-0.02
+9   lleg=10 lknee=55 rleg=5 rknee=8 larm=0 rarm=0 bob=0.01
+12  =0
+
+clip dab
+fps 12
+loop no
+tags emote joke
+0   rest
+3   ease=out  bob=-0.05 spine=5
+5   ease=in  rarm=40,0,125 rfore=0 larm=85,0,-35 lfore=125 head=40,25,-15 spine=15,10,0 neck=10 bob=-0.06
+11  hold
+14  ease=out  rest
+
+clip floss
+fps 12
+tags emote joke dance
+0   larm=-25,0,-30 rarm=-25,0,30 lfore=0 rfore=0 root=0,-12,0 hips=0.04,0,0 spine=0,0,-6
+3   larm=25,0,-30 rarm=25,0,30 root=0,12,0 hips=-0.04,0,0 spine=0,0,6
+6   larm=-25,0,30 rarm=-25,0,-30 root=0,-12,0 hips=0.04,0,0 spine=0,0,-6
+9   larm=25,0,30 rarm=25,0,-30 root=0,12,0 hips=-0.04,0,0 spine=0,0,6
+12  =0
+
+clip chicken_dance
+fps 12
+tags emote joke dance
+# beak hands, flap wings, wiggle down
+0   larm=70,0,10 rarm=70,0,10 lfore=40 rfore=40 lhand=40 rhand=40
+2   larm=70,0,10 rarm=70,0,10 lfore=10 rfore=10 lhand=0 rhand=0
+4   =0
+6   ease=out  larm=10,0,55 rarm=10,0,55 lfore=120 rfore=120 lhand=0 rhand=0
+7   larm=10,0,25 rarm=10,0,25
+8   larm=10,0,55 rarm=10,0,55
+9   larm=10,0,25 rarm=10,0,25
+10  ease=in  larm=5,0,30 rarm=5,0,30 lfore=110 rfore=110 lleg=25 rleg=25 lknee=60 rknee=60 hips=0,-0.15,0 spine=15 root=0,-15,0
+12  root=0,15,0
+14  root=0,0,0 lleg=0 rleg=0 lknee=0 rknee=0 hips=0,0,0 spine=0
+16  =0
+
+clip facepalm
+fps 12
+loop no
+tags emote joke
+0   rest
+4   ease=out  rarm=105,0,-40 rfore=140 rhand=20 head=30 neck=10 spine=10
+6   ease=in  head=38 bob=-0.01
+12  hold  head=30,10,0
+14  head=30,-10,0
+16  head=30,10,0
+20  ease=out  rest
+
+clip flex
+fps 12
+tags emote joke
+0   rest
+2   ease=in  larm=0,60,45 rarm=0,60,45 lfore=60 rfore=60 chest=-4
+5   ease=back  larm=0,90,90 rarm=0,90,90 lfore=110 rfore=110 chest=-10 bob=-0.03 lleg=0,0,10 rleg=0,0,10
+8   larm=0,90,95 rarm=0,90,95 lfore=125 rfore=125 chest=-14 bob=-0.05
+10  larm=0,90,90 rarm=0,90,90 lfore=110 rfore=110 chest=-10 bob=-0.03
+12  =8
+16  ease=out  rest
+
+clip trip
+fps 12
+loop no
+tags emote joke snap
+# walk, catch toe, flail, faceplant, lie there
+0   lleg=20 rleg=-15 rknee=15 larm=-15 rarm=15
+3   ease=in  lleg=-5 rleg=25 rknee=0 spine=25 larm=60,0,40 rarm=90,0,50 lfore=20 rfore=20 hips=0,0,0.12 head=-20
+5   ease=out  root=45,0,0 spine=20 larm=150,0,60 rarm=160,0,40 lleg=-30 rleg=10 rknee=40 hips=0,-0.25,0.35
+7   ease=in hit  root=88,0,0 spine=5 larm=170,0,40 rarm=170,0,40 lfore=0 rfore=0 lleg=-10 rleg=-5 lknee=30 rknee=10 head=-30 hips=0,-0.80,0.55
+8   ease=out  lleg=-25 lknee=70 rknee=50
+10  ease=back  lleg=-5 lknee=10 rknee=10 rleg=0
+18  hold
+19  head=-20,0,15
+20  head=-30
+24  hold
+
+clip tpose_glitch
+fps 12
+tags emote joke glitch
+0   rest
+2   ease=snap  larm=0,0,90 rarm=0,0,90 lfore=0 rfore=0
+5   ease=snap  root=0,25,0
+6   ease=snap  root=0,25,0 hips=0,0.06,0
+7   ease=snap  root=0,0,0 hips=0,0,0
+9   ease=snap  larm=0,0,90 rarm=0,0,90 head=0,0,-25 hips=0.03,0,0
+10  ease=snap  head=0 hips=0,0,0
+12  ease=snap  rarm=0,0,90 larm=0,0,90 root=0,-90,0
+13  ease=snap  root=0,0,0
+16  hold
+17  ease=snap  rest
+20  hold
+
+clip take_a_bow
+fps 12
+loop no
+tags emote
+0   rest
+5   ease=inout  spine=40 chest=10 head=10 rarm=40,0,-35 rfore=100 larm=-25,0,15 lfore=40 rleg=-5 lleg=5
+10  hold
+14  ease=inout  rest
+
+clip laugh
+fps 12
+tags emote joke
+0   chest=-15 head=-25 larm=15,0,20 rarm=15,0,20 lfore=90 rfore=90 bob=-0.02
+2   chest=-12 head=-15 bob=0.0
+4   chest=-15 head=-25 bob=-0.02
+6   chest=-10 head=-15 bob=0.0
+8   ease=inout  spine=25 chest=10 head=15 larm=20,0,-15 rarm=20,0,-15 lfore=70 rfore=70 bob=-0.04
+10  spine=22 head=8 bob=-0.03
+12  spine=25 head=15 bob=-0.04
+14  ease=inout  =0
+16  =0
+
+clip shrug
+fps 12
+loop no
+tags emote
+0   rest
+4   ease=back  lsh=0,0,25 rsh=0,0,25 larm=10,0,-15 rarm=10,0,-15 lfore=90 rfore=90 lhand=0,-80,0 rhand=0,-80,0 head=5,0,15
+10  hold
+14  ease=out  rest
+
+clip sit
+fps 8
+tags emote
+0   lleg=90 rleg=90 lknee=90 rknee=90 hips=0,-0.43,-0.05 larm=10,0,10 rarm=10,0,10 lfore=40 rfore=40 spine=5
+6   ease=inout  spine=-5 head=-8 bob=0
+7   lleg=90 rleg=90 lknee=90 rknee=90 hips=0,-0.43,-0.05
+12  =0
+
+clip sleep
+fps 6
+tags emote joke
+fx zzz
+# slumped sitting, head bobbing; the renderer floats Zs off the head
+0   lleg=90 rleg=90 lknee=90 rknee=90 hips=0,-0.43,-0.05 spine=25 chest=10 neck=20 head=20 larm=15,0,5 rarm=15,0,5 lfore=30 rfore=30
+6   ease=inout  spine=30 neck=25 head=25 chest=12 hips=0,-0.44,-0.05
+12  =0
+
+clip jump
+fps 12
+loop no
+tags emote locomotion
+squash yes
+0   rest
+3   ease=out  lleg=40 rleg=40 lknee=80 rknee=80 spine=20 hips=0,-0.22,0 larm=-30 rarm=-30
+6   ease=out  rest  larm=160,0,20 rarm=160,0,20 hips=0,0.45,0 lleg=10 rleg=-10
+8   hips=0,0.5,0 lleg=30 lknee=60 rleg=10 rknee=40
+11  ease=in  hips=0,0,0 lleg=0 lknee=0 rleg=0 rknee=0 larm=60,0,40 rarm=60,0,40
+13  ease=out  lleg=35 rleg=35 lknee=70 rknee=70 hips=0,-0.18,0 spine=15 larm=20,0,30 rarm=20,0,30
+16  ease=out  rest
+
+clip victory
+fps 12
+tags emote
+0   rarm=170,0,10 rfore=10 larm=0,0,20 lfore=90 bob=0.0
+3   rarm=175,0,0 bob=0.05
+6   =0

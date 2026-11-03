@@ -1145,7 +1145,7 @@ fn an_open_loop_dialog_keeps_terminal_images_out_from_under_it() {
     terminal
         .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
-    let dialog = crate::drive::loop_dialog::modal_area(size);
+    let dialog = crate::ui::loop_card::terminal_area(size);
     assert_eq!(app.image_occluders, vec![dialog]);
     let stage = app
         .panes

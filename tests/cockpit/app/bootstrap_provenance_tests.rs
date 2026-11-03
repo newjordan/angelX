@@ -978,3 +978,30 @@ fn self_work_context_tracks_the_selected_checkout_and_respects_nested_projects()
         );
     }
 }
+
+#[test]
+fn workspace_context_names_the_live_module_root_only_when_a_loader_runs() {
+    let payload = |message: ChatMsg| -> serde_json::Value {
+        serde_json::from_str(
+            message
+                .content
+                .strip_prefix(WORKSPACE_CONTEXT_HEADER)
+                .unwrap()
+                .trim(),
+        )
+        .unwrap()
+    };
+    let workspace = Path::new("/fixture");
+    let with = workspace_context_message_with_live(
+        workspace,
+        String::new(),
+        String::new(),
+        String::new(),
+        Some(Path::new("/fixture/cockpit/live")),
+    )
+    .unwrap();
+    assert_eq!(payload(with)["live_dir"], "/fixture/cockpit/live");
+    let without =
+        workspace_context_message(workspace, String::new(), String::new(), String::new()).unwrap();
+    assert!(payload(without).get("live_dir").is_none());
+}

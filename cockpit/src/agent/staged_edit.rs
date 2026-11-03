@@ -304,16 +304,27 @@ pub(crate) fn commit_actions(
     let mut undo: Vec<Undo> = Vec::new();
     let mut receipts: Vec<String> = Vec::new();
 
-    let rollback = |undo: Vec<Undo>| {
+    let rollback = |undo: Vec<Undo>| -> String {
+        let mut failed = Vec::new();
         for step in undo.into_iter().rev() {
-            match step {
+            let (path, result) = match step {
                 Undo::Restore { path, content } => {
-                    let _ = confined_write(root, Path::new(&path), &content);
+                    let result = rollback_write(root, Path::new(&path), &content);
+                    (path, result)
                 }
                 Undo::RemoveCreated { path } => {
-                    let _ = confined_remove_file(root, Path::new(&path));
+                    let result = rollback_remove(root, Path::new(&path));
+                    (path, result)
                 }
+            };
+            if let Err(error) = result {
+                failed.push(format!("{path}: {error}"));
             }
+        }
+        if failed.is_empty() {
+            "earlier staged ops rolled back".to_string()
+        } else {
+            format!("rollback failed: {}", failed.join("; "))
         }
     };
 
@@ -349,8 +360,8 @@ pub(crate) fn commit_actions(
                         receipts.push(format!("{path} · new tag #{new_tag}"));
                     }
                     Err(e) => {
-                        rollback(undo);
-                        return Err(format!("{e}; earlier staged ops rolled back"));
+                        let note = rollback(undo);
+                        return Err(format!("{e}; {note}"));
                     }
                 }
             }
@@ -358,20 +369,20 @@ pub(crate) fn commit_actions(
                 match confined_read(root, Path::new(&path)) {
                     Ok(live) if live == original => {}
                     Ok(_) => {
-                        rollback(undo);
+                        let note = rollback(undo);
                         return Err(format!(
-                            "staged {path}: file changed since proposal {}; earlier ops rolled back",
+                            "staged {path}: file changed since proposal {}; {note}",
                             crate::agent::harness::book::d46_recovery::RESTAGE.cells()
                         ));
                     }
                     Err(e) => {
-                        rollback(undo);
-                        return Err(format!("staged {path}: {e}; earlier ops rolled back"));
+                        let note = rollback(undo);
+                        return Err(format!("staged {path}: {e}; {note}"));
                     }
                 }
                 if let Err(e) = confined_remove_file(root, Path::new(&path)) {
-                    rollback(undo);
-                    return Err(format!("{e}; earlier staged ops rolled back"));
+                    let note = rollback(undo);
+                    return Err(format!("{e}; {note}"));
                 }
                 crate::agent::hashline::invalidate_snapshot(&path);
                 undo.push(Undo::Restore {
@@ -389,29 +400,33 @@ pub(crate) fn commit_actions(
                 match confined_read(root, Path::new(&from)) {
                     Ok(live) if live == original => {}
                     Ok(_) => {
-                        rollback(undo);
+                        let note = rollback(undo);
                         return Err(format!(
-                            "staged {from}: file changed since proposal {}; earlier ops rolled back",
+                            "staged {from}: file changed since proposal {}; {note}",
                             crate::agent::harness::book::d46_recovery::RESTAGE.cells()
                         ));
                     }
                     Err(e) => {
-                        rollback(undo);
-                        return Err(format!("staged {from}: {e}; earlier ops rolled back"));
+                        let note = rollback(undo);
+                        return Err(format!("staged {from}: {e}; {note}"));
                     }
                 }
                 let bytes = content.into_bytes();
                 let text = String::from_utf8_lossy(&bytes).into_owned();
                 if let Err(e) = confined_create_new(root, Path::new(&to), &bytes) {
-                    rollback(undo);
-                    return Err(format!("{e}; earlier staged ops rolled back"));
+                    let note = rollback(undo);
+                    return Err(format!("{e}; {note}"));
                 }
                 undo.push(Undo::RemoveCreated { path: to.clone() });
                 if let Err(e) = confined_remove_file(root, Path::new(&from)) {
-                    let _ = confined_remove_file(root, Path::new(&to));
+                    let cleanup = confined_remove_file(root, Path::new(&to));
                     undo.pop();
-                    rollback(undo);
-                    return Err(format!("{e}; earlier staged ops rolled back"));
+                    let note = rollback(undo);
+                    let cleanup_note = match cleanup {
+                        Ok(()) => String::new(),
+                        Err(error) => format!("; cleanup of {to} failed: {error}"),
+                    };
+                    return Err(format!("{e}; {note}{cleanup_note}"));
                 }
                 crate::agent::hashline::relocate_snapshot(&from, &to);
                 let new_tag = crate::agent::hashline::record_snapshot(&to, &text);
@@ -424,6 +439,32 @@ pub(crate) fn commit_actions(
         }
     }
     Ok(receipts)
+}
+
+#[cfg(test)]
+std::thread_local! {
+    static FAIL_ROLLBACK_IO: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+pub(crate) fn fail_next_rollback_io() {
+    FAIL_ROLLBACK_IO.with(|flag| flag.set(true));
+}
+
+fn rollback_write(root: &Path, path: &Path, content: &[u8]) -> Result<(), String> {
+    #[cfg(test)]
+    if FAIL_ROLLBACK_IO.with(|flag| flag.replace(false)) {
+        return Err("injected rollback io failure".into());
+    }
+    confined_write(root, path, content)
+}
+
+fn rollback_remove(root: &Path, path: &Path) -> Result<(), String> {
+    #[cfg(test)]
+    if FAIL_ROLLBACK_IO.with(|flag| flag.replace(false)) {
+        return Err("injected rollback io failure".into());
+    }
+    confined_remove_file(root, path)
 }
 
 #[cfg(test)]

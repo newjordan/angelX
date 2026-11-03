@@ -8,6 +8,7 @@ use super::delta::Patch;
 use super::value::{Name, Value};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 const UNIT: u8 = 0;
 const FALSE: u8 = 1;
@@ -33,6 +34,8 @@ const P_KEYED: u8 = 3;
 const P_MAP: u8 = 4;
 const P_SOME: u8 = 5;
 const P_VARIANT: u8 = 6;
+const P_KEYED_EDIT: u8 = 7;
+const P_SEQ_SHIFT: u8 = 8;
 
 /// Nothing decoded is allowed to claim more than this many items.
 const MAX_ITEMS: u64 = 1 << 20;
@@ -41,12 +44,16 @@ const MAX_DEPTH: u32 = 64;
 
 
 /// The writing end's half of a connection's name table.
-#[derive(Default)]
+/// Transactional clones share storage until a previously unseen name is added.
+#[derive(Clone, Default)]
 pub struct Writer {
-    names: HashMap<String, u64>,
+    names: Arc<HashMap<String, u64>>,
 }
 
 impl Writer {
+    /// Entries retained by this stream's field/variant name dictionary.
+    pub fn dictionary_len(&self) -> usize { self.names.len() }
+
     fn name(&mut self, out: &mut Vec<u8>, name: &str) {
         match self.names.get(name) {
             Some(&id) => put_varint(out, id + 1),
@@ -55,7 +62,7 @@ impl Writer {
                 put_varint(out, name.len() as u64);
                 out.extend_from_slice(name.as_bytes());
                 let id = self.names.len() as u64;
-                self.names.insert(name.to_string(), id);
+                Arc::make_mut(&mut self.names).insert(name.to_string(), id);
             }
         }
     }
@@ -128,6 +135,7 @@ impl Writer {
                 self.name(out, name);
                 self.value(out, payload);
             }
+            Value::Shared(inner) => self.value(out, inner),
         }
     }
 
@@ -155,6 +163,28 @@ impl Writer {
                 put_varint(out, items.len() as u64);
                 for (i, p) in items {
                     put_varint(out, u64::from(*i));
+                    self.patch(out, p);
+                }
+            }
+            Patch::SeqShift { skip, len, items } => {
+                out.push(P_SEQ_SHIFT);
+                put_varint(out, u64::from(*skip));
+                put_varint(out, u64::from(*len));
+                put_varint(out, items.len() as u64);
+                for (i, p) in items {
+                    put_varint(out, u64::from(*i));
+                    self.patch(out, p);
+                }
+            }
+            Patch::KeyedEdit { gone, items } => {
+                out.push(P_KEYED_EDIT);
+                put_varint(out, gone.len() as u64);
+                for &id in gone {
+                    put_varint(out, id);
+                }
+                put_varint(out, items.len() as u64);
+                for (id, p) in items {
+                    put_varint(out, *id);
                     self.patch(out, p);
                 }
             }
@@ -198,10 +228,38 @@ impl Writer {
     }
 }
 
+/// A name read off the wire, as a static text where it can be: a field's
+/// name is read once a connection, but cloned with every value that holds
+/// it (a crowd of shots, each with its dozen fields, each tick), and a
+/// clone of a borrowed name is a copy where an owned one is an allocation.
+/// One copy of each distinct short name is kept for the program's life, and
+/// no more than `MOST_NAMES` of them: a sender who names more is read as
+/// before, an owned text apiece.
+fn interned(text: &str) -> Name {
+    use std::collections::HashSet;
+    use std::sync::{Mutex, OnceLock};
+    const MOST_NAMES: usize = 4096;
+    const LONGEST_NAME: usize = 48;
+    static KEPT: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
+    if text.len() <= LONGEST_NAME {
+        let mut kept = KEPT.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(&name) = kept.get(text) {
+            return Cow::Borrowed(name);
+        }
+        if kept.len() < MOST_NAMES {
+            let name: &'static str = Box::leak(text.to_owned().into_boxed_str());
+            kept.insert(name);
+            return Cow::Borrowed(name);
+        }
+    }
+    Cow::Owned(text.to_string())
+}
+
 /// The reading end's half of a connection's name table.
-#[derive(Default)]
+/// Candidate decoders share storage until they encounter a new dictionary name.
+#[derive(Clone, Default)]
 pub struct Reader {
-    names: Vec<Name>,
+    names: Arc<Vec<Name>>,
 }
 
 /// No list or text may claim more items than there are bytes left, nor more
@@ -228,13 +286,16 @@ fn length(bytes: &mut Bytes) -> Result<usize, Malformed> {
 }
 
 impl Reader {
+    /// Entries retained by this stream's field/variant name dictionary.
+    pub fn dictionary_len(&self) -> usize { self.names.len() }
+
     fn name(&mut self, bytes: &mut Bytes) -> Result<Name, Malformed> {
         match bytes.varint()? {
             0 => {
                 let len = count(bytes)?;
                 let text = std::str::from_utf8(bytes.take(len)?).map_err(|_| Malformed)?;
-                let name: Name = Cow::Owned(text.to_string());
-                self.names.push(name.clone());
+                let name = interned(text);
+                Arc::make_mut(&mut self.names).push(name.clone());
                 Ok(name)
             }
             id => self.names.get(id as usize - 1).cloned().ok_or(Malformed),
@@ -349,6 +410,34 @@ impl Reader {
                 }
                 Patch::Seq { len, items }
             }
+            P_SEQ_SHIFT => {
+                let skip = u32::try_from(bytes.varint()?).map_err(|_| Malformed)?;
+                let len = u32::try_from(bytes.varint()?).map_err(|_| Malformed)?;
+                if u64::from(len) > MAX_ITEMS || u64::from(skip) > MAX_ITEMS {
+                    return Err(Malformed);
+                }
+                let n = count(bytes)?;
+                let mut items = Vec::with_capacity(n);
+                for _ in 0..n {
+                    let i = u32::try_from(bytes.varint()?).map_err(|_| Malformed)?;
+                    items.push((i, self.patch_at(bytes, d)?));
+                }
+                Patch::SeqShift { skip, len, items }
+            }
+            P_KEYED_EDIT => {
+                let n = count(bytes)?;
+                let mut gone = Vec::with_capacity(n);
+                for _ in 0..n {
+                    gone.push(bytes.varint()?);
+                }
+                let n = count(bytes)?;
+                let mut items = Vec::with_capacity(n);
+                for _ in 0..n {
+                    let id = bytes.varint()?;
+                    items.push((id, self.patch_at(bytes, d)?));
+                }
+                Patch::KeyedEdit { gone, items }
+            }
             P_KEYED => {
                 let n = count(bytes)?;
                 let mut order = Vec::with_capacity(n);
@@ -389,6 +478,72 @@ impl Reader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn named(name: &'static str, n: u64) -> Value {
+        Value::Struct(vec![(Cow::Borrowed(name), Value::U(n))])
+    }
+
+    #[test]
+    fn dictionary_candidates_share_known_names_and_preserve_wire_bytes() {
+        let value = named("alpha", 7);
+        let first = vec![STRUCT, 1, 0, 5, b'a', b'l', b'p', b'h', b'a', UINT, 7];
+        let repeated = vec![STRUCT, 1, 1, UINT, 7];
+        let mut writer = Writer::default();
+        let mut bytes = Vec::new();
+        writer.value(&mut bytes, &value);
+        assert_eq!(bytes, first);
+        let mut candidate = writer.clone();
+        assert!(Arc::ptr_eq(&writer.names, &candidate.names));
+        bytes.clear();
+        candidate.value(&mut bytes, &value);
+        assert_eq!(bytes, repeated);
+        assert!(Arc::ptr_eq(&writer.names, &candidate.names));
+        assert_eq!(writer.dictionary_len(), 1);
+
+        let mut reader = Reader::default();
+        assert_eq!(reader.value(&mut Bytes::new(&first)), Ok(value.clone()));
+        let mut candidate = reader.clone();
+        assert!(Arc::ptr_eq(&reader.names, &candidate.names));
+        assert_eq!(candidate.value(&mut Bytes::new(&repeated)), Ok(value));
+        assert!(Arc::ptr_eq(&reader.names, &candidate.names));
+        assert_eq!(reader.dictionary_len(), 1);
+    }
+
+    #[test]
+    fn dropped_new_name_candidate_leaves_dictionary_and_retry_unchanged() {
+        let mut writer = Writer::default();
+        let mut initial = Vec::new();
+        writer.value(&mut initial, &named("alpha", 7));
+        let original = Arc::clone(&writer.names);
+        let next = named("beta", 9);
+        let mut refused = writer.clone();
+        let mut candidate_bytes = Vec::new();
+        refused.value(&mut candidate_bytes, &next);
+        assert!(!Arc::ptr_eq(&writer.names, &refused.names));
+        assert_eq!((writer.dictionary_len(), refused.dictionary_len()), (1, 2));
+        drop(refused);
+        assert!(Arc::ptr_eq(&writer.names, &original));
+        let mut retry = writer.clone();
+        let mut retry_bytes = Vec::new();
+        retry.value(&mut retry_bytes, &next);
+        assert_eq!(candidate_bytes, retry_bytes);
+
+        let mut reader = Reader::default();
+        reader.value(&mut Bytes::new(&initial)).unwrap();
+        let original = Arc::clone(&reader.names);
+        let mut malformed = candidate_bytes.clone();
+        *malformed.last_mut().unwrap() = 255; // unterminated UINT after new name
+        let mut refused = reader.clone();
+        assert!(refused.value(&mut Bytes::new(&malformed)).is_err());
+        assert!(!Arc::ptr_eq(&reader.names, &refused.names));
+        assert_eq!((reader.dictionary_len(), refused.dictionary_len()), (1, 2));
+        drop(refused);
+        assert!(Arc::ptr_eq(&reader.names, &original));
+        let mut retry = reader.clone();
+        assert_eq!(retry.value(&mut Bytes::new(&retry_bytes)), Ok(next));
+        assert_eq!(retry.dictionary_len(), 2);
+        assert_eq!(reader.dictionary_len(), 1);
+    }
 
     #[test]
     fn a_blob_or_text_longer_than_max_items_reads_and_one_past_the_end_does_not() {

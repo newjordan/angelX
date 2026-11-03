@@ -8,7 +8,7 @@
 //! personality type's pages are addresses and render in full. Read-only: only
 //! the harness writes evidence.
 
-use super::{DIGITS, Primary, Route, Sub, TOC, primary};
+use super::{DIGITS, Primary, ResolvedSub, Route, TOC, primary};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -113,10 +113,10 @@ fn decode(workspace: &Path, address: &Address, depth: usize) -> Option<String> {
             Some(page_line(
                 route,
                 index,
-                &render_page(workspace, text, depth)?,
+                &super::profile_text(&sub, &render_page(workspace, text, depth)?),
             ))
         }
-        None => Some(decode_route_sub(workspace, route, sub, depth)),
+        None => Some(decode_route_sub(workspace, route, &sub, depth)),
     }
 }
 
@@ -150,7 +150,9 @@ fn table_of_contents() -> String {
     for primary in TOC {
         out.push_str(&format!(
             "{}  {} — {}\n",
-            primary.cell, primary.name, primary.surface
+            primary.cell,
+            primary.name,
+            super::displayed_surface(primary)
         ));
     }
     out
@@ -159,10 +161,16 @@ fn table_of_contents() -> String {
 fn chapter(primary: &'static Primary) -> String {
     let mut out = format!(
         "{}  {} — {}\n\n",
-        primary.cell, primary.name, primary.surface
+        primary.cell,
+        primary.name,
+        super::displayed_surface(primary)
     );
     for sub in super::subs(primary) {
-        out.push_str(&format!("{}  {}", sub.route.cells(), sub.signal));
+        out.push_str(&format!(
+            "{}  {}",
+            sub.route.cells(),
+            super::displayed_signal(&sub)
+        ));
         if !sub.action.is_empty() {
             out.push_str(&format!(" → {}", sub.action));
         }
@@ -174,8 +182,8 @@ fn chapter(primary: &'static Primary) -> String {
     out
 }
 
-fn decode_route_sub(workspace: &Path, route: Route, sub: &Sub, depth: usize) -> String {
-    let mut out = format!("{}  {}\n", route.cells(), sub.signal);
+fn decode_route_sub(workspace: &Path, route: Route, sub: &ResolvedSub, depth: usize) -> String {
+    let mut out = format!("{}  {}\n", route.cells(), super::displayed_signal(sub));
     if !sub.action.is_empty() {
         out.push_str(&format!("→ {}\n", sub.action));
     }
@@ -185,7 +193,11 @@ fn decode_route_sub(workspace: &Path, route: Route, sub: &Sub, depth: usize) -> 
     }
     for (index, page) in sub.pages.iter().enumerate() {
         let rendered = render_page(workspace, page, depth).unwrap_or_else(|| page.to_string());
-        out.push_str(&page_line(route, index, &rendered));
+        out.push_str(&page_line(
+            route,
+            index,
+            &super::profile_text(sub, &rendered),
+        ));
         out.push('\n');
     }
     if let Some(evidence) = recorded(workspace, route) {

@@ -9,6 +9,7 @@
 
 use super::{Primary, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/the_sight.book");
 pub(crate) const CELL: char = '⠮';
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -22,14 +23,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_definition`",
             action: "",
             ideas: "",
-            pages: &[
-                "Give `symbol` (first occurrence is queried) or an explicit 1-based `line`(+`character`).",
-                "Source file (workspace-relative or absolute).",
-                "Symbol to locate (first occurrence in the file).",
-                "Use this OR line/character.",
-                "1-based line of the symbol (alternative to `symbol`).",
-                "1-based column on `line` (default 1).",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'1'),
         },
         Sub {
             route: Route::new(CELL, '⠃'),
@@ -37,14 +31,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_references`",
             action: "",
             ideas: "",
-            pages: &[
-                "Give `symbol` or 1-based `line`(+`character`).",
-                "Source file (workspace-relative or absolute).",
-                "Symbol to locate (first occurrence in the file).",
-                "Use this OR line/character.",
-                "1-based line of the symbol (alternative to `symbol`).",
-                "1-based column on `line` (default 1).",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'2'),
         },
         Sub {
             route: Route::new(CELL, '⠉'),
@@ -52,14 +39,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_hover`",
             action: "",
             ideas: "",
-            pages: &[
-                "Give `symbol` or 1-based `line`(+`character`).",
-                "Source file (workspace-relative or absolute).",
-                "Symbol to locate (first occurrence in the file).",
-                "Use this OR line/character.",
-                "1-based line of the symbol (alternative to `symbol`).",
-                "1-based column on `line` (default 1).",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'3'),
         },
         Sub {
             route: Route::new(CELL, '⠙'),
@@ -67,7 +47,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_symbols`",
             action: "",
             ideas: "",
-            pages: &["Source file to outline (workspace-relative or absolute)."],
+            pages: &super::catalog_pages::<1>(CATALOG, b'4'),
         },
         Sub {
             route: Route::new(CELL, '⠑'),
@@ -75,10 +55,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_workspace_symbol`",
             action: "",
             ideas: "",
-            pages: &[
-                "A server must be warm first (run lsp_symbols/lsp_diagnostics on any project file).",
-                "Symbol name (or prefix/substring) to search for.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'5'),
         },
         Sub {
             route: Route::new(CELL, '⠋'),
@@ -86,10 +63,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `ui_inspect`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use format=cells for exact Ratatui symbols, color variants, underline color, modifiers, and skip flags.",
-                "Page an immutable cached snapshot without drawing a new frame.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'6'),
         },
         Sub {
             route: Route::new(CELL, '⠛'),
@@ -97,10 +71,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `ui_verify`",
             action: "",
             ideas: "",
-            pages: &[
-                "Page the immutable result later with ui_inspect(snapshot_id=...).",
-                "Optional exact campaign id from the loaded report catalog.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: Route::new(CELL, '⠓'),
@@ -108,10 +79,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `video_cut`, continued",
             action: "",
             ideas: "",
-            pages: &[
-                "output height (default: first clip's)",
-                "output frame rate (default 24)",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'8'),
         },
     ],
 };

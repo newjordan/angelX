@@ -54,6 +54,146 @@ fn built_in_manifests_load_all_first_party_modules() {
     assert_eq!(host.state("shell"), Some(ModuleState::Dormant));
 }
 
+fn manifest_fixture() -> PathBuf {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "angel-manifests-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    for ((_, name), text) in MANIFEST_FILES.iter().zip(DEFAULT_MANIFESTS) {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    dir
+}
+
+#[test]
+fn reload_publishes_manifest_changes_without_resetting_live_windows() {
+    let dir = manifest_fixture();
+    let path = dir.join("agent.toml");
+    let text = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace("Agent Identity", "New agent title");
+    std::fs::write(&path, text).unwrap();
+    let mut host = ModuleHost::from_default_manifests().unwrap();
+    let id = ModuleId::new("agent");
+    host.set_rect("agent", Rect::new(2, 3, 31, 12));
+    host.focus(&id).unwrap();
+    let focus = host.focused().cloned();
+    let order = host.z_order.clone();
+    assert!(host.reload_manifests(&dir).unwrap().is_empty());
+    assert_eq!(host.status(&id).unwrap().title, "New agent title");
+    assert_eq!(
+        host.status(&id).unwrap().rect,
+        WindowRect::new(2, 3, 31, 12)
+    );
+    assert_eq!(host.focused(), focus.as_ref());
+    assert_eq!(host.z_order, order);
+    assert_eq!(host.state("agent"), Some(ModuleState::Active));
+    assert!(host.layout_text().contains("New agent title"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn reload_rejects_bad_or_missing_files_without_publishing_partial_changes() {
+    let dir = manifest_fixture();
+    let mut host = ModuleHost::from_default_manifests().unwrap();
+    let before = host.layout_text();
+    let path = dir.join("agent.toml");
+    std::fs::write(
+        &path,
+        std::fs::read_to_string(&path)
+            .unwrap()
+            .replace("Agent Identity", "changed"),
+    )
+    .unwrap();
+    let graph = dir.join("graph.toml");
+    let valid = std::fs::read_to_string(&graph).unwrap();
+    for bad in [
+        "not valid toml = [".to_string(),
+        valid.replace("id = \"graph\"", "id = \"agent\""),
+        valid.replace("kind = \"graph\"", "kind = \"chat\""),
+        valid.replace("data_sources", "data_source"),
+    ] {
+        std::fs::write(&graph, bad).unwrap();
+        assert!(host.reload_manifests(&dir).is_err());
+        assert_eq!(host.layout_text(), before);
+    }
+    std::fs::remove_file(&graph).unwrap();
+    assert!(host.reload_manifests(&dir).is_err());
+    assert_eq!(host.layout_text(), before);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn reload_rederives_feeds_and_preserves_intent() {
+    let dir = manifest_fixture();
+    let mut host = ModuleHost::from_default_manifests().unwrap();
+    host.declare_data_source("unavailable", false);
+    let path = dir.join("agent.toml");
+    let original = std::fs::read_to_string(&path).unwrap();
+    let changed = original.replace("\"bag\"", "\"unavailable\"");
+    std::fs::write(&path, changed).unwrap();
+    host.focus(&ModuleId::new("agent")).unwrap();
+    assert_eq!(
+        host.reload_manifests(&dir).unwrap(),
+        vec![(ModuleId::new("agent"), ModuleState::Suspended)]
+    );
+    assert_eq!(host.focused().unwrap().as_str(), "core");
+    std::fs::write(&path, original).unwrap();
+    assert_eq!(
+        host.reload_manifests(&dir).unwrap(),
+        vec![(ModuleId::new("agent"), ModuleState::Active)]
+    );
+    assert_eq!(host.state("agent"), Some(ModuleState::Active));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn reload_rejects_oversized_files_and_a_disabled_core() {
+    let dir = manifest_fixture();
+    let mut host = ModuleHost::from_default_manifests().unwrap();
+    let before = host.layout_text();
+    let graph = dir.join("graph.toml");
+    let original = std::fs::read(&graph).unwrap();
+    std::fs::write(&graph, vec![b'x'; (MAX_MANIFEST_BYTES + 1) as usize]).unwrap();
+    assert!(host.reload_manifests(&dir).unwrap_err().contains("exceeds"));
+    assert_eq!(host.layout_text(), before);
+    std::fs::write(&graph, original).unwrap();
+    host.declare_data_source("unavailable", false);
+    let core = dir.join("core.toml");
+    let text = std::fs::read_to_string(&core)
+        .unwrap()
+        .replace("\"harness\"", "\"unavailable\"");
+    std::fs::write(&core, text).unwrap();
+    assert!(
+        host.reload_manifests(&dir)
+            .unwrap_err()
+            .contains("core must remain available")
+    );
+    assert_eq!(host.layout_text(), before);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn reload_rejects_a_fifo_without_waiting_for_a_writer() {
+    use std::os::unix::ffi::OsStrExt;
+    let dir = manifest_fixture();
+    let graph = dir.join("graph.toml");
+    std::fs::remove_file(&graph).unwrap();
+    let path = std::ffi::CString::new(graph.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
+    let mut host = ModuleHost::from_default_manifests().unwrap();
+    assert!(
+        host.reload_manifests(&dir)
+            .unwrap_err()
+            .contains("not a regular file")
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 #[test]
 fn startup_modules_activate_and_lifecycle_transitions_hold_state() {
     let mut host = ModuleHost::from_manifests(vec![

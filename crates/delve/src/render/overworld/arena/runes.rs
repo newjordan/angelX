@@ -172,6 +172,9 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
                 accent,
                 shine: true,
                 tick: tick as u32,
+                age: u32::MAX,
+                seed: 0,
+                pale: false,
             });
         });
     } else {

@@ -298,10 +298,11 @@ pub(crate) fn pet_glyph(name: &str) -> String {
 }
 
 pub(crate) fn hooks_text() -> String {
-    "hooks\n  the cockpit fires Pre/PostToolUse and SessionStart hooks configured via env\n  \
+    "hooks\n  the cockpit fires PreToolUse, PostToolUse, and SessionStart hooks\n  \
+     from ~/.angelX/hooks.json (override ANGEL_HOOKS_CONFIG)\n  \
      PostToolUse sees: ANGEL_TOOL_NAME / _ARGS / _RESULT / _TIMEOUT\n  \
-     SessionStart stdin is JSON (session_id, cwd, source) plus ANGEL_SESSION_ID / ANGEL_WORKSPACE\n  \
-     (configured via env, not a runtime menu)"
+     SessionStart reads {\"hook_event_name\",\"session_id\",\"cwd\",\"source\"} on stdin\n  \
+     and ANGEL_SESSION_ID / ANGEL_WORKSPACE (not a runtime menu)"
         .to_string()
 }
 
@@ -376,11 +377,8 @@ pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    match std::fs::write(&path, text) {
+    match crate::platform::workspace_store::write_atomic(&path, text.as_bytes()) {
         Ok(()) => clipboard_receipt(chars, transport, Ok(path.as_path())),
-        Err(error) => {
-            let error = error.to_string();
-            clipboard_receipt(chars, transport, Err(&error))
-        }
+        Err(error) => clipboard_receipt(chars, transport, Err(&error)),
     }
 }

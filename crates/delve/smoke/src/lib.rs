@@ -112,18 +112,14 @@ fn drift_scene() -> Run {
     }
 }
 
-/// Set up scene `kind` (an index into [`SCENES`]); `art_v2` picks the kit.
+/// Set up scene `kind` (an index into [`SCENES`]).
 #[unsafe(no_mangle)]
-pub extern "C" fn scene(kind: u32, art_v2: u32) -> u32 {
-    angel_delve::settings::set(angel_delve::settings::Settings {
-        art_v2: art_v2 != 0,
-        feel_ledger: false,
-        open_floors: false,
-    });
+pub extern "C" fn scene(kind: u32) -> u32 {
+    angel_delve::settings::set(angel_delve::settings::Settings::default());
     let run = match kind {
         0 => Run::new(7, 1, None),
-        1 => arena::art_v2::testing::kingdom(),
-        2 => arena::art_v2::testing::fight(),
+        1 => arena::testing::kingdom(),
+        2 => arena::testing::fight(),
         3 => {
             let mut r=Run::cinder_for_test();
             for id in 2..=4 { r.join_seat(id,&format!("Seat {id}")); }
@@ -150,9 +146,9 @@ pub extern "C" fn scene(kind: u32, art_v2: u32) -> u32 {
         },
         7 => Run::rafterwake_review_for_test("drop-tell"),
         8 => pennon_scene(),
-        9..=20 | 23..=36 => arena::art_v2::testing::boss(SCENES[kind as usize]),
-        21 => arena::art_v2::testing::hall(),
-        22 => arena::art_v2::testing::book_hop(),
+        9..=20 | 23..=36 => arena::testing::boss(SCENES[kind as usize]),
+        21 => arena::testing::hall(),
+        22 => arena::testing::book_hop(),
         37 => forest_scene(),
         38 => drift_scene(),
         39..=43 => roundtable_scene(SCENES[kind as usize]),
@@ -268,7 +264,7 @@ pub extern "C" fn state_hash(part: u32) -> u32 {
                     ..run.tune
                 };
                 if old_tune == defaults {
-                    if let Value::Struct(fields) = &mut tree {
+                    if let Value::Struct(fields) = tree.get_mut() {
                         fields.retain(|(name, _)| name.as_ref() != "tune");
                     }
                 }
@@ -283,7 +279,7 @@ pub extern "C" fn state_hash(part: u32) -> u32 {
                     const ADDED: &[&str] = &["cinder_fall", "cinder_slide", "cinder_lock", "cinder_tell", "cinder_attack", "pennon_gravity", "pennon_jump", "pennon_run", "pennon_coyote", "pennon_buffer", "rafter_gravity", "rafter_jump", "rafter_run", "rafter_coyote", "rafter_buffer", "brass_stride", "brass_combo", "brass_tell", "brass_shove", "brass_stop", "latch_tell", "latch_window", "latch_rest", "latch_recover", "latch_stop", "moss_launch", "moss_nudge", "moss_bounce", "moss_gravity", "moss_flipper", "roundtable"];
                     fields.retain(|(name, _)| !ADDED.contains(&name.as_ref()));
                 }
-                if let Value::Struct(fields) = &mut tree {
+                if let Value::Struct(fields) = tree.get_mut() {
                     fields.retain(|(name, _)| !["cinder", "latch", "brasswake", "rafterwake", "pennon", "mossbell"].contains(&name.as_ref()));
                 }
             }
@@ -353,8 +349,8 @@ pub extern "C" fn frame_live(w: u32, h: u32) -> u32 {
 pub extern "C" fn wire_scene(kind: u32) -> u32 {
     let run = match kind {
         0 => Run::new(7, 1, None),
-        1 => arena::art_v2::testing::kingdom(),
-        2 => arena::art_v2::testing::fight(),
+        1 => arena::testing::kingdom(),
+        2 => arena::testing::fight(),
         3 => {
             let mut r=Run::cinder_for_test();
             for id in 2..=4 { r.join_seat(id,&format!("Seat {id}")); }
@@ -381,9 +377,9 @@ pub extern "C" fn wire_scene(kind: u32) -> u32 {
         },
         7 => Run::rafterwake_review_for_test("drop-tell"),
         8 => pennon_scene(),
-        9..=20 | 23..=36 => arena::art_v2::testing::boss(SCENES[kind as usize]),
-        21 => arena::art_v2::testing::hall(),
-        22 => arena::art_v2::testing::book_hop(),
+        9..=20 | 23..=36 => arena::testing::boss(SCENES[kind as usize]),
+        21 => arena::testing::hall(),
+        22 => arena::testing::book_hop(),
         37 => forest_scene(),
         38 => drift_scene(),
         39..=43 => roundtable_scene(SCENES[kind as usize]),

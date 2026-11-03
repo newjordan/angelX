@@ -212,9 +212,14 @@ fn pick_up(run: &mut Run, card: &str) {
         card: card.into(),
         x,
         y,
-        held_off: None, took: Vec::new(),
+        held_off: None, took: Vec::new(), dropped: 0, owner: None,
     });
+    let lying_before = lying(run, card);
     run.step(&BTreeMap::new());
+    // A guard of another kind than the knight's waits for the take key.
+    if lying(run, card) == lying_before {
+        press(run, Input { interact: true, ..Default::default() });
+    }
 }
 
 fn lying(run: &Run, card: &str) -> usize {

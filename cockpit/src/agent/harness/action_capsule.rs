@@ -194,6 +194,59 @@ impl ActionPreview {
                 scope: "merge a parked delegate branch into the workspace".to_string(),
                 command_like: false,
             },
+            // Hands: observe actions stay capsule-free; every act is previewed
+            // without leaking typed text (byte counts and targets only).
+            "desktop" | "browser"
+                if crate::agent::tools::hands::is_act(
+                    call.name.as_str(),
+                    call.args
+                        .get("action")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                ) =>
+            {
+                let action = call
+                    .args
+                    .get("action")
+                    .and_then(Value::as_str)
+                    .unwrap_or("?");
+                let target = call
+                    .args
+                    .get("url")
+                    .and_then(Value::as_str)
+                    .map(bounded_command)
+                    .or_else(|| {
+                        call.args
+                            .get("selector")
+                            .and_then(Value::as_str)
+                            .map(bounded_command)
+                    })
+                    .or_else(|| {
+                        call.args
+                            .get("address")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+                    .or_else(|| {
+                        call.args
+                            .get("key")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+                    .unwrap_or_default();
+                Self {
+                    tool: call.name.clone(),
+                    scope: format!(
+                        "{} act: {action} {target} ({} B text payload)",
+                        call.name,
+                        text_len("text")
+                    )
+                    .trim()
+                    .to_string(),
+                    command_like: true,
+                }
+            }
+            "desktop" | "browser" => return None,
             _ => return None,
         };
         Some(preview)

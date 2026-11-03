@@ -139,18 +139,21 @@ impl Art {
 pub const MIDDLE_FROM: f32 = 0.7;
 /// A guardian whose file names no rage fights its last below this share.
 pub const LAST_FROM: f32 = 0.35;
-/// Hostile shots a second a guardian may loose in its opening: a few, read one by one.
-pub const OPEN_PER_SECOND: u32 = 3;
-/// Hostile shots a second in the middle of its fight.
-pub const MIDDLE_PER_SECOND: u32 = 5;
+/// Hostile shots a second a guardian may loose in its opening: a few, read
+/// one by one.
+pub const OPEN_PER_SECOND: u32 = 4;
+/// Hostile shots a second in the middle of its fight. The middle's and the
+/// rage's caps rose a half on 2026-10-29 ("bosses are still crazy weak"),
+/// and the opening and the room's caps rose again on 2026-10-31.
+pub const MIDDLE_PER_SECOND: u32 = 8;
 /// Hostile shots a second in its rage, the most it ever looses.
-pub const RAGE_PER_SECOND: u32 = 7;
+pub const RAGE_PER_SECOND: u32 = 11;
 /// The most hostile shots in the room per knight standing, in its opening.
-pub const OPEN_ON_SCREEN: u32 = 8;
+pub const OPEN_ON_SCREEN: u32 = 12;
 /// The most hostile shots in the room per knight standing, in the middle.
-pub const MIDDLE_ON_SCREEN: u32 = 12;
+pub const MIDDLE_ON_SCREEN: u32 = 18;
 /// The most hostile shots in the room per knight standing, in its rage.
-pub const RAGE_ON_SCREEN: u32 = 16;
+pub const RAGE_ON_SCREEN: u32 = 24;
 /// The most shots one volley holds; a mine or a split counts the ring it bursts into.
 pub const VOLLEY_MOST: u32 = 10;
 /// The fewest ticks a charge-up winds up before it can harm: 0.8 s.
@@ -254,6 +257,10 @@ pub struct ChargeUp {
     pub bolt: Bolt,
     /// The word over it as it winds up.
     pub cry: String,
+    /// Its blow breaks the stone it meets (`rubble`): a charge the pillar
+    /// that stops it, a slam or a landing the boulders round it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub breaks: bool,
 }
 
 impl ChargeUp {
@@ -735,6 +742,7 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
                     from: from_of(&kv, n, &mut errors).unwrap_or(Stage::Middle),
                     bolt,
                     cry,
+                    breaks: words.iter().skip(1).any(|w| w == "breaks"),
                 });
             }
             "rage" => match number(rest) {
@@ -847,6 +855,7 @@ fn pattern_names() -> String {
 /// Checked delivery definitions; this catalogue does not add bosses to the live population.
 pub const CHECKED: &[(&str, &str)] = &[
     ("archive-bellkeeper", include_str!("../../../../cockpit/assets/dungeon/bosses/archive-bellkeeper.boss")),
+    ("archive-drowned-reeve", include_str!("../../../../cockpit/assets/dungeon/bosses/archive-drowned-reeve.boss")),
     ("cinderjaw", include_str!("../../../../cockpit/assets/dungeon/bosses/cinderjaw.boss")),
     ("crypt-relic-liege", include_str!("../../../../cockpit/assets/dungeon/bosses/crypt-relic-liege.boss")),
     ("crypt-tax-keeper", include_str!("../../../../cockpit/assets/dungeon/bosses/crypt-tax-keeper.boss")),
@@ -923,6 +932,17 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ),
 ];
 
+/// The Gnome's Garden's floor guardian (`nooks::gnome`): not one of the
+/// built-in population, so no boss's place in a run's list moves; a run
+/// that reaches the garden's floor takes it on at the end of its list.
+pub const LAWN_FLAMINGO: &str = include_str!("../../../../cockpit/assets/dungeon/bosses/lawn-flamingo.boss");
+
+pub fn lawn_flamingo() -> Boss {
+    check(super::nooks::gnome::FLAMINGO, LAWN_FLAMINGO)
+        .expect("the lawn flamingo passes the boss checker")
+        .0
+}
+
 pub fn builtin() -> Vec<Boss> {
     BUILTIN
         .iter()
@@ -986,11 +1006,13 @@ windup charge|slam|beam|leap|inhale  wind=T every=T damage=8–20 from=middle cr
   beam   arc=30–150 (its sweep)   a charging line, then a beam sweeps the arc\n\
   leap   shots=0–8 speed=3–8   a shadow grows where a knight stood, then it lands there in a burst\n\
   inhale shots=4–8 speed=3–8   it draws the room in, shots and knights, then breathes out a burst\n\
+  breaks                       (charge, slam, leap) its blow breaks the pillars and boulders it meets\n\
 rage   0–60% — below this share of health it attacks half again as often\n\
 drops  spoils, e.g. `bone 4, wax 2, gold 150` (gold ≤300, others ≤6 each; no scales or bonds)\n\
 art    then up to {ART} rows of up to {ART} inks, `.` = black paper. Inks (each group dark→light):\n\
   greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T\n\
-  stone s x S u U v V W q Q z · signal (glows: eyes, fire, gems only) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7",
+  stone s x S u U v V W q Q z · violet d ( ) [ ] ^ · pink ! ? ; % +\n\
+  signal (glows: eyes, fire, gems only) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7",
         names = pattern_names(),
         middle = (MIDDLE_FROM * 100.0) as u32,
     )

@@ -405,7 +405,7 @@ impl Run {
             card: secret.card.into(),
             x: ix,
             y: iy,
-            held_off: None, took: Vec::new(),
+            held_off: None, took: Vec::new(), dropped: self.tick, owner: None,
         });
         self.lifted.push(key);
         self.cues.push(format!("secret_found:{}", secret.name));

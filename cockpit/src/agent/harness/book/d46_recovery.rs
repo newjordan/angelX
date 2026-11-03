@@ -8,6 +8,8 @@
 
 use super::{DIGITS, Primary, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/d46_recovery.book");
+
 pub(crate) const CELL: char = '⠨';
 pub(crate) const VIRTUAL: Route = Route::new(CELL, '⠁');
 pub(crate) const CONFLICTS: Route = Route::new(CELL, '⠃');
@@ -40,8 +42,8 @@ impl Page {
 
     /// The verbatim sentence this address decodes to.
     #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn text(self) -> &'static str {
-        self.route.sub().pages[self.number - 1]
+    pub(crate) fn text(self) -> String {
+        self.route.sub().pages[self.number - 1].to_string()
     }
 }
 
@@ -139,11 +141,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a virtual URL cannot serve that call (the scheme above)",
             action: "",
             ideas: "",
-            pages: &[
-                "use the skill tool or edit the skill files on disk",
-                "use gh CLI or the browser to mutate",
-                "read skill://NAME for full body",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'1'),
         },
         Sub {
             route: CONFLICTS,
@@ -151,18 +149,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a merge-conflict id or region (the conflict:// fact above)",
             action: "",
             ideas: "",
-            pages: &[
-                "read a conflicted file first so conflict:// ids are assigned",
-                "read a conflicted file first, or call read_file path=conflict:// to list active ids",
-                "write conflict://N or conflict://* with a resolution",
-                "read the conflicted file first",
-                "use conflict://N/ours|theirs|base",
-                "use ours, theirs, or base",
-                "re-read",
-                "re-read and resolve carefully",
-                "resolve with write_file path=conflict://N content=@ours|@theirs|@base|custom:",
-                "Resolve: write_file path=conflict://{} content=@ours|@theirs|@base|@both|custom",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'2'),
         },
         Sub {
             route: REPLACE,
@@ -170,16 +157,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "str_replace or multi_edit found no unique match (the miss above)",
             action: "",
             ideas: "",
-            pages: &[
-                "re-read the file and retry",
-                "add more context that distinguishes the target.",
-                "Include surrounding unique lines (e.g. the enclosing function) in `old`.",
-                "Add unique surrounding context.",
-                "Re-read the file before editing.",
-                "Copy the exact indentation shown above.",
-                "Correct `old` to the exact lines above (they may have changed since your last read).",
-                "add more context",
-            ],
+            pages: &super::catalog_pages::<8>(CATALOG, b'3'),
         },
         Sub {
             route: HASHLINE,
@@ -187,14 +165,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a hashline patch was refused (the reason above)",
             action: "",
             ideas: "",
-            pages: &[
-                "a line id is the bare 1-based number shown in the read_file hashline gutter (e.g. `255`), and a range is `A.=B` (e.g. `255.=257`); `=`, `-`, `:` and `#hash` suffixes are not ranges",
-                "Re-read the file before REM.",
-                "Re-read the file and rebuild the edit.",
-                "re-read the file and rebuild the edit",
-                "use plain SWAP/DEL/INS",
-                "re-read and use plain line ranges, or point at a real block opener ({, [, (, heading, or indented suite)",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'4'),
         },
         Sub {
             route: STAGED,
@@ -202,17 +173,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a staged edit or a patch needs its next step (the id above)",
             action: "",
             ideas: "",
-            pages: &[
-                "Accept: resolve_edit id={} action=accept",
-                "Reject: resolve_edit id={} action=reject",
-                "apply_patch with stage=true to propose one",
-                "resolve_edit action=list",
-                "re-stage",
-                "combine its hunks into one operation",
-                "use accept, reject, or list",
-                "stage=true is only supported for hashline patches (sections with [path#tag])",
-                "stage=true is only supported for hashline patches",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'5'),
         },
         Sub {
             route: SHELL_SCOPE,
@@ -220,11 +181,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a sealed task refused a shell output redirection (the target above)",
             action: "",
             ideas: "",
-            pages: &[
-                "Use a literal editable workspace path or a literal /tmp/... path for scratch output.",
-                "use a literal /tmp/... path for scratch output",
-                "Use a literal /tmp/... path for scratch output.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'6'),
         },
         Sub {
             route: STOPPED,
@@ -232,10 +189,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the tool's process was stopped or could not start (the receipt above)",
             action: "",
             ideas: "",
-            pages: &[
-                "raise/disable via ANGEL_TOOL_TIMEOUT",
-                "cd to a live directory and retry",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: TOOLCHAIN,
@@ -243,15 +197,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the pinned toolchain or a runner could not serve this call (the reason above)",
             action: "",
             ideas: "",
-            pages: &[
-                "restart Angel to re-pin the toolchain",
-                "Fallback: run `cargo test` through the `shell` tool (the toolchain on PATH is not affected by this pin)",
-                "omit that flag",
-                "Inspect for an infinite loop or a blocking wait; legitimate slow tests may need a larger timeout.",
-                "use rust|js|python|go|swift",
-                "Run the suite with `shell` and its own command.",
-                "run the suite with `shell`",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'8'),
         },
         Sub {
             route: COVERAGE,
@@ -259,14 +205,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "Cargo passed, but its coverage of the changed sources is not established (coverage above)",
             action: "",
             ideas: "",
-            pages: &[
-                "Select the required package; unrelated packages need not be rebuilt.",
-                "This result is useful command-local evidence; repeating a check or selecting another package cannot attest those earlier writes.",
-                "Report the scope limitation or use independently pinned task acceptance.",
-                "Use read_only/write_paths for future commands; neither resets prior uncertainty.",
-                "Keep this result command-local and report the scope limitation; package selection alone cannot restore missing inventory evidence.",
-                "Keep this result command-local and report the evidence limitation; do not repeat unchanged checks as a cure.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'9'),
         },
         Sub {
             route: JOB_OUTPUT,
@@ -274,12 +213,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a background job's captured output is behind proc_status (the id above)",
             action: "",
             ideas: "",
-            pages: &[
-                "retained process handle/receipt requires proc_status.",
-                "Automatic completion notification is unavailable for this session.",
-                "captured output: proc_status id={id}, optional contains filter",
-                "inspect with proc_status id={}",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'0'),
         },
     ],
 };

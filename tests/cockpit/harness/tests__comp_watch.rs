@@ -16,6 +16,56 @@ fn shell(cmd: &str) -> ToolCall {
     call("shell", serde_json::json!({"command": cmd}))
 }
 
+
+// Test vectors are read at runtime so new classification cases need no rebuild.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CompPathCase {
+    kind: String,
+    input: String,
+    expected: Option<bool>,
+    expected_path: Option<String>,
+    message: Option<String>,
+}
+
+fn assert_comp_path_cases(group: &str, expected_count: usize) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/comp-watch-path-cases.json");
+    let groups: std::collections::BTreeMap<String, Vec<CompPathCase>> =
+        serde_json::from_slice(&std::fs::read(path).expect("comp-watch path fixture"))
+            .expect("valid comp-watch path fixture");
+    let cases = groups.get(group).expect("known comp-watch path case group");
+    assert_eq!(cases.len(), expected_count, "{group}: case count");
+    for (index, case) in cases.iter().enumerate() {
+        if case.kind == "shell_inspect_flag_path" {
+            assert!(case.expected.is_none());
+            assert_eq!(
+                shell_inspect_flag_path(&case.input),
+                case.expected_path.as_deref(),
+                "{group}/{index}"
+            );
+            continue;
+        }
+        assert!(case.expected_path.is_none());
+        let actual = match case.kind.as_str() {
+            "shell_hay_is_product_inspect" => shell_hay_is_product_inspect(&case.input),
+            "shell_hay_is_product_ls" => shell_hay_is_product_ls(&case.input),
+            "shell_hay_is_path_scoped_grep" => shell_hay_is_path_scoped_grep(&case.input),
+            "shell_sed_is_quiet_print" => shell_sed_is_quiet_print(&case.input),
+            "shell_sed_is_inplace" => shell_sed_is_inplace(&case.input),
+            "is_local_preflight_call" => is_local_preflight_call(&shell(&case.input)),
+            _ => panic!("unknown comp-watch path case: {}", case.kind),
+        };
+        assert_eq!(
+            actual,
+            case.expected.expect("boolean expectation"),
+            "{group}/{index}: {}",
+            case.message.as_deref().unwrap_or(&case.input)
+        );
+    }
+}
+
+
 fn write_src() -> ToolCall {
     call(
         "str_replace",
@@ -276,7 +326,7 @@ fn snapshot_and_extract_do_not_bleed_opponent_submissions_on_board() {
 
     // Harness-history lines are NOT receipts: "Validate"/"Accept submission"
     // commits from `git log` carry "id" only inside "Val-id-ate". Adopting one
-    // hands the watcher a phantom in-flight slot (2026-09-01 toymaker: the loop
+    // hands the watcher a phantom in-flight slot (2026-09-01, a GPU host: the loop
     // believed repo-log uuid 0e31d3e6 was its own submission, "watched" it to a
     // rejected terminal, and pinned a stale frontier around it — without ever
     // submitting anything).
@@ -650,152 +700,28 @@ fn path_scoped_file_search_is_preflight() {
 /// the tree). Workspace basenames and board files stay recon.
 #[test]
 fn path_scoped_shell_cat_is_preflight() {
-    assert!(shell_hay_is_product_inspect("cat src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("head -n 80 src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("tail -20 ./src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("cat kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("cat LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("cat /tmp/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("cat src/kernel.cu | wc -l"));
-    assert!(!shell_hay_is_product_inspect(""));
-
-    let product = shell("cat src/kernel.cu");
-    let head = shell("head -n 80 src/kernel.cu");
-    let workspace = shell("cat kernel.cu");
-    let board = shell("cat LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped cat is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&head),
-        "path-scoped head is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename cat stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "cat of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_cat_is_preflight", 12);
 }
 
 /// `sed -n 1,80p src/kernel.cu` is the same class as path-scoped cat/head.
 /// In-place `-i`, pathless dumps, and board sed stay recon / poll.
 #[test]
 fn path_scoped_shell_sed_is_preflight() {
-    assert!(shell_hay_is_product_inspect("sed -n 1,80p src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect(
-        "sed -ne 1,80p ./src/kernel.cu"
-    ));
-    assert!(shell_hay_is_product_inspect(
-        "sed --quiet 1,80p src/kernel.cu"
-    ));
-    assert!(shell_sed_is_quiet_print("sed -n 1,80p src/kernel.cu"));
-    assert!(shell_sed_is_inplace("sed -i s/a/b/ src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("sed -n 1,80p kernel.cu"));
-    assert!(!shell_hay_is_product_inspect(
-        "sed -n 1,80p LIVING_HANDOFF.md"
-    ));
-    assert!(!shell_hay_is_product_inspect("sed -i s/a/b/ src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("sed 1,80p src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect(
-        "sed -n 1,80p src/kernel.cu | wc -l"
-    ));
-
-    let product = shell("sed -n 1,80p src/kernel.cu");
-    let inplace = shell("sed -i s/a/b/ src/kernel.cu");
-    let workspace = shell("sed -n 1,80p kernel.cu");
-    let board = shell("sed -n 1,80p LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped sed -n is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&inplace),
-        "sed -i must not launder as preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename sed stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "sed of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_sed_is_preflight", 14);
 }
 
 /// `stat`/`file` of a product path is the same class as path-scoped cat.
 /// Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_stat_is_preflight() {
-    assert!(shell_hay_is_product_inspect("stat src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("stat -c %s ./src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("file src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("stat kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("file kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("stat LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("stat /tmp/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("stat src/kernel.cu | cat"));
-
-    let product = shell("stat src/kernel.cu");
-    let typed = shell("file src/kernel.cu");
-    let workspace = shell("stat kernel.cu");
-    let board = shell("stat LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped stat is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&typed),
-        "path-scoped file is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename stat stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "stat of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_stat_is_preflight", 12);
 }
 
 /// `xxd`/`od`/`hexdump`/`md5sum` of a product path is the same class as
 /// path-scoped cat. Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_xxd_is_preflight() {
-    assert!(shell_hay_is_product_inspect("xxd src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("od -Ax -tx1 ./src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("hexdump -C src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("md5sum src/kernel.cu"));
-    assert!(shell_hay_is_product_inspect("sha256sum ./src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("xxd kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("md5sum kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("xxd LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("xxd /tmp/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("xxd src/kernel.cu | head"));
-
-    let product = shell("xxd src/kernel.cu");
-    let digest = shell("md5sum src/kernel.cu");
-    let workspace = shell("xxd kernel.cu");
-    let board = shell("md5sum LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped xxd is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&digest),
-        "path-scoped md5sum is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename xxd stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "md5sum of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_xxd_is_preflight", 14);
 }
 
 /// `nm`/`objdump`/`readelf`/`size`/`base64` of a product path is the same
@@ -803,39 +729,7 @@ fn path_scoped_shell_xxd_is_preflight() {
 /// poll.
 #[test]
 fn path_scoped_shell_objdump_is_preflight() {
-    assert!(shell_hay_is_product_inspect("nm src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("objdump -d ./src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("readelf -h src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("size src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("base64 src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("nm kernel.o"));
-    assert!(!shell_hay_is_product_inspect("objdump -d kernel.o"));
-    assert!(!shell_hay_is_product_inspect("nm LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("objdump -d /tmp/kernel.o"));
-    assert!(!shell_hay_is_product_inspect(
-        "objdump -d src/kernel.o | head"
-    ));
-
-    let product = shell("objdump -d src/kernel.o");
-    let symbols = shell("nm src/kernel.o");
-    let workspace = shell("objdump -d kernel.o");
-    let board = shell("nm LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped objdump is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&symbols),
-        "path-scoped nm is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename objdump stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "nm of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_objdump_is_preflight", 14);
 }
 
 /// `llvm-objdump`/`llvm-nm`/`llvm-readelf`/`llvm-size` of a product path is
@@ -843,42 +737,7 @@ fn path_scoped_shell_objdump_is_preflight() {
 /// recon / poll.
 #[test]
 fn path_scoped_shell_llvm_objdump_is_preflight() {
-    assert!(shell_hay_is_product_inspect("llvm-nm src/kernel.o"));
-    assert!(shell_hay_is_product_inspect(
-        "llvm-objdump -d ./src/kernel.o"
-    ));
-    assert!(shell_hay_is_product_inspect("llvm-readelf -h src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("llvm-size src/kernel.o"));
-    assert!(!shell_hay_is_product_inspect("llvm-nm kernel.o"));
-    assert!(!shell_hay_is_product_inspect("llvm-objdump -d kernel.o"));
-    assert!(!shell_hay_is_product_inspect("llvm-nm LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-objdump -d /tmp/kernel.o"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-objdump -d src/kernel.o | head"
-    ));
-
-    let product = shell("llvm-objdump -d src/kernel.o");
-    let symbols = shell("llvm-nm src/kernel.o");
-    let workspace = shell("llvm-objdump -d kernel.o");
-    let board = shell("llvm-nm LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped llvm-objdump is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&symbols),
-        "path-scoped llvm-nm is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename llvm-objdump stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "llvm-nm of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_llvm_objdump_is_preflight", 13);
 }
 
 /// `addr2line`/`eu-nm`/`eu-readelf`/`eu-objdump`/`llvm-dwarfdump` of a
@@ -886,42 +745,7 @@ fn path_scoped_shell_llvm_objdump_is_preflight() {
 /// and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_addr2line_is_preflight() {
-    assert!(shell_hay_is_product_inspect("addr2line -e src/kernel.o"));
-    assert!(shell_hay_is_product_inspect(
-        "addr2line -e ./src/kernel.o 0x401000"
-    ));
-    assert!(shell_hay_is_product_inspect("eu-nm src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("eu-readelf -h src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("eu-objdump -d src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("llvm-dwarfdump src/kernel.o"));
-    assert!(!shell_hay_is_product_inspect("addr2line -e kernel.o"));
-    assert!(!shell_hay_is_product_inspect("eu-nm kernel.o"));
-    assert!(!shell_hay_is_product_inspect("eu-nm LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("addr2line -e /tmp/kernel.o"));
-    assert!(!shell_hay_is_product_inspect(
-        "addr2line -e src/kernel.o | head"
-    ));
-
-    let product = shell("addr2line -e src/kernel.o");
-    let symbols = shell("eu-nm src/kernel.o");
-    let workspace = shell("addr2line -e kernel.o");
-    let board = shell("eu-nm LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped addr2line is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&symbols),
-        "path-scoped eu-nm is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename addr2line stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "eu-nm of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_addr2line_is_preflight", 15);
 }
 
 /// `llvm-addr2line`/`eu-addr2line`/`dwarfdump`/`rust-objdump` of a product
@@ -929,233 +753,35 @@ fn path_scoped_shell_addr2line_is_preflight() {
 /// files stay recon / poll.
 #[test]
 fn path_scoped_shell_llvm_addr2line_is_preflight() {
-    assert!(shell_hay_is_product_inspect(
-        "llvm-addr2line -e src/kernel.o"
-    ));
-    assert!(shell_hay_is_product_inspect(
-        "eu-addr2line -e ./src/kernel.o 0x401000"
-    ));
-    assert!(shell_hay_is_product_inspect("dwarfdump src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("eu-size src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("rust-objdump -d src/kernel.o"));
-    assert!(shell_hay_is_product_inspect("rust-nm src/kernel.o"));
-    assert!(shell_hay_is_product_inspect(
-        "rust-addr2line -e src/kernel.o"
-    ));
-    assert!(!shell_hay_is_product_inspect("llvm-addr2line -e kernel.o"));
-    assert!(!shell_hay_is_product_inspect("dwarfdump kernel.o"));
-    assert!(!shell_hay_is_product_inspect(
-        "eu-addr2line LIVING_HANDOFF.md"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-addr2line -e /tmp/kernel.o"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-addr2line -e src/kernel.o | head"
-    ));
-
-    let product = shell("llvm-addr2line -e src/kernel.o");
-    let symbols = shell("rust-nm src/kernel.o");
-    let workspace = shell("llvm-addr2line -e kernel.o");
-    let board = shell("eu-addr2line LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped llvm-addr2line is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&symbols),
-        "path-scoped rust-nm is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename llvm-addr2line stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "eu-addr2line of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_llvm_addr2line_is_preflight", 16);
 }
 
 /// `llvm-symbolizer --obj=src/kernel.o` is the same class as addr2line.
 /// `--obj=` / `--exe=` glue is a product path, not a skippable flag.
 #[test]
 fn path_scoped_shell_llvm_symbolizer_is_preflight() {
-    assert_eq!(
-        shell_inspect_flag_path("--obj=src/kernel.o"),
-        Some("src/kernel.o")
-    );
-    assert_eq!(
-        shell_inspect_flag_path("--exe=./src/kernel.o"),
-        Some("./src/kernel.o")
-    );
-    assert_eq!(
-        shell_inspect_flag_path("-e=src/kernel.o"),
-        Some("src/kernel.o")
-    );
-    assert_eq!(shell_inspect_flag_path("--obj"), None);
-    assert_eq!(shell_inspect_flag_path("-e"), None);
-    assert_eq!(shell_inspect_flag_path("src/kernel.o"), None);
-
-    assert!(shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj=src/kernel.o"
-    ));
-    assert!(shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj src/kernel.o"
-    ));
-    assert!(shell_hay_is_product_inspect(
-        "addr2line --exe=src/kernel.o 0x401000"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj=kernel.o"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj=LIVING_HANDOFF.md"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj=/tmp/kernel.o"
-    ));
-    assert!(!shell_hay_is_product_inspect(
-        "llvm-symbolizer --obj=src/kernel.o | head"
-    ));
-
-    let product = shell("llvm-symbolizer --obj=src/kernel.o");
-    let split = shell("llvm-symbolizer --obj src/kernel.o");
-    let workspace = shell("llvm-symbolizer --obj=kernel.o");
-    let board = shell("llvm-symbolizer --obj=LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped llvm-symbolizer --obj= is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&split),
-        "llvm-symbolizer --obj PATH still counts"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename --obj= stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "board --obj= must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_llvm_symbolizer_is_preflight", 17);
 }
 
 /// `diff`/`cmp`/`strings` of a product path is the same class as path-scoped
 /// cat. Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_diff_is_preflight() {
-    assert!(shell_hay_is_product_inspect(
-        "diff -u src/kernel.cu src/ref.cu"
-    ));
-    assert!(shell_hay_is_product_inspect(
-        "cmp ./src/kernel.cu src/ref.cu"
-    ));
-    assert!(shell_hay_is_product_inspect("strings src/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("diff kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("strings kernel.cu"));
-    assert!(!shell_hay_is_product_inspect("diff LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_inspect("diff /tmp/kernel.cu"));
-    assert!(!shell_hay_is_product_inspect(
-        "diff -u src/kernel.cu | head"
-    ));
-
-    let product = shell("diff -u src/kernel.cu src/ref.cu");
-    let dump = shell("strings src/kernel.cu");
-    let workspace = shell("diff kernel.cu");
-    let board = shell("diff LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped diff is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&dump),
-        "path-scoped strings is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "workspace basename diff stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "diff of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_diff_is_preflight", 12);
 }
 
 /// `ls src` is the same class as path-scoped list_dir. Bare `ls` stays
 /// recon; board listings stay poll and cannot arm submit.
 #[test]
 fn path_scoped_shell_ls_is_preflight() {
-    assert!(shell_hay_is_product_ls("ls src"));
-    assert!(shell_hay_is_product_ls("ls src/kernel"));
-    assert!(shell_hay_is_product_ls("ls -la src"));
-    assert!(!shell_hay_is_product_ls("ls"));
-    assert!(!shell_hay_is_product_ls("ls -la"));
-    assert!(!shell_hay_is_product_ls("ls -r src"));
-    assert!(!shell_hay_is_product_ls("ls LIVING_HANDOFF.md"));
-    assert!(!shell_hay_is_product_ls("ls /tmp"));
-    assert!(!shell_hay_is_product_ls(""));
-
-    let product = shell("ls src");
-    let nested = shell("ls src/kernel");
-    let workspace = shell("ls -la");
-    let board = shell("ls LIVING_HANDOFF.md");
-    let recursive = shell("ls -R src");
-    assert!(
-        is_local_preflight_call(&product),
-        "ls src is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&nested),
-        "ls src/kernel is candidate preflight"
-    );
-    assert!(!is_local_preflight_call(&workspace), "bare ls stays recon");
-    assert!(
-        !is_local_preflight_call(&recursive),
-        "recursive ls stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "ls of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_ls_is_preflight", 14);
 }
 
 /// `grep stream src/kernel.cu` is the same class as path-scoped grep.
 /// Pathless `grep TODO` and board greps stay recon and cannot arm submit.
 #[test]
 fn path_scoped_shell_grep_is_preflight() {
-    assert!(shell_hay_is_path_scoped_grep("grep stream src/kernel.cu"));
-    assert!(shell_hay_is_path_scoped_grep("rg stream src/"));
-    assert!(shell_hay_is_path_scoped_grep(
-        "grep -n stream src/kernel.cu"
-    ));
-    assert!(!shell_hay_is_path_scoped_grep("grep TODO"));
-    assert!(!shell_hay_is_path_scoped_grep("grep -r stream src/"));
-    assert!(!shell_hay_is_path_scoped_grep(
-        "grep stream LIVING_HANDOFF.md"
-    ));
-    assert!(!shell_hay_is_path_scoped_grep("git grep stream src/"));
-    assert!(!shell_hay_is_path_scoped_grep(""));
-
-    let product = shell("grep stream src/kernel.cu");
-    let rg = shell("rg stream src/");
-    let workspace = shell("grep TODO");
-    let board = shell("grep stream LIVING_HANDOFF.md");
-    assert!(
-        is_local_preflight_call(&product),
-        "path-scoped grep is candidate preflight"
-    );
-    assert!(
-        is_local_preflight_call(&rg),
-        "path-scoped rg is candidate preflight"
-    );
-    assert!(
-        !is_local_preflight_call(&workspace),
-        "pathless grep stays recon"
-    );
-    assert!(
-        !is_local_preflight_call(&board),
-        "grep of a board name must not launder as preflight"
-    );
+    assert_comp_path_cases("path_scoped_shell_grep_is_preflight", 12);
 }
 
 /// Working-tree git_diff is candidate inspect (submit then review the patch).

@@ -855,7 +855,7 @@ py
         "cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && tools/local-baseline.sh",
         "CUDA_ENGINE_EXECUTABLE=/x/cuda-engine ./tools/qwen38-125b-a6b-measure-and-score.sh",
         "timeout 900 bash tools/benchmark.sh --local-iterate",
-        // The Board board CLI's own local run (apollo's bitcoin loop).
+        // The Board board CLI's own local run (a GPU host's bitcoin loop).
         "cd qsb-frontier && board run --track pinning",
         "board validate --track subset",
     ] {

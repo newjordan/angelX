@@ -9,6 +9,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d56_replies.book");
 pub(crate) const CELL: char = '⠰';
 pub(crate) const LISTING: Route = Route::new(CELL, '⠁');
 pub(crate) const REFUSALS: Route = Route::new(CELL, '⠃');
@@ -107,12 +109,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "list_dir paged its window or refused a path (the window above)",
             action: "",
             ideas: "",
-            pages: &[
-                "next: list_dir with offset={end}, limit={limit}",
-                "keep path, hint, pattern, no_ignore and hidden unchanged",
-                "use offset=0 to restart",
-                "use no_ignore/hidden for optional exclusions",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'1'),
         },
         Sub {
             route: REFUSALS,
@@ -120,15 +117,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a paid or remote seat was refused (the seat and what is available above)",
             action: "",
             ideas: "",
-            pages: &[
-                "Do the work yourself.",
-                "Unset that pin or set ANGEL_ALLOW_SOTA_DELEGATE=1.",
-                "Own the workload.",
-                "Do the work yourself with local tools (read/edit/test).",
-                "/solo off only if the operator explicitly wants outsourcing.",
-                "set ANGEL_ALLOW_SOTA_CONSULT=1 to permit, or pick a local fleet club",
-                "Use self or a listed local club.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'2'),
         },
         Sub {
             route: SEAT_HINTS,
@@ -136,18 +125,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a persona, graph, child set or delegation was refused (the refusal above)",
             action: "",
             ideas: "",
-            pages: &[
-                "use an exact installed name or omit `persona` for a plain seat",
-                "Use an exact installed name, or omit `persona` for a plain seat",
-                "Use an exact installed name, or omit `persona` for a plain node",
-                "add TOML specs to ~/.angelX/graphs",
-                "add a transitive depends_on edge so the writer lands before the gate or starts only after it passes",
-                "serialize them via depends_on (directly or transitively), or use a worktree-isolated delegate",
-                "run them one at a time, or use `delegate` (git-worktree isolated) for parallel implementation — a delegated checkout is disjoint from the shared workspace",
-                "run them one at a time, or give the second child a resource of its own",
-                "create an initial commit before delegating",
-                "review before integration",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'3'),
         },
         Sub {
             route: NOTES,
@@ -155,18 +133,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a note or next step on the facts above",
             action: "",
             ideas: "",
-            pages: &[
-                "No context budget is set (ANGEL_CONTEXT_BUDGET_TOKENS=0), so there's no hard limit.",
-                "Older turns compact automatically at the threshold, and the work goes on.",
-                "[angel-hook-blocked/v1]",
-                "inspect external and workspace state before retrying",
-                "set ANGEL_SELF_SRC to the crate root",
-                "set ANGEL_SELF_SRC",
-                "Inspect it, then use integrate explicitly.",
-                "Resume with action=resume, run_id={}",
-                "Inspect the proof report and parked rejected branch; do not integrate.",
-                "resume with action=resume",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'4'),
         },
         Sub {
             route: SERVICES,
@@ -174,17 +141,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the knowledge graph, jev or semantic_read answered with a limit (the fact above)",
             action: "",
             ideas: "",
-            pages: &[
-                "fix or move it aside",
-                "run summarize again",
-                "ingest documents first",
-                "set TYPESAFE_API_KEY; ANGEL_JEV=0 disables it",
-                "narrow the evidence",
-                "remove it before sending",
-                "continue with local evidence",
-                "ask a yes/no question",
-                "[semantic_read — untrusted workspace evidence ranked by the shared Casper embedding service]",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'5'),
         },
         Sub {
             route: WORK_LANDING,
@@ -192,17 +149,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "work_landing detected or recorded the work context (fields below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Work landing — detected context (a PROPOSAL; confirm with the user before relying on it).",
-                "Next: CONFIRM with the user — e.g. \"Working in {folder} · GitHub {repo} · {vis} — correct?\".",
-                "Once they agree, call `work_landing` with confirm=true (and repo / visibility / mode overrides if they corrected anything) to record it; that sets internal-dev vs public-facing-care mode.",
-                "Ask the user for the GitHub repo (or confirm it's local-only).",
-                "Confirm with the user whether this work is internal-only.",
-                "Ask the user: is this repo private or public?",
-                "ask the user to pin it (private→internal-dev, public→public-facing).",
-                "Work landing — context CONFIRMED and recorded.",
-                "This now drives your behavior mode for this workspace.",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'6'),
         },
         Sub {
             route: SELF_MAP,
@@ -210,18 +157,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the map of the harness's own source (fields and modules beside and below)",
             action: "",
             ideas: "",
-            pages: &[
-                "# angelX cockpit — self-model (`{name}` v{ver}, edition {ed})",
-                "A terminal-first Rust/ratatui agent harness: a `Bag` of model `Club`s driven through a tool-using `run_turn` loop, with workspace-confined file tools, git-worktree delegation, and a verifiable-reward (RLVR) substrate.",
-                "This map is generated from the live tree + module doc comments, so it tracks the code.",
-                "## Build · test · run\nCrate root: `{root}` (run cargo here).",
-                "- build:  `cargo build`\n- check:  `cargo check`\n- test:   `cargo test`  ← the self-modification gate (must stay green)\n- lint:   `cargo clippy`\n- run:    `cargo run` (practice agent) · `ANGEL_BRAIN_KEY=<key> cargo run` (live fleet)",
-                "Binary `{bin}` from `src/main.rs`.",
-                "The git root is the parent dir, so git worktrees for isolated self-edits land beside the crate.",
-                "## Modules (src/) — grouped, with key public types",
-                "### Tool implementations (src/agent/tools/)\nConcrete `Tool` impls grouped by capability; the `Tool` trait, `ToolRegistry`, and `run_turn` loop live in `src/agent/harness/`.",
-                "_Generated by `self_map` from the live tree — re-run it after edits._",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'7'),
         },
         Sub {
             route: SELF_SAFETY,
@@ -229,13 +165,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the self-modification safety contract",
             action: "",
             ideas: "",
-            pages: &[
-                "## Self-modification safety\nOn Linux, file tools are confined at operation time by descriptor-relative `openat2`/`openat` helpers; outbound symlinks and post-validation swaps are rejected.",
-                "The interactive workspace is the launch directory or explicit selection.",
-                "To edit THIS crate, point the workspace at its checkout (see `docs/SELF_MODEL.md`) and gate every change on the build+test gate (`tools::self_model::run_self_gate`): a self-edit is only acceptable if the crate still builds AND `cargo test` is green.",
-                "Prefer an isolated git worktree (`delegate`/`integrate`) for risky edits; everything is reversible via git.",
-                "Self-modification is opt-in/break-fix behavior, not startup posture: use it only for an explicit user request or a concrete cockpit failure, then return to normal task work once the failure is handled.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'8'),
         },
         Sub {
             route: BENCHMARK,
@@ -243,13 +173,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "how to read a benchmark_compare result",
             action: "",
             ideas: "",
-            pages: &[
-                "Deterministic arithmetic on supplied matched samples, not independently verified acceptance.",
-                "Positive improvement is better.",
-                "Zero baseline makes relative percentages undefined (null).",
-                "Dataset labels are supplied by the caller; do not mix diagnostic, full-development and official results.",
-                "No statistical significance or generalization claim.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'9'),
         },
         Sub {
             route: JEV,
@@ -257,12 +181,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "how to read a jev_decide answer",
             action: "",
             ideas: "",
-            pages: &[
-                "Advisory estimates from supplied evidence.",
-                "Probability and confidence are not measured benchmark gains or correctness.",
-                "Rubric position is a score, not a probability.",
-                "Independent tests and evaluator receipts remain authoritative.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'0'),
         },
     ],
 };

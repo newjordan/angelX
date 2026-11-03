@@ -1,9 +1,127 @@
 use super::classify::board_marker_as_token;
 use super::*;
 use std::borrow::Cow;
+
+/// The shipped Bend leg that owns these decisions. The native bodies below stay
+/// as the fallback and the parity oracle.
+const LEG: &str = "competition-mode";
+
+/// Deliberate launch phrases only, in the order the native scan tries them:
+/// typed by the operator or injected by the podrace/handoff loop drivers — never
+/// incidental vocabulary. The leg answers with an index into this table, so no
+/// phrase text crosses into Bend.
+const LAUNCH_PHRASES: &[&str] = &[
+    "competition mode",
+    "competition-loop",
+    "competition loop",
+    "handoff rl",
+    "handoff-rl",
+    "hit it chewy",
+    "podrace",
+    // Operator fire imperatives: a mid-run "FIRE NOW" is the most deliberate
+    // competition arming there is (2026-08-15 flock incident).
+    "fire now",
+    "fire one off",
+    "fire a submission",
+    "submit now",
+    "submission lane hot",
+    "submit and",
+    "points on the board",
+    "rolling lanes",
+    "when competing",
+];
+
+/// The vocabulary that makes a standing `/goal` competitive.
+const GOAL_PHRASES: &[&str] = &[
+    "competition",
+    "compete",
+    "leaderboard",
+    "submission",
+    "podrace",
+    "winning",
+];
+
+/// Command words that are inventory or search rather than a board digest.
+const INVENTORY_WORDS: &[&str] = &[
+    "find", "rg", "ripgrep", "grep", "egrep", "fgrep", "ugrep", "ag", "ack", "fd", "tree",
+    "locate",
+];
+
+/// The `git` inventory subcommands, in the native scan's order. The first three
+/// are plain substrings there (so `git grep`, `git ls-files`, `git ls-tree`
+/// count); the rest are whole argv words.
+const GIT_ARG_WORDS: &[&str] = &[
+    "grep",
+    "ls-files",
+    "ls-tree",
+    "blame",
+    "log",
+    "diff",
+    "status",
+    "shortlog",
+    "rev-list",
+    "reflog",
+    "whatchanged",
+];
+const GIT_ARG_SUBSTRING_COUNT: usize = 3;
+
+/// `git show` listing / summary flags: history inventory, never a tip blob read.
+const SHOW_LIST_FLAGS: &[&str] = &[
+    "--stat",
+    "--name-only",
+    "--name-status",
+    "--numstat",
+    "--shortstat",
+    "--dirstat",
+    "--summary",
+    "--raw",
+];
+
+/// Shell inventory: searches, listings and git history, including the full
+/// binary names and the `find`/`rg`/`fd` tab forms.
+const THRASH_SUBSTRINGS: &[&str] = &[
+    "find ",
+    "find\t",
+    "find/",
+    "rg ",
+    "rg\t",
+    "grep ",
+    "grep\t",
+    "egrep ",
+    "fgrep ",
+    "git grep",
+    "git ls-files",
+    "git ls-tree",
+    "git blame",
+    "git log",
+    "git diff",
+    "git status",
+    "git shortlog",
+    "git rev-list",
+    "git reflog",
+    "git whatchanged",
+    "ag ",
+    "ag\t",
+    "ack ",
+    "fd ",
+    "fd\t",
+    "tree ",
+    "locate ",
+    "ripgrep ",
+    "ripgrep\t",
+    "ugrep ",
+    "ugrep\t",
+];
+
 /// True when the operator turn (or handoff/podrace injection) is a ranked
 /// competition: submit/score is the only real progress.
 pub(crate) fn competition_mode_active(history: &[ChatMsg]) -> bool {
+    competition_mode_trigger_live(history).is_some()
+}
+
+/// The native engagement answer, kept for the parity oracle.
+#[cfg(test)]
+pub(crate) fn competition_mode_active_native(history: &[ChatMsg]) -> bool {
     competition_mode_trigger(history).is_some()
 }
 
@@ -15,6 +133,9 @@ pub(crate) fn competition_mode_active(history: &[ChatMsg]) -> bool {
 /// "gpu mode", submission talk) never arms it — a fresh session that merely
 /// *mentions* a leaderboard is not entering a race, and the tight recon
 /// budget that rides along must not gum up ordinary work.
+///
+/// The native scan, kept unchanged as this leg's parity oracle.
+#[cfg(test)]
 pub(crate) fn competition_mode_trigger(history: &[ChatMsg]) -> Option<&'static str> {
     if env_flag("ANGEL_COMPETITION_MODE", false) {
         return Some("ANGEL_COMPETITION_MODE");
@@ -27,39 +148,12 @@ pub(crate) fn competition_mode_trigger(history: &[ChatMsg]) -> Option<&'static s
     // explicit env flag remains the durable opt-in for operators who want it.
     // Scan ASCII in place so ordinary turns do not copy a multi-KB prompt
     // just to hunt "competition-loop" / "FIRE NOW".
-    let blob = history
+    let blob = operator_turn_text(history);
+    // Table order is the scan order: the first matching phrase is the trigger.
+    let trigger = LAUNCH_PHRASES
         .iter()
-        .rev()
-        .find(|message| message.role == ChatRole::User)
-        .map(|message| message.content.as_ref())
-        .unwrap_or_default();
-    let trigger = [
-        // Deliberate launch phrases only: typed by the operator or injected by
-        // the podrace/handoff loop drivers — never incidental vocabulary.
-        "competition mode",
-        "competition-loop",
-        "competition loop",
-        "handoff rl",
-        "handoff-rl",
-        "hit it chewy",
-        "podrace",
-        // Operator fire imperatives: a mid-run "FIRE NOW" is the most
-        // deliberate competition arming there is. Before these, the message
-        // demanding action was exactly what disarmed the cadence (2026-08-15
-        // flock incident: every angry steer reverted the turn to ungoverned
-        // conversation mode).
-        "fire now",
-        "fire one off",
-        "fire a submission",
-        "submit now",
-        "submission lane hot",
-        "submit and",
-        "points on the board",
-        "rolling lanes",
-        "when competing",
-    ]
-    .into_iter()
-    .find(|needle| ascii_contains_ignore_case(blob, needle));
+        .copied()
+        .find(|needle| ascii_contains_ignore_case(blob, needle));
     if trigger.is_some() {
         return trigger;
     }
@@ -68,205 +162,312 @@ pub(crate) fn competition_mode_trigger(history: &[ChatMsg]) -> Option<&'static s
     // across the whole session, so a launch-phrase-free steer ("stop
     // overthinking") can no longer disarm it — while sessions with no goal or
     // a non-competitive goal keep the anti-sticky behavior above.
-    let goal = history
+    let goal = goal_text(history);
+    if goal.is_empty() {
+        return None;
+    }
+    GOAL_PHRASES
+        .iter()
+        .copied()
+        .find(|needle| ascii_contains_ignore_case(goal, needle))
+        .map(|_| "competition-goal")
+}
+
+/// The current operator turn's text, or empty when there is none.
+fn operator_turn_text(history: &[ChatMsg]) -> &str {
+    history
+        .iter()
+        .rev()
+        .find(|message| message.role == ChatRole::User)
+        .map(|message| message.content.as_ref())
+        .unwrap_or_default()
+}
+
+/// The standing goal block the harness re-injects, or empty when it published
+/// none.
+fn goal_text(history: &[ChatMsg]) -> &str {
+    history
         .iter()
         .rev()
         .find(|message| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .contains(crate::drive::goal::GOAL_BLOCK_HEADER)
+                && message.content.contains(crate::drive::goal::GOAL_BLOCK_HEADER)
         })
         .map(|message| message.content.as_ref())
-        .unwrap_or_default();
-    if goal.is_empty() {
-        return None;
-    }
-    [
-        "competition",
-        "compete",
-        "leaderboard",
-        "submission",
-        "podrace",
-        "winning",
-    ]
-    .into_iter()
-    .find(|needle| ascii_contains_ignore_case(goal, needle))
-    .map(|_| "competition-goal")
+        .unwrap_or_default()
 }
 
-/// True when `cmd` is an `ls` (possibly path-qualified / wrapped) with recursive
-/// listing flags. Detects combined short clusters (`-laR`, `-lR`, `-1R`) and
-/// long-form `--recursive` / `--recurse`, not only the bare `ls -r` substring.
-pub(crate) fn ls_cmd_is_recursive_listing(cmd: &str) -> bool {
-    let mut saw_ls = false;
-    for part in cmd.split_whitespace() {
-        let base = part.rsplit('/').next().unwrap_or(part);
-        // Skip env assignments already stripped at the head; mid-command `FOO=1`
-        // is rare and not treated as ls.
-        if base.contains('=') && !base.starts_with('-') {
-            continue;
-        }
-        if !base.starts_with('-') {
-            if base == "ls" {
-                saw_ls = true;
-            }
-            continue;
-        }
-        if !saw_ls {
-            continue;
-        }
-        if base.starts_with("--") {
-            if base == "--recursive"
-                || base == "--recurse"
-                || base.starts_with("--recursive=")
-                || base.starts_with("--recurse=")
-            {
-                return true;
-            }
-            continue;
-        }
-        // Short cluster: any `r` after lowercasing (covers `-R` and accidental `-r`).
-        if base.chars().skip(1).any(|c| c == 'r') {
-            return true;
-        }
-    }
-    false
+/// Everything the trigger decision reads: the env flag, the launch phrase flags
+/// and the competitive-goal vocabulary flags, each in table order.
+struct TriggerFacts {
+    env: bool,
+    phrases: Vec<bool>,
+    goal_present: bool,
+    goal_phrases: Vec<bool>,
 }
 
-/// Shell inventory / recursive search that must burn first-write budget even
-/// when the argv also names a living-board path.
-fn shell_cmd_is_inventory_thrash(cmd: &str) -> bool {
-    let cmd = cmd.trim_start();
-    // Leading env assignments: `FOO=1 rg …`
-    let cmd = {
-        let mut rest = cmd;
-        while let Some((head, tail)) = rest.split_once(char::is_whitespace) {
-            if head.contains('=') && !head.starts_with('-') {
-                rest = tail.trim_start();
-                continue;
-            }
-            break;
-        }
-        rest
-    };
-    let thrash_substrings = [
-        "find ",
-        "find\t",
-        "find/",
-        "rg ",
-        "rg\t",
-        "grep ",
-        "grep\t",
-        "egrep ",
-        "fgrep ",
-        "git grep",
-        // Git inventory / history — never a cheap board digest even when argv
-        // names living-handoff / board.md (A4: used to launder as wait/poll).
-        "git ls-files",
-        "git ls-tree",
-        "git blame",
-        "git log",
-        // A8: `git diff` / `git status` naming a board path laundered as legal
-        // wait/poll (unlike ls-files/blame/log) and skipped first-write burn.
-        "git diff",
-        "git status",
-        // A4: shortlog / rev-list / reflog naming board paths also laundered.
-        "git shortlog",
-        "git rev-list",
-        "git reflog",
-        // A8: commit-walk inventory (not a tip blob digest).
-        "git whatchanged",
-        "ag ",
-        "ag\t",
-        "ack ",
-        "fd ",
-        "fd\t",
-        "tree ",
-        "locate ",
-        // Full binary names (not only `rg ` / `grep ` prefixes).
-        "ripgrep ",
-        "ripgrep\t",
-        "ugrep ",
-        "ugrep\t",
-    ];
-    if thrash_substrings.iter().any(|t| cmd.contains(t)) {
-        return true;
+fn trigger_facts(history: &[ChatMsg]) -> TriggerFacts {
+    let blob = operator_turn_text(history);
+    let goal = goal_text(history);
+    TriggerFacts {
+        env: env_flag("ANGEL_COMPETITION_MODE", false),
+        phrases: LAUNCH_PHRASES
+            .iter()
+            .map(|needle| ascii_contains_ignore_case(blob, needle))
+            .collect(),
+        goal_present: !goal.is_empty(),
+        goal_phrases: GOAL_PHRASES
+            .iter()
+            .map(|needle| ascii_contains_ignore_case(goal, needle))
+            .collect(),
     }
-    // A8: `git show --stat` / pathspec forms used to launder as board wait while
-    // only `git show REV:path` blob digests are legal tip reads.
-    if git_show_is_inventory_thrash(cmd) {
-        return true;
-    }
-    // Recursive directory listing — combined short flags (`ls -laR`, `ls -lR`,
-    // `ls -1R`) used to miss the bare `ls -r` substring and launder as board wait
-    // when argv also named a living-handoff path (A4). Lowercasing maps `-R`→`-r`.
-    if ls_cmd_is_recursive_listing(cmd) {
-        return true;
-    }
-    // Command word at the start (or after `sudo` / shell wrappers).
-    let first = cmd
-        .split(|c: char| c.is_whitespace() || c == '|')
-        .map(str::trim)
-        .find(|p| !p.is_empty() && !p.contains('='))
-        .unwrap_or("");
-    let first = first.rsplit('/').next().unwrap_or(first);
-    matches!(
-        first,
-        "find"
-            | "rg"
-            | "ripgrep"
-            | "grep"
-            | "egrep"
-            | "fgrep"
-            | "ugrep"
-            | "ag"
-            | "ack"
-            | "fd"
-            | "tree"
-            | "locate"
-    ) || first == "git"
-        && (cmd.contains("grep")
-            || cmd.contains("ls-files")
-            || cmd.contains("ls-tree")
-            || shell_argv_has_token(cmd, "blame")
-            || shell_argv_has_token(cmd, "log")
-            || shell_argv_has_token(cmd, "diff")
-            || shell_argv_has_token(cmd, "status")
-            || shell_argv_has_token(cmd, "shortlog")
-            || shell_argv_has_token(cmd, "rev-list")
-            || shell_argv_has_token(cmd, "reflog")
-            || shell_argv_has_token(cmd, "whatchanged")
-            || git_show_is_inventory_thrash(cmd))
 }
 
-/// `git show HEAD:path` is a legal board blob digest. Listing / pathspec forms
-/// (`--stat`, `--name-only`, `REV -- path`) are history inventory and must burn
-/// first-write budget and count as anti-spin thrash (A8).
-fn git_show_is_inventory_thrash(cmd: &str) -> bool {
-    if !shell_argv_has_token(cmd, "show") || !shell_argv_has_token(cmd, "git") {
-        return false;
+impl TriggerFacts {
+    fn input(&self) -> serde_json::Value {
+        serde_json::json!({
+            "op": "trigger",
+            "env": self.env,
+            "phrases": self.phrases,
+            "goal_present": self.goal_present,
+            "goal_phrases": self.goal_phrases,
+        })
     }
-    // Listing / summary flags — never a pure tip blob read.
-    const LIST_FLAGS: &[&str] = &[
-        "--stat",
-        "--name-only",
-        "--name-status",
-        "--numstat",
-        "--shortstat",
-        "--dirstat",
-        "--summary",
-        "--raw",
-    ];
-    if LIST_FLAGS.iter().any(|f| cmd.contains(f)) {
-        return true;
+}
+
+/// The leg answers with an enum index; the trigger string never leaves Rust.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum TriggerKind {
+    Env,
+    Phrase,
+    Goal,
+    None,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TriggerDecision {
+    trigger: TriggerKind,
+    index: Option<usize>,
+}
+
+impl TriggerDecision {
+    #[cfg(test)]
+    fn of(trigger: Option<&'static str>) -> Self {
+        match trigger {
+            None => Self {
+                trigger: TriggerKind::None,
+                index: None,
+            },
+            Some("ANGEL_COMPETITION_MODE") => Self {
+                trigger: TriggerKind::Env,
+                index: None,
+            },
+            Some("competition-goal") => Self {
+                trigger: TriggerKind::Goal,
+                index: None,
+            },
+            Some(phrase) => Self {
+                trigger: TriggerKind::Phrase,
+                index: LAUNCH_PHRASES.iter().position(|needle| *needle == phrase),
+            },
+        }
     }
-    // Pathspec form: `git show REV -- path` (commit + diff), not `REV:path`.
-    if cmd.contains(" -- ") {
-        return true;
+
+    fn back(self) -> Option<&'static str> {
+        match self.trigger {
+            TriggerKind::Env => Some("ANGEL_COMPETITION_MODE"),
+            TriggerKind::Goal => Some("competition-goal"),
+            TriggerKind::Phrase => self
+                .index
+                .and_then(|index| LAUNCH_PHRASES.get(index))
+                .copied(),
+            TriggerKind::None => None,
+        }
     }
-    // Blob digests use a single `rev:path` argv word (HEAD:board.md).
-    let has_blob = cmd.split_whitespace().any(|part| {
+
+    /// The leg may not report a phrase the turn did not match, skip an earlier
+    /// one, or engage on an unset flag: the native scan takes the first hit in
+    /// table order, after the env flag.
+    fn check(&self, facts: &TriggerFacts) -> Result<(), String> {
+        if self.index.is_some() && self.trigger != TriggerKind::Phrase {
+            return Err("live competition-mode leg reported a phrase index for no phrase".into());
+        }
+        match self.trigger {
+            TriggerKind::None => {
+                if facts.env {
+                    return Err("live competition-mode leg ignored the env flag".into());
+                }
+                if facts.phrases.iter().any(|hit| *hit) {
+                    return Err("live competition-mode leg ignored a launch phrase".into());
+                }
+                if facts.goal_present && facts.goal_phrases.iter().any(|hit| *hit) {
+                    return Err("live competition-mode leg ignored a competitive goal".into());
+                }
+                Ok(())
+            }
+            TriggerKind::Env => {
+                if !facts.env {
+                    return Err("live competition-mode leg engaged on an unset env flag".into());
+                }
+                Ok(())
+            }
+            TriggerKind::Goal => {
+                if !facts.goal_present || !facts.goal_phrases.iter().any(|hit| *hit) {
+                    return Err("live competition-mode leg engaged on a non-competitive goal".into());
+                }
+                Ok(())
+            }
+            TriggerKind::Phrase => {
+                let index = self
+                    .index
+                    .ok_or("live competition-mode leg reported a phrase without its index")?;
+                let hit = facts.phrases.get(index).copied().ok_or_else(|| {
+                    format!("live competition-mode leg named phrase {index} beyond the table")
+                })?;
+                if !hit {
+                    return Err(format!(
+                        "live competition-mode leg named phrase {index}, which the turn did not match"
+                    ));
+                }
+                if facts.phrases[..index].iter().any(|earlier| *earlier) {
+                    return Err(format!(
+                        "live competition-mode leg skipped an earlier launch phrase for {index}"
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+/// The routed engagement answer: the shipped leg decides.
+pub(crate) fn competition_mode_trigger_live(history: &[ChatMsg]) -> Option<&'static str> {
+    let facts = trigger_facts(history);
+    let input = facts.input();
+    let (decision, _source) = crate::agent::harness::live_policy::decide_shipped(
+        LEG,
+        &input,
+        |decision: &TriggerDecision| decision.check(&facts),
+    );
+    decision.back()
+}
+
+/// Every other decision in this leg is a boolean; the adapter flattens the leg's
+/// `Hit`/`Clear` constructor into `hit`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Verdict {
+    hit: bool,
+}
+
+impl Verdict {
+    #[cfg(test)]
+    fn of(hit: bool) -> Self {
+        Self { hit }
+    }
+}
+
+/// One whitespace-split argv word, classified the way the native listing scan
+/// reads it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LsWord {
+    Ls,
+    Word,
+    Recursive,
+    Plain,
+}
+
+impl LsWord {
+    fn kind(self) -> &'static str {
+        match self {
+            Self::Ls => "ls",
+            Self::Word => "word",
+            Self::Recursive => "recursive",
+            Self::Plain => "plain",
+        }
+    }
+}
+
+fn ls_words(cmd: &str) -> Vec<LsWord> {
+    cmd.split_whitespace()
+        .map(|part| {
+            let base = part.rsplit('/').next().unwrap_or(part);
+            if base.contains('=') && !base.starts_with('-') {
+                return LsWord::Plain;
+            }
+            if !base.starts_with('-') {
+                return if base == "ls" { LsWord::Ls } else { LsWord::Word };
+            }
+            if base.starts_with("--") {
+                let recursive = base == "--recursive"
+                    || base == "--recurse"
+                    || base.starts_with("--recursive=")
+                    || base.starts_with("--recurse=");
+                return if recursive {
+                    LsWord::Recursive
+                } else {
+                    LsWord::Plain
+                };
+            }
+            if base.chars().skip(1).any(|c| c == 'r') {
+                LsWord::Recursive
+            } else {
+                LsWord::Plain
+            }
+        })
+        .collect()
+}
+
+fn ls_tokens_json(words: &[LsWord]) -> Vec<serde_json::Value> {
+    words
+        .iter()
+        .map(|word| serde_json::json!({"kind": word.kind()}))
+        .collect()
+}
+
+fn ls_input(words: &[LsWord]) -> serde_json::Value {
+    serde_json::json!({"op": "ls_recursive", "tokens": ls_tokens_json(words)})
+}
+
+/// `ls` with a recursive flag, decided by the shipped leg.
+pub(crate) fn ls_cmd_is_recursive_listing_live(cmd: &str) -> bool {
+    let words = ls_words(cmd);
+    let input = ls_input(&words);
+    let (verdict, _source) = crate::agent::harness::live_policy::decide_shipped(
+        LEG,
+        &input,
+        |_verdict: &Verdict| Ok(()),
+    );
+    verdict.hit
+}
+
+/// The `git show` scans, as features for the leg.
+struct GitFacts {
+    has_git: bool,
+    has_show: bool,
+    list_flag: bool,
+    pathspec: bool,
+    blob: bool,
+}
+
+impl GitFacts {
+    fn json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "has_git": self.has_git,
+            "has_show": self.has_show,
+            "list_flag": self.list_flag,
+            "pathspec": self.pathspec,
+            "blob": self.blob,
+        })
+    }
+}
+
+/// A single `rev:path` argv word with both halves non-empty, no `/` in the
+/// revision and no URL scheme: the legal tip blob form.
+fn git_show_names_a_blob(cmd: &str) -> bool {
+    cmd.split_whitespace().any(|part| {
         if part.starts_with('-') {
             return false;
         }
@@ -274,15 +475,148 @@ fn git_show_is_inventory_thrash(cmd: &str) -> bool {
             Some((rev, path)) => {
                 !rev.is_empty()
                     && !path.is_empty()
-                    && !rev.contains('/') // skip URLs / host:path
+                    && !rev.contains('/')
                     && !part.contains("://")
             }
             None => false,
         }
-    });
-    // show without a blob form is commit/history inventory when a board path is
-    // named as a separate path argument (or a plain commit dump).
-    !has_blob
+    })
+}
+
+fn git_facts(cmd: &str) -> GitFacts {
+    GitFacts {
+        has_git: shell_argv_has_token(cmd, "git"),
+        has_show: shell_argv_has_token(cmd, "show"),
+        list_flag: SHOW_LIST_FLAGS.iter().any(|flag| cmd.contains(flag)),
+        pathspec: cmd.contains(" -- "),
+        blob: git_show_names_a_blob(cmd),
+    }
+}
+
+#[cfg(test)]
+fn git_show_input(facts: &GitFacts) -> serde_json::Value {
+    serde_json::json!({"op": "git_show", "git": facts.json()})
+}
+
+/// Leading env assignments are not the command word.
+fn strip_env_prefix(cmd: &str) -> &str {
+    let mut rest = cmd.trim_start();
+    while let Some((head, tail)) = rest.split_once(char::is_whitespace) {
+        if head.contains('=') && !head.starts_with('-') {
+            rest = tail.trim_start();
+            continue;
+        }
+        break;
+    }
+    rest
+}
+
+/// Where a shell command's first non-assignment word sits in the tables below.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FirstWord {
+    Inventory,
+    Git,
+    Other,
+}
+
+impl FirstWord {
+    fn kind(self) -> &'static str {
+        match self {
+            Self::Inventory => "inventory",
+            Self::Git => "git",
+            Self::Other => "other",
+        }
+    }
+}
+
+fn shell_first_word(cmd: &str) -> &str {
+    let first = cmd
+        .split(|c: char| c.is_whitespace() || c == '|')
+        .map(str::trim)
+        .find(|part| !part.is_empty() && !part.contains('='))
+        .unwrap_or("");
+    first.rsplit('/').next().unwrap_or(first)
+}
+
+fn first_word(cmd: &str) -> FirstWord {
+    let word = shell_first_word(cmd);
+    if INVENTORY_WORDS.contains(&word) {
+        FirstWord::Inventory
+    } else if word == "git" {
+        FirstWord::Git
+    } else {
+        FirstWord::Other
+    }
+}
+
+/// The `git` inventory subcommands as flags: the first three are substrings in
+/// the native scan (`git grep`, `git ls-files`, `git ls-tree`), the rest are
+/// whole argv words.
+fn git_arg_flags(cmd: &str) -> Vec<bool> {
+    GIT_ARG_WORDS
+        .iter()
+        .enumerate()
+        .map(|(index, word)| {
+            if index < GIT_ARG_SUBSTRING_COUNT {
+                cmd.contains(word)
+            } else {
+                shell_argv_has_token(cmd, word)
+            }
+        })
+        .collect()
+}
+
+fn shell_input(cmd: &str) -> serde_json::Value {
+    serde_json::json!({
+        "op": "shell_thrash",
+        "thrash_hit": THRASH_SUBSTRINGS.iter().any(|needle| cmd.contains(needle)),
+        "ls": ls_tokens_json(&ls_words(cmd)),
+        "git": git_facts(cmd).json(),
+        "first": first_word(cmd).kind(),
+        "git_args": git_arg_flags(cmd),
+    })
+}
+
+/// Shell inventory / recursive search, decided by the shipped leg. Every branch
+/// answers the same boolean, so the leg's scan order cannot change the answer.
+fn shell_cmd_is_inventory_thrash_live(cmd: &str) -> bool {
+    let input = shell_input(strip_env_prefix(cmd));
+    let (verdict, _source) = crate::agent::harness::live_policy::decide_shipped(
+        LEG,
+        &input,
+        |_verdict: &Verdict| Ok(()),
+    );
+    verdict.hit
+}
+
+/// True when `cmd` is an `ls` (possibly path-qualified / wrapped) with recursive
+/// listing flags. Detects combined short clusters (`-laR`, `-lR`, `-1R`) and
+/// long-form `--recursive` / `--recurse`, not only the bare `ls -r` substring.
+/// The leg's parity oracle: test builds only.
+#[cfg(test)]
+pub(crate) fn ls_cmd_is_recursive_listing(cmd: &str) -> bool {
+    super::super::comp_watch::recursive_listing(cmd)
+}
+
+/// Shell inventory and recursive search burn first-write budget even if the
+/// command also names a board path.
+fn shell_cmd_is_inventory_thrash(cmd: &str) -> bool {
+    super::super::comp_watch::competition_inventory(cmd)
+}
+
+/// `git show HEAD:path` is a legal board blob digest. Listing / pathspec forms
+/// (`--stat`, `--name-only`, `REV -- path`) are history inventory and must burn
+/// first-write budget and count as anti-spin thrash (A8). The leg's parity
+/// oracle: test builds only.
+#[cfg(test)]
+fn git_show_is_inventory_thrash(cmd: &str) -> bool {
+    let facts = git_facts(cmd);
+    if !facts.has_git || !facts.has_show {
+        return false;
+    }
+    // Listing / summary flags and the `REV -- path` pathspec form are history; a
+    // show with no `REV:path` blob word is a commit dump.
+    facts.list_flag || facts.pathspec || !facts.blob
 }
 
 /// True when `token` appears as its own shell argv word (split on whitespace and
@@ -582,7 +916,7 @@ pub(crate) fn hay_names_board_meta(hay: &str) -> bool {
 /// competition board wait (even when args name a living-handoff path).
 fn is_inventory_or_recon_thrash(name: &str, hay_body: &str, is_shell: bool) -> bool {
     if is_shell {
-        return shell_cmd_is_inventory_thrash(hay_body);
+        return shell_cmd_is_inventory_thrash_live(hay_body);
     }
     // Structured workspace search / symbol tools (native + LSP).
     // A4: `lsp_workspace_symbol` / `lsp_symbols` used to launder as board wait
@@ -676,4 +1010,113 @@ pub(crate) fn hop_budget_flags_for_loop(
     } else {
         (false, false, false, true)
     }
+}
+
+/// The native shell verdict. `shell_cmd_is_inventory_thrash` stays private
+/// because only the classify hop calls it; the parity table needs the oracle.
+#[cfg(test)]
+pub(crate) fn shell_cmd_is_inventory_thrash_native(cmd: &str) -> bool {
+    shell_cmd_is_inventory_thrash(cmd)
+}
+
+/// The launch phrase table, so a parity table covers every entry.
+#[cfg(test)]
+pub(crate) fn launch_phrases() -> &'static [&'static str] {
+    LAUNCH_PHRASES
+}
+
+/// The competitive-goal vocabulary, so a parity table covers every entry.
+#[cfg(test)]
+pub(crate) fn goal_phrases() -> &'static [&'static str] {
+    GOAL_PHRASES
+}
+
+/// The native `git show` verdict, for the leg's parity table.
+#[cfg(test)]
+pub(crate) fn git_show_is_inventory_thrash_native(cmd: &str) -> bool {
+    git_show_is_inventory_thrash(cmd)
+}
+
+/// The engagement decision through a pinned generation, or through the
+/// production route (newest live generation, else the shipped one) when no test
+/// program is handed over.
+#[cfg(test)]
+pub(crate) fn trigger_decided(
+    leg: Option<angel_live::Program>,
+    history: &[ChatMsg],
+) -> (Option<&'static str>, crate::agent::harness::live_policy::LegSource) {
+    let facts = trigger_facts(history);
+    let input = facts.input();
+    let (decision, source) = match leg {
+        Some(program) => crate::agent::harness::live_policy::decide_with(
+            Some(program),
+            LEG,
+            &input,
+            |decision: &TriggerDecision| decision.check(&facts),
+            || TriggerDecision::of(competition_mode_trigger(history)),
+        ),
+        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |decision: &TriggerDecision| {
+            decision.check(&facts)
+        }),
+    };
+    (decision.back(), source)
+}
+
+#[cfg(test)]
+pub(crate) fn ls_decided(
+    leg: Option<angel_live::Program>,
+    cmd: &str,
+) -> (bool, crate::agent::harness::live_policy::LegSource) {
+    let words = ls_words(cmd);
+    let input = ls_input(&words);
+    let (verdict, source) = match leg {
+        Some(program) => crate::agent::harness::live_policy::decide_with(
+            Some(program),
+            LEG,
+            &input,
+            |_verdict: &Verdict| Ok(()),
+            || Verdict::of(ls_cmd_is_recursive_listing(cmd)),
+        ),
+        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+    };
+    (verdict.hit, source)
+}
+
+#[cfg(test)]
+pub(crate) fn git_show_decided(
+    leg: Option<angel_live::Program>,
+    cmd: &str,
+) -> (bool, crate::agent::harness::live_policy::LegSource) {
+    let facts = git_facts(cmd);
+    let input = git_show_input(&facts);
+    let (verdict, source) = match leg {
+        Some(program) => crate::agent::harness::live_policy::decide_with(
+            Some(program),
+            LEG,
+            &input,
+            |_verdict: &Verdict| Ok(()),
+            || Verdict::of(git_show_is_inventory_thrash(cmd)),
+        ),
+        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+    };
+    (verdict.hit, source)
+}
+
+#[cfg(test)]
+pub(crate) fn shell_decided(
+    leg: Option<angel_live::Program>,
+    cmd: &str,
+) -> (bool, crate::agent::harness::live_policy::LegSource) {
+    let input = shell_input(strip_env_prefix(cmd));
+    let (verdict, source) = match leg {
+        Some(program) => crate::agent::harness::live_policy::decide_with(
+            Some(program),
+            LEG,
+            &input,
+            |_verdict: &Verdict| Ok(()),
+            || Verdict::of(shell_cmd_is_inventory_thrash(cmd)),
+        ),
+        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+    };
+    (verdict.hit, source)
 }

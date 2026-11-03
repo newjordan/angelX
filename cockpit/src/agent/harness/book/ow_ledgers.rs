@@ -5,6 +5,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/ow_ledgers.book");
 pub(crate) const CELL: char = '⠪';
 pub(crate) const FILES: Route = Route::new(CELL, '⠁');
 pub(crate) const MEASUREMENTS: Route = Route::new(CELL, '⠃');
@@ -44,9 +46,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "files changed so far this run (diff stat below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[files changed so far this run (git diff --stat) — build on these; do not re-make or blindly revert them]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'1'),
         },
         Sub {
             route: MEASUREMENTS,
@@ -54,9 +54,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "measurements and submissions this run (below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[measurements and submissions this run — newest first, as the harness recorded them]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'2'),
         },
         Sub {
             route: STEER_STANDING,
@@ -64,9 +62,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "operator notes already answered (below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[operator steering — notes the user sent earlier in this run, already answered; keep honoring them, do not answer or act on them again]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'3'),
         },
         Sub {
             route: STEER_FRESH,
@@ -74,9 +70,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "operator notes not yet answered (below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[operator message — sent mid-run and not yet answered; answer it once while pursuing the task]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'4'),
         },
         Sub {
             route: OUTCOMES,
@@ -84,9 +78,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "background process outcomes (below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[background process outcomes — inspect the retained logs and actual verifier; an exit is not a solve]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'5'),
         },
         Sub {
             route: RL,
@@ -94,15 +86,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "rl_campaign is available in this loop (history below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[RL campaigns]\nrl_campaign is available throughout this loop: run starts asynchronous measured attempts on the current route; status, results, and stop manage them.",
-                "Use it when comparing approaches or improving a policy would help.",
-                "Continue useful work while it runs.",
-                "Inspect actual verifier outcomes and retained attempt artifacts; apply a useful candidate to the main workspace and verify it there.",
-                "Submit a verified winner when ready.",
-                "Campaign availability does not require you to launch one.",
-                "Campaigns without an independent audit are measured exploration; they do not install validated learning.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'6'),
         },
         Sub {
             route: RESEARCH_PATHS,
@@ -110,10 +94,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "optional research paths",
             action: "",
             ideas: "",
-            pages: &[
-                "Optional research paths: consult_model(method=\"deli\", club=\"self\") explores directions and returns a synthesis to this turn; spawn(formation=\"moa\") compares parallel approaches; continual_harness retains useful supplemental notes.",
-                "Choose them when helpful, return to ordinary tools when ready, and check proposals against actual evidence.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: LOOP_RESEARCH,
@@ -121,13 +102,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "loop_research is available in this loop (history below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Optional loop_research: Sloptomizer suggest offers pareto, bandit and memory advice; run tries your chosen idea asynchronously on this route.",
-                "compare=true measures a baseline and candidate from the same source.",
-                "status/results/stop let you step out and back into ordinary work.",
-                "Verifier receipts update exploratory memory; no forced research step or policy install.",
-                "Submit a verified winner when ready.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'8'),
         },
         Sub {
             route: OUTCOME_NOTES,
@@ -135,16 +110,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "notes on a background or experiment outcome (one page, beside its facts)",
             action: "",
             ideas: "",
-            pages: &[
-                "Inspect proc_status id={id} for captured output (retained log {log}).",
-                "Process exit is not benchmark acceptance or a verified solve.",
-                "Owner was interrupted; inspect retained working source and logs before choosing another experiment.",
-                "inspect candidate and evaluation receipts before integration",
-                "Research history unavailable:",
-                "History unavailable:",
-                "experiment worker disconnected; inspect retained artifacts",
-                "an rl_campaign is already running; continue useful work or request stop and inspect status",
-            ],
+            pages: &super::catalog_pages::<8>(CATALOG, b'9'),
         },
         Sub {
             route: RESEARCH_NOTES,
@@ -152,18 +118,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "loop_research's notes on its options and runs (page addresses in its results)",
             action: "",
             ideas: "",
-            pages: &[
-                "Optional isolated attempt on the current loop route.",
-                "compare=true adds a baseline attempt from the same frozen source.",
-                "No extra hop, time or thinking caps; explicit loop budgets and cancellation apply.",
-                "Physical verifier receipts update original Sloptomizer UCB, Pareto and MicroLearner state.",
-                "Exploratory advice, not an audited policy install or provider weight training.",
-                "Bundled algorithms; requires Python 3 standard library.",
-                "suggest checks the runtime without a model call.",
-                "Continue useful work.",
-                "status/results expose evidence and learning; stop exits this research run without ending the main loop.",
-                "a research run is already active; continue useful work or request stop and inspect status",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'0'),
         },
     ],
 };

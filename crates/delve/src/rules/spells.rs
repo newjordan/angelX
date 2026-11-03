@@ -3,6 +3,27 @@
 use super::*;
 
 impl Hero {
+    /// The spell this knight cast lately whose shots fly as `kind` (a
+    /// bolt's or a ring's bolts, a falling star's ball), the youngest: what
+    /// a shot of theirs breaking now was, as the magic pass draws it
+    /// (`render::overworld::arena::magic`), for its family's sound.
+    pub(super) fn spell_lately<'b>(&self, book: &'b cards::Book, kind: Shot) -> Option<&'b Card> {
+        (0..cards::SPELL_SLOTS)
+            .filter(|&slot| self.module_spells[slot].is_none() && self.spell_cooldowns[slot] > 0)
+            .filter_map(|slot| {
+                let card = self.spells[slot].as_deref().and_then(|id| book.get(id))?;
+                let age = self.spell_wait(card).checked_sub(self.spell_cooldowns[slot])?;
+                let flies = card.effects.iter().find_map(|e| match e {
+                    cards::Effect::Cast(cards::Shape::Bolt | cards::Shape::Ring) => Some(Shot::Bolt),
+                    cards::Effect::Cast(cards::Shape::Meteor) => Some(Shot::Ball),
+                    _ => None,
+                })?;
+                (flies == kind && age <= SPELL_SHOT_TICKS).then_some((age, card))
+            })
+            .min_by_key(|&(age, _)| age)
+            .map(|(_, card)| card)
+    }
+
     pub(super) fn equip_spell(&mut self, card: &Card) -> bool {
         if card.kind != cards::Kind::Spell || !self.takes(card) {
             return false;
@@ -19,7 +40,7 @@ impl Hero {
 
     /// Shapes use the same damage scaling and shot gifts as the knight's bow.
     /// A meteor is a heavy bursting ball; a ring flies out in twelve directions.
-    pub(super) fn spell_shots(&self, shape: cards::Shape, owner: u32, shots: &mut Vec<Projectile>) {
+    pub fn spell_shots(&self, shape: cards::Shape, spell: &str, owner: u32, shots: &mut Vec<Projectile>) {
         let (count, speed, damage, kind) = match shape {
             cards::Shape::Bolt => (1, 22.0, 32, Shot::Bolt),
             cards::Shape::Ring => (12, 14.0, 20, Shot::Bolt),
@@ -46,16 +67,19 @@ impl Hero {
                 hostile: false,
                 kind,
                 look: None,
-                damage: self.scaled(damage),
+                damage: self.spell_damage(spell, damage),
                 pierce: self.bonus.pierce.min(3) as u8,
                 last_hit: None,
                 empowered: false,
                 traits: traits.clone(),
-                ttl: 3 * HZ,
+                ttl: SPELL_SHOT_TICKS,
             });
         }
     }
 }
+
+/// How long a spell's shots fly.
+pub(super) const SPELL_SHOT_TICKS: u32 = 3 * HZ;
 
 impl Run {
     pub(super) fn spell_flourish(&mut self, id: u32, name: &str) {
@@ -110,11 +134,12 @@ pub const IMPOSTURE_MAX: usize = 4;
 pub(super) fn cabbage_storm(
     strikes: &mut Vec<super::ults::Strike>,
     hero: &Hero,
+    spell: &str,
     count: u32,
     room: (f32, f32),
     id: u32,
 ) {
-    let count = count
+    let count = (count + hero.spell_step(spell).cabbage_extra)
         .clamp(3, 8)
         .min(MAX_PROJECTILES.saturating_sub(strikes.len()) as u32);
     let (ax, ay) = (hero.aim_x, hero.aim_y);
@@ -124,7 +149,7 @@ pub(super) fn cabbage_storm(
         unit(ax, ay)
     };
     let (tx, ty) = (hero.x + ux * 7.0, hero.y + uy * 7.0);
-    let damage = hero.scaled(CABBAGE_DAMAGE);
+    let damage = hero.spell_damage(spell, CABBAGE_DAMAGE);
     for i in 0..count {
         // A ring round the aim, tight and loose by turns, the first
         // cabbage on the mark itself — where a knight aims, a farmer
@@ -150,11 +175,12 @@ pub(super) fn cabbage_storm(
 /// exactly as Phantasm makes them). Monsters aim at what they see, and
 /// the first hostile shot that catches the lie unmakes it. One counterfeit
 /// a knight; Phantasm's own images, longer-lived, are left standing.
-pub(super) fn call_imposture(phantoms: &mut Vec<super::ults::Phantom>, hero: &Hero, id: u32) {
+pub(super) fn call_imposture(phantoms: &mut Vec<super::ults::Phantom>, hero: &Hero, spell: &str, id: u32) {
     if phantoms.len() >= IMPOSTURE_MAX {
         return;
     }
-    phantoms.retain(|p| p.owner != id || p.left > IMPOSTURE_TICKS);
+    let duration = hero.spell_step(spell).imposture;
+    phantoms.retain(|p| p.owner != id || p.left > duration);
     let (ax, ay) = (hero.aim_x, hero.aim_y);
     let (ux, uy) = if ax == 0.0 && ay == 0.0 {
         (0.0, -1.0)
@@ -168,7 +194,7 @@ pub(super) fn call_imposture(phantoms: &mut Vec<super::ults::Phantom>, hero: &He
         y: hero.y + dy,
         dx,
         dy,
-        left: IMPOSTURE_TICKS,
+        left: hero.spell_step(spell).imposture,
     });
 }
 
@@ -186,6 +212,7 @@ pub const HEDGE_ROOM: usize = 21;
 pub(super) fn hedge_maze(
     walls: &mut Vec<super::skills::Barricade>,
     hero: &Hero,
+    spell: &str,
     id: u32,
     room: (f32, f32),
 ) {
@@ -213,7 +240,7 @@ pub(super) fn hedge_maze(
         walls.push(super::skills::Barricade {
             a,
             b,
-            hp: HEDGE_HP,
+            hp: hero.spell_power(spell, HEDGE_HP),
             age: 0,
             owner: id,
             fall: None,

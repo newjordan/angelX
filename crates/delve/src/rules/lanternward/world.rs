@@ -333,3 +333,7 @@ mod tests {
         assert_eq!(turn(10, 350), -20);
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-a-lanternward"))]
+#[path = "../../../tests/rules/lanternward_world_bend_cases__tests.rs"]
+mod lanternward_world_bend_cases_tests;

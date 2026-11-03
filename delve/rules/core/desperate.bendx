@@ -1,0 +1,93 @@
+# crates/delve/src/rules/desperate.rs — hits, and bosses grown desperate.
+
+# A guardian, the dragon or the Pit Lord.
+def desperate.Enemy.is_boss(e: J.Val) -> Bool:
+    k: String = core.s(e, "kind")
+    return Bool.or(Bool.not(J.is_null(J.get(e, "boss"))), Bool.or(String.eq(k, "dragon"), String.eq(k, "pit_tyrant")))
+
+# 0 until a boss is under a third of its health, then rising to 1 at the last of it.
+def desperate.Enemy.desperation(e: J.Val) -> F32:
+    hp: U32 = core.u(e, "hp")
+    mx: U32 = core.u(e, "max_hp")
+    if Bool.or(Bool.not(desperate.Enemy.is_boss(e)), Bool.or(U32.is_zero(mx), U32.is_zero(hp))):
+        return 0.0
+    share: F32 = (RS.u_as_f32(hp) / RS.u_as_f32(mx) : F32)
+    return RS.f_clamp(((desperate.FROM() - share) / desperate.FROM() : F32), 0.0, 1.0)
+
+# Ticks between the flash's turns, if it is flashing.
+def desperate.Enemy.flash_every(e: J.Val) -> U32?:
+    d: F32 = desperate.Enemy.desperation(e)
+    if F32.is_gt(d, 0.0):
+        r: F32 = RS.f_round((40.0 - 32.0 * d * d : F32))
+        return Some{RS.f_as_u32(RS.f_max(r, 8.0))}
+    return None{}
+
+# The boss flashes bright on this tick of the run.
+def desperate.Enemy.flashing(e: J.Val, tick: W.W) -> Bool:
+    match (desperate.Enemy.flash_every(e) : U32?):
+        case Some{every: U32}:
+            return U32.is_zero(U32.mod(U32.div(W.lo32(tick), every), 2))
+        case None{}:
+            return False{}
+
+# A beat of `every` ticks, as often again at the last.
+def desperate.Enemy.beat(e: J.Val, every: U32) -> U32:
+    d: F32 = desperate.Enemy.desperation(e)
+    r: U32 = RS.f_as_u32(RS.f_round((RS.u_as_f32(every) * (1.0 - 0.34 * d : F32) : F32)))
+    return U32.max(r, 4)
+
+# The last stand's ring is showing, and how far along (0 to 1).
+def desperate.Enemy.ring_warning(e: J.Val) -> F32?:
+    dread: U32 = core.u(e, "dread")
+    t: U32 = U32.mod(dread, desperate.CYCLE())
+    if Bool.and(F32.is_gt(desperate.Enemy.desperation(e), 0.0), Bool.and(U32.is_gt(dread, 0), U32.is_lt(t, desperate.RING_WARN()))):
+        return Some{(RS.u_as_f32(t) / RS.u_as_f32(desperate.RING_WARN()) : F32)}
+    return None{}
+
+# The arms are showing, and how far along (0 to 1).
+def desperate.Enemy.arms_warning(e: J.Val) -> F32?:
+    t: U32 = U32.mod(core.u(e, "dread"), desperate.CYCLE())
+    if Bool.and(F32.is_ge(desperate.Enemy.desperation(e), desperate.ARMS_AT()), Bool.and(U32.is_ge(t, desperate.ARMS_WARN()), U32.is_lt(t, desperate.ARMS_FROM()))):
+        return Some{(RS.u_as_f32((t - desperate.ARMS_WARN() : U32)) / RS.u_as_f32((desperate.ARMS_FROM() - desperate.ARMS_WARN() : U32)) : F32)}
+    return None{}
+
+# A monster's hostile bolt from `enemy`.
+def desperate.bolt(enemy: J.Val, angle: F32, speed: F32, damage: U32, kind: String) -> J.Val:
+    p: J.Val = J.obj()
+    p = core.set_f(p, "x", core.f(enemy, "x"))
+    p = core.set_f(p, "y", core.f(enemy, "y"))
+    p = core.set_f(p, "vx", (F32.cos(angle) * speed : F32))
+    p = core.set_f(p, "vy", (F32.sin(angle) * speed : F32))
+    p = core.set_b(p, "hostile", True{})
+    p = J.set(p, "look", J.JNull{})
+    p = core.set_s(p, "kind", kind)
+    p = core.set_u(p, "damage", damage)
+    p = core.set_u(p, "pierce", 0)
+    p = J.set(p, "last_hit", J.JNull{})
+    p = core.set_b(p, "empowered", False{})
+    p = J.set(p, "traits", projectile.ShotTraits.default())
+    p = core.set_u(p, "ttl", (8 * rules.HZ() : U32))
+    return p
+
+# Read the tick's hits off the monsters' health: a drop since last tick starts
+# the flash; the flash runs down by itself.
+def desperate.Run.mark_hits(run: J.Val) -> J.Val:
+    return J.set(run, "enemies", J.JA{desperate.Run.mark_hits.each(J.items(J.get(run, "enemies")))})
+
+def desperate.Run.mark_hits.each(es: [J.Val]) -> [J.Val]:
+    match (es : [J.Val]):
+        case Nil{}:
+            return Nil{}
+        case Con{e: J.Val, rest: [J.Val]}:
+            return desperate.Run.mark_hits.one(e) <> desperate.Run.mark_hits.each(rest)
+
+def desperate.Run.mark_hits.one(e: J.Val) -> J.Val:
+    seen: U32 = core.u(e, "seen_hp")
+    hp: U32 = core.u(e, "hp")
+    if U32.is_zero(seen):
+        seen = hp
+    if U32.is_lt(hp, seen):
+        e = core.set_u(e, "hurt", desperate.HIT_FLASH())
+    else:
+        e = core.set_u(e, "hurt", core.usub(core.u(e, "hurt"), 1))
+    return core.set_u(e, "seen_hp", hp)

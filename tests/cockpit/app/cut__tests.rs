@@ -922,3 +922,171 @@ fn adjacent_fail_then_pass_counts_as_a_repair_trajectory() {
     assert!(text.contains("pass rate: 1/2"), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn modular_report_matches_native_golden_on_edge_cases() {
+    let _lock = crate::tests::env_lock();
+    let (dir, _cut_dir) = isolated_cut_dir("projection-parity");
+    let _on = crate::tests::TestEnvGuard::unset("ANGEL_CUT");
+    let rows = [
+        r#"{"ts":18446744073709551615,"session":9007199254740993,"seq":1,"path":"src/a.rs","driver":"𐀀","model":"m","repo":{"key":"k"},"machine":{"cmd":"check","exit":1},"authored":"NEVER_REPORT_THIS","__angel_cut_\u006eumber__":"3"}"#,
+        r#"{"ts":18446744073709551615,"session":9007199254740993,"seq":2,"path":"src/a.rs","driver":"","model":"m","repo":{"key":"k"},"machine":{"cmd":"check","exit":0},"keep":null,"kept":true,"edited":1}"#,
+        r#"{"ts":0,"session":9007199254740992,"path":"Cargo.toml","machine":{"cmd":"check","exit":9223372036854775808},"keep":0.5,"discarded":true}"#,
+        r#"{"path":"x.mjs","machine":{"skipped":null,"exit":0},"keep":" no "}"#,
+        r#"{"path":"foo.TS","machine":{"timed_out":true,"exit":0},"cut":{"verdict":"DIſCARDED"}}"#,
+        r#"{"path":"foo.py/","machine":{"exit":-9223372036854775808},"verdict":"keep"}"#,
+        r#"{"path":".hidden","machine":{"exit":0.0},"keep":18446744073709551615}"#,
+        r#"{"path":"src/x.ts","driver":"\u0085A\u0085","machine":null}"#,
+        r#"{"driver":"\ud800","machine":{"exit":0}}"#,
+        r#"{"\udc00":"invalid key"}"#,
+        r#"{"machine":{"exit":1e99999999999999999999999}}"#,
+        // JSON.parse normally drops these overwritten values before its
+        // reviver runs; serde_json rejects each complete row.
+        r#"{"driver":"\ud800","driver":"hidden"}"#,
+        r#"{"repo":{"key":"\udc00","key":"hidden"}}"#,
+        r#"{"\u0064river":"\ud800","driver":"hidden"}"#,
+        r#"{"metadata":{"\ud800":1},"metadata":{}}"#,
+        r#"{"machine":{"exit":1e999},"machine":{"exit":0}}"#,
+        "not a json record",
+    ];
+    std::fs::write(dir.join("authored-20260711.jsonl"), rows.join("\n")).unwrap();
+    // Captured from the pre-extraction Rust implementation using these rows.
+    let expected = format!(
+        "the cut — morning read\nworkspace: /tmp/ws\nmanifest: {} · 8 row(s)\n  authored: 8\n  machine: labeled 3 · skipped 1 · timed_out 1 · unverified 3\n  pass rate: 1/3\n  human: KEPT 1 / EDITED 1 / DISCARDED 1 (judged 3)\n  repair trajectories: 1\n  signal density: 8 authored · 3 labeled · 3 judged\n  slices (counts only; observational — not a ranking)\n    driver: A 1,  1, 𐀀 1\n    model: m 2\n    repo: k 2\n    path: rust 3, TS 1, js 1, py 1, ts 1\n    hour: 07h 2, 00h 1",
+        dir.display()
+    );
+    let actual = report_module(&dir, Path::new("/tmp/ws")).unwrap();
+    assert_eq!(actual, expected);
+    assert!(!actual.contains("NEVER_REPORT_THIS"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[cfg(unix)]
+fn report_module_is_reloaded_from_runtime_bundle_each_time() {
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("cut-live-report");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/cut");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/cut-report.mjs"),
+        scripts.join("cut-report.mjs"),
+    )
+    .unwrap();
+    let lib_path = library.join("report.mjs");
+    let original = std::fs::read_to_string(source.join("lib/cut/report.mjs")).unwrap();
+    std::fs::write(&lib_path, &original).unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let manifest = root.path().join("manifest");
+    assert!(
+        report_module(&manifest, Path::new("/tmp/ws"))
+            .unwrap()
+            .contains("the cut — morning read")
+    );
+    std::fs::write(
+        &lib_path,
+        original.replace("the cut — morning read", "changed report generation"),
+    )
+    .unwrap();
+    assert!(
+        report_module(&manifest, Path::new("/tmp/ws"))
+            .unwrap()
+            .contains("changed report generation")
+    );
+    std::fs::write(&lib_path, "invalid javascript {").unwrap();
+    assert!(report_module(&manifest, Path::new("/tmp/ws")).is_err());
+}
+
+#[test]
+#[cfg(unix)]
+fn stalled_report_is_terminated_and_reports_failure() {
+    use std::os::unix::fs::PermissionsExt;
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("cut-report-deadline");
+    let fake = root.path().join("node-stall");
+    let marker = root.path().join("descendant-ran");
+    std::fs::write(
+        &fake,
+        format!(
+            "#!/bin/sh\n(sleep 1; touch '{}') &\nwait\n",
+            marker.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", fake.to_str().unwrap());
+    let started = Instant::now();
+    let error = report_module_with_timeout(root.path(), root.path(), Duration::from_millis(150))
+        .unwrap_err();
+    assert!(error.contains("timed out"), "{error}");
+    assert!(started.elapsed() < Duration::from_secs(2));
+    std::thread::sleep(Duration::from_millis(1100));
+    assert!(!marker.exists(), "a report descendant survived the timeout");
+}
+
+#[test]
+#[cfg(unix)]
+fn successful_report_terminates_background_descendant_with_closed_pipes() {
+    use std::os::unix::fs::PermissionsExt;
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("cut-report-success-descendant");
+    let fake = root.path().join("node-background");
+    let marker = root.path().join("descendant-ran");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\n(sleep 1; : > \"$3/descendant-ran\") </dev/null >/dev/null 2>&1 &\nprintf 'fixture report'\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", fake.to_str().unwrap());
+    let report = report_module_with_timeout(root.path(), root.path(), Duration::from_secs(2))
+        .expect("successful report");
+    assert_eq!(report, "fixture report");
+    std::thread::sleep(Duration::from_millis(1100));
+    assert!(
+        !marker.exists(),
+        "a report descendant survived the successful report"
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn report_rejects_oversized_or_invalid_utf8_output() {
+    use std::os::unix::fs::PermissionsExt;
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("cut-report-output-limits");
+    let fake = root.path().join("node-output");
+    std::fs::write(&fake, "#!/bin/sh\nprintf '\\377'\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", fake.to_str().unwrap());
+    let error = report_module(root.path(), root.path()).unwrap_err();
+    assert!(error.contains("not UTF-8"), "{error}");
+
+    std::fs::write(&fake, "#!/bin/sh\ndd if=/dev/zero bs=1024 count=257 2>/dev/null\n")
+        .unwrap();
+    let error = report_module(root.path(), root.path()).unwrap_err();
+    assert!(error.contains("output exceeded its limit"), "{error}");
+}
+
+#[test]
+#[cfg(unix)]
+fn report_does_not_treat_negative_zero_as_an_integer() {
+    let _lock = crate::tests::env_lock();
+    let (dir, _cut_dir) = isolated_cut_dir("negative-zero");
+    std::fs::write(
+        dir.join("authored-20260711.jsonl"),
+        r#"{"ts":-0,"session":-0,"path":"src/a.rs","machine":{"cmd":"check","exit":-0}}"#,
+    )
+    .unwrap();
+    let text = report_module(&dir, Path::new("/tmp/ws")).unwrap();
+    assert!(
+        text.contains("labeled 0 · skipped 0 · timed_out 0 · unverified 1"),
+        "{text}"
+    );
+    assert!(text.contains("hour: (empty)"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

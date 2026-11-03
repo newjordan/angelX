@@ -10,6 +10,7 @@
 
 use super::{Primary, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/ch_edits.book");
 pub(crate) const CELL: char = '⠡';
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -23,14 +24,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `read_file`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use `agent://hnd_…` or handle_read for opaque handles; `outline://` always requires a workspace source path.",
-                "Reuse the next offset named by a truncated page",
-                "Each page is headed with `[path#tag]` (whole-file content tag) and absolute 1-based line numbers so you can author token-cheap hashline `apply_patch` edits that emit only the NEW lines.",
-                "workspace path, or conflict:// / skill:// / agent:// / outline:// / pr:// / issue:// / ledger:// virtual URL",
-                "one-based first source line; default 1.",
-                "complete source lines to return; default 200, maximum 400",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'1'),
         },
         Sub {
             route: Route::new(CELL, '⠃'),
@@ -38,15 +32,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `str_replace`",
             action: "",
             ideas: "",
-            pages: &[
-                "Fails if 'old' is absent or appears more than once — include enough surrounding context to make it unique.",
-                "An indentation-only miss can return exact `old` and `expect_tag` recovery fields; copy them and author `new` with the intended indentation.",
-                "path inside the workspace (relative or absolute)",
-                "exact text to replace (must be unique)",
-                "replacement text",
-                "optional stale-edit guard: the file's content tag from read_file's [path#tag] header.",
-                "The edit is rejected if the live file no longer matches it.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'2'),
         },
         Sub {
             route: Route::new(CELL, '⠉'),
@@ -54,13 +40,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `git_diff`",
             action: "",
             ideas: "",
-            pages: &[
-                "Review your own edits before committing.",
-                "diff the index (--cached) instead of the worktree",
-                "compare the current worktree against one verified branch, tag, or commit",
-                "show a compact file/change summary instead of the full patch",
-                "limit the diff to this in-workspace path (relative or absolute)",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'3'),
         },
         Sub {
             route: Route::new(CELL, '⠙'),
@@ -68,11 +48,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `git_log`",
             action: "",
             ideas: "",
-            pages: &[
-                "Orient on what changed recently and why.",
-                "how many commits (default 15, max 100)",
-                "limit history to this in-workspace path (relative or absolute)",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'4'),
         },
         Sub {
             route: Route::new(CELL, '⠑'),
@@ -80,13 +56,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `file_search`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use when you half-remember a filename; complements find_files (exact glob) and grep (by content).",
-                "include ignored/generated paths (default false); credential and quarantine exclusions still apply",
-                "include hidden paths (default false); .git and credential files remain excluded",
-                "path fragment to fuzzy-match",
-                "max results (default 20)",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'5'),
         },
         Sub {
             route: Route::new(CELL, '⠋'),
@@ -94,12 +64,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `semantic_read`",
             action: "",
             ideas: "",
-            pages: &[
-                "This is useful after file_search/grep finds plausible files but reading all of them would waste model context.",
-                "natural-language question or implementation concept to retrieve",
-                "workspace files selected by file_search, grep, find_files, or prior evidence",
-                "ranked passages to return (default 6, maximum 12)",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'6'),
         },
         Sub {
             route: Route::new(CELL, '⠛'),
@@ -107,10 +72,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `lsp_diagnostics`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use to verify an edit compiles/type-checks instead of guessing.",
-                "File to analyze (workspace-relative or absolute).",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: Route::new(CELL, '⠓'),
@@ -118,11 +80,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `notes`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use for durable findings and decisions.",
-                "default 'list'",
-                "for action=add",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'8'),
         },
         Sub {
             route: Route::new(CELL, '⠊'),
@@ -130,12 +88,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `handoff`",
             action: "",
             ideas: "",
-            pages: &[
-                "Write the state a cold successor needs to resume this work: current goal, what is done (with evidence), what is in flight, exact next steps in order, and load-bearing facts (paths, hashes, commands, decisions with reasons).",
-                "Refresh it before long or risky stretches and before ending a run.",
-                "default: 'write' when 'note' is present, else 'show'",
-                "for action=write — the complete replacement resume brief",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'9'),
         },
         Sub {
             route: Route::new(CELL, '⠚'),
@@ -143,11 +96,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `recall`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use it when prior context would help and isn't in the current conversation.",
-                "What to recall.",
-                "Max notes (default 5).",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'0'),
         },
     ],
 };

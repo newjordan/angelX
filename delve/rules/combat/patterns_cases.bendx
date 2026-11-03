@@ -1,0 +1,56 @@
+# Cases recorded from the Rust original (tests/rules/patterns_bend_cases__tests.rs).
+import Base
+
+def case.patterns.emit(input: J.Val) -> J.Val:
+  patterns.emit(J.str(J.get(input, "emitter")), J.get(input, "aim"), J.get(input, "shots"))
+
+def case.patterns.gap_ring(input: J.Val) -> J.Val:
+  cb.of_f32s(patterns.gap_ring(J.get(input, "aim")))
+
+def case.patterns.thinned(input: J.Val) -> J.Val:
+  J.of_u32(patterns.thinned(J.u32(J.get(input, "n"))))
+
+def case.patterns.wall(input: J.Val) -> J.Val:
+  cb.of_pairs(patterns.wall(J.get(input, "aim"), J.u32(J.get(input, "n")), J.u32(J.get(input, "gap")), J.u32(J.get(input, "thin"))))
+
+def case.patterns.edge(input: J.Val) -> J.Val:
+  cb.of_opt_f32(patterns.edge(J.get(input, "aim"), cb.gf(input, "y"), cb.gb(input, "left"), cb.gf(input, "w")))
+
+def case.patterns.landing(input: J.Val) -> J.Val:
+  cb.of_opt_pair(patterns.landing(J.get(input, "aim"), cb.gf(input, "fx"), cb.gf(input, "fy"), cb.gf(input, "sx"), cb.gf(input, "sy")))
+
+def case.patterns.reach(input: J.Val) -> J.Val:
+  J.of_f32(patterns.reach(J.get(input, "room"), cb.gb(input, "barred"), cb.gf(input, "x"), cb.gf(input, "y"), cb.gf(input, "angle")))
+
+def case.patterns.charged_beam(input: J.Val) -> J.Val:
+  patterns.charged_beam(J.get(input, "room"), cb.gb(input, "barred"), cb.pair(J.get(input, "from")), cb.gf(input, "angle"), cb.gf(input, "arc"), cb.gu(input, "warn"), cb.gu(input, "burn"), cb.gs(input, "kind"), cb.gu(input, "damage"))
+
+def case.patterns.steer(input: J.Val) -> J.Val:
+  (bullet: Projectile, pops: J.Val, hold: Bool) = patterns.steer(J.get(input, "bullet"), J.get(input, "knights"), J.get(input, "pops"))
+  o: J.Val = J.obj()
+  o = J.set(o, "bullet", bullet)
+  o = J.set(o, "pops", pops)
+  J.set(o, "hold", J.of_bool(hold))
+
+def case.patterns.family(input: J.Val) -> J.Val:
+  J.of_str(patterns.family(input))
+
+def case.patterns.girth(input: J.Val) -> J.Val:
+  J.of_f32(patterns.girth(input))
+
+def case.patterns.body(input: J.Val) -> J.Val:
+  J.of_f32(patterns.body(input))
+
+def case.patterns.lob_flight(input: J.Val) -> J.Val:
+  match (patterns.lob_flight(input) : ((F32, F32), F32)?):
+    case None{}:
+      return J.JNull{}
+    case Some{v: ((F32, F32), F32)}:
+      (p: (F32, F32), h: F32) = v
+      return J.JA{[cb.of_pair2(p), J.of_f32(h)]}
+
+def case.patterns.signature(input: J.Val) -> J.Val:
+  patterns.signature(cb.gs(input, "kind"), cb.gs(input, "pack"), cb.gb(input, "elite"))
+
+def case.signatures.weight(input: J.Val) -> J.Val:
+  J.of_u32(signatures.weight(input))

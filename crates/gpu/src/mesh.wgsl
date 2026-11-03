@@ -3,6 +3,11 @@
 // is lit, out premultiplied to match the target's blend (One,
 // OneMinusSrcAlpha). One draw is one range of one mesh with one material; its
 // uniforms sit at a dynamic offset in one buffer.
+//
+// A skinned mesh is bent by its joints (`vs_skinned`, the palette in group
+// 3). A material's finish: chrome reflects a studio made here, liquid
+// ripples and wobbles on the scene's clock, and a glowing surface shines
+// past its colour with a halo drawn round it (`vs_halo`, `fs_halo`).
 
 struct Draw {
     model: mat4x4<f32>,
@@ -17,7 +22,9 @@ struct Draw {
     // undithered; look.wgsl), and in the next its brand ceiling (docs/
     // BRAND.md): the step of an eight-step ramp plus one light never lifts
     // it past, 0 none. w: 1
-    // when the picture is cast from `projector` instead of laid on by uv.
+    // when the picture is cast from `projector` instead of laid on by uv;
+    // 2 for a card lit by a look (`fs_card`) whose normal map is group 2's
+    // picture.
     flags: vec4<u32>,
     // x: how much of a lit surface shines by itself, 0..1. yzw: a projected
     // surface's patch's rectangle in group 2's picture: x, y, and
@@ -30,6 +37,19 @@ struct Draw {
     // size of a pixel of it; w 0 when there is none, and the surface is its
     // tint. (`patch` is a word WGSL keeps.)
     unseen: vec4<f32>,
+    // The finish (angel_stage::scene::Material): x chrome, y liquid, z the
+    // scene's clock in seconds, w glow; each 0..1 but the clock.
+    finish: vec4<f32>,
+    // x: the mesh's radius in the world, what liquid is sized by; y: 1 when
+    // its normals split where its faces meet (a cube's, a flat-shaded
+    // model's), so liquid moves its points by where they are alone; z:
+    // 1 for a halo's draw; w: 1 when the halo is a rounded box's edges,
+    // which fade out where they meet its flat faces.
+    shape: vec4<f32>,
+    // Where the camera is (w 1), or the way toward it (w 0).
+    eye: vec4<f32>,
+    // y: the joints in this draw's palette, 0 for a mesh not bent.
+    skin: vec4<u32>,
 };
 
 // The one light every scene has (angel_stage::scene::KEY_LIGHT and
@@ -52,6 +72,10 @@ const GRAZING: f32 = 0.5;
 // The patch a projected surface is where its projector does not see it.
 @group(2) @binding(0) var patch_picture: texture_2d<f32>;
 @group(2) @binding(1) var patch_sampler: sampler;
+// A skinned draw's joint matrices (angel_stage::scene::skin_matrices), its
+// slice of the palettes at a dynamic offset. Binding 3: group 3's others
+// are a look's, in other pipelines.
+@group(3) @binding(3) var<uniform> palette: array<mat4x4<f32>, 256>;
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -76,21 +100,63 @@ struct Varyings {
 
 @vertex
 fn vs_main(v: Vertex) -> Varyings {
+    return place(draw.model, v.position, v.normal, v.uv, v.color);
+}
+
+// A skinned vertex: its joints and how much each pulls it, beside the rest.
+struct SkinnedVertex {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) color: vec4<f32>,
+    @location(4) joints: vec4<u32>,
+    @location(5) weights: vec4<f32>,
+};
+
+// A skinned mesh: placed by its joints' matrices blended by its weights
+// (linear blend skinning, the weights scaled to sum to 1; a joint past the
+// palette pulls nothing), as angel_stage::scene::skin_matrix does it; a
+// vertex nothing pulls stays with its node.
+@vertex
+fn vs_skinned(v: SkinnedVertex) -> Varyings {
+    let count = min(draw.skin.y, 256u);
+    var m = mat4x4<f32>(vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0), vec4<f32>(0.0));
+    var total = 0.0;
+    for (var k = 0u; k < 4u; k = k + 1u) {
+        let j = v.joints[k];
+        let w = v.weights[k];
+        if j < count && w > 0.0 {
+            m = m + palette[j] * w;
+            total = total + w;
+        }
+    }
+    var placed = draw.model;
+    if total > 1e-6 {
+        placed = m * (1.0 / total);
+    }
+    return place(placed, v.position, v.normal, v.uv, v.color);
+}
+
+// A vertex in the world by matrix `m`, wobbled when the finish is liquid.
+fn place(m: mat4x4<f32>, position: vec3<f32>, normal: vec3<f32>, uv: vec2<f32>, color: vec4<f32>) -> Varyings {
     var out: Varyings;
-    let world = draw.model * vec4<f32>(v.position, 1.0);
-    out.position = draw.view_proj * world;
-    out.uv = v.uv;
-    out.color = v.color;
+    var world = (m * vec4<f32>(position, 1.0)).xyz;
+    out.uv = uv;
+    out.color = color;
     // The normal through the model's cofactor matrix (the inverse transpose
     // times the determinant), so a stretched box keeps normals square to its
     // faces; a mirrored model (a negative determinant) is turned back.
-    let a = draw.model[0].xyz;
-    let b = draw.model[1].xyz;
-    let c = draw.model[2].xyz;
+    let a = m[0].xyz;
+    let b = m[1].xyz;
+    let c = m[2].xyz;
     let cofactor = mat3x3<f32>(cross(b, c), cross(c, a), cross(a, b));
     let side = select(1.0, -1.0, dot(a, cross(b, c)) < 0.0);
-    out.normal = cofactor * v.normal * side;
-    out.world = world.xyz;
+    out.normal = cofactor * normal * side;
+    if draw.finish.y > 0.0 {
+        world = world + wobble(world, out.normal);
+    }
+    out.position = draw.view_proj * vec4<f32>(world, 1.0);
+    out.world = world;
     out.projector_eye = vec4<f32>(0.0);
     out.camera_eye = vec4<f32>(0.0);
     if draw.flags.w == 1u {
@@ -98,6 +164,182 @@ fn vs_main(v: Vertex) -> Varyings {
         out.camera_eye = eye_of(draw.view_proj);
     }
     return out;
+}
+
+// ---- liquid ----
+
+// One travelling wave at `q` along `d`, `f` waves a unit, at `phase`, of
+// height `a`: x its height, yzw its slope.
+fn wave(q: vec3<f32>, d: vec3<f32>, f: f32, phase: f32, a: f32) -> vec4<f32> {
+    let x = dot(q, d) * f + phase;
+    return vec4<f32>(a * sin(x), d * (a * f * cos(x)));
+}
+
+// How a liquid surface moves at `p` (in the mesh's radii, so a ripple is
+// the same size on a cube as on a figure) at time `t`: x its height, about
+// -1..1, and yzw its slope. Five waves over a slow warp, so the crests bend
+// and drift as a pool of mercury's do.
+fn flow(p: vec3<f32>, t: f32) -> vec4<f32> {
+    let q = p + 0.35 * vec3<f32>(sin(p.y * 1.3 + t * 0.53), sin(p.z * 1.7 - t * 0.41), sin(p.x * 1.1 + t * 0.67));
+    var out = wave(q, vec3<f32>(0.80, 0.55, 0.24), 2.1, t * 1.10, 0.36);
+    out = out + wave(q, vec3<f32>(-0.42, 0.85, 0.31), 3.3, t * 1.55, 0.26);
+    out = out + wave(q, vec3<f32>(0.18, -0.36, 0.92), 4.7, -t * 1.90, 0.20);
+    out = out + wave(q, vec3<f32>(-0.70, -0.20, -0.68), 6.9, t * 2.60, 0.12);
+    out = out + wave(q, vec3<f32>(0.33, 0.93, -0.15), 9.8, -t * 3.30, 0.06);
+    return out;
+}
+
+// Where a liquid vertex moves, by a little of its radius: along its
+// normal; or, for a mesh whose normals split where its faces meet, by a
+// field of where it is alone (three of the waves, one an axis), so the
+// points a seam shares move together and it never opens.
+fn wobble(world: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
+    let radius = max(draw.shape.x, 1e-4);
+    let t = draw.finish.z;
+    let q = world / radius * 1.2;
+    let size = draw.finish.y * 0.045 * radius;
+    if draw.shape.y > 0.5 {
+        let field = vec3<f32>(
+            flow(q, t).x,
+            flow(q.yzx + vec3<f32>(1.7, 3.1, 0.6), t * 1.07).x,
+            flow(q.zxy + vec3<f32>(4.2, 0.9, 2.3), t * 0.93).x,
+        );
+        return field * size;
+    }
+    return normal / max(length(normal), 1e-20) * (flow(q, t).x * size);
+}
+
+// A liquid surface's normal: turned by the slope of its wobble and of
+// finer ripples riding it.
+fn rippled(n: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
+    let radius = max(draw.shape.x, 1e-4);
+    let t = draw.finish.z;
+    let slope = flow(world / radius * 1.2, t).yzw * 0.054 + flow(world / radius * 3.1, t * 1.4).yzw * 0.06;
+    let across = slope - n * dot(slope, n);
+    return normalize(n - across * draw.finish.y);
+}
+
+// ---- chrome ----
+
+// A softbox: a soft-edged rectangle of light, at azimuth `centre.x` and
+// height `centre.y` (the sine of its elevation), `half` its half size in
+// the same, brightest at its middle.
+fn softbox(azimuth: f32, height: f32, centre: vec2<f32>, half: vec2<f32>) -> f32 {
+    var d = azimuth - centre.x;
+    d = d - 6.2831853 * round(d / 6.2831853);
+    let e = abs(vec2<f32>(d, height - centre.y)) / half;
+    let edge = max(e.x, e.y);
+    return (1.0 - smoothstep(0.72, 1.0, edge)) * (1.0 - 0.22 * min(dot(e, e), 1.0));
+}
+
+// The studio a chrome surface reflects, seen along `r`: a cool sky darker
+// overhead, a dark floor, a bright horizon, three softboxes and a dim
+// bounce off the floor, and the light warmer on one side of the room than
+// the other. Linear light, past 1 where
+// it is bright.
+fn studio(r: vec3<f32>) -> vec3<f32> {
+    let y = clamp(r.y, -1.0, 1.0);
+    let azimuth = atan2(r.x, r.z);
+    let sky = mix(vec3<f32>(0.62, 0.70, 0.82), vec3<f32>(0.10, 0.13, 0.22), sqrt(smoothstep(0.0, 1.0, y)));
+    let ground = mix(vec3<f32>(0.26, 0.22, 0.18), vec3<f32>(0.03, 0.03, 0.035), pow(smoothstep(0.0, 0.8, -y), 0.6));
+    var c = select(ground, sky, y >= 0.0);
+    c = c + vec3<f32>(2.0, 1.9, 1.75) * exp(-abs(y) * 38.0) + vec3<f32>(0.34, 0.36, 0.40) * exp(-abs(y) * 5.0);
+    // The key overhead and to the left, a tall cool strip on the right, a
+    // warm one behind on the left.
+    c = c + vec3<f32>(3.4, 3.3, 3.1) * softbox(azimuth, y, vec2<f32>(-0.55, 0.78), vec2<f32>(0.70, 0.16));
+    c = c + vec3<f32>(2.3, 2.6, 3.1) * softbox(azimuth, y, vec2<f32>(1.40, 0.22), vec2<f32>(0.11, 0.38));
+    c = c + vec3<f32>(3.1, 2.5, 1.9) * softbox(azimuth, y, vec2<f32>(-1.95, 0.28), vec2<f32>(0.13, 0.30));
+    // And a dim bounce off the floor in front, so what faces down still
+    // reads.
+    c = c + vec3<f32>(0.42, 0.40, 0.38) * softbox(azimuth, y, vec2<f32>(0.0, -0.32), vec2<f32>(1.5, 0.22));
+    let side = 0.5 + 0.5 * sin(azimuth + 0.4);
+    return c * mix(vec3<f32>(1.08, 0.97, 0.86), vec3<f32>(0.86, 0.97, 1.10), side);
+}
+
+// Linear light to display: a filmic curve (Narkowicz's fit of ACES), so a
+// softbox burns to white while the floor stays deep.
+fn filmic(c: vec3<f32>) -> vec3<f32> {
+    let x = max(c, vec3<f32>(0.0));
+    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+// The way from `world` toward the eye.
+fn toward_eye(world: vec3<f32>) -> vec3<f32> {
+    if draw.eye.w > 0.5 {
+        let to = draw.eye.xyz - world;
+        return to / max(length(to), 1e-20);
+    }
+    return draw.eye.xyz / max(length(draw.eye.xyz), 1e-20);
+}
+
+// A chrome surface of unit normal `n` (toward the eye's side): the studio
+// reflected in it, tinted face on by `tint` and running to white at the rim
+// (Schlick's Fresnel for a metal), a hard highlight of the key light, and a
+// cool rim.
+fn chrome_of(n: vec3<f32>, world: vec3<f32>, tint: vec3<f32>) -> vec3<f32> {
+    let v = toward_eye(world);
+    let r = reflect(-v, n);
+    let facing = clamp(dot(n, v), 0.0, 1.0);
+    let rim = pow(1.0 - facing, 5.0);
+    let fresnel = tint + (vec3<f32>(1.0) - tint) * rim;
+    var c = studio(r) * fresnel;
+    c = c + vec3<f32>(1.0, 0.97, 0.92) * (pow(max(dot(r, normalize(KEY_LIGHT)), 0.0), 160.0) * 4.0);
+    c = c + vec3<f32>(0.70, 0.80, 0.95) * (pow(1.0 - facing, 3.0) * 0.30);
+    return filmic(c);
+}
+
+// A surface drawn with a finish: liquid turns its normal, chrome mixes the
+// studio's reflection over its colour `base` (straight, as otherwise
+// drawn), and glow lifts it past its colour toward white.
+fn finished(base: vec3<f32>, in_normal: vec3<f32>, world: vec3<f32>, front: bool) -> vec3<f32> {
+    var n = normalize(in_normal);
+    n = select(-n, n, front);
+    if draw.finish.y > 0.0 {
+        n = rippled(n, world);
+    }
+    var c = base;
+    if draw.finish.x > 0.0 {
+        c = mix(c, chrome_of(n, world, draw.tint.rgb), draw.finish.x);
+    }
+    let g = draw.finish.w;
+    if g > 0.0 {
+        // Brighter than its colour, keeping its hue, a little white in its
+        // hottest.
+        c = c * (1.0 + 0.45 * g) + vec3<f32>(0.08 * g * g);
+    }
+    return min(c, vec3<f32>(1.0));
+}
+
+// ---- the halo ----
+
+// A glowing surface's halo: the surface again, pushed out along its normals
+// a little of its radius, drawn over everything (testing depth, leaving
+// it). For a rounded box's edges, `uv.x` carries how far the normal is from
+// its box's faces, the halo fading out where the edges meet them.
+@vertex
+fn vs_halo(v: Vertex) -> Varyings {
+    var out = place(draw.model, v.position, v.normal, v.uv, v.color);
+    let n = out.normal / max(length(out.normal), 1e-20);
+    let reach = draw.shape.x * (0.025 + 0.055 * draw.finish.w);
+    out.world = out.world + n * reach;
+    out.position = draw.view_proj * vec4<f32>(out.world, 1.0);
+    let a = abs(normalize(v.normal));
+    out.uv = vec2<f32>(clamp((1.0 - max(max(a.x, a.y), a.z)) / 0.2929, 0.0, 1.0), 0.0);
+    return out;
+}
+
+// Light added where the halo's shell faces the eye, gone toward its
+// outline: covering nothing (alpha 0), so it adds to what is behind.
+@fragment
+fn fs_halo(in: Varyings) -> @location(0) vec4<f32> {
+    let n = normalize(in.normal);
+    let facing = abs(dot(n, toward_eye(in.world)));
+    var fade = 1.0;
+    if draw.shape.w > 0.5 {
+        fade = smoothstep(0.0, 1.0, in.uv.x);
+    }
+    let light = pow(facing, 2.2) * draw.finish.w * 0.85 * fade * draw.tint.a;
+    return vec4<f32>(min(draw.tint.rgb * (1.0 + 0.4 * draw.finish.w), vec3<f32>(1.0)) * light, 0.0);
 }
 
 // `p / w` for a clip point, kept finite where w is not in front (that
@@ -237,6 +479,22 @@ fn fs_main(in: Varyings, @builtin(front_facing) front: bool) -> @location(0) vec
     let texel = surface.texel;
     let m = in.color * surface.tint;
     let rgb = m.rgb * shade_of(in.normal, front);
+    if draw.finish.x > 0.0 || draw.finish.y > 0.0 || draw.finish.w > 0.0 {
+        // A finish: the straight colour as drawn, then finished, alpha as
+        // the surface's.
+        let straight = select(texel.rgb, texel.rgb / texel.a, texel.a > 0.0);
+        var alpha = 1.0;
+        if draw.flags.x != 0u {
+            alpha = texel.a * m.a;
+        }
+        var lit = rgb;
+        if draw.finish.y > 0.0 && draw.flags.y == 1u {
+            // Liquid on a lit surface: lit by its rippled normal.
+            let n = rippled(select(-normalize(in.normal), normalize(in.normal), front), in.world);
+            lit = m.rgb * mix(AMBIENT + (1.0 - AMBIENT) * max(dot(n, normalize(KEY_LIGHT)), 0.0), 1.0, draw.light.x);
+        }
+        return vec4<f32>(finished(straight * lit, in.normal, in.world, front) * alpha, alpha);
+    }
     if draw.flags.x == 0u {
         // Alpha ignored: the colour back out of its premultiplied storage.
         let colour = select(texel.rgb, texel.rgb / texel.a, texel.a > 0.0);
@@ -282,6 +540,16 @@ struct SceneLook {
     reveal: array<vec4<f32>, 4>,
     // x: world units in a metre.
     units: vec4<f32>,
+    // How figures' cards are lit (`Look::cards`): the least and the most of
+    // the open's light, how far the lamps warm them, a lamp's rim; all 0
+    // when they are not. Then how much farther the lamps reach them.
+    cards: vec4<f32>,
+    cards_more: vec4<f32>,
+    // The depth of field (`Look::dof`): the nearest and farthest depths
+    // kept sharp, the depth over which the blur grows, 1 when there is one.
+    dof: vec4<f32>,
+    // A point's depth along the camera, in world units: dot(xyz, p) + w.
+    depth_row: vec4<f32>,
 };
 
 @group(3) @binding(0) var<uniform> scene_look: SceneLook;
@@ -292,10 +560,24 @@ struct LookOut {
     // Straight colour as drawn and fogged, alpha 1; or, when the look
     // lights the scene, the pixel's final colour.
     @location(0) color: vec4<f32>,
-    // 1 where an accent surface was drawn and is not lost in the fog, 0.5
-    // where the pixel is already final (look.wgsl leaves it), else 0.
-    @location(1) mask: f32,
+    // x: 1 where an accent surface was drawn and is not lost in the fog, 0.5
+    // where the pixel is already final (look.wgsl leaves it), else 0. y: how
+    // far it is out of focus, 0..1 (`blur_of`).
+    @location(1) mask: vec2<f32>,
 };
+
+// How far a world point is out of the depth of field's focus, 0 (sharp) to
+// 1 (blurred its whole radius): 0 between the nearest and farthest depths
+// kept sharp, growing smoothly over the spread past either.
+fn blur_of(world: vec3<f32>) -> f32 {
+    let dof = scene_look.dof;
+    if dof.w < 0.5 {
+        return 0.0;
+    }
+    let depth = dot(scene_look.depth_row.xyz, world) + scene_look.depth_row.w;
+    let off = max(max(dof.x - depth, depth - dof.y), 0.0);
+    return smoothstep(0.0, max(dof.z, 1e-6), off);
+}
 
 // The sun's shadow pass: where a vertex is in the shadow map's clip space.
 @vertex
@@ -507,16 +789,18 @@ fn fs_look(in: Varyings, @builtin(front_facing) front: bool) -> LookOut {
         if opened(in.world, in.normal, in.position.xy) {
             discard;
         }
-        return lit_look(in, front, straight * m.rgb, fog);
+        out = lit_look(in, front, straight * m.rgb, fog);
+        out.mask.y = blur_of(in.world);
+        return out;
     }
     let rgb = straight * m.rgb * shade_of(in.normal, front);
     if (draw.flags.z & 0xffu) == 1u && fog < 0.5 {
         // An accent in clear air: its own colour, kept as it is.
         out.color = vec4<f32>(rgb, 1.0);
-        out.mask = 1.0;
+        out.mask = vec2<f32>(1.0, 0.0);
     } else {
         out.color = vec4<f32>(mix(rgb, scene_look.fog_color.rgb, fog), 1.0);
-        out.mask = 0.0;
+        out.mask = vec2<f32>(0.0);
     }
     return out;
 }
@@ -586,7 +870,7 @@ fn opening(r: vec4<f32>, world: vec3<f32>, normal: vec3<f32>) -> f32 {
 // (bands and glints) or the sky (the ramp of where the eye is).
 fn lit_look(in: Varyings, front: bool, base: vec3<f32>, fog: f32) -> LookOut {
     var out: LookOut;
-    out.mask = 0.5;
+    out.mask = vec2<f32>(0.5, 0.0);
     let n0 = normalize(in.normal);
     let n = select(-n0, n0, front);
     let role = draw.flags.z & 0xffu;
@@ -675,4 +959,156 @@ fn lit_look(in: Varyings, front: bool, base: vec3<f32>, fog: f32) -> LookOut {
     }
     out.color = vec4<f32>(on_ramp(level, xz, warm * (1.0 - fog), p, own_water), 1.0);
     return out;
+}
+
+// A figure's card in a world its look lights (`Look::cards`), drawn after
+// the world at the stage texture's own size, through the plain pipelines'
+// blend and depth (`fs_main`'s), with the look's group 3. A card is lit as
+// an upright face turned to the eye, at the point of it this is, by the
+// look's sun (and its shadows) and lamps; one with a normal map (`flags.w`
+// 2, group 2) is lit pixel by pixel, each pixel that face turned by its
+// normal (`card_normal`). The sun's
+// light is taken as a part of a reference, halfway between what the card
+// would get in the open (the ambient and the sun on that face) and full
+// light, held between the least and as drawn; the lamps add to it, up to
+// the most, and move its colour toward the warm ramp's hue at its
+// brightness, and a lamp behind it lights its outline. Its pixels
+// keep their own colours: the light multiplies them, never puts them on a
+// ramp. An accent card and a pixel stored a step under opaque (a signal
+// ink, angel_stage::look::UNLIT_ALPHA) stay as drawn.
+const CARD_REFERENCE: f32 = 0.5;
+
+@fragment
+fn fs_card(in: Varyings) -> @location(0) vec4<f32> {
+    let texel = textureSampleLevel(picture, picture_sampler, in.uv, 0.0);
+    let m = in.color * draw.tint;
+    let straight = select(texel.rgb, texel.rgb / texel.a, texel.a > 0.0);
+    var alpha = 1.0;
+    if draw.flags.x != 0u {
+        alpha = texel.a * m.a;
+    }
+    let ink = texel.a > 0.993 && texel.a < 0.999;
+    if (draw.flags.z & 0xffu) == 1u || ink || scene_look.cards.y <= 0.0 {
+        let a = select(alpha, m.a, ink);
+        return vec4<f32>(straight * m.rgb * a, a);
+    }
+    if alpha <= 0.0 {
+        discard;
+    }
+    let eye = scene_look.eye.xyz;
+    // The upright face turned to the eye, and this pixel's own way.
+    var n0 = vec3<f32>(eye.x - in.world.x, 0.0, eye.z - in.world.z);
+    n0 = select(vec3<f32>(0.0, 0.0, 1.0), n0 / max(length(n0), 1e-6), length(n0) > 1e-3);
+    let n = card_normal(in.uv, n0);
+    // The sky and the sun on it, against the same in the open (on the
+    // upright face: the reference is the card's, not the pixel's).
+    var sun = 1.0;
+    var open = 1.0;
+    if scene_look.flags.w == 1u {
+        var sky = 1.0;
+        if scene_look.sun_more.w > 0.0 {
+            sky = mix(0.6, 1.0, smoothstep(0.0, scene_look.sun_more.w, in.world.y));
+        }
+        let facing = max(dot(n, scene_look.sun.xyz), 0.0);
+        open = scene_look.sun_more.x * sky + scene_look.sun.w * max(dot(n0, scene_look.sun.xyz), 0.0);
+        sun = scene_look.sun_more.x * sky + scene_look.sun.w * facing * sunlit(in.world, n);
+    }
+    let reference = max(mix(open, 1.0, CARD_REFERENCE), 1e-3);
+    // The lamps, reaching a card `cards_more.x` times as far as the floor
+    // (an upright figure faces the flame the floor lies under), a lamp
+    // behind it still lighting it a little; and how far behind the card
+    // they are, for its rim, the more on the side the pixel turns to.
+    var lamps = 0.0;
+    var behind = 0.0;
+    let lateral = n - n0 * dot(n, n0);
+    for (var i = 0u; i < scene_look.flags.z; i = i + 1u) {
+        let at = scene_look.lamps[2u * i];
+        let strength = scene_look.lamps[2u * i + 1u].x;
+        let to = at.xyz - in.world;
+        let d = length(to);
+        let dir = to / max(d, 1e-6);
+        let fall = clamp(1.0 - d / max(at.w * scene_look.cards_more.x, 1e-6), 0.0, 1.0);
+        // The upright face's wrapped light, and the pixel's turn from that
+        // face taken at a plain Lambert's slope (none when it faces as the
+        // card does), so a turned pixel reads its lamp's side.
+        let toward0 = max(dot(n0, dir), 0.0);
+        let turn = max(dot(n, dir), 0.0) - toward0;
+        lamps = lamps + strength * fall * fall * max(0.45 + 0.55 * toward0 + turn, 0.1);
+        let side = clamp(1.0 + 1.5 * dot(lateral, dir), 0.0, 1.5);
+        behind = behind + strength * fall * max(-dot(n0, dir), 0.0) * side;
+    }
+    let shade = clamp(clamp(sun / reference, scene_look.cards.x, 1.0) + lamps, scene_look.cards.x, scene_look.cards.y);
+    var c = straight * m.rgb * shade;
+    // The lamps' warmth: toward the warm ramp's hue at the pixel's own
+    // brightness, as far as they would warm the world (`lit_look`), by
+    // `cards.z` of it.
+    var warm = clamp(lamps * 1.4, 0.0, 1.0) * scene_look.cards.z;
+    // A lamp behind the card lights its outline: the pixels with a clear
+    // neighbour.
+    if scene_look.cards.w > 0.0 && behind > 0.0 {
+        let step = 1.0 / vec2<f32>(textureDimensions(picture));
+        let clear = textureSampleLevel(picture, picture_sampler, in.uv + vec2<f32>(step.x, 0.0), 0.0).a
+            * textureSampleLevel(picture, picture_sampler, in.uv - vec2<f32>(step.x, 0.0), 0.0).a
+            * textureSampleLevel(picture, picture_sampler, in.uv + vec2<f32>(0.0, step.y), 0.0).a
+            * textureSampleLevel(picture, picture_sampler, in.uv - vec2<f32>(0.0, step.y), 0.0).a;
+        if clear < 0.5 {
+            let rim = clamp(behind * scene_look.cards.w, 0.0, 1.0);
+            c = c * (1.0 + rim);
+            warm = max(warm, rim);
+        }
+    }
+    if scene_look.flags.x == 1u && warm > 0.0 {
+        let hue = warm_at(luma(c));
+        c = mix(c, luma(c) * hue / max(luma(hue), 1e-4), warm);
+    }
+    var fog = 0.0;
+    if scene_look.fog.z > 0.5 {
+        let span = max(scene_look.fog.y - scene_look.fog.x, 1e-6);
+        fog = clamp((distance(in.world, eye) - scene_look.fog.x) / span, 0.0, 1.0);
+    }
+    c = mix(c, scene_look.fog_color.rgb, fog * 0.85);
+    return vec4<f32>(min(c, vec3<f32>(1.0)) * alpha, alpha);
+}
+
+// The way a card's pixel faces: the upright face `n0` turned by the card's
+// normal map (group 2's picture, when `flags.w` is 2), its red along the
+// picture's right and its green up, as far as the look says
+// (`cards_more.y`: 0 not at all, 1 as the map has it). Drawn nearest: one
+// normal a pixel of the picture.
+fn card_normal(uv: vec2<f32>, n0: vec3<f32>) -> vec3<f32> {
+    let strength = scene_look.cards_more.y;
+    if draw.flags.w != 2u || strength <= 0.0 {
+        return n0;
+    }
+    let t = textureSampleLevel(patch_picture, patch_sampler, uv, 0.0).rgb * 2.0 - vec3<f32>(1.0);
+    // The picture's right as it stands (the card's x), square to the face.
+    let x_axis = draw.model[0].xyz;
+    let flat_right = x_axis - n0 * dot(x_axis, n0);
+    let right = select(cross(vec3<f32>(0.0, 1.0, 0.0), n0), normalize(flat_right), length(flat_right) > 1e-4);
+    let up = cross(n0, right);
+    let turned = vec3<f32>(t.xy * strength, max(t.z, 0.0));
+    let local = select(vec3<f32>(0.0, 0.0, 1.0), normalize(turned), length(turned) > 1e-4);
+    return normalize(right * local.x + up * local.y + n0 * local.z);
+}
+
+// The warm ramp's colour at brightness `level`: between the two entries
+// whose brightnesses hold it, in proportion (no dither: a card is never
+// put on a ramp, only given its hue).
+fn warm_at(level: f32) -> vec3<f32> {
+    let n = max(scene_look.counts.x, 1u);
+    var lo = scene_look.warm[0].rgb;
+    var lo_level = luma(lo);
+    if level <= lo_level {
+        return lo;
+    }
+    for (var i = 1u; i < n; i = i + 1u) {
+        let hi = scene_look.warm[i].rgb;
+        let hi_level = max(luma(hi), lo_level);
+        if level < hi_level {
+            return mix(lo, hi, (level - lo_level) / max(hi_level - lo_level, 1e-6));
+        }
+        lo = hi;
+        lo_level = hi_level;
+    }
+    return lo;
 }

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "rafterwake.drop",
-  "source_path": "/work/artifacts/art-prod/slots/rafterwake.drop/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/rafterwake.drop/v01/source-sheet.png",
   "source_sha256": "4a7161a22f53665b53bd2072b263c715dafbcd2cef8e87402b0ef62d6397d163",
   "tool_version": 2
 }

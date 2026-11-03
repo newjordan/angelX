@@ -11,6 +11,13 @@
 //! without writing it. A cube with a picture on each face is six draws of
 //! one mesh.
 //!
+//! A skinned mesh (`MeshData::joints`, a node's `Skin`) is bent in the
+//! vertex shader by its joints' matrices, worked out here every draw from
+//! where the joints stand and handed over as a palette (group 3, a slice
+//! of one buffer at a dynamic offset). A material's finish (`chrome`,
+//! `liquid`, `glow`) is the shader's, on the scene's own clock; a glowing
+//! surface is drawn twice, the second time as a soft halo round it.
+//!
 //! Built-in meshes (quad, cube, plane, spheres) are made once, on first use.
 //! A host's own go up with [`Core::upload_mesh`] under a budget, as pictures
 //! do. Pictures a material names are the ones [`Core::upload`] keeps, and
@@ -20,8 +27,8 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 
 use angel_stage::scene::{
-    AlphaMode, Look, Mat4, Material, MeshData, MeshError, MeshRef, Role, SPHERE_SEGMENTS, Sampling, Scene,
-    TextureSource, mat_finite, mat_point,
+    AlphaMode, Look, MAX_JOINTS, Mat4, Material, MeshData, MeshError, MeshRef, ROUND_RADIUS, ROUND_SEGMENTS, Role,
+    SPHERE_SEGMENTS, Sampling, Scene, TextureSource, mat_finite, mat_point, quat_rotate, skin_matrices,
 };
 use angel_stage::primitives::{FENCE_POSTS, RING_SEGMENTS, STAIR_STEPS};
 use bytemuck::{Pod, Zeroable};
@@ -48,6 +55,11 @@ const DEPTH_TARGETS: usize = 4;
 /// The most draws one scene makes.
 const MAX_DRAWS: usize = 65_536;
 
+/// The draw loop's pipeline numbers past the plain four: the skinned four,
+/// then the halo.
+const SKINNED_PIPELINES: usize = 4;
+const HALO_PIPELINE: usize = 8;
+
 /// One vertex as the GPU has it: position, normal, uv, colour.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -57,6 +69,23 @@ struct MeshVertex {
     uv: [f32; 2],
     color: [f32; 4],
 }
+
+/// A skinned vertex's joints and weights, in a buffer of their own beside
+/// its `MeshVertex` (`mesh.wgsl`'s `vs_skinned`).
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct SkinVertex {
+    joints: [u16; 4],
+    weights: [f32; 4],
+}
+
+/// One draw's joint palette on the GPU: as many matrices as a skin may
+/// have, the most a binding of it reads.
+const PALETTE_BYTES: u64 = (MAX_JOINTS * 64) as u64;
+
+/// The most rounded cubes kept on the GPU at once, of every radius and
+/// step count a program has named; the least recently drawn go first.
+const ROUND_CUBES: usize = 64;
 
 /// What one draw hands the shader (`mesh.wgsl`'s `Draw`).
 #[repr(C)]
@@ -70,12 +99,28 @@ struct DrawUniform {
     /// picture (`Patch::rect`): x, y, and `width << 8 | height`.
     light: [f32; 4],
     /// The projector a projected material casts its picture from (world to
-    /// clip), `flags.w` 1; zero for one that is not.
+    /// clip), `flags.w` 1; zero for one that is not. (`flags.w` 2: a card
+    /// lit by a look, its normal map in group 2.)
     projector: Mat4,
     /// A projected material's patch (`Material::patch`, group 2's picture):
     /// where its corner lies in the world, and a pixel's size there; all 0
     /// for none (or one whose picture is not on the GPU).
     patch: [f32; 4],
+    /// The material's finish: chrome, liquid, the scene's clock in seconds,
+    /// glow.
+    finish: [f32; 4],
+    /// x: the mesh's radius in the world (what liquid's ripples and wobble
+    /// are sized by); y: 1 when liquid wobbles along the line from the
+    /// node's middle, for a mesh whose faces split their normals at the
+    /// edges (a cube), so its seams do not open; z: 1 for a glowing
+    /// surface's halo.
+    shape: [f32; 4],
+    /// Where the camera is (w 1), or the way toward it for one that looks
+    /// along a direction (w 0): what chrome reflects about.
+    eye: [f32; 4],
+    /// x: 0; y: how many joints the draw's palette holds, 0 for a mesh that
+    /// is not bent.
+    skin: [u32; 4],
 }
 
 const DRAW_BYTES: u64 = std::mem::size_of::<DrawUniform>() as u64;
@@ -90,6 +135,14 @@ pub(crate) struct GpuMesh {
     groups: Vec<(u32, u32)>,
     /// The middle of its box, where a blended draw is sorted from.
     centre: [f32; 3],
+    /// Half its box's diagonal.
+    radius: f32,
+    /// Its joints and weights (`SkinVertex`), for a skinned mesh.
+    skin: Option<wgpu::Buffer>,
+    /// Its normals split where its faces meet (a cube's, a gem's, a
+    /// flat-shaded model's): a liquid finish moves its points by where
+    /// they are, not along their normals, so its seams hold.
+    split: bool,
     bytes: usize,
     last_used: u64,
 }
@@ -121,7 +174,10 @@ enum BuiltIn {
     Blob(u16),
     /// Posts, already clamped.
     Fence(u16),
+    /// Radius in thousandths and steps, already clamped.
+    RoundCube(u16, u16),
 }
+
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MeshKey {
@@ -162,6 +218,10 @@ fn mesh_key(mesh: MeshRef) -> MeshKey {
         MeshRef::Fence { posts } => MeshKey::BuiltIn(BuiltIn::Fence(
             posts.clamp(*FENCE_POSTS.start(), *FENCE_POSTS.end()),
         )),
+        MeshRef::RoundCube { radius, segments } => MeshKey::BuiltIn(BuiltIn::RoundCube(
+            radius.min(ROUND_RADIUS),
+            segments.clamp(*ROUND_SEGMENTS.start(), *ROUND_SEGMENTS.end()),
+        )),
         MeshRef::Uploaded(id) => MeshKey::Uploaded(id),
     }
 }
@@ -185,6 +245,7 @@ fn built_in_data(built_in: BuiltIn) -> MeshData {
         BuiltIn::Rock(seed) => MeshData::rock(seed),
         BuiltIn::Blob(seed) => MeshData::blob(seed),
         BuiltIn::Fence(posts) => MeshData::fence(posts),
+        BuiltIn::RoundCube(radius, segments) => MeshData::round_cube(radius, segments),
     }
 }
 
@@ -302,6 +363,158 @@ struct MeshState {
     /// Draws the buffer has room for.
     capacity: usize,
     stride: u64,
+    /// What bends skinned meshes and draws halos, made at the first scene
+    /// that needs them.
+    extra: Option<ExtraState>,
+}
+
+/// The skinned pipelines (`vs_skinned`), indexed as the plain ones are,
+/// the halo's, and the palettes' buffer.
+struct ExtraState {
+    skinned: [wgpu::RenderPipeline; 4],
+    halo: wgpu::RenderPipeline,
+    palette_layout: wgpu::BindGroupLayout,
+    palette: wgpu::Buffer,
+    palette_group: wgpu::BindGroup,
+    /// Bytes the palette buffer holds.
+    palette_capacity: u64,
+    /// The bytes between two palettes' starts: the device's alignment for a
+    /// dynamic offset.
+    palette_align: u64,
+}
+
+/// The vertex buffer a plain mesh draw reads.
+const PLAIN_VERTEX: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+    array_stride: std::mem::size_of::<MeshVertex>() as u64,
+    step_mode: wgpu::VertexStepMode::Vertex,
+    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x2, 3 => Float32x4],
+};
+
+/// And a skinned one's: the same, then its joints and weights.
+const SKINNED_VERTICES: [wgpu::VertexBufferLayout<'static>; 2] = [
+    PLAIN_VERTEX,
+    wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::<SkinVertex>() as u64,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &wgpu::vertex_attr_array![4 => Uint16x4, 5 => Float32x4],
+    },
+];
+
+/// The palettes' buffer, `capacity` bytes, and the group that binds one
+/// palette of it at a dynamic offset.
+fn palette_buffer(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, capacity: u64) -> (wgpu::Buffer, wgpu::BindGroup) {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("glass-mesh-palettes"),
+        size: capacity,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("glass-mesh-palette"),
+        layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 3,
+            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                buffer: &buffer,
+                offset: 0,
+                size: NonZeroU64::new(PALETTE_BYTES),
+            }),
+        }],
+    });
+    (buffer, group)
+}
+
+impl ExtraState {
+    fn new(device: &wgpu::Device, view_format: wgpu::TextureFormat, state: &MeshState) -> Self {
+        let palette_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("glass-mesh-palette"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: NonZeroU64::new(PALETTE_BYTES),
+                },
+                count: None,
+            }],
+        });
+        let skinned_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("glass-skinned-layout"),
+            bind_group_layouts: &[
+                Some(&state.uniform_layout),
+                Some(&state.texture_layout),
+                Some(&state.texture_layout),
+                Some(&palette_layout),
+            ],
+            immediate_size: 0,
+        });
+        let halo_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("glass-halo-layout"),
+            bind_group_layouts: &[Some(&state.uniform_layout)],
+            immediate_size: 0,
+        });
+        let premultiplied = wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        };
+        let pipeline = |label: &str,
+                        layout: &wgpu::PipelineLayout,
+                        (vs, fs): (&str, &str),
+                        buffers: &[Option<wgpu::VertexBufferLayout<'_>>],
+                        blended: bool,
+                        double_sided: bool| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(layout),
+                vertex: wgpu::VertexState {
+                    module: &state.shader,
+                    entry_point: Some(vs),
+                    compilation_options: Default::default(),
+                    buffers,
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: (!double_sided).then_some(wgpu::Face::Back),
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: DEPTH_FORMAT,
+                    depth_write_enabled: Some(!blended),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                multisample: Default::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &state.shader,
+                    entry_point: Some(fs),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: view_format,
+                        blend: Some(wgpu::BlendState { color: premultiplied, alpha: premultiplied }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let skinned_buffers = SKINNED_VERTICES.map(Some);
+        let skinned = |blended, double_sided| {
+            pipeline("glass-skinned-pipeline", &skinned_layout, ("vs_skinned", "fs_main"), &skinned_buffers, blended, double_sided)
+        };
+        let skinned = [skinned(false, false), skinned(false, true), skinned(true, false), skinned(true, true)];
+        // The halo: blended over everything, testing depth but leaving it,
+        // only the side of its shell toward the eye.
+        let halo = pipeline("glass-halo-pipeline", &halo_layout, ("vs_halo", "fs_halo"), &[Some(PLAIN_VERTEX)], true, false);
+        let palette_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
+        let palette_capacity = PALETTE_BYTES * 4;
+        let (palette, palette_group) = palette_buffer(device, &palette_layout, palette_capacity);
+        Self { skinned, halo, palette_layout, palette, palette_group, palette_capacity, palette_align }
+    }
 }
 
 impl MeshState {
@@ -450,6 +663,7 @@ impl MeshState {
             uniform_layout,
             capacity,
             stride,
+            extra: None,
         }
     }
 }
@@ -527,6 +741,77 @@ impl MeshState {
             })
         };
         [pipeline(false), pipeline(true)]
+    }
+
+    /// The pipelines that draw a world's cards lit by its look (`fs_card`):
+    /// the plain pipelines' blend, depth and targets, with the look's group
+    /// 3. Indexed as they are, `blended * 2 + double_sided`.
+    fn card_pipelines(
+        &self,
+        device: &wgpu::Device,
+        view_format: wgpu::TextureFormat,
+        scene_layout: &wgpu::BindGroupLayout,
+    ) -> [wgpu::RenderPipeline; 4] {
+        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("glass-card-layout"),
+            bind_group_layouts: &[
+                Some(&self.uniform_layout),
+                Some(&self.texture_layout),
+                Some(&self.texture_layout),
+                Some(scene_layout),
+            ],
+            immediate_size: 0,
+        });
+        let premultiplied = wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        };
+        let pipeline = |blended: bool, double_sided: bool| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("glass-card-pipeline"),
+                layout: Some(&layout),
+                vertex: wgpu::VertexState {
+                    module: &self.shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: Default::default(),
+                    buffers: &[Some(wgpu::VertexBufferLayout {
+                        array_stride: std::mem::size_of::<MeshVertex>() as u64,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![
+                            0 => Float32x3, 1 => Float32x3, 2 => Float32x2, 3 => Float32x4
+                        ],
+                    })],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: (!double_sided).then_some(wgpu::Face::Back),
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: DEPTH_FORMAT,
+                    depth_write_enabled: Some(!blended),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                multisample: Default::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &self.shader,
+                    entry_point: Some("fs_card"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: view_format,
+                        blend: Some(wgpu::BlendState { color: premultiplied, alpha: premultiplied }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        [pipeline(false, false), pipeline(false, true), pipeline(true, false), pipeline(true, true)]
     }
 
     /// The pipelines that draw a lit scene's depth at its output's size for
@@ -722,6 +1007,14 @@ pub(crate) struct SceneState {
     scratch: Vec<u8>,
     /// What a scene with a look needs (`look.rs`), made at the first.
     look: Option<LookState>,
+    /// The scene's clock, seconds, for a liquid finish: the window's own
+    /// (`Core::set_scene_clock`).
+    time: f32,
+    /// Scene targets with something liquid in them: they move though
+    /// nothing else does.
+    liquid: std::collections::HashSet<u32>,
+    /// The palettes' bytes, kept for the next scene to refill.
+    palette_scratch: Vec<u8>,
 }
 
 /// One draw: a range of a mesh, with a material, placed.
@@ -737,6 +1030,16 @@ struct Item<'a> {
     /// The picture of its patch (`Material::patch`), once it is known to be
     /// on the GPU with its group made.
     patch: Option<u32>,
+    /// A card's normal map (`Material::normals`), the same way: only for a
+    /// card lit by a look whose cards turn by their maps.
+    normals: Option<u32>,
+    /// For a skinned mesh bent by its node's skin: which of the scene's
+    /// palettes bends it.
+    palette: Option<usize>,
+    /// Its mesh's radius in the world.
+    radius: f32,
+    /// The soft halo round a glowing surface, drawn after it.
+    halo: bool,
 }
 
 impl Core {
@@ -751,13 +1054,19 @@ impl Core {
         if let Some(existing) = self.three.meshes.get_mut(&id)
             && existing.vertex_count as usize == mesh.positions.len()
             && existing.index_count as usize == mesh.indices.len()
+            && existing.skin.is_some() != mesh.joints.is_empty()
         {
             self.queue
                 .write_buffer(&existing.vertices, 0, bytemuck::cast_slice(&vertices_of(mesh)));
             self.queue
                 .write_buffer(&existing.indices, 0, bytemuck::cast_slice(&mesh.indices));
+            if let Some(skin) = &existing.skin {
+                self.queue.write_buffer(skin, 0, bytemuck::cast_slice(&skin_vertices_of(mesh)));
+            }
             existing.groups = mesh.groups.clone();
             existing.centre = mesh.centre();
+            existing.radius = radius_of(mesh);
+            existing.split = splits(mesh);
             existing.last_used = self.frame_number;
             return Ok(());
         }
@@ -881,7 +1190,7 @@ impl Core {
         label: &str,
         target: Option<u32>,
     ) {
-        self.draw_scene_with_depth(view, size, scene, label, target, DepthUse::Fresh);
+        self.draw_scene_with_depth(view, size, scene, label, target, DepthUse::Fresh, None);
     }
 
     /// The depth `scene` leaves when drawn at `size` (without its look, if
@@ -928,6 +1237,7 @@ impl Core {
             "glass-scene-depth",
             None,
             DepthUse::Keep(&depth_view),
+            None,
         );
         let row_bytes = (width * 4).div_ceil(256) * 256;
         let readback = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -978,7 +1288,11 @@ impl Core {
 
     /// `draw_scene_into`, with depth as `depth` says (a depth target of
     /// `size` when it names one, which a look's scene is not drawn at: it
-    /// takes a fresh one).
+    /// takes a fresh one). With `cards`, a scene with no look of its own (a
+    /// world's figures) is lit by that one's lights as cards are
+    /// (`Look::cards`, mesh.wgsl's `fs_card`), drawn at `size` as it is,
+    /// never placed on the look's ramp.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn draw_scene_with_depth(
         &mut self,
         view: &wgpu::TextureView,
@@ -987,6 +1301,7 @@ impl Core {
         label: &str,
         target: Option<u32>,
         depth: DepthUse<'_>,
+        cards: Option<&Look>,
     ) {
         let (width, height) = size;
         if width == 0 || height == 0 {
@@ -1006,12 +1321,27 @@ impl Core {
         // transform is the identity, its pinhole in its matrix), else where
         // the camera stands (one that looks along a direction).
         let eye_size = size;
+        let seen_from = |camera: &angel_stage::scene::Camera| {
+            let m = camera.view_projection(eye_size.0.max(1) as f32 / eye_size.1.max(1) as f32);
+            let eye = m.as_ref().and_then(eye_of).unwrap_or(camera.transform.translation);
+            (eye, m.as_ref().and_then(crate::look::depth_row))
+        };
+        // Cards lit by a world's look: its lights into group 3, and the
+        // pipelines that read them.
+        let cards = if look.is_none() { cards.and_then(Look::normalized).filter(|l| l.lights() && l.cards.is_some()) } else { None };
+        if let Some(lit) = &cards {
+            let state = self.three.state.as_ref().expect("made above");
+            let device = &self.device;
+            let view_format = self.view_format;
+            let kept = self.three.look.get_or_insert_with(|| LookState::new(device, view_format));
+            if kept.cards.is_none() {
+                kept.cards = Some(state.card_pipelines(device, view_format, &kept.scene_layout));
+            }
+            let (eye, row) = seen_from(&scene.camera);
+            kept.write_scene(&self.queue, lit, eye, row);
+        }
         let look_views = look.as_ref().map(|look| {
-            let eye = scene
-                .camera
-                .view_projection(eye_size.0.max(1) as f32 / eye_size.1.max(1) as f32)
-                .and_then(|m| eye_of(&m))
-                .unwrap_or(scene.camera.transform.translation);
+            let seen = seen_from(&scene.camera);
             let state = self.three.state.as_ref().expect("made above");
             let device = &self.device;
             let view_format = self.view_format;
@@ -1025,7 +1355,7 @@ impl Core {
             if matches!(depth, DepthUse::Revealed(_)) && kept.reveal_depth.is_none() {
                 kept.reveal_depth = Some(state.reveal_depth_pipelines(device, &kept.scene_layout));
             }
-            kept.begin(device, &self.queue, view_format, look, eye, size, output_size, self.frame_number)
+            kept.begin(device, &self.queue, view_format, look, seen, size, output_size, self.frame_number)
         });
         let frame = self.frame_number;
         let view_proj = scene.camera.view_projection(width as f32 / height as f32);
@@ -1043,10 +1373,15 @@ impl Core {
                     MeshKey::BuiltIn(built_in) => {
                         let device = &self.device;
                         let queue = &self.queue;
-                        self.three
+                        let made = self
+                            .three
                             .built_in
                             .entry(built_in)
                             .or_insert_with(|| make_mesh(device, queue, &built_in_data(built_in), frame));
+                        made.last_used = frame;
+                        if matches!(built_in, BuiltIn::RoundCube(..)) {
+                            evict_round_cubes(&mut self.three.built_in, frame);
+                        }
                     }
                     MeshKey::Uploaded(id) => match self.three.meshes.get_mut(&id) {
                         Some(mesh) => mesh.last_used = frame,
@@ -1057,10 +1392,36 @@ impl Core {
             }
         }
 
+        // Skinned meshes: their joints' matrices, one palette a node, the
+        // joints found among the scene's nodes by id. Only the plain
+        // pipelines bend; a look or lit cards draw them as they lie.
+        let bends = look.is_none() && cards.is_none();
+        let mut palettes: Vec<Vec<Mat4>> = Vec::new();
+        let skinned: Vec<Option<usize>> = if bends && wanted.iter().any(|(i, ..)| scene.nodes[*i].skin.is_some()) {
+            let worlds = scene.world_matrices();
+            let mut by_id: HashMap<u64, usize> = HashMap::with_capacity(worlds.len());
+            for (i, node) in scene.nodes.iter().enumerate().take(worlds.len()) {
+                by_id.entry(node.id).or_insert(i);
+            }
+            wanted
+                .iter()
+                .map(|&(i, key, _)| {
+                    let skin = scene.nodes[i].skin.as_ref()?;
+                    self.mesh_of(key)?.skin.as_ref()?;
+                    let matrices = skin_matrices(skin, |id| by_id.get(&id).and_then(|&at| worlds.get(at).copied().flatten()))?;
+                    palettes.push(matrices);
+                    Some(palettes.len() - 1)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         // Each part of each node as a draw: a mesh with groups is one draw a
         // group, each with its own material; one without is a single draw.
+        // A glowing part is drawn again, last, as its halo.
         let mut items: Vec<Item<'_>> = Vec::new();
-        for (node_index, key, world) in wanted {
+        for (at, (node_index, key, world)) in wanted.into_iter().enumerate() {
             if items.len() >= MAX_DRAWS {
                 break;
             }
@@ -1069,12 +1430,23 @@ impl Core {
             };
             let node = &scene.nodes[node_index];
             let view_z = mat_point(&camera, mat_point(&world, mesh.centre))[2];
+            let palette = skinned.get(at).copied().flatten();
+            let placed_by = palette.and_then(|p| palettes[p].first()).unwrap_or(&world);
+            let radius = mesh.radius * scale_of(placed_by);
+            let item = |range, material| Item { key, range, material, world, view_z, patch: None, normals: None, palette, radius, halo: false };
+            let glows = |material: &Material| bends && material.finish_clamped()[2] > 0.0 && palette.is_none();
             if mesh.groups.is_empty() {
-                items.push(Item { key, range: None, material: &node.material, world, view_z, patch: None });
+                items.push(item(None, &node.material));
+                if glows(&node.material) {
+                    items.push(Item { halo: true, ..item(None, &node.material) });
+                }
             } else {
                 for (g, &range) in mesh.groups.iter().enumerate() {
                     let material = node.face_materials.get(g).unwrap_or(&node.material);
-                    items.push(Item { key, range: Some(range), material, world, view_z, patch: None });
+                    items.push(item(Some(range), material));
+                    if glows(material) {
+                        items.push(Item { halo: true, ..item(Some(range), material) });
+                    }
                 }
             }
         }
@@ -1085,7 +1457,21 @@ impl Core {
         let state = self.three.state.as_ref().expect("made above");
         let texture_layout = &state.texture_layout;
         let (device, nearest, linear, pictures) = (&self.device, &self.nearest, &self.linear, &mut self.pictures);
+        // Cards lit pixel by pixel by their normal maps (`Cards::normals`).
+        let card_normals = cards.as_ref().and_then(|l| l.cards).is_some_and(|c| c.normals > 0.0);
         items.retain_mut(|item| {
+            // A card's normal map, drawn nearest: one normal a pixel of its
+            // picture. One that is not there leaves it facing the eye.
+            if card_normals
+                && let Some(id) = item.material.normals.filter(|&id| Some(id) != target)
+                && let Some(picture) = pictures.get_mut(&id)
+            {
+                picture.last_used = frame;
+                if picture.mesh_groups[0].is_none() {
+                    picture.mesh_groups[0] = Some(texture_group(device, texture_layout, &picture.view, nearest));
+                }
+                item.normals = Some(id);
+            }
             // A projected surface's patch: marked used, its group made; one
             // that is not there leaves the surface its tint.
             if let Some(patch) = item.material.patch.filter(|p| item.material.projector.is_some() && Some(p.picture) != target)
@@ -1115,11 +1501,12 @@ impl Core {
             true
         });
 
-        // Opaque first in node order, then blended, farthest first.
+        // Opaque first in node order, then blended (halos among them),
+        // farthest first.
         let mut order: Vec<usize> = (0..items.len()).collect();
         order.sort_by(|&a, &b| {
             let (a, b) = (&items[a], &items[b]);
-            let (ba, bb) = (a.material.alpha.blended(), b.material.alpha.blended());
+            let (ba, bb) = (a.material.alpha.blended() || a.halo, b.material.alpha.blended() || b.halo);
             ba.cmp(&bb).then_with(|| {
                 if ba {
                     // The more negative the view z, the farther.
@@ -1130,16 +1517,59 @@ impl Core {
             })
         });
 
+        // The palettes, each at an offset a dynamic binding may start at,
+        // the buffer long enough past the last for a whole binding.
+        let needs_extra = !palettes.is_empty() || items.iter().any(|i| i.halo);
+        if needs_extra && self.three.state.as_ref().is_some_and(|s| s.extra.is_none()) {
+            let state = self.three.state.as_ref().expect("made above");
+            let extra = ExtraState::new(&self.device, self.view_format, state);
+            self.three.state.as_mut().expect("made above").extra = Some(extra);
+        }
+        let mut palette_at: Vec<u64> = Vec::with_capacity(palettes.len());
+        if let Some(extra) = self.three.state.as_mut().and_then(|s| s.extra.as_mut())
+            && !palettes.is_empty()
+        {
+            let mut bytes = std::mem::take(&mut self.three.palette_scratch);
+            bytes.clear();
+            for matrices in &palettes {
+                let at = (bytes.len() as u64).div_ceil(extra.palette_align) * extra.palette_align;
+                bytes.resize(at as usize, 0);
+                palette_at.push(at);
+                bytes.extend_from_slice(bytemuck::cast_slice(matrices));
+            }
+            let need = palette_at.last().map_or(0, |at| at + PALETTE_BYTES);
+            bytes.resize(need as usize, 0);
+            if need > extra.palette_capacity {
+                extra.palette_capacity = need.next_power_of_two();
+                let (buffer, group) = palette_buffer(&self.device, &extra.palette_layout, extra.palette_capacity);
+                extra.palette = buffer;
+                extra.palette_group = group;
+            }
+            self.queue.write_buffer(&extra.palette, 0, &bytes);
+            self.three.palette_scratch = bytes;
+        }
+
         // The uniforms, one slice each.
         let stride = self.three.state.as_ref().map_or(256, |s| s.stride) as usize;
         let mut scratch = std::mem::take(&mut self.three.scratch);
         scratch.clear();
         scratch.resize(order.len() * stride, 0);
+        let eye = match view_proj.as_ref().and_then(eye_of) {
+            Some([x, y, z]) => [x, y, z, 1.0],
+            None => {
+                let [x, y, z] = quat_rotate(angel_stage::scene::quat_normalize(scene.camera.transform.rotation), [0.0, 0.0, 1.0]);
+                [x, y, z, 0.0]
+            }
+        };
+        let time = self.three.time;
         if let Some(view_proj) = view_proj {
             for (slot, &i) in order.iter().enumerate() {
                 let item = &items[i];
                 let (projector, projected) = projector_of(item.material);
                 let (patch, rect) = if item.patch.is_some() { patch_of(item.material) } else { ([0.0; 4], [0.0; 3]) };
+                let [chrome, liquid, glow] = item.material.finish_clamped();
+                let split = self.mesh_of(item.key).is_some_and(|m| m.split);
+                let joints = item.palette.map_or(0, |p| palettes[p].len() as u32);
                 let uniform = DrawUniform {
                     model: item.world,
                     view_proj,
@@ -1148,11 +1578,20 @@ impl Core {
                         alpha_flag(item.material.alpha),
                         u32::from(item.material.lit),
                         look_role(item.material),
-                        projected,
+                        if item.normals.is_some() { 2 } else { projected },
                     ],
                     light: [item.material.emissive_clamped(), rect[0], rect[1], rect[2]],
                     projector,
                     patch,
+                    finish: [chrome, liquid, time, glow],
+                    shape: [
+                        item.radius,
+                        if split { 1.0 } else { 0.0 },
+                        if item.halo { 1.0 } else { 0.0 },
+                        if matches!(item.key, MeshKey::BuiltIn(BuiltIn::RoundCube(..))) { 1.0 } else { 0.0 },
+                    ],
+                    eye,
+                    skin: [0, joints, 0, 0],
                 };
                 scratch[slot * stride..slot * stride + DRAW_BYTES as usize]
                     .copy_from_slice(bytemuck::bytes_of(&uniform));
@@ -1216,6 +1655,7 @@ impl Core {
                 for (slot, &i) in order.iter().enumerate() {
                     let item = &items[i];
                     let casts = !item.material.alpha.blended()
+                        && !item.halo
                         && !item.material.accent
                         && item.material.role == Role::Plain
                         && item.material.projector.is_none();
@@ -1285,17 +1725,40 @@ impl Core {
             });
             let state = self.three.state.as_ref().expect("made above");
             let look_mesh = look_views.as_ref().and_then(|_| self.three.look.as_ref()?.mesh.as_ref());
-            if let Some(kept) = self.three.look.as_ref().filter(|_| look_views.is_some()) {
+            let card_mesh = cards.as_ref().and_then(|_| self.three.look.as_ref()?.cards.as_ref());
+            if let Some(kept) = self.three.look.as_ref().filter(|_| look_views.is_some() || card_mesh.is_some()) {
                 pass.set_bind_group(3, &kept.scene_group, &[]);
             }
             let mut last_pipeline = usize::MAX;
             // Group 2 is the same for most draws in a row (white, or one
             // kind's patch): set only when it changes.
             let mut last_patch: Option<&wgpu::BindGroup> = None;
+            let extra = state.extra.as_ref();
             for (slot, &i) in order.iter().enumerate() {
                 let item = &items[i];
                 let Some(mesh) = self.mesh_of(item.key) else {
                     continue;
+                };
+                // A halo: its own pipeline, group 0 alone. Only the plain
+                // pipelines draw one (`bends`).
+                if item.halo {
+                    let Some(extra) = extra else { continue };
+                    if last_pipeline != HALO_PIPELINE {
+                        pass.set_pipeline(&extra.halo);
+                        last_pipeline = HALO_PIPELINE;
+                    }
+                    pass.set_bind_group(0, &state.uniform_group, &[(slot * stride) as u32]);
+                    pass.set_vertex_buffer(0, mesh.vertices.slice(..));
+                    pass.set_index_buffer(mesh.indices.slice(..), wgpu::IndexFormat::Uint32);
+                    let (first, count) = item.range.unwrap_or((0, mesh.index_count));
+                    pass.draw_indexed(first..first + count, 0, 0..1);
+                    continue;
+                }
+                // A skinned mesh its node's skin bends: the skinned
+                // pipelines, its palette, its joints and weights.
+                let bent = match (item.palette, extra, &mesh.skin) {
+                    (Some(p), Some(extra), Some(skin)) => palette_at.get(p).map(|&at| (extra, skin, at)),
+                    _ => None,
                 };
                 let group = match item.material.source {
                     TextureSource::None => &state.white,
@@ -1309,15 +1772,24 @@ impl Core {
                 };
                 let which = usize::from(item.material.alpha.blended()) * 2
                     + usize::from(item.material.double_sided);
-                if which != last_pipeline {
-                    match look_mesh {
-                        Some(pipelines) => pass.set_pipeline(&pipelines[which % 2]),
-                        None => pass.set_pipeline(&state.pipelines[which]),
+                let pipeline = if bent.is_some() { SKINNED_PIPELINES + which } else { which };
+                if pipeline != last_pipeline {
+                    match (look_mesh, card_mesh, bent) {
+                        (Some(pipelines), ..) => pass.set_pipeline(&pipelines[which % 2]),
+                        (None, Some(pipelines), _) => pass.set_pipeline(&pipelines[which]),
+                        (None, None, Some((extra, ..))) => pass.set_pipeline(&extra.skinned[which]),
+                        (None, None, None) => pass.set_pipeline(&state.pipelines[which]),
                     }
-                    last_pipeline = which;
+                    last_pipeline = pipeline;
+                    // Group 2 is set again after a pipeline of another
+                    // layout.
+                    last_patch = None;
                 }
+                // Group 2: a projected surface's patch, or a lit card's
+                // normal map (a card is never projected).
                 let patch = item
                     .patch
+                    .or(item.normals)
                     .and_then(|id| self.pictures.get(&id)?.mesh_groups[0].as_ref())
                     .unwrap_or(&state.white);
                 pass.set_bind_group(0, &state.uniform_group, &[(slot * stride) as u32]);
@@ -1327,6 +1799,10 @@ impl Core {
                     last_patch = Some(patch);
                 }
                 pass.set_vertex_buffer(0, mesh.vertices.slice(..));
+                if let Some((extra, skin, at)) = bent {
+                    pass.set_bind_group(3, &extra.palette_group, &[at as u32]);
+                    pass.set_vertex_buffer(1, skin.slice(..));
+                }
                 pass.set_index_buffer(mesh.indices.slice(..), wgpu::IndexFormat::Uint32);
                 let (first, count) = item.range.unwrap_or((0, mesh.index_count));
                 pass.draw_indexed(first..first + count, 0, 0..1);
@@ -1356,7 +1832,7 @@ impl Core {
                 let mut last = usize::MAX;
                 for (slot, &i) in order.iter().enumerate() {
                     let item = &items[i];
-                    if item.material.alpha.blended() || item.material.role == Role::Figure {
+                    if item.material.alpha.blended() || item.halo || item.material.role == Role::Figure {
                         continue;
                     }
                     let Some(mesh) = self.mesh_of(item.key) else {
@@ -1378,6 +1854,19 @@ impl Core {
         self.queue.submit([encoder.finish()]);
     }
 
+    /// The scene's clock, in seconds on the host's own clock: what a liquid
+    /// finish moves with. Set before [`Core::render_scenes`] each frame.
+    pub fn set_scene_clock(&mut self, seconds: f64) {
+        // Wrapped an hour round, so the shader's numbers stay fine.
+        self.three.time = if seconds.is_finite() { seconds.rem_euclid(3600.0) as f32 } else { 0.0 };
+    }
+
+    /// Whether a scene target shows something liquid: it needs frames
+    /// though nothing else changes.
+    pub fn scenes_animating(&self) -> bool {
+        !self.three.liquid.is_empty()
+    }
+
     /// Show a scene in the picture `id`, `size` pixels: it is drawn into its
     /// own texture every frame by [`Core::render_scenes`], and any layer that
     /// names the picture places it, lifts it and turns it as it does any
@@ -1389,9 +1878,15 @@ impl Core {
     pub fn set_scene_target(&mut self, id: u32, target: Option<(Scene, (u32, u32))>) {
         match target {
             Some(target) => {
+                if moves(&target.0) {
+                    self.three.liquid.insert(id);
+                } else {
+                    self.three.liquid.remove(&id);
+                }
                 self.three.targets.insert(id, target);
             }
             None => {
+                self.three.liquid.remove(&id);
                 self.three.targets.remove(&id);
                 if self.pictures.get(&id).is_some_and(|p| p.target) {
                     self.pictures.remove(&id);
@@ -1428,6 +1923,82 @@ impl Core {
     }
 }
 
+/// Whether a scene shows something liquid: a node drawn with a liquid
+/// finish, whether its own or a face's.
+fn moves(scene: &Scene) -> bool {
+    let liquid = |m: &Material| m.finish_clamped()[1] > 0.0;
+    scene
+        .nodes
+        .iter()
+        .any(|n| n.visible && n.mesh.is_some() && (liquid(&n.material) || n.face_materials.iter().any(liquid)))
+}
+
+/// The largest scale a matrix gives along its axes.
+fn scale_of(m: &Mat4) -> f32 {
+    let len = |c: usize| (m[c][0] * m[c][0] + m[c][1] * m[c][1] + m[c][2] * m[c][2]).sqrt();
+    let s = len(0).max(len(1)).max(len(2));
+    if s.is_finite() { s } else { 0.0 }
+}
+
+/// Half the diagonal of the box a mesh's positions fill.
+fn radius_of(mesh: &MeshData) -> f32 {
+    let c = mesh.centre();
+    let r2 = mesh
+        .positions
+        .iter()
+        .map(|p| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) + (p[2] - c[2]).powi(2))
+        .fold(0.0f32, f32::max);
+    r2.sqrt()
+}
+
+/// Whether a mesh's normals split anywhere: two of its vertices at one
+/// point facing different ways.
+fn splits(mesh: &MeshData) -> bool {
+    if mesh.normals.is_empty() {
+        return false;
+    }
+    let mut seen: HashMap<[u32; 3], [f32; 3]> = HashMap::with_capacity(mesh.positions.len());
+    mesh.positions.iter().zip(&mesh.normals).any(|(p, n)| match seen.entry(p.map(f32::to_bits)) {
+        std::collections::hash_map::Entry::Occupied(at) => {
+            let m = at.get();
+            (m[0] - n[0]).abs() + (m[1] - n[1]).abs() + (m[2] - n[2]).abs() > 0.02
+        }
+        std::collections::hash_map::Entry::Vacant(at) => {
+            at.insert(*n);
+            false
+        }
+    })
+}
+
+/// Keep at most [`ROUND_CUBES`] rounded cubes, letting the least recently
+/// drawn go (never one drawn this frame).
+fn evict_round_cubes(built_in: &mut HashMap<BuiltIn, GpuMesh>, frame: u64) {
+    let mut kept: Vec<(BuiltIn, u64)> = built_in
+        .iter()
+        .filter(|(k, _)| matches!(k, BuiltIn::RoundCube(..)))
+        .map(|(k, m)| (*k, m.last_used))
+        .collect();
+    if kept.len() <= ROUND_CUBES {
+        return;
+    }
+    kept.sort_by_key(|(_, used)| *used);
+    let excess = kept.len() - ROUND_CUBES;
+    for (key, used) in kept.into_iter().take(excess) {
+        if used < frame {
+            built_in.remove(&key);
+        }
+    }
+}
+
+/// A skinned mesh's joints and weights as the GPU reads them.
+fn skin_vertices_of(mesh: &MeshData) -> Vec<SkinVertex> {
+    mesh.joints
+        .iter()
+        .zip(&mesh.weights)
+        .map(|(&joints, &weights)| SkinVertex { joints, weights })
+        .collect()
+}
+
 /// A mesh's vertices as the GPU reads them: an attribute left out is white,
 /// +Z, or the picture's corner.
 fn vertices_of(mesh: &MeshData) -> Vec<MeshVertex> {
@@ -1460,6 +2031,19 @@ fn make_mesh(device: &wgpu::Device, queue: &wgpu::Queue, mesh: &MeshData, frame:
     });
     queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
     queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&mesh.indices));
+    // A skinned mesh's joints and weights, in a buffer beside it.
+    let skin = (!mesh.joints.is_empty()).then(|| {
+        let skin = skin_vertices_of(mesh);
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("glass-mesh-skin"),
+            size: (skin.len() * std::mem::size_of::<SkinVertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&skin));
+        buffer
+    });
+    let skin_bytes = skin.as_ref().map_or(0, wgpu::Buffer::size);
     GpuMesh {
         vertices: vertex_buffer,
         indices: index_buffer,
@@ -1467,7 +2051,10 @@ fn make_mesh(device: &wgpu::Device, queue: &wgpu::Queue, mesh: &MeshData, frame:
         index_count: mesh.indices.len() as u32,
         groups: mesh.groups.clone(),
         centre: mesh.centre(),
-        bytes: (vertex_bytes + index_bytes) as usize,
+        radius: radius_of(mesh),
+        skin,
+        split: splits(mesh),
+        bytes: (vertex_bytes + index_bytes + skin_bytes) as usize,
         last_used: frame,
     }
 }
@@ -1477,21 +2064,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_draws_uniforms_are_three_matrices_and_four_vectors() {
-        // Two mat4, a tint, four flags, the light, the projector's mat4 and
-        // the patch: what mesh.wgsl's Draw is. It fills the usual 256-byte
-        // stride exactly.
-        assert_eq!(DRAW_BYTES, 2 * 64 + 16 + 16 + 16 + 64 + 16);
-        const { assert!(DRAW_BYTES <= 256) };
+    fn a_draws_uniforms_are_three_matrices_and_eight_vectors() {
+        // Two mat4, a tint, four flags, the light, the projector's mat4, the
+        // patch, then the finish, the shape, the eye and the skin: what
+        // mesh.wgsl's Draw is. Past 256 bytes, so a draw's slice is 320 on a
+        // device that aligns them to 64 and 512 on one that aligns to 256.
+        assert_eq!(DRAW_BYTES, 2 * 64 + 16 + 16 + 16 + 64 + 16 + 4 * 16);
+        assert_eq!(std::mem::size_of::<SkinVertex>(), 24);
+        assert_eq!(PALETTE_BYTES, 256 * 64);
     }
 
     #[test]
     fn the_stride_is_the_devices_alignment() {
-        assert_eq!(uniform_stride(256), 256);
-        assert_eq!(uniform_stride(64), 256);
-        assert_eq!(uniform_stride(32), 256);
-        assert_eq!(uniform_stride(16), 256);
-        assert_eq!(uniform_stride(0), 256);
+        assert_eq!(uniform_stride(256), 512);
+        assert_eq!(uniform_stride(64), 320);
+        assert_eq!(uniform_stride(32), 320);
+        assert_eq!(uniform_stride(16), 320);
+        assert_eq!(uniform_stride(0), 320);
+    }
+
+    #[test]
+    fn a_glowing_or_liquid_scene_is_told_apart() {
+        let mut scene = Scene::default();
+        assert!(!moves(&scene));
+        scene.nodes.push(angel_stage::scene::Node::new(1, MeshRef::Cube, Material::default()));
+        assert!(!moves(&scene));
+        scene.nodes[0].face_materials = vec![Material { liquid: 0.5, ..Material::default() }];
+        assert!(moves(&scene), "a face's liquid moves it");
+        scene.nodes[0].visible = false;
+        assert!(!moves(&scene), "a hidden node does not");
+        scene.nodes[0].visible = true;
+        scene.nodes[0].face_materials.clear();
+        scene.nodes[0].material.liquid = f32::NAN;
+        assert!(!moves(&scene), "a liquid that is no number is still");
+        // Rounded cubes are keyed clamped, as spheres are.
+        assert_eq!(
+            mesh_key(MeshRef::RoundCube { radius: 9999, segments: 0 }),
+            mesh_key(MeshRef::RoundCube { radius: 500, segments: 1 })
+        );
+        assert!((scale_of(&angel_stage::scene::Transform::from_scale([2.0, 3.0, 0.5]).matrix()) - 3.0).abs() < 1e-6);
+        assert!((radius_of(&MeshData::cube()) - 0.75f32.sqrt()).abs() < 1e-6);
+        // Normals that split where faces meet are told; a smooth mesh's are not.
+        assert!(splits(&MeshData::cube()) && !splits(&MeshData::round_cube(120, 4)) && !splits(&MeshData::sphere(16)));
     }
 
     #[test]

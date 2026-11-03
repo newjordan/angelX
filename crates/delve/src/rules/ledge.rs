@@ -248,3 +248,7 @@ impl Run {
         (room.width() / 2.0, TILE_UNITS * 3.0)
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-a-small"))]
+#[path = "../../tests/rules/ledge_bend_cases__tests.rs"]
+mod ledge_bend_cases_tests;

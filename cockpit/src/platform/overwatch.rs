@@ -46,6 +46,14 @@ struct FleetOverwatchSample {
 #[derive(Debug)]
 pub struct Overwatch {
     pub snapshot: OverwatchSnapshot,
+    /// Live peer instances from the shared peer directory, refreshed on the
+    /// peer-scan throttle. Empty when peer watch is unattached.
+    pub peers: Vec<super::peer_watch::Heartbeat>,
+    peer_beat: Option<super::peer_watch::PeerBeat>,
+    peer_watcher: super::peer_watch::PeerWatcher,
+    peer_scan_started: Instant,
+    /// Peer transitions nobody has surfaced yet (drained by the app).
+    pub peer_events: Vec<super::peer_watch::PeerEvent>,
     last_sample: Instant,
     prev_cpu: Option<CpuTick>,
     fleet_tx: Option<mpsc::Sender<Option<FleetOverwatchSample>>>,
@@ -67,6 +75,11 @@ impl Overwatch {
         let (gpu_tx, gpu_rx) = mpsc::channel();
         Self {
             snapshot: OverwatchSnapshot::default(),
+            peers: Vec::new(),
+            peer_beat: None,
+            peer_watcher: super::peer_watch::PeerWatcher::new(),
+            peer_scan_started: Instant::now() - Duration::from_secs(60),
+            peer_events: Vec::new(),
             last_sample: Instant::now(),
             prev_cpu: None,
             fleet_tx: Some(fleet_tx),
@@ -84,6 +97,11 @@ impl Overwatch {
     pub fn disabled() -> Self {
         Self {
             snapshot: OverwatchSnapshot::default(),
+            peers: Vec::new(),
+            peer_beat: None,
+            peer_watcher: super::peer_watch::PeerWatcher::new(),
+            peer_scan_started: Instant::now(),
+            peer_events: Vec::new(),
             last_sample: Instant::now(),
             prev_cpu: None,
             fleet_tx: None,
@@ -98,10 +116,78 @@ impl Overwatch {
         }
     }
 
+    /// Start publishing this instance's heartbeat and watching peers.
+    /// Called once by the live app; previews/tests stay unattached.
+    pub fn attach_peers(
+        &mut self,
+        state_root: &Path,
+        workspace: &Path,
+        session_id: Option<String>,
+    ) {
+        if self.enabled && self.peer_beat.is_none() {
+            self.peer_beat = Some(super::peer_watch::PeerBeat::new(
+                state_root, workspace, session_id,
+            ));
+        }
+    }
+
+    /// This instance's peer id, when peer watch is attached.
+    pub fn peer_instance_id(&self) -> Option<&str> {
+        self.peer_beat
+            .as_ref()
+            .map(|beat| beat.heartbeat.instance_id.as_str())
+    }
+
+    /// Record what this instance is doing for peer readers (`idle`, `turn`, …).
+    pub fn set_peer_activity(&mut self, activity: &str) {
+        if let Some(beat) = &mut self.peer_beat
+            && beat.heartbeat.activity != activity
+        {
+            beat.set_activity(activity, None);
+        }
+    }
+
+    fn refresh_peers(&mut self) {
+        let Some(beat) = &mut self.peer_beat else {
+            return;
+        };
+        beat.beat(
+            self.snapshot.cpu_pct,
+            self.snapshot.mem_pct,
+            self.snapshot.gpu_pct,
+        );
+        if self.peer_scan_started.elapsed() < Duration::from_secs(5) {
+            return;
+        }
+        self.peer_scan_started = Instant::now();
+        let state_root = super::workspace_store::angel_dir();
+        let dir = super::peer_watch::peer_dir(&state_root);
+        let own_id = self
+            .peer_beat
+            .as_ref()
+            .map(|beat| beat.heartbeat.instance_id.clone());
+        self.peers = super::peer_watch::read_peers(&dir, own_id.as_deref());
+        let at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let mut events = self.peer_watcher.observe(&self.peers, at_ms);
+        self.peer_events.append(&mut events);
+        // Fleet fallback: when the external probe binary is absent, the
+        // fleet numbers are the live peers' own reported load.
+        if self.fleet_missing
+            && let Some((cpu, gpu)) = super::peer_watch::fleet_means(&self.peers, at_ms)
+        {
+            self.snapshot.fleet_cpu_pct = Some(cpu);
+            self.snapshot.fleet_gpu_pct = Some(gpu);
+        }
+    }
+
     pub fn refresh(&mut self) {
         if !self.enabled {
             return;
         }
+        self.refresh_peers();
         if let Some(rx) = &self.fleet_rx {
             while let Ok(sample) = rx.try_recv() {
                 self.fleet_inflight = false;
@@ -179,6 +265,14 @@ impl Overwatch {
             let sample = read_fleet_overwatch(&cmd);
             let _ = tx.send(sample);
         });
+    }
+}
+
+impl Drop for Overwatch {
+    fn drop(&mut self) {
+        if let Some(beat) = &self.peer_beat {
+            beat.retire();
+        }
     }
 }
 

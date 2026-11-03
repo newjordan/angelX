@@ -2,7 +2,7 @@
 use super::{TILE, at, home};
 use super::super::ink::{Img, hash};
 use super::super::material as m;
-use crate::rules::{RoomKind, Run, HZ, windcountry as w, pastimes::{Game, Trencher, TRENCHER_FLIGHT}};
+use crate::rules::{RoomKind, Run, HZ, windcountry as w, pastimes::{Game, Trencher, TRENCHER_CATCH, TRENCHER_FLIGHT, TRENCHER_WINDS}};
 
 fn near(run: &Run, p: (f32,f32), reach:f32) -> bool {
     run.players.values().any(|h|h.hp>0&&!h.stone&&h.privy==0&&(h.x-p.0*2.0).hypot(h.y-p.1*2.0)<reach)
@@ -140,14 +140,48 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
             if let Some(r)=run.pastimes.round.as_ref().filter(|r|r.game==Game::Trencher) {
                 let t=r.trencher.as_ref().unwrap();
                 let landing=Trencher::target(r.progress)*TILE/256;
-                cv.line(landing-7,8*TILE,landing+7,8*TILE,'O');
-                cv.line(landing-7,8*TILE-3,landing-7,8*TILE+3,'O');cv.line(landing+7,8*TILE-3,landing+7,8*TILE+3,'O');
+                // The ring breathes in as the plate arrives, turns green
+                // while the goose stands in reach, and flashes in the
+                // last beats before the plate comes down.
+                let in_reach=t.goose.abs_diff(Trencher::target(r.progress))<=TRENCHER_CATCH as u32;
+                let (gap,ring_ink)=match &t.flight {
+                    Some(p)=>{
+                        let elapsed=TRENCHER_FLIGHT-p.left;
+                        let gap=7-(elapsed*3/TRENCHER_FLIGHT) as i32;
+                        let ink=if p.left<=8 && run.tick%2==0 {'5'} else if in_reach {'9'} else {'O'};
+                        (gap,ink)
+                    }
+                    None=>(7,if in_reach {'9'} else {'O'}),
+                };
+                cv.line(landing-gap,8*TILE,landing+gap,8*TILE,ring_ink);
+                cv.line(landing-gap,8*TILE-3,landing-gap,8*TILE+3,ring_ink);cv.line(landing+gap,8*TILE-3,landing+gap,8*TILE+3,ring_ink);
                 let gx=t.goose*TILE/256;
-                cv.rect(gx-5,8*TILE-8,10,5,'h');cv.rect(gx+2,8*TILE-13,3,8,'h');cv.rect(gx+3,8*TILE-14,4,3,'O');
+                // A caught plate earns a hop and a honk; a missed one, a droop.
+                let lift=if t.celebrate>0 && (t.celebrate/3)%2==0 {2} else {0};
+                let droop=if t.sulk>0 {3} else {0};
+                let gy=8*TILE-lift;
+                cv.ellipse(gx as f32,gy as f32,6.0,4.0,'h');
+                cv.line(gx+4,gy-2,gx+6,gy-6+droop,'h');cv.line(gx+6,gy-6+droop,gx+7,gy-8+droop,'h');
+                cv.ellipse((gx+7) as f32,(gy-9+droop) as f32,2.0,2.0,'h');
+                cv.line(gx+9,gy-9+droop,gx+11,gy-8+droop,'O');cv.line(gx+9,gy-8+droop,gx+11,gy-8+droop,'O');
+                cv.put(gx+7,gy-10+droop,'k');
+                cv.line(gx-2,gy+4,gx-2,gy+7,'O');cv.line(gx+2,gy+4,gx+2,gy+7,'O');
+                cv.line(gx-3,gy+7,gx-1,gy+7,'O');cv.line(gx+1,gy+7,gx+3,gy+7,'O');
+                cv.line(gx-3,gy-1,gx-1,gy+2,'o');cv.line(gx+3,gy-1,gx+1,gy+2,'o');
+                if t.celebrate>6 { cv.text(gx-10,gy-20,"HONK!",'O'); }
                 if let Some(p)=&t.flight {
                     let elapsed=TRENCHER_FLIGHT-p.left;
-                    let arc=(elapsed*(TRENCHER_FLIGHT-elapsed)*48/(TRENCHER_FLIGHT*TRENCHER_FLIGHT)) as i32;
-                    cv.rect(p.x*TILE/256-5,7*TILE-arc,10,2,'O');
+                    let arc_at=|e:u32|(e*(TRENCHER_FLIGHT-e)*48/(TRENCHER_FLIGHT*TRENCHER_FLIGHT)) as i32;
+                    // Ghost plates where the spin was a few ticks ago.
+                    for (back,width) in [(10u32,6i32),(5,8)] {
+                        if elapsed>back {
+                            let gx_plate=(p.x-TRENCHER_WINDS[usize::from(r.progress.min(2))]*back as i32)*TILE/256;
+                            cv.rect(gx_plate-width/2,7*TILE-arc_at(elapsed-back),width,2,'o');
+                        }
+                    }
+                    // The plate spins: broad, tilting, edge-on, and back.
+                    let width=[10,7,4,7][(elapsed/5%4) as usize];
+                    cv.rect(p.x*TILE/256-width/2,7*TILE-arc_at(elapsed),width,2,'O');
                     cv.text(landing-16,9*TILE,"CATCH",'i');
                 }
             }

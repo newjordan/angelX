@@ -126,6 +126,8 @@ fn gradient() -> MeshData {
         colors: vec![[0.0, 0.0, 0.0, 1.0], [1.0; 4], [1.0; 4], [0.0, 0.0, 0.0, 1.0]],
         indices: vec![0, 1, 2, 0, 2, 3],
         groups: Vec::new(),
+        joints: Vec::new(),
+        weights: Vec::new(),
     }
 }
 

@@ -246,7 +246,7 @@ impl EvaluatorEvidence {
             .map_err(|error| format!("could not create evaluator scratch directory: {error}"))?;
         let candidate_path = scratch.join("candidate-output");
         if let Some(candidate) = candidate {
-            std::fs::write(&candidate_path, candidate)
+            crate::platform::workspace_store::write_atomic(&candidate_path, candidate)
                 .map_err(|error| format!("could not stage evaluator candidate input: {error}"))?;
         }
         let policy = if operator_environment {

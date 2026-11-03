@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "mossbell.jackpot",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.jackpot/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.jackpot/v01/source-sheet.png",
   "source_sha256": "8d94aa5802131623e9bbaab24c513a294fbb3a3cd08aaaf0892d18019a2ea29c",
   "tool_version": 2
 }

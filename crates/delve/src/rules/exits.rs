@@ -12,6 +12,9 @@ pub struct State {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub holding: BTreeMap<u32, u32>,
     pub outside: BTreeMap<u32, Entry>,
+    /// Only while seats are removed from this tick's working set.
+    #[serde(skip)]
+    pub(super) squire_owners: BTreeMap<String, u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -73,7 +76,8 @@ impl State {
 
 impl Run {
     pub fn can_leave_activity(&self, id: u32) -> bool {
-        self.players.get(&id).is_some_and(|_| {
+        // A finished run's Enter answers its verdict, even in a home room.
+        self.active() && self.crossroads.is_none() && self.players.get(&id).is_some_and(|_| {
             !self.exits.outside.contains_key(&id) && (room(self.room().kind) || self.minigame_showing() || self.at_privy(id))
         })
     }
@@ -100,10 +104,20 @@ impl Run {
         self.exits.holding.get(&id).copied().unwrap_or(0)
     }
 
-    pub(super) fn tick_leave_hold(&mut self, inputs: &mut BTreeMap<u32, Input>) {
-        let ids: Vec<_> = self.players.keys().copied().collect();
+    pub(super) fn tick_leave_hold(&mut self, inputs: &BTreeMap<u32, Input>) -> [Option<u32>; MAX_PLAYERS as usize] {
+        let mut ids = [0u32; MAX_PLAYERS as usize];
+        let mut n = 0;
+        for &id in self.players.keys() {
+            if n < ids.len() {
+                ids[n] = id;
+                n += 1;
+            }
+        }
+        let ids = &ids[..n];
         self.exits.holding.retain(|id, _| ids.contains(id));
-        for id in ids {
+        let mut blanks = [None; MAX_PLAYERS as usize];
+        let mut b = 0;
+        for &id in ids {
             if !self.can_hold_leave(id) || !inputs.get(&id).is_some_and(|i| i.valid() && i.leave_held) {
                 self.exits.holding.remove(&id);
                 continue;
@@ -111,11 +125,15 @@ impl Run {
             let ticks = self.leave_progress(id) + 1;
             if ticks >= LEAVE_TICKS {
                 self.exits.holding.remove(&id);
-                if self.leave_activity(id) { inputs.insert(id, Input::default()); }
+                if self.leave_activity(id) && b < blanks.len() {
+                    blanks[b] = Some(id);
+                    b += 1;
+                }
             } else {
                 self.exits.holding.insert(id, ticks);
             }
         }
+        blanks
     }
 
     fn at_privy(&self, id: u32) -> bool {
@@ -247,8 +265,14 @@ impl Run {
         let Some(back) = self.activity_return() else {
             return false;
         };
+        // A side-on hall is left by its one doorway, low in its west wall,
+        // whichever side its room lies on: a knight coming out by a west
+        // door still holds the key that walks them back in. That key is
+        // held off until let go (`Hero::held_off`).
+        let behind = self.room().way_back().map(|side| ((side + 2) % 4) as u8);
         let hero = self.players.get_mut(&id).unwrap();
         Self::release_activity_controls(hero);
+        hero.door_behind = behind;
         if let Some(&(x, y)) = back.party.get(&id) {
             (hero.x, hero.y) = (x, y);
         }
@@ -278,11 +302,16 @@ impl Run {
         {
             self.finish_activity_return(&back);
         }
-        self.sounds.push("door_open");
+        self.sounds.push("area_leave");
         true
     }
 
     fn forfeit_stage(&mut self, id: u32) {
+        if let Some(s) = &mut self.moonfall {
+            if let Some(seat) = s.seats.remove(&id) {
+                s.parked.insert(id, seat);
+            }
+        }
         if let Some(s) = &mut self.folly { s.eaten.remove(&id); }
         if let Some(s) = &mut self.bats { s.scores.remove(&id); }
         if let Some(s) = &mut self.gantry { s.jumped.remove(&id); s.height.remove(&id); }
@@ -383,6 +412,20 @@ impl Run {
         // otherwise travel immediately carries the knight back into the game.
         h.x = h.x.clamp(1.6, room.width() - 1.6);
         h.y = h.y.clamp(1.6, room.height() - 1.6);
+        // On an open floor's map the threshold crossed is a door tile in a
+        // chamber's wall, nowhere near the map's edge: the knight comes out
+        // at its landing, as a door brings the party out (`open_landing`),
+        // not on the tile that takes them straight back in ("fix the room
+        // walkouts we bounce back on accident", 2026-10-19).
+        if let Some(door) = self
+            .dungeon
+            .open
+            .as_ref()
+            .filter(|o| o.map == at)
+            .and_then(|o| o.door_on((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32))
+        {
+            (h.x, h.y) = door.landing();
+        }
         if !grid.clear(h.x, h.y, HERO_RADIUS, Mover::Hero) {
             if let Some((x, y)) = (1..room.rows - 1)
                 .flat_map(|y| (1..room.cols - 1).map(move |x| (x, y)))
@@ -423,6 +466,7 @@ impl Run {
             let Some(h) = self.players.get_mut(&id) else {
                 continue;
             };
+            let input = h.held_off(input);
             let entry = back.party.get(&id).copied().unwrap_or((h.x, h.y));
             if input.interact && (h.x - entry.0).hypot(h.y - entry.1) < 2.5 {
                 self.rejoin(id);
@@ -450,6 +494,9 @@ impl Run {
             );
             h.camera = (grid.room.kind == RoomKind::Kingdom).then_some((h.x, h.y - 1.0));
         }
+        // Reconcile while all identities are still visible, including absent
+        // holders; the removed bodies then reserve their name for this tick.
+        self.sync_squires();
         let ids: Vec<_> = self
             .players
             .keys()
@@ -461,8 +508,15 @@ impl Run {
                     })
             })
             .collect();
+        self.exits.squire_owners.clear();
         ids.into_iter()
-            .filter_map(|id| self.players.remove(&id).map(|h| (id, h)))
+            .filter_map(|id| {
+                let h = self.players.remove(&id)?;
+                if h.squire.as_ref().is_some_and(|s| s.owner == squires_lodge::owner_key(&h)) {
+                    self.exits.squire_owners.insert(squires_lodge::owner_key(&h), id);
+                }
+                Some((id, h))
+            })
             .collect()
     }
 
@@ -533,6 +587,11 @@ impl Run {
     fn clear_game_stages(&mut self, room: Option<usize>) {
         // The floor can remember a puzzle in another room. A retreat ends
         // only this stage; a detached view discards all of their pictures.
+        if let Some(index) = room
+            && self.powder.as_ref().is_some_and(|p| p.room == index)
+        {
+            self.clear_powder_board(index);
+        }
         if self.folly.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.folly = None; }
         if self.bats.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.bats = None; }
         if self.gantry.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.gantry = None; }

@@ -26,15 +26,23 @@ impl Run {
             mended.push("room");
         }
         let (w, h) = (self.room().width(), self.room().height());
+        let home = (w / 2.0, h / 2.0);
         for hero in self.players.values_mut() {
-            if !(hero.x.is_finite() && hero.y.is_finite()) {
+            if !place_ok(hero.x, hero.y) {
                 hero.x = w / 2.0;
                 hero.y = h / 2.0;
                 mended.push("knight");
             }
-            if hero.camera.is_some_and(|(x, y)| !(x.is_finite() && y.is_finite())) {
+            if hero.camera.is_some_and(|(x, y)| !place_ok(x, y)) {
                 hero.camera = None;
                 mended.push("camera");
+            }
+            if mend_hero_bounds(hero) {
+                mended.push("health");
+            }
+            if hero.spin > spin::TICKS {
+                hero.spin = spin::TICKS;
+                mended.push("spin");
             }
         }
         if !self.exits.valid(rooms) {
@@ -84,9 +92,12 @@ impl Run {
                 mended.push(name);
             }
         }
-        if self.light.is_some_and(|(x, y)| !(x.is_finite() && y.is_finite())) {
+        if self.light.is_some_and(|(x, y)| !place_ok(x, y)) {
             self.light = None;
             mended.push("light");
+        }
+        if mend_bodies(self, home) {
+            mended.push("place");
         }
         mended
     }
@@ -103,7 +114,7 @@ impl Run {
                 (w / 2.0, h / 2.0)
             }
         };
-        let mut mend_entry = |e: &mut exits::Entry| -> bool {
+        let mend_entry = |e: &mut exits::Entry| -> bool {
             if e.at >= rooms {
                 return false;
             }
@@ -152,6 +163,76 @@ fn mend_kingdom(k: &mut KingdomState) {
         // the way back goes, the kingdom's own state stays as it was.
         k.return_to = None;
     }
+}
+
+/// Farther than any map (the kingdom is 480 across, a pennon 1200). Past this
+/// a coordinate is a damaged save, not a knock into the wall.
+const POS_LIMIT: f32 = 8192.0;
+/// High enough for any kit and gift, low enough that `hp * 100` fits in `u32`.
+const HP_ABS: u32 = 100_000;
+const FOE_HP_ABS: u32 = 1_000_000;
+const BOON_ABS: u32 = 1_000;
+
+fn place_ok(x: f32, y: f32) -> bool {
+    x.is_finite() && y.is_finite() && x.abs() <= POS_LIMIT && y.abs() <= POS_LIMIT
+}
+
+fn pull(x: &mut f32, y: &mut f32, home: (f32, f32)) -> bool {
+    if place_ok(*x, *y) {
+        return false;
+    }
+    *x = home.0;
+    *y = home.1;
+    true
+}
+
+/// Clamp a restored knight's hp and gifts so a huge number never reaches play.
+fn mend_hero_bounds(hero: &mut Hero) -> bool {
+    let before = (hero.hp, hero.max_hp, hero.boon.plus, hero.boon.cut);
+    hero.boon.plus = hero.boon.plus.min(BOON_ABS);
+    hero.boon.cut = hero.boon.cut.min(BOON_ABS);
+    if hero.max_hp == 0 || hero.max_hp > HP_ABS {
+        hero.max_hp = hero.max_hp.clamp(1, HP_ABS);
+    }
+    hero.hp = hero.hp.min(HP_ABS);
+    hero.fit_hp();
+    // A censer pulse is a few dozen. Past this the heal multiply overflows.
+    const CENSER_ABS: u32 = 1_000;
+    let censer = hero.censer.min(CENSER_ABS);
+    let censer_cut = hero.censer != censer;
+    hero.censer = censer;
+    (hero.hp, hero.max_hp, hero.boon.plus, hero.boon.cut) != before || censer_cut
+}
+
+fn mend_foe_hp(enemy: &mut Enemy) -> bool {
+    let before = (enemy.hp, enemy.max_hp);
+    if enemy.max_hp > FOE_HP_ABS {
+        enemy.max_hp = FOE_HP_ABS;
+    }
+    enemy.hp = enemy.hp.min(FOE_HP_ABS);
+    if enemy.max_hp > 0 {
+        enemy.hp = enemy.hp.min(enemy.max_hp);
+    }
+    (enemy.hp, enemy.max_hp) != before
+}
+
+/// Pull bodies whose coordinates are nowhere, or far outside any map, back
+/// into the room. A foe only a little outside (a knock) is left where it is;
+/// the shot grid tolerates that on its own.
+fn mend_bodies(run: &mut Run, home: (f32, f32)) -> bool {
+    let mut fixed = false;
+    for enemy in run.enemies.iter_mut().chain(run.parked.iter_mut()) {
+        fixed |= pull(&mut enemy.x, &mut enemy.y, home);
+        fixed |= pull(&mut enemy.origin_x, &mut enemy.origin_y, home);
+        fixed |= mend_foe_hp(enemy);
+    }
+    for shot in &mut run.projectiles {
+        fixed |= pull(&mut shot.x, &mut shot.y, home);
+    }
+    for blast in &mut run.blasts {
+        fixed |= pull(&mut blast.0, &mut blast.1, home);
+    }
+    fixed
 }
 
 #[cfg(test)]

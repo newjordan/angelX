@@ -1047,3 +1047,7 @@ pub fn approach(v: i32, to: i32, by: i32) -> i32 {
         (v - by).max(to)
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
+#[path = "../../../tests/rules/bannerpeak_body_bend_cases__tests.rs"]
+pub mod bend_cases_body;

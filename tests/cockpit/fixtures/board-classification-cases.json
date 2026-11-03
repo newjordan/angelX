@@ -1,0 +1,218 @@
+{
+  "grep_recon_cases": [
+    "grep living_handoff src/ -n",
+    "grep -n living-handoff cockpit/",
+    "egrep -n board_tip .",
+    "git grep living_handoff",
+    "ag living_handoff",
+    "fd living_handoff",
+    "FOO=1 rg living_handoff",
+    "ls --recursive LIVING_HANDOFF.md",
+    "ls --recursive /tmp/living-handoff.md",
+    "ls --recurse .angel/notes",
+    "ls -laR LIVING_HANDOFF.md",
+    "ls -lR /tmp/living-handoff.md",
+    "ls -1R .angel/notes",
+    "ls --color=auto -R /tmp/living",
+    "/bin/ls -alR living_handoff"
+  ],
+  "grep_recon_legal": [
+    "cat LIVING_HANDOFF.md",
+    "head -40 /tmp/living-handoff.md",
+    "wc -l .angel/notes/board.md"
+  ],
+  "git_inventory_cases": [
+    "git ls-files LIVING_HANDOFF.md",
+    "git ls-files '*handoff*'",
+    "git ls-tree -r HEAD --name-only | head",
+    "git blame LIVING_HANDOFF.md",
+    "git log --oneline -- living_handoff.md",
+    "git log -1 -- board.md"
+  ],
+  "git_inventory_legal": [
+    "cat LIVING_HANDOFF.md",
+    "head -40 /tmp/living-handoff.md",
+    "git show HEAD:LIVING_HANDOFF.md"
+  ],
+  "git_history_inventory_cases": [
+    "git shortlog -- living_handoff.md",
+    "git shortlog -sn -- board.md",
+    "git rev-list --all -- board.md",
+    "git rev-list HEAD -- LIVING_HANDOFF.md",
+    "git reflog -- board.md",
+    "git reflog show -- tip.md",
+    "FOO=1 git shortlog -- /tmp/living-handoff.md",
+    "/usr/bin/git rev-list --count HEAD -- living-handoff.md",
+    "ripgrep living_handoff",
+    "ripgrep -n board_tip .",
+    "/usr/bin/ripgrep living-handoff",
+    "ugrep -r living_handoff"
+  ],
+  "git_history_inventory_legal": [
+    "cat LIVING_HANDOFF.md",
+    "head -40 /tmp/living-handoff.md",
+    "git show HEAD:LIVING_HANDOFF.md",
+    "wc -l .angel/notes/board.md"
+  ],
+  "git_diff_status_cases": [
+    "git diff LIVING_HANDOFF.md",
+    "git diff --stat HEAD -- board.md",
+    "git diff -- living_handoff.md",
+    "git status -- LIVING_HANDOFF.md",
+    "git status -sb -- board.md",
+    "FOO=1 git diff /tmp/living-handoff.md",
+    "/usr/bin/git status --porcelain -- tip.md"
+  ],
+  "git_diff_status_legal": [
+    "cat LIVING_HANDOFF.md",
+    "head -40 /tmp/living-handoff.md",
+    "git show HEAD:LIVING_HANDOFF.md"
+  ],
+  "native_recon_tools_cases": [
+    [
+      "grep",
+      {
+        "pattern": "fn main",
+        "path": "LIVING_HANDOFF.md"
+      }
+    ],
+    [
+      "grep",
+      {
+        "pattern": "living_handoff",
+        "path": "src"
+      }
+    ],
+    [
+      "find_files",
+      {
+        "glob": "*handoff*"
+      }
+    ],
+    [
+      "file_search",
+      {
+        "query": "living_handoff"
+      }
+    ],
+    [
+      "outline",
+      {
+        "path": "LIVING_HANDOFF.md"
+      }
+    ],
+    [
+      "defs",
+      {
+        "symbol": "board_tip"
+      }
+    ],
+    [
+      "list_dir",
+      {
+        "path": "/tmp/living"
+      }
+    ],
+    [
+      "code_mode",
+      {
+        "recipe": "repo_recon",
+        "query": "living_handoff tip"
+      }
+    ]
+  ],
+  "native_git_inventory_cases": [
+    [
+      "git_diff",
+      {
+        "path": "LIVING_HANDOFF.md"
+      }
+    ],
+    [
+      "git_diff",
+      {
+        "path": "board.md",
+        "stat": true
+      }
+    ],
+    [
+      "git_status",
+      {
+        "path": "living_handoff.md"
+      }
+    ],
+    [
+      "git_status",
+      {
+        "path": "/tmp/living-handoff.md"
+      }
+    ],
+    [
+      "git_log",
+      {
+        "path": "LIVING_HANDOFF.md"
+      }
+    ],
+    [
+      "git_log",
+      {
+        "path": "board.md",
+        "max_count": 5
+      }
+    ]
+  ],
+  "git_show_inventory_cases": [
+    "git show --stat HEAD -- board.md",
+    "git show --name-only HEAD -- living_handoff.md",
+    "git show --name-status HEAD -- LIVING_HANDOFF.md",
+    "git show --numstat HEAD -- tip.md",
+    "git show HEAD -- board.md",
+    "git show HEAD board.md",
+    "git whatchanged -- board.md",
+    "git whatchanged -1 -- living_handoff.md",
+    "FOO=1 git show --stat -- /tmp/living-handoff.md",
+    "/usr/bin/git show --name-only HEAD -- tip.md",
+    "timeout 5 git show --stat HEAD -- board.md"
+  ],
+  "git_show_inventory_legal": [
+    "git show HEAD:LIVING_HANDOFF.md",
+    "git show HEAD:.angel/notes/board.md",
+    "git show main:tip.md",
+    "cat LIVING_HANDOFF.md",
+    "head -40 /tmp/living-handoff.md"
+  ],
+  "lsp_recon_cases": [
+    [
+      "lsp_workspace_symbol",
+      {
+        "query": "living_handoff"
+      }
+    ],
+    [
+      "lsp_workspace_symbol",
+      {
+        "query": "board_tip"
+      }
+    ],
+    [
+      "lsp_symbols",
+      {
+        "path": "LIVING_HANDOFF.md"
+      }
+    ],
+    [
+      "lsp_references",
+      {
+        "path": "src/lib.rs",
+        "symbol": "board_tip"
+      }
+    ],
+    [
+      "lsp_definition",
+      {
+        "path": "/tmp/living/handoff.md",
+        "symbol": "tip"
+      }
+    ]
+  ]
+}

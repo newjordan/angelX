@@ -1,0 +1,109 @@
+{
+  "kiln": 0,
+  "name": "knight",
+  "notes": "Our knight, facing right in three-quarter view: ported from the 64 px test knight (knight64.px.js), its helm, breastplate, pauldrons and limbs as lit volumes. Model space is game pixels; grain 4 is 64 px a tile.",
+  "canvas": [28, 20],
+  "pivot": [14, 19.5],
+  "light": [-0.55, -0.9, 0.7],
+  "outline": {"ink": "k", "selout": 2, "inner": 0.75},
+  "materials": {
+    "steel": {"ramp": "sxSuUvVW", "finish": "metal"},
+    "red": {"ramp": "n87", "finish": "cloth"},
+    "gold": {"ramp": "a456", "finish": "metal"},
+    "leather": {"ramp": "nbIBpr", "finish": "matte"},
+    "gem": {"ramp": "q1z3", "finish": "metal", "shade": -0.2}
+  },
+  "parts": [
+    {"id": "plume", "shape": "stroke", "mat": "red", "bone": "head", "keep": true, "points": [[14.5, 5.6, 0.4], [13, 4.7, 0.1], [11.4, 4.8, -0.4], [10.1, 5.7, -0.9], [9.3, 6.9, -1.2], [9, 8.2, -1.4]], "width": [1.7, 0.8]},
+    {"id": "arm_far", "shape": "capsule", "mat": "steel", "bone": "arm_far", "shade": -0.1, "from": [11, 13.0, -1.5], "to": [10.5, 15.5, -1.5], "r": [0.7, 0.6]},
+    {"id": "hand_far", "shape": "ellipsoid", "mat": "steel", "bone": "arm_far", "shade": -0.1, "at": [10.6, 16.1, -1.5], "r": [0.7, 0.7, 0.7]},
+    {"id": "pauldron_far", "shape": "ellipsoid", "mat": "steel", "bone": "torso", "shade": -0.1, "at": [11.3, 12.4, -1.2], "r": [1.25, 1.1, 1.1]},
+    {"id": "leg_far", "shape": "capsule", "mat": "steel", "bone": "leg_far", "shade": -0.1, "from": [13, 15.75, -0.8], "to": [12.8, 18.3, -0.8], "r": [0.75, 0.65]},
+    {"id": "knee_far", "shape": "ellipsoid", "mat": "steel", "bone": "leg_far", "shade": -0.1, "at": [12.9, 17.0, -0.3], "r": [0.75, 0.58, 0.6]},
+    {"id": "boot_far_shaft", "shape": "capsule", "mat": "leather", "bone": "leg_far", "shade": -0.1, "from": [12.8, 18.0, -0.7], "to": [12.9, 18.7, -0.7], "r": [0.72]},
+    {"id": "boot_far", "shape": "box", "mat": "leather", "bone": "foot_far", "shade": -0.1, "at": [13.35, 18.9, -1.2], "size": [2.7, 1.0, 1.4], "round": 0.45},
+    {"id": "chest", "shape": "ellipsoid", "mat": "steel", "bone": "torso", "at": [14, 13.4, 0], "r": [2.5, 3.2, 2.0], "cut": {"y": [11.3, 15.4]}},
+    {"id": "gorget", "shape": "ellipsoid", "mat": "steel", "bone": "torso", "shade": -0.15, "at": [14, 11.1, 0.3], "r": [1.9, 0.6, 1.6]},
+    {"id": "leg_near", "shape": "capsule", "mat": "steel", "bone": "leg_near", "from": [15, 15.75, 0.6], "to": [15.25, 18.5, 0.6], "r": [0.85, 0.75]},
+    {"id": "knee_near", "shape": "ellipsoid", "mat": "steel", "bone": "leg_near", "shade": 0.05, "at": [15.1, 17.1, 1.2], "r": [0.9, 0.65, 0.6]},
+    {"id": "boot_near_shaft", "shape": "capsule", "mat": "leather", "bone": "leg_near", "from": [15.1, 18.1, 0.6], "to": [15.2, 18.65, 0.6], "r": [0.8]},
+    {"id": "boot_near", "shape": "box", "mat": "leather", "bone": "foot_near", "shade": 0.1, "at": [15.75, 18.95, 0.0], "size": [3.0, 1.1, 1.6], "round": 0.5},
+    {"id": "tabard", "shape": "slab", "mat": "red", "bone": "torso", "points": [[12.25, 12.25], [16, 12.25], [16.25, 14.75], [16.25, 16.5], [15.5, 16.0], [14.5, 16.75], [13.5, 16.0], [12.5, 16.5], [12.25, 14.75]], "z": 1.9, "thick": 0.3, "bevel": 0.2, "curve": [0.5, 0]},
+    {"id": "folds", "shape": "flat", "ink": "8", "bone": "torso", "on": "tabard", "grains": [4, 8], "points": [[14.4, 15.45], [14.65, 15.45], [14.65, 16.6], [14.4, 16.6]]},
+    {"id": "fold_left", "shape": "flat", "ink": "8", "bone": "torso", "on": "tabard", "grains": [4, 8], "points": [[13.4, 15.3], [13.65, 15.3], [13.65, 16.0], [13.4, 16.0]]},
+    {"id": "fold_right", "shape": "flat", "ink": "8", "bone": "torso", "on": "tabard", "grains": [4, 8], "points": [[15.2, 15.3], [15.45, 15.3], [15.7, 16.05], [15.45, 16.05]]},
+    {"id": "trim", "shape": "slab", "mat": "gold", "bone": "torso", "on": "tabard", "points": [[12, 12.2], [16.5, 12.2], [16.5, 12.75], [12, 12.75]], "z": 2.0, "thick": 0.2, "bevel": 0, "curve": [0.6, 1.2], "shade": -0.1, "grains": [2, 4, 8]},
+    {"id": "belt", "shape": "slab", "mat": "leather", "bone": "torso", "keep": true, "points": [[11.9, 14.45], [16.6, 14.45], [16.6, 15.3], [11.9, 15.3]], "z": 2.25, "thick": 0.3, "bevel": 0.15, "curve": [0.8, 0]},
+    {"id": "buckle", "shape": "box", "mat": "gold", "bone": "torso", "at": [14.25, 14.875, 2.45], "size": [1.0, 1.25, 0.3], "round": 0.12},
+    {"id": "buckle_hole", "shape": "flat", "ink": "I", "bone": "torso", "on": "buckle", "grains": [2, 4, 8], "points": [[14, 14.6], [14.5, 14.6], [14.5, 15.15], [14, 15.15]]},
+    {"id": "gem", "shape": "ellipsoid", "mat": "gem", "bone": "torso", "keep": true, "at": [15.9, 14.85, 2.2], "r": [0.4, 0.4, 0.3]},
+    {"id": "arm_near", "shape": "capsule", "mat": "steel", "bone": "arm_near", "from": [17.25, 13.0, 1.0], "to": [17.75, 15.5, 1.0], "r": [0.75, 0.65]},
+    {"id": "hand_near", "shape": "ellipsoid", "mat": "steel", "bone": "hand_near", "at": [17.6, 16.25, 1.0], "r": [0.8, 0.8, 0.8]},
+    {"id": "pauldron_near", "shape": "ellipsoid", "mat": "steel", "bone": "torso", "shade": 0.04, "at": [16.75, 12.4, 1.4], "r": [1.5, 1.2, 1.2]},
+    {"id": "helm", "shape": "ellipsoid", "mat": "steel", "bone": "head", "at": [14, 8.7, 0], "r": [3.25, 3.15, 2.7], "cut": {"y": [0, 10.95]}},
+    {"id": "keel", "shape": "stroke", "mat": "steel", "bone": "head", "on": "helm", "grains": [2, 4, 8], "points": [[15.5, 5.8, 2], [15.6, 8.0, 2], [15.5, 10.9, 2]], "width": [0.6], "shade": 0.15},
+    {"id": "visor", "shape": "flat", "ink": "k", "bone": "head", "on": "helm", "grains": [2, 4, 8], "points": [[12.5, 8.0], [17.5, 8.0], [17.5, 8.5], [12.5, 8.5]]},
+    {"id": "visor_game", "shape": "flat", "ink": "s", "bone": "head", "on": "helm", "grains": [1], "keep": true, "points": [[14.4, 7.9], [17.5, 7.9], [17.5, 8.6], [14.4, 8.6]]},
+    {"id": "visor_brow", "shape": "flat", "ink": "S", "bone": "head", "on": "helm", "grains": [4, 8], "points": [[12.5, 7.75], [17, 7.75], [17, 8.0], [12.5, 8.0]]},
+    {"id": "visor_lip", "shape": "flat", "ink": "v", "bone": "head", "on": "helm", "grains": [4, 8], "points": [[12.75, 8.5], [17, 8.5], [17, 8.75], [12.75, 8.75]]},
+    {"id": "sword_blade", "shape": "slab", "mat": "steel", "socket": "grip", "hidden": true, "grains": [2, 4, 8], "points": [[-0.3, -0.7], [0.3, -0.7], [0.25, -5.6], [0, -6.3], [-0.25, -5.6]], "z": 1.7, "thick": 0.3, "bevel": 0.2},
+    {"id": "sword_blade_game", "shape": "capsule", "mat": "steel", "socket": "grip", "hidden": true, "grains": [1], "keep": true, "shade": 0.2, "from": [0, -0.45, 1.7], "to": [0, -6.0, 1.7], "r": [0.25, 0.15]},
+    {"id": "sword_guard", "shape": "box", "mat": "gold", "socket": "grip", "hidden": true, "at": [0, -0.5, 1.8], "size": [2.0, 0.4, 0.4], "round": 0.15},
+    {"id": "sword_grip", "shape": "capsule", "mat": "leather", "socket": "grip", "hidden": true, "from": [0, 0.6, 1.7], "to": [0, -0.35, 1.7], "r": [0.22]},
+    {"id": "sword_pommel", "shape": "ellipsoid", "mat": "gold", "socket": "grip", "hidden": true, "at": [0, 0.75, 1.7], "r": [0.32, 0.32, 0.32]}
+  ],
+  "decals": {
+    "2": [
+      {"at": [27, 26], "bone": "torso", "on": "tabard", "rows": [".5.", "565", ".5."]}
+    ],
+    "4": [
+      {"at": [54, 51], "bone": "torso", "on": "tabard", "rows": ["..5..", ".555.", "55655", ".555.", ".5.5."]},
+      {"at": [64, 37], "bone": "head", "on": "helm", "rows": ["s.s.", "....", ".s.s", "....", "s.s."]},
+      {"at": [47, 29], "bone": "head", "on": "helm", "rows": ["V...V...V...V.....V"]},
+      {"at": [65, 32], "bone": "head", "rows": ["3"]},
+      {"at": [57, 21], "bone": "head", "rows": ["544", "444"]}
+    ]
+  },
+  "rig": {
+    "bones": [
+      {"id": "root", "at": [14, 19.5]},
+      {"id": "torso", "parent": "root", "at": [14, 15.0]},
+      {"id": "head", "parent": "torso", "at": [14, 11.2]},
+      {"id": "arm_near", "parent": "torso", "at": [17.2, 12.6]},
+      {"id": "hand_near", "parent": "arm_near", "at": [17.7, 15.6]},
+      {"id": "arm_far", "parent": "torso", "at": [11.2, 12.8]},
+      {"id": "leg_near", "parent": "root", "at": [15.1, 15.6]},
+      {"id": "leg_far", "parent": "root", "at": [12.9, 15.6]},
+      {"id": "foot_far", "parent": "leg_far", "at": [12.9, 18.5]},
+      {"id": "foot_near", "parent": "leg_near", "at": [15.2, 18.5]}
+    ],
+    "sockets": {
+      "grip": {"bone": "hand_near", "at": [17.6, 16.3], "turn": 180},
+      "tip": {"bone": "hand_near", "at": [17.6, 18.3]},
+      "off_hand": {"bone": "arm_far", "at": [10.6, 16.1]},
+      "head": {"bone": "head", "at": [14, 6.0]},
+      "back": {"bone": "torso", "at": [13, 13.0]},
+      "feet": {"bone": "root", "at": [14, 19.5]}
+    }
+  },
+  "clips": {
+    "idle": { "frames": 4, "fps": 6, "loop": true, "keys": [
+      {"t": 0, "ease": "both", "pose": {}},
+      {"t": 2, "ease": "both", "pose": {"torso": {"dy": 0.5}, "arm_near": {"turn": -3}, "arm_far": {"turn": 3}}}
+    ] },
+    "walk": { "frames": 8, "fps": 10, "loop": true, "keys": [
+      {"t": 0, "ease": "both", "pose": {"torso": {"turn": 2}, "leg_near": {"turn": -16}, "foot_near": {"turn": 16}, "leg_far": {"turn": 15}, "foot_far": {"turn": -15}, "arm_near": {"turn": 14}, "arm_far": {"turn": -14}}},
+      {"t": 2, "ease": "both", "pose": {"torso": {"turn": 2, "dy": -0.3}, "leg_far": {"dy": -0.45}, "foot_far": {"turn": -6}, "arm_near": {"turn": 2}, "arm_far": {"turn": -2}}},
+      {"t": 4, "ease": "both", "pose": {"torso": {"turn": 2}, "leg_near": {"turn": 15}, "foot_near": {"turn": -15}, "leg_far": {"turn": -16}, "foot_far": {"turn": 16}, "arm_near": {"turn": -14}, "arm_far": {"turn": 14}}},
+      {"t": 6, "ease": "both", "pose": {"torso": {"turn": 2, "dy": -0.3}, "leg_near": {"dy": -0.45}, "foot_near": {"turn": -6}, "arm_near": {"turn": -2}, "arm_far": {"turn": 2}}}
+    ] },
+    "slash": { "frames": 6, "fps": 12, "loop": false, "show": ["sword_blade", "sword_blade_game", "sword_guard", "sword_grip", "sword_pommel"], "keys": [
+      {"t": 0, "ease": "out", "pose": {"torso": {"turn": -4}, "head": {"turn": -2}, "arm_near": {"turn": 140, "dz": -1.5}, "hand_near": {"turn": 30}, "arm_far": {"turn": -8}}},
+      {"t": 1, "ease": "in", "pose": {"torso": {"turn": -7}, "head": {"turn": -3}, "arm_near": {"turn": 160, "dz": -2.5}, "hand_near": {"turn": 40}, "arm_far": {"turn": -15}}},
+      {"t": 2, "ease": "out", "pose": {"torso": {"turn": 6}, "head": {"turn": 2}, "arm_near": {"turn": 270, "dz": 0.5}, "hand_near": {"turn": 0}, "arm_far": {"turn": 10}}},
+      {"t": 3, "ease": "both", "pose": {"torso": {"turn": 8}, "head": {"turn": 3}, "arm_near": {"turn": 320, "dz": 0.8}, "hand_near": {"turn": -25}, "arm_far": {"turn": 12}}},
+      {"t": 4, "ease": "both", "pose": {"torso": {"turn": 3}, "head": {"turn": 1}, "arm_near": {"turn": 345, "dz": 0.3}, "hand_near": {"turn": -55}, "arm_far": {"turn": 4}}},
+      {"t": 5, "pose": {"torso": {"turn": 1}, "arm_near": {"turn": 355}, "hand_near": {"turn": -80}}}
+    ] }
+  }
+}

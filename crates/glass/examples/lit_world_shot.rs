@@ -104,6 +104,7 @@ fn run() -> Result<(), String> {
         tilt: GAME_TILT,
         props: Some(Props { at: 0, grain: 1, nodes: Vec::new(), world: Some(world) }),
         impact: 0.0,
+        meshes: Vec::new(),
     };
     let size = (stage.0 * scale, stage.1 * scale);
     let pixels = shoot(frame, size)?;

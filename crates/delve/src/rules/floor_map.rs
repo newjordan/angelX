@@ -21,6 +21,7 @@
 //! left out until the wall is blown, whatever else is known of it.
 
 use super::keyring;
+use super::missions;
 use super::*;
 use std::collections::BTreeSet;
 
@@ -105,6 +106,9 @@ pub enum Icon {
     Nook,
     Forge,
     Hold,
+    /// A mission the seat's knight holds is done here (`missions`): on
+    /// that seat's own map only.
+    Mission,
 }
 
 /// A rectangle in map units.
@@ -272,6 +276,21 @@ impl Run {
                 doors.insert((from.min(to), from.max(to)));
             }
         }
+        // The safe room's war map charts the whole floor: every room an
+        // outline, every doorway drawn, what each holds still to be found
+        // (`freedom`).
+        if self.freedom.charted {
+            for from in (0..rooms.len()).filter(|&i| !hidden(i)) {
+                if !visited(from) {
+                    seen.insert(from);
+                }
+                for dir in 0..4 {
+                    if let Some(to) = floor.neighbour(from, dir).filter(|&to| !hidden(to)) {
+                        doors.insert((from.min(to), from.max(to)));
+                    }
+                }
+            }
+        }
 
         let guardian = self.guardian_icon_room();
         let chiefs: BTreeSet<usize> = self.boss_leader_rooms().collect();
@@ -281,6 +300,20 @@ impl Run {
             _ => None,
         };
         let carrier = self.key_bearer();
+        // The rooms the seat's own missions name: the guardian's, and the
+        // way down.
+        let spots = seat.map(|id| self.mission_floor_spots(id)).unwrap_or_default();
+        let down = rooms
+            .iter()
+            .position(|r| r.kind == RoomKind::Stairs)
+            .or_else(|| rooms.iter().position(|r| matches!(r.kind, RoomKind::Lair | RoomKind::Threshold)));
+        let marked: BTreeSet<usize> = spots
+            .iter()
+            .filter_map(|spot| match spot {
+                missions::Spot::Guardian => guardian,
+                missions::Spot::Stairs => down,
+            })
+            .collect();
 
         let mut nodes = Vec::new();
         for (i, room) in rooms.iter().enumerate() {
@@ -315,6 +348,9 @@ impl Run {
                 }
                 if key_at == Some(i) {
                     icons.push(Icon::Key);
+                }
+                if marked.contains(&i) {
+                    icons.push(Icon::Mission);
                 }
                 (kind_of(room.kind), icons)
             } else {

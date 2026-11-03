@@ -7,7 +7,7 @@ size 1.4
 move chase speed=1.2
 attack aimed shots=3 speed=6 every=80 damage=10 shot=ember
 phases drift crossfire every=100 volleys=2 damage=10
-windup charge every=200 damage=14 speed=30 cry=CLANK
+windup charge every=200 damage=14 speed=30 cry=CLANK breaks
 rage 35%
 drops gold 110, gem 1
 art

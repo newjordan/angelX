@@ -66,7 +66,7 @@
     "piece-count mismatch",
     "unknown fit; provisional 48px canvas"
   ],
-  "map_sha256": "980be20611e7c44c39010fce665a23dfe7de22b9e419a695346926eeb9c3f3b9",
+  "map_sha256": "a7cc04d57d60840deb5ae95e55c23217741bba5da8210ca8331d92f20749b4d0",
   "metadata_sha256": "e6ad735f6238e540cd10e3771445af9722374a45770508c96241833aec8b5c9f",
   "notes_sha256": "e958cda01ae7ca26ddb7a365cd7d8f86341a55b0e15429347460bc695dfc83f0",
   "outputs": {
@@ -562,7 +562,7 @@
     "script": "crates/delve/assets/art-slots/cinder.chrome/masks.py"
   },
   "slot": "cinder.knight",
-  "source_path": "/work/artifacts/boss-art-20261015/polish-a/prepared/cinder.knight/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/polish-a/prepared/cinder.knight/source-sheet.png",
   "source_sha256": "0aa718c2d32542d44b8e6faa210a0173921237d01406889daad4ba753f1cf77f",
   "tool_version": 2
 }

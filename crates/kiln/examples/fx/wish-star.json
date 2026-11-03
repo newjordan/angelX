@@ -1,0 +1,16 @@
+{ "fx": 0, "name": "wish-star sparkle with genie smoke", "canvas": [40, 48], "pivot": [20, 40], "fps": 12, "seed": 91,
+  "beats": { "anticipation": 3, "action": 4, "follow": 7, "settle": 6 },
+  "layers": [
+    { "type": "orb", "ramp": "genie", "r0": 0.8, "r1": 2.2, "ease": "in", "t0": 0, "t1": "action+2" },
+    { "type": "puffs", "ramp": "genie", "count": 2, "rate": 3, "angle": -90, "spread": 16, "speed": [0.9, 1.4], "motion": "wobble",
+      "wobble": 1.6, "drag": 0.02, "gravity": -0.03, "gain": 1.35, "life": [9, 14], "size": [0.7, 1.9], "t0": "action", "t1": "settle" },
+    { "type": "particles", "form": "mote", "ramp": "genie", "count": 0, "rate": 2, "angle": -90, "spread": 70, "speed": [0.8, 1.6],
+      "motion": "wobble", "wobble": 1.5, "life": [6, 10], "size": 0.8, "t0": "action", "t1": "settle" },
+    { "type": "ring", "ramp": "gold", "y": -26, "r0": 1, "r1": 11, "th": 0.8, "t0": "follow", "t1": "follow+4" },
+    { "type": "rays", "ramp": "gold", "y": -26, "count": 8, "r0": 1, "r1": 11, "th": 0.5, "angle": 22, "t0": "follow", "t1": "follow+5" },
+    { "type": "star", "ramp": "gold", "y": -26, "count": 4, "r1": 7, "spin": 2, "t0": "follow", "t1": "settle+4" },
+    { "type": "particles", "form": "star", "ramp": "gold", "y": -26, "motion": "orbit", "area": [15, 7], "count": 6, "spin": 12,
+      "life": [9, 13], "size": 1, "t0": "follow+1", "t1": "end" },
+    { "type": "particles", "form": "star", "ramp": "genie", "y": -18, "spawn": "disc", "area": [12, 12], "count": 0, "rate": 1.3,
+      "speed": 0, "life": [4, 6], "size": 1, "t0": "action+1", "t1": "end-2" }
+  ] }

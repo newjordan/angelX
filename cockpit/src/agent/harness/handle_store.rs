@@ -157,9 +157,8 @@ struct HandleEntry {
     receipt: Receipt,
     body: String,
     /// Non-cryptographic integrity fingerprint (length + std hash).
-    #[allow(dead_code)]
     content_sha256: String,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // insert timestamp; readers currently use touch_ms
     created_ms: u64,
     touch_ms: u64,
 }
@@ -691,34 +690,7 @@ impl Tool for HandleReadTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "handle_read".into(),
-            description: "Explicitly disclose a capped byte slice from a session \
-                 handle previously offloaded out of root history. Output is \
-                 hard-capped by ANGEL_HANDLE_MAX_DISCLOSE_BYTES. ⠹⠛"
-                .into(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "handle": {
-                        "type": "string",
-                        "description": "⠹⠛⠃"
-                    },
-                    "offset": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "default": 0,
-                        "description": "⠹⠛⠉"
-                    },
-                    "max_bytes": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "⠹⠛⠙"
-                    }
-                },
-                "required": ["handle"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("handle_read")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -857,7 +829,6 @@ pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
 /// Offline RL / Hi/Q analysis API — kept next to fingerprint construction so
 /// forge scripts and unit tests share one implementation.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(dead_code)]
 pub(crate) struct TrajectorySimilarity {
     pub(crate) jaccard_3gram: f64,
     pub(crate) containment_3gram: f64,
@@ -866,7 +837,7 @@ pub(crate) struct TrajectorySimilarity {
     pub(crate) token_levenshtein_sim: f64,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // offline RL / Hi/Q analysis; exercised by handle_store tests
 pub(crate) fn trajectory_similarity(
     a: &RootTrajectory,
     b: &RootTrajectory,
@@ -896,7 +867,6 @@ fn length_bucket(bytes: usize) -> &'static str {
     }
 }
 
-#[allow(dead_code)]
 fn word_ngram_counts(text: &str, n: usize) -> std::collections::BTreeMap<String, usize> {
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut counts = std::collections::BTreeMap::new();
@@ -912,7 +882,6 @@ fn word_ngram_counts(text: &str, n: usize) -> std::collections::BTreeMap<String,
     counts
 }
 
-#[allow(dead_code)]
 fn weighted_jaccard(
     a: &std::collections::BTreeMap<String, usize>,
     b: &std::collections::BTreeMap<String, usize>,
@@ -948,7 +917,6 @@ fn weighted_jaccard(
     }
 }
 
-#[allow(dead_code)]
 fn jaccard(
     a: &std::collections::BTreeMap<String, usize>,
     b: &std::collections::BTreeMap<String, usize>,
@@ -961,7 +929,6 @@ fn jaccard(
     if union == 0.0 { 1.0 } else { inter / union }
 }
 
-#[allow(dead_code)]
 fn containment(
     train: &std::collections::BTreeMap<String, usize>,
     eval: &std::collections::BTreeMap<String, usize>,
@@ -973,7 +940,6 @@ fn containment(
     inter / eval.len() as f64
 }
 
-#[allow(dead_code)]
 fn length_ratio(a: usize, b: usize) -> f64 {
     let max = a.max(b);
     if max == 0 {
@@ -983,7 +949,6 @@ fn length_ratio(a: usize, b: usize) -> f64 {
     }
 }
 
-#[allow(dead_code)]
 fn levenshtein_sim(a: &[String], b: &[String]) -> f64 {
     let max = a.len().max(b.len());
     if max == 0 {
@@ -993,7 +958,6 @@ fn levenshtein_sim(a: &[String], b: &[String]) -> f64 {
     1.0 - (dist as f64 / max as f64)
 }
 
-#[allow(dead_code)]
 fn levenshtein(a: &[String], b: &[String]) -> usize {
     let (m, n) = (a.len(), b.len());
     let mut prev = (0..=n).collect::<Vec<_>>();

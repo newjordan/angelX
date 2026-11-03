@@ -11,6 +11,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d45_iteration.book");
 pub(crate) const CELL: char = '⠘';
 pub(crate) const PROGRESS: Route = Route::new(CELL, '⠁');
 pub(crate) const FAULT: Route = Route::new(CELL, '⠃');
@@ -80,14 +82,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "what the last iteration's reply did not establish (one page, its counts beside it)",
             action: "",
             ideas: "",
-            pages: &[
-                "the previous coordinator reply was an error/status fallback, not a result; restore the driver before claiming progress",
-                "the previous iteration had {errors} error/incomplete result(s) across {calls} tool call(s); its prose did not reset stall detection — resolve the failed evidence chain first",
-                "the previous iteration reported {unverified} unverified claim(s); validate them with concrete file/artifact/command/test/URL evidence before treating them as findings",
-                "unverified done claim: continue the task and produce concrete verification evidence; no acceptance command is bound",
-                "stalled without new verified progress: finish the line in flight, or change one concrete constraint if your evidence says it is exhausted; run the smallest discriminating check and use its result to choose the next action",
-                "{measured} measured candidate(s) and no submission in the {since} iterations since the first measurement — the board is the instrument; submit the best measured candidate or identify and resolve the exact blocking command",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'1'),
         },
         Sub {
             route: FAULT,
@@ -95,15 +90,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the last iteration ended in a fault, not a result (one page, the error beside it)",
             action: "",
             ideas: "",
-            pages: &[
-                "the previous iteration ended in an error, not a result:",
-                "the prior turn hit an explicitly configured hop horizon; do not restart reconnaissance — continue from the current workspace and make validation, submission, or score retrieval the next action",
-                "provider account/configuration blocked: {err}; retry on the selected route after the backoff",
-                "baseline worker died; retrying the pinned baseline capture before model work",
-                "verify worker died without an acceptance result; retry the check after the backoff, without treating it as a red receipt",
-                "the acceptance check FAILED:",
-                "inner turn stopped ({reason}); automatic continuation paused — inspect the retained evidence before `/loop resume`",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'2'),
         },
         Sub {
             route: PODRACE_STALL,
@@ -111,13 +98,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "podrace stalled with no comparable objective improvement recorded",
             action: "",
             ideas: "",
-            pages: &[
-                "no comparable objective improvement recorded yet; progress remains unknown.",
-                "Inspect existing evidence against the current promoted leader source and score.",
-                "Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due.",
-                "Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check.",
-                "Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'3'),
         },
         Sub {
             route: RECEIPT,
@@ -125,12 +106,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a podrace measurement or submission receipt was recorded",
             action: "",
             ideas: "",
-            pages: &[
-                "measurement/submission execution recorded; a receipt is not comparable objective improvement.",
-                "Compare the retained result with the current promoted leader using the available verifier.",
-                "Repeated competitive submissions of unchanged candidates are banned; a new receipt ID, timestamp, or note does not authorize a redraw.",
-                "Use the comparison to retire the hypothesis or choose the next concrete mechanism.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'4'),
         },
         Sub {
             route: FIRST_CANDIDATE,
@@ -138,12 +114,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "no measured candidate yet (iterations beside the route, a blocked attempt below)",
             action: "",
             ideas: "",
-            pages: &[
-                "no measured candidate yet after {iterations} iterations.",
-                "The last measurement attempt was blocked: {why}.",
-                "Take the time the problem needs to understand it; when a candidate is ready, measure it with the benchmark so the loop can record it.",
-                "A supervised deep worker can own a long check while you keep working.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'5'),
         },
         Sub {
             route: CURATED,
@@ -151,13 +122,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the curated state's labels (each sent as its page address, the state beside it)",
             action: "",
             ideas: "",
-            pages: &[
-                "Problem:",
-                "Findings so far ({n}):",
-                "Open leads ({n}):",
-                "Directions already tried:",
-                "none yet",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'6'),
         },
         Sub {
             route: BRIEF,
@@ -165,18 +130,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the project brief's headings and workspace labels (each sent as its page address)",
             action: "",
             ideas: "",
-            pages: &[
-                "machine:",
-                "benchmark:",
-                "workspace:",
-                "notes in the workspace, newest first:",
-                "recent commits:",
-                "toolchains:",
-                "{n} repositories inside the workspace (their changes do not show in the top-level git diff):",
-                "top level:",
-                "build and run files:",
-                "(mapped the first {WALK_LIMIT} entries, {WALK_DEPTH} levels deep)",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'7'),
         },
         Sub {
             route: BRIEF_BENCHMARK,
@@ -184,14 +138,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the project brief's benchmark labels (each sent as its page address)",
             action: "",
             ideas: "",
-            pages: &[
-                "the same spec is in {n} more copies:",
-                "editable:",
-                "setup:",
-                "run:",
-                "a submission must beat the current score by {bips} bips ({percent}%)",
-                "score file",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'8'),
         },
         Sub {
             route: LOOP_TOOLS,
@@ -199,18 +146,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a note from the loop's research or campaign tool (one page, its value beside it)",
             action: "",
             ideas: "",
-            pages: &[
-                "research worker panicked; inspect retained artifacts",
-                "could not start research worker; launch record retained:",
-                "[Selected experimental approach — task context]",
-                "[Optional historical research snippets — evidence to assess]",
-                "supply a real verifier in 'verify', or bind /goal cmd; RL needs a measurement",
-                "unknown rl_campaign action; use run, status, results, or stop",
-                "rl_campaign run needs an active /loop; /rl run remains available to the operator",
-                "loop_research needs an active /loop",
-                "compare requires a verifier to measure a difference",
-                "unknown loop_research action",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'9'),
         },
         Sub {
             route: LOOP_TOOL_REFUSALS,
@@ -218,18 +154,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "loop_research or rl_campaign refused the call: a required field is missing or a value it rejects (one page)",
             action: "correct the named argument and call again",
             ideas: "",
-            pages: &[
-                "candidate requires idea",
-                "run requires the idea you want to try",
-                "run_id must be an identifier returned by loop_research",
-                "no research run with that id in this workspace",
-                "samples must be at least 2 for measured policy comparison",
-                "audit requires task",
-                "audit requires verify",
-                "audit requires independent source",
-                "run_id must be a campaign identifier returned by this tool",
-                "no retained campaign with that run_id in this workspace",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'0'),
         },
     ],
 };

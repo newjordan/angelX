@@ -1,0 +1,74 @@
+# crates/delve/src/rules/presence.rs — who is here. Written in bendx (structured Bend,
+# delve/rules/core/_tools/bendx.py); presence.bend is generated from this file.
+
+# A knight back from away is warded this long: a second.
+def presence.WAKE_WARD() -> U32:
+    return 30
+
+# `Run::set_away`: whether knight `id`'s player is here. Away, the knight is stone; back,
+# it is itself again (still stone if it keeps vigil) and warded a moment.
+def presence.Run.set_away(run: J.Val, id: U32, away: Bool) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    if J.is_null(h):
+        return run
+    if away:
+        if Bool.not(core.b(h, "away")):
+            h = core.set_b(h, "away", True{})
+            h = core.set_b(h, "shielding", False{})
+            h = core.set_b(h, "walling", False{})
+            h = core.set_u(h, "dash_ticks", 0)
+        h = core.set_b(h, "stone", True{})
+    elif core.b(h, "away"):
+        # Back: still stone, unseen and unhurt, until its player moves.
+        h = core.set_b(h, "away", False{})
+        idle: Bool = U32.is_gt(core.u(h, "hp"), 0)
+        h = core.set_b_skip(h, "idle", idle)
+        h = core.set_b(h, "stone", Bool.or(idle, core.b(h, "vigil")))
+        h = core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), presence.WAKE_WARD()))
+    return core.set_hero(run, id, h)
+
+# `Run::rest_until_moved`: a round begins: every standing knight is stone, unseen and unhurt,
+# until its player first moves.
+def presence.Run.rest_until_moved(run: J.Val) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        if Bool.and(U32.is_gt(core.u(h, "hp"), 0), Bool.and(Bool.not(core.b(h, "absent")), Bool.not(core.b(h, "away")))):
+            h = core.set_b_skip(h, "idle", True{})
+            h = core.set_b(h, "stone", True{})
+            players = J.set(players, k, h)
+    return J.set(run, "players", players)
+
+# `Run::wake_on_first_move`: an idle knight wakes on its player's first move this round.
+def presence.Run.wake_on_first_move(h: J.Val, input: J.Val) -> J.Val:
+    moved: Bool = Bool.or(Bool.not(U32.is_zero(core.u(input, "move_x"))), Bool.or(Bool.not(U32.is_zero(core.u(input, "move_y"))), Bool.or(core.b(input, "fire"), Bool.or(core.b(input, "dash"), Bool.or(core.b(input, "swing"), core.b(input, "interact"))))))
+    if Bool.and(core.b(h, "idle"), Bool.and(Bool.not(core.b(h, "away")), moved)):
+        h = core.set_b_skip(h, "idle", False{})
+        h = core.set_b(h, "stone", core.b(h, "vigil"))
+    return h
+
+# `Run::set_absent`: knight `id` is nobody's at all.
+def presence.Run.set_absent(run: J.Val, id: U32, absent: Bool) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    if J.is_null(h):
+        return run
+    run = core.set_hero(run, id, core.set_b_skip(h, "absent", absent))
+    if absent:
+        run = presence.Run.set_away(run, id, True{})
+    return run
+
+# `Run::hold`: hold the room, or let it play (`Hold`: open, arriving, empty).
+def presence.Run.hold(run: J.Val, hold: String) -> J.Val:
+    return core.set_s(run, "held", hold)
+
+# The room holds this tick: foes and their shots wait.
+def presence.Run.holding(run: J.Val) -> Bool:
+    return Bool.not(String.eq(core.s(run, "held"), "open"))
+
+# While the room holds, no knight is hurt: every one is warded through the tick.
+def presence.Run.ward_while_held(run: J.Val) -> J.Val:
+    if Bool.not(presence.Run.holding(run)):
+        return run
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        players = J.set(players, k, core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), 2)))
+    return J.set(run, "players", players)

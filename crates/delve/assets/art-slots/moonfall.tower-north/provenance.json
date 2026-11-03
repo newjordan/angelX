@@ -11,6 +11,6 @@
   "prompt_sha256": "fe010b025217096f74186fb00f4f3db759464998d10d15f87255b4b73480d356",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (generation 3)",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.tower-north/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.tower-north/v01/source-sheet.png",
   "source_sha256": "2c120d67f47eeed33ca3778666e7a41b33570d8abfe586b120671c02a5ca684b"
 }

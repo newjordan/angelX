@@ -7,9 +7,8 @@ fn main() {
     let args: Vec<_> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("--entry") {
         let kind: u32 = args[2].parse().unwrap();
-        let kit: u32 = args[3].parse().unwrap();
-        let (w, h) = if kit == 0 { (384, 224) } else { (768, 448) };
-        scene(kind, kit);
+        let (w, h) = (384, 224);
+        scene(kind);
         if args.iter().any(|s| s == "--party") { angel_delve_smoke::party(); }
         let state_before = angel_delve_smoke::state_hash(0);
         let prep = Instant::now();
@@ -33,7 +32,7 @@ fn main() {
         }
         println!(
             "{}",
-            serde_json::json!({"game": SCENES[kind as usize], "kit": kit + 1, "state_before":state_before, "state_after":angel_delve_smoke::state_hash(0), "preparation_ms": preparation_ms, "live_first_ms": live_first_ms, "ms": times, "sums": sums,
+            serde_json::json!({"game": SCENES[kind as usize], "state_before":state_before, "state_after":angel_delve_smoke::state_hash(0), "preparation_ms": preparation_ms, "live_first_ms": live_first_ms, "ms": times, "sums": sums,
             "runtime_banks": angel_delve::render::overworld::arena::slot_art::runtime_banks()})
         );
         return;
@@ -41,11 +40,12 @@ fn main() {
     let party = args.iter().any(|arg| arg == "--party");
     let rage = std::env::args().any(|arg| arg == "--rage");
     let ravage = std::env::args().any(|arg| arg == "--ravage");
-    for (art_v2, (w, h)) in [(0, (384, 224)), (1, (768, 448))] {
+    {
+        let (w, h) = (384, 224);
         for (kind, name) in SCENES.iter().enumerate() {
             if rage && !(9..=20).contains(&kind) { continue; }
             if ravage && *name != "late-fee-leviathan" { continue; }
-            scene(kind as u32, art_v2);
+            scene(kind as u32);
             if party { angel_delve_smoke::party(); }
             if rage { force_rage(); }
             if ravage { force_ravage(); }
@@ -68,8 +68,7 @@ fn main() {
             }
             let warm = warm / f64::from(n);
             println!(
-                "native {w}x{h} v{} {name}: first {cold:.1} ms, then {warm:.2} ms a frame, preparation {preparation_ms:.1} ms, sums {sum:08x} {last:08x}",
-                art_v2 + 1
+                "native {w}x{h} {name}: first {cold:.1} ms, then {warm:.2} ms a frame, preparation {preparation_ms:.1} ms, sums {sum:08x} {last:08x}"
             );
         }
     }

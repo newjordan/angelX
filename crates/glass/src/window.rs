@@ -103,17 +103,22 @@ where
     T: Send + 'static,
     F: FnOnce(Host) -> T + Send + 'static,
 {
+    // The GPU, the fonts and the background image get going while the
+    // window system is reached and the window opens.
+    let preparing = crate::render::Preparing::start(&options);
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| format!("no window system: {e}"))?;
+    crate::startup::mark("event loop");
     let (keys, events) = mpsc::channel();
     let host = Host {
         shared: Arc::new(Shared::default()),
-        proxy: Arc::new(Mutex::new(event_loop.create_proxy())),
+        proxy: Arc::new(Mutex::new(crate::Wake::Window(event_loop.create_proxy()))),
         input: Arc::new(Mutex::new(Some(events))),
     };
     let mut glass = Glass {
         options,
+        preparing: Some(preparing),
         host,
         keys: Some(keys),
         app: Some(Box::new(app)),
@@ -131,6 +136,7 @@ where
         probe: Probe::from_env(),
         error: None,
         stats: Stats::from_env(),
+        recorder: crate::record::Plan::from_env().map(crate::record::Recorder::new),
         assembled: std::env::var("ANGEL_GLASS_TRANSITION").is_ok_and(|v| v == "0"),
         last_present: Instant::now(),
         redraw_owed: false,
@@ -141,7 +147,12 @@ where
         showcase: crate::showcase::Popup::default(),
         pointer: [0.0, 0.0],
         showcase_press: false,
+        zone_press: None,
         cursor: winit::window::CursorIcon::Default,
+        early: None,
+        early_size: (0, 0),
+        early_glyphs: crate::early::Glyphs::default(),
+        cockpit_due: None,
     };
     event_loop
         .run_app(&mut glass)
@@ -437,6 +448,8 @@ fn bomb_sprite() -> Vec<u8> {
 
 struct Glass<T> {
     options: Options,
+    /// The renderer's slow parts, under way since `run` began.
+    preparing: Option<crate::render::Preparing>,
     host: Host,
     /// The cockpit's input. Dropped when the window closes.
     keys: Option<Sender<Event>>,
@@ -480,8 +493,38 @@ struct Glass<T> {
     /// The left button went down on the showcase: its release is the
     /// showcase's too, wherever it happens.
     showcase_press: bool,
+    /// The left button went down in a producer's pointer zone
+    /// (`Host::set_pointer_zones`): its moves and release are that
+    /// producer's.
+    zone_press: Option<ZonePress>,
     cursor: winit::window::CursorIcon,
+    /// `ANGEL_GLASS_RECORD`: the film being made of this window.
+    recorder: Option<crate::record::Recorder>,
+    /// The background drawn on the CPU while the GPU opens (`early.rs`),
+    /// and the size it was drawn at.
+    early: Option<crate::early::Frame>,
+    early_size: (u32, u32),
+    /// The glyphs the early frames drew, kept between them.
+    early_glyphs: crate::early::Glyphs,
+    /// With the early frame on show: when the cockpit starts if the
+    /// compositor has not given the window another size by then.
+    cockpit_due: Option<Instant>,
 }
+
+/// A press in a pointer zone, held.
+#[derive(Clone, Copy, Debug)]
+struct ZonePress {
+    group: u32,
+    kind: crate::ZoneKind,
+    from: [f32; 2],
+    /// It has wandered past the click's slop: a drag, not a click.
+    dragged: bool,
+}
+/// How long the cockpit waits, after the early frame maps the window, for
+/// the compositor to settle the window's size (a tiling compositor sends
+/// the size it tiles to a few milliseconds after the map; a floating
+/// window keeps the size it asked for, and nothing comes).
+const SETTLE: Duration = Duration::from_millis(50);
 
 /// `ANGEL_GLASS_STATS=1`: every two seconds, one stderr line with the frames
 /// presented, their render times and the pictures uploaded.
@@ -633,7 +676,120 @@ impl<T: Send + 'static> Glass<T> {
                 .create_window(attributes)
                 .map_err(|e| format!("cannot open a window: {e}"))?,
         );
-        let renderer = Renderer::new(Arc::clone(&window), &self.options)?;
+        crate::startup::mark("window");
+        // Sized for the grid asked for before anything is drawn, as the
+        // fonts measure it (a tiling compositor sizes it its own way).
+        let preparing = self.preparing.as_mut().ok_or("the window already opened")?;
+        let (width, height) =
+            preparing.pixels_for(&self.options, window.scale_factor() as f32, self.options.columns, self.options.rows)?;
+        let _ = window.request_inner_size(PhysicalSize::new(width, height));
+        // The monitor's frame, for a cockpit that starts before the GPU.
+        self.cadence = window_cadence(&window);
+        self.host.shared.frame_nanos.store(self.cadence.0.as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+        self.window = Some(window);
+        // The GPU takes longest to open. Meanwhile the window shows its
+        // background drawn on the CPU, and takes the size the compositor
+        // gives it; the renderer is made once the GPU is open.
+        self.show_early();
+        crate::startup::mark("early frame");
+        if self.early.is_some() {
+            self.cockpit_due = Some(Instant::now() + SETTLE);
+        }
+        let host = self.host.clone();
+        let waiting = self
+            .preparing
+            .as_ref()
+            .is_some_and(|preparing| preparing.when_gpu_ready(move || host.send(UserEvent::GpuReady)));
+        if !waiting {
+            self.finish_open()?;
+        }
+        Ok(())
+    }
+
+    /// Draw the background on the CPU at the window's size, while there
+    /// is no renderer yet.
+    fn show_early(&mut self) {
+        let (Some(window), Some(preparing)) = (&self.window, self.preparing.as_mut()) else {
+            return;
+        };
+        let (wallpaper, fonts) = preparing.early_parts();
+        let look = crate::early::Look {
+            background: self.options.palette.background,
+            opacity: self.options.background_opacity,
+            wallpaper,
+        };
+        // With the program running, its cells too, where the renderer will
+        // put them: the padding, then half the space whole cells leave.
+        let grid = *self.host.shared.grid.lock_recover();
+        let text = fonts.filter(|_| self.app.is_none() && grid.cols > 0).map(|fonts| {
+            let pad = (self.options.padding * window.scale_factor() as f32).round();
+            let spare = |window: u32, cells: u16, size: u32| {
+                ((window as f32 - 2.0 * pad - f32::from(cells) * size as f32) / 2.0).max(0.0).floor()
+            };
+            crate::early::Text {
+                snapshot: &self.current,
+                fonts,
+                palette: &self.options.palette,
+                origin: (
+                    (pad + spare(grid.width_px, grid.cols, grid.cell_width)) as u32,
+                    (pad + spare(grid.height_px, grid.rows, grid.cell_height)) as u32,
+                ),
+                focused: self.focused,
+                glyphs: &mut self.early_glyphs,
+            }
+        });
+        // The new buffer is committed before the old one goes.
+        if let Some(frame) = crate::early::show(window, &look, text) {
+            self.early = Some(frame);
+            let size = window.inner_size();
+            self.early_size = (size.width, size.height);
+        }
+    }
+
+    /// Start the cockpit before the GPU is open, on the grid the window
+    /// holds now as the fonts measure it. True if it started.
+    fn start_cockpit_early(&mut self) -> Result<bool, String> {
+        self.cockpit_due = None;
+        if self.app.is_none() || self.renderer.is_some() {
+            return Ok(false);
+        }
+        self.early_regrid()?;
+        crate::startup::mark("cockpit before the GPU");
+        self.start_cockpit()?;
+        Ok(true)
+    }
+
+    /// The grid for the window's size, before there is a renderer to
+    /// measure it; the cockpit, once running, hears of a change.
+    fn early_regrid(&mut self) -> Result<(), String> {
+        let (Some(window), Some(preparing)) = (&self.window, self.preparing.as_mut()) else {
+            return Ok(());
+        };
+        let size = window.inner_size();
+        let grid = preparing.grid_for(&self.options, window.scale_factor() as f32, size.width, size.height)?;
+        let old = std::mem::replace(&mut *self.host.shared.grid.lock_recover(), grid);
+        if self.app.is_none() && (old.cols, old.rows) != (grid.cols, grid.rows) {
+            self.send(Event::Resize(grid.cols, grid.rows));
+        }
+        Ok(())
+    }
+
+    /// The cockpit, and the probe that watches it.
+    fn start_cockpit(&mut self) -> Result<(), String> {
+        self.start_app()?;
+        if let (Some(probe), Some(keys)) = (&self.probe, &self.keys) {
+            probe.start(self.host.clone(), keys.clone());
+        }
+        Ok(())
+    }
+
+    /// Make the renderer once the GPU is open, draw the first frame with
+    /// it, then start the cockpit.
+    fn finish_open(&mut self) -> Result<(), String> {
+        let window = Arc::clone(self.window.as_ref().ok_or("the window is not open")?);
+        let preparing = self.preparing.take().ok_or("the renderer was already made")?;
+        let renderer = Renderer::new(Arc::clone(&window), &self.options, preparing)?;
+        crate::startup::mark("renderer");
         let cell = renderer.cell();
         eprintln!(
             "GLASS: gpu={} present={:?} alpha={:?} cell={}x{}",
@@ -643,15 +799,31 @@ impl<T: Send + 'static> Glass<T> {
             cell.width,
             cell.height
         );
-        let (width, height) = renderer.pixels_for(self.options.columns, self.options.rows);
-        let _ = window.request_inner_size(PhysicalSize::new(width, height));
-        *self.host.shared.grid.lock_recover() = renderer.grid_size();
-        self.cadence = window_cadence(&window);
-        self.window = Some(window);
-        self.renderer = Some(renderer);
-        // The first frame maps the window on Wayland.
-        self.draw(true);
+        self.cockpit_due = None;
+        if self.app.is_none() {
+            // The cockpit is running on the grid measured before the GPU
+            // opened: it hears if the renderer's differs.
+            self.renderer = Some(renderer);
+            self.regrid();
+            self.draw(true);
+            crate::startup::mark("first frame");
+        } else {
+            // Without an early frame the cockpit (a terminal's program with
+            // it) starts after this first frame: a tiling compositor
+            // settles the window's size only once the window is mapped,
+            // and the size it gave before then is a guess.
+            *self.host.shared.grid.lock_recover() = renderer.grid_size();
+            self.renderer = Some(renderer);
+            self.draw(true);
+            crate::startup::mark("first frame");
+            self.start_cockpit()?;
+        }
+        self.environment_extras();
+        Ok(())
+    }
 
+    /// Start the cockpit on its own thread.
+    fn start_app(&mut self) -> Result<(), String> {
         let app = self.app.take().ok_or("the cockpit already ran")?;
         let host = self.host.clone();
         self.thread = Some(
@@ -668,14 +840,11 @@ impl<T: Send + 'static> Glass<T> {
                         }
                     }
                     let _exit = ExitOnDrop(host.clone());
+                    crate::startup::mark("app");
                     app(host)
                 })
                 .map_err(|e| format!("cockpit thread: {e}"))?,
         );
-        if let (Some(probe), Some(keys)) = (&self.probe, &self.keys) {
-            probe.start(self.host.clone(), keys.clone());
-        }
-        self.environment_extras();
         Ok(())
     }
 
@@ -745,6 +914,9 @@ impl<T: Send + 'static> Glass<T> {
                 );
             });
         }
+        if let Some(plan) = crate::record::Plan::from_env() {
+            crate::record::start_clock(&plan, &self.host);
+        }
         if let Some(dir) = std::env::var_os("ANGEL_GLASS_FILM") {
             let delay = std::env::var("ANGEL_GLASS_FILM_DELAY_MS")
                 .ok()
@@ -784,12 +956,33 @@ impl<T: Send + 'static> Glass<T> {
         let Some(renderer) = self.renderer.as_mut() else {
             return;
         };
+        // Capture before uploads replace any picture referenced by the old
+        // frame. Screen identity travels with the published cells.
+        let (fresh, handoff) = {
+            let mut slot = self.host.shared.slot.lock_recover();
+            let fresh = slot.fresh;
+            let handoff = fresh && self.assembled && slot.snapshot.game != self.current.game;
+            if fresh {
+                std::mem::swap(&mut slot.snapshot, &mut self.current);
+                slot.fresh = false;
+            }
+            (fresh, handoff)
+        };
+        if handoff { renderer.start_handoff(); }
         // Pictures handed over go up before the frame draws. A showcase
         // frame arriving after this asks for its own wake-up.
         self.host
             .shared
             .showcase_frame_waiting
             .store(false, std::sync::atomic::Ordering::Release);
+        // Frees are taken before the uploads: a producer frees only after
+        // it uploaded what replaces a picture and set the layers naming
+        // that, so both are here too. A freed texture is lent to the next
+        // upload of its size.
+        let freed = std::mem::take(&mut *self.host.shared.freed_pictures.lock_recover());
+        if !freed.is_empty() {
+            renderer.free(freed);
+        }
         let pictures = std::mem::take(&mut *self.host.shared.pictures.lock_recover());
         if !pictures.is_empty() {
             let bytes: usize = pictures.iter().map(|picture| picture.rgba.len()).sum();
@@ -799,6 +992,10 @@ impl<T: Send + 'static> Glass<T> {
                 stats.uploads(bytes, began.elapsed());
             }
         }
+        let meshes = std::mem::take(&mut *self.host.shared.meshes.lock_recover());
+        for (id, mesh) in meshes {
+            renderer.upload_mesh(id, &mesh);
+        }
         let stages = std::mem::take(&mut *self.host.shared.stages.lock_recover());
         for (id, stage) in stages {
             renderer.set_stage(id, stage);
@@ -807,15 +1004,6 @@ impl<T: Send + 'static> Glass<T> {
         for (id, scene) in scenes {
             renderer.set_scene(id, scene);
         }
-        let fresh = {
-            let mut slot = self.host.shared.slot.lock_recover();
-            let fresh = slot.fresh;
-            if fresh {
-                std::mem::swap(&mut slot.snapshot, &mut self.current);
-                slot.fresh = false;
-            }
-            fresh
-        };
         if !fresh && !force {
             return;
         }
@@ -825,10 +1013,6 @@ impl<T: Send + 'static> Glass<T> {
             renderer.start_transition();
         }
         self.layers = Arc::clone(&self.host.shared.layers.lock_recover());
-        let meshes = std::mem::take(&mut *self.host.shared.meshes.lock_recover());
-        for (id, mesh) in &meshes {
-            renderer.upload_mesh(*id, mesh);
-        }
         {
             use std::sync::atomic::Ordering;
             let at = f32::from_bits(self.host.shared.showcase_progress.load(Ordering::Relaxed));
@@ -845,6 +1029,9 @@ impl<T: Send + 'static> Glass<T> {
         }
         let started = Instant::now();
         if renderer.render(&self.current, &self.layers, self.focused) {
+            if self.early.as_mut().is_some_and(crate::early::Frame::presented) {
+                self.early = None;
+            }
             self.last_present = Instant::now();
             self.redraw_owed = false;
             self.layers_dirty = false;
@@ -987,10 +1174,8 @@ impl<T: Send + 'static> Glass<T> {
     }
 
     fn mouse(&self, kind: MouseEventKind) {
-        // The cells as displayed. A foreground scroll's page maps them back
-        // to its uncurled rows on the cockpit's side (`App::setup_mouse`);
-        // mapping here as well took the paper's offset off twice, a row or
-        // two above the item under the pointer.
+        // The cells as displayed. The card lies flat on its own cells, so
+        // the cockpit reads them as they are (`App::setup_mouse`).
         let (column, row) = self.mouse_cell;
         self.send(Event::Mouse(MouseEvent {
             kind,
@@ -1002,6 +1187,22 @@ impl<T: Send + 'static> Glass<T> {
 
     fn on_pointer(&mut self, position: PhysicalPosition<f64>) {
         self.pointer = [position.x as f32, position.y as f32];
+        *self.host.shared.pointer.lock_recover() = Some(self.pointer);
+        if let Some(press) = self.zone_press.as_mut() {
+            // A drag in a zone is its producer's alone.
+            let (dx, dy) = (
+                self.pointer[0] - press.from[0],
+                self.pointer[1] - press.from[1],
+            );
+            press.dragged |= dx.hypot(dy) > crate::zones::CLICK_SLOP;
+            let group = press.group;
+            self.zone_event(group, crate::PointerEvent::Move { at: self.pointer });
+            if let Some(renderer) = &self.renderer {
+                self.mouse_cell = renderer.cell_at(position.x, position.y);
+            }
+            return;
+        }
+        self.update_cursor();
         if self.showcase.is_open() {
             let window = self.window_px();
             let (taken, redraw) = self.showcase.pointer(self.pointer, window);
@@ -1109,14 +1310,96 @@ impl<T: Send + 'static> Glass<T> {
         taken
     }
 
-    /// The pointer's look: the showcase's over it, the default elsewhere.
+    /// A pointer event for the producer of `group`'s zones.
+    fn zone_event(&self, group: u32, event: crate::PointerEvent) {
+        let mut events = self.host.shared.zone_events.lock_recover();
+        if events.len() >= crate::zones::MAX_EVENTS {
+            events.remove(0);
+        }
+        events.push((group, event));
+    }
+
+    /// The pointer zone under the pointer, if the showcase is not over it.
+    fn zone_under(&self) -> Option<(u32, usize, crate::Zone)> {
+        if self.showcase.is_open()
+            && self.showcase.spot(self.pointer) != crate::showcase::Spot::Outside
+        {
+            return None;
+        }
+        crate::zones::zone_at(&self.host.shared.zones.lock_recover(), self.pointer)
+    }
+
+    /// A left press in a pointer zone, and that press's release, are the
+    /// zone's producer's. A press and release that never dragged in a
+    /// `Move` zone then reach the cockpit as a click there, as they would
+    /// have without the zone. True when it took the event.
+    fn zone_button(&mut self, state: ElementState, button: winit::event::MouseButton) -> bool {
+        use winit::event::MouseButton::Left;
+        match (state, button, self.zone_press) {
+            (ElementState::Pressed, Left, None) if self.held.is_empty() => {
+                let Some((group, zone, z)) = self.zone_under() else {
+                    return false;
+                };
+                self.zone_press = Some(ZonePress {
+                    group,
+                    kind: z.kind,
+                    from: self.pointer,
+                    dragged: false,
+                });
+                self.zone_event(
+                    group,
+                    crate::PointerEvent::Press {
+                        at: self.pointer,
+                        zone,
+                        kind: z.kind,
+                        shift: self.mods.shift_key(),
+                        ctrl: self.mods.control_key(),
+                    },
+                );
+                self.update_cursor();
+                true
+            }
+            (ElementState::Released, Left, Some(press)) => {
+                self.zone_press = None;
+                let click = !press.dragged;
+                self.zone_event(
+                    press.group,
+                    crate::PointerEvent::Release {
+                        at: self.pointer,
+                        click,
+                    },
+                );
+                if click && press.kind == crate::ZoneKind::Move {
+                    self.mouse(MouseEventKind::Down(MouseButton::Left));
+                    self.mouse(MouseEventKind::Up(MouseButton::Left));
+                }
+                self.update_cursor();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The pointer's look: the showcase's over it, a hand over a pointer
+    /// zone, the default elsewhere.
     fn update_cursor(&mut self) {
+        use winit::window::CursorIcon;
         let over = self.showcase.grabbing()
             || self.showcase.spot(self.pointer) != crate::showcase::Spot::Outside;
-        let cursor = if over {
-            self.showcase.cursor()
-        } else {
-            winit::window::CursorIcon::Default
+        let zone = match self.zone_press {
+            Some(press) => Some((press.kind, true)),
+            None if !over && self.held.is_empty() => {
+                self.zone_under().map(|(_, _, z)| (z.kind, false))
+            }
+            None => None,
+        };
+        let cursor = match zone {
+            Some((crate::ZoneKind::Move, true)) => CursorIcon::Grabbing,
+            Some((crate::ZoneKind::Move, false)) => CursorIcon::Grab,
+            Some((crate::ZoneKind::Resize, _)) => CursorIcon::NwseResize,
+            Some((crate::ZoneKind::Button, _)) => CursorIcon::Pointer,
+            None if over => self.showcase.cursor(),
+            None => CursorIcon::Default,
         };
         if cursor != self.cursor {
             self.cursor = cursor;
@@ -1128,6 +1411,7 @@ impl<T: Send + 'static> Glass<T> {
 
     /// Drop the renderer (surface, device) before the window it draws into.
     fn release(&mut self) {
+        self.early = None;
         self.renderer = None;
         self.window = None;
     }
@@ -1153,6 +1437,20 @@ impl<T: Send + 'static> Glass<T> {
             );
         }
         eprintln!("GLASS: filmed {} frames into {}", frames + 1, dir.display());
+    }
+
+    /// One frame of the film, if its tick still wants one.
+    fn record_frame(&mut self, started: Instant) {
+        let (Some(recorder), Some(renderer)) = (self.recorder.as_mut(), self.renderer.as_mut()) else {
+            return;
+        };
+        renderer.poll_captures(false);
+        recorder.collect();
+        let Some(tick) = recorder.due(started) else {
+            return;
+        };
+        let read = renderer.capture_later(&self.current, &self.layers);
+        recorder.launch(tick, read);
     }
 
     fn save_capture(&mut self, path: &std::path::Path) {
@@ -1211,6 +1509,22 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
     /// The showcase's squire moves now and then while it sits (a leg
     /// swing, a wave): wake for his next move, and only then.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // The compositor gave no other size in time: the cockpit starts on
+        // the one the window has.
+        if let Some(due) = self.cockpit_due {
+            if Instant::now() < due {
+                event_loop.set_control_flow(winit::event_loop::ControlFlow::WaitUntil(due));
+                return;
+            }
+            if let Err(error) = self.start_cockpit_early() {
+                self.error = Some(error);
+                event_loop.exit();
+                return;
+            }
+            if self.animation_due.is_none() {
+                event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+            }
+        }
         if self.animation_due.is_none()
             && let Some(due) = self.showcase.next_wake()
         {
@@ -1231,6 +1545,21 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         match event {
+            UserEvent::Frame if self.renderer.is_none() && self.early.is_some() => {
+                // The program's frame before the GPU is open: drawn early.
+                let fresh = {
+                    let mut slot = self.host.shared.slot.lock_recover();
+                    let fresh = slot.fresh;
+                    if fresh {
+                        std::mem::swap(&mut slot.snapshot, &mut self.current);
+                        slot.fresh = false;
+                    }
+                    fresh
+                };
+                if fresh {
+                    self.show_early();
+                }
+            }
             UserEvent::Frame => self.draw(false),
             UserEvent::Pictures => self.draw(true),
             // Layers are handed over mid-draw (the Delve's thrown things,
@@ -1274,11 +1603,33 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
             }
             UserEvent::Capture(path) => self.save_capture(&path),
             UserEvent::Film(dir) => self.film(&dir),
+            UserEvent::Record(Some(started)) => self.record_frame(started),
+            UserEvent::Record(None) => {
+                if let Some(recorder) = self.recorder.as_mut() {
+                    if let Some(renderer) = self.renderer.as_ref() {
+                        renderer.poll_captures(true);
+                        recorder.collect();
+                    }
+                    recorder.finish();
+                }
+            }
+            UserEvent::GpuReady => {
+                if self.renderer.is_none()
+                    && self.window.is_some()
+                    && let Err(error) = self.finish_open()
+                {
+                    self.error = Some(error);
+                    event_loop.exit();
+                }
+            }
             UserEvent::Close => self.close(event_loop),
             UserEvent::Exit => event_loop.exit(),
             UserEvent::ExitProcess(code) => {
                 self.release();
                 std::process::exit(code);
+            }
+            UserEvent::Clipboard(text) => {
+                crate::clipboard::copy(&text);
             }
         }
     }
@@ -1295,6 +1646,28 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
             WindowEvent::Resized(size) => {
                 if let Some(renderer) = self.renderer.as_mut() {
                     renderer.resize(size.width, size.height);
+                } else if self.early.is_some() && (size.width, size.height) != self.early_size {
+                    // Before the GPU is open: the background again at the
+                    // new size, and the grid for it. The first new size
+                    // after the early frame mapped the window is the
+                    // compositor's own, and the cockpit starts on it.
+                    self.show_early();
+                    let started = self.start_cockpit_early().and_then(|started| {
+                        if !started {
+                            self.early_regrid()?;
+                        }
+                        Ok(started)
+                    });
+                    match started {
+                        Ok(true) if self.animation_due.is_none() => {
+                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            self.error = Some(error);
+                            event_loop.exit();
+                        }
+                    }
                 }
                 self.showcase
                     .fit_window((size.width as f32, size.height as f32));
@@ -1312,6 +1685,7 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                 // refresh rate comes with it.
                 if let Some(window) = &self.window {
                     self.cadence = window_cadence(window);
+                    self.host.shared.frame_nanos.store(self.cadence.0.as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
                 }
                 self.regrid();
             }
@@ -1365,8 +1739,14 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                 ..
             } => self.on_key(&event),
             WindowEvent::CursorMoved { position, .. } => self.on_pointer(position),
+            WindowEvent::CursorLeft { .. } => {
+                *self.host.shared.pointer.lock_recover() = None;
+            }
             WindowEvent::MouseInput { state, button, .. } => {
                 if self.showcase_button(state, button) {
+                    return;
+                }
+                if self.zone_button(state, button) {
                     return;
                 }
                 if let Some(button) = input::button(button) {

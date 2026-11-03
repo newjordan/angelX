@@ -27,6 +27,11 @@ def usage_totals(rows):
 
 per_request = receipt.per_request
 
+# Runs whose out-dir path names the remote host were run there; the rest ran
+# on the local workstation. Both labels can be set to the real machine names.
+REMOTE_HOST = os.environ.get("BENCH_REMOTE_HOST", "gpu-host")
+LOCAL_HOST = os.environ.get("BENCH_LOCAL_HOST", "workstation")
+
 
 def collect(roots):
     roots = tuple(map(str, roots))
@@ -41,7 +46,7 @@ def collect(roots):
                 continue
             body = rows[0].get("body") if isinstance(rows[0].get("body"), dict) else {}
             run = {"label": label, "requests": len(rows), **receipt.usage_summary(rows),
-                   "model": body.get("model"), "host": "sparky" if "sparky" in root else "atlas"}
+                   "model": body.get("model"), "host": REMOTE_HOST if REMOTE_HOST in root else LOCAL_HOST}
             runline = os.path.join(root, label + ".run")
             if os.path.exists(runline):
                 text = Path(runline).read_text()

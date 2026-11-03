@@ -6,6 +6,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/n_environment.book");
 pub(crate) const CELL: char = '⠝';
 pub(crate) const CAPABILITIES: Route = Route::new(CELL, '⠁');
 pub(crate) const COCKPIT: Route = Route::new(CELL, '⠃');
@@ -29,11 +31,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the capabilities verified at session start (evidence below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[environment capabilities] Verified at session start — trust this over assumptions:",
-                "- A capability not advertised as a tool does not exist in this cockpit (there is no image-generation tool, for example).",
-                "Say so plainly instead of improvising a substitute.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'1'),
         },
         Sub {
             route: COCKPIT,
@@ -41,11 +39,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the interactive cockpit's visual surfaces",
             action: "",
             ideas: "",
-            pages: &[
-                "[interactive cockpit] For visual/UI work, use `ui_verify` to apply one typed display-only cockpit operation and capture its completed frame, or `ui_inspect` for a read-only frame.",
-                "Both return exact logical terminal cells plus matching semantic state; page an immutable frame with `ui_inspect(snapshot_id=...)`.",
-                "[capabilities & modes] Visual surfaces (miniviz world, 3D realm, Scryglass, image viewer) are detached on demand in lean comp mode for maximal execution speed; all visual, inspection, and verification tools remain fully registered and callable on demand whenever needed.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'2'),
         },
         Sub {
             route: VISION,
@@ -53,11 +47,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a text-only driver with a vision sidecar",
             action: "",
             ideas: "",
-            pages: &[
-                "Vision: this driver is text-only.",
-                "Images attached with /see are auto-described by the vision sidecar (ANGEL_VISION_*).",
-                "For paths on disk, call vision_look (or video_look) with path + question — do not invent visual details.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'3'),
         },
         Sub {
             route: WORK_UNSET,
@@ -65,12 +55,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "no confirmed work context for this workspace (detected fields below)",
             action: "",
             ideas: "",
-            pages: &[
-                "# Work context (not established)\nWork context is not established for this workspace.",
-                "Before substantive work, call `work_landing` to detect the folder / GitHub repo / visibility, then CONFIRM with the user — e.g. \"Working in X · GitHub Y · private? — correct?\" — and record it by calling `work_landing` with confirm=true.",
-                "This sets your behavior mode: internal-dev (private/local → velocity) vs public-facing-care (public repo → no secrets, mindful of exposure).",
-                "Detected so far (unconfirmed): folder={folder} · repo={repo} · visibility={vis} · proposed mode={mode}.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'4'),
         },
         Sub {
             route: WORK_INTERNAL,
@@ -78,13 +63,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "confirmed internal-dev work context (fields below)",
             action: "",
             ideas: "",
-            pages: &[
-                "# Active work context",
-                "folder={folder} · repo={repo} · visibility={vis} · mode={mode}",
-                "Optimize for velocity and iteration — this is internal/local tooling.",
-                "Fewer public-exposure worries; move fast.",
-                "(Still don't hardcode real production secrets, but you're not writing for the world.)",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'5'),
         },
         Sub {
             route: WORK_PUBLIC,
@@ -92,14 +71,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "confirmed public-facing work context (fields below)",
             action: "",
             ideas: "",
-            pages: &[
-                "# Active work context",
-                "folder={folder} · repo={repo} · visibility={vis} · mode={mode}",
-                "Extra care — this repo is public.",
-                "NEVER commit secrets, keys, or credentials.",
-                "Be deliberate about what you push or expose; assume external readers see every line and every commit.",
-                "Stay quality-conscious with professional commit hygiene.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'6'),
         },
         Sub {
             route: PROJECT,
@@ -107,10 +79,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the project's AGENTS.md guidance below this line",
             action: "",
             ideas: "",
-            pages: &[
-                "# Project context (AGENTS.md)\nThe project's scoped instructions and conventions — apply them consistently with the operator's request and harness policy.",
-                "Each section names its source; later, more deeply nested sections take precedence for their directory scope.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: SELF_MODEL,
@@ -118,16 +87,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the map of the cockpit's own source below this line (the tool modules beside their page)",
             action: "",
             ideas: "",
-            pages: &[
-                "# Self-model (your own source)\nYou are `angelX-cockpit`, a Rust/ratatui agent harness, and THIS is a map of your OWN code.",
-                "Build/test/run from the crate root: `cargo build` · `cargo test` (the self-modification gate — keep it green) · `cargo run`.",
-                "Call `self_map` for the full structure (key types, symbol counts) or `self_map({\"module\":\"<name>\"})` for one module's outline.",
-                "This self-model is capability context, not a standing objective: do normal task work by default.",
-                "Inspect or change your own code only when the user explicitly asks.",
-                "To change your own code safely, see the `self-modify` skill: edit in an isolated worktree, and integrate only when build+test pass.",
-                "Modules (purpose from live doc comments):",
-                "- **Tool impls (src/agent/tools/)**: {tools}",
-            ],
+            pages: &super::catalog_pages::<8>(CATALOG, b'8'),
         },
         Sub {
             route: TURN_CONTEXT,
@@ -135,10 +95,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator's controls and standing context, between two of these",
             action: "",
             ideas: "",
-            pages: &[
-                "[harness turn context — operator-selected controls and standing context; not fresh user text]",
-                "[operator-selected cockpit controls]",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'9'),
         },
         Sub {
             route: STEER,
@@ -146,9 +103,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the User message(s) after this were sent mid-run",
             action: "",
             ideas: "",
-            pages: &[
-                "[harness steer context — the following User message(s) were sent mid-run; take them into account and keep pursuing the main objective]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'0'),
         },
     ],
 };

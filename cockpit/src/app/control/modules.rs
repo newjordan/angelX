@@ -5,7 +5,7 @@ impl App {
     pub(crate) fn modules_text(&self) -> String {
         let mut out = String::from("modules\n");
         out.push_str(&self.module_host.layout_text());
-        out.push_str("\n/open <id> activates · /close <id> suspends · /layout save|load <name>");
+        out.push_str("\n/open <id> activates · /close <id> suspends · /layout save|load <name> · /layout reload-manifests");
         out
     }
 
@@ -14,6 +14,7 @@ impl App {
         match self.module_host.activate(&id) {
             Ok(()) => {
                 self.apply_module_activation(id.as_str());
+                if id.as_str().starts_with("live.") { self.focus_module(id.as_str()); }
                 format!("module {id} active")
             }
             Err(e) => format!("/open: {e}"),
@@ -34,6 +35,25 @@ impl App {
     pub(crate) fn layout_command(&mut self, action: &str, name: Option<&str>) -> String {
         match action {
             "show" | "list" => self.modules_text(),
+            "reload-manifests" if name.is_none() => {
+                let dir = crate::platform::runtime_paths::cockpit_dir().join("modules");
+                match self.module_host.reload_manifests(&dir) {
+                    Ok(changed) => {
+                        for (id, state) in changed {
+                            match (id.as_str(), state.is_running()) {
+                                ("shell", false) => self.shell_focused = false,
+                                ("shell", true) if self.shell.is_none() => {
+                                    self.spawn_shell_from_last_area()
+                                }
+                                ("graph", running) => self.sync_graph_stage(running),
+                                _ => {}
+                            }
+                        }
+                        format!("module manifests reloaded from {}", dir.display())
+                    }
+                    Err(e) => format!("/layout reload-manifests: {e}"),
+                }
+            }
             "save" => match name {
                 Some(name) => match self.module_host.save_layout(name) {
                     Ok(path) => format!("layout saved: {}", path.display()),
@@ -51,7 +71,7 @@ impl App {
                 },
                 None => "usage: /layout load <name>".to_string(),
             },
-            _ => "usage: /layout [show|save <name>|load <name>]".to_string(),
+            _ => "usage: /layout [show|save <name>|load <name>|reload-manifests]".to_string(),
         }
     }
 

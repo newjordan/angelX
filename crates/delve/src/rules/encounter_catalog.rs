@@ -36,6 +36,11 @@ fn natives(pack: Pack) -> Vec<Boss> {
                 "salvage-claimant",
                 include_str!("../../../../cockpit/assets/dungeon/bosses/salvage-claimant.boss"),
             ),
+            // Made from the chief template (`templates/foe-chief.boss`).
+            (
+                "archive-drowned-reeve",
+                include_str!("../../../../cockpit/assets/dungeon/bosses/archive-drowned-reeve.boss"),
+            ),
         ],
         Pack::Fungal => &[
             (

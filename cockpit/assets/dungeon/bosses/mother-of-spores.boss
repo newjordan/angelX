@@ -5,9 +5,9 @@ where fungal
 hp 860
 size 1.8
 move anchor
-attack fan shots=5 arc=70 speed=6 every=85 damage=12 shot=bone
-attack aimed shots=2 speed=8 every=50 damage=14 shot=ember from=rage
-phases split mines crossfire every=100 volleys=2 damage=10
+attack fan shots=5 arc=70 speed=6 every=89 damage=12 shot=bone
+attack aimed shots=2 speed=8 every=53 damage=14 shot=ember from=rage
+phases split mines crossfire every=105 volleys=2 damage=10
 windup inhale every=200 damage=14 shots=8 speed=5 shot=spore cry=SPOOORE
 windup slam every=260 damage=16 shots=3 speed=5 arc=60 from=rage cry=BURST
 rage 40%

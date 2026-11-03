@@ -44,42 +44,6 @@ fn restart_restores_exact_nonpreset_caps_until_operator_changes_them() {
 }
 
 #[test]
-fn custom_cap_is_visible_and_budget_hit_targets_match_rendered_prefix() {
-    use ratatui::{Terminal, backend::TestBackend};
-    let mut terminal = Terminal::new(TestBackend::new(48, 1)).unwrap();
-    let mut hits = Vec::new();
-    terminal
-        .draw(|frame| {
-            render_choices(
-                frame,
-                Rect::new(0, 0, 48, 1),
-                ChoiceRow {
-                    label: "operator token cap",
-                    choices: &["250k", "1m", "2m", "endless", "1234567"],
-                    selected: 4,
-                    focused: true,
-                },
-                LoopDialogAction::SelectBudget,
-                &mut hits,
-            )
-        })
-        .unwrap();
-    let custom = hits
-        .iter()
-        .find(|hit| hit.action == LoopDialogAction::SelectBudget(4))
-        .unwrap();
-    assert_eq!(custom.rect.x, "operator token cap".len() as u16);
-    assert_eq!(
-        terminal.backend().buffer()[(custom.rect.x + 1, 0)].symbol(),
-        "1"
-    );
-    let rendered = (0..48)
-        .map(|x| terminal.backend().buffer()[(x, 0)].symbol())
-        .collect::<String>();
-    assert!(rendered.contains("1234567"), "{rendered}");
-}
-
-#[test]
 fn settings_map_selected_choices_to_loop_limits() {
     let mut d = LoopLaunchDialog::new("ship", 0, false);
     assert_eq!(
@@ -146,16 +110,120 @@ fn podrace_profile_is_five_days_with_no_iteration_or_token_holdout() {
 }
 
 #[test]
-fn focus_cycles_and_adjusts_current_row() {
+fn focus_keeps_the_original_cycle_and_adjusts_the_picker_in_hand() {
     let mut d = LoopLaunchDialog::new("ship", 0, false);
     assert_eq!(d.focus, LoopDialogFocus::Duration);
     d.adjust(true);
     assert_eq!(d.settings().deadline_secs, 15 * 60);
     d.focus_next();
+    assert_eq!(d.focus, LoopDialogFocus::Iterations);
     d.adjust(false);
     assert_eq!(d.settings().max_iters, 100);
+    d.focus_next();
+    assert_eq!(d.focus, LoopDialogFocus::Budget);
+    d.focus_next();
+    assert_eq!(d.focused_action(), Some(LoopDialogAction::Start));
+    d.focus_next();
+    assert_eq!(d.focused_action(), Some(LoopDialogAction::Cancel));
+    d.focus_next();
+    assert_eq!(d.focus, LoopDialogFocus::Duration, "round again");
     d.focus_prev();
-    assert_eq!(d.focus, LoopDialogFocus::Duration);
+    assert_eq!(d.focused_action(), Some(LoopDialogAction::Cancel));
+}
+
+#[test]
+fn every_picker_choice_reaches_the_settings_it_always_did() {
+    // The card's pickers name each choice with the action the workshop
+    // rows did; each lands on the same limits.
+    let laps = [5, 25, 100, 0];
+    let clocks = [15 * 60, 60 * 60, 4 * 60 * 60, 5 * 24 * 60 * 60, 0];
+    let fuels = [250_000, 1_000_000, 2_000_000, 0];
+    let d = LoopLaunchDialog::new("ship", 0, false);
+    let [lap, clock, fuel] = d.pickers();
+    assert_eq!(lap.choices, ["5", "25", "100", "∞", "custom"]);
+    assert_eq!(clock.choices, ["15m", "1h", "4h", "5d", "∞"]);
+    assert_eq!(fuel.choices, ["250K", "1M", "2M", "∞"]);
+    assert_eq!(
+        (
+            lap.value.as_str(),
+            clock.value.as_str(),
+            fuel.value.as_str()
+        ),
+        ("endless", "endless", "endless")
+    );
+    for (i, want) in laps.into_iter().enumerate() {
+        let mut d = LoopLaunchDialog::new("ship", 0, false);
+        d.apply((lap.action)(i));
+        assert_eq!(d.settings().max_iters, want, "laps {i}");
+    }
+    for (i, want) in clocks.into_iter().enumerate() {
+        let mut d = LoopLaunchDialog::new("ship", 0, false);
+        d.apply((clock.action)(i));
+        assert_eq!(d.settings().deadline_secs, want, "clock {i}");
+    }
+    for (i, want) in fuels.into_iter().enumerate() {
+        let mut d = LoopLaunchDialog::new("ship", 0, false);
+        d.apply((fuel.action)(i));
+        assert_eq!(d.settings().token_budget, want, "fuel {i}");
+    }
+    // The custom slot opens the typed length, as the old row's did.
+    let mut d = LoopLaunchDialog::new("ship", 0, false);
+    d.apply((lap.action)(4));
+    assert!(d.custom_entry_active());
+    assert_eq!(d.pickers()[0].value, "▏");
+}
+
+#[test]
+fn a_pickers_arrows_walk_the_same_ring_as_the_arrow_keys() {
+    for focus in 0..3 {
+        let mut keys = LoopLaunchDialog::new("ship", 0, false);
+        let mut clicks = LoopLaunchDialog::new("ship", 0, false);
+        for _ in 0..focus {
+            keys.focus_next();
+            clicks.focus_next();
+        }
+        for forward in [false, false, true, false, true, true, true] {
+            if keys.custom_entry_active() {
+                break;
+            }
+            keys.adjust(forward);
+            let picker = &clicks.pickers()[[1, 0, 2][focus]];
+            let step = picker.step(forward);
+            clicks.apply(step);
+            assert_eq!(keys.settings(), clicks.settings(), "picker {focus}");
+            assert_eq!(keys.custom_entry_active(), clicks.custom_entry_active());
+        }
+    }
+}
+
+#[test]
+fn restored_custom_caps_show_as_short_marks() {
+    let mut d = LoopLaunchDialog::new("restart", 0, false);
+    d.restore_settings(LoopLaunchSettings {
+        deadline_secs: 7200 * 3,
+        max_iters: 17,
+        token_budget: 1_234_567,
+        podrace: false,
+    });
+    let [lap, clock, fuel] = d.pickers();
+    assert_eq!(
+        (
+            lap.value.as_str(),
+            clock.value.as_str(),
+            fuel.value.as_str()
+        ),
+        ("17", "6h", "1234567")
+    );
+    assert_eq!(clock.choices.last().map(String::as_str), Some("6h"));
+    assert_eq!(fuel.selected, 4, "the custom cap is the chosen one");
+    d.restore_settings(LoopLaunchSettings {
+        deadline_secs: 1234,
+        max_iters: 0,
+        token_budget: 3_000_000,
+        podrace: false,
+    });
+    let [_, clock, fuel] = d.pickers();
+    assert_eq!((clock.value.as_str(), fuel.value.as_str()), ("1234s", "3M"));
 }
 
 #[test]
@@ -163,7 +231,7 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
     let mut d = LoopLaunchDialog::new("long haul", 0, false);
     assert_eq!(d.settings().max_iters, 0, "the workshop opens endless");
     assert_eq!(LoopLaunchDialog::custom_length_slot(), ITERATIONS.len());
-    d.focus_next(); // the duration row is focused first
+    d.focus_next(); // clock is focused first
     d.adjust(false); // endless -> 100
     assert_eq!(d.settings().max_iters, 100);
     d.adjust(true); // back to endless

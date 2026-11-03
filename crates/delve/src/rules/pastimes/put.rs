@@ -30,6 +30,12 @@ pub struct Put {
     pub shots: u8,
     pub wait: u32,
     pub flight: Option<Pot>,
+    #[serde(default)]
+    pub landing_flash: u8,
+    #[serde(default)]
+    pub landing_x: i32,
+    #[serde(default)]
+    pub target_glow: u8,
 }
 impl Put {
     pub fn new(owner: u32) -> Self {
@@ -40,6 +46,9 @@ impl Put {
             shots: 0,
             wait: 0,
             flight: None,
+            landing_flash: 0,
+            landing_x: 0,
+            target_glow: 0,
         }
     }
     pub fn wind(progress: u8) -> i32 {
@@ -51,6 +60,8 @@ impl Put {
             && self.charge <= MAX_CHARGE
             && self.shots <= 8
             && self.wait <= HZ / 2
+            && self.landing_flash <= 6
+            && self.target_glow <= 4
             && self.flight.as_ref().is_none_or(Pot::valid)
             && (self.flight.is_none() || (self.charge == 0 && self.wait == 0))
             && (self.wait == 0 || self.charge == 0)
@@ -88,6 +99,11 @@ impl Run {
             pot.dx = (pot.dx + Put::wind(round.progress)).clamp(1, 260);
             pot.dz -= 12;
             pot.left = pot.left.saturating_sub(1);
+            // Approach glow: pulse when the pot is descending near the target.
+            let target = TARGETS[usize::from(round.progress)] * 256;
+            if pot.z > 0 && pot.dz < 0 && pot.x.abs_diff(target) < 3 * 256 {
+                p.target_glow = 4;
+            }
             // A structurally valid hand-edited checkpoint can start at a bound
             // no real launch reaches. Keep acceptance closed under one tick:
             // terminate a rising/out-of-velocity-bound flight as a miss rather
@@ -96,10 +112,15 @@ impl Run {
                 !(256..=22 * 256).contains(&pot.x) || pot.left == 0 || (pot.z > 0 && !pot.valid());
             if pot.z <= 0 || outside {
                 // Only a landing scores, not flying through a target or walking.
-                let target = TARGETS[usize::from(round.progress)] * 256;
                 if !outside && pot.x.abs_diff(target) <= 256 {
                     round.progress += 1;
+                    round.score_popup = 8;
+                    round.score_popup_text = "POT!".to_string();
+                    round.score_popup_x = (target / 256) as i32;
+                    round.score_popup_y = 7;
                     self.sounds.push("spoil_pickup");
+                    p.landing_flash = 6;
+                    p.landing_x = pot.x;
                     self.found = Some((
                         self.tick,
                         p.owner,
@@ -107,7 +128,7 @@ impl Run {
                     ));
                 } else {
                     round.mistakes += 1;
-                    self.sounds.push("clang");
+                    self.sounds.push("rock_land");
                     self.found = Some((
                         self.tick,
                         p.owner,
@@ -143,9 +164,12 @@ impl Run {
                 });
                 p.charge = 0;
                 p.shots += 1;
-                self.sounds.push("play_card");
+                self.sounds.push("bomb_toss");
             }
         }
+        // Decay the visual-effect timers each tick.
+        p.landing_flash = p.landing_flash.saturating_sub(1);
+        p.target_glow = p.target_glow.saturating_sub(1);
         if p.shots == 8 && p.flight.is_none() && round.progress < Game::Pot.need() {
             self.found = Some((
                 self.tick,

@@ -261,7 +261,7 @@ fn run() -> Result<(), String> {
                 scene.chunks.iter().map(|c| c.id()).collect::<Vec<_>>().join(" ")
             );
             if let Some(stood) = &scene.lots {
-                let cut: Vec<String> = scene.chunks.iter().filter(|c| c.key != c.plate_key).map(|c| c.id()).collect();
+                let cut: Vec<String> = scene.chunks.iter().filter(|c| angel_delve::world3d::kingdom::chunks().chunk(c.index).is_some_and(|uncut| uncut.key != c.key)).map(|c| c.id()).collect();
                 let extras: usize = scene.chunks.iter().filter_map(|c| stood.share(c.index)).map(|s| s.extras.len()).sum();
                 println!("  lots: {extras} extra blocks in the chunks near; cut: {}", if cut.is_empty() { "none".into() } else { cut.join(" ") });
             }

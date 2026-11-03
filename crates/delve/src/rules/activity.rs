@@ -87,6 +87,8 @@ pub static RIDES: &[Activity] = &[
     griffinwing::ACTIVITY,
     // Lightgallop
     lightgallop::ACTIVITY,
+    knight_racers::ACTIVITY,
+    deathmatch::ACTIVITY,
     Activity {
         name: "Rafterwake", on: |run| run.room().kind == RoomKind::Workshop,
         ride: Some(|run, inputs| { run.tick_rafterwake(inputs); run.rafterwake.as_ref().map(|_| BTreeMap::new()) }),
@@ -215,6 +217,16 @@ pub static RIDES: &[Activity] = &[
 /// the step reaches them.
 pub static FOLLIES: &[Activity] = &[
     Activity {
+        name: "the wish altar",
+        on: |run| run.wish_altar().is_some(),
+        ride: None,
+        tick: |run, inputs| run.tick_wish_altar(inputs),
+        end: |_| {},
+        ends_outside: false,
+        settle: None,
+        fields: &[],
+    },
+    Activity {
         name: "a field banner",
         on: |run| run.room().field_banner().is_some(),
         ride: None,
@@ -285,6 +297,16 @@ pub static FOLLIES: &[Activity] = &[
         fields: &["powder"],
     },
     Activity {
+        name: "the Deep",
+        on: |run| run.deep.is_some(),
+        ride: None,
+        tick: |run, inputs| run.tick_deep(inputs),
+        end: |_| {},
+        ends_outside: false,
+        settle: None,
+        fields: &[],
+    },
+    Activity {
         name: "Book Hop",
         on: |run| run.hop.is_some(),
         ride: None,
@@ -327,12 +349,21 @@ pub static HOME_ROOMS: &[Activity] = &[
     place("the yard", |run| in_room(run, RoomKind::Yard), |run, inputs| {
         run.tick_yard(inputs)
     }),
+    place("the Academy", |run| in_room(run, RoomKind::SquireAcademy), |run, inputs| {
+        run.tick_academy_yard(inputs)
+    }),
+    place("the Squire Hall", |run| in_room(run, RoomKind::SquireHall), |run, inputs| {
+        run.tick_squire_hall_room(inputs)
+    }),
     place("the Trophy Hall", |run| in_room(run, RoomKind::Trophies), |run, inputs| {
         run.tick_wing_plate(inputs);
         run.tick_trophies();
     }),
     place("the tavern", |run| in_room(run, RoomKind::Tavern), |run, inputs| {
         run.tick_tavern(inputs)
+    }),
+    place("the Sozzled Griffin", |run| alehouse::is_room(run.room().kind), |run, inputs| {
+        run.tick_alehouse(inputs)
     }),
     place(
         "a quiet room",
@@ -367,12 +398,24 @@ pub static WORLD: &[Activity] = &[
 /// The realm's standing places, ticked every step in this order, and what
 /// they pay into the realm at the save.
 pub static PLACES: &[Activity] = &[
+    Activity {
+        settle: Some(|realm, marks| squires::settle(&mut realm.home.squires, realm.treasury, marks)),
+        ..place("the squire company", |_| false, idle)
+    },
+    Activity {
+        settle: Some(|realm, marks| super::squire_guild::settle(&mut realm.home.squire_guild, realm.treasury, marks)),
+        ..place("the squires guild", |_| true, |run, inputs| run.tick_squire_guild(inputs))
+    },
     place("the Undercroft", |run| run.dungeon.depth == 0, |run, inputs| {
         if run.dungeon.depth == 0 {
             run.tick_home(inputs);
         }
     }),
     place("the barony", |_| true, |run, inputs| run.tick_barony(inputs)),
+    // The safe room's brazier and the weapons locker (`freedom`).
+    place("the wishing spots", |run| run.freedom_spot().is_some(), |run, inputs| run.tick_freedom(inputs)),
+    // A shooting star over a quiet room, and its fallen shard (`starfall`).
+    place("the falling stars", |run| run.starfall.star.is_some(), |run, inputs| run.tick_starfall(inputs)),
     Activity {
         settle: Some(|realm, marks| {
             // The Court of Deeds: holdings bought, built, staffed, chartered
@@ -425,6 +468,10 @@ pub static PLACES: &[Activity] = &[
         ..place("the Swamp of Horrors", |_| true, |run, inputs| run.tick_swamp_notice(inputs))
     },
     place("the merchant", |_| true, |run, _| run.tick_merchant()),
+    Activity {
+        settle: Some(super::squire_hall::settle),
+        ..place("the squire hall", |_| false, idle)
+    },
 ];
 
 /// Every registered game and place.

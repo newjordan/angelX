@@ -1,0 +1,16 @@
+{ "fx": 0, "name": "explosion with smoke", "canvas": [48, 48], "pivot": [24, 32], "fps": 12, "seed": 81,
+  "beats": { "anticipation": 0, "action": 1, "follow": 6, "settle": 11 },
+  "layers": [
+    { "type": "puffs", "ramp": "smoke", "y": -4, "spawn": "disc", "area": [6, 4], "count": 10, "rate": 1.4, "angle": -90, "spread": 60,
+      "speed": [0.4, 1.0], "gravity": -0.03, "life": [12, 20], "size": [2.6, 4], "t0": 2, "t1": 12 },
+    { "type": "shock", "ramp": "fire", "y": 3, "r0": 4, "r1": 24, "th": 1.4, "squash": 0.4, "t0": 0, "t1": 7 },
+    { "type": "burst", "ramp": "fire", "y": -3, "r0": 3, "r1": 12, "squash": 0.9, "t0": 0, "t1": 9 },
+    { "type": "burst", "ramp": "ember", "x": 3, "y": -9, "r0": 2, "r1": 8, "t0": 1, "t1": 10 },
+    { "type": "flash", "ramp": "holy", "y": -3, "r0": 3, "r1": 6, "t0": 0, "t1": 2 },
+    { "type": "particles", "form": "spark", "ramp": "fire", "y": -3, "count": 20, "speed": [2.5, 5], "gravity": 0.1, "life": [4, 8],
+      "t0": 0, "t1": "end" },
+    { "type": "particles", "form": "shard", "ramp": "char", "y": -2, "spawn": "ring", "area": [5, 4], "count": 10, "speed": [2, 4],
+      "gravity": 0.35, "drag": 0.05, "life": [7, 11], "t0": 1, "t1": "end" },
+    { "type": "particles", "form": "ember", "ramp": "ember", "y": -6, "count": 12, "angle": -90, "spread": 180, "speed": [1, 2.5],
+      "gravity": 0.12, "life": [8, 14], "t0": 2, "t1": "end" }
+  ] }

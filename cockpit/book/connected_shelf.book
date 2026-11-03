@@ -1,0 +1,34 @@
+@@book-page 1@@
+The root model sees a handle to the tool output below, not the output itself.
+@@book-page 1@@
+Write the digest it needs to act without opening the handle: what the output is, and the paths, line numbers, names, values and errors that matter.
+@@book-page 1@@
+Quote a line exactly only when its exact text matters.
+@@book-page 1@@
+Terse bullet points, no preamble.
+@@book-page 2@@
+read the exact bytes with handle_read when the digest is not enough
+@@book-page 3@@
+read the exact bytes with handle_read when the digest is not enough
+@@book-page 4@@
+The job keeps running; its output so far and its process tree are above.
+@@book-page 5@@
+A foreground tool call ran past its limit and was moved to the background, still running.
+@@book-page 5@@
+From its command, process tree, CPU, state and output, say what it is doing and whether it looks like progress or a stall.
+@@book-page 5@@
+Terse bullet points, no preamble.
+@@book-page 6@@
+check the job with proc_status before relying on this read
+@@book-page 7@@
+You are the loop watchdog: your only job is to keep the harness moving, not to judge or advance the loop's task.
+@@book-page 7@@
+The facts below say what the iteration is blocked on: the tool call in flight, its process activity, and how long since the model last streamed.
+@@book-page 7@@
+Choose wait when the blocked work is visibly advancing (fresh output, a delegate still making calls), handoff to move a running process to the background so the turn continues, stop_call when the call itself is hung, or restart_turn when the turn is stuck outside any call.
+@@book-page 7@@
+Earlier watchdog actions in this stretch are listed; when one already failed to free the turn, escalate.
+@@book-page 7@@
+Answer with one short reason line, then a last line of exactly `verdict: wait`, `verdict: handoff`, `verdict: stop_call` or `verdict: restart_turn`.
+@@book-page 8@@
+For long work, start it with proc_run and check it with proc_status instead of holding the turn on it.

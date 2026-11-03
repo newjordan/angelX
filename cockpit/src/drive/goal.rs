@@ -202,6 +202,20 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// The wall clock a fresh session binds its goal gate to. A persisted goal
+/// whose `updated_ms` predates this belongs to an earlier session.
+pub(crate) fn session_clock_ms() -> u64 {
+    now_ms()
+}
+
+/// Whether a persisted goal belongs to the current session: touched at or
+/// after the session's binding instant, or the binding is lifted (`0`, a
+/// resumed session). A goal carried over from an earlier session stays on
+/// disk (visible in `/goal show`) but steers nothing until adopted.
+pub(crate) fn goal_belongs_to_session(goal: &Goal, armed_since_ms: u64) -> bool {
+    armed_since_ms == 0 || goal.updated_ms >= armed_since_ms
+}
+
 fn explicit_goal_file() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("ANGEL_GOAL_FILE")
         && !p.trim().is_empty()
@@ -347,6 +361,7 @@ impl crate::App {
         };
         let g = &g;
         if raw.is_some_and(casual_goal_bypass)
+            || !goal_belongs_to_session(g, self.goal_armed_since_ms)
             || !matches_workspace(g, self.tools.current_workspace())
             || g.status != GoalStatus::Active
             || g.text.trim().is_empty()
@@ -648,6 +663,8 @@ impl crate::App {
             // Re-arm a blocked/paused goal. Keeps rounds, budget, criteria,
             // cmd, and notes — only the blocker state clears.
             "resume" => {
+                // Resuming adopts a goal carried over from an earlier session.
+                self.goal_armed_since_ms = 0;
                 let workspace = self.tools.current_workspace().to_path_buf();
                 return match self.goal.as_mut() {
                     Some(g) if g.status == GoalStatus::Done => {
@@ -660,7 +677,7 @@ impl crate::App {
                             }
                             format!("goal re-armed: {}", g.text.trim())
                         } else {
-                            "goal is already active".to_string()
+                            format!("goal adopted for this session: {}", g.text.trim())
                         }
                     }
                     None => "no goal set".to_string(),
@@ -669,6 +686,8 @@ impl crate::App {
             // Drive at the goal: hand off to the loop controller so setting an
             // objective and pursuing it are one gesture, not two commands apart.
             "go" | "run" | "drive" | "pursue" => {
+                // Driving at the goal is an explicit adoption of it.
+                self.goal_armed_since_ms = 0;
                 let active = self
                     .goal
                     .as_ref()

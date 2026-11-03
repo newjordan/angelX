@@ -1,0 +1,244 @@
+# crates/delve/src/rules/votes.rs — the 0.2.2 ballot: one catalogue, realm-owned
+# ratings, seat-local menus. summary() is a host-side export and is not ported.
+
+def votes.ITEMS.len() -> U32:
+  53
+
+def votes.ITEMS(+i: U32) -> String:
+  gc.nth_s(["controls","hud","couch","gamepad","bow","crossbow","handgonne","hits","valour","tempering","synergies","coop-pressure","bullet-patterns","boss-phases","big-ripper","grinwick","wish-gear","summons","shot-looks","learned-wishes","sprite-sheets","privy-popup","privy-race","broadsheet-boy","barrel-board-derby","turnip-keepy-uppy","washtub-regatta","cheese-chuck","hobbyhorse-hurdles","squire-sled-slalom","chamber-pot-put","wheelbarrow-cross","shield-surf","belfry-bat-and-ball","jester-half-pipe","cabbage-roll-racing","trencher-toss","carnival-duck-range","humphrey","country-spells","college","college-secrets","bartosz","wizard-quests","bestiary","horse-ranch","flower-fields","helios","chariot-racing","horse-market","horse-breeding","kingdom-map","floor-plates"], i)
+
+# Action: a unit variant is its snake_case name, Rate(n) is {"rate": n}.
+def votes.Action.name(+a: J.Val) -> String:
+  match a as J.Val:
+    case J.JS{s: String}:
+      s
+    case _:
+      "rate"
+
+def votes.Action.rate(+a: J.Val) -> U32:
+  J.u32(J.get(a, "rate"))
+
+def votes.Command.valid(+c: J.Val) -> Bool:
+  if String.eq(votes.Action.name(J.get(c, "action")), "rate"):
+    Bool.and(U32.is_ge(votes.Action.rate(J.get(c, "action")), 1), U32.is_le(votes.Action.rate(J.get(c, "action")), 5))
+  else:
+    True{}
+
+# State::open(id)
+def votes.State.open(+st: J.Val, +id: U32) -> Bool:
+  gc.b(gc.seat(J.get(st, "seats"), id), "open")
+
+# State::local_seat()
+def votes.State.local_seat(+st: J.Val) -> U32:
+  if votes.State.open(st, gc.u(st, "local_focus")):
+    gc.u(st, "local_focus")
+  else:
+    if Bool.and(votes.State.open(st, 2), gc.b(gc.seat(J.get(st, "seats"), 2), "couch")):
+      2
+    else:
+      1
+
+# seen.insert(name): the set as a sorted array, and whether the name was new.
+def votes.seen_insert(+seen: J.Val, +name: String) -> J.Val & Bool:
+  r: J.Val & Bool = votes.seen_insert.go(J.items(seen), name)
+  (xs: J.Val, fresh: Bool) = r
+  (xs, fresh)
+
+def votes.seen_insert.go(+xs: List<&2, J.Val>, +name: String) -> J.Val & Bool:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      (J.JA{[J.JS{name}]}, True{})
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if String.eq(J.str(h), name):
+        (J.JA{h <> t}, False{})
+      else:
+        if String.is_lt(name, J.str(h)):
+          (J.JA{J.JS{name} <> (h <> t)}, True{})
+        else:
+          votes.seen_insert.cons(h, votes.seen_insert.go(t, name))
+
+def votes.seen_insert.cons(+h: J.Val, +r: J.Val & Bool) -> J.Val & Bool:
+  (rest: J.Val, fresh: Bool) = r
+  (J.JA{h <> J.items(rest)}, fresh)
+
+# State::arrive(id, name)
+def votes.State.arrive(+st: J.Val, +id: U32, +name: String) -> J.Val:
+  if gc.has_seat(J.get(st, "seats"), id):
+    st
+  else:
+    records_empty: Bool = U32.is_zero(gc.len(gc.vals_any(J.get(J.get(st, "records"), name))))
+    seen: J.Val & Bool = votes.seen_insert(J.get(st, "seen"), name)
+    votes.State.arrive.go(st, id, name, records_empty, seen)
+
+def votes.State.arrive.go(+st: J.Val, +id: U32, +name: String, +empty: Bool, +seen: J.Val & Bool) -> J.Val:
+  (set: J.Val, fresh: Bool) = seen
+  hint: U32 = gc.pu(Bool.and(empty, fresh), (rules.HZ() * 7 : U32), 0)
+  st1: J.Val = J.set(st, "seen", gc.pj(empty, set, J.get(st, "seen")))
+  st2: J.Val = gc.sb(st1, "dirty", Bool.or(gc.b(st1, "dirty"), Bool.and(empty, fresh)))
+  J.set(st2, "seats", gc.put_seat(J.get(st2, "seats"), id, votes.Seat.new(hint)))
+
+# Seat { hint, ..Default::default() }
+def votes.Seat.new(+hint: U32) -> J.Val:
+  gc.su(gc.su(gc.su(gc.sb(gc.sb(J.obj(), "open", False{}), "couch", False{}), "selected", 0), "serial", 0), "hint", hint)
+
+# State::command(id, name, command)
+def votes.State.command(+st: J.Val, +id: U32, +name: String, +c: J.Val) -> J.Val:
+  if Bool.not(votes.Command.valid(c)):
+    st
+  else:
+    st1: J.Val = votes.State.arrive(st, id, name)
+    if W.le(W.of_j(J.get(c, "serial")), W.of_j(J.get(gc.seat(J.get(st1, "seats"), id), "serial"))):
+      st1
+    else:
+      votes.State.command.act(votes.State.put(st1, id, "serial", J.get(c, "serial")), id, name, votes.Action.name(J.get(c, "action")), J.get(c, "action"))
+
+# seats[id].field = v
+def votes.State.put(+st: J.Val, +id: U32, +field: String, +v: J.Val) -> J.Val:
+  J.set(st, "seats", gc.put_seat(J.get(st, "seats"), id, J.set(gc.seat(J.get(st, "seats"), id), field, v)))
+
+def votes.State.command.act(+st: J.Val, +id: U32, +name: String, +act: String, +action: J.Val) -> J.Val:
+  seat: J.Val = gc.seat(J.get(st, "seats"), id)
+  if String.eq(act, "toggle"):
+    votes.State.put(st, id, "open", J.JBool{Bool.not(gc.b(seat, "open"))})
+  else:
+    if String.eq(act, "close"):
+      votes.State.put(st, id, "open", J.JBool{False{}})
+    else:
+      if Bool.not(gc.b(seat, "open")):
+        st
+      else:
+        sel: U32 = gc.umin(gc.u(seat, "selected"), 52)
+        st1: J.Val = votes.State.put(st, id, "selected", J.JU{sel})
+        if String.eq(act, "up"):
+          votes.State.put(st1, id, "selected", J.JU{gc.ssub(sel, 1)})
+        else:
+          if String.eq(act, "down"):
+            votes.State.put(st1, id, "selected", J.JU{gc.umin((sel + 1 : U32), 52)})
+          else:
+            votes.State.rate(st1, id, name, act, action, votes.ITEMS(sel))
+
+def votes.State.rate(+st: J.Val, +id: U32, +name: String, +act: String, +action: J.Val, +item: String) -> J.Val:
+  records: J.Val = J.get(st, "records")
+  ratings: J.Val = J.get(records, name)
+  old: J.Val = J.get(ratings, item)
+  stars: U32 = votes.stars(old)
+  next: J.Val = votes.next_rating(act, action, stars)
+  st1: J.Val = J.set(st, "records", J.set(records, name, gc.pj(J.is_null(ratings), J.obj(), ratings)))
+  if J.eq(old, next):
+    st1
+  else:
+    ratings1: J.Val = gc.pj(J.is_null(next), J.del(J.get(J.get(st1, "records"), name), item), J.set(J.get(J.get(st1, "records"), name), item, next))
+    change: J.Val = J.set(J.set(J.set(J.obj(), "player", J.JS{name}), "item", J.JS{item}), "rating", next)
+    st2: J.Val = J.set(st1, "records", J.set(J.get(st1, "records"), name, ratings1))
+    gc.push(gc.sb(st2, "dirty", True{}), "changes", change)
+
+# Some(Rating::Stars(n)) => n, otherwise 0.
+def votes.stars(+old: J.Val) -> U32:
+  match old as J.Val:
+    case J.JU{n: U32}:
+      n
+    case _:
+      0
+
+# The rating a command sets (null clears it).
+def votes.next_rating(+act: String, +action: J.Val, +stars: U32) -> J.Val:
+  if String.eq(act, "rate"):
+    J.JU{votes.Action.rate(action)}
+  else:
+    if String.eq(act, "right"):
+      J.JU{gc.umin((stars + 1 : U32), 5)}
+    else:
+      if String.eq(act, "left"):
+        J.JU{gc.umax(gc.ssub(stars, 1), 1)}
+      else:
+        if String.eq(act, "untried"):
+          J.JS{"untried"}
+        else:
+          J.JNull{}
+
+# pub fn average(records, item) -> (average, count)
+def votes.average(+records: J.Val, +item: String) -> F32 & U32:
+  r: U32 & U32 = votes.average.go(gc.vals_any(records), item, 0, 0)
+  (sum: U32, count: U32) = r
+  (gc.pf(U32.is_zero(count), 0.0, (RS.u_as_f32(sum) / RS.u_as_f32(count) : F32)), count)
+
+def votes.average.go(+rs: List<&2, J.Val>, +item: String, +sum: U32, +count: U32) -> U32 & U32:
+  match rs as List<&2, J.Val>:
+    case Nil{}:
+      (sum, count)
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      n: U32 = votes.stars(J.get(h, item))
+      if Bool.and(U32.is_ge(n, 1), U32.is_le(n, 5)):
+        votes.average.go(t, item, (sum + n : U32), (count + 1 : U32))
+      else:
+        votes.average.go(t, item, sum, count)
+
+def votes.State.average(+st: J.Val, +item: String) -> F32 & U32:
+  votes.average(J.get(st, "records"), item)
+
+# fn vote_command(&mut self, id, command)
+def votes.Run.vote_command(+run: J.Val, +id: U32, +c: J.Val) -> J.Val:
+  if crossroads.Run.crossroads_voting(run):
+    crossroads.Run.crossroads_command(run, id, c)
+  else:
+    if gc.has_seat(J.get(run, "players"), id):
+      J.set(run, "playtest", votes.State.command(J.get(run, "playtest"), id, gc.s(gc.seat(J.get(run, "players"), id), "name"), c))
+    else:
+      run
+
+# fn ballot_inputs(&mut self, inputs) -> Option<BTreeMap<u32, Input>>
+def votes.Run.ballot_inputs(+run: J.Val, +inputs: J.Val) -> J.Val & Maybe<&2, J.Val>:
+  r1: J.Val = votes.Run.ballot_inputs.arrive(run, gc.b(J.get(run, "playtest"), "ready"), gc.ids(J.get(run, "players")))
+  r2: J.Val = J.set(r1, "playtest", J.set(J.get(r1, "playtest"), "seats", votes.cool(J.get(J.get(r1, "playtest"), "seats"), gc.ids(J.get(J.get(r1, "playtest"), "seats")))))
+  if votes.nothing_to_strip(r2, inputs, gc.ids(inputs)):
+    (r2, None{})
+  else:
+    r3: J.Val & J.Val = votes.ballot(r2, inputs, gc.ids(inputs), J.obj())
+    (run3: J.Val, out: J.Val) = r3
+    (run3, Some{out})
+
+def votes.Run.ballot_inputs.arrive(+run: J.Val, +ready: Bool, +ids: List<&2, U32>) -> J.Val:
+  if ready:
+    votes.arrive_all(run, ids)
+  else:
+    run
+
+def votes.arrive_all(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      votes.arrive_all(J.set(run, "playtest", votes.State.arrive(J.get(run, "playtest"), id, gc.s(gc.seat(J.get(run, "players"), id), "name"))), t)
+
+# for seat in seats.values_mut() { seat.hint = seat.hint.saturating_sub(1) }
+def votes.cool(+seats: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      seats
+    case Con{id: U32, t: List<&2, U32>}:
+      votes.cool(gc.put_seat(seats, id, gc.su(gc.seat(seats, id), "hint", gc.ssub(gc.u(gc.seat(seats, id), "hint"), 1))), t)
+
+# inputs.iter().all(|(id, input)| !input.skip_plate && input.vote.is_none() && !open(id))
+def votes.nothing_to_strip(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> Bool:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      True{}
+    case Con{id: U32, t: List<&2, U32>}:
+      i: J.Val = gc.seat(inputs, id)
+      Bool.and(Bool.and(Bool.not(gc.b(i, "skip_plate")), J.is_null(J.get(i, "vote"))), Bool.and(Bool.not(votes.State.open(J.get(run, "playtest"), id)), votes.nothing_to_strip(run, inputs, t)))
+
+def votes.ballot(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>, +out: J.Val) -> J.Val & J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      (run, out)
+    case Con{id: U32, t: List<&2, U32>}:
+      votes.ballot.one(run, inputs, id, t, out, gc.seat(inputs, id))
+
+def votes.ballot.one(+run: J.Val, +inputs: J.Val, +id: U32, +t: List<&2, U32>, +out: J.Val, +input: J.Val) -> J.Val & J.Val:
+  if gc.b(input, "skip_plate"):
+    votes.ballot(run, inputs, t, gc.put_seat(out, id, rules.Input.default()))
+  else:
+    was_open: Bool = votes.State.open(J.get(run, "playtest"), id)
+    run1: J.Val = gc.ifj(J.is_null(J.get(input, "vote")), _ => run, _ => votes.Run.vote_command(run, id, J.get(input, "vote")))
+    keep: Bool = Bool.or(was_open, Bool.or(votes.State.open(J.get(run1, "playtest"), id), Bool.not(J.is_null(J.get(input, "vote")))))
+    votes.ballot(run1, inputs, t, gc.put_seat(out, id, gc.pj(keep, rules.Input.default(), input)))

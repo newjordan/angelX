@@ -40,6 +40,11 @@ pub const MESH_TRIANGLE: u32 = 12;
 /// The first of the seven ray-marched solids (`LayerKind::Primitive`):
 /// cube, sphere, pyramid, cylinder, cone, torus, octahedron.
 pub const PRIMITIVE: u32 = 16;
+/// A ring stroke (`LayerKind::Stroke`): `uv` carries half its width, its
+/// glow and the quad's size, and the shader draws it by its distance.
+pub const RING: u32 = 23;
+/// A line stroke, carried the same way as a ring.
+pub const LINE: u32 = 24;
 
 /// What a range of instances draws with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

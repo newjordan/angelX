@@ -1,0 +1,16 @@
+name Reedwake Draw
+kind spell
+rarity relic
+text Hold 1 to charge; release a piercing wind arrow.
+drop 0
+chest 0
+cooldown 8
+feat 1
+art
+..Q......
+...Q..O..
+....Q.OO.
+WWWWWWWWQ
+....Q.OO.
+...Q..O..
+..Q......

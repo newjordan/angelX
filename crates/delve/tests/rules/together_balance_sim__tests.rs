@@ -18,7 +18,7 @@
 use super::*;
 use std::f32::consts::PI;
 
-fn dir8(dx: f32, dy: f32) -> (i8, i8) {
+pub(crate) fn dir8(dx: f32, dy: f32) -> (i8, i8) {
     let k = ((dy.atan2(dx) / (PI / 4.0)).round() as i32).rem_euclid(8);
     [
         (1, 0),
@@ -213,6 +213,9 @@ struct Fight {
     foe_hp: u32,
     /// The health of the boss in the room, if there is one.
     boss_hp: u32,
+    /// Cards the party took up from the floor while it fought (held cards,
+    /// hand and spells, counted before and after).
+    taken: usize,
 }
 
 /// Fight the room the party stands in until it is cleared, the party falls,
@@ -230,6 +233,13 @@ fn fight(run: &mut Run, cap: u32) -> Fight {
         ..Fight::default()
     };
     let pool: u32 = run.players.values().map(|h| h.max_hp).sum();
+    let held = |run: &Run| {
+        run.players
+            .values()
+            .map(|h| h.deck.len() + h.hand.len() + h.spells.iter().flatten().count())
+            .sum::<usize>()
+    };
+    let held_at_start = held(run);
     let (mut lost, mut healed) = (0u32, 0u32);
     let mut fell = std::collections::BTreeSet::new();
     let start = run.tick;
@@ -269,11 +279,12 @@ fn fight(run: &mut Run, cap: u32) -> Fight {
     out.dmg = lost as f32 * 100.0 / pool.max(1) as f32;
     out.heal = healed as f32 * 100.0 / pool.max(1) as f32;
     out.deaths = fell.len() as u32;
+    out.taken = held(run).saturating_sub(held_at_start);
     out
 }
 
 #[derive(Clone, Copy, Debug)]
-enum Party {
+pub(crate) enum Party {
     /// Percival, Lynette and Gareth as the intro dresses them.
     Fresh,
     /// The three decks of a won run (`fixtures/balance_party.json`).
@@ -297,7 +308,7 @@ fn floor_run(seed: u64, depth: u32, party: Party, n: usize) -> Run {
 
 /// A run on floor `depth` of `pack` (the delve's own order when none), with
 /// `n` knights of `party`.
-fn floor_run_in(seed: u64, depth: u32, party: Party, n: usize, pack: Option<Pack>) -> Run {
+pub(crate) fn floor_run_in(seed: u64, depth: u32, party: Party, n: usize, pack: Option<Pack>) -> Run {
     let mut run = Run::new(seed, 700 + seed, None);
     if let Some(pack) = pack {
         run.begin_in(pack);
@@ -517,6 +528,35 @@ fn balance_sim() {
             "    mended by rest/potion/party/passive: {:?}",
             stakes::HEALED.with(|h| *h.borrow())
         );
+    }
+}
+
+/// Parties of two to four through floors one to six, normal rooms and the
+/// floor's guardian, with what they took up from the floor on the way: the
+/// harness for what opening a power or a card to every knight changes.
+/// `cargo test --release -p angel-delve rank_party_sim -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn rank_party_sim() {
+    println!();
+    for n in 2..=4usize {
+        for depth in 1..=6u32 {
+            let party = match depth {
+                1 | 2 => Party::Fresh,
+                3 => Party::Mid,
+                _ => Party::Won,
+            };
+            let rooms: Vec<Fight> = (0..12).map(|s| normal_room(s, depth, party, n)).collect();
+            let bosses: Vec<Fight> = (0..6).map(|s| boss_room(s, depth, party, n)).collect();
+            let taken = |fights: &[Fight]| fights.iter().map(|f| f.taken).sum::<usize>() as f32 / fights.len() as f32;
+            row(&format!("x{n} floor {depth} room"), &rooms);
+            row(&format!("x{n} floor {depth} BOSS"), &bosses);
+            println!(
+                "    cards taken from the floor per fight: rooms {:.2}, boss {:.2}",
+                taken(&rooms),
+                taken(&bosses)
+            );
+        }
     }
 }
 
@@ -930,27 +970,36 @@ fn a_morningstar_and_leech_build_that_stands_beside_a_boss_falls() {
 /// or one run's dice do not decide the mean.
 const MOB_SEEDS: u64 = 64;
 
+/// The crowd build's health on floor `depth`, as the mob fight finds it.
+fn run_health(depth: u32) -> f32 {
+    mobbed(0, depth, "ironbraid", CROWD_DECK, 24).players[&1].max_hp as f32
+}
+
 /// (b) Ringed by twenty-four, the crowd build cuts through them slower and
 /// bleeds more than when every stroke landed whole.
 #[test]
 fn a_crowd_build_in_a_mob_clears_slower_than_when_every_stroke_landed_whole() {
     for depth in [4, 6] {
-        let mean = |whole_strokes: bool| {
-            let fights: Vec<(f32, f32, u32, bool)> = (0..MOB_SEEDS)
-                .map(|seed| {
-                    let mut run = mobbed(seed, depth, "ironbraid", CROWD_DECK, 24);
-                    if whole_strokes {
-                        whole(|| mob_fight(&mut run, 60))
-                    } else {
-                        mob_fight(&mut run, 60)
-                    }
-                })
-                .collect();
-            let secs = fights.iter().map(|f| f.0).sum::<f32>() / MOB_SEEDS as f32;
-            let lost = fights.iter().map(|f| f.2 as f32).sum::<f32>() / MOB_SEEDS as f32;
-            (secs, lost)
-        };
-        let ((then, bled), (now, bleeds)) = (mean(true), mean(false));
+        // One floor per seed, cloned for both stroke rules. `mobbed` is
+        // seeded, so the clone is the run the second mean used to build again.
+        let mut then_secs = 0.0;
+        let mut then_lost = 0.0;
+        let mut now_secs = 0.0;
+        let mut now_lost = 0.0;
+        for seed in 0..MOB_SEEDS {
+            let mut run = mobbed(seed, depth, "ironbraid", CROWD_DECK, 24);
+            let whole_fight = {
+                let mut run = run.clone();
+                whole(|| mob_fight(&mut run, 60))
+            };
+            let part_fight = mob_fight(&mut run, 60);
+            then_secs += whole_fight.0;
+            then_lost += whole_fight.2 as f32;
+            now_secs += part_fight.0;
+            now_lost += part_fight.2 as f32;
+        }
+        let n = MOB_SEEDS as f32;
+        let ((then, bled), (now, bleeds)) = ((then_secs / n, then_lost / n), (now_secs / n, now_lost / n));
         println!(
             "floor {depth}: most of a mob of 24 down in {then:.1} s whole, {now:.1} s now; lost {bled:.0} then, {bleeds:.0} now"
         );
@@ -961,9 +1010,14 @@ fn a_crowd_build_in_a_mob_clears_slower_than_when_every_stroke_landed_whole() {
         // A quarter more blood at the least, as for the time: over these
         // seeds floor 4 bleeds about 1.4 times as much, and new dice alone
         // (another raid's) take a sixteen-seed mean from 1.8 to 1.4, so half
-        // again was the luck of one sample, not the rule.
+        // again was the luck of one sample, not the rule. Since the melee
+        // pass the twin axes' slash reaches the whole inner ring and turns a
+        // couple of bullets a stroke (`melee`): where the mob draws under a
+        // tenth of the dwarf's health either way (floor 4, about 7 of it),
+        // blood is no measure of the rule and the time alone tells it.
+        let health = run_health(depth);
         assert!(
-            bleeds >= bled * 1.25,
+            bleeds >= bled * 1.25 || bleeds.max(bled) < health / 10.0,
             "floor {depth}: lost {bleeds:.0} against {bled:.0}"
         );
     }
@@ -1331,7 +1385,7 @@ fn shots_party_check() {
 
 // ===========================================================================
 // PARTY CHECK (test-only, UNCOMMITTED): a 2-4 knight naked-start party sim for
-// the pre-deploy check. Prints `PCROW,...` lines; see /work/artifacts/world3d/
+// the pre-deploy check. Prints `PCROW,...` lines; see artifacts/world3d/
 // party-check/. Env: PC_DEPTHS PC_NS PC_SEEDS PC_SECS PC_OPEN PC_HOST_PLAYS.
 // ===========================================================================
 
@@ -1357,6 +1411,7 @@ fn pc_naked(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Run {
         crate::realm::Spoils::default(),
     );
     run.naked_start = true;
+    run.identity = pc_identity().is_some();
     for id in run.players.keys().copied().collect::<Vec<_>>() {
         run.restore_gear(id);
     }
@@ -1370,8 +1425,39 @@ fn pc_naked(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Run {
     while run.dungeon.depth < depth {
         run.descend_for_test();
     }
+    pc_make(&mut run);
     assert_eq!(run.party_len(), knights);
     run
+}
+
+/// The identity start's loadout for the party check (`PC_IDENTITY`):
+/// `bare` (the shape and its ball), `armed` (a body and a weapon wished),
+/// `made` (whole: a body, a weapon and an ultimate).
+fn pc_identity() -> Option<String> {
+    std::env::var("PC_IDENTITY").ok().filter(|v| !v.is_empty())
+}
+
+/// Each knight's wishes for the loadout, a weapon of the company's three
+/// round the seats.
+fn pc_make(run: &mut Run) {
+    let Some(loadout) = pc_identity() else { return };
+    let ids: Vec<u32> = run.players.iter().filter(|(_, h)| !h.absent).map(|(&i, _)| i).collect();
+    for (n, id) in ids.into_iter().enumerate() {
+        let weapon = ["yew-bow", "war-crossbow", "hand-cannon", "bright-blade"][n % 4];
+        let ult = ["trebuchet", "pilgrims-arrow", "stillhour", "bladewind"][n % 4];
+        let wishes: &[&str] = match loadout.as_str() {
+            "armed" => &["breastplate", weapon],
+            "made" => &["breastplate", weapon, ult],
+            _ => &[],
+        };
+        let held = run.players[&id].wishes;
+        run.players.get_mut(&id).unwrap().wishes = 9;
+        for w in wishes {
+            run.wish(id, &crate::rules::phrasebook::get(w).unwrap()).unwrap();
+        }
+        let h = run.players.get_mut(&id).unwrap();
+        (h.wishes, h.hp, h.invulnerable) = (held, h.max_hp, 0);
+    }
 }
 
 /// The same party on an open floor (the live box lays every floor open).
@@ -1379,6 +1465,7 @@ fn pc_naked_open(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Ru
     let armed = std::env::var_os("PC_ARMED").is_some();
     let mut run = Run::new(seed, 700 + seed, None);
     run.naked_start = !armed;
+    run.identity = pc_identity().is_some();
     run.restore_gear(1);
     let last = if absent_host { knights as u32 + 1 } else { knights as u32 };
     for id in 2..=last {
@@ -1398,6 +1485,7 @@ fn pc_naked_open(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Ru
         run.set_absent(1, true);
     }
     run.open_floor_for_test(depth);
+    pc_make(&mut run);
     assert_eq!(run.party_len(), knights);
     run
 }
@@ -1510,6 +1598,12 @@ fn party_check() {
     let open = std::env::var_os("PC_OPEN").is_some();
     let armed = std::env::var_os("PC_ARMED").is_some();
     let set = if open && armed { "open-armed" } else if open { "open" } else if armed { "armed" } else { "closed" };
+    let set = match pc_identity() {
+        Some(loadout) => format!("{set}-shape-{loadout}"),
+        None => set.to_string(),
+    };
+    let set = set.as_str();
+    let bot_too = armed || pc_identity().is_some() || std::env::var_os("PC_BOT").is_some();
     for &depth in &depths {
         for &n in &ns {
             for &seed in &seeds {
@@ -1522,7 +1616,7 @@ fn party_check() {
                         }
                         let pav = c.roster.iter().filter(|k| **k == EnemyKind::Pavise).count();
                         let modes: &[(&str, bool, bool)] =
-                            if armed { &[("stand", false, false), ("walk", true, false), ("bot", false, true)] } else { &[("stand", false, false), ("walk", true, false)] };
+                            if bot_too { &[("stand", false, false), ("walk", true, false), ("bot", false, true)] } else { &[("stand", false, false), ("walk", true, false)] };
                         for &(mode, walk, bot) in modes {
                             let mut run = base.clone();
                             let ids: Vec<u32> = run.players.iter().filter(|(_, h)| !h.absent).map(|(&i, _)| i).collect();
@@ -1552,7 +1646,7 @@ fn party_check() {
                         let pav = probe.enemies.iter().filter(|e| e.kind == EnemyKind::Pavise).count();
                         let foes = probe.enemies.len();
                         let modes: &[(&str, bool, bool)] =
-                            if armed { &[("stand", false, false), ("walk", true, false), ("bot", false, true)] } else { &[("stand", false, false), ("walk", true, false)] };
+                            if bot_too { &[("stand", false, false), ("walk", true, false), ("bot", false, true)] } else { &[("stand", false, false), ("walk", true, false)] };
                         for &(mode, walk, bot) in modes {
                             let mut run = probe.clone();
                             let st = pc_play(&mut run, walk, bot, secs, true);
@@ -1718,17 +1812,18 @@ fn party_check_wipes() {
 
 /// The wishes each knight of the 2026-10-18 play-test made, in the order
 /// they made them (`fixtures/last_game_phrasebook.txt` is that workspace's
-/// phrasebook, as the wish-writer wrote it).
+/// phrasebook, as the wish-writer wrote it, its two not safe for work taken
+/// out: every wish stays safe for work, `cards::not_for_work`).
 const LAST_GAME_WISHES: [&[&str]; 2] = [
     &[
-        "homing-bullets", "sperm-bullets", "draining-bullets", "faster-firing", "tuxedo",
+        "homing-bullets", "draining-bullets", "faster-firing", "tuxedo",
         "bigger-bullets", "health-drain", "trump-bullets", "more-damage", "damage-over-time",
         "pass-through", "life-drain", "penta-volley", "fly-faster", "pink-pony", "adoring-fans",
         "blocking-bullets", "heavy-hits",
     ],
     &[
         "fartjuice", "larger-feet", "silence-of-turds", "exploding-frogs", "fleet-foot",
-        "formal-wear", "powerbottom", "poop", "penta-shot", "rollerblades-of-fire",
+        "formal-wear", "poop", "penta-shot", "rollerblades-of-fire",
         "heavy-poop-heads", "poop-worms", "poop-armor", "corn-minions", "corn-minion-turret",
     ],
 ];
@@ -1946,4 +2041,511 @@ fn shot_cover_check() {
     }
     cover::OFF.with(|o| o.set(false));
     println!("{}", wish_power(&heaviest_run(0, 5)));
+}
+// ---- the wire's bench (the audit of 2026-10-20, docs/ENGINE.md) ----
+
+fn audit_pct(v: &mut Vec<f64>, p: f64) -> f64 {
+    v.sort_by(|a, b| a.total_cmp(b));
+    if v.is_empty() { return 0.0; }
+    let i = ((v.len() as f64 - 1.0) * p).round() as usize;
+    v[i]
+}
+
+/// This thread's own CPU time (microseconds): what a phase cost whatever
+/// else the machine runs.
+fn audit_cpu_us() -> f64 {
+    unsafe extern "C" {
+        fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
+    }
+    let mut at = [0i64; 2];
+    // CLOCK_THREAD_CPUTIME_ID
+    unsafe { clock_gettime(3, &mut at) };
+    at[0] as f64 * 1e6 + at[1] as f64 / 1e3
+}
+
+/// Tick cost of a busy 4-knight fight on floors 1, 4 and 6, closed rooms and
+/// open floors, with the wire's publish/view/diff/encode timed beside it.
+/// `AUDIT_SECS` game seconds each (default 60).
+#[test]
+#[ignore]
+fn audit_tick_cost() {
+    use angel_net::doc::delta::diff;
+    use angel_net::doc::wire::Writer;
+    use std::time::Instant;
+    let secs = pc_list("AUDIT_SECS", &[60])[0];
+    let depths = pc_list("AUDIT_DEPTHS", &[1, 4, 6]);
+    let only = std::env::var("AUDIT_ONLY").unwrap_or_default();
+    for &depth in &depths {
+        for layout in ["closed", "open"] {
+            if !only.is_empty() && only != layout { continue; }
+            // Build the run.
+            let (mut run, refill): (Run, Option<usize>) = if layout == "closed" {
+                let base = floor_run(3, depth, Party::Won, 4);
+                let mut best = (0usize, 0usize);
+                for room in 0..base.dungeon.rooms.len() {
+                    let mut probe = base.clone();
+                    probe.enter(room, Some(2));
+                    if probe.phase == Phase::Fighting && probe.enemies.len() > best.1 {
+                        best = (room, probe.enemies.len());
+                    }
+                }
+                let mut run = base;
+                run.enter(best.0, Some(2));
+                (run, Some(best.0))
+            } else {
+                let mut run = Run::new(3, 703, None);
+                run.restore_gear(1);
+                for id in 2..=4 { run.join_seat(id, PC_NAMES[(id as usize - 2) % PC_NAMES.len()]); }
+                let ids: Vec<u32> = run.players.keys().copied().collect();
+                for (i, id) in ids.into_iter().enumerate() {
+                    run.outfit(id, knights::knight(["percival", "lynette", "gareth", "galahad"][i % 4]).unwrap());
+                }
+                run.open_floor_for_test(depth);
+                let o = run.dungeon.open.clone().unwrap();
+                let (ci, _) = o.chambers.iter().enumerate().max_by_key(|(_, c)| c.roster.len()).unwrap();
+                let ids: Vec<u32> = run.players.keys().copied().collect();
+                let spots = run.open_spots(o.map, o.chambers[ci].centre(), ids.len());
+                for (id, (x, y)) in ids.iter().zip(spots) {
+                    let h = run.players.get_mut(id).unwrap();
+                    (h.x, h.y) = (x, y);
+                }
+                (run, None)
+            };
+            let ids: Vec<u32> = run.players.keys().copied().collect();
+            let mut step_us = Vec::new();
+            let mut bot_us = Vec::new();
+            let mut pub_us = Vec::new();
+            let mut view_us = Vec::new();
+            let mut enc_us = Vec::new();
+            let mut whole_bytes = Vec::new();
+            let mut patch_bytes: Vec<f64> = Vec::new();
+            let mut writers: Vec<Writer> = (0..4).map(|_| Writer::default()).collect();
+            let mut last: Vec<Option<angel_net::doc::value::Value>> = vec![None; 4];
+            let mut publisher = crate::wire::Publisher::default();
+            let (mut foes_sum, mut shots_sum, mut foes_max, mut shots_max) = (0usize, 0usize, 0usize, 0usize);
+            let mut per_seat_total = [0usize; 4];
+            let (mut cpu_step, mut cpu_publish, mut cpu_seats, mut whole_cpu) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let ticks = secs * HZ;
+            for _t in 0..ticks {
+                let t0 = Instant::now();
+                let inputs: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, bot_input(&run, id))).collect();
+                bot_us.push(t0.elapsed().as_secs_f64() * 1e6);
+                let t1 = Instant::now();
+                let c1 = audit_cpu_us();
+                run.step(&inputs);
+                step_us.push(t1.elapsed().as_secs_f64() * 1e6);
+                cpu_step += audit_cpu_us() - c1;
+                // keep it busy, as the dev host's fight scene does
+                for h in run.players.values_mut() { h.hp = h.max_hp; }
+                if let Some(room) = refill {
+                    if !run.hitstop.frozen() && run.phase != Phase::Fighting && run.at == room {
+                        run.enter(room, Some(2));
+                    }
+                }
+                foes_sum += run.enemies.len(); shots_sum += run.projectiles.len();
+                foes_max = foes_max.max(run.enemies.len()); shots_max = shots_max.max(run.projectiles.len());
+                // the wire, every tick (snapshot_hz 30 = HZ)
+                let t2 = Instant::now();
+                let c2 = audit_cpu_us();
+                let tree = publisher.publish(&run).unwrap();
+                pub_us.push(t2.elapsed().as_secs_f64() * 1e6);
+                cpu_publish += audit_cpu_us() - c2;
+                let c3 = audit_cpu_us();
+                for seat in 0..4u32 {
+                    let t3 = Instant::now();
+                    let view = crate::wire::pace(crate::wire::seat_tree(&tree, Some(seat)), last[seat as usize].as_ref()).into_owned();
+                    view_us.push(t3.elapsed().as_secs_f64() * 1e6);
+                    let t4 = Instant::now();
+                    let mut out = Vec::new();
+                    let w = &mut writers[seat as usize];
+                    match &last[seat as usize] {
+                        None => { w.value(&mut out, &view); }
+                        Some(old) => { if let Some(p) = diff(old, &view) { w.patch(&mut out, &p); } }
+                    }
+                    enc_us.push(t4.elapsed().as_secs_f64() * 1e6);
+                    if seat == 0 && _t % 30 == 0 {
+                        let cw = audit_cpu_us();
+                        let mut whole = Vec::new();
+                        Writer::default().value(&mut whole, &view);
+                        whole_bytes.push(whole.len() as f64);
+                        whole_cpu += audit_cpu_us() - cw;
+                    }
+                    if last[seat as usize].is_some() { patch_bytes.push(out.len() as f64); }
+                    per_seat_total[seat as usize] += out.len();
+                    last[seat as usize] = Some(view);
+                }
+                cpu_seats += audit_cpu_us() - c3 - whole_cpu;
+                whole_cpu = 0.0;
+            }
+            let mean = |v: &Vec<f64>| v.iter().sum::<f64>() / v.len().max(1) as f64;
+            let (ms, mb, mp, mv, me) = (mean(&step_us), mean(&bot_us), mean(&pub_us), mean(&view_us), mean(&enc_us));
+            let (wb, pb) = (mean(&whole_bytes), mean(&patch_bytes));
+            let p99s = audit_pct(&mut step_us.clone(), 0.99);
+            let p50s = audit_pct(&mut step_us.clone(), 0.5);
+            let maxs = audit_pct(&mut step_us.clone(), 1.0);
+            let p99p = audit_pct(&mut pub_us.clone(), 0.99);
+            let maxw = audit_pct(&mut whole_bytes.clone(), 1.0);
+            let p99pb = audit_pct(&mut patch_bytes.clone(), 0.99);
+            let bps = per_seat_total.iter().map(|&b| b as f64 / secs as f64).sum::<f64>() / 4.0;
+            let n = ticks as f64;
+            println!(
+                "CPU depth={depth} layout={layout} step_us={:.1} publish_us={:.1} four_seats_us={:.1} wire_total_us={:.1} bytes_per_sec_per_seat={:.0} join_bytes={:.0}",
+                cpu_step / n, cpu_publish / n, cpu_seats / n, (cpu_publish + cpu_seats) / n,
+                per_seat_total.iter().map(|&b| b as f64 / secs as f64).sum::<f64>() / 4.0,
+                whole_bytes.iter().sum::<f64>() / whole_bytes.len().max(1) as f64
+            );
+            println!(
+                "AUDIT depth={depth} layout={layout} ticks={ticks} step_mean_us={ms:.1} step_p50_us={p50s:.1} step_p99_us={p99s:.1} step_max_us={maxs:.1} bot_mean_us={mb:.1} publish_mean_us={mp:.1} publish_p99_us={p99p:.1} view_mean_us={mv:.1} encode_mean_us={me:.1} foes_mean={:.1} foes_max={foes_max} shots_mean={:.1} shots_max={shots_max} whole_snapshot_bytes_mean={wb:.0} whole_max={maxw:.0} patch_bytes_mean={pb:.0} patch_p99={p99pb:.0} bytes_per_sec_per_seat={bps:.0}",
+                foes_sum as f64 / ticks as f64, shots_sum as f64 / ticks as f64
+            );
+        }
+    }
+}
+
+/// Which top-level fields of the wire tree the per-tick patches are made of.
+#[test]
+#[ignore]
+fn audit_wire_fields() {
+    use angel_net::doc::delta::diff;
+    use angel_net::doc::value::Value;
+    use angel_net::doc::wire::Writer;
+    let secs = pc_list("AUDIT_SECS", &[20])[0];
+    for (depth, layout) in [(1u32, "closed"), (4, "closed"), (6, "open")] {
+        let (mut run, refill): (Run, Option<usize>) = if layout == "closed" {
+            let base = floor_run(3, depth, Party::Won, 4);
+            let mut best = (0usize, 0usize);
+            for room in 0..base.dungeon.rooms.len() {
+                let mut probe = base.clone();
+                probe.enter(room, Some(2));
+                if probe.phase == Phase::Fighting && probe.enemies.len() > best.1 { best = (room, probe.enemies.len()); }
+            }
+            let mut run = base;
+            run.enter(best.0, Some(2));
+            (run, Some(best.0))
+        } else {
+            let mut run = Run::new(3, 703, None);
+            run.restore_gear(1);
+            for id in 2..=4 { run.join_seat(id, PC_NAMES[(id as usize - 2) % PC_NAMES.len()]); }
+            let ids: Vec<u32> = run.players.keys().copied().collect();
+            for (i, id) in ids.into_iter().enumerate() {
+                run.outfit(id, knights::knight(["percival", "lynette", "gareth", "galahad"][i % 4]).unwrap());
+            }
+            run.open_floor_for_test(depth);
+            let o = run.dungeon.open.clone().unwrap();
+            let (ci, _) = o.chambers.iter().enumerate().max_by_key(|(_, c)| c.roster.len()).unwrap();
+            let ids: Vec<u32> = run.players.keys().copied().collect();
+            let spots = run.open_spots(o.map, o.chambers[ci].centre(), ids.len());
+            for (id, (x, y)) in ids.iter().zip(spots) { let h = run.players.get_mut(id).unwrap(); (h.x, h.y) = (x, y); }
+            (run, None)
+        };
+        let ids: Vec<u32> = run.players.keys().copied().collect();
+        let mut publisher = crate::wire::Publisher::default();
+        let mut last: Option<Value> = None;
+        let mut by: BTreeMap<String, usize> = BTreeMap::new();
+        let mut whole_by: BTreeMap<String, usize> = BTreeMap::new();
+        let mut w = Writer::default();
+        for _ in 0..secs * HZ {
+            let inputs: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, bot_input(&run, id))).collect();
+            run.step(&inputs);
+            for h in run.players.values_mut() { h.hp = h.max_hp; }
+            if let Some(room) = refill { if !run.hitstop.frozen() && run.phase != Phase::Fighting && run.at == room { run.enter(room, Some(2)); } }
+            let tree = publisher.publish(&run).unwrap();
+            let view = crate::wire::pace(crate::wire::seat_tree(&tree, Some(0)), last.as_ref()).into_owned();
+            if let (Some(old), Value::Struct(newf)) = (&last, &view) {
+                if let Value::Struct(oldf) = old {
+                    for (name, nv) in newf {
+                        if let Some((_, ov)) = oldf.iter().find(|(n, _)| n == name) {
+                            if let Some(p) = diff(ov, nv) {
+                                let mut out = Vec::new();
+                                w.patch(&mut out, &p);
+                                *by.entry(name.to_string()).or_default() += out.len();
+                            }
+                        }
+                    }
+                }
+            } else if let Value::Struct(newf) = &view {
+                for (name, nv) in newf {
+                    let mut out = Vec::new();
+                    Writer::default().value(&mut out, nv);
+                    whole_by.insert(name.to_string(), out.len());
+                }
+            }
+            last = Some(view);
+        }
+        let mut v: Vec<_> = by.into_iter().collect();
+        v.sort_by(|a, b| b.1.cmp(&a.1));
+        let total: usize = v.iter().map(|x| x.1).sum();
+        println!("WIREFIELDS depth={depth} layout={layout} total_Bps={} top: {}", total / secs as usize,
+            v.iter().take(12).map(|(n, b)| format!("{n}={}", b / secs as usize)).collect::<Vec<_>>().join(" "));
+        let mut wv: Vec<_> = whole_by.into_iter().collect();
+        wv.sort_by(|a, b| b.1.cmp(&a.1));
+        println!("WHOLEFIELDS depth={depth} layout={layout} top: {}", wv.iter().take(12).map(|(n, b)| format!("{n}={b}")).collect::<Vec<_>>().join(" "));
+    }
+}
+
+/// Four seats on the wire through a busy fight, each sent snapshot after
+/// snapshot as a host sends them (`wire::Publisher`, `wire::seat_tree`,
+/// `wire::pace`, the patch on the wire), and a fifth joining late: each
+/// client holds just the tree the host meant for it, and reads back the
+/// host's run: its shots where the host has them to within `wire::SLIP`,
+/// as fast to within `wire::SLIP_SPEED`, and everything else exactly. What
+/// a seat draws is what the host would draw for it, to a few pixels at the
+/// edge of a shot. Homing, bouncing, piercing and pattern shots and
+/// volleys all fly through it. `WIRE_SECS` game seconds a floor.
+#[test]
+fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
+    use crate::render::overworld::arena;
+    use angel_net::codec::Bytes;
+    use angel_net::doc::delta::{apply, diff};
+    use angel_net::doc::value::Value;
+    use angel_net::doc::wire::{Reader, Writer};
+    let secs = pc_list("WIRE_SECS", &[3])[0];
+    let mut seen = (0usize, 0usize, 0usize, 0usize, 0usize);
+    let mut worst = (0.0f32, 0.0f32, 0usize);
+    for (depth, open) in [(1u32, false), (4, false), (6, false), (6, true)] {
+        let mut run = if open {
+            let mut run = Run::new(3, 703, None);
+            run.restore_gear(1);
+            for id in 2..=4 {
+                run.join_seat(id, PC_NAMES[(id as usize - 2) % PC_NAMES.len()]);
+            }
+            let ids: Vec<u32> = run.players.keys().copied().collect();
+            for (i, id) in ids.into_iter().enumerate() {
+                run.outfit(id, knights::knight(["percival", "lynette", "gareth", "galahad"][i % 4]).unwrap());
+            }
+            run.open_floor_for_test(depth);
+            let o = run.dungeon.open.clone().unwrap();
+            let (ci, _) = o.chambers.iter().enumerate().max_by_key(|(_, c)| c.roster.len()).unwrap();
+            let ids: Vec<u32> = run.players.keys().copied().collect();
+            let spots = run.open_spots(o.map, o.chambers[ci].centre(), ids.len());
+            for (id, (x, y)) in ids.iter().zip(spots) {
+                let h = run.players.get_mut(id).unwrap();
+                (h.x, h.y) = (x, y);
+            }
+            run
+        } else {
+            let base = floor_run(3, depth, Party::Won, 4);
+            let busiest = (0..base.dungeon.rooms.len())
+                .max_by_key(|&room| {
+                    let mut probe = base.clone();
+                    probe.enter(room, Some(2));
+                    if probe.phase == Phase::Fighting { probe.enemies.len() } else { 0 }
+                })
+                .unwrap();
+            let mut run = base;
+            run.enter(busiest, Some(2));
+            run
+        };
+        let ids: Vec<u32> = run.players.keys().copied().collect();
+        let mut publisher = crate::wire::Publisher::default();
+        // Seats 0 to 3, and seat 4 (a watcher's view) from halfway.
+        let mut clients: Vec<(Option<u32>, Writer, Reader, Option<Value>, Option<Value>)> =
+            (0..4).map(|s| (Some(s), Writer::default(), Reader::default(), None, None)).collect();
+        let ticks = secs * HZ;
+        for t in 0..ticks {
+            let inputs: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, bot_input(&run, id))).collect();
+            run.step(&inputs);
+            for h in run.players.values_mut() {
+                h.hp = h.max_hp;
+            }
+            if t == ticks / 2 {
+                clients.push((None, Writer::default(), Reader::default(), None, None));
+            }
+            let tree = publisher.publish(&run).unwrap();
+            // One fresh tree for the tick. Each seat used to publish again;
+            // they read this same tree, so the comparisons are unchanged.
+            // Every shot is still exactly where it is.
+            let fresh = crate::wire::publish(&run).unwrap();
+            let exact = crate::wire::read(&fresh).unwrap();
+            for shot in &run.projectiles {
+                seen.0 += usize::from(shot.traits.homing > 0 && !shot.hostile);
+                seen.1 += usize::from(shot.traits.bounce > 0);
+                seen.2 += usize::from(shot.pierce > 0);
+                seen.3 += usize::from(shot.traits.path != crate::rules::patterns::Path::default());
+            }
+            for (seat, w, r, sent, held) in &mut clients {
+                let view = crate::wire::pace(crate::wire::seat_tree(&tree, *seat), sent.as_ref()).into_owned();
+                let mut out = Vec::new();
+                match sent.as_ref() {
+                    None => w.value(&mut out, &view),
+                    Some(old) => {
+                        if let Some(patch) = diff(old, &view) {
+                            w.patch(&mut out, &patch);
+                        }
+                    }
+                }
+                match held.as_mut() {
+                    None => *held = Some(r.value(&mut Bytes::new(&out)).unwrap()),
+                    Some(held) if !out.is_empty() => apply(held, r.patch(&mut Bytes::new(&out)).unwrap()).unwrap(),
+                    Some(_) => {}
+                }
+                let held = held.as_ref().unwrap();
+                // A struct's fields by name: a field gone and back comes
+                // after the rest on the client, as it always has.
+                fn alike(a: &Value, b: &Value) -> bool {
+                    match (a.get(), b.get()) {
+                        (Value::Struct(x), Value::Struct(y)) => {
+                            x.len() == y.len()
+                                && if x.iter().zip(y).all(|((m, _), (n, _))| m == n) {
+                                    x.iter().zip(y).all(|((_, w), (_, v))| alike(w, v))
+                                } else {
+                                    y.iter().all(|(n, v)| x.iter().any(|(m, w)| m == n && alike(w, v)))
+                                }
+                        }
+                        (Value::Seq(x), Value::Seq(y)) => x.len() == y.len() && x.iter().zip(y).all(|(v, w)| alike(v, w)),
+                        (Value::Map(x), Value::Map(y)) => {
+                            x.len() == y.len()
+                                && if x.iter().zip(y).all(|((k, _), (l, _))| k == l) {
+                                    x.iter().zip(y).all(|((_, w), (_, v))| alike(w, v))
+                                } else {
+                                    y.iter().all(|(k, v)| x.iter().any(|(l, w)| k == l && alike(w, v)))
+                                }
+                        }
+                        (Value::Some(x), Value::Some(y)) => alike(x, y),
+                        (Value::Variant(n, x), Value::Variant(m, y)) => n == m && alike(x, y),
+                        (x, y) => x == y,
+                    }
+                }
+                if !alike(held, &view) {
+                    fn first(a: &Value, b: &Value, path: String) -> String {
+                        match (a.get(), b.get()) {
+                            (Value::Struct(x), Value::Struct(y)) => {
+                                for (n, v) in y {
+                                    match x.iter().find(|(m, _)| m == n) {
+                                        Some((_, w)) if !alike(w, v) => return first(w, v, format!("{path}.{n}")),
+                                        None => return format!("{path}.{n} missing"),
+                                        _ => {}
+                                    }
+                                }
+                                format!("{path}: fields {:?} vs {:?}", x.iter().map(|f| &f.0).collect::<Vec<_>>(), y.iter().map(|f| &f.0).collect::<Vec<_>>())
+                            }
+                            (Value::Seq(x), Value::Seq(y)) if x.len() == y.len() => {
+                                for (i, (v, w)) in x.iter().zip(y).enumerate() {
+                                    if !alike(v, w) {
+                                        return first(v, w, format!("{path}[{i}]"));
+                                    }
+                                }
+                                path
+                            }
+                            (Value::Map(x), Value::Map(y)) if x.len() == y.len() => {
+                                for (k, w) in y {
+                                    let v = x.iter().find(|(l, _)| l == k).map_or(&Value::Unit, |(_, v)| v);
+                                    if !alike(v, w) {
+                                        return first(v, w, format!("{path}[{k:?}]"));
+                                    }
+                                }
+                                path
+                            }
+                            (x, y) => format!("{path}: {x:?} vs {y:?}"),
+                        }
+                    }
+                    panic!("floor {depth} tick {t} seat {seat:?}: the client holds {}", first(held, &view, String::new()));
+                }
+                *sent = Some(view);
+                let seated = crate::wire::seat_tree(&fresh, *seat);
+                // One fresh read for the tick (`exact`), not a publish and a
+                // read per seat. `seat_tree` leaves shots as published unless
+                // the seat stands outside, when it sends none. Stone is the
+                // room, which that filter does not change, so an in-room
+                // seat's shots are `exact`'s. The client is still `read`, the
+                // path a guest uses.
+                let sent_none = match seated.field("projectiles").map(Value::get) {
+                    Some(Value::Seq(s)) if s.is_empty() => !matches!(fresh.field("projectiles").map(Value::get), Some(Value::Seq(s)) if s.is_empty()),
+                    _ => false,
+                };
+                let mine_shots: &[crate::rules::Projectile] = if sent_none { &[] } else { &exact.projectiles };
+                let back = crate::wire::read(held).unwrap();
+                assert_eq!(back.projectiles.len(), mine_shots.len(), "floor {depth} tick {t}");
+                for (a, b) in back.projectiles.iter().zip(mine_shots) {
+                    let (dx, dy) = ((a.x - b.x).abs(), (a.y - b.y).abs());
+                    let dv = (a.vx - b.vx).abs().max((a.vy - b.vy).abs());
+                    worst.0 = worst.0.max(dx.max(dy));
+                    worst.1 = worst.1.max(dv);
+                    assert!(dx <= crate::wire::SLIP && dy <= crate::wire::SLIP, "floor {depth} tick {t}: a {:?} off by {dx} {dy}", a.kind);
+                    assert!(dv <= crate::wire::SLIP_SPEED, "floor {depth} tick {t}: a {:?} off its speed by {dv}", a.kind);
+                    let (mut a, mut b) = (a.clone(), b.clone());
+                    (a.x, a.y, a.vx, a.vy) = (b.x, b.y, b.vx, b.vy);
+                    assert_eq!(a, b, "floor {depth} tick {t}");
+                    b.x = 0.0;
+                }
+                // Everything else, exactly. The seated run is derived on the
+                // ticks that check it, not every tick.
+                let strip = |run: &Run| {
+                    let mut json = serde_json::to_value(run).unwrap();
+                    json.as_object_mut().unwrap().remove("projectiles");
+                    json
+                };
+                let check = t % 15 == 0 || t + 1 == ticks;
+                let draw = t % 30 == 29;
+                if check || draw {
+                    let mine = crate::wire::read(&seated).unwrap();
+                    assert_eq!(
+                        mine.projectiles,
+                        if sent_none { Vec::new() } else { exact.projectiles.clone() },
+                        "floor {depth} tick {t} seat {seat:?}: in-room shots are the fresh run's"
+                    );
+                    if check {
+                        assert_eq!(strip(&back), strip(&mine), "floor {depth} tick {t} seat {seat:?}");
+                        assert_eq!(strip(&back), strip(&exact), "floor {depth} tick {t} seat {seat:?}: the run as built afresh");
+                    }
+                    // What it draws: the host's own picture for that seat, but
+                    // where a shot's edge falls on the other side of a pixel.
+                    if draw {
+                        let (w_px, h_px) = (384, 224 + arena::BAND_H + arena::HUD_H);
+                        let focus = seat.map(crate::wire::knight_of);
+                        let host = arena::seat_frame(&mine, w_px, h_px, focus);
+                        let client = arena::seat_frame(&back, w_px, h_px, focus);
+                        let off = host.words().iter().zip(client.words()).filter(|(a, b)| a != b).count();
+                        worst.2 = worst.2.max(off);
+                        assert!(off <= 64 * mine.projectiles.len().max(1), "floor {depth} tick {t} seat {seat:?}: {off} pixels differ");
+                    }
+                }
+            }
+            seen.4 = seen.4.max(run.projectiles.len());
+        }
+    }
+    println!(
+        "WIRE homing={} bounce={} pierce={} pattern={} most_in_flight={} worst_place={} worst_speed={} worst_pixels={}",
+        seen.0, seen.1, seen.2, seen.3, seen.4, worst.0, worst.1, worst.2
+    );
+    assert!(seen.0 > 0 && seen.1 > 0 && seen.2 > 0 && seen.3 > 0, "every kind of shot flew: {seen:?}");
+}
+
+/// Shot size against the old size, party by party (the operator,
+/// 2026-10-22: smaller shots, tied to the arm's beat, and the party's share
+/// of the screen off): two to four knights on floors 1 to 6, a normal room
+/// and the boss each, the party the floor calls for (fresh on 1 and 2,
+/// part-way on 3, the won decks from 4). `before` is the shots as they
+/// were (`wishcraft::LEGACY`: the old size and hit, the share held).
+/// `BULLET_SEEDS=n` seeds a cell (8).
+/// `cargo test --release -p angel-delve bullet_size_sim -- --ignored --nocapture`
+fn bullet_size_sim_of(label: &str, legacy: bool) {
+    crate::rules::wishcraft::LEGACY.with(|l| l.set(legacy));
+    let seeds: u64 = std::env::var("BULLET_SEEDS").ok().and_then(|s| s.parse().ok()).unwrap_or(8);
+    for depth in 1..=6u32 {
+        let party = match depth {
+            1 | 2 => Party::Fresh,
+            3 => Party::Mid,
+            _ => Party::Won,
+        };
+        for n in 2..=4usize {
+            let rooms: Vec<Fight> = (0..seeds).map(|s| normal_room(s, depth, party, n)).collect();
+            row(&format!("{label} floor {depth} x{n} room"), &rooms);
+            let bosses: Vec<Fight> = (0..seeds).map(|s| boss_room(s, depth, party, n)).collect();
+            row(&format!("{label} floor {depth} x{n} BOSS"), &bosses);
+        }
+    }
+    crate::rules::wishcraft::LEGACY.with(|l| l.set(false));
+}
+
+#[test]
+#[ignore]
+fn bullet_size_sim_before() {
+    bullet_size_sim_of("before", true);
+}
+
+#[test]
+#[ignore]
+fn bullet_size_sim_after() {
+    bullet_size_sim_of("after", false);
 }

@@ -1,0 +1,44 @@
+@@book-page 1@@
+COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING.
+@@book-page 1@@
+Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best.
+@@book-page 1@@
+Start from the current promoted leader source, preserving useful local work in a separate branch or checkout. Compare optimized baseline and candidate builds on the same hardware and evaluator protocol; retain the source identities and measured results.
+@@book-page 1@@
+Keep the exact submission ID and check its official result; automatic tracking is not connected to ordinary submissions.
+@@book-page 1@@
+Use the platform CLI for status, score, rejection reason and metrics. A configured watcher is supplementary; a missing notification is not evidence that a job is pending.
+@@book-page 1@@
+Sitting on a prepped submission is a competition failure.
+@@book-page 1@@
+Constant output: one bat in flight, the next best being prepped.
+@@book-page 1@@
+After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate.
+@@book-page 1@@
+Long monologues or passive waiting do not count.
+@@book-page 1@@
+Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight is the most common cause of "no verifier result".
+@@book-page 2@@
+COMPETITION CHALLENGE PACE — DEEP.
+@@book-page 2@@
+This is a slow-burn solve: build a coherent evidence chain, test distinct hypotheses, and converge only when the candidate is defensible.
+@@book-page 2@@
+Hop count, first-write pressure, and watcher state are never instructions to submit — but a candidate that passes the local gate IS submitted (receipt/ID) and then improved; depth is a reason to measure more, never a reason to withhold a measured candidate.
+@@book-page 2@@
+Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling, long tools are reported live, and a self-imposed timeout that kills a load mid-flight is the most common cause of "no verifier result".
+@@book-page 3@@
+Read officialMetrics and rejectionReason as well as officialScore. Compare verified work with self-reported work when both exist. A discrepancy needs investigation; self-reported peak throughput is not proof of tested candidates or lost hits.
+@@book-page 3@@
+Historical briefs and handoffs are evidence, not new restrictions. Recheck inherited prohibitions against current user instructions and actual tool capabilities. Inspect the leader source before deciding to keep an older local lineage.
+@@book-page 3@@
+Use the optimized build and only the validation needed for the changed candidate. Reuse a valid receipt for unchanged bytes and inputs; do not delay an eligible winner with broad repeated checks.
+@@book-page 7@@
+[always driving competition doctrine] ALWAYS BE IMPROVING.
+@@book-page 7@@
+The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight.
+@@book-page 7@@
+Submit a verified competitive candidate promptly; inspect pending results when useful.
+@@book-page 7@@
+Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier.
+@@book-page 7@@
+The agent owns result follow-through. Inspect the exact ID with the platform CLI.

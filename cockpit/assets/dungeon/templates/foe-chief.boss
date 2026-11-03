@@ -1,0 +1,62 @@
+# TEMPLATE: a chief: a camp's leader, a route chief, a Wanted outlaw. It
+# stands a knight and a half tall (24 pixels) and leads its fight with one
+# charge-up anyone can read.
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+# and add it to cockpit/assets/dungeon/bosses/ and to its pack's natives in
+# crates/delve/src/rules/encounter_catalog.rs when it passes.
+#
+# Change: name (capitals, at most 28), text (who it is, one line), by, where
+#   (crypt mines archive fungal hellforge unknown swamp), hp 300-900, size (its
+#   hit radius in arena units, 0.8-2.0), move (chase drift hover anchor) and its
+#   speed, its attacks (aimed fan ring spiral ravage, or a named pattern), its
+#   windup (charge slam beam leap inhale), rage, drops, the art.
+# Keep: at most 3 attacks; the first opens the fight, the rest join
+#   `from=middle` (or say `from=`); a `phases` line (2 to 4 named patterns
+#   walked in turn); shots a second inside each stage's budget (3 opening, 5
+#   middle, 7 rage, the rage at half again the pace): a file over it is slowed
+#   and says so; one or two windups; numbers inside their ranges (a number past
+#   one is held to it, with a note: write what the game will use).
+# The bar: art 16 to 32 rows tall (it is blown up to stand 24, and 32 as a
+#   floor's guardian: past twice its pixels read coarser than the knights');
+#   no wider than its strike allows (size x 16 pixels, by half again); graded
+#   Fine or better (a template, Masterwork): a dark outline against the floor,
+#   lit from the upper left, 4 to 6 inks a material, one accent, no specks.
+name THE BRUTE CHIEF
+text A camp's warlord, cleaver first: copy him and make him yours.
+by angelX
+where mines
+hp 560
+size 1.4
+move chase speed=1.2
+attack aimed shots=3 speed=7 every=70 damage=12 shot=ore
+attack fan shots=5 arc=60 speed=6 every=90 damage=10 shot=ore from=middle
+phases darts gap_wall every=140 volleys=2 damage=11 shot=ore from=rage
+windup charge every=190 damage=16 speed=30 cry=HRAAH
+rage 30%
+drops gold 120, ore 3
+art
+....kk.......kk.......
+...kHHk.....kHGk......
+...kHGk.....kGGk......
+....kHGkkkkkkGGk......
+.....kHHGGGGGXk.......
+.....kHGXXXXGXk...kkk.
+.....kGkGGkGXk...kHHGk
+.....kGGHHGGXk..kHHGGk
+....kXGkkkkGXkk.kHGGGk
+.kkGGGXXGGGXXkkkHGGGXk
+kHGGGXkPPkXGGGXkHGGGXk
+kHGGXXkPPkXXGGXkHGGGXk
+.kGGXXkPPPPkXGGXkGGGXk
+..kGXkPPPPPPPkXGkkGGXk
+...kkkPPPPPPkkHGkPkXXk
+....kPPPPPkkPHGGkPPkkk
+....kPPkkPHGkPPkPPk...
+....kXPHGGGkPPPPPXk...
+....kXXkkkPP55PPXXk...
+....kGXXXkkkkkkXXXk...
+....kGGXXk..kGGXXk....
+....kGGXXk..kGXXXk....
+...kGGGXXk..kGGXXXk...
+...kkkkkkk..kkkkkkk...

@@ -1,0 +1,69 @@
+# crates/delve/src/rules/press.rs: co-op pressure (held monsters, long holds).
+import Base
+
+# Nothing in mind yet: left off the wire.
+def press.Wits.calm(w: Wits) -> Bool:
+  Bool.and(Bool.and(U32.is_eq(w.foe, 0), U32.is_eq(w.held, 0)), Bool.and(U32.is_eq(w.steady, 0), U32.is_eq(w.flinch, 0)))
+
+def press.Wits.calm.set(enemy: Enemy, key: String, w: Wits) -> J.Val:
+  cb.skip.if(press.Wits.calm(w), enemy, key, w)
+
+# One tick of a held monster's wits, before it acts: a long hold slides off a
+# steady monster, and a long hold ending makes it steady. True while it is
+# still held this tick. Answers (enemy, held).
+def press.held(enemy: Enemy) -> (Enemy, Bool):
+  enemy.wits.flinch = RS.u_sat_sub(enemy.wits.flinch, 1)
+  if U32.is_gt(enemy.wits.steady, 0):
+    enemy.wits.steady = (enemy.wits.steady - 1 : U32)
+    if U32.is_gt(enemy.frozen, press.JOLT()):
+      enemy.frozen = 0
+  if U32.is_eq(enemy.frozen, 0):
+    enemy.wits.held = 0
+    return (enemy, False{})
+  enemy.frozen = (enemy.frozen - 1 : U32)
+  enemy.wits.held = RS.u_min((enemy.wits.held + 1 : U32), 65535)
+  if Bool.and(U32.is_eq(enemy.frozen, 0), U32.is_ge(enemy.wits.held, press.LONG_HOLD())):
+    enemy.wits.steady = press.STEADY()
+  (enemy, True{})
+
+# A party-wide control ultimate cast now: its hold, full or short as the last
+# one was long ago or not. Answers (run, hold).
+def press.Run.control_hold(run: Run, full: U32, echo: U32) -> Run & U32:
+  short: Bool = False{}
+  match (run.feel.control : W.W?):
+    case Some{at: W.W}:
+      short = W.lt(W.sat_sub(run.tick, at), W.of_u32(press.ECHO()))
+    case None{}:
+      short = False{}
+  run.feel.control = Some{run.tick}
+  if short:
+    run.cues = J.push(run.cues, J.JS{"ult_echo"})
+    return (run, echo)
+  (run, full)
+
+# What `enemy` sees this tick: its own knight (the one that last hurt it, or
+# its share of the party), any knight within NEAR, and every decoy. `knights`
+# is an array of [id, x, y]; the answer is an array of [x, y].
+def press.sights(enemy: Enemy, knights: J.Val, images: J.Val) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  n: U32 = J.len(knights)
+  own: U32 = 0
+  found: Bool = False{}
+  for i: U32 in cb.range(n):
+    if Bool.and(Bool.not(found), U32.is_eq(J.u32(J.nth(J.nth(knights, i), 0)), enemy.wits.foe)):
+      own = J.u32(J.nth(J.nth(knights, i), 0))
+      found = True{}
+  if Bool.and(Bool.not(found), U32.is_gt(n, 0)):
+    own = J.u32(J.nth(J.nth(knights, U32.mod(enemy.id, n)), 0))
+    found = True{}
+  if found:
+    reach: F32 = (press.NEAR() + monsters.Enemy.radius(enemy) : F32)
+    for k: J.Val in J.items(knights):
+      kid: U32 = J.u32(J.nth(k, 0))
+      kx: F32 = J.f32(J.nth(k, 1))
+      ky: F32 = J.f32(J.nth(k, 2))
+      if Bool.or(U32.is_eq(kid, own), (cb.hyp((kx - enemy.x : F32), (ky - enemy.y : F32)) <= reach : F32)):
+        out = J.push(out, cb.of_pair(kx, ky))
+  for im: J.Val in J.items(images):
+    out = J.push(out, im)
+  out

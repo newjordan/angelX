@@ -8,6 +8,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -56,6 +57,8 @@ const credentials = [
   'CEREBRAS_API_KEY',
   'ANGEL_OPENROUTER_KEY',
   'OPENROUTER_API_KEY',
+  'ANGEL_ANTHROPIC_KEY',
+  'ANTHROPIC_API_KEY',
 ]
 
 function filtered(extra = {}) {
@@ -102,9 +105,22 @@ test('an operator allowlist enables only its named API providers', () => {
   for (const key of ['ZAI_API_KEY', 'ANGEL_GLM_KEY', 'MOONSHOT_API_KEY']) {
     assert.equal(env[key], 'test-only-key', key)
   }
-  for (const key of ['OPENAI_API_KEY', 'XAI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY']) {
+  for (const key of [
+    'OPENAI_API_KEY',
+    'XAI_API_KEY',
+    'OPENROUTER_API_KEY',
+    'DEEPSEEK_API_KEY',
+    'ANTHROPIC_API_KEY',
+  ]) {
     assert.equal(env[key], undefined, key)
   }
+})
+
+test('the anthropic club keeps its key when that family is allowed', () => {
+  const env = filtered({ ANGEL_API_CLUBS: 'anthropic' })
+  assert.equal(env.ANTHROPIC_API_KEY, 'test-only-key')
+  assert.equal(env.ANGEL_ANTHROPIC_KEY, 'test-only-key')
+  assert.equal(env.OPENAI_API_KEY, undefined)
 })
 
 test('OAuth and API providers can be selected independently without removing model settings', () => {
@@ -148,7 +164,7 @@ test('real launcher loads system.env only on opt-in, preserves API choices, and 
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const home = join(root, 'home')
   const source = join(root, 'source')
-  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release'])
+  for (const dir of ['bin', 'scripts/check', 'cockpit/target/fast'])
     mkdirSync(join(source, dir), { recursive: true })
   mkdirSync(join(home, '.config/host_env'), { recursive: true })
   copyFileSync(
@@ -156,7 +172,7 @@ test('real launcher loads system.env only on opt-in, preserves API choices, and 
     join(source, 'bin/angelX'),
   )
   copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
-  const probe = join(source, 'cockpit/target/release/angel')
+  const probe = join(source, 'cockpit/target/fast/angel')
   writeFileSync(
     probe,
     `#!/usr/bin/env python3
@@ -208,13 +224,13 @@ test('launcher preflight preserves opaque values and fails before env/log effect
   const home = join(root, 'home')
   const source = join(root, 'source')
   const workspace = join(root, 'workspace')
-  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release'])
+  for (const dir of ['bin', 'scripts/check', 'cockpit/target/fast'])
     mkdirSync(join(source, dir), { recursive: true })
   mkdirSync(home)
   mkdirSync(workspace)
   copyFileSync(fileURLToPath(new URL('../../bin/angelX', import.meta.url)), join(source, 'bin/angelX'))
   copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
-  const probe = join(source, 'cockpit/target/release/angel')
+  const probe = join(source, 'cockpit/target/fast/angel')
   writeFileSync(probe, `#!/usr/bin/env python3
 import json, os, sys
 print(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'marker': os.environ.get('ENTRY_MARKER')}))
@@ -335,6 +351,144 @@ os.execv('/usr/bin/ln', ['ln', *sys.argv[1:]])
       assert.equal(result.stdout, 'selected image\n')
       assert.equal(existsSync(marker), true)
     }
+    // A selected, hashed image keeps the release layout (bin/angelX: DEFAULT_FAST=0).
     assert.deepEqual(readdirSync(join(source, 'cockpit/target/release/run')), [])
   })
 }
+
+function pinnedLaunchFixture(t, { fallback = false } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'angel-pinned-scan-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const source = join(root, 'source')
+  const home = join(root, 'home')
+  const tools = join(root, 'tools')
+  for (const dir of [home, tools, join(source, 'bin'), join(source, 'scripts/check'), join(source, 'cockpit/target/release')])
+    mkdirSync(dir, { recursive: true })
+  copyFileSync(fileURLToPath(new URL('../../bin/angelX', import.meta.url)), join(source, 'bin/angelX'))
+  copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
+  const selected = join(root, 'selected')
+  const image = '#!/bin/sh\nprintf "pinned image\\n"\n'
+  writeFileSync(selected, image, { mode: 0o755 })
+  // Observe line execution without replacing any reads or hash implementation.
+  writeFileSync(join(tools, 'python3'), `#!/usr/bin/python3
+import json, os, sys
+if len(sys.argv) > 1 and sys.argv[1] == '-':
+    code = sys.stdin.read()
+    lines = code.splitlines()
+    if 'launch image is not a regular executable' in code and 'hashlib.sha256()' in code:
+        calls = {'hashes': 0, 'bytes': 0}
+        def trace(frame, event, arg):
+            if event == 'line' and frame.f_code.co_filename == '<image-helper>':
+                line = lines[frame.f_lineno - 1].strip()
+                if line == 'digest = hashlib.sha256()': calls['hashes'] += 1
+                if line == 'digest.update(block)': calls['bytes'] += len(frame.f_locals['block'])
+            return trace
+        sys.argv = sys.argv[1:]
+        sys.settrace(trace)
+        try: exec(compile(code, '<image-helper>', 'exec'), {'__name__': '__main__'})
+        finally:
+            sys.settrace(None)
+            with open(os.environ['FIXTURE_HASH_LOG'], 'a') as log: log.write(json.dumps(calls) + '\\n')
+    else:
+        sys.argv = sys.argv[1:]
+        exec(compile(code, '<launcher-helper>', 'exec'), {'__name__': '__main__'})
+else:
+    os.execv('/usr/bin/python3', ['python3', *sys.argv[1:]])
+`, { mode: 0o755 })
+  if (fallback) {
+    writeFileSync(join(tools, 'ln'), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+    writeFileSync(join(tools, 'cp'), '#!/bin/sh\nprintf "copy\\n" >> "$FIXTURE_COPY_LOG"\nexec /usr/bin/cp "$@"\n', { mode: 0o755 })
+  }
+  const hashLog = join(root, 'hashes.jsonl')
+  const copyLog = join(root, 'copy.log')
+  return {
+    root, source, selected, image, hashLog, copyLog,
+    launch(extra = {}) {
+      return spawnSync('bash', [join(source, 'bin/angelX'), '--build-info', '--json'], {
+        cwd: root, encoding: 'utf8', timeout: 5_000,
+        env: { HOME: home, PATH: `${tools}:/usr/bin:/bin`, LANG: 'C.UTF-8', ANGEL_NO_BUILD: '1',
+          ANGEL_LAUNCH_BINARY: selected, ANGEL_LAUNCH_BINARY_SHA256: createHash('sha256').update(image).digest('hex'),
+          FIXTURE_HASH_LOG: hashLog, FIXTURE_COPY_LOG: copyLog, ...extra },
+      })
+    },
+    assertClean() {
+      const run = join(source, 'cockpit/target/release/run')
+      if (existsSync(run)) assert.deepEqual(readdirSync(run), [])
+    },
+  }
+}
+
+for (const fallback of [false, true]) {
+  test(`pinned launcher scans only required images (${fallback ? 'copy fallback' : 'hardlink'})`, (t) => {
+    const f = pinnedLaunchFixture(t, { fallback })
+    const result = f.launch()
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout, 'pinned image\n')
+    const scans = readFileSync(f.hashLog, 'utf8').trim().split('\n').map(JSON.parse)
+    assert.equal(scans.reduce((n, s) => n + s.hashes, 0), fallback ? 2 : 1)
+    assert.equal(scans.reduce((n, s) => n + s.bytes, 0), Buffer.byteLength(f.image) * (fallback ? 2 : 1))
+    assert.equal(existsSync(f.copyLog), fallback)
+    f.assertClean()
+  })
+  test(`pinned launcher rejects wrong digest (${fallback ? 'before copy fallback' : 'hardlink image'})`, (t) => {
+    const f = pinnedLaunchFixture(t, { fallback })
+    const result = f.launch({ ANGEL_LAUNCH_BINARY_SHA256: '0'.repeat(64) })
+    assert.notEqual(result.status, 0)
+    assert.equal(result.stdout, '')
+    assert.match(result.stderr, /SHA-256 differs/u)
+    assert.equal(existsSync(f.copyLog), false, 'a known wrong pin must not be copied')
+    f.assertClean()
+  })
+}
+
+for (const kind of ['missing-digest', 'missing-file', 'nonexecutable', 'directory', 'fifo']) {
+  test(`pinned launcher rejects ${kind} without running`, (t) => {
+    const f = pinnedLaunchFixture(t)
+    const extra = {}
+    if (kind === 'missing-digest') extra.ANGEL_LAUNCH_BINARY_SHA256 = ''
+    if (kind === 'missing-file') rmSync(f.selected)
+    if (kind === 'nonexecutable') chmodSync(f.selected, 0o644)
+    if (kind === 'directory' || kind === 'fifo') {
+      rmSync(f.selected)
+      if (kind === 'directory') mkdirSync(f.selected)
+      else {
+        const fifo = spawnSync('mkfifo', [f.selected], { encoding: 'utf8' })
+        assert.equal(fifo.status, 0, fifo.stderr)
+      }
+      chmodSync(f.selected, 0o755)
+    }
+    const result = f.launch(extra)
+    assert.equal(result.error, undefined, 'invalid image must not wait for a FIFO writer')
+    assert.notEqual(result.status, 0)
+    assert.equal(result.stdout, '')
+    f.assertClean()
+  })
+}
+
+for (const kind of ['missing', 'nonexecutable', 'fifo']) {
+  test(`pinned launcher rejects a ${kind} final image and cleans up`, (t) => {
+    const f = pinnedLaunchFixture(t)
+    // Only private fixture paths; simulate a failed materialization boundary.
+    writeFileSync(join(f.root, 'tools/ln'), `#!/bin/sh
+for target do :; done
+rm -f "$target"
+${kind === 'missing' ? ':' : kind === 'fifo' ? 'mkfifo "$target"; chmod 755 "$target"' : 'printf invalid > "$target"; chmod 644 "$target"'}
+exit 0
+`, { mode: 0o755 })
+    const result = f.launch()
+    assert.equal(result.error, undefined)
+    assert.notEqual(result.status, 0)
+    assert.equal(result.stdout, '')
+    assert.match(result.stderr, /cannot verify launch image/u)
+    f.assertClean()
+  })
+}
+
+test('pinned launcher cleans up a failed fallback copy', (t) => {
+  const f = pinnedLaunchFixture(t, { fallback: true })
+  writeFileSync(join(f.root, 'tools/cp'), '#!/bin/sh\nexit 19\n', { mode: 0o755 })
+  const result = f.launch()
+  assert.equal(result.status, 19, result.stderr)
+  assert.equal(result.stdout, '')
+  f.assertClean()
+})

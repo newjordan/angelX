@@ -354,7 +354,7 @@ fn the_dossier_frame_is_its_route() {
     assert_eq!(DOSSIER_BLOCK_SENTINEL, route.cells());
     let pages = route.sub().pages;
     assert_eq!(
-        pages[..2],
+        pages.iter().take(2).collect::<Vec<_>>(),
         [
             "[repo dossier — what angel has verified about this workspace]",
             "[/dossier]"

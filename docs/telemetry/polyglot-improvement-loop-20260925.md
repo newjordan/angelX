@@ -12,8 +12,8 @@ comparisons, then separately analyzed 324 attempts from the earlier 18-task
 repository-repair benchmark. The fresh 12-task Luna pilot is a regression check;
 it is not the primary baseline and does not replace the historical evidence.
 
-The body-free [Polyglot board](../../artifacts/polyglot-loop-2026-09-25/historical-board.md)
-and [repository-repair board](../../artifacts/polyglot-loop-2026-09-25/historical-board-repair.md)
+The body-free Polyglot board (`artifacts/polyglot-loop-2026-09-25/historical-board.md`, not published)
+and repository-repair board (`artifacts/polyglot-loop-2026-09-25/historical-board-repair.md`, not published)
 include solve counts, median/p90 wall time, model/non-model time, calls, tokens,
 cache coverage and explicit failures. Their adjacent JSON files retain per-task
 measurements, source pins, all eligible runs and exact recorded settings.
@@ -73,11 +73,11 @@ failure details that the tool's tail-only truncation had removed; a GLM
 preserves the first actionable failure and terminal test summary within its
 existing 1,500-byte budget. Historical snippet replays verify preservation;
 these durations are observed opportunities, not measured new speedups. Exact
-evidence is in [the diagnostic audit](../../artifacts/diagnostic-output-evidence-2026-09-25.md).
+evidence is in the diagnostic audit (`artifacts/diagnostic-output-evidence-2026-09-25.md`, not published).
 
 ## Qwen: output volume and a concrete telemetry correction
 
-The recorded route is `toymaker`, described by the benchmark configuration as
+The recorded route is a local alias (`<local-route>` here), described by the benchmark configuration as
 Qwen3.8 Flash Next 125B-A6B, served by a local ds4 engine with MTP depth one.
 It is not a request to the public OpenRouter or Qwen Cloud service. The complete
 compact Angel run has the same single failed task as OpenCode; its jointly
@@ -126,7 +126,7 @@ generic effort parser maps `low`, `medium`, `high` and `xhigh` to the same HIGH
 mode; recorded `low` cannot be interpreted as the Qwen Cloud low token budget.
 
 A current read-only `/models` request returned HTTP 200 and confirmed alias
-`toymaker`, model name Qwen3.8 Flash Next 125B-A6B, owner `ds4.c` and a 65,536-token
+`<local-route>`, model name Qwen3.8 Flash Next 125B-A6B, owner `ds4.c` and a 65,536-token
 context. It exposes no serving build revision or renderer identity. Available
 local evidence does not resolve the ChatML/source mismatch. The route is
 reachable, but that exact provenance gap blocks a safe retained-reasoning
@@ -138,7 +138,7 @@ There is an actionable measurement fix now: pin
 `ANGEL_OPENROUTER_STREAM_USAGE=1` **for this known Qwen route** in a new cell.
 The recorded engine source accepts `stream_options.include_usage` and emits
 stream usage only when requested. Angel omits it by default because the unknown
-`toymaker` alias does not advertise cache capability, explaining the absent
+`<local-route>` alias does not advertise cache capability, explaining the absent
 usage fields in every Angel Qwen task. OpenCode and omp do report usage. Do not
 retroactively fill historical token counts or force this field on unknown
 strict servers.
@@ -306,7 +306,7 @@ The full helper, adapter, evaluator and resource pins are in the cell's
 `final-default-12` completed with runner exit code 0 and all 12 tasks passing.
 Both baseline and final reported complete usage for every task, zero trace
 errors, zero timeouts and zero integrity failures. The body-free paired result
-is [final-vs-baseline.json](../../artifacts/polyglot-loop-2026-09-25/final-vs-baseline.json).
+is `artifacts/polyglot-loop-2026-09-25/final-vs-baseline.json` (not published).
 
 | Metric | Baseline total | Final total | Baseline / final task median |
 |---|---:|---:|---:|

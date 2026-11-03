@@ -1,8 +1,18 @@
 use super::scheduler_validation::{assignment, health, services};
 use super::schema::{DirectorHealthV1, LaneIdV1, ScheduledActionV1};
+use crate::agent::harness::live_policy;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SCHEDULER_SCHEMA_V1: &str = "angel.competition-scheduler/v1";
+
+/// The shipped Bend leg: which lanes take this tick's seats.
+pub(crate) const LANE_SCHEDULE_LEG: &str = "lane-schedule";
+
+/// What the live leg answers: the chosen lane indices, in canonical order.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub(crate) struct LaneSelectionV1 {
+    pub(crate) lanes: Vec<usize>,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -162,7 +172,7 @@ impl SchedulerStateV1 {
             .tick
             .checked_add(1)
             .ok_or_else(|| "scheduler tick exhausted".to_string())?;
-        let selected = self.select_lanes();
+        let (selected, _source) = self.decide_lanes();
         for index in 0..self.lanes.len() {
             if !self.lanes[index].runnable {
                 continue;
@@ -206,7 +216,10 @@ impl SchedulerStateV1 {
         Ok(decision)
     }
 
-    fn select_lanes(&self) -> Vec<usize> {
+    /// The native lane rule. It answers only for a state whose counters do not
+    /// fit the leg's input; every representable state goes to the leg. The
+    /// parity table in the scheduler tests still compares the two.
+    pub(crate) fn select_lanes(&self) -> Vec<usize> {
         let runnable = (0..self.lanes.len())
             .filter(|index| self.lanes[*index].runnable)
             .collect::<Vec<_>>();
@@ -224,6 +237,85 @@ impl SchedulerStateV1 {
             return vec![0];
         }
         vec![choose_oldest(runnable.into_iter(), &self.lanes, self.last_single_lane).unwrap()]
+    }
+
+    /// The scheduling-relevant slice of the state, as the leg reads it. `None`
+    /// when a counter is past the leg's U32 arithmetic; the native selection
+    /// then answers alone, since no leg can be handed that state.
+    pub(crate) fn lane_input(&self) -> Option<serde_json::Value> {
+        if self.max_service_gap_ticks > u32::MAX as u64
+            || self
+                .lanes
+                .iter()
+                .any(|lane| lane.age_ticks > u32::MAX as u64)
+        {
+            return None;
+        }
+        let last = self
+            .last_single_lane
+            .and_then(|lane| self.lanes.iter().position(|state| state.lane == lane));
+        Some(serde_json::json!({
+            "seats": self.seats,
+            "max_service_gap_ticks": self.max_service_gap_ticks,
+            "frontier_priority_boost": self.frontier_priority_boost,
+            "last_single_lane": last,
+            "lanes": self
+                .lanes
+                .iter()
+                .enumerate()
+                .map(|(index, lane)| serde_json::json!({
+                    "index": index,
+                    "runnable": lane.runnable,
+                    "age_ticks": lane.age_ticks,
+                }))
+                .collect::<Vec<_>>(),
+        }))
+    }
+
+    /// The contract a loaded generation must satisfy. The seat count and the
+    /// runnable flags decide how many lanes a tick can serve and which ones are
+    /// eligible; an edit that breaks this keeps the native selection.
+    pub(crate) fn check_lanes(&self, lanes: &[usize]) -> Result<(), String> {
+        let runnable = self.lanes.iter().filter(|lane| lane.runnable).count();
+        let expected = if runnable < 2 || self.seats >= 2 {
+            runnable
+        } else {
+            1
+        };
+        if lanes.len() != expected {
+            return Err(format!(
+                "live lane schedule seated {} lanes where {} seats and {runnable} runnable lanes allow {expected}",
+                lanes.len(),
+                self.seats
+            ));
+        }
+        for (position, index) in lanes.iter().enumerate() {
+            let Some(lane) = self.lanes.get(*index) else {
+                return Err("live lane schedule named a lane the scheduler does not have".into());
+            };
+            if !lane.runnable {
+                return Err("live lane schedule seated a lane that is not runnable".into());
+            }
+            if lanes[..position].contains(index) {
+                return Err("live lane schedule seated a lane twice".into());
+            }
+        }
+        Ok(())
+    }
+
+    /// This tick's lanes: the shipped `lane-schedule` leg, or the native
+    /// selection when a counter is past the leg's `u32` arithmetic and the leg
+    /// cannot be asked at all.
+    pub(crate) fn decide_lanes(&self) -> (Vec<usize>, live_policy::LegSource) {
+        let Some(input) = self.lane_input() else {
+            return (self.select_lanes(), live_policy::LegSource::Native);
+        };
+        let (selection, source) = live_policy::decide_shipped(
+            LANE_SCHEDULE_LEG,
+            &input,
+            |selection: &LaneSelectionV1| self.check_lanes(&selection.lanes),
+        );
+        (selection.lanes, source)
     }
 
     fn lane_mut(&mut self, lane: LaneIdV1) -> Result<&mut LaneScheduleStateV1, String> {

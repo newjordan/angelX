@@ -1,0 +1,22 @@
+name   Table Gauntlet
+kind   hold
+rarity relic
+text   A steel grip for a steel arm.
+drop   1
+chest  1
+rate   10
+armor  1
+art
+...xx.xx.....
+..xHhxhHx....
+.xxihxhhxxx..
+xHxhixhixHhx.
+xihHihHihihx.
+xihhihhihihx.
+.xihhihhhixhx
+.xHiHihhixHhx
+..xihhhiiHhx.
+..xihhhihhx..
+...xHiiHhx...
+...xhhhhhx...
+...xxxxxxx...

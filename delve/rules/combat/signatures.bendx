@@ -1,0 +1,99 @@
+# crates/delve/src/rules/signatures.rs: the guardians' stage machines and the
+# caps that hold every guardian's shots to its stage of the fight.
+import Base
+
+def signatures.BANK() -> U32:
+  (bosses.VOLLEY_MOST() * rules.HZ() : U32)
+
+# Is a State the default one (what serde leaves off the wire)?
+def signatures.State.quiet(sig: Sig) -> Bool:
+  Bool.and(Bool.and(Bool.and(Bool.not(sig.active), U32.is_eq(sig.cycle, 0)), Bool.and(U32.is_eq(sig.left, 0), U32.is_eq(sig.bounces, 0))),
+    Bool.and(Bool.and(Bool.and(U32.is_eq(J.len(sig.rails), 0), U32.is_eq(sig.rail, 0)), Bool.and(cb.pair_zero(sig.jump_from), Bool.not(sig.babies))),
+      Bool.and(Bool.and(U32.is_eq(sig.windup, 0), cb.pair_zero(sig.mark)), Bool.and(Bool.and(U32.is_eq(sig.spent, 0), U32.is_eq(sig.blow, 0)), Bool.not(sig.lingering)))))
+
+# The enemy's "signature" key is left off while the State is quiet.
+def signatures.State.quiet.set(enemy: Enemy, key: String, sig: Sig) -> J.Val:
+  cb.skip.if(signatures.State.quiet(sig), enemy, key, sig)
+
+def signatures.special(boss: Boss) -> Bool:
+  Bool.or(String.eq(boss.id, signatures.RIPPER()), String.eq(boss.id, signatures.ENGINE()))
+
+# It may shoot this tick: not mid-signature, nor winding up or spent after a
+# charge-up (an outlaw keeps its own stages).
+def signatures.shooting(enemy: Enemy, boss: Boss, wanted: Bool) -> Bool:
+  if signatures.special(boss):
+    return U32.is_eq(enemy.stage, 0)
+  Bool.or(Bool.or(wanted, U32.is_eq(J.len(boss.windups), 0)), U32.is_eq(enemy.stage, 0))
+
+# What a shot weighs against the caps: itself, and the ring it bursts into.
+def signatures.weight(shot: Projectile) -> U32:
+  burst: J.Val = J.get(shot.traits.path.then, "burst")
+  if J.is_null(burst):
+    return 1
+  (1 + J.u32(J.nth(burst, 0)) : U32)
+
+# The charge-up it will wind up next, if one is due in `stage`.
+def signatures.due(enemy: Enemy, boss: Boss, stage: String) -> U32?:
+  if Bool.or(signatures.special(boss), Bool.or(U32.is_ne(enemy.stage, 0), enemy.signature.lingering)):
+    return None{}
+  rank: U32 = bosses.Stage.rank(stage)
+  open: [U32] = Nil{}
+  for k: U32 in cb.range(J.len(boss.windups)):
+    up: ChargeUp = J.nth(boss.windups, k)
+    if U32.is_le(bosses.Stage.rank(up.from), rank):
+      open = k <> open
+  open = List.reverse(&2, U32, open)
+  olen: U32 = U32.from_nat(List.length(&2, U32, open))
+  if U32.is_eq(olen, 0):
+    return None{}
+  k: U32 = patterns.nth_u(open, U32.mod(enemy.signature.cycle, olen))
+  up: ChargeUp = J.nth(boss.windups, k)
+  every: U32 = Bool.pick(U32, String.eq(stage, "rage"), (up.every * 2 / 3 : U32), up.every)
+  if U32.is_ge(enemy.timer, every):
+    return Some{k}
+  None{}
+
+# Hold a guardian to its stage's caps for one tick: its volleys this tick
+# (shots[from..]) fly whole or not at all, keeping back what a due charge-up
+# will need; its charge-up's burst, paid for as it began, is trimmed to the
+# room left. `standing` is what the room's hostile shots already weigh, `heads`
+# the knights standing. Answers (enemy, shots); the bursts are drained.
+def signatures.hold(enemy: Enemy, boss: Boss, shots: J.Val, from: U32, bursts: J.Val, standing: U32, heads: U32) -> (Enemy, J.Val):
+  stage: String = bosses.Boss.stage(boss, enemy.hp, enemy.max_hp)
+  per_second: U32 = bosses.Stage.per_second(stage)
+  on_screen: U32 = bosses.Stage.on_screen(stage)
+  room: U32 = (on_screen * RS.u_max(heads, 1) : U32)
+  enemy.signature.spent = RS.u_sat_sub(enemy.signature.spent, per_second)
+  reserve: U32 = 0
+  match (signatures.due(enemy, boss, stage) : U32?):
+    case Some{k: U32}:
+      up: ChargeUp = J.nth(boss.windups, k)
+      reserve = (bosses.ChargeUp.burst(up) * rules.HZ() : U32)
+    case None{}:
+      reserve = 0
+  volley: U32 = 0
+  start: U32 = RS.u_min(from, J.len(shots))
+  for si: U32 in cb.range(RS.u_sat_sub(J.len(shots), start)):
+    volley = (volley + signatures.weight(J.nth(shots, (start + si : U32))) : U32)
+  spent: U32 = enemy.signature.spent
+  kept: U32 = 0
+  if U32.is_eq(volley, 0):
+    kept = 0
+  else:
+    over: Bool = U32.is_gt((standing + volley : U32), room)
+    bank: Bool = Bool.and(U32.is_gt(spent, 0), U32.is_gt((spent + volley * rules.HZ() + reserve : U32), signatures.BANK()))
+    if Bool.or(over, bank):
+      shots = J.truncate(shots, from)
+      kept = 0
+    else:
+      enemy.signature.spent = RS.u_min((spent + volley * rules.HZ() : U32), (signatures.BANK() * 4 : U32))
+      kept = volley
+  left: U32 = RS.u_sat_sub(room, (standing + kept : U32))
+  for shot: Projectile in J.items(bursts):
+    w: U32 = signatures.weight(shot)
+    if U32.is_le(w, left):
+      left = (left - w : U32)
+      shots = J.push(shots, shot)
+  (enemy, shots)
+
+# press::Wits::calm lives with press; the enemy's key is left off while calm.

@@ -1,0 +1,23 @@
+{
+  "api_version": 2,
+  "id": "ability-effects",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 1,
+  "assets": [
+    "sigil.png"
+  ],
+  "exports": [
+    {
+      "kind": "resource",
+      "name": "pack",
+      "contract": "effect-pack/1"
+    }
+  ],
+  "imports": [
+    {
+      "module": "ability-code",
+      "contract": "ability-pack/1"
+    }
+  ]
+}

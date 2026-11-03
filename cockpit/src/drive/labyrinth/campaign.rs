@@ -1931,6 +1931,8 @@ fn launch(
     tx: &mpsc::Sender<LandedRole>,
     seats: &Arc<AtomicUsize>,
 ) -> Result<ActiveRole, String> {
+    let book_catalog =
+        book::catalog::current().ok_or("campaign role has no pinned book generation")?;
     let seat = CampaignSeat::reserve(seats, spec.concurrency)?;
     let work = prepare_role(root, spec, role)?;
     if role.role == "referee" {
@@ -2008,6 +2010,7 @@ fn launch(
     let kind = role.role.clone();
     let active_id = id.clone();
     std::thread::Builder::new().name(format!("labyrinth-{id}")).spawn(move||{
+        let _book_catalog=book::catalog::enter(book_catalog);
         let _permit=permit;let _budget=DescendantBudgetScope::inherit(budget);let _depth=SubcallDepthGuard::enter();
         let started=Instant::now();let (events,event_rx)=mpsc::channel();
         // Drain streamed tokens while the worker is alive. Retained tool
@@ -3159,6 +3162,17 @@ pub(crate) fn run(
     ) {
         return serde_json::to_value(state).map_err(|e| e.to_string());
     }
+    // Direct UI campaigns have no parent turn. Select a single published
+    // generation for the coordinator and all roles before starting work.
+    let book_catalog = match book::catalog::current() {
+        Some(catalog) => catalog,
+        None => Arc::new(
+            book::catalog::Catalog::fresh()
+                .map_err(|error| format!("book generation: {error}"))?,
+        ),
+    };
+    let book_catalog = crate::agent::harness::core_catalog::bind_book(book_catalog);
+    let _book_catalog = book::catalog::enter(book_catalog);
     let seats = campaign_seats(workspace, id)?;
     if seats.load(Ordering::Acquire) > 0 {
         state.status = "execution_blocked".into();

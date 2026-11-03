@@ -32,12 +32,7 @@ pub struct Drawer {
     pub source: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MemoryHealth {
-    Disabled,
-    Healthy,
-    Degraded,
-}
+pub use crate::telemetry::MemoryHealth;
 
 /// The palace interface host code depends on. A trait so compaction/recall are
 /// testable against an in-memory double and degrade to a no-op when unconfigured.

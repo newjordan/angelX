@@ -1,0 +1,120 @@
+# crates/delve/src/rules/overclass.rs — wishes, held by each knight (the pieces that do not need
+# `grant`). Written in bendx (delve/rules/core/_tools/bendx.py). `wishes` and `great_wishes` are
+# u8: saturating at 255; a knight holds at most MOST_WISHES (9) of either.
+
+def overclass.START_WISHES() -> U32:
+    return 3
+
+def overclass.FLOOR_WISHES() -> U32:
+    return 2
+
+def overclass.MOST_WISHES() -> U32:
+    return 9
+
+# `clean_why`: trimmed of parentheses, full stops and white space at both ends.
+def overclass.clean_why(why: String) -> String:
+    return home.util.trim_set(why, [40, 41, 46])
+
+# The line a knight sees on their own screen when a spent wish comes back.
+def overclass.wish_returned(why: String) -> String:
+    w: String = overclass.clean_why(why)
+    if String.is_empty(w):
+        return "Your wish is given back."
+    return "Your wish is given back: " ++ w ++ "."
+
+# The line a knight sees when a grant is refused before the wish is spent.
+def overclass.wish_kept(why: String) -> String:
+    w: String = overclass.clean_why(why)
+    if String.is_empty(w):
+        return "Your wish stays with you."
+    return "Your wish stays with you: " ++ w ++ "."
+
+# `give_wishes`: every knight here is given `plain` wishes and `great` super ones.
+def overclass.Run.give_wishes(run: J.Val, plain: U32, great: U32) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        if Bool.not(core.b(h, "absent")):
+            h = core.set_u(h, "wishes", U32.min(core.uadd(core.u(h, "wishes"), plain), overclass.MOST_WISHES()))
+            h = core.set_u(h, "great_wishes", U32.min(core.uadd(core.u(h, "great_wishes"), great), overclass.MOST_WISHES()))
+            players = J.set(players, k, h)
+    run = J.set(run, "players", players)
+    window: J.Val = J.set(J.set(J.set(J.set(J.obj(), "opened", J.get(run, "tick")), "wished", J.JA{[]}), "given", J.JU{plain}), "great", J.JBool{U32.is_gt(great, 0)})
+    run = J.set(run, "window", window)
+    return J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{"window"}))
+
+# Knight `id` may wish now: they stand and hold a wish.
+def overclass.Run.can_wish(run: J.Val, id: U32) -> Bool:
+    h: J.Val = core.hero(run, id)
+    if J.is_null(h):
+        return False{}
+    return Bool.and(U32.is_gt(core.u(h, "hp"), 0), U32.is_gt((core.u(h, "wishes") + core.u(h, "great_wishes") : U32), 0))
+
+# `spend_wish_kind`: consume exactly the currency an open offer displayed. The run after, and
+# whether a wish was spent.
+def overclass.Run.spend_wish_kind(run: J.Val, id: U32, great: Bool) -> (J.Val, Bool):
+    h: J.Val = core.hero(run, id)
+    if J.is_null(h):
+        return (run, False{})
+    if U32.is_zero(core.u(h, "hp")):
+        return (run, False{})
+    key: String = "wishes"
+    if great:
+        key = "great_wishes"
+    if U32.is_zero(core.u(h, key)):
+        return (run, False{})
+    run = core.set_hero(run, id, core.set_u(h, key, (core.u(h, key) - 1 : U32)))
+    window: J.Val = J.get(run, "window")
+    if Bool.not(J.is_null(window)):
+        run = J.set(run, "window", J.set(window, "wished", J.push(J.get(window, "wished"), J.JU{id})))
+    return (run, True{})
+
+# `tell`: a short line for knight `id`'s own screen, at most 8 held a seat.
+def overclass.Run.tell(run: J.Val, id: U32, line: String) -> J.Val:
+    if String.is_empty(line):
+        return run
+    held: U32 = overclass.seat_notices_of(J.items(J.get(run, "seat_notices")), id)
+    if U32.is_lt(held, 8):
+        return J.set(run, "seat_notices", J.push(J.get(run, "seat_notices"), J.JA{[J.JU{id}, J.JS{line}]}))
+    return run
+
+def overclass.seat_notices_of(ns: [J.Val], id: U32) -> U32:
+    n: U32 = 0
+    for p: J.Val in ns:
+        if U32.is_eq(J.u32(home.util.get(J.items(p), 0)), id):
+            n = (n + 1 : U32)
+    return n
+
+# `refund_told`: a wish that did not go through is given back, and the knight hears why.
+def overclass.Run.refund_told(run: J.Val, id: U32, great: Bool, why: String) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    if Bool.not(J.is_null(h)):
+        if great:
+            h = core.set_u(h, "great_wishes", U32.min(core.uadd(core.u(h, "great_wishes"), 1), 255))
+        else:
+            h = core.set_u(h, "wishes", U32.min(core.uadd(core.u(h, "wishes"), 1), overclass.MOST_WISHES()))
+        run = core.set_hero(run, id, h)
+    return overclass.Run.tell(run, id, overclass.wish_returned(why))
+
+def overclass.Run.refund_wish(run: J.Val, id: U32, great: Bool) -> J.Val:
+    return overclass.Run.refund_told(run, id, great, "it did not go through")
+
+# A knight who joins a delve under way holds a start's wishes.
+def overclass.Run.wishes_for_newcomer(run: J.Val, id: U32) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    if Bool.and(U32.is_ge(core.u(J.get(run, "dungeon"), "depth"), 1), Bool.not(J.is_null(h))):
+        if U32.is_zero((core.u(h, "wishes") + core.u(h, "great_wishes") : U32)):
+            return core.set_hero(run, id, core.set_u(h, "wishes", overclass.START_WISHES()))
+    return run
+
+# Why knight `id` may not be granted a tier of a wish: none keeps a lock.
+def overclass.Run.locked(run: J.Val, id: U32) -> J.Val:
+    return J.JNull{}
+
+# Knight `id` made wish `wish` in their own words (`name`, or their knight's when empty).
+def overclass.Run.made(run: J.Val, id: U32, wish: String, name: String) -> J.Val:
+    n: String = home.util.trim(name)
+    if String.is_empty(n):
+        n = core.s(core.hero(run, id), "name")
+    if Bool.not(String.is_empty(n)):
+        run = J.set(run, "makers", J.set(J.get(run, "makers"), wish, J.JA{[J.JU{id}, J.JS{n}]}))
+    return run

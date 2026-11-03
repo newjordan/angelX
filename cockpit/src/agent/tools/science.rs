@@ -14,32 +14,9 @@ impl Tool for ScienceTool {
         "science_search"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "science_search".to_string(),
-            description: "Search the scientific literature: fans one query across OpenAlex, \
-                          Crossref, Semantic Scholar and Europe PMC, deduplicates by DOI and \
-                          ranks by citations + recency. Returns a briefing — the dominant \
-                          title-metadata cues, the seminal and freshest papers, then a ranked \
-                          reading list with validated DOI or source-record links. It does not \
-                          read abstracts or full text. ⠱⠉"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": crate::drive::science::MAX_QUERY_CHARS,
-                        "description": "⠱⠉⠃"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "⠱⠉⠉"
-                    },
-                },
-                "required": ["query"],
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("science_search");
+        *definition.params.pointer_mut("/properties/query/maxLength").expect("embedded tool schema") = serde_json::json!(crate::drive::science::MAX_QUERY_CHARS);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let query = args["query"].as_str().ok_or("missing 'query'")?;
@@ -54,7 +31,11 @@ impl Tool for ScienceTool {
         }
         let limit = args["limit"].as_u64().unwrap_or(8).clamp(1, 25) as usize;
         let syn = crate::drive::science::synthesize_cached(query, limit, 3600);
-        if syn.notes.iter().any(|note| note.contains("stalled {")) {
+        if syn.notes.iter().any(|note| {
+            note.contains("stalled {")
+                || note.contains("worker request interrupted")
+                || note.starts_with("science analysis:")
+        }) {
             return Err(syn.notes.join("; "));
         }
         if syn.papers.is_empty() {
@@ -71,7 +52,7 @@ impl Tool for ScienceTool {
                 )
             ));
         }
-        Ok(syn.brief(limit.min(15)))
+        syn.brief(limit.min(15))
     }
 }
 

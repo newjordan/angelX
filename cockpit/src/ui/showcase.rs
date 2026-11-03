@@ -22,31 +22,99 @@ pub(crate) fn open(media: &Media) -> bool {
         if crate::ui::glass::host().is_none() {
             return false;
         }
-        let Some(source) = media.source() else {
-            return false;
-        };
-        let model = source
-            .path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("obj") || e.eq_ignore_ascii_case("glb"));
-        let kind = if model {
-            Kind::Model
-        } else if media.is_video() {
-            Kind::Video
-        } else if media.is_image() {
-            Kind::Still
-        } else if matches!(card(media), Media::Resource { .. } | Media::Graph { .. }) {
-            Kind::Page
-        } else {
-            return false;
-        };
-        present(Item::Media { kind, source, title: media.label().to_string() }, true)
+        item_of(media).is_some_and(|item| present(item, true))
     }
     #[cfg(not(feature = "glass"))]
     {
         let _ = media;
         false
+    }
+}
+
+/// Open evidence a finished reply linked to, nobody having asked: as
+/// [`open`], except it holds back while the operator closed the panel
+/// moments ago ([`EVIDENCE_HOLD`]) and when the very file is already up.
+pub(crate) fn open_evidence(media: &Media) -> bool {
+    #[cfg(feature = "glass")]
+    {
+        let Some(host) = crate::ui::glass::host() else {
+            return false;
+        };
+        let Some(item) = item_of(media) else {
+            return false;
+        };
+        {
+            let mut history = HISTORY.lock().unwrap();
+            note_dismissals(&mut history, host);
+            if held(history.dismissed_at, std::time::Instant::now()) {
+                return false;
+            }
+            let showing = history.items.get(history.at);
+            if host.showcase_up() && showing.is_some_and(|shown| same_file(shown, &item)) {
+                return false;
+            }
+        }
+        present(item, true)
+    }
+    #[cfg(not(feature = "glass"))]
+    {
+        let _ = media;
+        false
+    }
+}
+
+/// How long a showing nobody asked for holds back after the operator
+/// closed the panel.
+#[cfg_attr(not(feature = "glass"), allow(dead_code))]
+pub(crate) const EVIDENCE_HOLD: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Whether the operator closed the panel (at `dismissed_at`) too lately
+/// for a showing nobody asked for.
+#[cfg_attr(not(feature = "glass"), allow(dead_code))]
+pub(crate) fn held(dismissed_at: Option<std::time::Instant>, now: std::time::Instant) -> bool {
+    dismissed_at.is_some_and(|at| now.saturating_duration_since(at) < EVIDENCE_HOLD)
+}
+
+/// What the showcase makes of `media`: `None` for a kind it has no
+/// picture of.
+#[cfg(feature = "glass")]
+fn item_of(media: &Media) -> Option<Item> {
+    let source = media.source()?;
+    let model = source
+        .path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("obj") || e.eq_ignore_ascii_case("glb"));
+    let kind = if model {
+        Kind::Model
+    } else if media.is_video() {
+        Kind::Video
+    } else if media.is_image() {
+        Kind::Still
+    } else if matches!(card(media), Media::Resource { .. } | Media::Graph { .. }) {
+        Kind::Page
+    } else {
+        return None;
+    };
+    Some(Item::Media { kind, source, title: media.label().to_string() })
+}
+
+/// Whether two showings are of the same file.
+#[cfg(feature = "glass")]
+fn same_file(a: &Item, b: &Item) -> bool {
+    match (a, b) {
+        (Item::Media { source: a, .. }, Item::Media { source: b, .. }) => a.path == b.path,
+        _ => false,
+    }
+}
+
+/// Note a close by the operator since last looked, and when it was seen.
+#[cfg(feature = "glass")]
+fn note_dismissals(history: &mut History, host: &angel_glass::Host) {
+    let dismissals = host.showcase_dismissals();
+    if dismissals != history.dismissals {
+        history.dismissals = dismissals;
+        history.dismissed_at = Some(std::time::Instant::now());
     }
 }
 
@@ -87,6 +155,7 @@ pub(crate) fn poll() -> Option<crate::ui::scryglass::StageCopyPayload> {
         let host = crate::ui::glass::host()?;
         let copy = {
             let mut history = HISTORY.lock().unwrap();
+            note_dismissals(&mut history, host);
             let copies = host.showcase_copies();
             if copies != history.copies {
                 history.copies = copies;
@@ -181,6 +250,9 @@ struct History {
     steps: i32,
     /// The copy button's presses already answered.
     copies: u32,
+    /// The operator's closes already seen, and when the last was seen.
+    dismissals: u32,
+    dismissed_at: Option<std::time::Instant>,
 }
 
 /// The most showings kept to step back to.
@@ -209,6 +281,10 @@ fn present(item: Item, fresh: bool) -> bool {
             history.at = history.items.len() - 1;
             history.steps = host.showcase_steps();
             history.copies = host.showcase_copies();
+            // Something opened since the operator's last close: that close
+            // no longer holds evidence back.
+            note_dismissals(&mut history, host);
+            history.dismissed_at = None;
         }
         (history.at > 0, history.at + 1 < history.items.len())
     };

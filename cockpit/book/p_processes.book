@@ -1,0 +1,62 @@
+@@book-page 1@@
+Your final answer was deferred because this task still owned running background work.
+@@book-page 1@@
+Inspect proc_status and finish from its actual outcome.
+@@book-page 1@@
+If a job is no longer needed, explicitly stop it with proc_stop before answering.
+@@book-page 1@@
+Do not report an in-flight build as complete; task exit stops remaining jobs.
+@@book-page 2@@
+Inspect proc_status id={id} for captured output.
+@@book-page 2@@
+Process exit is not benchmark acceptance or a verified solve.
+@@book-page 3@@
+Inspect proc_status id={id} for captured output.
+@@book-page 3@@
+Process exit is not benchmark acceptance or a verified solve.
+@@book-page 3@@
+Background work finished while your answer was being generated.
+@@book-page 3@@
+Inspect its proc_status outcome and incorporate it before finishing.
+@@book-page 4@@
+Read captured output through `proc_status` id={id}; use contains to filter errors.
+@@book-page 4@@
+Snapshot with `proc_status` (no wait) while you keep working; check later.
+@@book-page 4@@
+Use `proc_stop` to kill the whole tree.
+@@book-page 5@@
+still running — advance useful independent work.
+@@book-page 5@@
+If this job blocks all remaining work, use proc_wait; do not substitute shell sleep.
+@@book-page 5@@
+still running — snapshot only.
+@@book-page 5@@
+wait_ms was ignored.
+@@book-page 5@@
+Advance independent work; if this job blocks all remaining work, use proc_wait instead of shell sleep.
+@@book-page 6@@
+retry with explicit input or use proc_run
+@@book-page 7@@
+Git is inspection-only: use status/diff/log/show/grep/ls-files/rev-parse, and edit source files directly.
+@@book-page 7@@
+Do not stash, add, reset, restore, checkout, clean, commit, switch, fetch, merge, rebase, or push.
+@@book-page 8@@
+Run the foreground build/benchmark directly and let it own its wait, or do other useful work before taking one later status snapshot.
+@@book-page 8@@
+To check on a running background command or build, inspect its log or status directly without a long sleep.
+@@book-page 9@@
+Run builds and benchmarks in the foreground; do not use nohup/disown/setsid or leave an `&` job without `wait`.
+@@book-page 9@@
+The runner supplies a long foreground tool deadline, so detached polling is unnecessary.
+@@book-page 9@@
+(Opt out: ANGEL_TASK_SHELL_NO_DETACH=0.)
+@@book-page 0@@
+[sandbox: this command tried to start its own macOS sandbox-exec inside Angel's confinement, which the kernel refuses (sandbox_apply: Operation not permitted). Angel already confines writes, so run SwiftPM with `--disable-sandbox` (swift build/test --disable-sandbox …) or give the tool the equivalent flag; the code you changed did not cause this.]
+@@book-page 0@@
+[sandbox: this command's own bubblewrap sandbox could not start inside Angel's confinement. That is a harness/launch setting, not your change: the operator must launch with ANGEL_SANDBOX_BACKEND=bwrap on a namespace-capable host. Do not retry the same command or disable the project's sandbox; report the blocker.]
+@@book-page 0@@
+[sandbox: privilege escalation is disabled (no_new_privs), so sudo/system package managers cannot work here — this is not a missing password. Self-serve user-level instead: pip/npm/cargo installs, or download a static binary into ~/.local/bin (writable, on PATH). Network is available. The operator can lift confinement with ANGEL_SANDBOX=0 or /yolo.]
+@@book-page 0@@
+[sandbox: this bootstrap installer tried to write user state/configuration outside the sanctioned install roots. Retrying, chmod, or copy workarounds cannot widen Landlock. Use an already-installed binary, or ask the operator to run the installer outside the cockpit / enable `/yolo on` for this explicit install.]
+@@book-page 0@@
+[workspace boundary: current workspace is {workspace}. Creating a different home-level project or editing a symlink target outside the granted roots is not permitted by this session. Restart in the intended project or use an explicitly operator-approved scope change; retrying cp/chmod does not change the grant. No successful host change may be claimed without checking the actual destination.]

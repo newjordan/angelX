@@ -65,7 +65,7 @@
   "flags": [
     "piece-count mismatch"
   ],
-  "map_sha256": "bcc8ebe22b8eb1a606d09859610b2092112c693363f86c5d83030639d09e15c8",
+  "map_sha256": "5dc964c9c09152eb6ae87a9a4ab3782117453e202a2149832c2b2136b25f9d9e",
   "metadata_sha256": "a91a12e04147b2b19d7ac50ca241e4030afa1786db3bbe2e52d7d630c80e3015",
   "notes_sha256": "e19ac9a4f4277f08021c6e863def897f15d635eaf87e62711764b9ba4564b136",
   "outputs": {
@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.clasp",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/latch.clasp/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/latch.clasp/source-sheet.png",
   "source_sha256": "57acabed78eb532bc0188c23f559602520ff7ed9a8f4d9a3b3d3d6f7013d134c",
   "tool_version": 2
 }

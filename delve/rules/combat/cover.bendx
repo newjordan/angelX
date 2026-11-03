@@ -1,0 +1,59 @@
+# crates/delve/src/rules/cover.rs: how much of the screen the party's own shots may cover.
+import Base
+
+def cover.counted(p: Projectile) -> Bool:
+  waiting: Bool = Bool.or(U32.is_gt(p.traits.path.wait, 0), p.traits.path.held)
+  in_flight: Bool = Bool.and(Bool.not(waiting), J.is_null(p.traits.path.beam))
+  Bool.and(Bool.and(Bool.and(Bool.not(p.hostile), U32.is_gt(p.traits.owner, 0)), in_flight), Bool.and(Bool.not(p.traits.boomerang), U32.is_eq(p.traits.back, 0)))
+
+def cover.area(shot: Projectile) -> F32:
+  side: F32 = (cover.SHOT_SIDE() * wishcraft.Projectile.scale(shot) : F32)
+  (side * side : F32)
+
+def cover.view(room: Room) -> F32:
+  screen: F32 = (cb.f(layout.COLS()) * layout.TILE_UNITS() * cb.f(layout.ROWS()) * layout.TILE_UNITS() : F32)
+  RS.f_max(RS.f_min((layout.Room.width(room) * layout.Room.height(room) : F32), screen), 1.0)
+
+# The share of the view the party's counted shots cover, in percent.
+def cover.covered(shots: J.Val, view: F32) -> F32:
+  total: F32 = RS.f_neg(0.0)
+  for p: Projectile in J.items(shots):
+    if Bool.and(cover.counted(p), U32.is_gt(p.ttl, 0)):
+      total = (total + cover.area(p) : F32)
+  (total * 100.0 / view : F32)
+
+# Hold the party's shots to their life and their bounces. Answers (shots, retired).
+def cover.hold(shots: J.Val, view: F32) -> (J.Val, U32):
+  out: J.Val = J.JA{Nil{}}
+  for p: Projectile in J.items(shots):
+    if cover.counted(p):
+      p.ttl = RS.u_min(p.ttl, cover.SHOT_LIFE())
+      p.traits.bounce = RS.u_min(p.traits.bounce, cover.BOUNCES())
+    out = J.push(out, p)
+  if cover.PARTY_COVER_ON():
+    return cover.retire(out, view, cover.PARTY_COVER())
+  (out, 0)
+
+# Retire the oldest counted shots until the party's share fits the budget.
+def cover.retire(shots: J.Val, view: F32, share: F32) -> (J.Val, U32):
+  budget: F32 = (share * view / 100.0 : F32)
+  total: F32 = RS.f_neg(0.0)
+  for p: Projectile in J.items(shots):
+    if cover.counted(p):
+      total = (total + cover.area(p) : F32)
+  if (total <= budget : F32):
+    return (shots, 0)
+  retired: U32 = 0
+  out: J.Val = J.JA{Nil{}}
+  stop: Bool = False{}
+  for p: Projectile in J.items(shots):
+    if Bool.and(Bool.not(stop), cover.counted(p)):
+      if (total <= budget : F32):
+        stop = True{}
+      else:
+        total = (total - cover.area(p) : F32)
+        p.ttl = 0
+        retired = (retired + 1 : U32)
+    if U32.is_gt(p.ttl, 0):
+      out = J.push(out, p)
+  (out, retired)

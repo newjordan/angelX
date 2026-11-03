@@ -56,6 +56,8 @@ fn shot(form: ShotForm, at: (f32, f32), v: (f32, f32)) -> SceneShot {
         form,
         dimension: Default::default(),
         mark: super::super::Img::new(1, 1),
+        paint: None,
+        scale: 1.0,
     }
 }
 

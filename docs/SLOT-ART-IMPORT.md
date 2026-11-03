@@ -1,14 +1,14 @@
 # Slot art import
 
 `scripts/slot-art-import.py <slot>`, or `--all`, consumes the art team's
-read-only `/work/artifacts/art-prod/slots/<slot>/v01` deliveries. It never
+read-only `<artifacts>/art-prod/slots/<slot>/v01` deliveries. It never
 runs the production lane or writes its sources. Only native assets, maps,
 provenance and reviews enter `crates/delve/assets/art-slots`. Rich sheets stay
 external, bound by absolute path and SHA-256. The source library and onboarding
 are untouched. Use Python with Pillow, or the script's `uv` shebang.
 
 ```
-python3 scripts/slot-art-import.py --all --quality /work/artifacts/boss-art-20261015/art-imp-1/QUALITY.md
+python3 scripts/slot-art-import.py --all --quality <artifacts>/boss-art-20261015/art-imp-1/QUALITY.md
 python3 scripts/slot-art-import.py pennon.knight --v1-height 48 --v2-height 48
 python3 scripts/slot-art-import.py --all --check
 python3 scripts/test-slot-art-import.py
@@ -102,7 +102,7 @@ states and 96x28 cell buffers before/after, plays a full four-bot round twice,
 and asserts byte-identical simulation outcomes. It links no cockpit services.
 
 ```
-TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges CARGO_TARGET_DIR=/work/build-cache/gameshelf-cockpit cargo run --manifest-path scripts/slot-art-review/Cargo.toml -- /work/artifacts/boss-art-20261015/art-imp-1/captures
+TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges CARGO_TARGET_DIR=<build-cache>/gameshelf-cockpit cargo run --manifest-path scripts/slot-art-review/Cargo.toml -- <artifacts>/boss-art-20261015/art-imp-1/captures
 ```
 
 ## Remaining renderer work, by game
@@ -149,8 +149,8 @@ only derived native files are embedded. No library, onboarding or rules change.
 reproducible preparation recipe for these two games. Run it from the worktree:
 
 ```
-python3 crates/delve/assets/art-slots/cinder.chrome/prepare.py --output /work/artifacts/boss-art-20261015/slot-int-a/prepared
-python3 scripts/slot-art-import.py latch.clasp --source-dir /work/artifacts/boss-art-20261015/slot-int-a/prepared/latch.clasp --check
+python3 crates/delve/assets/art-slots/cinder.chrome/prepare.py --output <artifacts>/boss-art-20261015/slot-int-a/prepared
+python3 scripts/slot-art-import.py latch.clasp --source-dir <artifacts>/boss-art-20261015/slot-int-a/prepared/latch.clasp --check
 ```
 
 Repeat the second command for each assigned slot. The preparation recipe checks
@@ -214,7 +214,7 @@ merged/unregistered acting banks. Existing damage frames remain authoritative.
 `polish.py` prepares Latch's continuous radial backdrop; `masks.py` applies
 source-registered cloth masks and removes the detached neighbouring boot from
 the contact crop. These scripts live in `crates/delve/assets/art-slots` and use
-`/work/artifacts/boss-art-20261015/polish-a/prepared` for reproducible inputs.
+`<artifacts>/boss-art-20261015/polish-a/prepared` for reproducible inputs.
 Run preparation, the unchanged importer for the three slots, then `masks.py`.
 Importer `--check` applies before the documented cleanup; `masks.py --check`
 verifies the final masks and native cleanup. No importer/loader gate changes.
@@ -295,7 +295,7 @@ this integration. This task leaves that shared file untouched: the merge owner
 must regenerate it once after merging the sibling renderer changes. Inventory
 extraction still finds the same 67 slots and unchanged rule/geometry requests.
 Review evidence, four-bot equality checks, native/96-column captures, source
-hash audit and warm/cold smoke logs: `/work/artifacts/boss-art-20261015/slot-int-b/`.
+hash audit and warm/cold smoke logs: `<artifacts>/boss-art-20261015/slot-int-b/`.
 
 ### POLISH-B: Mossbell and Brasswake display corrections
 
@@ -371,9 +371,9 @@ stages. Damage action variants still reuse base actions; no timings are invented
 the reviewed source SHAs and creates reproducible importer inputs. Run:
 
 ```
-python3 crates/delve/assets/art-slots/pennon.captain/prepare.py --output /work/artifacts/boss-art-20261015/polish-c/prepared
-python3 scripts/slot-art-import.py pennon.captain --source-dir /work/artifacts/boss-art-20261015/polish-c/prepared/pennon.captain --check
-python3 scripts/slot-art-import.py pennon.sentry --source-dir /work/artifacts/boss-art-20261015/polish-c/prepared/pennon.sentry --check
+python3 crates/delve/assets/art-slots/pennon.captain/prepare.py --output <artifacts>/boss-art-20261015/polish-c/prepared
+python3 scripts/slot-art-import.py pennon.captain --source-dir <artifacts>/boss-art-20261015/polish-c/prepared/pennon.captain --check
+python3 scripts/slot-art-import.py pennon.sentry --source-dir <artifacts>/boss-art-20261015/polish-c/prepared/pennon.sentry --check
 ```
 
 The Sentry preparation appends the standing-damage delivery to the original
@@ -520,7 +520,7 @@ It calls the unchanged importer with local `request.json` contracts; rich
 sources remain external. Reproduce with:
 
 ```
-python3 crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py --output /work/tmp/damage-prepared --check
+python3 crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py --output <scratch>/damage-prepared --check
 python3 crates/delve/assets/art-slots/brasswake.keeper-damaged/import.py --check
 ```
 
@@ -581,7 +581,7 @@ retain their original room painters, including their floors and ambience.
 Reproduce the three active backdrops with:
 
 ```
-python3 scripts/entrance-art-import.py --slots latch rafterwake pennon --output /work/tmp/entrance-prepared
+python3 scripts/entrance-art-import.py --slots latch rafterwake pennon --output <scratch>/entrance-prepared
 ```
 
 The active rooms retain the master's interior at its original coordinates,
@@ -596,7 +596,7 @@ remain in the import records. Source and measured metadata hashes are retained.
 ### Lanternward props (second wave)
 
 The great brazier, chest, gate, crystal and beacon come from the
-`/work/artifacts/art-prod-rt/slots` deliveries through the unchanged importer
+`<artifacts>/art-prod-rt/slots` deliveries through the unchanged importer
 (`--source-dir <delivery>/v01`; each has a local `request.json`, one registered
 `shared-feet` bank on the prop's base). The beacon's tower is drawn again in
 every delivered cell and its stone drifts between cells, so
@@ -606,8 +606,8 @@ cutting seven identical windows so one scale and one pixel grid register the
 tower the same in every frame:
 
 ```
-python3 -I crates/delve/assets/art-slots/lanternward.beacon/prepare.py --output /work/artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon
-python3 -I scripts/slot-art-import.py lanternward.beacon --source-dir /work/artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon --check
+python3 -I crates/delve/assets/art-slots/lanternward.beacon/prepare.py --output <artifacts>/monolith-private/art-import-lw/prepared/lanternward.beacon
+python3 -I scripts/slot-art-import.py lanternward.beacon --source-dir <artifacts>/monolith-private/art-import-lw/prepared/lanternward.beacon --check
 ```
 
 Its flame frames measure 0.89-0.91 colour agreement (the shared palette has no
@@ -615,14 +615,14 @@ saturated orange) and were approved by eye.
 
 ### Lightgallop (third wave: the land, the road and the props)
 
-Ten `/work/artifacts/art-prod-rt/slots/lightgallop.*` deliveries went through the
+Ten `<artifacts>/art-prod-rt/slots/lightgallop.*` deliveries went through the
 unchanged importer (`--source-dir <prepared copy>`, each slot with a local
 `request.json`). They came without a `source-sheet.json`, so
 `crates/delve/assets/lightgallop/art-import.py` measures the pieces from each sheet's alpha
 (projection gaps; the three layers and the road are one piece, the whole sheet),
 merges the crate's two groups of scattered bits, gives each piece a reviewed
 pivot, lays a byte-identical copy of the sheet and its metadata in
-`/work/artifacts/monolith-private/art-import-lg/prepared/<slot>`, patches the
+`<artifacts>/monolith-private/art-import-lg/prepared/<slot>`, patches the
 reviewed map and runs the importer (`--check` re-verifies everything, maps,
 provenance and native PNGs):
 

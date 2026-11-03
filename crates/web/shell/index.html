@@ -4,27 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>@@TITLE@@</title>
+<link rel="stylesheet" href="{{asset:skin.css}}">
 <link rel="stylesheet" href="{{asset:shell.css}}">
+<link rel="preload" href="{{asset:knight.ttf}}" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="{{asset:@@GAME@@.wasm}}" as="fetch" type="application/wasm" crossorigin>
 </head>
-<body data-wasm="{{asset:@@GAME@@.wasm}}">
+<body data-wasm="{{asset:@@GAME@@.wasm}}" data-font="{{asset:knight.ttf}}">
 <div id="stage"><canvas id="screen"></canvas></div>
-<form id="join" autocomplete="off">
+<form id="join" class="win crested" autocomplete="off">
   <h1>@@TITLE@@</h1>
+  <div class="rule"></div>
   <label for="name">Your name</label>
-  <input id="name" maxlength="24" autocomplete="nickname" spellcheck="false" autocapitalize="words">
-  <button id="play" type="submit" disabled>Loading</button>
+  <input id="name" class="well" maxlength="24" autocomplete="nickname" spellcheck="false" autocapitalize="words">
+  <button id="play" class="plate" type="submit" disabled>Loading</button>
 </form>
-<div id="status"></div>
-<div id="toast"></div>
-<pre id="sheet" hidden></pre>
-<form id="say" autocomplete="off" hidden><input id="said" maxlength="160" spellcheck="false" enterkeyhint="send"></form>
-<button id="full" type="button" title="Full screen" hidden>Full screen</button>
-<div id="vol" hidden><button id="mute" type="button" title="Mute (click), quieter and louder with - and =">♪</button><input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume"></div>
+<div id="status" class="plate"></div>
+<div id="toast" class="plate"></div>
+<div id="sheet" class="win crested" hidden><div id="sheet-page"></div><div class="keys"><span><kbd>Tab</kbd> close</span></div></div>
+<div id="choices" hidden></div>
+<form id="say" class="win" autocomplete="off" hidden><h2 id="say-title" hidden></h2><div id="say-picks" hidden></div><input id="said" class="well" maxlength="160" spellcheck="false" enterkeyhint="send"><div class="keys" id="say-keys"></div></form>
+<div id="dock"><button id="full" class="plate" type="button" aria-label="Full screen" hidden>Full screen</button><div id="vol" hidden><button id="mute" class="slot" type="button" aria-label="Mute" data-tip="Mute: click. Quieter and louder: - and =">♪</button><input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume"></div></div>
 <pre id="stats" hidden></pre>
 <noscript>This game needs JavaScript.</noscript>
 <script type="application/json" id="sounds">@@SOUNDS@@</script>
 <script type="application/json" id="renderers">@@RENDERERS@@</script>
+<script src="{{asset:rules.js}}" defer></script>
 <script src="{{asset:stage.js}}" defer></script>
 <script src="{{asset:present.js}}" defer></script>
 <script src="{{asset:gpu.js}}" defer></script>
@@ -32,6 +36,7 @@
 <script src="{{asset:sound.js}}" defer></script>
 <script src="{{asset:loopback.js}}" defer></script>
 <script src="{{asset:panel.js}}" defer></script>
+<script src="{{asset:ui.js}}" defer></script>
 <script src="{{asset:boot.js}}" defer></script>
 </body>
 </html>

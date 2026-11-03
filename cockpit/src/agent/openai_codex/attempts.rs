@@ -71,8 +71,17 @@ impl<'a> Attempt<'a> {
         self.receipt.as_mut().unwrap().outcome = outcome;
     }
 
+    #[cfg(test)]
     pub(super) fn receive(&mut self, line: &str, cancelled: bool) -> ResponseEvent {
-        let event = super::parse_responses_event(line);
+        self.receive_parsed(&super::events::ParsedResponsesLine::new(line), cancelled)
+    }
+
+    pub(super) fn receive_parsed(
+        &mut self,
+        line: &super::events::ParsedResponsesLine<'_>,
+        cancelled: bool,
+    ) -> ResponseEvent {
+        let event = line.event();
         self.observe(&event);
         if cancelled {
             self.outcome("cancelled");

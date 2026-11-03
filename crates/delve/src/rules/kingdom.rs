@@ -5,16 +5,26 @@ use super::map::{self, MAP_H, MAP_W};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub squire_yard: BTreeMap<u32, super::squires_town::Ledger>,
     pub wishes: std::sync::Arc<Vec<crate::realm::Wish>>,
     pub return_to: Option<Return>,
     pub door_held: bool,
     /// The knights whose E is still down from before the door was there
     /// for them (`tick_kingdom`): the server's own, never saved nor sent.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub door_latched: std::collections::BTreeSet<u32>,
     /// In a seat's own view only (`Run::view_for_seat`): this knight waits
     /// outside while the party plays on inside. Never saved nor sent.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub waiting: Option<Waiting>,
     /// The places the party has stepped into this outing, so the goal
     /// marker moves on to somewhere new.
@@ -38,6 +48,13 @@ pub struct State {
     /// The standing stones last woken, and when: they glow a moment.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub woke: Option<(u8, u64)>,
+    /// Each knight's surveyor's rod, while it is up (`raisings`).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub survey: BTreeMap<u32, super::raisings::Survey>,
+    /// Knights holding the next-card key since it last moved their rod, so
+    /// one press is one plan.
+    #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
+    pub survey_held: std::collections::BTreeSet<u32>,
 }
 
 fn is_zero(n: &u32) -> bool {
@@ -56,9 +73,37 @@ pub fn on_road(geo: &map::Geography, x: f32, y: f32) -> bool {
     map::is_road(geo, ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32))
 }
 
+/// How near a knight stands to a kingdom door for E to open it: the
+/// reach its ENTER sign shows at (`render::overworld::arena::kingdom::
+/// footer_sign`). A friend joins 2.4 units beside the first knight
+/// (`Run::join_seat`), so a party arriving at a door is within it.
+pub const DOOR_REACH: f32 = 4.5;
+
+/// The kingdom door (`Geography::sites` index) a knight at `(x, y)` stands
+/// at, as its sign says: the nearest within `DOOR_REACH`, unless a trinket
+/// is nearer (there E is for that). The sign and the key ask this one
+/// question, so ENTER on screen is a door E opens.
+pub fn door_at(geo: &map::Geography, x: f32, y: f32) -> Option<usize> {
+    let banner = super::trinkets::things(geo)
+        .iter()
+        .map(|&(_, p)| p)
+        .map(|(bx, by)| (x - (bx as f32 + 0.5) * TILE_UNITS).hypot(y - (by as f32 + 0.5) * TILE_UNITS))
+        .fold(f32::MAX, f32::min);
+    geo.sites
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let (dx, dy) = ((s.stand.0 as f32 + 0.5) * TILE_UNITS, (s.stand.1 as f32 + 0.7) * TILE_UNITS);
+            (i, (x - dx).hypot(y - dy))
+        })
+        .filter(|&(_, d)| d < DOOR_REACH && d <= banner)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(i, _)| i)
+}
+
 /// Where the party is while this knight waits outside, and the spot by
 /// the door where E takes them back in (`Run::detached_seats`).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Waiting {
     pub place: String,
     pub entry: (f32, f32),
@@ -82,9 +127,20 @@ pub struct Return {
 impl State {
     pub fn valid(&self) -> bool {
         self.wishes.len() <= crate::realm::MAX_WISHES
+            && self.squire_yard.len() <= MAX_PLAYERS as usize
+            && self.squire_yard.iter().all(|(id, l)| {
+                (1..=MAX_PLAYERS).contains(id)
+                    && l.owner.len() <= 256
+                    && l.page.iter().all(|&p| p <= super::squires_lodge::MAX_ROSTER)
+                    && l.holding.is_none_or(|(s, c)| s < 3 && c < 3)
+            })
             && self.seen.len() <= 128
             && self.class_held.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.field_held.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
+            && self.survey_held.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
+            && self.survey.iter().all(|(id, s)| {
+                (1..=MAX_PLAYERS).contains(id) && usize::from(s.pick) < super::raisings::PLANS.len()
+            })
             && self.moments.valid()
             && self.found < 1 << crate::world::finds::COUNT
             && self.woke.is_none_or(|(i, _)| usize::from(i) < crate::world::finds::COUNT)
@@ -123,7 +179,8 @@ impl Run {
         self.kingdom.return_to.as_ref().is_some_and(|r| {
             matches!(
                 (r.root, entrance),
-                (RoomKind::CollegeGrounds, "college-out")
+                (RoomKind::Gate, "alehouse-out" | "bazaar-out")
+                    | (RoomKind::CollegeGrounds, "college-out")
                     | (RoomKind::ColosseumHall, "colosseum-out")
                     | (RoomKind::Ranch, "ranch-out")
                     | (RoomKind::Pasture, "fields-out")
@@ -346,7 +403,7 @@ impl Run {
             }
         }
         self.safe_kingdom_arrival();
-        self.sounds.push("door_open");
+        self.sounds.push("area_leave");
     }
     /// Where knight `id` should head on the surface: the Delve until the
     /// party has been down once, then the nearest place nobody has stepped
@@ -406,7 +463,7 @@ impl Run {
 
     /// The kingdom site whose road leads to `room`: walk the home floor's
     /// doors out from it to the nearest place the map shows.
-    fn gateway<'g>(&self, room: RoomKind, geo: &'g map::Geography) -> Option<&'g map::Site> {
+    pub(super) fn gateway<'g>(&self, room: RoomKind, geo: &'g map::Geography) -> Option<&'g map::Site> {
         // The Colosseum's arenas are reached through its door.
         if colosseum::is_room(room) {
             return geo.sites.iter().find(|s| s.room == RoomKind::ColosseumHall);
@@ -438,7 +495,6 @@ impl Run {
         if self.tick_forest_north(inputs) || self.forest_road_showing() { return; }
         if self.tick_roundtable_entry(inputs) || self.roundtable_showing() { return; }
         self.tick_class_stones(inputs);
-        self.tick_school(inputs);
         if self.room().kind != RoomKind::Kingdom {
             return;
         }
@@ -461,19 +517,21 @@ impl Run {
         }
         let down = |id: &u32| inputs.get(id).is_some_and(|i| i.interact);
         self.kingdom.door_latched.retain(down);
-        let near = geo.sites.iter().enumerate().find_map(|(index, site)| {
-            let x = (site.stand.0 as f32 + 0.5) * TILE_UNITS;
-            let y = (site.stand.1 as f32 + 0.7) * TILE_UNITS;
-            self.players
-                .iter()
-                .find(|(id, h)| {
-                    down(id)
-                        && !self.kingdom.door_latched.contains(id)
-                        && h.hp > 0
-                        && !h.stone
-                        && (h.x - x).hypot(h.y - y) < 2.1
-                })
-                .map(|_| index)
+        self.tick_survey(inputs);
+        // E wakes a knight still stone from its arrival, and that same
+        // press is for the door it stands at.
+        for (id, hero) in &mut self.players {
+            if let Some(input) = inputs.get(id).filter(|i| i.valid() && i.interact) {
+                Run::wake_on_first_move(hero, input);
+            }
+        }
+        // The door each knight's sign shows (`door_at`), the first knight
+        // pressing a fresh E at one. A knight with the rod up is building.
+        let near = self.players.iter().find_map(|(id, h)| {
+            let free = !self.kingdom.door_latched.contains(id) && !self.kingdom.survey.contains_key(id);
+            (down(id) && free && h.hp > 0 && !h.stone)
+                .then(|| door_at(&geo, h.x, h.y))
+                .flatten()
         });
         if let Some(index) = near {
             self.kingdom.door_held = true;

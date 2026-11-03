@@ -1,0 +1,40 @@
+# The Heart — Elspet the Heartwright, the Lantern Hall.
+# A kingdom questline: it teaches no power and opens to every knight. Its
+# steps count the campaign, the real work on the Virtual Embryo heart boards,
+# read from the campaign's board (docs/HEART-QUEST.md); nothing a knight does
+# in the realm moves them. The steps follow a heart as it is first built.
+power   kingdom:heart
+teacher Elspet the Heartwright
+place   the Lantern Hall, on the town green east of the Court of Deeds
+room    realm-hall
+hall    Lantern Hall
+at      14 8
+look    a leather apron stuck with pins, spectacles pushed up into grey hair, and a lantern she never quite puts down
+line    Every heart in the kingdom was built once, from almost nothing. I keep the drawings.
+teach   Nobody hurries a heart. It folds when it is ready, and not a moment before.
+hook    Six lanterns stand dark on her bench. "Out past the map, someone is learning how a heart is first made. Each time they learn it a little better, I light one."
+step    The Crescent | the stages gathered: every training file on disk and checked | vec_data_staged 1 | The first cells have found each other: a crescent, a thin new moon of them.
+say     First we gather what there is to see. Every stage laid out on the bench and counted.
+step    The Tube | a heart board measured three times at home before any is sent | vec_heart_proxy_runs 3 | Three times measured. The crescent has closed into a tube, and the tube keeps time.
+say     Measure a heart three times before you speak of it. Gently, and the same way each time.
+step    The Loop | the heart board at E8.5 above its floor | vec_heart_interp_above_floor 1 | It loops. The tube bends to the right and folds on itself, the first shape it chooses.
+say     Between the tube and the loop is a half-day nobody drew. Draw it better than a guess.
+step    The Chambers | the heart board at E10.5 above its floor | vec_heart_extrap_above_floor 1 | Where there was one tube there are rooms now, and the walls between them are rising.
+say     Now a day past the last drawing, E10.5, that nobody has seen. Say how it looks, and be more right than wrong.
+step    The Quiet Gene | the Gata4 board above its floor | vec_gata4_above_floor 1 | Gata4. A quiet word the heart's walls listen for, and now you have heard it too.
+say     There is a word the heart's walls listen for while they build. Learn what changes when it goes quiet.
+trial   The Whole Heart | a heart board among the ten best on the Virtual Embryo boards | vec_heart_top10 1 | Among the ten best drawings of a heart anywhere, one of ours. Then all six burn.
+reward  the Heartwright's thanks and the sixth lantern lit (a kingdom questline: no power is taught)
+title   the Heartwright's Apprentice
+keepsake a red thread, tied in a loop
+ties    Elspet keeps the drawings and Dame Alyce the plasters (Mending Strike): one learns how a heart is made, the other mends what is hurt.
+ties    Goodwife Barley says her Stout Heart is the realm's other heart-line, and the only one that rises (Stout Heart).
+ties    Her lanterns are lit one at a time, the way Gil lights the ley-lamps (Chain Spark).
+art
+...hhh...
+..hTTTh..
+..BrrrB..
+.B.r7r.B.
+...rrr..j
+...r.r..O
+...b.b..o

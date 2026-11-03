@@ -21,8 +21,8 @@ fn parses_all_placement_hints() {
         Some(Placement::Remote("spark".to_string()))
     );
     assert_eq!(
-        parse_placement("peer:atlas.seraph"),
-        Some(Placement::Peer("atlas.seraph".to_string()))
+        parse_placement("peer:workstation.seraph"),
+        Some(Placement::Peer("workstation.seraph".to_string()))
     );
     assert_eq!(
         parse_placement("phone:math"),
@@ -193,7 +193,7 @@ fn non_local_placements_gated_by_their_flag() {
     let r = Router::from_env(); // env unset in test → all disabled
     for placement in [
         Placement::Remote("spark".to_string()),
-        Placement::Peer("atlas".to_string()),
+        Placement::Peer("gpu-host".to_string()),
         Placement::Phone("math".to_string()),
     ] {
         let req = TestRequest {

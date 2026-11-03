@@ -7,7 +7,7 @@
 # KITTY=1 runs the terminal cockpit inside Kitty instead (same environment).
 set -u
 BIN=$1; NAME=$2; shift 2
-S=${GLASS_KIT_RUNS:-/work/tmp/glass-runs}
+S=${GLASS_KIT_RUNS:-${TMPDIR:-/tmp}/glass-runs}
 R=$S/$NAME; rm -rf "$R"; mkdir -p "$R"/{home,config,cache,state,work,sessions,work-context}
 # The user's look, read-only: Kitty config + theme + fonts.
 mkdir -p "$R/home/.local/state" "$R/home/.local/share" "$R/config"

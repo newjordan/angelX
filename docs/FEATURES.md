@@ -4,7 +4,7 @@ Source-backed implementation shortlist. Comparative performance against peer har
 
 | # | Feature | Implemented behavior | Source |
 |---|---|---|---|
-| 1 | A visual terminal workspace | Coding, portraits, image inspection, research views and a navigable Dotmax world share the ordinary terminal. | [Compositor](../cockpit/src/ui/draw.rs), [world](../cockpit/src/stage/world_viz.rs) |
+| 1 | A visual terminal workspace | Coding, portraits, image inspection, research views and a navigable Dotmax world share the ordinary terminal. | [Compositor](../cockpit/src/ui/draw.rs), [world](../crates/realm-host/src/world_viz.rs) |
 | 2 | Model selection inside agent formations | Choose a model and supported thinking level; configure individual MoA seats and run declared agent graphs. | [Formations](../cockpit/src/agent/formations.rs), [graph controls](../cockpit/src/app/control/commands.rs) |
 | 3 | Tool programs in embedded V8 | `code_mode` runs loops and filters locally; batch execution respects tool effects and conflicts. | [V8 runtime](../cockpit/src/agent/code_mode.rs) |
 | 4 | Repository intelligence before model calls | Scoped reconnaissance, filename search, outlines and batched definitions; optional LSP queries. | [Harness](../cockpit/src/agent/harness), [tools](../cockpit/src/agent/tools), [LSP commands](../cockpit/src/app/control/commands.rs) |

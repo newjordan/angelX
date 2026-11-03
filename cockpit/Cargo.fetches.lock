@@ -1,0 +1,14 @@
+# Written by `blaze lock --fetches`: what build scripts download, each by its sha256. A build
+# hands each to its script through the crate's own variable, with no network.
+version = 1
+
+[[fetch]]
+package = "v8"
+version = "150.0.0"
+locked = "0536cf89ae8d8cbc1665a76c7bc121cad55bd7e12fa67e30d766aa9db393ed72"
+target = "x86_64-unknown-linux-gnu"
+features = []
+var = "RUSTY_V8_ARCHIVE"
+url = "https://github.com/denoland/rusty_v8/releases/download/v150.0.0/librusty_v8_release_x86_64-unknown-linux-gnu.a.gz"
+sha256 = "4b94cf5b59edeeaefaa523bf35f4e7daa2a57795299a0e1c12fc959df1fe4b0d"
+size = 38801708

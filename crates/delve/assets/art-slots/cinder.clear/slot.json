@@ -67,7 +67,7 @@
     "weak v1 cell silhouette",
     "weak v2 silhouette"
   ],
-  "map_sha256": "d77046336d91083d8d2ac2034593ced7571cc00f6313d5eb8a6182a009695a37",
+  "map_sha256": "e814d2edf135c703174340da3a852b76b80853af5c0df07fc5e90a3899524042",
   "metadata_sha256": "05bcbdc80e9c2c2f7c3e1569ad72ec46d507a7cc02ba698758196f6984e84910",
   "notes_sha256": "e910f8f79a9bf33fa843076af8d8553861eb03fb1f951dbb77351c336f0df09a",
   "outputs": {
@@ -534,7 +534,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "cinder.clear",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.clear/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/cinder.clear/source-sheet.png",
   "source_sha256": "8392a3e89083e9dc78fef0b9e677f16cbb6c9eec3940469677d1891e3e28ad95",
   "tool_version": 2
 }

@@ -86,6 +86,24 @@ class CohortTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlink"):
                 runner.snapshot_fixtures(bench, output, [{"name": "js-a", "fixture": "fixtures/linked"}])
 
+    def test_live_snapshot_freezes_the_legs_and_refuses_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "legs"
+            (source / "tool-router").mkdir(parents=True)
+            (source / "tool-router/index.js").write_text("module.exports={}")
+            manifest = runner.snapshot_live(source, root / "cell/live")
+            self.assertEqual(list(manifest), ["tool-router/index.js"])
+            (source / "tool-router/index.js").write_text("changed after the snapshot")
+            self.assertEqual((root / "cell/live/tool-router/index.js").read_text(), "module.exports={}")
+            link = root / "link"
+            link.symlink_to(source)
+            with self.assertRaises(ValueError):
+                runner.snapshot_live(link, root / "cell/other")
+            (source / "tool-router/escape.js").symlink_to(root / "outside.js")
+            with self.assertRaises(ValueError):
+                runner.snapshot_live(source, root / "cell/third")
+
     def test_gold_is_pinned_outside_candidate_fixture_trees(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -363,6 +381,43 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(comparison["contract_mismatches"], ["effort"])
         self.assertEqual(comparison["deltas_candidate_minus_baseline"][0]["task_wall_s"], -1)
         self.assertIsNone(comparison["deltas_candidate_minus_baseline"][0]["model_s"])
+
+    def test_cells_group_by_binary_plus_legs_identity_and_pairing_names_the_change(self):
+        def traced(name, solved, identity):
+            trace = {"rewards": {"technical_outcome": {"score": 1 if solved else 0}},
+                     "info": {"angel": {"hops": 3, "identity": identity}}}
+            return summary.summarize_trace({"task": {"data": {"name": name}}}, trace)
+
+        def identity(combined, legs, exe="exe-a"):
+            return {"combined_sha256": combined, "executable_sha256": exe,
+                    "live": {"sha256": legs, "legs": []}}
+        plain = [traced("js-a", False, identity("id-plain", "legs-none")),
+                 traced("js-b", False, identity("id-plain", "legs-none"))]
+        tuned = [traced("js-a", True, identity("id-tuned", "legs-tuned")),
+                 traced("js-b", False, identity("id-tuned", "legs-tuned"))]
+        self.assertEqual(plain[0]["identity_sha256"], "id-plain")
+        groups = summary.aggregate(plain + tuned)["identity_groups"]
+        self.assertEqual(list(groups), ["id-plain", "id-tuned"])
+        self.assertEqual((groups["id-tuned"]["tasks"], groups["id-tuned"]["solved"]), (2, 1))
+        self.assertEqual(groups["id-tuned"]["live_sha256"], "legs-tuned")
+        self.assertEqual(groups["id-tuned"]["metrics"]["hops"]["sum"], 6)
+        legs = summary.paired({"path": "a", "manifest": {}, "rows": plain},
+                              {"path": "b", "manifest": {}, "rows": tuned})["identity"]
+        self.assertEqual(legs, {"baseline": ["id-plain"], "candidate": ["id-tuned"],
+                                "executable_changed": False, "legs_changed": True})
+        rebuilt = [traced("js-a", True, identity("id-new", "legs-none", exe="exe-b"))]
+        legs = summary.paired({"path": "a", "manifest": {}, "rows": plain},
+                              {"path": "b", "manifest": {}, "rows": rebuilt})["identity"]
+        self.assertEqual((legs["executable_changed"], legs["legs_changed"]), (True, False))
+
+    def test_cells_without_reported_identity_stay_unknown(self):
+        row = summary.summarize_trace({"task": {"data": {"name": "js-a"}}}, {})
+        self.assertIsNone(row["identity_sha256"])
+        self.assertEqual(list(summary.aggregate([row])["identity_groups"]), ["unknown"])
+        comparison = summary.paired({"path": "a", "manifest": {}, "rows": [row]},
+                                    {"path": "b", "manifest": {}, "rows": [row]})["identity"]
+        self.assertIsNone(comparison["legs_changed"])
+        self.assertIsNone(comparison["executable_changed"])
 
     def test_unscored_attempt_is_not_a_solve_gain_or_loss(self):
         unknown = summary.summarize_trace({"task": {"data": {"name": "js-a"}}}, {})

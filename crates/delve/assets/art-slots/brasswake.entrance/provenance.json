@@ -14,6 +14,6 @@
   },
   "prepared_sha256": "722a8fae4e0a2e2f04610f6ed15bc1725a8de361cf664bc411752cda06226ff1",
   "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
-  "source_path": "/work/artifacts/art-prod/slots/brasswake.entrance.room-1/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/brasswake.entrance.room-1/v01/source-sheet.png",
   "source_sha256": "569f304af75403ac97cafc66f7ea7f726224b5d62fa01d6b2ce12498dd4f6b89"
 }

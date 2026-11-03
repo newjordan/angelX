@@ -1,0 +1,15 @@
+# The Alchemist's own: a belt of flasks, each one lit.
+name   Flask Bandolier
+kind   arm
+rarity relic
+text   Hold F: lob a lit flask where you aim; the ground burns after.
+drop   0
+chest  0
+arm    stones
+art
+..hh..
+..ii..
+.RRRR.
+RToTTR
+RTTToR
+.RRRR.

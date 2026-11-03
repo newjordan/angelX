@@ -436,7 +436,16 @@ fn every_guardian_keeps_to_its_stage_caps() {
                 let (per_second, on_screen) = stage.caps();
                 let most = u64::from(per_second * STRETCH / HZ + VOLLEY_MOST);
                 let room = on_screen as usize * usize::from(knights);
-                if w.fired > most || w.peak > room || w.volley > u64::from(VOLLEY_MOST) {
+                // A charge-up's burst is telegraphed by its wind-up and paid
+                // from its own reserve (`signatures::hold`): the tick it
+                // lands may carry that many shots over the volley cap, and
+                // nothing else. Re-pinned 2026-11-02 for the raised stage
+                // caps (`MIDDLE_ON_SCREEN` 18): the room now holds an
+                // ordinary volley beside a burst, so both can land on one
+                // tick (Mother of Spores: her 8-spore inhale and her 5-shot
+                // fan), each still inside its own cap.
+                let tell = guardian_room(pack, k).map(|(run, i)| run.bosses[i].windups.iter().map(|u| u.burst()).max().unwrap_or(0)).unwrap_or(0) as u64;
+                if w.fired > most || w.peak > room || w.volley > VOLLEY_MOST as u64 + tell {
                     over.push(format!(
                         "{name} {stage:?} x{knights}: fired {} (most {most}), peak {} (most {room}), volley {}",
                         w.fired, w.peak, w.volley
@@ -525,13 +534,20 @@ fn every_charge_up_winds_up_for_three_quarters_of_a_second_first() {
                 run.projectiles.clear();
                 run.ravages.clear();
                 run.works.clouds.clear();
+                // A molten guardian's burning wake is ground, not the blow.
+                run.works.blazes.retain(|b| !b.hostile());
             }
             was = stage;
             let hp: Vec<u32> = run.players.values().map(|h| h.hp).collect();
             run.step(&BTreeMap::new());
             let hurt = run.players.values().zip(&hp).any(|(h, &before)| h.hp < before);
+            // A charge-up's own tell is its blow-tagged shot, beam or ring;
+            // a guardian that keeps moving now fires its ordinary attacks
+            // from wherever its wind-up stood, and those (blow 0) were
+            // never the wind-up's harm. Re-pinned 2026-11-02.
             let flying = run.projectiles.iter().any(|p| {
                 p.hostile
+                    && p.traits.blow != 0
                     && (p.in_flight()
                         || p.traits.path.beam.is_some_and(|b| b.burning(p.traits.path.age)))
             });
@@ -726,8 +742,16 @@ struct Blow {
 /// Charge-up `which` of guardian `k` of `pack`, raging, wound up at once
 /// and seen through to its last shot, the knights standing still at `at`.
 fn one_charge_up(pack: Pack, k: usize, which: usize, depth: u32, knights: u8, at: Option<&[(f32, f32)]>) -> Option<Blow> {
+    let (run, index) = charge_up_room(pack, k, depth, knights, at)?;
+    charge_blow(run, index, which, depth, knights)
+}
+
+/// `one_charge_up` once the guardian is already in the room. Depth is set
+/// here: `charge_up_room` only writes it after the room is built, so a
+/// cloned room of another floor is the same fight.
+fn charge_blow(mut run: Run, index: usize, which: usize, depth: u32, knights: u8) -> Option<Blow> {
     use crate::rules::HZ;
-    let (mut run, index) = charge_up_room(pack, k, depth, knights, at)?;
+    run.dungeon.depth = depth;
     if which >= run.bosses[index].windups.len() {
         return None;
     }
@@ -780,7 +804,13 @@ fn rage_stretch(pack: Pack, k: usize, depth: u32, knights: u8, ticks: u32) -> Op
     let mut lost = vec![0; usize::from(knights)];
     let (mut began, mut stacked, mut was) = (0, 0, 0u8);
     for _ in 0..ticks {
-        let lingering = run.projectiles.iter().any(|p| p.hostile) || !run.ravages.is_empty();
+        // "Anything of the last" charge-up: its blow-tagged shots and rings
+        // (`signatures::due` gates on these). Clearing its attacks does not
+        // silence a guardian: one with no phase chain keeps its rotating
+        // pressure pattern (`patterns::volley`, blow 0), and those shots were
+        // never part of the last charge-up.
+        let lingering = run.projectiles.iter().any(|p| p.hostile && p.traits.blow != 0)
+            || run.ravages.iter().any(|r| r.blow != 0);
         let boss = run.enemies.iter_mut().find(|e| e.kind == EnemyKind::Boss)?;
         boss.hp = (boss.max_hp / 10).max(1);
         let before: Vec<u32> = run.players.values().map(|h| h.hp).collect();
@@ -864,10 +894,18 @@ fn every_blow() -> Vec<(String, u32, u8, Blow)> {
         let Some((run, index)) = charge_up_room(pack, k, 1, 1, None) else { continue };
         let def = run.bosses[index].clone();
         let spots = census_spots(&run);
+        // The room does not depend on depth. Build each knight layout once
+        // and clone it per floor; the fight still runs on every floor.
+        let layouts = [
+            charge_up_room(pack, k, 1, 1, Some(&spots[0..1])),
+            charge_up_room(pack, k, 1, 1, Some(&spots[3..4])),
+            charge_up_room(pack, k, 1, 4, None),
+        ];
         for (which, up) in def.windups.iter().enumerate() {
             for depth in 1..=6 {
-                for (knights, at) in [(1u8, Some(&spots[0..1])), (1, Some(&spots[3..4])), (4, None)] {
-                    let blow = one_charge_up(pack, k, which, depth, knights, at)
+                for (knights, built) in [(1u8, &layouts[0]), (1, &layouts[1]), (4, &layouts[2])] {
+                    let (template, index) = built.as_ref().unwrap_or_else(|| panic!("{} has no room for {knights} knights", def.id));
+                    let blow = charge_blow(template.clone(), *index, which, depth, knights)
                         .unwrap_or_else(|| panic!("{} never wound up its {}", def.id, up.kind.name()));
                     all.push((format!("{} {}", def.id, up.kind.name()), depth, knights, blow));
                 }

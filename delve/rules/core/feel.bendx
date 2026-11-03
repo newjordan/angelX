@@ -1,0 +1,435 @@
+# crates/delve/src/rules/feel.rs — how the arms feel: sparks, stuck shafts, smoke, deaths, a room's
+# end in coins. `Run::feel` is its object; the ten visual vectors are left out of it while empty
+# (`skip_serializing_if = "Vec::is_empty"`), the ledger fields are always written.
+
+# The host's `feel_ledger` setting (it rides on the run as `$settings`).
+def feel.ledger_on(run: J.Val) -> Bool:
+    return core.b(J.get(run, "$settings"), "feel_ledger")
+
+# A visual vector of the feel, empty when absent.
+def feel.vec(f: J.Val, key: String) -> [J.Val]:
+    return J.items(J.get(f, key))
+
+# The vector back in the feel: left out when empty.
+def feel.put(f: J.Val, key: String, xs: [J.Val]) -> J.Val:
+    if U32.is_zero(U32.from_nat(List.length(&2, J.Val, xs))):
+        return J.del(f, key)
+    return J.set(f, key, J.JA{xs})
+
+# Push onto a capped vector, the oldest dropping off the front at the cap.
+def feel.push_front_cap(f: J.Val, key: String, cap: U32, item: J.Val) -> J.Val:
+    xs: [J.Val] = feel.vec(f, key)
+    if U32.is_ge(U32.from_nat(List.length(&2, J.Val, xs)), cap):
+        xs = List.drop(&2, J.Val, xs, 1n)
+    return feel.put(f, key, List.append(&2, J.Val, xs, [item]))
+
+# `credit`: owned damage noted; the monster's first wound noted when the ledger is kept.
+def feel.Feel.credit(f: J.Val, ledger: Bool, owner: U32, foe: U32, damage: U32, tick: W.W) -> J.Val:
+    if Bool.or(U32.is_zero(owner), U32.is_zero(damage)):
+        return f
+    f = J.set(f, "credits", J.push(J.get(f, "credits"), J.JA{[J.JU{owner}, J.JU{damage}]}))
+    if ledger:
+        w: J.Val = J.get(f, "wounded")
+        if Bool.not(J.has(w, U32.show(foe))):
+            f = J.set(f, "wounded", J.set(w, U32.show(foe), W.to_j(tick)))
+    return f
+
+def feel.Run.credit(run: J.Val, owner: U32, foe: U32, damage: U32) -> J.Val:
+    return J.set(run, "feel", feel.Feel.credit(J.get(run, "feel"), feel.ledger_on(run), owner, foe, damage, W.of_j(J.get(run, "tick"))))
+
+# A spark where a shot struck, in the shot's colour, and the way it was going.
+def feel.Feel.impact(f: J.Val, x: F32, y: F32, kind: String, wx: F32, wy: F32) -> J.Val:
+    if U32.is_ge(U32.from_nat(List.length(&2, J.Val, feel.vec(f, "impacts"))), feel.IMPACTS()):
+        return f
+    (dx: F32, dy: F32) = rules.unit(wx, wy)
+    i: J.Val = J.obj()
+    i = core.set_f(i, "x", x)
+    i = core.set_f(i, "y", y)
+    i = core.set_s(i, "kind", kind)
+    i = core.set_u(i, "ttl", feel.IMPACT_TICKS())
+    i = core.set_f(i, "dx", dx)
+    i = core.set_f(i, "dy", dy)
+    return feel.put(f, "impacts", List.append(&2, J.Val, feel.vec(f, "impacts"), [i]))
+
+# An arrow or bolt stuck in the stone, pointing the way it flew.
+def feel.Feel.stick(f: J.Val, x: F32, y: F32, vx: F32, vy: F32, kind: String) -> J.Val:
+    (dx: F32, dy: F32) = rules.unit(vx, vy)
+    s: J.Val = J.obj()
+    s = core.set_f(s, "x", x)
+    s = core.set_f(s, "y", y)
+    s = core.set_f(s, "dx", dx)
+    s = core.set_f(s, "dy", dy)
+    s = core.set_s(s, "kind", kind)
+    return feel.push_front_cap(f, "stuck", feel.STUCK(), s)
+
+def feel.Feel.tracer(f: J.Val, fx: F32, fy: F32, tx: F32, ty: F32, thick: Bool) -> J.Val:
+    t: J.Val = J.obj()
+    t = J.set(t, "from", core.pair_f(fx, fy))
+    t = J.set(t, "to", core.pair_f(tx, ty))
+    t = core.set_b(t, "thick", thick)
+    t = core.set_u(t, "ttl", feel.TRACER_TICKS())
+    return feel.push_front_cap(f, "tracers", feel.TRACERS(), t)
+
+def feel.Feel.puff(f: J.Val, x: F32, y: F32, dx: F32, dy: F32, smoke: Bool) -> J.Val:
+    p: J.Val = J.obj()
+    p = core.set_f(p, "x", x)
+    p = core.set_f(p, "y", y)
+    p = core.set_f(p, "dx", dx)
+    p = core.set_f(p, "dy", dy)
+    p = core.set_b(p, "smoke", smoke)
+    p = core.set_u(p, "ttl", Bool.pick(U32, smoke, feel.SMOKE_TICKS(), feel.FLASH_TICKS()))
+    return feel.push_front_cap(f, "puffs", feel.PUFFS(), p)
+
+def feel.Feel.dust(f: J.Val, x: F32, y: F32, wx: F32, wy: F32, dust: U32) -> J.Val:
+    (dx: F32, dy: F32) = rules.unit(wx, wy)
+    p: J.Val = J.obj()
+    p = core.set_f(p, "x", x)
+    p = core.set_f(p, "y", y)
+    p = core.set_f(p, "dx", dx)
+    p = core.set_f(p, "dy", dy)
+    p = core.set_b(p, "smoke", False{})
+    p = core.set_u(p, "ttl", feel.DUST_TICKS())
+    p = core.set_u_skip(p, "dust", dust)
+    return feel.push_front_cap(f, "puffs", feel.PUFFS(), p)
+
+def feel.Feel.glint(f: J.Val, x: F32, y: F32, tier: U32) -> J.Val:
+    g: J.Val = J.obj()
+    g = core.set_f(g, "x", x)
+    g = core.set_f(g, "y", y)
+    g = core.set_u(g, "tier", U32.min(tier, 2))
+    g = core.set_u(g, "ttl", feel.GLINT_TICKS())
+    return feel.push_front_cap(f, "glints", feel.GLINTS(), g)
+
+def feel.Feel.take(f: J.Val, x: F32, y: F32, by: U32) -> J.Val:
+    t: J.Val = J.obj()
+    t = core.set_f(t, "x", x)
+    t = core.set_f(t, "y", y)
+    t = core.set_u(t, "by", by)
+    t = core.set_u(t, "ttl", feel.TAKE_TICKS())
+    return feel.push_front_cap(f, "takes", feel.TAKES(), t)
+
+def feel.Feel.bolt(f: J.Val, x: F32, y: F32, call: Bool) -> J.Val:
+    b: J.Val = J.obj()
+    b = core.set_f(b, "x", x)
+    b = core.set_f(b, "y", y)
+    b = core.set_b_skip(b, "call", call)
+    b = core.set_u(b, "ttl", feel.BOLT_TICKS())
+    return feel.push_front_cap(f, "bolts", feel.BOLTS(), b)
+
+def feel.Feel.death(f: J.Val, x: F32, y: F32, kind: String) -> J.Val:
+    if U32.is_ge(U32.from_nat(List.length(&2, J.Val, feel.vec(f, "deaths"))), feel.DEATHS()):
+        return f
+    d: J.Val = J.obj()
+    d = core.set_f(d, "x", x)
+    d = core.set_f(d, "y", y)
+    d = core.set_f(d, "r", monsters.EnemyKind.radius(J.JS{kind}))
+    d = core.set_u(d, "ttl", feel.DEATH_TICKS())
+    d = core.set_s(d, "kind", kind)
+    return feel.put(f, "deaths", List.append(&2, J.Val, feel.vec(f, "deaths"), [d]))
+
+# A knight's block: a shot turned by a shield.
+def feel.Feel.block(f: J.Val, knight: U32, ax: F32, ay: F32, ox: F32, oy: F32, wx: F32, wy: F32, kind: String, weight: U32) -> J.Val:
+    (dx: F32, dy: F32) = rules.unit(wx, wy)
+    (nx: F32, ny: F32) = rules.unit(ox, oy)
+    b: J.Val = J.obj()
+    b = core.set_f(b, "x", ax)
+    b = core.set_f(b, "y", ay)
+    b = core.set_f(b, "dx", dx)
+    b = core.set_f(b, "dy", dy)
+    b = core.set_f(b, "nx", nx)
+    b = core.set_f(b, "ny", ny)
+    b = core.set_s(b, "kind", kind)
+    b = core.set_u(b, "weight", RS.u_clamp(weight, 1, 3))
+    b = core.set_u(b, "knight", knight)
+    b = core.set_u(b, "ttl", feel.BLOCK_TICKS())
+    return feel.push_front_cap(f, "blocks", feel.BLOCKS(), b)
+
+# A room ends: its pictures and its ledger clear.
+def feel.Feel.clear_room(f: J.Val) -> J.Val:
+    for k: String in ["impacts", "stuck", "tracers", "puffs", "deaths", "blocks", "glints", "takes", "bolts"]:
+        f = J.del(f, k)
+    f = J.set(f, "ledger", J.obj())
+    f = J.set(f, "wounded", J.obj())
+    f = J.set(f, "credits", J.JA{Nil{}})
+    f = J.set(f, "blows", J.JA{Nil{}})
+    return J.set(f, "echoes", J.JA{Nil{}})
+
+# One tick of a vector's `ttl` running down, the spent dropped; `drift` moves puffs.
+def feel.age_vec(xs: [J.Val], puffs: Bool) -> [J.Val]:
+    out: [J.Val] = []
+    for p: J.Val in xs:
+        ttl: U32 = core.usub(core.u(p, "ttl"), 1)
+        p = core.set_u(p, "ttl", ttl)
+        if puffs:
+            if core.b(p, "smoke"):
+                # Smoke drifts on the way the ball went, and rises.
+                p = core.set_f(p, "x", (core.f(p, "x") + ((core.f(p, "dx") * 1.5 : F32) * rules.DT() : F32) : F32))
+                p = core.set_f(p, "y", (core.f(p, "y") + (((core.f(p, "dy") * 1.5 : F32) * rules.DT() : F32) - (0.6 * rules.DT() : F32) : F32) : F32))
+            elif U32.is_gt(core.u(p, "dust"), 0):
+                # Dust rolls on a little the way the knight went.
+                p = core.set_f(p, "x", (core.f(p, "x") + ((core.f(p, "dx") * 0.9 : F32) * rules.DT() : F32) : F32))
+                p = core.set_f(p, "y", (core.f(p, "y") + ((core.f(p, "dy") * 0.9 : F32) * rules.DT() : F32) : F32))
+        if U32.is_gt(ttl, 0):
+            out = List.append(&2, J.Val, out, [p])
+    return out
+
+# One tick of the visuals fading.
+def feel.Feel.fade(f: J.Val) -> J.Val:
+    f = feel.put(f, "impacts", feel.age_vec(feel.vec(f, "impacts"), False{}))
+    f = feel.put(f, "tracers", feel.age_vec(feel.vec(f, "tracers"), False{}))
+    f = feel.put(f, "puffs", feel.age_vec(feel.vec(f, "puffs"), True{}))
+    f = feel.put(f, "deaths", feel.age_vec(feel.vec(f, "deaths"), False{}))
+    f = feel.put(f, "blocks", feel.age_vec(feel.vec(f, "blocks"), False{}))
+    f = feel.put(f, "glints", feel.age_vec(feel.vec(f, "glints"), False{}))
+    f = feel.put(f, "takes", feel.age_vec(feel.vec(f, "takes"), False{}))
+    return feel.put(f, "bolts", feel.age_vec(feel.vec(f, "bolts"), False{}))
+
+# A map {id: n} with n added to id's entry.
+def feel.add_to(m: J.Val, id: U32, n: U32) -> J.Val:
+    return core.set_u(m, U32.show(id), core.uadd(core.u(m, U32.show(id)), n))
+
+def feel.Run.tick_feel(run: J.Val, credits: J.Val, grazes: J.Val) -> J.Val:
+    f: J.Val = feel.Feel.fade(J.get(run, "feel"))
+    dealt: J.Val = J.obj()
+    valour: J.Val = J.obj()
+    other: J.Val = J.get(f, "credits")
+    f = J.set(f, "credits", J.JA{Nil{}})
+    run = J.set(run, "feel", f)
+    for c: J.Val in List.append(&2, J.Val, J.items(credits), J.items(other)):
+        id: U32 = J.u32(J.nth(c, 0))
+        damage: U32 = J.u32(J.nth(c, 1))
+        dealt = feel.add_to(dealt, id, damage)
+        if U32.is_gt(damage, 0):
+            valour = feel.add_to(valour, id, feel.VALOUR_HIT())
+    run = floor_stats.Run.tally_floor(run, dealt)
+    if Bool.and(feel.ledger_on(run), core.phase_is(run, "fighting")):
+        ledger: J.Val = J.get(J.get(run, "feel"), "ledger")
+        for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+            t: J.Val = core.or_else(J.get(ledger, k), feel.Tally.default())
+            if J.has(dealt, k):
+                t = core.set_u(t, "damage", core.uadd(core.u(t, "damage"), core.u(dealt, k)))
+            else:
+                t = core.set_u(t, "dead", core.uadd(core.u(t, "dead"), 1))
+            n: U32 = 0
+            for g: J.Val in J.items(grazes):
+                if U32.is_eq(J.u32(g), rules.Run.step.id(k)):
+                    n = (n + 1 : U32)
+            t = core.set_u(t, "grazes", core.uadd(core.u(t, "grazes"), n))
+            ledger = J.set(ledger, k, t)
+        run = J.set(run, "feel", J.set(J.get(run, "feel"), "ledger", ledger))
+    works: J.Val = J.get(run, "works")
+    kits: J.Val = J.get(works, "kits")
+    for (k: String, kit: J.Val) in J.fields(kits):
+        kits = J.set(kits, k, core.set_u(kit, "burning", core.usub(core.u(kit, "burning"), 1)))
+    for g: J.Val in J.items(grazes):
+        valour = feel.add_to(valour, J.u32(g), feel.GRAZE_VALOUR())
+    for (k: String, gain: J.Val) in J.int_fields(valour):
+        if J.has(J.get(run, "players"), k):
+            kit: J.Val = core.or_else(J.get(kits, k), skills.Kit.default())
+            kits = J.set(kits, k, core.set_u(kit, "valour", U32.min(core.uadd(core.u(kit, "valour"), J.u32(gain)), (feel.PIPS() * feel.VALOUR_PIP() : U32))))
+    run = J.set(run, "works", J.set(works, "kits", kits))
+    return feel.Run.fly_coins(run)
+
+def feel.Tally.default() -> J.Val:
+    t: J.Val = J.obj()
+    for k: String in ["shots", "hits", "kills", "damage", "dead", "skills", "grazes", "ttk"]:
+        t = core.set_u(t, k, 0)
+    return t
+
+# Every hostile shot `near` catches turns to a coin (as many as there is room for).
+def feel.Run.cancel_shots_where(run: J.Val, mask: [Bool]) -> J.Val:
+    f: J.Val = J.get(run, "feel")
+    coins: [J.Val] = feel.vec(f, "coins")
+    room: U32 = core.usub(feel.COINS(), U32.from_nat(List.length(&2, J.Val, coins)))
+    made: U32 = 0
+    ms: [Bool] = mask
+    for p: J.Val in J.items(J.get(run, "projectiles")):
+        hit: Bool = False{}
+        match (ms : [Bool]):
+            case Con{m: Bool, rest: [Bool]}:
+                hit = m
+                ms = rest
+            case Nil{}:
+                hit = False{}
+        if Bool.and(Bool.and(core.b(p, "hostile"), hit), U32.is_lt(made, room)):
+            coin: J.Val = J.obj()
+            coin = core.set_f(coin, "x", core.f(p, "x"))
+            coin = core.set_f(coin, "y", core.f(p, "y"))
+            coin = core.set_u(coin, "age", 0)
+            coins = List.append(&2, J.Val, coins, [coin])
+            made = (made + 1 : U32)
+    if U32.is_ne(made, 0):
+        run = core.push_sound(run, "spoil_pickup")
+    return J.set(run, "feel", feel.put(J.get(run, "feel"), "coins", coins))
+
+def feel.Run.cancel_shots(run: J.Val) -> J.Val:
+    mask: [Bool] = []
+    for p: J.Val in J.items(J.get(run, "projectiles")):
+        mask = List.append(&2, Bool, mask, [True{}])
+    return feel.Run.cancel_shots_where(run, mask)
+
+# Coins fly home to the nearest standing knight, and are caught.
+def feel.Run.fly_coins(run: J.Val) -> J.Val:
+    f: J.Val = J.get(run, "feel")
+    coins: [J.Val] = feel.vec(f, "coins")
+    if U32.is_zero(U32.from_nat(List.length(&2, J.Val, coins))):
+        return run
+    kept: [J.Val] = []
+    caught: [U32] = []
+    for coin: J.Val in coins:
+        coin = core.set_u(coin, "age", core.uadd(core.u(coin, "age"), 1))
+        # the nearest standing knight (the first of equals)
+        best: U32 = 0
+        best_d: F32 = 0.0
+        found: Bool = False{}
+        bx: F32 = 0.0
+        by: F32 = 0.0
+        for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+            if Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))):
+                d: F32 = RS.f_hypot((core.f(h, "x") - core.f(coin, "x") : F32), (core.f(h, "y") - core.f(coin, "y") : F32))
+                if Bool.or(Bool.not(found), F32.is_lt(d, best_d)):
+                    best = rules.Run.step.id(k)
+                    best_d = d
+                    bx = core.f(h, "x")
+                    by = core.f(h, "y")
+                    found = True{}
+        if Bool.not(found):
+            kept = List.append(&2, J.Val, kept, [coin])
+        elif F32.is_lt(best_d, feel.COIN_CATCH()):
+            caught = List.append(&2, U32, caught, [best])
+        else:
+            # A short hop up before it turns home.
+            speed: F32 = (feel.COIN_SPEED() * RS.f_min((RS.u_as_f32(core.u(coin, "age")) / 10.0 : F32), 1.0) : F32)
+            step: F32 = RS.f_min((speed * rules.DT() : F32), best_d)
+            (ux: F32, uy: F32) = rules.unit((bx - core.f(coin, "x") : F32), (by - core.f(coin, "y") : F32))
+            coin = core.set_f(coin, "x", (core.f(coin, "x") + (ux * step : F32) : F32))
+            lift: F32 = Bool.pick(F32, U32.is_lt(core.u(coin, "age"), 6), 0.08, 0.0)
+            coin = core.set_f(coin, "y", (core.f(coin, "y") + ((uy * step : F32) - lift : F32) : F32))
+            kept = List.append(&2, J.Val, kept, [coin])
+    run = J.set(run, "feel", feel.put(f, "coins", kept))
+    for id: U32 in caught:
+        h: J.Val = core.hero(run, id)
+        if Bool.not(J.is_null(h)):
+            gold: U32 = curios.Hero.curio_gold(h, feel.COIN_GOLD())
+            h = J.set(h, "carried", realm.Spoils.add(J.get(h, "carried"), "gold", gold))
+            run = core.set_hero(run, id, h)
+    n: U32 = U32.from_nat(List.length(&2, U32, caught))
+    if U32.is_ne(n, 0):
+        run = core.set_u(run, "score", core.uadd(core.u(run, "score"), (n * feel.COIN_GOLD() : U32)))
+        run = core.push_sound(run, "spoil_pickup")
+    return run
+
+# The room ends: coins left lie in the nearest standing knight's purse.
+def feel.Run.bank_coins(run: J.Val) -> J.Val:
+    coins: [J.Val] = feel.vec(J.get(run, "feel"), "coins")
+    run = J.set(run, "feel", feel.put(J.get(run, "feel"), "coins", []))
+    for coin: J.Val in coins:
+        best: U32 = 0
+        best_d: F32 = 0.0
+        found: Bool = False{}
+        for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+            if Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))):
+                d: F32 = RS.f_hypot((core.f(h, "x") - core.f(coin, "x") : F32), (core.f(h, "y") - core.f(coin, "y") : F32))
+                if Bool.or(Bool.not(found), F32.is_lt(d, best_d)):
+                    best = rules.Run.step.id(k)
+                    best_d = d
+                    found = True{}
+        if found:
+            h: J.Val = core.hero(run, best)
+            gold: U32 = curios.Hero.curio_gold(h, feel.COIN_GOLD())
+            h = J.set(h, "carried", realm.Spoils.add(J.get(h, "carried"), "gold", gold))
+            run = core.set_hero(run, best, h)
+            run = core.set_u(run, "score", core.uadd(core.u(run, "score"), feel.COIN_GOLD()))
+    return run
+
+def feel.Run.pips(run: J.Val, id: U32) -> U32:
+    k: J.Val = J.get(J.get(J.get(run, "works"), "kits"), U32.show(id))
+    return U32.div(core.u(k, "valour"), feel.VALOUR_PIP())
+
+def feel.Run.synergy(run: J.Val, id: U32, name: String, word: String) -> J.Val:
+    run = J.set(run, "found", J.JA{[run_tick(run), J.JU{id}, J.JS{String.append(name, "!")}]})
+    return core.push_cue(run, String.append("synergy:", word))
+
+def run_tick(run: J.Val) -> J.Val:
+    return J.get(run, "tick")
+
+def feel.Run.ledger_skill(run: J.Val, id: U32) -> J.Val:
+    if Bool.not(feel.ledger_on(run)):
+        return run
+    ledger: J.Val = J.get(J.get(run, "feel"), "ledger")
+    t: J.Val = core.or_else(J.get(ledger, U32.show(id)), feel.Tally.default())
+    t = core.set_u(t, "skills", core.uadd(core.u(t, "skills"), 1))
+    return J.set(run, "feel", J.set(J.get(run, "feel"), "ledger", J.set(ledger, U32.show(id), t)))
+
+def feel.Run.skill_synergy(run: J.Val, id: U32, which: U32) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    bow: Bool = Bool.and(J.is_null(J.get(h, "forged")), String.eq(core.s(h, "weapon"), "bow"))
+    if Bool.and(U32.is_eq(which, skills.FIRE()), bow):
+        works: J.Val = J.get(run, "works")
+        kits: J.Val = J.get(works, "kits")
+        if J.has(kits, U32.show(id)):
+            kit: J.Val = core.set_u(J.get(kits, U32.show(id)), "burning", feel.FIRE_ARROWS())
+            run = J.set(run, "works", J.set(works, "kits", J.set(kits, U32.show(id), kit)))
+        run = feel.Run.synergy(run, id, "Fire Arrows", "fire_arrows")
+    return run
+
+# Burns, ricochets and powder kegs the shots set off.
+def feel.Run.land_synergies(run: J.Val, burns: J.Val, turned: J.Val, kegs: J.Val) -> J.Val:
+    # A `burn N` wish burns N times as hot as Fire Arrows.
+    for b: J.Val in J.items(burns):
+        owner: U32 = J.u32(J.nth(b, 1))
+        base: U32 = skills.BURN_BASE()
+        h: J.Val = core.hero(run, owner)
+        power: U32 = Bool.pick(U32, J.is_null(h), base, hero.Hero.scaled(h, base))
+        power = (power * RS.u_clamp(J.u32(J.nth(b, 2)), 1, 3) : U32)
+        run = J.set(run, "works", J.set(J.get(run, "works"), "banes", skills.afflict(J.get(J.get(run, "works"), "banes"), J.u32(J.nth(b, 0)), "burn", power, owner)))
+    for owner: J.Val in J.items(turned):
+        run = feel.Run.synergy(run, J.u32(owner), "Ricochet", "ricochet")
+    # Kegs by index, the highest first.
+    order: [J.Val] = feel.sort_desc(J.items(kegs))
+    for k: J.Val in order:
+        i: U32 = J.u32(J.nth(k, 0))
+        clouds: J.Val = J.get(J.get(run, "works"), "clouds")
+        if U32.is_lt(i, core.count(clouds)):
+            cloud: J.Val = J.nth(clouds, i)
+            run = J.set(run, "works", J.set(J.get(run, "works"), "clouds", feel.remove_nth(clouds, i)))
+            run = skills.Run.flash(run, cloud)
+            run = feel.Run.synergy(run, J.u32(J.nth(k, 1)), "Powder Keg", "powder_keg")
+    return run
+
+# [idx, owner] pairs sorted by idx, largest first (stable).
+def feel.sort_desc(xs: [J.Val]) -> [J.Val]:
+    out: [J.Val] = []
+    for x: J.Val in xs:
+        placed: Bool = False{}
+        next: [J.Val] = []
+        for y: J.Val in out:
+            if Bool.and(Bool.not(placed), U32.is_gt(J.u32(J.nth(x, 0)), J.u32(J.nth(y, 0)))):
+                next = List.append(&2, J.Val, next, [x])
+                placed = True{}
+            next = List.append(&2, J.Val, next, [y])
+        if Bool.not(placed):
+            next = List.append(&2, J.Val, next, [x])
+        out = next
+    return out
+
+def feel.remove_nth(a: J.Val, i: U32) -> J.Val:
+    out: [J.Val] = []
+    n: U32 = 0
+    for x: J.Val in J.items(a):
+        if Bool.not(U32.is_eq(n, i)):
+            out = List.append(&2, J.Val, out, [x])
+        n = (n + 1 : U32)
+    return J.JA{out}
+
+# A knight's shot by its kind: how far a hit pushes a monster.
+def feel.knock(kind: String) -> F32:
+    if String.eq(kind, "arrow"):
+        return 0.1
+    if String.eq(kind, "bolt"):
+        return 0.5
+    if String.eq(kind, "ball"):
+        return 0.9
+    if String.eq(kind, "sacred"):
+        return 0.6
+    return 0.0

@@ -1,0 +1,15 @@
+# View::tile (session.rs): the session's table of changed tiles over the fixed map.
+module bannerpeak.session
+
+extern fn View.has(self: View, key: u32) -> bool = bannerpeak.u.has
+extern fn View.ids(self: View) -> list<u32> = bannerpeak.u.ids
+extern fn View.code(self: View, key: u32) -> u32 = bannerpeak.u.at_u32
+
+fn View.tile(self: View, tx: i32, ty: i32) -> u32:
+  if inr(tx, 0, layout::WIDTH) && inr(ty, 0, layout::HEIGHT):
+    let key = (ty * layout::WIDTH + tx) as u32
+    if self.has(key):
+      let c = self.code(key)
+      if Tile::known(c):
+        return c
+  return World::at(tx, ty)

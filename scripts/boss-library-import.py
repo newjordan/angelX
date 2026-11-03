@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --no-project --with Pillow python
 """Import checked library crops without touching their read-only source.
 
-UV_CACHE_DIR=/work/tmp/uv-cache uv run --no-project --with Pillow \
+uv run --no-project --with Pillow \
     scripts/boss-library-import.py [boss-id] [--check] [--study OUTPUT]
 The local crops and provenance suffice; no live tree or network is needed.
 """
@@ -10,11 +10,16 @@ import hashlib
 import json
 import re
 from collections import Counter
+import os
 from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'crates/delve/assets/boss-library-src'
+# The source art left the repository on 2026-10-20 for the archive (its
+# README.md says what each folder is); ANGEL_SOURCE_ART names it
+# (default ~/angelX-archive/2026-10-20/source-art).
+SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
+SOURCE = SOURCE_ART / 'boss-library-src'
 OUTPUT = ROOT / 'cockpit/assets/dungeon/bosses'
 BOSSES = json.loads((ROOT / 'scripts/boss-library-registry.json').read_text())
 LIMITS = {'silhouette_iou': .98, 'key_colour_agreement': .90, 'edge_agreement': .85}

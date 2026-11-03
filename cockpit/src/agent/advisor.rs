@@ -60,7 +60,6 @@ impl AdvisorMode {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn is_on(self) -> bool {
         !matches!(self, Self::Off)
     }

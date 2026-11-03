@@ -12,7 +12,11 @@
 //!   nearest raider; an archery range looses an arrow.
 //!
 //! Won, the cockpit frees the holding, mends its walls and pays the
-//! raiders' purse into the treasury. A floor's wipe is a wipe; in a
+//! raiders' purse into the treasury.
+//!
+//! A band the storyteller has on the road (`Holdings::muster`) can be met
+//! the same way before it comes: its vanguard waits in the hall it is
+//! heading for, and beaten there, the whole band scatters. A floor's wipe is a wipe; in a
 //! castle's hall at home the party is beaten, not killed: the raiders sack
 //! a room and stay.
 
@@ -102,8 +106,9 @@ impl Run {
         let Some(held) = self.home.holdings.holding(&key).cloned() else {
             return;
         };
+        let mustered = self.home.holdings.muster.as_ref().is_some_and(|m| m.key == key);
         match self.holding_raid.clone() {
-            None if held.raid > 0
+            None if (held.raid > 0 || mustered)
                 && self.phase != Phase::Fighting
                 && !self.marks.contains_key(&won_mark(&key))
                 && !self.marks.contains_key(&lost_mark(&key)) =>
@@ -125,7 +130,11 @@ impl Run {
 
     fn start_raid(&mut self, key: &str, held: &Holding) {
         let bought = standing(held, Family::Trade).len() as u32;
-        let n = super::crown::raiders(held.raid, bought);
+        // A band still on the road sends its vanguard: the first raid's
+        // strength.
+        let vanguard = held.raid == 0;
+        let level = held.raid.max(1);
+        let n = super::crown::raiders(level, bought);
         let (pack, depth) = if self.room().kind == RoomKind::Holding {
             (self.dungeon.pack, self.dungeon.depth)
         } else {
@@ -148,7 +157,7 @@ impl Run {
         for (_, def) in standing(held, Family::Forge) {
             for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
                 match def.id {
-                    "fletcher" => hero.bombs += 1,
+                    "fletcher" => hero.give_bombs(1),
                     "armory" => hero.armor += 2,
                     _ => hero.armor += 1,
                 }
@@ -157,11 +166,12 @@ impl Run {
         self.dungeon.rooms[self.at].cleared = false;
         self.phase = Phase::Fighting;
         self.window = None;
-        self.holding_raid = Some(RaidFight { key: key.to_string(), room: self.at, level: held.raid, started: self.tick });
+        self.holding_raid = Some(RaidFight { key: key.to_string(), room: self.at, level, started: self.tick });
         self.sounds.push("door_seal");
         self.cues.push("raid".into());
         self.fx.push(Fx::Shake(10));
-        self.found = Some((self.tick, 0, "RAIDERS! HOLD THE HALL".into()));
+        let call = if vanguard { "THE VANGUARD! BREAK THEM" } else { "RAIDERS! HOLD THE HALL" };
+        self.found = Some((self.tick, 0, call.into()));
         if bought > 0 {
             self.cues.push("raid_bribed".into());
         }

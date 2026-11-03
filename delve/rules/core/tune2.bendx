@@ -1,0 +1,39 @@
+# crates/delve/src/rules/tune.rs — what the knobs do to the step (`foe_step`, `more_foes`, `tune_knights`).
+
+# A monster's step this tick longer or shorter by the pace knob: from where it stood to
+# where its own move put it, scaled. A move farther than `LONGEST_STEP` in a tick stays.
+def tune.foe_step(enemy: J.Val, fx: F32, fy: F32, pace: F32, room: J.Val, barred: Bool) -> J.Val:
+    dx: F32 = (core.f(enemy, "x") - fx : F32)
+    dy: F32 = (core.f(enemy, "y") - fy : F32)
+    d: F32 = RS.f_hypot(dx, dy)
+    if Bool.or(F32.is_eq(d, 0.0), F32.is_gt(d, 1.0)):
+        return enemy
+    if F32.is_gt(pace, 1.0):
+        # On from where it got to, through the walls' rules.
+        mover: U32 = Bool.pick(U32, monsters.EnemyKind.flies(J.get(enemy, "kind")), 2, 1)
+        (nx: F32, ny: F32) = rules.Grid.slide(room, barred, (core.f(enemy, "x"), core.f(enemy, "y")), ((dx * (pace - 1.0 : F32) : F32), (dy * (pace - 1.0 : F32) : F32)), monsters.Enemy.radius(enemy), mover)
+        return core.set_f(core.set_f(enemy, "x", nx), "y", ny)
+    return core.set_f(core.set_f(enemy, "x", (fx + (dx * pace : F32) : F32)), "y", (fy + (dy * pace : F32) : F32))
+
+# After the knights' step: the attack-rate knob on each cooldown a knight set this tick
+# (`cooled` held them before it), and the shot-speed knob on the knights' shots.
+def tune.tune_knights(run: J.Val, cooled: J.Val, shots: J.Val) -> (J.Val, J.Val):
+    tn: J.Val = J.get(run, "tune")
+    for c: J.Val in J.items(cooled):
+        id: U32 = J.u32(J.nth(c, 0))
+        before: U32 = J.u32(J.nth(c, 1))
+        h: J.Val = core.hero(run, id)
+        if Bool.not(J.is_null(h)):
+            now: U32 = core.u(h, "fire_cooldown")
+            # Fired: a cooldown set where it ran out.
+            if Bool.and(U32.is_ne(now, before), U32.is_gt(now, core.usub(before, 1))):
+                run = core.set_hero(run, id, core.set_u(h, "fire_cooldown", tune.Tune.cooldown(tn, now)))
+    speed: F32 = tune.Tune.shot_speed(tn)
+    if F32.is_ne(speed, 1.0):
+        out: [J.Val] = []
+        for s: J.Val in J.items(shots):
+            if Bool.not(core.b(s, "hostile")):
+                s = core.set_f(core.set_f(s, "vx", (core.f(s, "vx") * speed : F32)), "vy", (core.f(s, "vy") * speed : F32))
+            out = List.append(&2, J.Val, out, [s])
+        shots = J.JA{out}
+    return (run, shots)

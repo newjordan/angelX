@@ -738,6 +738,120 @@ fn param_pages(params: &serde_json::Value, key: &str) -> String {
     crate::agent::harness::book::ledger::read(std::path::Path::new("."), address).expect("pages")
 }
 
+// The original named tests share this runner; fixture rows hold their
+// independent expected strings and schema checks, and can be edited without
+// recompiling the test binary.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeanSchemaFixture {
+    version: u32,
+    cases: Vec<LeanSchemaCase>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeanSchemaCase {
+    name: String,
+    full_marker: String,
+    lean_marker: String,
+    page_key: String,
+    page_marker: String,
+    registry_page: bool,
+    schema: String,
+    equal_property: Option<String>,
+    maximum_property: Option<String>,
+    registry_schema_marker: Option<String>,
+}
+
+fn assert_lean_schema_case(name: &str) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/lean-schema-cases.json");
+    let fixture: LeanSchemaFixture = serde_json::from_slice(
+        &std::fs::read(path).expect("lean schema fixture"),
+    ).expect("valid lean schema fixture");
+    assert_eq!(fixture.version, 1);
+    assert_eq!(fixture.cases.len(), 6);
+    let mut seen = std::collections::HashSet::new();
+    for case in &fixture.cases {
+        assert!(seen.insert(&case.name), "duplicate schema fixture name");
+    }
+    let case = fixture.cases.iter().find(|case| case.name == name)
+        .expect("known lean schema fixture");
+    let _guard = crate::tests::env_lock();
+    let _anchors = (name == "read_file").then(|| EnvGuard::unset("ANGEL_HASHLINE_ANCHORS"));
+    let root = || std::path::PathBuf::from(".");
+    let full_def = match name {
+        "apply_patch" => crate::agent::harness::ApplyPatchTool { root: root() }.def(),
+        "read_file" => crate::agent::harness::ReadFileTool { root: root() }.def(),
+        "write_file" => crate::agent::harness::WriteFileTool { root: root() }.def(),
+        "list_dir" => crate::agent::harness::ListDirTool { root: root() }.def(),
+        "str_replace" => crate::agent::harness::StrReplaceTool { root: root() }.def(),
+        "grep" => crate::agent::harness::GrepTool { root: root() }.def(),
+        _ => panic!("unsupported schema fixture {name}"),
+    };
+    let expected_description = match name {
+        "apply_patch" => lean_apply_patch_description(),
+        "read_file" => lean_read_file_description(),
+        "write_file" => lean_write_file_description(),
+        "list_dir" => lean_list_dir_description(),
+        "str_replace" => lean_str_replace_description(),
+        "grep" => lean_grep_description(),
+        _ => unreachable!(),
+    };
+    assert!(full_def.description.contains(&case.full_marker), "{name}: full marker");
+    let lean = lean_advertised_tool_def(&full_def);
+    assert_eq!(lean.name, name);
+    assert_eq!(lean.description, expected_description);
+    assert!(lean.description.len() < full_def.description.len(), "{name}: lean description size");
+    assert!(!lean.description.contains(&case.full_marker), "{name}: full marker in lean");
+    assert!(lean.description.contains(&case.lean_marker), "{name}: lean marker");
+    let expected_params = match case.schema.as_str() {
+        "full" => full_def.params.clone(),
+        "lean_grep" if name == "grep" => lean_grep_params(),
+        _ => panic!("invalid expected schema for {name}"),
+    };
+    assert_eq!(lean.params, expected_params);
+    if case.schema == "lean_grep" {
+        assert!(lean.params.to_string().len() < full_def.params.to_string().len());
+    }
+    assert!(param_pages(&full_def.params, &case.page_key).contains(&case.page_marker), "{name}: page");
+    assert_eq!(lean.params["required"], full_def.params["required"]);
+    if let Some(key) = &case.equal_property {
+        assert_eq!(lean.params["properties"][key], full_def.params["properties"][key]);
+    }
+    if let Some(key) = &case.maximum_property {
+        assert_eq!(lean.params["properties"][key]["maximum"], full_def.params["properties"][key]["maximum"]);
+        // grep's paths limit is maxItems; read_file's limit is maximum.
+        if name == "grep" {
+            assert_eq!(lean.params["properties"][key]["maxItems"], full_def.params["properties"][key]["maxItems"]);
+        }
+    }
+
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
+    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    crate::drive::comp_mode::invalidate_cache();
+    let mut registry = ToolRegistry::with_defaults();
+    registry.enable_tool_search();
+    let full = registry.defs_for_turn(Some(1_000_000), false, false);
+    let full_tool = full.iter().find(|tool| tool.name == name)
+        .expect("default set advertises tool");
+    assert!(full_tool.description.contains(&case.full_marker), "{name}: registry full marker");
+    if case.registry_page {
+        assert!(param_pages(&full_tool.params, &case.page_key).contains(&case.page_marker), "{name}: registry page");
+    }
+    if let Some(marker) = &case.registry_schema_marker {
+        assert!(full_tool.params.to_string().contains(marker), "{name}: registry schema marker");
+    }
+    for (bounded, competition) in [(true, false), (false, true)] {
+        let tools = registry.defs_for_turn(Some(1_000_000), bounded, competition);
+        let tool = tools.iter().find(|tool| tool.name == name)
+            .expect("bounded or competition set advertises tool");
+        assert_eq!(tool.description, expected_description);
+        let expected = if case.schema == "lean_grep" { lean_grep_params() } else { full_tool.params.clone() };
+        assert_eq!(tool.params, expected);
+    }
+}
+
 /// Bounded / competition hops advertise a short code_mode blurb. Default
 /// interactive keeps the full isolate/API essay.
 #[test]
@@ -811,201 +925,21 @@ fn coding_hot_path_leans_code_mode_description() {
 /// interactive keeps the hashline/envelope essay.
 #[test]
 fn coding_hot_path_leans_apply_patch_description() {
-    let full_def = crate::agent::harness::ApplyPatchTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("SWAP.BLK"),
-        "full def keeps the hashline essay"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "apply_patch");
-    assert_eq!(lean.description, lean_apply_patch_description());
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("SWAP.BLK"));
-    assert!(lean.description.contains("[path#tag]"));
-    // Lean and full name the same pages; the param essay lives in the book.
-    assert_eq!(lean.params, full_def.params);
-    assert!(param_pages(&full_def.params, "stage").contains("no disk write"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-
-    let _guard = crate::tests::env_lock();
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_ap = full
-        .iter()
-        .find(|tool| tool.name == "apply_patch")
-        .expect("default set advertises apply_patch");
-    assert!(
-        full_ap.description.contains("SWAP.BLK"),
-        "default unbounded interactive keeps the full apply_patch essay"
-    );
-    assert!(
-        param_pages(&full_ap.params, "stage").contains("no disk write"),
-        "default unbounded interactive names the apply_patch param essay's page"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_ap = bounded
-        .iter()
-        .find(|tool| tool.name == "apply_patch")
-        .expect("bounded set still advertises apply_patch");
-    assert_eq!(bounded_ap.description, lean_apply_patch_description());
-    assert_eq!(bounded_ap.params, full_ap.params);
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_ap = comp
-        .iter()
-        .find(|tool| tool.name == "apply_patch")
-        .expect("competition set still advertises apply_patch");
-    assert_eq!(comp_ap.description, lean_apply_patch_description());
-    assert_eq!(comp_ap.params, full_ap.params);
+    assert_lean_schema_case("apply_patch");
 }
 
 /// Bounded / competition hops advertise a short read_file blurb. Default
 /// interactive keeps the virtual-URL / hashline-recovery essay.
 #[test]
 fn coding_hot_path_leans_read_file_description() {
-    let _guard = crate::tests::env_lock();
-    let _anchors = EnvGuard::unset("ANGEL_HASHLINE_ANCHORS");
-    let full_def = crate::agent::harness::ReadFileTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("Merge conflict markers"),
-        "full def keeps the virtual-URL / conflict essay"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "read_file");
-    assert_eq!(lean.description, lean_read_file_description());
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("Merge conflict markers"));
-    assert!(lean.description.contains("[path#tag]"));
-    // Lean and full name the same pages; the param essay lives in the book.
-    assert_eq!(lean.params, full_def.params);
-    // The offset reuse note is a page of read_file's section; the schema names it.
-    assert!(param_pages(&full_def.params, "offset").contains("truncated page"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-    assert_eq!(
-        lean.params["properties"]["limit"]["maximum"],
-        full_def.params["properties"]["limit"]["maximum"]
-    );
-
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_rf = full
-        .iter()
-        .find(|tool| tool.name == "read_file")
-        .expect("default set advertises read_file");
-    assert!(
-        full_rf.description.contains("Merge conflict markers"),
-        "default unbounded interactive keeps the full read_file essay"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_rf = bounded
-        .iter()
-        .find(|tool| tool.name == "read_file")
-        .expect("bounded set still advertises read_file");
-    assert_eq!(bounded_rf.description, lean_read_file_description());
-    assert_eq!(bounded_rf.params, full_rf.params);
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_rf = comp
-        .iter()
-        .find(|tool| tool.name == "read_file")
-        .expect("competition set still advertises read_file");
-    assert_eq!(comp_rf.description, lean_read_file_description());
-    assert_eq!(comp_rf.params, full_rf.params);
-    assert!(
-        full_rf.params.to_string().contains("⠡⠁"),
-        "default unbounded interactive keeps the full read_file params, naming its section"
-    );
+    assert_lean_schema_case("read_file");
 }
 
 /// Bounded / competition hops advertise a short write_file blurb. Default
 /// interactive keeps the conflict-resolve essay.
 #[test]
 fn coding_hot_path_leans_write_file_description() {
-    let full_def = crate::agent::harness::WriteFileTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("conflict://*"),
-        "full def keeps the conflict-resolve essay"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "write_file");
-    assert_eq!(lean.description, lean_write_file_description());
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("conflict://*"));
-    assert!(lean.description.contains("conflict://N"));
-    // Lean and full name the same pages; the param essay lives in the book.
-    assert_eq!(lean.params, full_def.params);
-    assert!(param_pages(&full_def.params, "path").contains("conflict://*"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-
-    let _guard = crate::tests::env_lock();
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_wf = full
-        .iter()
-        .find(|tool| tool.name == "write_file")
-        .expect("default set advertises write_file");
-    assert!(
-        full_wf.description.contains("conflict://*"),
-        "default unbounded interactive keeps the full write_file essay"
-    );
-    assert!(
-        param_pages(&full_wf.params, "path").contains("conflict://*"),
-        "default unbounded interactive names the write_file param essay's page"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_wf = bounded
-        .iter()
-        .find(|tool| tool.name == "write_file")
-        .expect("bounded set still advertises write_file");
-    assert_eq!(bounded_wf.description, lean_write_file_description());
-    assert_eq!(bounded_wf.params, full_wf.params);
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_wf = comp
-        .iter()
-        .find(|tool| tool.name == "write_file")
-        .expect("competition set still advertises write_file");
-    assert_eq!(comp_wf.description, lean_write_file_description());
-    assert_eq!(comp_wf.params, full_wf.params);
+    assert_lean_schema_case("write_file");
 }
 
 /// Bounded / competition hops advertise a short shell blurb. Default
@@ -1121,206 +1055,21 @@ fn coding_hot_path_leans_tool_search_description() {
 /// interactive keeps the default-root / suffix essay.
 #[test]
 fn coding_hot_path_leans_list_dir_description() {
-    let full_def = crate::agent::harness::ListDirTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("workspace root"),
-        "full def keeps the default-root essay"
-    );
-    assert!(
-        param_pages(&full_def.params, "path").contains("workspace-relative"),
-        "full params name the workspace-relative essay's page"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "list_dir");
-    assert_eq!(lean.description, lean_list_dir_description());
-    // Lean and full name the same pages; the param essay lives in the book.
-    assert_eq!(lean.params, full_def.params);
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("workspace root"));
-    assert!(lean.description.contains("Directories end with /"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-
-    let _guard = crate::tests::env_lock();
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_ld = full
-        .iter()
-        .find(|tool| tool.name == "list_dir")
-        .expect("default set advertises list_dir");
-    assert!(
-        full_ld.description.contains("workspace root"),
-        "default unbounded interactive keeps the full list_dir essay"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_ld = bounded
-        .iter()
-        .find(|tool| tool.name == "list_dir")
-        .expect("bounded set still advertises list_dir");
-    assert_eq!(bounded_ld.description, lean_list_dir_description());
-    assert_eq!(bounded_ld.params, full_ld.params);
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_ld = comp
-        .iter()
-        .find(|tool| tool.name == "list_dir")
-        .expect("competition set still advertises list_dir");
-    assert_eq!(comp_ld.description, lean_list_dir_description());
-    assert_eq!(comp_ld.params, full_ld.params);
+    assert_lean_schema_case("list_dir");
 }
 
 /// Bounded / competition hops advertise a short str_replace blurb. Default
 /// interactive keeps the whitespace / CRLF / smart-quote essay.
 #[test]
 fn coding_hot_path_leans_str_replace_description() {
-    let full_def = crate::agent::harness::StrReplaceTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("smart quotes"),
-        "full def keeps the whitespace/CRLF essay"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "str_replace");
-    assert_eq!(lean.description, lean_str_replace_description());
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("smart quotes"));
-    assert!(lean.description.contains("unique"));
-    // Lean and full name the same pages; the param essay lives in the book.
-    assert_eq!(lean.params, full_def.params);
-    assert!(param_pages(&full_def.params, "expect_tag").contains("no longer matches"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-
-    let _guard = crate::tests::env_lock();
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_sr = full
-        .iter()
-        .find(|tool| tool.name == "str_replace")
-        .expect("default set advertises str_replace");
-    assert!(
-        full_sr.description.contains("smart quotes"),
-        "default unbounded interactive keeps the full str_replace essay"
-    );
-    assert!(
-        param_pages(&full_sr.params, "expect_tag").contains("no longer matches"),
-        "default unbounded interactive names the str_replace param essay's page"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_sr = bounded
-        .iter()
-        .find(|tool| tool.name == "str_replace")
-        .expect("bounded set still advertises str_replace");
-    assert_eq!(bounded_sr.description, lean_str_replace_description());
-    assert_eq!(bounded_sr.params, full_sr.params);
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_sr = comp
-        .iter()
-        .find(|tool| tool.name == "str_replace")
-        .expect("competition set still advertises str_replace");
-    assert_eq!(comp_sr.description, lean_str_replace_description());
-    assert_eq!(comp_sr.params, full_sr.params);
+    assert_lean_schema_case("str_replace");
 }
 
 /// Bounded / competition hops advertise a short grep blurb. Default
 /// interactive keeps the diversity / ignore-rule essay.
 #[test]
 fn coding_hot_path_leans_grep_description() {
-    let full_def = crate::agent::harness::GrepTool {
-        root: std::path::PathBuf::from("."),
-    }
-    .def();
-    assert!(
-        full_def.description.contains("deterministic and diverse"),
-        "full def keeps the diversity/ignore-rule essay"
-    );
-    let lean = lean_advertised_tool_def(&full_def);
-    assert_eq!(lean.name, "grep");
-    assert_eq!(lean.description, lean_grep_description());
-    assert!(
-        lean.description.len() < full_def.description.len(),
-        "lean blurb must be shorter: {} vs {}",
-        lean.description.len(),
-        full_def.description.len()
-    );
-    assert!(!lean.description.contains("deterministic and diverse"));
-    assert!(lean.description.contains("after_file"));
-    assert_eq!(lean.params, lean_grep_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean grep params must drop the ignore toggles"
-    );
-    // A kept parameter names the same page; the param essay lives in the book.
-    assert_eq!(
-        lean.params["properties"]["after_file"],
-        full_def.params["properties"]["after_file"]
-    );
-    assert!(param_pages(&full_def.params, "after_file").contains("lexically after"));
-    assert_eq!(lean.params["required"], full_def.params["required"]);
-    assert_eq!(
-        lean.params["properties"]["paths"]["maxItems"],
-        full_def.params["properties"]["paths"]["maxItems"]
-    );
-
-    let _guard = crate::tests::env_lock();
-    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
-    let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    let mut reg = ToolRegistry::with_defaults();
-    reg.enable_tool_search();
-    let full = reg.defs_for_turn(Some(1_000_000), false, false);
-    let full_gr = full
-        .iter()
-        .find(|tool| tool.name == "grep")
-        .expect("default set advertises grep");
-    assert!(
-        full_gr.description.contains("deterministic and diverse"),
-        "default unbounded interactive keeps the full grep essay"
-    );
-
-    let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
-    let bounded_gr = bounded
-        .iter()
-        .find(|tool| tool.name == "grep")
-        .expect("bounded set still advertises grep");
-    assert_eq!(bounded_gr.description, lean_grep_description());
-    assert_eq!(bounded_gr.params, lean_grep_params());
-
-    let comp = reg.defs_for_turn(Some(1_000_000), false, true);
-    let comp_gr = comp
-        .iter()
-        .find(|tool| tool.name == "grep")
-        .expect("competition set still advertises grep");
-    assert_eq!(comp_gr.description, lean_grep_description());
-    assert_eq!(comp_gr.params, lean_grep_params());
-    assert!(
-        param_pages(&full_gr.params, "after_file").contains("lexically after"),
-        "default unbounded interactive names the grep param essay's page"
-    );
+    assert_lean_schema_case("grep");
 }
 
 #[test]
@@ -1445,6 +1194,121 @@ fn heuristic_tool_bubble_is_bounded_and_sticky_for_the_turn() {
         crate::agent::turn::defs_fingerprint(&second)
     );
     assert_eq!(generation, reg.tool_activation_generation());
+}
+
+#[test]
+fn live_tool_routing_changes_the_next_turn_and_preserves_in_flight_schemas() {
+    let _guard = crate::tests::env_lock();
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
+    let _bubble = EnvGuard::set("ANGEL_TOOL_BUBBLE", "1");
+    let _router = EnvGuard::set("ANGEL_TOOL_BUBBLE_ROUTER", "heuristic");
+    struct Cleanup(PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let root = Cleanup(
+        std::env::temp_dir().join(format!(
+            "angel-live-tool-policy-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        )),
+    );
+    let module = root.0.join("tool-router");
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        r#"{"api_version":1,"id":"tool-router","kind":"tool-router","entry":"index.js"}"#,
+    )
+    .unwrap();
+    let write = |name| {
+        std::fs::write(
+            module.join("index.js"),
+            format!("module.exports={{apiVersion:1,render:()=>['{name}']}};"),
+        )
+        .unwrap()
+    };
+    write("run_tests");
+    let mut modules = angel_live::Registry::new(root.0.clone(), crate::agent::hotload::evaluate);
+    modules.refresh(true);
+    let first_program = modules.snapshot().tool_router.unwrap();
+    let mut registry = ToolRegistry::with_defaults();
+    registry.enable_tool_search();
+    registry.set_live_tool_router(Some(first_program.clone()));
+    let first = registry.seed_tool_bubble("work on the repository");
+    assert_eq!(first.source, ToolBubbleSource::Live);
+    assert_eq!(first.tools, ["run_tests"]);
+    let before = registry.defs_for_driver_turn(Some(1_000_000), false, false, true);
+    let fingerprint = crate::agent::turn::defs_fingerprint(&before);
+    write("git_log");
+    modules.refresh(true);
+    registry.set_live_tool_router(modules.snapshot().tool_router);
+    assert!(registry.tool_router_changed());
+    let during = registry.defs_for_driver_turn(Some(1_000_000), false, false, true);
+    assert_eq!(crate::agent::turn::defs_fingerprint(&during), fingerprint);
+    let next = registry.seed_tool_bubble("work on the repository");
+    assert_eq!(next.source, ToolBubbleSource::Live);
+    assert_eq!(next.tools, ["git_log"]);
+    assert!(!registry.tool_router_changed());
+    assert_eq!(
+        first_program.render(&serde_json::json!({})).unwrap(),
+        serde_json::json!(["run_tests"])
+    );
+    write("not_a_registered_tool");
+    modules.refresh(true);
+    registry.set_live_tool_router(modules.snapshot().tool_router);
+    assert_eq!(
+        registry.seed_tool_bubble("run cargo tests").source,
+        ToolBubbleSource::LiveFallback
+    );
+}
+
+#[test]
+fn shipped_live_ranking_matches_native_bm25_and_drives_the_real_tool_catalogue() {
+    let _guard = crate::tests::env_lock();
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
+    let _bubble = EnvGuard::set("ANGEL_TOOL_BUBBLE", "1");
+    let _router = EnvGuard::set("ANGEL_TOOL_BUBBLE_ROUTER", "heuristic");
+    let mut modules = angel_live::Registry::new(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("live"),
+        crate::agent::hotload::evaluate,
+    );
+    modules.refresh(true);
+    let program = modules.snapshot().tool_router.unwrap();
+    let docs: Vec<(usize, String)> = vec![
+        (0, "run cargo tests test suite".into()),
+        (1, "git log commit history".into()),
+        (2, "run Python test suite".into()),
+    ];
+    let catalogue: Vec<ToolDef> = docs
+        .iter()
+        .map(|(id, text)| ToolDef {
+            name: format!("tool_{id}"),
+            description: text.clone(),
+            params: serde_json::json!({}),
+        })
+        .collect();
+    for task in [
+        "run test suite",
+        "git commit history",
+        "cargo cargo tests",
+        "unrelated",
+    ] {
+        assert_eq!(
+            super::super::live_policy::rank_tools(&program, task, &docs, &catalogue, 3).unwrap(),
+            bm25_rank(task, &docs, 3)
+        );
+    }
+    let mut registry = ToolRegistry::with_defaults();
+    registry.enable_tool_search();
+    registry.set_live_tool_router(Some(program));
+    let decision = registry.seed_tool_bubble("run the cargo tests and report failures");
+    assert_eq!(decision.source, ToolBubbleSource::Live);
+    assert!(decision.tools.iter().any(|name| name == "run_tests"));
 }
 
 /// A byte-exact prefix cache renders the tools ahead of the conversation, so
@@ -1841,6 +1705,142 @@ fn context_fit_scans_a_long_history_once() {
     assert!(changed > 0, "fixture must exercise emergency fitting");
     assert_eq!(scans, 1, "context fitting must make one full history pass");
     assert!(context_tokens(&history, &[]) <= budget);
+}
+
+/// Answers immediately without tools, so a test isolates the pre-request
+/// compaction boundary.
+struct BudgetAnswerClub;
+impl Club for BudgetAnswerClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok(String::new())
+    }
+    fn label(&self) -> &str {
+        "budget-answer"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        Ok(ClubReply::Text("done".into()))
+    }
+}
+
+#[test]
+fn under_budget_turn_does_not_enter_compaction() {
+    let _guard = crate::tests::env_lock();
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_SOFT_CAP", "1000000");
+    let _autocompact = EnvGuard::set("ANGEL_NO_AUTOCOMPACT", "0");
+    let _sync = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "0");
+    let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let mut history = vec![ChatMsg::user("hello")];
+    let (events, _events_rx) = mpsc::channel();
+    let (answer, entries) = count_compaction_entries(|| {
+        run_turn(
+            &BudgetAnswerClub,
+            &ToolRegistry::new(),
+            &mut history,
+            &AtomicBool::new(false),
+            Some(2),
+            &events,
+        )
+        .unwrap()
+    });
+    assert_eq!(answer, "done");
+    assert_eq!(
+        entries, 0,
+        "an under-budget hop must not enter the compaction pass just to have it \
+         re-estimate and return"
+    );
+    assert!(
+        history
+            .iter()
+            .all(|message| !crate::agent::compaction::is_compaction_note(message)),
+        "under budget nothing is compacted"
+    );
+    assert!(history.len() >= 2, "the user turn and answer survive");
+    assert_eq!(history[0].role, ChatRole::User);
+    assert_eq!(history[0].content.as_ref(), "hello");
+    assert_eq!(history.last().unwrap().role, ChatRole::Assistant);
+    assert_eq!(history.last().unwrap().content.as_ref(), "done");
+    // Workspace evidence may add harness context, but no extra model turn is
+    // needed for an under-budget answer.
+    assert!(
+        history[1..history.len() - 1]
+            .iter()
+            .all(|message| message.role == ChatRole::Harness),
+        "only harness context may appear between the user turn and answer"
+    );
+}
+
+#[test]
+fn over_budget_turn_still_enters_compaction_and_rewrites() {
+    let _guard = crate::tests::env_lock();
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "1800");
+    let _autocompact = EnvGuard::set("ANGEL_NO_AUTOCOMPACT", "0");
+    let _sync = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "0");
+    let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let mut history = tool_hop_history(8, &"x".repeat(6000));
+    let before = history.len();
+    assert!(
+        estimate_tokens(&history) + estimate_tool_tokens(&[]) > 1800,
+        "fixture must be over budget at the boundary"
+    );
+    let (events, _events_rx) = mpsc::channel();
+    let (answer, entries) = count_compaction_entries(|| {
+        run_turn(
+            &BudgetAnswerClub,
+            &ToolRegistry::new(),
+            &mut history,
+            &AtomicBool::new(false),
+            Some(2),
+            &events,
+        )
+        .unwrap()
+    });
+    assert_eq!(answer, "done");
+    assert_eq!(entries, 1, "an over-budget hop must enter compaction");
+    assert!(
+        history.len() < before,
+        "compaction must splice the window: {before} -> {}",
+        history.len()
+    );
+    assert!(
+        history
+            .iter()
+            .any(crate::agent::compaction::is_compaction_note),
+        "a compaction note must replace the compacted window"
+    );
+}
+
+#[test]
+fn under_budget_model_requested_compaction_still_enters() {
+    let _guard = crate::tests::env_lock();
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_SOFT_CAP", "1000000");
+    let _autocompact = EnvGuard::set("ANGEL_NO_AUTOCOMPACT", "0");
+    let _sync = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "1");
+    let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let mut history = vec![ChatMsg::user("hello")];
+    let (events, _events_rx) = mpsc::channel();
+    let (answer, entries) = count_compaction_entries(|| {
+        run_turn(
+            &BudgetAnswerClub,
+            &ToolRegistry::new(),
+            &mut history,
+            &AtomicBool::new(false),
+            Some(2),
+            &events,
+        )
+        .unwrap()
+    });
+    assert_eq!(answer, "done");
+    assert_eq!(
+        entries, 1,
+        "a pending model-backed compaction request must enter the pass even \
+         under budget; the pass itself keeps the budget guard"
+    );
+    assert!(
+        history
+            .iter()
+            .all(|message| !crate::agent::compaction::is_compaction_note(message)),
+        "the pass must still refuse to summarize under budget"
+    );
 }
 
 #[test]
@@ -2999,4 +2999,3 @@ fn context_compact_constraint_ledger_reports_excerpt_and_drop() {
     .unwrap();
     assert_eq!(ledger["boundary"], 2);
 }
-

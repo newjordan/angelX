@@ -32,6 +32,56 @@
 
 use super::*;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static KNIGHTS: RefCell<Vec<(u32, f32, f32)>> = RefCell::new(Vec::new());
+    static FOES: RefCell<Vec<(usize, f32, f32, f32, bool)>> = RefCell::new(Vec::new());
+}
+
+struct Knights(Vec<(u32, f32, f32)>);
+
+impl Drop for Knights {
+    fn drop(&mut self) {
+        let buf = std::mem::take(&mut self.0);
+        KNIGHTS.with(|slot| {
+            let mut kept = slot.borrow_mut();
+            if buf.capacity() >= kept.capacity() {
+                *kept = buf;
+            }
+        });
+    }
+}
+
+impl std::ops::Deref for Knights {
+    type Target = Vec<(u32, f32, f32)>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+struct Foes(Vec<(usize, f32, f32, f32, bool)>);
+
+impl Drop for Foes {
+    fn drop(&mut self) {
+        let buf = std::mem::take(&mut self.0);
+        FOES.with(|slot| {
+            let mut kept = slot.borrow_mut();
+            if buf.capacity() >= kept.capacity() {
+                *kept = buf;
+            }
+        });
+    }
+}
+
+impl std::ops::Deref for Foes {
+    type Target = Vec<(usize, f32, f32, f32, bool)>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+
 /// How likely a passage is to be a gauntlet, and a fighting room to hold
 /// one, by depth (1, 2, 3 and below), in percent.
 const HALL_ODDS: [u32; 3] = [60, 70, 80];
@@ -543,10 +593,11 @@ impl Run {
     }
 
     /// Anyone standing where the gorge now is steps back onto firm ground.
-    fn settle_off_pits(&mut self) {
+    pub(super) fn settle_off_pits(&mut self) {
         let room = &self.dungeon.rooms[self.at];
+        let barred = self.barred();
         let firm = |x: f32, y: f32| {
-            let grid = Grid { room, barred: false };
+            let grid = Grid { room, barred };
             !over_pit(room, x, y) && grid.clear(x, y, HERO_RADIUS + 0.1, Mover::Hero)
         };
         let nearest = |x: f32, y: f32| -> (f32, f32) {
@@ -576,9 +627,21 @@ impl Run {
             .filter(|(_, e)| !e.kind.flies() && over_pit(room, e.x, e.y))
             .map(|(i, e)| (i, nearest(e.x, e.y)))
             .collect();
+        let barred = self.barred();
+        let room_at = self.at;
         for (id, at) in moves {
             if let Some(hero) = self.players.get_mut(&id) {
-                (hero.x, hero.y) = at;
+                let room = &self.dungeon.rooms[room_at];
+                let grid = Grid { room, barred };
+                let was = (hero.x, hero.y);
+                let stopped = grid.halted(was, (at.0 - was.0, at.1 - was.1));
+                let reached = (stopped.0 - at.0).hypot(stopped.1 - at.1) < 0.2;
+                // A wall between here and firm ground is the gorge's old
+                // step-back. A barred door is not: that would leave the chamber.
+                let open = Grid { room, barred: false };
+                let through = open.halted(was, (at.0 - was.0, at.1 - was.1));
+                let door_held = (through.0 - at.0).hypot(through.1 - at.1) < 0.2;
+                (hero.x, hero.y) = if reached || !door_held { at } else { stopped };
             }
         }
         for (i, at) in foes {
@@ -879,22 +942,31 @@ impl Run {
     }
 
     /// The knights a gauntlet can reach now, and where they stand.
-    fn gauntlet_knights(&self) -> Vec<(u32, f32, f32)> {
-        self.players
-            .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone && !h.absent && h.privy == 0)
-            .map(|(&id, h)| (id, h.x, h.y))
-            .collect()
+    /// The list is rebuilt every swing; the buffer is the last one's.
+    fn gauntlet_knights(&self) -> Knights {
+        let mut buf = KNIGHTS.with(|slot| std::mem::take(&mut *slot.borrow_mut()));
+        buf.clear();
+        buf.extend(
+            self.players
+                .iter()
+                .filter(|(_, h)| h.hp > 0 && !h.stone && !h.absent && h.privy == 0)
+                .map(|(&id, h)| (id, h.x, h.y)),
+        );
+        Knights(buf)
     }
 
     /// The monsters a gauntlet can reach now: index, place, half-size.
-    fn gauntlet_foes(&self) -> Vec<(usize, f32, f32, f32, bool)> {
-        self.enemies
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| e.hp > 0 && e.kind != EnemyKind::Dummy && !e.dormant)
-            .map(|(i, e)| (i, e.x, e.y, e.radius() * 0.5, e.kind.flies()))
-            .collect()
+    fn gauntlet_foes(&self) -> Foes {
+        let mut buf = FOES.with(|slot| std::mem::take(&mut *slot.borrow_mut()));
+        buf.clear();
+        buf.extend(
+            self.enemies
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| e.hp > 0 && e.kind != EnemyKind::Dummy && !e.dormant)
+                .map(|(i, e)| (i, e.x, e.y, e.radius() * 0.5, e.kind.flies())),
+        );
+        Foes(buf)
     }
 
     /// Axes swing, hammers fall, boulders roll and saws run: whatever they
@@ -907,7 +979,9 @@ impl Run {
         self.keep_footing();
         let mut slammed = false;
         let mut swept = false;
-        for g in self.works.gauntlets.clone() {
+        let n = self.works.gauntlets.len();
+        for i in 0..n {
+            let g = self.works.gauntlets[i];
             match g {
                 Gauntlet::Bridge { .. } => {}
                 Gauntlet::Axe { x, y, upright, .. } => {
@@ -927,7 +1001,7 @@ impl Run {
                     {
                         self.sounds.push("swing");
                     }
-                    for (id, hx, hy) in self.gauntlet_knights() {
+                    for (id, hx, hy) in self.gauntlet_knights().iter().copied() {
                         let (along, across) = split(hx, hy);
                         let r = HERO_RADIUS + 0.3;
                         if along.abs() <= AXE_EDGE + HERO_RADIUS && across >= lo - r && across <= hi + r {
@@ -936,7 +1010,7 @@ impl Run {
                             }
                         }
                     }
-                    for (i, ex, ey, r, _) in self.gauntlet_foes() {
+                    for (i, ex, ey, r, _) in self.gauntlet_foes().iter().copied() {
                         let (along, across) = split(ex, ey);
                         if along.abs() <= AXE_EDGE + r && across >= lo - r - 0.3 && across <= hi + r + 0.3 {
                             // Swept the length of the swing: off the bridge.
@@ -962,7 +1036,7 @@ impl Run {
                         (dir, HAMMER_HALF + r + 0.3 - d.abs())
                     };
                     let inside = |px: f32, py: f32, r: f32| (px - x).abs() < HAMMER_HALF + r && (py - y).abs() < HAMMER_HALF + r;
-                    for (id, hx, hy) in self.gauntlet_knights() {
+                    for (id, hx, hy) in self.gauntlet_knights().iter().copied() {
                         if !inside(hx, hy, HERO_RADIUS) {
                             continue;
                         }
@@ -976,7 +1050,7 @@ impl Run {
                             (hero.x, hero.y) = throw(room, (hero.x, hero.y), dir, dist, HERO_RADIUS);
                         }
                     }
-                    for (i, ex, ey, r, flies) in self.gauntlet_foes() {
+                    for (i, ex, ey, r, flies) in self.gauntlet_foes().iter().copied() {
                         if !inside(ex, ey, r) || (flies && !slam) {
                             continue;
                         }
@@ -1012,14 +1086,14 @@ impl Run {
                         }
                     };
                     let mut blows = Vec::new();
-                    for (id, hx, hy) in self.gauntlet_knights() {
+                    for (id, hx, hy) in self.gauntlet_knights().iter().copied() {
                         if (hx - bx).abs() < BOULDER_RADIUS + HERO_RADIUS && (hy - by).abs() < BOULDER_RADIUS + HERO_RADIUS {
                             let (dir, dist) = side(hx, hy, HERO_RADIUS);
                             blows.push((id, dir, dist));
                         }
                     }
                     let mut foes = Vec::new();
-                    for (i, ex, ey, r, flies) in self.gauntlet_foes() {
+                    for (i, ex, ey, r, flies) in self.gauntlet_foes().iter().copied() {
                         if !flies && (ex - bx).abs() < BOULDER_RADIUS + r && (ey - by).abs() < BOULDER_RADIUS + r {
                             let (dir, dist) = side(ex, ey, r);
                             foes.push((i, dir, dist));
@@ -1045,7 +1119,7 @@ impl Run {
                         let s = if (px - sx) * nx + (py - sy) * ny >= 0.0 { 1.0 } else { -1.0 };
                         (nx * s, ny * s)
                     };
-                    for (id, hx, hy) in self.gauntlet_knights() {
+                    for (id, hx, hy) in self.gauntlet_knights().iter().copied() {
                         if (hx - sx).hypot(hy - sy) < SAW_RADIUS + HERO_RADIUS {
                             let dir = away(hx, hy);
                             if self.gauntlet_blow(id, Blow { harm: SAW_HARM, dir, dist: SAW_KNOCK }) {
@@ -1054,7 +1128,7 @@ impl Run {
                         }
                     }
                     if tick.is_multiple_of(SAW_EVERY) {
-                        for (i, ex, ey, r, flies) in self.gauntlet_foes() {
+                        for (i, ex, ey, r, flies) in self.gauntlet_foes().iter().copied() {
                             if !flies && (ex - sx).hypot(ey - sy) < SAW_RADIUS + r {
                                 let dir = away(ex, ey);
                                 swept |= self.gauntlet_foe(i, SAW_FOE_HARM, dir, 1.0);

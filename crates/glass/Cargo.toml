@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+# Remote glass (docs/REMOTE_GLASS.md): a host with no window whose frames go
+# over a link to windows on other machines, and the window end of that link.
+remote = ["dep:serde", "dep:bincode", "dep:flate2", "dep:libc", "angel-stage/serde", "angel-gpu/serde", "crossterm/serde"]
+
 [dependencies]
 # What a stage is: layers, motes, pictures (shared with the browser).
 angel-stage = { path = "../stage" }
@@ -28,6 +33,27 @@ pollster = "1.0.1"
 unicode-width = "0.2"
 # Screenshots taken from inside the window.
 png = "0.18"
+# The media catalog: PNG plus JPEG/GIF/BMP/WebP/TIFF/QOI/HDR/ICO/PNM
+# for backgrounds, served pictures and showcase frames. Kitty's graphics
+# protocol moves PNGs; glass decodes the formats operators actually have
+# (photos are JPEG, stickers are GIF/WebP, scans are TIFF, game/HDR
+# exports are HDR/QOI/PNM/ICO) straight to straight-RGBA pictures.
+# Unreal-grade scenes need artist exports without a convert step; every
+# format here is pure-Rust in `image` 0.25 (no CUDA/toolkit needed — the
+# RTX 3090 serves through Vulkan, not nvcc).
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp", "tiff", "qoi", "hdr", "ico", "pnm"] }
+# The remote link's messages and their compression (feature `remote`).
+serde = { version = "1", features = ["derive", "rc"], optional = true }
+bincode = { version = "1.3", optional = true }
+flate2 = { version = "1", optional = true }
+libc = { version = "0.2", optional = true }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+# The window's first frames, drawn on the CPU into shared memory while the
+# GPU opens (src/early.rs), on a connection of our own to winit's display:
+# the versions winit's own Wayland stack already locks.
+wayland-client = "0.31"
+wayland-backend = { version = "0.3", features = ["client_system"] }
 
 [dev-dependencies]
 # The Delve's frames for the `delve_world` example: a real room's stage, drawn

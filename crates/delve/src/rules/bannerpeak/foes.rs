@@ -371,3 +371,7 @@ pub struct Boulder {
 }
 
 pub const BOULDER: (i32, i32) = (28, 28);
+
+#[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
+#[path = "../../../tests/rules/bannerpeak_foes_bend_cases__tests.rs"]
+pub mod bend_cases_foes;

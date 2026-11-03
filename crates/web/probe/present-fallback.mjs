@@ -12,6 +12,7 @@
 // and exits 1 if any failed. Node built-ins only.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 
 const args = process.argv.slice(2);
 const link = args[0] && !args[0].startsWith('--') ? args[0] : '';
@@ -27,7 +28,7 @@ if (!link) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const profile = `${process.env.TMPDIR || '/work/tmp'}/angel-web-fallback-${process.pid}`;
+const profile = `${process.env.TMPDIR || os.tmpdir()}/angel-web-fallback-${process.pid}`;
 const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--window-size=1280,800',
   '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist',

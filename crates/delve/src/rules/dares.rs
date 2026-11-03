@@ -123,8 +123,39 @@ impl Dare {
 }
 
 impl Run {
+    /// Whether this floor holds a guardian still to rise, the one Make It
+    /// Quick dares the party to fell: an open floor's boss or dragon, a
+    /// gated floor's apex (or its lair), or an uncleared guardian's room.
+    /// The streamlined identity room is a cleared stairs room and holds none.
+    pub fn floor_has_guardian(&self) -> bool {
+        if self.dungeon.open.is_some() {
+            return self
+                .enemies
+                .iter()
+                .any(|e| e.hp > 0 && (e.boss.is_some() || e.kind == EnemyKind::Dragon));
+        }
+        if let Some(g) = &self.boss_gates {
+            let kind = self.dungeon.rooms.get(g.guardian).map(|r| r.kind);
+            return !g.guardian_defeated
+                && (g.guardian_boss.is_some()
+                    || matches!(kind, Some(RoomKind::Lair | RoomKind::Threshold)));
+        }
+        let pack = self.dungeon.pack;
+        let has_boss = self.bosses.iter().any(|b| b.only_in == pack);
+        let swamp_above = pack == Pack::Swamp && self.dungeon.depth < swamp::FLOORS;
+        self.dungeon.rooms.iter().any(|r| {
+            !r.cleared
+                && match r.kind {
+                    RoomKind::Lair | RoomKind::Threshold => true,
+                    RoomKind::Stairs => has_boss && !swamp_above,
+                    _ => false,
+                }
+        })
+    }
+
     /// A new floor: Fortune calls her dare, one the floor allows (the
-    /// Unknown has no stairs and no guardian).
+    /// Unknown has no stairs and no guardian; a floor with no guardian,
+    /// like the streamlined identity room, is never dared to fell one).
     pub(super) fn call_dare(&mut self) {
         let depth = self.dungeon.depth;
         if depth == 0 {
@@ -132,6 +163,7 @@ impl Run {
             return;
         }
         let bottom = depth >= DEEPEST;
+        let guardian = self.floor_has_guardian();
         let kinds: Vec<DareKind> = [
             DareKind::Untouched,
             DareKind::StandFirm,
@@ -148,6 +180,7 @@ impl Run {
                     DareKind::StandFirm | DareKind::AgainstTheClock | DareKind::MakeItQuick
                 )
         })
+        .filter(|k| guardian || *k != DareKind::MakeItQuick)
         .collect();
         let kind = kinds[self.rng.below(kinds.len())];
         self.dare = Some(Dare {
@@ -255,3 +288,6 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_dares__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/dares_bend_cases__tests.rs"]
+mod dares_bend_cases_tests;

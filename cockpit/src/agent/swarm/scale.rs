@@ -140,13 +140,12 @@ pub(crate) fn scale_signal_at(
         .map(|p| -p * p.ln())
         .sum::<f64>();
     let eclusters = entropy.exp();
-    let gate = if dominant >= dominant_relax {
-        GateAction::Relax
-    } else if eclusters >= eclusters_hi || (dominant < 0.55 && eclusters >= 2.0) {
-        GateAction::Escalate
-    } else {
-        GateAction::Hold
-    };
+    // The dominant share and the entropy ordering stay native (Bend has no
+    // f64); the replacement-wave leg owns how the two flags choose the gate.
+    let (gate, _source) = gate_at(
+        dominant >= dominant_relax,
+        eclusters >= eclusters_hi || (dominant < 0.55 && eclusters >= 2.0),
+    );
     Some(ScaleSignal {
         clusters: clusters.len(),
         dominant,

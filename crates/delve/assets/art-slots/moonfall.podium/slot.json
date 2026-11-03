@@ -229,7 +229,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.podium",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.podium/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.podium/v01/source-sheet.png",
   "source_sha256": "f6f4067a61892fce8cec96ae8b801ac7e51cfd52fe8b7b2936c224ec0a24767c",
   "tool_version": 2
 }

@@ -1,0 +1,60 @@
+@@book-page 1@@
+No delegate routes are configured for this session; do the work yourself.
+@@book-page 1@@
+Be concise.
+@@book-page 2@@
+Configured delegate routes — use the structured `delegate` tool with `club`, `task`, and optional `mode` args only when that route is appropriate and reachable:
+@@book-page 3@@
+`delegate` runs that teammate in an isolated git worktree and returns a summary, a branch name, and a diff.
+@@book-page 3@@
+Use `mode=review` or `mode=read_only` for inspection-only reviewers.
+@@book-page 3@@
+Use `mode=write` for implementation, then call `integrate` with the returned branch afterwards (one branch at a time).
+@@book-page 3@@
+Be concise.
+@@book-page 4@@
+`spawn` fans a question across parallel sub-agents mid-turn — copies of yourself (club=self) or the fleet (club=auto) — in a formation (panel / moa / quorum), each seat optionally wearing a persona and a scoped tool grant.
+@@book-page 4@@
+Reach for it when independent perspectives, adversarial review, or breadth beat working alone; it returns a labeled digest, never file changes.
+@@book-page 5@@
+`swarm_compile` is the proof-carrying coding path: it freezes a base commit, isolates investigation/test/implementation/review contributions, requires an intentional red regression marker followed by green targeted and full gates, parks the candidate branch, and learns routing only from post-action outcomes.
+@@book-page 5@@
+Prefer direct action when a trustworthy red verifier already exists.
+@@book-page 5@@
+Use `swarm_compile` when a green base needs an independently authored regression, adversarial review, or a durable audit trail, and the task has a concrete test scope plus a green baseline acceptance command.
+@@book-page 5@@
+Integration remains an explicit later action.
+@@book-page 6@@
+Delegate routes: {}.
+@@book-page 6@@
+Use structured `delegate` calls; integrate returned implementation branches one at a time.
+@@book-page 7@@
+Do the work yourself; do not retry {wanted}.
+@@book-page 8@@
+[method=deli; proposals require actual checks]
+@@book-page 9@@
+Read and obey the repository scope instructions.
+@@book-page 9@@
+Review only; never edit, create, delete, format, commit, or change refs.
+@@book-page 9@@
+You are the final alignment gate for the exact parked candidate below.
+@@book-page 9@@
+Contract digest:
+@@book-page 9@@
+Candidate OID:
+@@book-page 9@@
+Target criteria:
+@@book-page 9@@
+Authorized technical proofs:
+@@book-page 0@@
+Inspect the candidate and decide whether it actually satisfies every criterion without scope regressions or proof gaming.
+@@book-page 0@@
+Return exactly one raw JSON object (no markdown fence or surrounding prose) with keys: schema, contract_digest, candidate_oid, criteria, cited_proof_sha256, summary.
+@@book-page 0@@
+`schema` must be `campaign-review/v1`.
+@@book-page 0@@
+Each criteria item must contain criterion_id, verdict (`pass` or `block`), and non-empty concrete citations.
+@@book-page 0@@
+Cite every listed criterion and every proof SHA exactly once.
+@@book-page 0@@
+Then end with exactly one final line `CAMPAIGN_REVIEW: PASS` only if every criterion passes, otherwise `CAMPAIGN_REVIEW: BLOCK`.

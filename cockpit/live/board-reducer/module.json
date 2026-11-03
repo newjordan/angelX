@@ -1,0 +1,24 @@
+{
+  "api_version": 1,
+  "id": "board-reducer",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "identity_conflict": false,
+    "duplicate": false,
+    "full_snapshot": false,
+    "has_prior": true,
+    "prior_hi": 0,
+    "prior_lo": 41,
+    "has_incoming": true,
+    "incoming_hi": 0,
+    "incoming_lo": 42,
+    "refresh_pending": false,
+    "has_board": true
+  },
+  "bend": {
+    "entry": "board-reducer.bend",
+    "proof": "PROOF.bend",
+    "output": "board-reducer.compiled.js"
+  }
+}

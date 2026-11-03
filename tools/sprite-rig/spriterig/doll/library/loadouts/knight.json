@@ -1,0 +1,16 @@
+{
+ "name": "knight",
+ "body": "hero",
+ "equip": [
+  "helm_great",
+  "plume",
+  "pauldrons",
+  "chest_plate",
+  "tabard",
+  "gauntlets",
+  "greaves",
+  "cape",
+  "sword",
+  "round_shield"
+ ]
+}

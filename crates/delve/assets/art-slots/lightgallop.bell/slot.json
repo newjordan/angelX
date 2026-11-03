@@ -315,7 +315,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lightgallop.bell",
-  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.bell/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lg/prepared/lightgallop.bell/source-sheet.png",
   "source_sha256": "5004e81c9658a2ad14f768eee10439bc6cdc054232eb79fc1dc3a4b4b82fc3f5",
   "tool_version": 2
 }

@@ -7,12 +7,17 @@ import importlib.util
 import io
 import json
 import runpy
+import os
 from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
+# The source art left the repository on 2026-10-20 for the archive (its
+# README.md says what each folder is); ANGEL_SOURCE_ART names it
+# (default ~/angelX-archive/2026-10-20/source-art).
+SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 ASSETS = ROOT/'cockpit/assets/dungeon/bosses'
-RETAINED = ROOT/'crates/delve/assets/boss-effect-src'
+RETAINED = SOURCE_ART/'boss-effect-src'
 SPEC = ROOT/'scripts/boss-effect-slots.json'
 spec = importlib.util.spec_from_file_location('library_import', ROOT/'scripts/boss-library-import.py')
 lib = importlib.util.module_from_spec(spec); spec.loader.exec_module(lib)
@@ -256,7 +261,7 @@ def run(check=False):
     bank_inks.update(projectile_inks)
   entry['display']={'v1':v1,'v2':v2,'study_v1':[[12,12],[18,18],[24,24]],'study_v2':[[20,20],[32,32],[40,40]]}
   entry['anchor']='centre; registered source body/contact socket'
-  entry['source']='crates/delve/assets/boss-effect-src/'+boss
+  entry['source']='angelX-archive/2026-10-20/source-art/boss-effect-src/'+boss
   entry['unwired']='all cells outside effect-import.json mapping retained; no runtime states for alternate flight, directional tells, fade/debris or alternate impacts'
   write(ASSETS/boss/'effect-import.json',(json.dumps(dict(boss=boss,definition_sha256=digest(ASSETS/(boss+'.boss')),mapping=mapping,point_rim=entry.get('point_rim'),outputs=records,
        readability=policy,projectile_signal_inks=entry['projectile_signal_inks'],projectile_inks=[list(c) for c in sorted(bank_inks)],

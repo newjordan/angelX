@@ -239,7 +239,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.bridge",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bridge/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.bridge/v01/source-sheet.png",
   "source_sha256": "297603081f0237f4d36b888e43e447cdfa69dbf905fef4701ae48e8278c2a2c8",
   "tool_version": 2
 }

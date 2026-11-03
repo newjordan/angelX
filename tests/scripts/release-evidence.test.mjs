@@ -19,6 +19,7 @@ import {
   RELEASE_PATHS,
   REQUIRED_RELEASE_FILES,
   REQUIRED_COCKPIT_EMBEDDED_FILES,
+  REQUIRED_COCKPIT_BUILD_RUNTIME_FILES,
   REQUIRED_RUNTIME_HELPERS,
   ReleaseGateError,
   assertPublicReleaseEntries,
@@ -33,6 +34,7 @@ import {
   cockpitSourceIdentityFromRows,
   createSourceArchive,
   inspectCargoGraph,
+  isCockpitSourceIdentityInput,
   inspectNodeLock,
   inventoryReleaseIndex,
   inventoryReleaseFiles,
@@ -271,6 +273,14 @@ test('public inventory rejects operator paths and live fleet coordinates', (t) =
     () => assertPublicReleaseEntries(root, [entry(sourcePath)]),
     /machine-specific absolute home path/u,
   )
+  write(sourceFile, `const DOC: &str = "file://${operatorHome}";\n`)
+  assert.throws(
+    () => assertPublicReleaseEntries(root, [entry(sourcePath)]),
+    /machine-specific absolute home path/u,
+  )
+  // A repository folder named home is not a home directory.
+  write(sourceFile, '//! The Bend port (`delve/rules/home/cards.bend`, `./home/x.bend`).\n')
+  assert.doesNotThrow(() => assertPublicReleaseEntries(root, [entry(sourcePath)]))
 
   const liveHost = ['100', '99', '12', '3'].join('.')
   write(sourceFile, `const URL: &str = "http://${liveHost}:8000/v1";\n`)
@@ -327,6 +337,76 @@ test('source archive includes runtime artwork alongside embedded assets', (t) =>
   assert.ok(command(root, 'tar', ['-tf', 'out/source.tar']).split('\n').includes(portrait))
 })
 
+test('source archive retains book chapters, publication inputs and golden fixture', (t) => {
+  const embedded = [
+    'cockpit/book/gh_navigation.tsv',
+    'lib/control/slash-help.json',
+    'cockpit/native/skill_router.c',
+    'tests/cockpit/fixtures/swarm-routing-golden.bin',
+    'crates/term/native/splitter.c',
+    'crates/term/native/sixel.c',
+    'lib/knowledge/lesson-routing.json',
+    ...['and_session', 'ch_edits', 'ed_media', 'of_patches', 'sh_shell', 'th_team', 'the_sight', 'wh_world', 'with_build',
+      't_personality', 'z_brevity', 'ou_checkpoints', 'd4_angles', 'o_orchestration', 'd56_replies',
+      'ar_seats', 'd4567_briefs', 'ing_drivers', 'd456_knowledge', 'd5_frames', 'n_environment',
+      'ow_ledgers', 'm_method', 'r_relentless', 'u_skills', 'd467_receipts', 'd45_iteration', 'd6_long_run', 'er_loop',
+      's_sources', 'd3_roles', 'y_types', 'p_processes', 'w_workflow', 'x_execution', 'd46_recovery', 'v_verification',
+      'codex_sol_primary', 'codex_sol_shelf_ii', 'codex_sol_shelf_iii', 'codex_sol_context',
+      'competition_primary', 'competition_shelf', 'connected_primary', 'connected_shelf',
+      'labyrinth_primary', 'labyrinth_shelf']
+      .map((chapter) => `cockpit/book/${chapter}.book`),
+  ]
+  const runtime = [
+    'cockpit/native/moa_router.c',
+    'cockpit/native/generate_moa_router.py',
+    'cockpit/native/activity_classifier.c',
+    'cockpit/native/verify_shell.c',
+    'lib/native/native_module.rs',
+    'cockpit/book/catalog-manifest.json',
+    'scripts/runtime/publish-book-catalog.py',
+    'tests/python/test_book_catalog_generation.py',
+    'tests/python/book_catalog_reader_model.py',
+    'scripts/check/convert-book-chapter.py',
+    'tests/python/test_book_converter.py',
+    'tests/cockpit/fixtures/runner-output-cases.json',
+    'tests/cockpit/fixtures/verification-cases.json',
+    'tests/cockpit/fixtures/comp-watch-path-cases.json',
+    'tests/cockpit/fixtures/lean-schema-cases.json',
+    'tests/cockpit/fixtures/original-book-hints.json',
+    'tests/cockpit/fixtures/original-tool-notes.json',
+    'tests/cockpit/fixtures/tool-error-cases.json',
+    'tests/cockpit/fixtures/command-idle-cases.json',
+    'tests/cockpit/fixtures/sleep-guard-cases.json',
+    'tests/cockpit/fixtures/board-classification-cases.json',
+    'tests/cockpit/fixtures/skill-routing-cases.json',
+    'tests/cockpit/fixtures/provider-retry-cases.json',
+  ]
+  const golden = ['tests/cockpit/fixtures/book-migration-baseline.json', 'tests/cockpit/fixtures/book-migration-batch2.json', 'tests/cockpit/fixtures/book-migration-batch3.json', 'tests/cockpit/fixtures/book-migration-vendor.json', 'tests/cockpit/fixtures/book-migration-batch5.json']
+  for (const catalog of embedded) {
+    for (const list of [REQUIRED_COCKPIT_EMBEDDED_FILES, RELEASE_PATHS, REQUIRED_RELEASE_FILES]) {
+      assert.ok(list.includes(catalog), `${catalog} must be a required source input`)
+    }
+  }
+  for (const path of runtime) {
+    assert.ok(RELEASE_PATHS.includes(path) && REQUIRED_RELEASE_FILES.includes(path), path)
+  }
+  for (const path of golden) assert.ok(REQUIRED_RELEASE_FILES.includes(path), path)
+  const root = fixture(t)
+  const paths = [...embedded, ...runtime, ...golden]
+  const expected = new Map(paths.map((path) => [path, readFileSync(join(ROOT, path))]))
+  for (const [path, bytes] of expected) write(join(root, path), bytes)
+  command(root, 'git', ['add', ...paths])
+  command(root, 'git', ['commit', '--quiet', '-m', 'book generation fixture'])
+  const entries = inventoryReleaseFiles(root)
+  assertPublicReleaseEntries(root, entries)
+  createSourceArchive(root, join(root, 'out/source.tar'), entries)
+  for (const [path, bytes] of expected) {
+    const extracted = spawnSync('tar', ['-xOf', 'out/source.tar', path], { cwd: root })
+    assert.equal(extracted.status, 0, extracted.stderr.toString())
+    assert.deepEqual(extracted.stdout, bytes)
+  }
+})
+
 test('release documentation cannot depend on private helpers present only in the checkout', (t) => {
   const root = fixture(t)
   write(join(root, 'scripts/operator-only.mjs'), '// private helper\n')
@@ -379,6 +459,17 @@ test('runtime imports and dispatched helpers must exist in the archive inventory
   assert.throws(() => assertRuntimeHelperClosure(root, entries), /child.mjs/u)
   entries.push({ path: 'scripts/child.mjs' })
   assert.doesNotThrow(() => assertRuntimeHelperClosure(root, entries))
+})
+
+test('department graph is a public release input without admitting private graphs', () => {
+  const path = 'cockpit/graphs/polyglot-departments.toml'
+  assert.ok(RELEASE_PATHS.includes(path))
+  assert.ok(REQUIRED_RELEASE_FILES.includes(path))
+  assert.doesNotThrow(() => assertPublicReleaseEntries(ROOT, [{ path }]))
+  assert.throws(
+    () => assertPublicReleaseEntries(ROOT, [{ path: 'cockpit/graphs/private.toml' }]),
+    /operator-only path/u,
+  )
 })
 
 test('source release admits exactly the embedded bundled persona assets', () => {
@@ -442,23 +533,45 @@ test('source release admits exactly the public embedded skill assets', () => {
   }
 })
 
-test('cockpit source identity binds every compile-time embedded asset', (t) => {
+test('sound folders the binary leaves out ship in the source archive beside it', () => {
+  // crates/web/delve/sounds.list marks a folder `beside` to keep it out of the
+  // `angel` binary (the music): the host reads it from the package at run
+  // time, so every file in it must enter the source archive the package is.
+  const list = readFileSync(join(ROOT, 'crates/web/delve/sounds.list'), 'utf8')
+  const beside = list
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/u))
+    .filter((words) => words.length >= 3 && !words[0].startsWith('#') && words[2] === 'beside')
+    .map((words) => relative(ROOT, resolve(ROOT, 'crates/web/delve', words[1])).split(sep).join('/'))
+  assert.deepEqual(beside, ['cockpit/assets/dungeon/music'])
+  const shipped = new Set(inventoryReleaseIndex(ROOT).map((entry) => entry.path))
+  for (const folder of beside) {
+    const files = inventoryReleaseIndex(ROOT, [folder]).map((entry) => entry.path)
+    assert.ok(files.length > 100, `${folder} holds the tracks`)
+    for (const path of files) assert.ok(shipped.has(path), `${path} must enter the source archive`)
+    assert.doesNotThrow(() => assertPublicReleaseEntries(ROOT, files.map((path) => ({ path }))))
+  }
+})
+
+test('cockpit source identity binds every embedded asset and required build/runtime input', (t) => {
   const root = fixture(t)
+  const identityInputs = [...REQUIRED_COCKPIT_EMBEDDED_FILES, ...REQUIRED_COCKPIT_BUILD_RUNTIME_FILES]
   write(join(root, 'cockpit/Cargo.toml'), '[package]\nname = "fixture"\n')
   write(join(root, 'cockpit/Cargo.lock'), '# lock\n')
   write(join(root, 'cockpit/src/main.rs'), 'fn main() {}\n')
-  for (const path of REQUIRED_COCKPIT_EMBEDDED_FILES) {
+  for (const path of identityInputs) {
     write(join(root, path), `embedded:${path}:one\n`)
   }
   const entries = [
     { path: 'cockpit/Cargo.toml' },
     { path: 'cockpit/Cargo.lock' },
     { path: 'cockpit/src/main.rs' },
-    ...REQUIRED_COCKPIT_EMBEDDED_FILES.map((path) => ({ path })),
+    ...identityInputs.map((path) => ({ path })),
   ]
   const baseline = cockpitSourceSha256(root, entries)
 
-  for (const path of REQUIRED_COCKPIT_EMBEDDED_FILES) {
+  for (const path of identityInputs) {
+    assert.ok(RELEASE_PATHS.includes(path) && REQUIRED_RELEASE_FILES.includes(path), path)
     write(join(root, path), `embedded:${path}:two\n`)
     assert.notEqual(
       cockpitSourceSha256(root, entries),
@@ -578,12 +691,15 @@ test('embedded allowlist equals every compile-time include target of the package
   }
 })
 
-test('cockpit source identity binds the local dotmax compilation inputs', (t) => {
+test('cockpit source identity binds local dotmax and ureq compilation inputs', (t) => {
   const root = fixture(t)
   const inputs = [
     ['vendor/dotmax/Cargo.toml', '[package]\nname = "dotmax"\nversion = "1.0.0"\n'],
     ['vendor/dotmax/src/lib.rs', 'pub fn dotmax() -> u8 { 1 }\n'],
     ['vendor/dotmax/src/progress/mod.rs', 'pub fn progress() -> u8 { 1 }\n'],
+    ['vendor/ureq/Cargo.toml', '[package]\nname = "ureq"\nversion = "3.3.0"\n'],
+    ['vendor/ureq/src/lib.rs', 'pub fn request() -> u8 { 1 }\n'],
+    ['vendor/ureq/src/connect/mod.rs', 'pub fn connect() -> u8 { 1 }\n'],
   ]
   for (const [path, content] of inputs) write(join(root, path), content)
   const entries = inputs.map(([path]) => ({ path }))
@@ -597,6 +713,33 @@ test('cockpit source identity binds the local dotmax compilation inputs', (t) =>
       `${path} must participate in cockpit_source_sha256`,
     )
     write(join(root, path), content)
+  }
+  assert.equal(cockpitSourceSha256(root, entries), baseline)
+})
+
+test('native and browser path dependencies and build helpers ship and bind the source identity', (t) => {
+  const root = fixture(t)
+  const inputs = [
+    'cockpit/build.rs', 'cockpit/build_fast.rs', 'cockpit/bundle_bytes.rs',
+    'cockpit/native/Cargo.toml', 'cockpit/native/build.rs',
+    'cockpit/native/build_parallel.rs', 'cockpit/native/lib.rs',
+    'cockpit/web-bundle/Cargo.toml', 'cockpit/web-bundle/build.rs', 'cockpit/web-bundle/lib.rs',
+  ]
+  for (const path of inputs) {
+    for (const list of [RELEASE_PATHS, REQUIRED_RELEASE_FILES]) {
+      assert.ok(list.includes(path), `${path} must ship`)
+    }
+    write(join(root, path), `input:${path}:one`)
+  }
+  for (const path of ['scripts/runtime/build-native-modules.py']) {
+    assert.ok(RELEASE_PATHS.includes(path) && REQUIRED_RELEASE_FILES.includes(path), path)
+  }
+  const entries = inputs.map((path) => ({ path }))
+  const baseline = cockpitSourceSha256(root, entries)
+  for (const path of inputs) {
+    write(join(root, path), `input:${path}:two`)
+    assert.notEqual(cockpitSourceSha256(root, entries), baseline, path)
+    write(join(root, path), `input:${path}:one`)
   }
   assert.equal(cockpitSourceSha256(root, entries), baseline)
 })
@@ -687,6 +830,26 @@ test('Node dependency policy requires registry integrity, licenses, and MIT root
   assert.throws(() => inspectNodeLock(root), /root license differs/u)
 })
 
+test('source packages include build-script modules and the bundled font license', () => {
+  // The cockpit's script compiles cartridges; the realm host's builds the
+  // Delve's browser page, with a working-build helper module beside it.
+  const shipped = (path) => RELEASE_PATHS.some((entry) => path === entry || path.startsWith(`${entry}/`))
+  const realm = readFileSync(join(ROOT, 'crates/realm-host/build.rs'), 'utf8')
+  assert.ok(/#\[path\s*=\s*"([^"]+)"\]/u.test(realm), 'the realm host build script has a module dependency')
+  for (const [script, dir] of [['cockpit/build.rs', 'cockpit'], ['crates/realm-host/build.rs', 'crates/realm-host'], ['cockpit/web-bundle/build.rs', 'cockpit/web-bundle'], ['cockpit/native/build.rs', 'cockpit/native']]) {
+    const source = readFileSync(join(ROOT, script), 'utf8')
+    for (const [, module] of source.matchAll(/#\[path\s*=\s*"([^"]+)"\]/gu)) {
+      const path = relative(ROOT, resolve(ROOT, dir, module))
+      assert.ok(shipped(path), `source archive omitted ${path}`)
+      assert.ok(REQUIRED_RELEASE_FILES.includes(path), `required closure omitted ${path}`)
+      assert.ok(isCockpitSourceIdentityInput(path), `native source identity omitted ${path}`)
+    }
+  }
+  const license = 'third-party/share-tech-mono-OFL.txt'
+  assert.ok(RELEASE_PATHS.includes(license))
+  assert.ok(REQUIRED_RELEASE_FILES.includes(license))
+})
+
 test('active Node and target-filtered offline Cargo graphs satisfy release policy', () => {
   assert.ok(!RELEASE_PATHS.includes('scripts/heads/heads.json'))
   assert.ok(!REQUIRED_RELEASE_FILES.includes('scripts/heads/heads.json'))
@@ -723,7 +886,7 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
 
   const rust = inspectCargoGraph(ROOT)
   assert.equal(rust.metadata_target, 'x86_64-unknown-linux-gnu')
-  assert.equal(rust.toolchain.pinned_version, '1.95.0')
+  assert.equal(rust.toolchain.pinned_version, '1.99.0')
   assert.deepEqual(rust.toolchain.pinned_components, ['clippy', 'rustfmt'])
   assert.ok(rust.resolved_package_count > 300)
   assert.deepEqual(rust.license_files, [])
@@ -739,7 +902,7 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   )
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.package_count),
-    [519, 339, 79],
+    [524, 455, 79],
   )
   assert.equal(rust.advisory_policy.python.status, 'not-applicable')
   assert.deepEqual(

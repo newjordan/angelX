@@ -135,6 +135,40 @@ impl boss_gates::Gates {
 }
 
 impl Run {
+    /// A key carrier left the floor at `(x, y)` with its loss recorded
+    /// (`Gates::carrier_fell`): the party hears its chief's route is won,
+    /// and the Boss Key drops there if that opened the guardian, which was
+    /// shut (`was_open`) before.
+    pub(super) fn carrier_lost(&mut self, x: f32, y: f32, kind: EnemyKind, was_open: bool) {
+        self.cues.push(format!("leader_fall:{}", bearer_name(kind)));
+        if !was_open && self.boss_gates.as_ref().is_some_and(boss_gates::Gates::unlocked) {
+            self.cues.push("boss_unsealed".into());
+            self.drop_boss_key(x, y);
+        }
+    }
+
+    /// A chief whose key carrier is gone from its camp's books with no loss
+    /// recorded (a body raised before raising booked it, 2026-10-30) has
+    /// lost it all the same: the room could never clear.
+    pub(super) fn heal_lost_carrier(&mut self) {
+        let at = self.at;
+        let Some(g) = &mut self.boss_gates else { return };
+        let (Some(slot), Some(kind)) = (g.key_carrier(at), g.carrier_kind(at)) else { return };
+        if g.economy.alive_slot(at, slot, kind) || self.enemies.iter().any(|e| e.camp_slot == Some(slot)) {
+            return;
+        }
+        let was_open = g.unlocked();
+        if !g.carrier_fell(at, slot) {
+            return;
+        }
+        let (x, y) = self
+            .players
+            .values()
+            .find(|h| h.hp > 0 && !h.absent)
+            .map_or((self.room().width() / 2.0, self.room().height() / 2.0), |h| (h.x, h.y));
+        self.carrier_lost(x, y, kind, was_open);
+    }
+
     /// Whether `enemy` carries the Boss Key: the elite at the head of the
     /// chief's camp here, alive, the key not yet fallen.
     pub fn carries_key(&self, enemy: &Enemy) -> bool {
@@ -364,15 +398,19 @@ impl Run {
         }
         // Held back: stepped in from the doorway, and told why now and then.
         let (cx, cy) = (self.room().width() / 2.0, self.room().height() / 2.0);
+        let barred = self.barred();
+        let at = self.at;
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
             let (ux, uy) = unit(cx - hero.x, cy - hero.y);
+            let room = &self.dungeon.rooms[at];
             if hero.x < 1.0
                 || hero.y < 1.0
-                || hero.x > self.dungeon.rooms[self.at].width() - 1.0
-                || hero.y > self.dungeon.rooms[self.at].height() - 1.0
+                || hero.x > room.width() - 1.0
+                || hero.y > room.height() - 1.0
             {
-                hero.x += ux * 1.2;
-                hero.y += uy * 1.2;
+                let grid = Grid { room, barred };
+                let was = (hero.x, hero.y);
+                (hero.x, hero.y) = grid.halted(was, (ux * 1.2, uy * 1.2));
             }
         }
         if self.works.key.told == 0 || self.tick.saturating_sub(self.works.key.told) >= REMIND {

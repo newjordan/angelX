@@ -1,0 +1,15 @@
+name Steady Sights
+kind spell
+rarity relic
+text Brace the rifle: the next shots crack harder.
+drop 0
+chest 0
+cooldown 14
+feat 1
+art
+...BBBB..
+...BOIB..
+..ttBB...
+.tBBBIt..
+...B.....
+..BB.....

@@ -7,7 +7,7 @@ size 1.4
 move drift speed=1.4
 attack ring shots=5 speed=5 every=95 damage=11 shot=ember
 phases bounce mines every=105 volleys=2 damage=11
-windup leap every=200 damage=15 shots=6 speed=5 shot=ember cry=PICK!
+windup leap every=200 damage=15 shots=6 speed=5 shot=ember cry=PICK! breaks
 rage 30%
 drops ore 3, gold 100
 art

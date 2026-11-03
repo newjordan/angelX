@@ -37,7 +37,7 @@ The latest historical Forth attempt took 358.60 s, with 152.22 s model time and 
 
 The malformed write at hop 5 reported `missing 'path'`. Its argument keys are unavailable: direct Codex traces have empty evaluator nodes/calls, rollout capture was off, tool events retain argument digests only, stderr tails do not include that call, and the temporary runtime was removed. It is not possible to determine whether a path alias was supplied. Hop 19's patch diagnostic identifies an old-text/leading-whitespace mismatch. No speculative argument-recovery change was made.
 
-Per-call model durations, per-tool durations/error categories and exact trace references are preserved without task bodies in the [comparison data](../../artifacts/polyglot-loop-2026-09-26/rust30-comparison.json), under `forth_evidence`.
+Per-call model durations, per-tool durations/error categories and exact trace references are preserved without task bodies in the comparison data (`artifacts/polyglot-loop-2026-09-26/rust30-comparison.json`, not published), under `forth_evidence`.
 
 ## Provenance and limits
 
@@ -49,4 +49,4 @@ Per-call model durations, per-tool durations/error categories and exact trace re
 - Sequential single attempts, changing cache warmth and model nondeterminism prevent causal speedup claims. Focused UI debug compilation/testing overlapped part of this local run; it is not an idle-host or isolated-throughput measurement.
 - The recorded 8,192 output budget is evaluator sampling metadata; the direct Codex endpoint retains its plan-managed output budget.
 
-Artifacts: [source and task manifest](../../artifacts/polyglot-loop-2026-09-26/rust30-default/manifest.json), [complete evaluator traces](../../artifacts/polyglot-loop-2026-09-26/rust30-default/run/traces.jsonl), [evaluator log](../../artifacts/polyglot-loop-2026-09-26/rust30-default/eval.log), and [body-free comparison data](../../artifacts/polyglot-loop-2026-09-26/rust30-comparison.json). Historical paths and the two pilot paths are retained in the comparison data. These artifacts are retained locally and are not checked into Git.
+Artifacts: source and task manifest (`artifacts/polyglot-loop-2026-09-26/rust30-default/manifest.json`), complete evaluator traces (`artifacts/polyglot-loop-2026-09-26/rust30-default/run/traces.jsonl`), evaluator log (`artifacts/polyglot-loop-2026-09-26/rust30-default/eval.log`), and body-free comparison data (`artifacts/polyglot-loop-2026-09-26/rust30-comparison.json`). Historical paths and the two pilot paths are retained in the comparison data. These artifacts are retained locally and are not checked into Git. These files are kept with the measurement and are not published.

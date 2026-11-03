@@ -60,7 +60,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.entrance",
-  "source_path": "/work/artifacts/delve-int-20261015/entrance-fix-1/prepared/pennon.entrance/source-sheet.png",
+  "source_path": "artifacts/delve-int-20261015/entrance-fix-1/prepared/pennon.entrance/source-sheet.png",
   "source_sha256": "17a4234b7e50167c4a86dbe844e526b1c03fa152edfd8923eac96e06589b4c3b",
   "tool_version": 2
 }

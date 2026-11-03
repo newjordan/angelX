@@ -80,12 +80,18 @@ fn bard_uses_the_shared_charge_and_r_press_rules() {
 }
 
 #[test]
-fn the_scriptorium_banner_selects_bard_for_a_seat() {
-    let mut r = classes::testing::kingdom();
-    let geo = map::geography(&r.kingdom.wishes);
-    let (_, (x, y)) = classes::stones(&geo).into_iter().find(|&(i, _)| classes::CLASSES[i].name == "Bard").unwrap();
+fn the_bard_at_the_tavern_table_selects_bard_for_a_seat() {
+    let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    r.walk_alehouse();
+    r.floor_plates.clear();
+    use crate::rules::alehouse::{self, PATRONS, patron_visible, Spot};
+    let i = PATRONS.iter().position(|p| p.kit == "bard").unwrap();
+    assert!(patron_visible(r.alehouse.company_page, i), "the bard sits in the hall");
+    let at = PATRONS[i].at;
+    assert_eq!(alehouse::spot_near_in(alehouse::patron_room(i), at.0 * TILE_UNITS, (at.1 - 1.0) * TILE_UNITS, r.tick, r.alehouse.company_page), Some(Spot::Patron(i)));
     let h = r.players.get_mut(&1).unwrap();
-    (h.x, h.y) = ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 1.2) * TILE_UNITS);
+    (h.x, h.y) = (at.0 * TILE_UNITS, (at.1 - 1.0) * TILE_UNITS);
+    step(&mut r, Input::default());
     step(&mut r, Input { interact: true, ..Default::default() });
     assert_eq!(classes::of(&r.players[&1]).unwrap().name, "Bard");
     assert_eq!(r.players[&1].weapon, Weapon::Notes);
@@ -230,4 +236,70 @@ fn write_bard_review() {
             std::fs::write(dir.join(format!("{label}.json")),serde_json::to_vec(&r).unwrap()).unwrap();
         }
     }
+}
+
+#[test]
+fn a_held_stream_plays_the_riff_on_a_kick_and_builds_to_the_overload() {
+    let mut r = arena(EnemyKind::Demon, 35.0, 20.0);
+    r.enemies[0].sleep_until = r.tick + 100_000;
+    r.sounds.clear();
+    let fire = Input { fire: true, ..Default::default() };
+    let mut heard: Vec<(u32, &str)> = Vec::new();
+    let mut volley = 0;
+    for _ in 0..4 * (GLITCH_AT + 8) {
+        step(&mut r, fire);
+        let tick: Vec<&str> = std::mem::take(&mut r.sounds).into_iter().filter(|s| s.starts_with("sax_") || s.starts_with("bard_")).collect();
+        if tick.iter().any(|s| s.starts_with("sax_")) {
+            volley += 1;
+        }
+        heard.extend(tick.into_iter().map(|s| (volley, s)));
+    }
+    let at = |v: u32| heard.iter().filter(|(n, _)| *n == v).map(|(_, s)| *s).collect::<Vec<_>>();
+    // The riff in order, a kick on every fourth.
+    for v in 1..=8u32 {
+        let i = (v - 1) as usize;
+        let mut expect = vec![RIFF[i]];
+        if i % 4 == 0 {
+            expect.push(KICK);
+        }
+        assert_eq!(at(v), expect, "volley {v}");
+    }
+    assert!(!heard.iter().any(|(v, s)| *v < WUB_AT && *s == WUB), "no wub before the groove is in");
+    assert!(at(WUB_AT + 1).contains(&WUB), "the wub under the kick once it is");
+    assert_eq!(heard.iter().filter(|(_, s)| *s == OVERLOAD).count(), 1, "one overload");
+    assert!(at(GLITCH_AT).contains(&OVERLOAD));
+    assert!(heard.iter().any(|(v, s)| *v > GLITCH_AT && GLITCHES.contains(s)), "glitches after it");
+    assert!(!heard.iter().any(|(v, s)| *v <= GLITCH_AT && GLITCHES.contains(s)));
+    assert_eq!(r.players[&1].groove, GLITCH_AT + 8);
+    // A breath ends the groove.
+    for _ in 0..6 {
+        step(&mut r, Input::default());
+    }
+    assert_eq!(r.players[&1].groove, 0);
+}
+
+#[test]
+fn notes_land_on_a_hi_hat_and_burst_and_the_lullaby_is_its_own() {
+    let mut r = arena(EnemyKind::Dummy, 14.5, 14.0);
+    r.sounds.clear();
+    for _ in 0..20 {
+        step(&mut r, Input { fire: true, ..Default::default() });
+    }
+    let heard = std::mem::take(&mut r.sounds);
+    assert!(heard.contains(&HIT), "a note that lands is heard on the hi-hat: {heard:?}");
+    assert!(!heard.contains(&"hit_magic"));
+    for _ in 0..12 {
+        step(&mut r, Input::default());
+    }
+    r.feel.impacts.clear();
+    step(&mut r, Input { fire: true, ..Default::default() });
+    for _ in 0..5 {
+        step(&mut r, Input::default());
+    }
+    assert!(r.feel.impacts.iter().any(|i| i.note), "a note's hit is marked to burst into notes");
+    r.sounds.clear();
+    r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
+    sing(&mut r);
+    let heard = std::mem::take(&mut r.sounds);
+    assert!(heard.contains(&LULLABY) && !heard.contains(&"boss_rise"), "{heard:?}");
 }

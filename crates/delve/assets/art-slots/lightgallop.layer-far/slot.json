@@ -61,7 +61,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lightgallop.layer-far",
-  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.layer-far/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lg/prepared/lightgallop.layer-far/source-sheet.png",
   "source_sha256": "9c43554c63a8a5c1f43f92099305778049754f37decbe19e9603d3cba5b1817b",
   "tool_version": 2
 }

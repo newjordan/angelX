@@ -300,6 +300,8 @@ pub struct Enemy {
     pub hp: u32,
     pub max_hp: u32,
     pub kind: EnemyKind,
+    /// Ticks it has been in the run. A save may leave a fresh foe's age out.
+    #[serde(default)]
     pub age: u32,
     pub id: u32,
     pub(super) origin_x: f32,
@@ -338,6 +340,10 @@ pub struct Enemy {
     pub hurt: u8,
     #[serde(default)]
     pub seen_hp: u32,
+    /// A guardian's health as its bar still shows it, falling after its
+    /// health so each blow's bite reads (`mark_hits`); 0 once caught up.
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub drain: u32,
     /// A boss's last stand: ticks into its cycle of telegraphed attacks,
     /// from the tick it grew desperate (`desperate`).
     #[serde(default)]
@@ -358,6 +364,13 @@ pub struct Enemy {
     pub loot: Vec<String>,
     #[serde(default)]
     pub cry: u32,
+    /// A guardian's rule taught on first meeting (`signatures::teach`):
+    /// ticks left of its hint word and the quiet after it, and how many
+    /// times the word has shown.
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub hint: u32,
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub hints: u32,
     /// Ticks left of a bell's ring on it: quickened (`critters::quicken`).
     #[serde(default)]
     pub rung: u32,
@@ -393,6 +406,73 @@ impl Enemy {
     pub(super) fn base_hp(&self) -> u32 {
         self.base_hp.unwrap_or_else(|| self.kind.hp())
     }
+}
+
+/// Drop default foe fields from a save. Old saves still carry them; a missing
+/// field is that default (`#[serde(default)]` on each one below).
+pub fn compact_save(value: &mut serde_json::Value) {
+    fn walk(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    walk(item);
+                }
+            }
+            serde_json::Value::Object(map) => {
+                if let Some(serde_json::Value::Array(enemies)) = map.get_mut("enemies") {
+                    for enemy in enemies {
+                        omit_enemy_defaults(enemy);
+                    }
+                }
+                for (key, child) in map.iter_mut() {
+                    if key != "enemies" {
+                        walk(child);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    walk(value);
+}
+
+fn omit_enemy_defaults(value: &mut serde_json::Value) {
+    let Some(map) = value.as_object_mut() else {
+        return;
+    };
+    if !map.contains_key("kind") || !map.contains_key("hp") {
+        return;
+    }
+    for key in ["faction", "camp_slot", "boss", "size", "base_hp"] {
+        if map.get(key).is_some_and(serde_json::Value::is_null) {
+            map.remove(key);
+        }
+    }
+    for key in ["age", "frozen", "stage", "timer", "hurt", "dread", "fury", "cry", "rung", "pattern_volleys"] {
+        if map.get(key).is_some_and(|v| v.as_u64() == Some(0)) {
+            map.remove(key);
+        }
+    }
+    for key in ["raged", "elite"] {
+        if map.get(key).is_some_and(|v| v.as_bool() == Some(false)) {
+            map.remove(key);
+        }
+    }
+    if map.get("dir").is_some_and(dir_is_zero) {
+        map.remove("dir");
+    }
+    if map.get("loot").is_some_and(|v| v.as_array().is_some_and(|a| a.is_empty())) {
+        map.remove("loot");
+    }
+    if map.get("stash").is_some_and(|v| v.as_object().is_some_and(|o| o.is_empty())) {
+        map.remove("stash");
+    }
+}
+
+fn dir_is_zero(value: &serde_json::Value) -> bool {
+    value.as_array().is_some_and(|pair| {
+        pair.len() == 2 && pair.iter().all(|n| n.as_f64() == Some(0.0))
+    })
 }
 
 /// One monster's step: move, then maybe shoot.
@@ -518,6 +598,13 @@ pub(super) fn act(
     }
 }
 
+/// The least a guardian moves at, in arena units a second, whatever its
+/// file says.
+const BOSS_LEAST_PACE: f32 = 2.5;
+/// How far past its own body a guardian that does not chase keeps from the
+/// nearest knight.
+const BOSS_STANDOFF: f32 = 4.0;
+
 /// A guardian's step: its file's movement, then each of its attacks on their
 /// own beat, half again as often once its health falls below its rage.
 fn act_boss(
@@ -529,6 +616,7 @@ fn act_boss(
     shots: &mut Vec<Projectile>,
     deeds: &mut foes::Deeds,
 ) {
+    court::turn(enemy, boss, heroes);
     if signatures::act(enemy, boss, heroes, grid, seed, deeds)
         || signatures::wind(enemy, boss, heroes, grid, seed, deeds)
     {
@@ -550,20 +638,39 @@ fn act_boss(
         let reach = dx.hypot(dy).min(speed * DT);
         (ux * reach, uy * reach)
     };
+    // A guardian is a dance, not a wall: every one keeps on the move, so the
+    // party reads its pattern, slips it and sneaks hits in between (the
+    // 2026-11 play-test: "bullet sponges that barely move").
+    let pace = boss.speed.max(BOSS_LEAST_PACE);
     let motion = match boss.moves {
         Move::Chase => toward(tx, ty, boss.speed, enemy),
         Move::Drift => {
-            let h = mix(seed ^ u64::from(enemy.id) << 20 ^ u64::from(age / 120));
-            let gx = enemy.origin_x + ((h & 0xff) as f32 / 255.0 - 0.5) * 18.0;
-            let gy = enemy.origin_y + (((h >> 8) & 0xff) as f32 / 255.0) * 9.0;
-            toward(gx, gy, boss.speed, enemy)
+            // A new spot every two seconds, over most of the room's width.
+            let h = mix(seed ^ u64::from(enemy.id) << 20 ^ u64::from(age / 60));
+            let gx = enemy.origin_x + ((h & 0xff) as f32 / 255.0 - 0.5) * 28.0;
+            let gy = enemy.origin_y + (((h >> 8) & 0xff) as f32 / 255.0 - 0.3) * 12.0;
+            toward(gx, gy, pace, enemy)
         }
         Move::Hover => {
-            let gx = grid.room.width() / 2.0 + (age as f32 * 0.012).sin() * 16.0;
-            let gy = enemy.origin_y + (age as f32 * 0.03).sin() * 1.5;
-            toward(gx, gy, boss.speed.max(1.0), enemy)
+            let gx = grid.room.width() / 2.0 + (age as f32 * 0.02).sin() * 16.0;
+            let gy = enemy.origin_y + (age as f32 * 0.03).sin() * 2.5;
+            toward(gx, gy, pace, enemy)
         }
-        Move::Anchor => (0.0, 0.0),
+        // A rooted guardian still sidesteps, side to side about its post.
+        Move::Anchor => {
+            let gx = enemy.origin_x + (age as f32 * 0.025).sin() * 6.0;
+            toward(gx, enemy.origin_y, pace * 0.6, enemy)
+        }
+    };
+    // Only a chaser closes in: the rest keep a dancer's distance, backing
+    // off a knight who comes too near, so moving never lands a body blow in
+    // the middle of a tell.
+    let near = (tx - enemy.x).hypot(ty - enemy.y);
+    let motion = if boss.moves != Move::Chase && target.is_some() && near < enemy.radius() + BOSS_STANDOFF {
+        let (ux, uy) = unit(enemy.x - tx, enemy.y - ty);
+        (ux * pace * DT, uy * pace * DT)
+    } else {
+        motion
     };
     let mover = if boss.moves == Move::Hover {
         Mover::Flier
@@ -572,7 +679,7 @@ fn act_boss(
     };
     (enemy.x, enemy.y) = grid.slide((enemy.x, enemy.y), motion, enemy.radius(), mover);
     // Its fight builds stage by stage: each line joins at its `from`, and
-    // only its rage quickens it.
+    // its pressure quickens, then rage quickens it further.
     let stage = boss.stage(enemy.hp, enemy.max_hp);
     for (index, attack) in boss.attacks.iter().enumerate() {
         if matches!(attack.pattern, Pattern::Named(_)) || attack.from > stage {
@@ -584,6 +691,13 @@ fn act_boss(
             (attack.every * 2 / 3).max(4)
         } else {
             attack.every.max(4)
+        };
+        // Ravage is a floor hazard with its own duration and safe lane;
+        // don't overlap it by accelerating its authored cadence.
+        let every = if attack.pattern == Pattern::Ravage {
+            every
+        } else {
+            (every * 3 / 4).max(4)
         };
         if !(age + index as u32 * 11).is_multiple_of(every) {
             continue;

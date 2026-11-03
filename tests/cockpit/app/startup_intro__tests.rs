@@ -692,9 +692,9 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     assert!(app.startup_intro.visible);
     // Entering an actual room must retain the world even before typing;
     // only the still-empty agent shell keeps the launch ceremony.
-    app.world
+    app.realm.world
         .settle_at_for_test(crate::stage::world_viz::Building::Keep);
-    assert!(app.world.enter_interior());
+    assert!(app.realm.world.enter_interior());
     terminal
         .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();

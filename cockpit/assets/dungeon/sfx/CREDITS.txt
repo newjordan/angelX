@@ -1,0 +1,77 @@
+Sound effects chosen in the 2026-10-20 audition, recommended picks.
+
+armour_fall.mp3: "workshop - metal drop.wav" from 68 Workshop Sounds by bart (CC0) https://opengameart.org/content/68-workshop-sounds
+axe_spin.mp3: "swosh-33.flac" from Swish - bamboo stick weapon swhoshes by qubodup (CC0) https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes
+bomb.mp3: "mechanical_explosion.wav" from Mechanical Explosion by spring-spring (CC0) https://opengameart.org/content/mechanical-explosion
+bomb_toss.mp3: "sfx-throw.wav" from Jay The Doggo - Sound Effects by spring-spring (CC0) https://opengameart.org/content/jay-the-doggo-sound-effects
+bones_clatter.mp3: "BoneSplosion.ogg" from Misc SFX Pack by timopy (CC0) https://opengameart.org/content/misc-sfx-pack
+boss_fall.mp3: "explosion3.ogg" from Explosions by ezduzziteh (CC0) https://opengameart.org/content/explosions-4
+boss_rise.mp3: "boss.ogg" from Sound Effects from Monster RPG 2 by troutsneeze (CC0) https://opengameart.org/content/sound-effects-from-monster-rpg-2
+card_pickup.mp3: "BookFlip2.wav" from Book Flip Sounds by voltiment555 (CC0) https://opengameart.org/content/book-flip-sounds
+chest_open.mp3: "creak2.ogg" from rpg-audio by Kenney (CC0) https://kenney.nl/assets/rpg-audio
+circle_toll.mp3: "bell_ding4.wav" from Bell dings/chimes by pwl (CC0) https://opengameart.org/content/bell-dingschimes
+clang.mp3: "metal_hit_03.ogg" from 100 CC0 metal and wood SFX by rubberduck (CC0) https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+crack_open.mp3: "break_stone.wav" from Various Sound Effects by spring-spring (CC0) https://opengameart.org/content/various-sound-effects-0
+descend.mp3: "teleport.wav" from Teleport Spell by ogrebane (CC0) https://opengameart.org/content/teleport-spell
+door_open.mp3: "door_creak_open.wav" from Various Sound Effects by laleksic (CC0) https://opengameart.org/content/various-sound-effects
+door_pass.mp3: "qubodup-DoorOpen01.flac" from Door Open, Door Close Set by qubodup (CC0) https://opengameart.org/content/door-open-door-close-set
+door_seal.mp3: "iron_door.ogg" from Iron Door by themightyglider (CC0) https://opengameart.org/content/iron-door
+engine_whistle.mp3: "steam hisses - Marker #1.wav" from Steam release sounds by bart (CC0) https://opengameart.org/content/steam-release-sounds
+gas_release.mp3: "alien_hiss.mp3" from Alien Sounds by ezduzziteh (CC0) https://opengameart.org/content/alien-sounds-0
+gold.mp3: "coin.10.ogg" from 12 Coin Sound Effects by starninjas (CC0) https://opengameart.org/content/12-coin-sound-effects
+ground_close.mp3: "bfh1_rock_falling_01.ogg" from 75 CC0 breaking / falling / hit sfx by rubberduck (CC0) https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+hand_drag.mp3: "scrape-8.ogg.mp3" from Scrapes by antumdeluge (CC0) https://opengameart.org/content/scrapes
+hand_grab.mp3: "quiver-leather-squeeze-13.wav" from Fantasy Weapons and Apparel SFX Library by vehicle (CC0) https://opengameart.org/content/fantasy-weapons-and-apparel-sfx-library
+hand_rise.mp3: "creature_monster_03.ogg" from 80 CC0 RPG SFX by rubberduck (CC0) https://opengameart.org/content/80-cc0-rpg-sfx
+hell_gate_enter.mp3: "warp.wav" from Cugzilia II Prototype Sound Effects by spring-spring (CC0) https://opengameart.org/content/cugzilia-ii-prototype-sound-effects
+helmet_pop.mp3: "impactMetal_light_003.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+hero_hurt.mp3: "metal_hit_04.ogg" from 100 CC0 metal and wood SFX by rubberduck (CC0) https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+hit.mp3: "impactPunch_medium_001.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+hit_arrow.mp3: "thud3.wav" from Metal Impact Sounds by bmaczero (CC0) https://opengameart.org/content/metal-impact-sounds
+hit_axe.mp3: "impactPlate_heavy_003.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+hit_blade.mp3: "machete_vs_spatula_18.wav" from Machete vs. Spatula by cyberdevil (CC0) https://opengameart.org/content/machete-vs-spatula
+hit_blast.mp3: "hit2.ogg" from 5 Hit Sounds + Dying by tinyworlds (CC0) https://opengameart.org/content/5-hit-sounds-dying
+hit_bolt.mp3: "impactMetal_heavy_000.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+hit_magic.mp3: "bfh1_hit_05.ogg" from 75 CC0 breaking / falling / hit sfx by rubberduck (CC0) https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+holy_water.mp3: "HolyWater.ogg" from Sound Effects from Monster RPG 2 by troutsneeze (CC0) https://opengameart.org/content/sound-effects-from-monster-rpg-2
+kill.mp3: "snd_splat.wav" from Various Sound Effects by spring-spring (CC0) https://opengameart.org/content/various-sound-effects-0
+knight_fall.mp3: "bfh1_metal_falling_02.ogg" from 75 CC0 breaking / falling / hit sfx by rubberduck (CC0) https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+knight_hit.mp3: "impactMetal_light_001.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+knight_hit_big.mp3: "impactPunch_heavy_002.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+mimic.mp3: "chomp.ogg" from Sound Effects from Monster RPG 2 by troutsneeze (CC0) https://opengameart.org/content/sound-effects-from-monster-rpg-2
+play_card.mp3: "card-place-2.ogg" from 54 Casino sound effects (cards, dice, chips) by kenney (CC0) https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
+potion.mp3: "bottle-open-01.flac" from Liquid Bottle Drink Set by qubodup (CC0) https://opengameart.org/content/liquid-bottle-drink-set
+rock_land.mp3: "stone_rock_or_wood_moved.mp3" from Stone, rock or wood moved sound by pauliuw (CC0) https://opengameart.org/content/stone-rock-or-wood-moved-sound
+roll.mp3: "boots-leather-jump-03.wav" from Fantasy Weapons and Apparel SFX Library by vehicle (CC0) https://opengameart.org/content/fantasy-weapons-and-apparel-sfx-library
+shield_block.mp3: "clang_metal.wav" from Various Sound Effects by laleksic (CC0) https://opengameart.org/content/various-sound-effects
+shield_up.mp3: "metal_hit_01.ogg" from 100 CC0 metal and wood SFX by rubberduck (CC0) https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+shot_arcane.mp3: "spell_02.ogg" from 80 CC0 RPG SFX by rubberduck (CC0) https://opengameart.org/content/80-cc0-rpg-sfx
+shot_bolt.mp3: "magic1.wav" from RPG Sound Pack by artisticdude (CC0) https://opengameart.org/content/rpg-sound-pack
+shot_bow.mp3: "Bow.wav" from Battle Sound Effects by ogrebane (CC0) https://opengameart.org/content/battle-sound-effects
+shot_crossbow.mp3: "arrow.ogg" from Superpowers assets sound effects by medicinestorm (CC0) https://opengameart.org/content/superpowers-assets-sound-effects
+shot_handgonne.mp3: "cannon_03.ogg" from 25 CC0 bang / firework SFX by rubberduck (CC0) https://opengameart.org/content/25-cc0-bang-firework-sfx
+shot_spark.mp3: "swish_4.wav" from Battle Sound Effects by ogrebane (CC0) https://opengameart.org/content/battle-sound-effects
+spell_fire.mp3: "spell_fire_07.ogg" from 80 CC0 RPG SFX by rubberduck (CC0) https://opengameart.org/content/80-cc0-rpg-sfx
+spike.mp3: "metal_hit_05.ogg" from 100 CC0 metal and wood SFX by rubberduck (CC0) https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+spoil_pickup.mp3: "item_gem_03.ogg" from 80 CC0 RPG SFX by rubberduck (CC0) https://opengameart.org/content/80-cc0-rpg-sfx
+step_ash.mp3: "walkDry.ogg" from Ogazuhl sound effects by yd (CC0) https://opengameart.org/content/ogazuhl-sound-effects
+step_gravel.mp3: "footstep09.ogg" from rpg-audio by Kenney (CC0) https://kenney.nl/assets/rpg-audio
+step_moss.mp3: "footstep_grass_004.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+step_stone.mp3: "hard-footstep2.wav" from Sound Effects Pack by owlishmedia (CC0) https://opengameart.org/content/sound-effects-pack
+step_wet.mp3: "sfx100v2_footstep_wet_01.ogg" from 100 CC0 SFX #2 by rubberduck (CC0) https://opengameart.org/content/100-cc0-sfx-2
+step_wood.mp3: "footstep_wood_004.ogg" from impact-sounds by Kenney (CC0) https://kenney.nl/assets/impact-sounds
+swing.mp3: "swosh-10.flac" from Swish - bamboo stick weapon swhoshes by qubodup (CC0) https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes
+vent_fire.mp3: "flame-thrower.wav" from Superpowers assets sound effects by medicinestorm (CC0) https://opengameart.org/content/superpowers-assets-sound-effects
+wall_up.mp3: "wall.wav" from Atmospheric Interaction Sound Pack by qubodup (CC0) https://opengameart.org/content/atmospheric-interaction-sound-pack
+wave_gate.mp3: "burst fire.mp3" from Laser weapon burst fire by celestialghost8 (CC0) https://opengameart.org/content/laser-weapon-burst-fire
+wheel_land.mp3: "bell_ding2.wav" from Bell dings/chimes by pwl (CC0) https://opengameart.org/content/bell-dingschimes
+wheel_spin.mp3: "coin-spin-fall-02.wav" from Fantasy Accessory SFX Library by vehicle (CC0) https://opengameart.org/content/fantasy-accessory-sfx-library
+
+Generated with ElevenLabs sound effects (licensed), same audition: boss_death, boss_rage, boss_roar, hell_gate_rise, mana_empty, skill_barrier, spell_cast, wish_grant
+Weapon shots regenerated 2026-10-24 with ElevenLabs sound effects (licensed): shot_bow, shot_crossbow, shot_handgonne, shot_bolt, shot_arcane, shot_spark.
+Weapon and hit sounds regenerated 2026-10-24 night with ElevenLabs sound effects (licensed), best of three takes each: clang,hero_hurt,hit_arrow,hit_axe,hit_blade,hit_blast,hit_bolt,hit_magic,hit,kill,knight_hit_big,knight_hit,shield_block,shot_arcane,shot_bolt,shot_bow,shot_crossbow,shot_handgonne,shot_spark,swing.
+Levelled 2026-10-25 by gain alone, each re-encoded in its own format (README.md, Levels): kill, hit, hit_magic, hit_axe, swing, gore_bones, rock_land, vent_fire, armour_fall, wheel_spin.
+area_leave supplied by the operator 2026-10-30 (Sound_of_a_door_crea_#2), trimmed to the latch and the slam by scripts/delve/sfx_replace.sh; later swaps made the same way are listed here.
+rock_land replaced 2026-10-30 by the operator's rock_fall_1, trimmed to its first 1.15 s.
+kill replaced 2026-10-30 by the operator's mob_death_2, whole clip, peak kept at -7.7 dB like the old kill.
+vent_fire, cast_fire and spell_fire replaced 2026-10-30 by the operator's short_fireball (its first 0.75 s), each at its old peak (-1, -3.5, -4.2 dB).

@@ -1,0 +1,792 @@
+# crates/delve/src/rules/bannerpeak/bot.rs — what a scripted knight presses.
+module bannerpeak.bot
+
+use world.TILE
+use body.Q
+use knight.B_DOWN
+use knight.B_JUMP
+use knight.B_BRACE
+use layout.HUB_OX
+use layout.HUB_OY
+use layout.MARSH_OX
+use layout.MARSH_OY
+use layout.MARSH_W
+use layout.MILL_OX
+use layout.MILL_OY
+use layout.SHAFT_OX
+use layout.SHAFT_OY
+use layout.SHAFT_W
+use layout.SNOW_OX
+use layout.SNOW_OY
+use layout.SUMMIT_OX
+use layout.HEIGHT
+
+# The shipped numbers, for looking ahead.
+fn shipped_knobs() -> Knobs:
+  return Knobs{run: 1152, hop: 10, grace: 5, slam: 36, ledge: 3000}
+
+# --- goals (the J shape of Goal is {k, a, b})
+fn Goal.of(k: str, a: i32, b: i32) -> Goal:
+  return Goal{k: k, a: a, b: b}
+
+fn keys(x: i8, jump: bool, down: bool) -> Input:
+  let mut i = Input::default()
+  i.move_x = x
+  i.dash = jump
+  if down:
+    i.move_y = 1
+  return i
+
+fn centre_x(cx: i32) -> i32:
+  return cx * TILE + TILE / 2
+
+fn Session.bot_input(self: Session, id: u32, hero: Hero) -> Input:
+  if !self.seats.contains_key(id):
+    return Input::default()
+  let k = self.seats[id]
+  let mut i = Input::default()
+  if self.phase == Phase::Select:
+    if self.elapsed % 2 == 0:
+      i.interact = true
+    return i
+  if self.phase == Phase::Finale:
+    if self.completed.is_some() && self.elapsed % 2 == 0:
+      i.interact = true
+    return i
+  if k.bubble.is_some():
+    # Steer the bubble toward the nearest friend.
+    let b = k.bubble.unwrap()
+    let bx = b.x.div_euclid(Q)
+    let by = b.y.div_euclid(Q)
+    let (found, x, y) = self.nearest_friend(self.seats.ids(), id, bx, by, false, 0, 0, 0)
+    if found:
+      i.move_x = (x - bx).signum()
+      i.move_y = (y - 12 - by).signum()
+    return i
+  if !k.free():
+    return i
+  return self.drive(k, self.goal(k))
+
+# The foot of the nearest other knight (standing, free), by taxicab: (found, x, y).
+fn Session.nearest_friend(self: Session, ids: list<u32>, id: u32, bx: i32, by: i32, found: bool, best: i32, fx: i32, fy: i32) -> (bool, i32, i32):
+  if ids.is_empty():
+    return (found, fx, fy)
+  let o = ids.head()
+  let f = self.seats[o]
+  if o != id && f.alive() && f.free():
+    let p = f.body.foot()
+    let d = (p.0 - bx).abs() + (p.1 - by).abs()
+    if !found || d < best:
+      return self.nearest_friend(ids.tail(), id, bx, by, true, d, p.0, p.1)
+  return self.nearest_friend(ids.tail(), id, bx, by, found, best, fx, fy)
+
+fn Sec.row(oy: i32, r: i32) -> i32:
+  return (oy + r) * TILE
+
+# The goal of knight `k`: the first of the list not yet met.
+fn Session.goal(self: Session, k: Knight) -> Goal:
+  let (fx, fy) = k.body.foot()
+  let cx = fx.div_euclid(TILE)
+  let b = self.banners as u32
+  let section = layout::section_of(cx)
+  if section == 0:
+    return self.hub_goal(k, fx, fy, cx, b)
+  if section == 1:
+    return self.marsh_goal(k, fx, fy, cx, b)
+  if section == 2:
+    return self.mill_goal(k)
+  if section == 3:
+    return self.shaft_goal(k)
+  if section == 4:
+    return self.snow_goal(k)
+  return self.summit_goal(k)
+
+fn Session.hub_goal(self: Session, k: Knight, fx: i32, fy: i32, cx: i32, b: u32) -> Goal:
+  let in_cellar = fy > Sec::row(HUB_OY, 18) + 2 && inr(cx, HUB_OX + 13, HUB_OX + 34)
+  if b & 1 == 0 && !in_cellar:
+    # The tower banner: the lane, then the roof.
+    let bx = centre_x(layout::info::banner_x(0))
+    let on_roof = fy <= Sec::row(HUB_OY, 11) + 2 && fx >= (HUB_OX + 56) * TILE
+    if on_roof:
+      return Goal::of("Walk", bx, 0)
+    return Goal::of("Walk", (HUB_OX + 58) * TILE, 0)
+  if b & 2 == 0:
+    if in_cellar:
+      # Down the steps (a fall through the floor lands on the top one), then along the
+      # floor to the banner.
+      let bx = centre_x(layout::info::banner_x(1))
+      if fy >= Sec::row(HUB_OY, 28) - 1:
+        return Goal::of("Down", bx, 0)
+      return Goal::of("Down", (HUB_OX + 13) * TILE + 8, 0)
+    return Goal::of("Slam", (HUB_OX + 24) * TILE, 0)
+  if in_cellar:
+    # Out by the steps: left to their foot, then right and up.
+    if fx > (HUB_OX + 13) * TILE + 12 && fy >= Sec::row(HUB_OY, 28) - 1:
+      return Goal::of("Walk", (HUB_OX + 13) * TILE + 6, 0)
+    return Goal::of("Walk", (HUB_OX + 30) * TILE, 0)
+  return Goal::of("Walk", (HUB_OX + 82) * TILE, 0)
+
+# The first ring spark in the marsh below (room: true) or above the bog line, or 8.
+fn Session.marsh_spark(n: u32, room: bool) -> u32:
+  if n >= layout::info::sparks_len():
+    return 8
+  let sx = layout::info::spark_x(n)
+  let sy = layout::info::spark_y(n)
+  let in_marsh = sx >= MARSH_OX && sx < MARSH_OX + MARSH_W
+  if in_marsh && ((room && sy > MARSH_OY + 18) || (!room && sy <= MARSH_OY + 18)):
+    return n
+  return Session::marsh_spark(n + 1, room)
+
+fn Session.marsh_goal(self: Session, k: Knight, fx: i32, fy: i32, cx: i32, b: u32) -> Goal:
+  let room_spark = Session::marsh_spark(0, true)
+  let in_room = fy > Sec::row(MARSH_OY, 16)
+  if room_spark < 8:
+    if (self.sparks as u32) & (1 << room_spark) == 0 && (in_room || cx < MARSH_OX + 61):
+      if in_room:
+        return Goal::of("Walk", centre_x(layout::info::spark_x(room_spark)), 0)
+      return Goal::of("Hatch", centre_x(MARSH_OX + 44), 0)
+  if in_room:
+    return Goal::of("Hatch", centre_x(MARSH_OX + 56), 0)
+  # A ring spark missed over the bog: back across for another try.
+  let over_bog = Session::marsh_spark(0, false)
+  if over_bog < 8:
+    let sx = centre_x(layout::info::spark_x(over_bog))
+    if (self.sparks as u32) & (1 << over_bog) == 0 && k.pole == 0 && fx > sx + 3 * TILE:
+      return Goal::of("Walk", sx - 11 * TILE, 0)
+  let px_ = centre_x(layout::info::pole_x())
+  if b & 4 == 0 || k.pole > 0:
+    return Goal::of("Walk", px_, 0)
+  return Goal::of("Walk", (MARSH_OX + MARSH_W + 4) * TILE, 0)
+
+# The index of the spark at world cell (cx, cy).
+fn Session.spark_at(self: Session, cx: i32, cy: i32) -> u32:
+  return layout::spark_index(cx, cy)
+
+fn Session.spark_missing(self: Session, cx: i32, cy: i32) -> bool:
+  return (self.sparks as u32) & (1 << self.spark_at(cx, cy)) == 0
+
+fn Session.mill_goal(self: Session, k: Knight) -> Goal:
+  let (fx, fy) = k.body.foot()
+  let cx = fx.div_euclid(TILE)
+  let ledge_x = MILL_OX + 68
+  let ledge_y = MILL_OY + 8
+  let on_wheel = k.body.plank.is_some() && k.body.plank.unwrap() >= layout::WHEEL_ID
+  # The race, by where the knight is, not by what a friend has done.
+  let past_house = fx >= (MILL_OX + 38) * TILE && fy <= Sec::row(MILL_OY, 8) + 2
+  if !past_house && cx < MILL_OX + 38:
+    # The piers and the wheel: run to the second pier's edge, then ride.
+    if on_wheel || (cx >= MILL_OX + 24 && fy >= Sec::row(MILL_OY, 0)):
+      return Goal::of("Wheel", 0, 0)
+    return Goal::of("Walk", (MILL_OX + 28) * TILE + 12, 0)
+  if past_house && (self.banners as u32) & 8 == 0:
+    return Goal::of("Walk", centre_x(layout::info::banner_x(3)), 0)
+  if self.spark_missing(ledge_x, ledge_y) && cx >= MILL_OX + 46:
+    # The backflip: stop short of the ledge, on the bank.
+    let on_ledge = fy <= Sec::row(MILL_OY, 9) + 2 && fx < (MILL_OX + 70) * TILE
+    if on_ledge:
+      return Goal::of("Walk", (MILL_OX + 68) * TILE + 8, 0)
+    return Goal::of("Backflip", (MILL_OX + 71) * TILE + 8, 0)
+  return Goal::of("Walk", (MILL_OX + 88 + 3) * TILE, 0)
+
+fn Session.shaft_goal(self: Session, k: Knight) -> Goal:
+  let (fx, fy) = k.body.foot()
+  let top = (SHAFT_OY + 6) * TILE
+  let b = k.body
+  let up = b.ground && fy <= top && fx >= (SHAFT_OX + 10) * TILE
+  if up:
+    return Goal::of("Walk", (SHAFT_OX + SHAFT_W + 3) * TILE, 0)
+  # In through the door at the foot, to the middle of the shaft.
+  let foot = (SHAFT_OY + 34) * TILE
+  if b.ground && fy == foot && fx < (SHAFT_OX + 6) * TILE:
+    return Goal::of("Walk", (SHAFT_OX + 8) * TILE, 0)
+  # The lower alcove's spark, the notch's, then the bell.
+  if self.spark_missing(SHAFT_OX + 4, SHAFT_OY + 26):
+    return Goal::of("Climb", SHAFT_OX + 4, SHAFT_OY + 26)
+  if self.spark_missing(SHAFT_OX + 10, SHAFT_OY + 13):
+    return Goal::of("Climb", SHAFT_OX + 10, SHAFT_OY + 13)
+  return Goal::of("Climb", layout::info::banner_x(4), layout::info::banner_y(4))
+
+fn Session.snow_goal(self: Session, k: Knight) -> Goal:
+  let (fx, fy) = k.body.foot()
+  let cx = fx.div_euclid(TILE)
+  let shelf_x = SNOW_OX + 25
+  let shelf_y = SNOW_OY + 3
+  let chute_x = SNOW_OX + 73
+  let chute_y = SNOW_OY + 0
+  if self.spark_missing(shelf_x, shelf_y):
+    # Up among the shelves (on one, or between): at the spark; else along the floor to the first step.
+    let up = fy <= Sec::row(SNOW_OY, 7) + 1 && inr(cx, SNOW_OX + 20, SNOW_OX + 37)
+    if up:
+      return Goal::of("Walk", centre_x(shelf_x), 0)
+    return Goal::of("Walk", (SNOW_OX + 31) * TILE, 0)
+  if self.spark_missing(chute_x, chute_y):
+    let in_cols = inr(cx, SNOW_OX + 72, SNOW_OX + 76)
+    let inside = in_cols && (fy < Sec::row(SNOW_OY, 8) || !k.body.ground)
+    if inside || (k.body.mode == Move::Wall && inr(cx, SNOW_OX + 70, SNOW_OX + 78)):
+      return Goal::of("Climb", chute_x, chute_y)
+    return Goal::of("Walk", centre_x(SNOW_OX + 73), 0)
+  if (self.banners as u32) & 32 == 0:
+    return Goal::of("Walk", centre_x(layout::info::banner_x(5)), 0)
+  if self.doors & 2 == 0:
+    # The summit door stays shut: a banner is still to find. Back to the last gate for
+    # the course board, which sends the party to it.
+    return Goal::of("Board", centre_x(SNOW_OX + 54), 0)
+  return Goal::of("Walk", (SUMMIT_OX + 6) * TILE, 0)
+
+fn Session.summit_goal(self: Session, k: Knight) -> Goal:
+  if self.boss.defeated() && (self.banners as u32) & 128 == 0:
+    return Goal::of("Walk", centre_x(layout::info::banner_x(7)), 0)
+  return Goal::of("Fight", 0, 0)
+
+# --- driving
+
+# The reactive controller: keys that take knight `k` toward `goal`.
+fn Session.drive(self: Session, k: Knight, goal: Goal) -> Input:
+  let b = k.body
+  let (fx, fy) = b.foot()
+  let held_jump = (k.prev as u32) & B_JUMP != 0
+  let held_down = (k.prev as u32) & B_DOWN != 0
+  # A slam landing, a hit: nothing to press.
+  if b.mode == Move::Recover || b.mode == Move::Hurt:
+    return Input::default()
+  if b.mode == Move::Wind || b.mode == Move::Pound:
+    return keys(0, false, true)
+  let ground = b.ground && (b.mode == Move::Ground || b.mode == Move::Brace || b.mode == Move::Belly)
+  let mut tx: i32 = fx
+  if goal.k == "Climb":
+    tx = centre_x(goal.a)
+  elif goal.k != "Wheel" && goal.k != "Fight":
+    tx = goal.a
+  let dx = tx - fx
+  let mut d: i32 = 0
+  if dx.abs() >= 3:
+    d = dx.signum()
+  if goal.k == "Slam":
+    # Stand over it, jump, and slam at the top.
+    if ground:
+      if dx.abs() > 40:
+        return self.walk_with_hops(k, d)
+      # Come to rest over it, then straight up.
+      if dx.abs() <= 5 && b.vx.abs() < 120:
+        return keys(0, !held_jump, false)
+      let mut creep: i32 = 0
+      if b.vx.abs() < 150:
+        creep = d
+      if dx.abs() <= 5:
+        return keys(0, false, false)
+      return keys(creep, false, false)
+    if b.vy > 0 && b.mode == Move::Air:
+      return keys(0, false, !held_down)
+    return keys(0, held_jump && b.vy < 0, false)
+  if goal.k == "Hatch":
+    if ground:
+      if dx.abs() > 4:
+        return self.walk_with_hops(k, d)
+      return keys(0, false, !held_down)
+    return keys(d, held_jump && b.vy < 0, false)
+  if goal.k == "Board":
+    if ground:
+      if dx.abs() > 8:
+        return self.walk_with_hops(k, d)
+      let mut i = Input::default()
+      if (k.prev as u32) & B_BRACE == 0:
+        i.interact = true
+      return i
+    return keys(d, held_jump && b.vy < 0, false)
+  if goal.k == "Backflip":
+    if ground:
+      if dx.abs() > 40:
+        return self.walk_with_hops(k, d)
+      if b.crouch:
+        return keys(0, !held_jump, true)
+      if dx.abs() <= 4 && b.vx.abs() < 150:
+        return keys(0, false, true)
+      let mut creep: i32 = 0
+      if b.vx.abs() < 150:
+        creep = d
+      if dx.abs() <= 4:
+        return keys(0, false, false)
+      return keys(creep, false, false)
+    # In the air the flip carries itself.
+    return keys(0, held_jump && b.vy < 0, false)
+  if goal.k == "Wheel":
+    return self.ride(k)
+  if goal.k == "Climb":
+    return self.climb(k, goal.a, goal.b)
+  if goal.k == "Fight":
+    return self.fight(k)
+  return self.drive_walk(k, goal, fx, fy, d, ground, held_jump)
+
+# Walk and Down goals.
+fn Session.drive_walk(self: Session, k: Knight, goal: Goal, fx: i32, fy: i32, d: i32, ground: bool, held_jump: bool) -> Input:
+  let b = k.body
+  if !ground:
+    # Up through the hole out of the cellar: straight up, then over.
+    if (self.banners as u32) & 2 != 0 && inr(fx, (HUB_OX + 22) * TILE, (HUB_OX + 26) * TILE) && fy > (HUB_OY + 17) * TILE:
+      let mut over: i32 = 1
+      if b.vy < 0:
+        over = 0
+      return keys(over, held_jump && b.vy < 0, false)
+    # In the air: keep going, hold the jump while rising.
+    return keys(d, held_jump && b.vy < 0, false)
+  # Last of the cellar's steps: straight up through the hole.
+  if (self.banners as u32) & 2 != 0 && fy == (HUB_OY + 21) * TILE && inr(fx.div_euclid(TILE), HUB_OX + 23, HUB_OX + 26):
+    if b.vx.abs() > 200:
+      return keys(-b.vx.signum(), false, false)
+    return keys(0, !held_jump, false)
+  # Hints in the air cell: the way's own instructions.
+  let h = self.hint_here(b)
+  if h == '&' && d > 0:
+    # The triple lane: hop at speed, and keep hopping.
+    if b.vx.abs() >= 1100 || (b.hop_t > 0 && b.hop_next >= 2):
+      return keys(1, !held_jump, false)
+  elif h == '>' || h == '<':
+    # A stair's hop is made slowly, from near a stand.
+    let mut dir: i32 = -1
+    if h == '>':
+      dir = 1
+    if d == dir || d == 0:
+      if b.vx.abs() < 320:
+        return keys(dir, !held_jump, false)
+      return keys(-b.vx.signum(), false, false)
+  elif h == '|':
+    return keys(d, !held_jump, false)
+  elif h == '/' && d > 0:
+    if b.crouch:
+      return keys(1, !held_jump, true)
+    if b.vx.abs() >= 760:
+      return keys(1, false, true)
+  # The lane: a failed run at the tower goes back for another.
+  let lane = (HUB_OY + 18) * TILE
+  if (self.banners as u32) & 1 == 0 && fy == lane && fx > (HUB_OX + 55) * TILE && fx < (HUB_OX + 60) * TILE:
+    return keys(-1, false, false)
+  if (self.banners as u32) & 1 == 0 && fy == lane && b.face < 0 && fx > (HUB_OX + 27) * TILE && fx < (HUB_OX + 56) * TILE:
+    return keys(-1, false, false)
+  if goal.k == "Down":
+    # Wall and foes, but never the lip of a drop.
+    if d != 0 && self.obstacle_ahead(k, d, false):
+      return keys(d, !held_jump, false)
+    return keys(d, false, false)
+  return self.walk_with_hops(k, d)
+
+# --- looking ahead
+
+# One tick of the foresee: the body stepped, its movers as they will be.
+fn Session.foresee_step(self: Session, b: Body, prev: bool, n: u32, jump_until: u32, e: u32) -> Body:
+  let jump = n < jump_until
+  let cmd = Cmd{x: 1, jump: jump, jump_edge: jump && !prev, down: false, down_edge: false, dive_edge: false, brace: false}
+  let now = layout::movers(self.elapsed + 1 + n)
+  let before = layout::movers(self.elapsed + n)
+  let mut out: Vec<Ev> = Vec::new()
+  let mut bb = b
+  bb.step(cmd, shipped_knobs(), self.changed, now, before, out)
+  return bb
+
+# Brake on what it landed on, and see whether it stays there.
+fn Session.foresee_settle(self: Session, b: Body, n: u32, m: u32) -> Body:
+  if m >= 16:
+    return b
+  let mut brake: i32 = 0
+  if b.vx.abs() > 150:
+    brake = -b.vx.signum()
+  let cmd = Cmd{x: brake, jump: false, jump_edge: false, down: false, down_edge: false, dive_edge: false, brace: false}
+  let step = n + 1 + m
+  let now = layout::movers(self.elapsed + 1 + step)
+  let before = layout::movers(self.elapsed + step)
+  let mut out: Vec<Ev> = Vec::new()
+  let mut bb = b
+  bb.step(cmd, shipped_knobs(), self.changed, now, before, out)
+  return self.foresee_settle(bb, n, m + 1)
+
+# `want` 0: standing on the mill roof; 1: standing on a wheel bucket.
+fn Session.foresee_want(b: Body, want: u32) -> bool:
+  if want == 0:
+    let roof = (MILL_OY + 8) * TILE
+    let foot = b.foot()
+    return b.ground && b.plank.is_none() && foot.1 == roof && foot.0 > (MILL_OX + 38) * TILE
+  return b.plank.is_some() && b.plank.unwrap() >= layout::WHEEL_ID
+
+# The body stepped `n` ticks with keys (1, jump while n < jump_until): whether `want` holds
+# where it comes to rest.
+fn Session.foresee_go(self: Session, b: Body, prev: bool, n: u32, limit: u32, jump_until: u32, settle: bool, want: u32) -> bool:
+  if n >= limit:
+    return false
+  let jump = n < jump_until
+  let nb = self.foresee_step(b, prev, n, jump_until, 0)
+  if n > 1 && nb.ground:
+    let mut rest = nb
+    if settle:
+      rest = self.foresee_settle(nb, n, 0)
+    return Session::foresee_want(rest, want)
+  if nb.foot().1 > HEIGHT * TILE:
+    return false
+  return self.foresee_go(nb, jump, n + 1, limit, jump_until, settle, want)
+
+fn Session.foresee(self: Session, k: Knight, limit: u32, jump_until: u32, settle: bool, want: u32) -> bool:
+  return self.foresee_go(k.body, (k.prev as u32) & B_JUMP != 0, 0, limit, jump_until, settle, want)
+
+# Ride the waterwheel: board it from the second pier, rise with it, take its spark at the
+# top, and hop to the mill's roof.
+fn Session.ride(self: Session, k: Knight) -> Input:
+  let b = k.body
+  let fx = b.foot().0
+  let held_jump = (k.prev as u32) & B_JUMP != 0
+  let cx = layout::WHEEL_X
+  let cy = layout::WHEEL_Y
+  let spark_x = MILL_OX + 33
+  let spark_y = MILL_OY + 5
+  if !b.ground:
+    # The jump for the spark goes straight up; every other goes on to the right.
+    let up = self.spark_missing(spark_x, spark_y) && b.vx.abs() < 300 && (fx - cx).abs() < 30
+    if up:
+      return keys(0, held_jump && b.vy < 0, false)
+    return keys(1, held_jump && b.vy < 0, false)
+  if b.plank.is_some() && b.plank.unwrap() >= layout::WHEEL_ID:
+    # Landed at speed: brake, or run off the far end.
+    if b.vx.abs() > 450:
+      return keys(-b.vx.signum(), false, false)
+    # At the top, for the spark above.
+    if self.spark_missing(spark_x, spark_y):
+      let ms = layout::movers(self.elapsed)
+      let pi = Self_plank(ms, b.plank.unwrap(), 0)
+      if pi < ms.len():
+        let p = ms[pi].p
+        let near_top = (p.x + p.w / 2 - cx).abs() <= 24 && p.y <= cy - 30
+        if near_top:
+          if (fx - cx).abs() <= 9:
+            return keys(0, !held_jump, false)
+          # Walk along the bucket to the spark's column, never off it.
+          let d = (cx - fx).signum()
+          if fx + d * 4 > p.x + 4 && fx + d * 4 < p.x + p.w - 4:
+            # A creep: never fast enough to leave the bucket.
+            if b.vx.abs() < 200:
+              return keys(d, false, false)
+            return keys(0, false, false)
+      return Input::default()
+    if self.foresee(k, 50, 17, false, 0):
+      return keys(1, !held_jump, false)
+    return Input::default()
+  # On the pier: run at the bucket as it comes, and jump when the jump would land on one;
+  # if not, brake at the edge and take another run.
+  let left = (MILL_OX + 24) * TILE
+  let right = (MILL_OX + 29) * TILE
+  if b.vx > 700 && self.foresee(k, 45, 16, true, 1):
+    return keys(1, !held_jump, false)
+  if fx >= right - 15 && b.vx > 300:
+    return keys(-1, false, false)
+  if b.vx < -100 && fx > left + 14:
+    return keys(-1, false, false)
+  return keys(1, false, false)
+
+# The index of the mover with this id, or past the end.
+fn Self_plank(ms: Vec<Mover>, id: u32, n: u32) -> u32:
+  if n >= ms.len():
+    return n
+  if ms[n].id == id:
+    return n
+  return Self_plank(ms, id, n + 1)
+
+# Climb between two close walls by kicks, timing a kick to pass through the spark or
+# banner at `target` when one is close.
+fn Session.climb(self: Session, k: Knight, tcx: i32, tcy: i32) -> Input:
+  let b = k.body
+  let held_jump = (k.prev as u32) & B_JUMP != 0
+  let x = b.foot().0
+  if b.ground:
+    # A lunge at the right wall; out of a notch, a lunge back across.
+    let mut lo: i32 = (SNOW_OX + 72) * TILE
+    let mut hi: i32 = (SNOW_OX + 76) * TILE
+    if inr(x.div_euclid(TILE), SHAFT_OX, SHAFT_OX + SHAFT_W):
+      lo = (SHAFT_OX + 6) * TILE
+      hi = (SHAFT_OX + 10) * TILE
+    let mut dd: i32 = 1
+    if x < lo + 6:
+      dd = 1
+    elif x > hi - 6:
+      dd = -1
+    return keys(dd, !held_jump, false)
+  if b.mode == Move::Wall:
+    let side = b.wall
+    # A key still down from the lunge is let go first, leaning on the wall.
+    if held_jump:
+      return keys(side, false, false)
+    let tx = centre_x(tcx)
+    let ty = tcy * TILE + TILE / 2
+    let fy = b.foot().1
+    # Past a spark still to be had: slide back down to it, not on up.
+    let spark = layout::spark_index(tcx, tcy) < 8
+    if spark && fy + 26 < ty:
+      return keys(side, false, false)
+    # Kick now, unless a short wait makes the arc pass through the target.
+    if (ty - fy).abs() < 90 && (tx - b.foot().0).abs() < 110:
+      let wait = self.kick_wait(k, 0, tx, ty)
+      if wait <= 56:
+        if wait == 0:
+          return keys(-side, true, false)
+        return keys(side, false, false)
+    return keys(-side, true, false)
+  # In the air: on toward the wall faced, holding what was begun.
+  return keys(b.face, held_jump && b.vy < 0, false)
+
+# The first wait in 0..=56 for which the kick passes through the target, or 57.
+fn Session.kick_wait(self: Session, k: Knight, wait: u32, tx: i32, ty: i32) -> u32:
+  if wait > 56:
+    return wait
+  if self.foresee_kick(k, wait, tx, ty):
+    return wait
+  return self.kick_wait(k, wait + 1, tx, ty)
+
+# Whether, sliding `wait` more ticks and then kicking off, the body passes through the box
+# around (tx, ty).
+fn Session.foresee_kick(self: Session, k: Knight, wait: u32, tx: i32, ty: i32) -> bool:
+  return self.kick_go(k.body, k.body.wall, 0, wait, wait + 36, tx, ty)
+
+fn Session.kick_go(self: Session, b: Body, side: i32, n: u32, wait: u32, limit: u32, tx: i32, ty: i32) -> bool:
+  if n >= limit:
+    return false
+  let kick = n == wait
+  let mut x: i32 = -side
+  if n < wait:
+    x = side
+  let cmd = Cmd{x: x, jump: kick, jump_edge: kick, down: false, down_edge: false, dive_edge: false, brace: false}
+  let mut out: Vec<Ev> = Vec::new()
+  let mut bb = b
+  bb.step(cmd, shipped_knobs(), self.changed, Vec::new(), Vec::new(), out)
+  let (l0, t0, r0, b0) = bb.rect()
+  let l = l0 / Q
+  let t = t0 / Q
+  let r = r0 / Q
+  let bt = b0 / Q
+  if l < tx + 8 && r > tx - 8 && t < ty + 8 && bt > ty - 8:
+    return n >= wait
+  # The arc ends at the next wall or floor.
+  if n > wait && (bb.ground || bb.mode == Move::Wall):
+    return false
+  return self.kick_go(bb, side, n + 1, wait, limit, tx, ty)
+
+# King Cinder: keep out of what is marked, and when his crown is low, go up onto it and slam.
+fn Session.fight(self: Session, k: Knight) -> Input:
+  let bo = self.boss
+  let b = k.body
+  let (fx, fy) = b.foot()
+  let held_jump = (k.prev as u32) & B_JUMP != 0
+  let held_down = (k.prev as u32) & B_DOWN != 0
+  let floor = boss::floor()
+  let ground = b.ground && (b.mode == Move::Ground || b.mode == Move::Belly)
+  let lo = (SUMMIT_OX + 5) * TILE
+  let hi = (SUMMIT_OX + 36) * TILE
+  let on_head = b.plank.is_some() && b.plank.unwrap() == BOSS_ID
+  if bo.beat == BossBeat::Dormant:
+    # Walk in to wake him.
+    if fx < boss::home() - 120:
+      return keys(1, false, false)
+    return keys(0, false, false)
+  # What is marked: the knight steps off it, or hops a wave.
+  let (hop, flee, away) = self.flee(bo.hazards, 0, fx, fy, ground, floor, false, 0)
+  if hop:
+    return keys(0, !held_jump, false)
+  if flee:
+    let mut dd: i32 = away
+    if (dd > 0 && fx > hi - 10) || (dd < 0 && fx < lo + 10):
+      dd = -dd
+    # The hop is held off: leaving a mark is a step, not a jump.
+    return keys(dd, false, false)
+  let dx = bo.x - fx
+  if bo.beat == BossBeat::Wince && bo.plates > 0:
+    if !ground && !on_head:
+      # Over the crown: come down on it.
+      if b.mode == Move::Air && b.vy > 0 && dx.abs() <= 20:
+        return keys(0, false, !held_down)
+      if b.mode == Move::Air && b.vy > 0 && fy < floor - 4 && dx.abs() > 20:
+        return keys(dx.signum(), false, false)
+      return keys(dx.signum(), held_jump && b.vy < 0, false)
+    if on_head:
+      # Another blow from where it stands.
+      return keys(0, !held_jump, false)
+    if dx.abs() > 60:
+      return keys(dx.signum(), false, false)
+    # A running jump onto the head.
+    return keys(dx.signum(), !held_jump, false)
+  if bo.beat == BossBeat::Rage || bo.beat == BossBeat::Down:
+    return keys(0, false, false)
+  # Keep a distance, on the side held, and off his head.
+  if on_head:
+    if dx >= 0:
+      return keys(-1, false, false)
+    return keys(1, false, false)
+  let mut want: i32 = bo.x - 120
+  if fx >= bo.x:
+    want = bo.x + 120
+  want = want.clamp(lo, hi)
+  let dd = (want - fx).signum()
+  if (want - fx).abs() < 6:
+    return keys(0, false, false)
+  return keys(dd, false, false)
+
+# The hazards in order: (hop a wave, step off a mark, the side to step to). A wave to hop
+# ends the scan at once; a mark sets the side (the last one wins).
+fn Session.flee(self: Session, hs: Vec<Hazard>, n: u32, fx: i32, fy: i32, ground: bool, floor: i32, flee: bool, away: i32) -> (bool, bool, i32):
+  if n >= hs.len():
+    return (false, flee, away)
+  let h = hs[n]
+  if h.live == 0 && h.tell == 0:
+    return self.flee(hs, n + 1, fx, fy, ground, floor, flee, away)
+  let r = h.rect()
+  if h.vx != 0:
+    # A wave: hop it when it is near.
+    let c = (r.0 + r.2) / 2
+    let toward = (fx - c) * h.vx > 0
+    if toward && (fx - c).abs() < 40 && ground && (fy - floor).abs() < 3 && h.tell == 0:
+      return (true, flee, away)
+    return self.flee(hs, n + 1, fx, fy, ground, floor, flee, away)
+  if fx > r.0 - 18 && fx < r.2 + 18:
+    let mid = (r.0 + r.2) / 2
+    let mut side: i32 = -1
+    if fx >= mid:
+      side = 1
+    # A column is narrow; a sweep is long: leave by the near end.
+    return self.flee(hs, n + 1, fx, fy, ground, floor, true, side)
+  return self.flee(hs, n + 1, fx, fy, ground, floor, flee, away)
+
+# The hint glyph at the body's cell (or the one above), 0 for none.
+fn Session.hint_here(self: Session, b: Body) -> u32:
+  let (fx, fy) = b.foot()
+  let cx = fx.div_euclid(TILE)
+  let cy = (fy - 1).div_euclid(TILE)
+  # The cellar's steps are for the way out.
+  if inr(cx, HUB_OX + 13, HUB_OX + 34) && cy >= HUB_OY + 20 && (self.banners as u32) & 2 == 0:
+    return 0
+  let h = layout::hint_at(cx, cy)
+  if h != 0:
+    return h
+  return layout::hint_at(cx, cy - 1)
+
+# Walk toward `d`, hopping what is ahead.
+fn Session.walk_with_hops(self: Session, k: Knight, d: i32) -> Input:
+  let held_jump = (k.prev as u32) & B_JUMP != 0
+  if d == 0:
+    return Input::default()
+  if self.obstacle_ahead(k, d, true):
+    return keys(d, !held_jump, false)
+  return keys(d, false, false)
+
+fn Session.solid_or_ledge(self: Session, x: i32, fy: i32) -> bool:
+  let t = self.changed.tile(x.div_euclid(TILE), fy.div_euclid(TILE))
+  return Tile::solid(t) || Tile::one_way(t)
+
+fn Session.drop_floor(self: Session, foot_ahead: i32, fy: i32, r: i32) -> bool:
+  if r > 3:
+    return false
+  if Tile::solid(self.changed.tile(foot_ahead.div_euclid(TILE), fy.div_euclid(TILE) + r)):
+    return true
+  return self.drop_floor(foot_ahead, fy, r + 1)
+
+fn Session.foe_ahead(self: Session, n: u32, fx: i32, fy: i32, d: i32) -> bool:
+  if n >= self.foes.len():
+    return false
+  let f = self.foes[n]
+  if f.alive():
+    let fxp = f.x.div_euclid(Q)
+    let fyp = f.y.div_euclid(Q)
+    let ahead = (fxp - fx) * d
+    if inr(ahead, 4, 42) && (fyp - fy).abs() < 22:
+      return true
+  return self.foe_ahead(n + 1, fx, fy, d)
+
+fn Session.boulder_ahead(self: Session, n: u32, fx: i32, fy: i32, d: i32) -> bool:
+  if n >= self.boulders.len():
+    return false
+  let bx = self.boulders[n].x.div_euclid(Q)
+  let ahead = (bx - fx) * d
+  if inr(ahead, 0, 78) && (layout::SNOW_FLOOR * TILE - fy).abs() < 8:
+    return true
+  return self.boulder_ahead(n + 1, fx, fy, d)
+
+# Whether a hop is wanted now: a wall, a gap's lip, spikes, a foe, a boulder.
+fn Session.obstacle_ahead(self: Session, k: Knight, d: i32, gaps: bool) -> bool:
+  let b = k.body
+  let (fx, fy) = b.foot()
+  let g = self.changed
+  let half = b.dims().0 / 2
+  # A wall right ahead.
+  let lead = fx + d * (half + 3)
+  if Tile::solid(g.tile(lead.div_euclid(TILE), (fy - 4).div_euclid(TILE))) || Tile::solid(g.tile(lead.div_euclid(TILE), (fy - 12).div_euclid(TILE))) || Tile::solid(g.tile(lead.div_euclid(TILE), (fy - 22).div_euclid(TILE))):
+    return true
+  # Spikes ahead.
+  let sy = (fy - 1).div_euclid(TILE)
+  if g.tile((fx + d * 8).div_euclid(TILE), sy) == SPIKES || g.tile((fx + d * 16).div_euclid(TILE), sy) == SPIKES || g.tile((fx + d * 24).div_euclid(TILE), sy) == SPIKES:
+    return true
+  # The lip of a gap: no footing a step ahead.
+  let foot_ahead = fx + d * (half + 2)
+  if gaps && b.ground && b.plank.is_none() && !self.solid_or_ledge(foot_ahead, fy) && !self.solid_or_ledge(fx + d * (half + 8), fy):
+    # Only a real gap: no floor within a short drop either.
+    if !self.drop_floor(foot_ahead, fy, 1):
+      return true
+  # A foe ahead on our level.
+  if self.foe_ahead(0, fx, fy, d):
+    return true
+  # A bell boulder rolling at us.
+  return self.boulder_ahead(0, fx, fy, d)
+
+
+# --- the cases: a bot case is the session and a seat's id; the knight is seats[id].
+fn Session.bot_input_c(self: Session, id: u32) -> Input:
+  return self.bot_input(id, Hero{away: false, stone: false, carried: Map::new()})
+
+fn Session.goal_c(self: Session, id: u32) -> Goal:
+  return self.goal(self.seats[id])
+
+fn Session.drive_c(self: Session, id: u32, goal: Goal) -> Input:
+  return self.drive(self.seats[id], goal)
+
+fn Session.mill_goal_c(self: Session, id: u32) -> Goal:
+  return self.mill_goal(self.seats[id])
+
+fn Session.shaft_goal_c(self: Session, id: u32) -> Goal:
+  return self.shaft_goal(self.seats[id])
+
+fn Session.snow_goal_c(self: Session, id: u32) -> Goal:
+  return self.snow_goal(self.seats[id])
+
+fn Session.summit_goal_c(self: Session, id: u32) -> Goal:
+  return self.summit_goal(self.seats[id])
+
+fn Session.ride_c(self: Session, id: u32) -> Input:
+  return self.ride(self.seats[id])
+
+fn Session.fight_c(self: Session, id: u32) -> Input:
+  return self.fight(self.seats[id])
+
+fn Session.climb_c(self: Session, id: u32, x: i32, y: i32) -> Input:
+  return self.climb(self.seats[id], x, y)
+
+fn Session.foresee_kick_c(self: Session, id: u32, wait: u32, tx: i32, ty: i32) -> bool:
+  return self.foresee_kick(self.seats[id], wait, tx, ty)
+
+fn Session.walk_with_hops_c(self: Session, id: u32, d: i32) -> Input:
+  return self.walk_with_hops(self.seats[id], d)
+
+fn Session.obstacle_ahead_c(self: Session, id: u32, d: i32, gaps: bool) -> bool:
+  return self.obstacle_ahead(self.seats[id], d, gaps)
+
+fn Session.hint_here_c(self: Session, id: u32) -> u32:
+  return self.hint_here(self.seats[id].body)
+
+fn Session.spark_missing_c(self: Session, x: i32, y: i32) -> bool:
+  return self.spark_missing(x, y)
+
+case Session.bot_input via Session.bot_input_c: session=self
+case Session.goal via Session.goal_c: session=self
+case Session.drive via Session.drive_c: session=self
+case Session.mill_goal via Session.mill_goal_c: session=self
+case Session.shaft_goal via Session.shaft_goal_c: session=self
+case Session.snow_goal via Session.snow_goal_c: session=self
+case Session.summit_goal via Session.summit_goal_c: session=self
+case Session.ride via Session.ride_c: session=self
+case Session.fight via Session.fight_c: session=self
+case Session.climb via Session.climb_c: session=self
+case Session.foresee_kick via Session.foresee_kick_c: session=self
+case Session.walk_with_hops via Session.walk_with_hops_c: session=self
+case Session.obstacle_ahead via Session.obstacle_ahead_c: session=self
+case Session.hint_here via Session.hint_here_c: session=self
+case Session.spark_missing via Session.spark_missing_c: session=self

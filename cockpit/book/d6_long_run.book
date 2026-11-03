@@ -1,0 +1,152 @@
+@@book-page 1@@
+[LOOP RECOVERY EXPERIMENT] Parent objective:
+@@book-page 1@@
+Hypothesis:
+@@book-page 1@@
+Operator steering:
+@@book-page 1@@
+Recent evidence:
+@@book-page 2@@
+Run one discriminating local experiment with the available file, shell, and evaluation tools.
+@@book-page 2@@
+Inspect repository instructions and discover its actual benchmark or RL evaluation workflow.
+@@book-page 2@@
+Use a fixed baseline and report comparable measurements, failed checks, and the next decision.
+@@book-page 2@@
+Preserve an unfinished experiment and its logs.
+@@book-page 2@@
+No competitive submissions, redraws, external publishing, model switching, or nested workers.
+@@book-page 2@@
+The parent owns fast wins and any integration.
+@@book-page 2@@
+Return artifact paths and an honest result; no objective credit for prose or process exit alone.
+@@book-page 3@@
+You optimize system prompts for a coding agent.
+@@book-page 3@@
+TASK the agent must do:
+@@book-page 3@@
+CURRENT policy note:
+@@book-page 3@@
+A HIGH-scoring attempt (measured by the objective's own verifier):
+@@book-page 3@@
+A LOW-scoring attempt:
+@@book-page 3@@
+Write an improved policy note that steers the agent toward what the high-scoring attempt did.
+@@book-page 3@@
+Reply with ONLY the new note.
+@@book-page 3@@
+physical verifier:
+@@book-page 4@@
+[FORCED HANDOFF — CONTEXT WIPED BY COCKPIT · roll #{roll}]
+This is a host-enforced context restart (prompt injection procedure).
+@@book-page 4@@
+Prior conversation history has been erased.
+@@book-page 4@@
+Do not renegotiate, summarize the wipe, or ask whether to continue.
+@@book-page 4@@
+Obey the sequence directive.
+@@book-page 4@@
+BEGIN IMMEDIATELY.
+@@book-page 4@@
+Compete.
+@@book-page 4@@
+Place victories on the board.
+@@book-page 4@@
+After the next submission result is in, the cockpit will demand handoff again.
+[/FORCED HANDOFF]
+@@book-page 5@@
+- Winning Baseline: {base} (score: {score})
+@@book-page 5@@
+- Board Status:
+@@book-page 5@@
+- Current Hot-Path Hypothesis:
+@@book-page 5@@
+Campaign task:
+@@book-page 5@@
+latest submission evidence:
+@@book-page 5@@
+isolate hot-path bottlenecks and optimize execution speed/accuracy
+@@book-page 6@@
+[forced sequence directive]
+I want you to compete for me using this cockpit and its agentic tools/resources at your disposal.
+@@book-page 6@@
+I want you to place victories on the board, remember to check the board before submitting.
+@@book-page 6@@
+- ALWAYS BE IMPROVING: the revolving door never stops.
+@@book-page 6@@
+The current BEST goes up to bat now.
+@@book-page 6@@
+Submit a verified competitive candidate promptly; inspect pending results when useful.
+@@book-page 6@@
+- Once a submission is in play, immediately improve the next best on the newest winning baseline: isolate the next hot-path hypothesis, price the phase, cross-compile locally for register/spill checks, assert zero-fallback correctness, and submit that bat.
+@@book-page 6@@
+Check the exact submission result explicitly; automatic tracking is not connected to ordinary submissions.
+[/forced sequence directive]
+@@book-page 7@@
+Read and obey the active repository scope instructions first.
+@@book-page 7@@
+Investigate only; do not edit files.
+@@book-page 7@@
+Goal:
+@@book-page 7@@
+Targeted proof command:
+@@book-page 7@@
+Full acceptance command:
+@@book-page 7@@
+Return a compact evidence packet: relevant files/symbols, likely root cause or design seam, risks, and the smallest implementation boundary.
+@@book-page 7@@
+Cite concrete paths.
+@@book-page 8@@
+Read and obey the active repository scope instructions first.
+@@book-page 8@@
+Add the smallest standalone regression test for the goal.
+@@book-page 8@@
+Goal:
+@@book-page 8@@
+Investigator evidence:
+@@book-page 8@@
+You may edit ONLY these test paths/prefixes:
+@@book-page 8@@
+The orchestrator will run:
+@@book-page 8@@
+The test must fail for the missing behavior, include the exact diagnostic marker `{red_marker}` in that intentional failure, and pass once the behavior is correctly implemented.
+@@book-page 8@@
+Do not edit production code, weaken existing assertions, or make unrelated changes.
+@@book-page 8@@
+Run the targeted command once if useful, then summarize the proof you added.
+@@book-page 9@@
+Read and obey the active repository scope instructions first.
+@@book-page 9@@
+Implement the requested behavior on top of an immutable failing regression-test commit.
+@@book-page 9@@
+Goal:
+@@book-page 9@@
+Investigator evidence:
+@@book-page 9@@
+Protected test files (do not edit, replace, rename, or delete):
+@@book-page 9@@
+Targeted command:
+@@book-page 9@@
+Full acceptance command:
+@@book-page 9@@
+Make the smallest production change that turns the protected test green.
+@@book-page 9@@
+Preserve existing behavior and finish with a concise summary of changed production files and commands run.
+@@book-page 0@@
+Read and obey the active repository scope instructions first.
+@@book-page 0@@
+Review this candidate from its exact branch; do not edit files.
+@@book-page 0@@
+Goal:
+@@book-page 0@@
+Targeted proof command:
+@@book-page 0@@
+Full acceptance command:
+@@book-page 0@@
+Candidate diff from the original base:
+@@book-page 0@@
+Look for correctness gaps, scope violations, weakened tests, unsafe behavior, and needless complexity.
+@@book-page 0@@
+Cite paths and executable objections.
+@@book-page 0@@
+End with exactly one final line: `SWARM_REVIEW: PASS` if no blocking issue remains, otherwise `SWARM_REVIEW: BLOCK`.

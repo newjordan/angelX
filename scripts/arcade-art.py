@@ -2,7 +2,7 @@
 """Rebuild the hand-drawn knight and retained arcade effects at native grain.
 
 python scripts/arcade-art.py build
-python scripts/arcade-art.py review --output /work/artifacts/boss-art-20261015/style-1
+python scripts/arcade-art.py review --output ~/angel-art/boss-art-20261015/style-1
 Cargo's build script owns the hard gate; no filtering or palette work at runtime.
 """
 import argparse
@@ -10,11 +10,16 @@ from collections import Counter
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT/'crates/delve/assets/arcade'
+# The source art left the repository on 2026-10-20 for the archive (its
+# README.md says what each folder is); ANGEL_SOURCE_ART names it
+# (default ~/angelX-archive/2026-10-20/source-art).
+SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 # The only extra pigments: six cloth reds, two ember oranges.
 EXTRA = ['38212d','61303b','853d43','ad4e49','cc6854','dc8768','a34828','d77b39']
 RAMPS = {
@@ -165,8 +170,8 @@ def build():
     knight.build(folder,STATES)
     fxspec=importlib.util.spec_from_file_location('fx_polish',ROOT/'scripts/arcade-fx-polish.py')
     fx_polish=importlib.util.module_from_spec(fxspec);fxspec.loader.exec_module(fx_polish)
-    if (ASSETS/'source/fx.png').exists():
-        source=Image.open(ASSETS/'source/fx.png');folder=ASSETS/'fx';folder.mkdir(exist_ok=True)
+    if (SOURCE_ART/'arcade/source/fx.png').exists():
+        source=Image.open(SOURCE_ART/'arcade/source/fx.png');folder=ASSETS/'fx';folder.mkdir(exist_ok=True)
         manifest={'version':1,'canvas':[64,64],'anchor':[32,54],'states':{}};index=0
         for state,n,duration in FX:
             frames=[]
@@ -222,6 +227,6 @@ if __name__=='__main__':
     if a.command=='build':build()
     elif a.command=='review':review(a.output)
     else:
-        env=dict(os.environ,TMPDIR='/work/tmp',ANGEL_CARTRIDGES='/work/tmp/empty-cartridges')
-        env.setdefault('CARGO_TARGET_DIR','/work/build-cache/bossart-crates')
+        env=dict(os.environ,ANGEL_CARTRIDGES=str(Path(tempfile.gettempdir())/'empty-cartridges'))
+        env.setdefault('CARGO_TARGET_DIR',str(ROOT/'target/bossart-crates'))
         subprocess.run(['cargo','build','--manifest-path',str(ROOT/'crates/Cargo.toml'),'-p','angel-delve','--locked'],env=env,check=True)

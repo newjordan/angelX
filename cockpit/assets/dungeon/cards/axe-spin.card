@@ -2,7 +2,7 @@
 name   Axe Spin
 kind   guard
 rarity rare
-text   Space spins both axes round you, hardest on the nearest three; shots are cut down. A breath between.
+text   Space: axes spin, cutting foes and shots. Pause between spins.
 drop   0
 chest  0
 guard  spin

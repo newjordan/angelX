@@ -4,7 +4,7 @@
 //! that they haven't done yet. He was a toad once, for a fortnight, and has
 //! opinions about witches.
 
-use super::talents::knight_key;
+use super::talents::profile_key;
 use super::*;
 
 /// Where Merlin stands in the Undercroft (tiles): west of the stair.
@@ -23,7 +23,7 @@ impl Run {
         let lesson = self
             .players
             .values()
-            .any(|h| home.prowess(&knight_key(h)).waiting() > 0);
+            .any(|h| home.prowess(&profile_key(h)).waiting() > 0);
         if home.levels.is_empty() {
             "build"
         } else if home.barony.court == super::barony::Court::Camped {

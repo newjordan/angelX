@@ -1,0 +1,73 @@
+{
+  "api_version": 2,
+  "id": "abilities",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 2,
+  "assets": [],
+  "exports": [
+    {
+      "kind": "command",
+      "name": "ability",
+      "contract": "command/1"
+    },
+    {
+      "kind": "command",
+      "name": "character",
+      "contract": "command/1"
+    },
+    {
+      "kind": "command",
+      "name": "loadout",
+      "contract": "command/1"
+    },
+    {
+      "kind": "surface",
+      "name": "abilities",
+      "contract": "surface/1"
+    },
+    {
+      "kind": "surface",
+      "name": "characters",
+      "contract": "surface/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-1",
+      "contract": "character-loadout/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-2",
+      "contract": "character-loadout/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-3",
+      "contract": "character-loadout/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-4",
+      "contract": "character-loadout/1"
+    }
+  ],
+  "imports": [
+    {
+      "module": "ability-code",
+      "contract": "ability-pack/1"
+    },
+    {
+      "module": "characters",
+      "contract": "character-art-pack/1"
+    },
+    {
+      "module": "ability-sounds",
+      "contract": "sound-pack/1"
+    },
+    {
+      "module": "ability-effects",
+      "contract": "effect-pack/1"
+    }
+  ]
+}

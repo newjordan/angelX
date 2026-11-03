@@ -17,7 +17,9 @@ dependencies retain their own licenses and notices.
 | [OpenScience](https://github.com/synthetic-sciences/openscience) — Synthetic Sciences and contributors | Literature-layer design port in Rust; the source identifies the `newjordan/openscience` fork. | [Apache-2.0](third-party/openscience-LICENSE.txt), [upstream NOTICE](third-party/openscience-NOTICE.txt); [local implementation](cockpit/src/drive/science.rs). The retained NOTICE describes upstream OpenScience's broader dependencies. |
 | Sloptomizer — newjordan | Ten selected original Python algorithm modules, with an Angel integration adapter. | [Original revision and file hashes](cockpit/research/sloptomizer/UPSTREAM.json), [integration scope](cockpit/research/sloptomizer/README.md). |
 | [GEPA](https://github.com/gepa-ai/gepa) — GEPA authors and contributors | Prompt-evolution and Pareto-selection design references. | Research citation and local implementation links below. |
+| [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) — Carrois Type Design, Ralph du Carrois | The Heartglass panel's typeface, bundled in the binary. | [SIL Open Font License 1.1](third-party/share-tech-mono-OFL.txt) |
 | [Dotmax](https://github.com/newjordan/dotmax) — Frosty and contributors | Vendored terminal graphics library. | [MIT](vendor/dotmax/LICENSE-MIT) / [Apache-2.0](vendor/dotmax/LICENSE-APACHE); [manifest](vendor/dotmax/Cargo.toml). |
+| [alacritty_terminal](https://github.com/alacritty/alacritty) — the Alacritty contributors | glass, the terminal in `crates/term`, is built on its terminal engine (crates.io dependency, version 0.26.0). | [Apache-2.0](https://github.com/alacritty/alacritty/blob/master/LICENSE-APACHE). |
 | [ureq](https://github.com/algesten/ureq) — Martin Algesten, Jacob Hoffman-Andrews and contributors | Vendored HTTP client with Angel's cancellable-connection patch. | [MIT](vendor/ureq/LICENSE-MIT) / [Apache-2.0](vendor/ureq/LICENSE-APACHE); [patch description](vendor/ureq/ANGEL_PATCH.md). |
 | [Ratatui](https://github.com/ratatui/ratatui), [Crossterm](https://github.com/crossterm-rs/crossterm), [rusty_v8](https://github.com/denoland/rusty_v8), [V8](https://v8.dev) and dependency contributors | Terminal UI, terminal I/O and JavaScript execution. | Exact dependency versions are in [Cargo.lock](cockpit/Cargo.lock); license metadata accompanies the [source-release manifest](docs/release-evidence.md). |
 | Project owner / OpenAI ImageGen | Bundled portraits, world art and other project imagery; Excalibur derives from owner-supplied video. | [Artwork declaration](cockpit/assets/README.md), [Excalibur provenance](cockpit/assets/excalibur/README.md). |
@@ -50,3 +52,13 @@ The file-tool design also cites [Claude Code](https://github.com/anthropics/clau
 [aider](https://github.com/Aider-AI/aider) and [OpenHands](https://github.com/OpenHands/OpenHands)
 as interface references in [context.rs](cockpit/src/agent/harness/context.rs).
 The searchable sources retain their own metadata and content terms.
+
+## Bend 2
+
+The generated JavaScript in `cockpit/live/ability-code/fairies.compiled.js`
+contains runtime and Base helpers emitted by [Bend](https://github.com/bendlang/bend),
+version 2.0.39 at commit `221a350c2f7f7134884740018e6e90001fb6d230`.
+Bend is distributed under the Apache License, Version 2.0; the license is
+retained in [third-party/bend-LICENSE.txt](third-party/bend-LICENSE.txt).
+The optional developer compiler is installed separately from that pinned
+upstream source. Retrieval provenance is recorded in `third-party/sources.json`.

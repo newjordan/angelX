@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.brick",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.brick/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.brick/v01/source-sheet.png",
   "source_sha256": "5df6155c316386b0eca8cc7b098a06a6179f4058dfce533722b795742902ab37",
   "tool_version": 2
 }

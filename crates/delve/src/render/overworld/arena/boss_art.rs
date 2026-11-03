@@ -11,22 +11,21 @@ include!(concat!(env!("OUT_DIR"), "/boss_assets.rs"));
 pub(super) use pit_debt::{leviathan_laser, ravage};
 pub(super) use library::registered as library_registered;
 pub(super) use library::in_cells as library_cells;
-pub(super) use library::{ground as library_ground, ground_v2 as library_ground_v2, hidden as library_hidden};
+pub(super) use library::{ground as library_ground, hidden as library_hidden};
 #[cfg(feature = "testing")]
 pub(super) use library::floor_review as library_floor_review;
 #[cfg(feature = "boss-library-review")]
 pub(super) use library::review as library_review;
 
-pub(super) fn library_figure(run: &Run, enemy: &Enemy, art: Art, modern: bool) -> Option<Arc<Img>> {
-    library::figure(run, enemy, art, modern, true)
+pub(super) fn library_figure(run: &Run, enemy: &Enemy, art: Art) -> Option<Arc<Img>> {
+    library::figure(run, enemy, art)
 }
 
 /// Fill existing effect and display caches without touching a simulation.
 pub(super) fn warm() {
-    let modern = super::art_v2::enabled();
     for art in Art::ALL {
         let _ = kit(art);
-        library::warm(art, modern);
+        library::warm(art);
     }
     let _ = warning_inks();
 }
@@ -55,11 +54,8 @@ struct EffectSlots {
 #[derive(serde::Deserialize)]
 struct EffectDisplay {
     v1: [i32; 2],
-    v2: [i32; 2],
     #[serde(default)]
     study_v1: Vec<[i32;2]>,
-    #[serde(default)]
-    study_v2: Vec<[i32;2]>,
 }
 
 /// Registered warning pigments win a reduced footprint over decorative material.
@@ -121,15 +117,9 @@ struct Effects {
 
 struct Kit {
     body: Img,
-    study: Img,
-    lights: Img,
-    effects: [Effects; 2],
-    projectile_v2: Option<[[Img; 4]; 2]>,
+    effects: Effects,
     #[cfg(any(test,feature="testing"))]
-    projectile_trials: [OnceLock<Vec<[[Img;4];2]>>;2],
-    figures: Mutex<BTreeMap<(i32, i32, bool), Arc<[Img; 4]>>>,
-    light_figures: Mutex<BTreeMap<(i32, i32, bool), Arc<Img>>>,
-    material_floors: Mutex<BTreeMap<(i32, i32, bool), Arc<Img>>>,
+    projectile_trials: OnceLock<Vec<[[Img;4];2]>>,
 }
 
 fn resize(src: &Img, w: i32, h: i32) -> Img {
@@ -193,8 +183,6 @@ fn ring_segment(src: &Img, direction: usize) -> Img {
 fn bake(
     art: Art,
     body: Img,
-    study: Img,
-    lights: Img,
     projectile: [&[u8]; 2],
     tell: [&[u8]; 4],
     impact: [&[u8]; 5],
@@ -258,46 +246,11 @@ fn bake(
         impact: impact.map(png),
         lane,
     };
-    let mut modern = effects.clone();
-    if pit_debt(art) {
-        // Bake the subcell exposure into the three assigned effect caches.
-        // A shared gain preserves pigment ratios and bounds the peak at 242.
-        let lift = |im: &mut Img| {
-            for y in 0..im.h {
-                for x in 0..im.w {
-                    if let Some(c) = im.get(x, y) {
-                        im.set(x, y, effect_exposure(c));
-                    }
-                }
-            }
-        };
-        for frame in &mut modern.projectile { for im in frame { lift(im); } }
-        for im in &mut modern.tell { lift(im); }
-        for im in &mut modern.ring_glyph { lift(im); }
-        for stage in &mut modern.ring_segments { for im in stage { lift(im); } }
-        for im in &mut modern.impact { lift(im); }
-    }
     Kit {
         #[cfg(any(test,feature="testing"))]
         projectile_trials: Default::default(),
         body,
-        study,
-        lights,
-        effects: [effects, modern],
-        projectile_v2: effect_slots(art.id()).projectile_v2.as_ref().map(|frames| {
-            frames.each_ref().map(|name| {
-                let p = png(file(&format!("{}/{name}", art.id())));
-                let display = effect_slots(art.id()).display.as_ref().expect("effect display sizes");
-                assert_eq!([p.w, p.h], display.v2);
-                let native=png(projectile[0]);
-                assert_eq!([native.w,native.h], display.v1);
-                let p1=turn(&p); let p2=turn(&p1); let p3=turn(&p2);
-                [p,p1,p2,p3]
-            })
-        }),
-        figures: Mutex::new(BTreeMap::new()),
-        light_figures: Mutex::new(BTreeMap::new()),
-        material_floors: Mutex::new(BTreeMap::new()),
+        effects,
     }
 }
 
@@ -310,12 +263,6 @@ fn kit(art: Art) -> &'static Kit {
                 bake(
                     art,
                     png(asset!($id, "v1")),
-                    png(include_bytes!(concat!(
-                        "../../../../../../cockpit/assets/dungeon/bosses/",
-                        $id,
-                        "/v2.png"
-                    ))),
-                    png(asset!($id, "v2-lights")),
                     std::array::from_fn(|i| file(&format!("{}/{}", $id, slots.projectile[i]))),
                     std::array::from_fn(|i| file(&format!("{}/{}", $id, slots.tell[i]))),
                     std::array::from_fn(|i| file(&format!("{}/{}", $id, slots.impact[i]))),
@@ -351,11 +298,6 @@ fn kit(art: Art) -> &'static Kit {
     }
 }
 
-/// Earlier study bodies remain the fallback for their twelve registered IDs.
-pub(super) fn legacy(art: Art) -> bool {
-    matches!(art, Art::Cinderjaw | Art::Index | Art::Mother | Art::Waxen | Art::Choir | Art::Marshal | Art::TaxKeeper | Art::RelicLiege | Art::IronTusk | Art::RedPick | Art::Foreman | Art::Leviathan)
-}
-
 /// Other bosses retain their original definition art until the library gate passes.
 /// Each delivered bank is decoded lazily, once, with the same effect baker.
 fn delivered_kit(art: Art) -> &'static Kit {
@@ -365,7 +307,7 @@ fn delivered_kit(art: Art) -> &'static Kit {
             let boss = crate::rules::bosses::checked(art.id()).unwrap();
             let body = Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>());
             let slots = effect_slots(art.id());
-            bake(art, body.clone(), body, Img::new(0,0),
+            bake(art, body,
                 std::array::from_fn(|i| file(&format!("{}/{}",art.id(),slots.projectile[i]))),
                 std::array::from_fn(|i| file(&format!("{}/{}",art.id(),slots.tell[i]))),
                 std::array::from_fn(|i| file(&format!("{}/{}",art.id(),slots.impact[i]))))
@@ -379,7 +321,7 @@ fn effect_exposure(c: [u8; 3]) -> [u8; 3] {
 }
 
 fn effects(art: Art) -> &'static Effects {
-    &kit(art).effects[usize::from(crate::settings::get().art_v2)]
+    &kit(art).effects
 }
 
 pub(super) fn mother_body() -> Img {
@@ -390,12 +332,6 @@ pub(super) fn body(art: Art) -> Img {
     kit(art).body.clone()
 }
 
-fn cell_emission(c: [u8; 3]) -> [u8; 3] {
-    let peak = u32::from(*c.iter().max().unwrap());
-    let gain = 242 * 256 / peak.max(1);
-    c.map(|v| (u32::from(v) * gain / 256) as u8)
-}
-
 /// Match the cached enlarged effect pigment to its native-kit ink. At low
 /// coverage the cue owns its half-cell, retaining V1's brightness and hue.
 pub(super) fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
@@ -403,15 +339,14 @@ pub(super) fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
     INKS.get_or_init(|| {
         let mut inks = BTreeMap::new();
         for art in [Art::RedPick, Art::Foreman, Art::Leviathan] {
-            let cache = kit(art);
-            let (native, modern) = (&cache.effects[0], &cache.effects[1]);
-            let pairs = native.projectile.iter().flatten().zip(modern.projectile.iter().flatten())
-                .chain(native.tell.iter().zip(&modern.tell))
-                .chain(native.impact.iter().zip(&modern.impact));
-            for (a, b) in pairs {
+            // The enlarged effect frames are the native ones at a raised
+            // exposure (`effect_exposure`).
+            let native = &kit(art).effects;
+            let frames = native.projectile.iter().flatten().chain(&native.tell).chain(&native.impact);
+            for a in frames {
                 for y in 0..a.h {
                     for x in 0..a.w {
-                        if let (Some(a), Some(b)) = (a.get(x, y), b.get(x, y)) { inks.insert(b, a); }
+                        if let Some(a) = a.get(x, y) { inks.insert(effect_exposure(a), a); }
                     }
                 }
             }
@@ -448,112 +383,12 @@ pub(super) fn cell_projectile_core(c: [u8; 3]) -> bool {
 /// The furnace core owns its half-cell even at low coverage. Match the exact
 /// cached emitter pigment, never a luminance threshold that also lifts plates.
 pub(super) fn cell_signature_core(c: [u8; 3]) -> bool {
-    static CORE: OnceLock<[u8; 3]> = OnceLock::new();
     // These exact local prop pigments retain their colour block at low
     // coverage: the captain's steel head/red haft and the overseer's whips.
     if matches!(c, [138,150,160] | [184,58,46] | [106,68,38]) { return true; }
-    c == *CORE.get_or_init(|| {
-        let lights = &kit(Art::Cinderjaw).lights;
-        let mut core = [0; 3];
-        let rank = |c: [u8; 3]| 299 * u32::from(c[0]) + 587 * u32::from(c[1]) + 114 * u32::from(c[2]);
-        for y in 0..lights.h {
-            for x in 0..lights.w {
-                if let Some(c) = lights.get(x, y) {
-                    if rank(c) > rank(core) { core = c; }
-                }
-            }
-        }
-        cell_emission(core)
-    })
-}
-
-/// Retain cached material presence and authored emitter hues after room light.
-/// Cell emission is separate so body exposure cannot wash out the core.
-pub(super) fn paint_signature_lights(
-    cv: &mut super::art_v2::paint::Canvas,
-    run: &Run,
-    enemy: &Enemy,
-    art: Art,
-    cell_path: bool,
-) {
-    // The source body contains its own furnace/gill glints. Old light masks
-    // belong to the earlier drawing and must not float over the new pose.
-    if library::paint(cv, run, enemy, art, cell_path) { return; }
-    if !legacy(art) { return; }
-    if enemy.hurt > 0 || enemy.flashing(run.tick) {
-        return;
-    }
-    let Some(legacy) = enemy.boss.and_then(|i| super::stature::boss_figure(run, i)) else {
-        return;
-    };
-    let kit = kit(art);
-    // The legacy figures retained their material values in the dark room.
-    // Cache a minimum reflected value so the new lit studies keep that body
-    // presence. Local room light can still raise a surface above this floor.
-    {
-        let floor = {
-            let mut cache = kit.material_floors.lock().unwrap();
-            cache.entry((legacy.w, legacy.h, cell_path)).or_insert_with(|| {
-                let mut im = resize(&kit.study, legacy.w * 2, legacy.h * 2);
-                let exposure = if cell_path {
-                    if art == Art::Cinderjaw { 448 } else if matches!(art, Art::RelicLiege | Art::IronTusk) { 320 } else if pit_debt(art) { 256 } else { 416 }
-                } else if matches!(art, Art::Waxen | Art::Choir | Art::Marshal) || reliquary(art) || pit_debt(art) { 256 } else { 232 };
-                for y in 0..im.h {
-                    for x in 0..im.w {
-                        if let Some(c) = im.get(x, y) {
-                            let peak = u32::from(*c.iter().max().unwrap());
-                            let exposure = if cell_path && art == Art::TaxKeeper && c[2] > c[0] { 256 } else { exposure };
-                            let gain = (242 * 256 / peak.max(1)).min(exposure);
-                            im.set(x, y, c.map(|v| (u32::from(v) * gain / 256) as u8));
-                        }
-                    }
-                }
-                Arc::new(im)
-            }).clone()
-        };
-        let x0 = ((enemy.x * super::UNIT - cv.origin.0) * 2.0).round() as i32 - (legacy.w / 2) * 2;
-        let y0 = ((enemy.y * super::UNIT - cv.origin.1) * 2.0).round() as i32 - floor.h + 2;
-        for y in 0..floor.h {
-            for x in 0..floor.w {
-                let (tx, ty) = (x0 + x, y0 + y);
-                if tx >= 0 && ty >= 0 && tx < cv.w as i32 && ty < cv.h as i32 {
-                    if let Some(c) = floor.get(x, y) {
-                        let dest = &mut cv.px[ty as usize * cv.w + tx as usize];
-                        for i in 0..3 { dest[i] = dest[i].max(c[i]); }
-                    }
-                }
-            }
-        }
-    }
-    let im = {
-        let mut cache = kit.light_figures.lock().unwrap();
-        cache
-            .entry((legacy.w, legacy.h, cell_path))
-            .or_insert_with(|| {
-                let mut im = resize(&kit.lights, legacy.w * 2, legacy.h * 2);
-                for y in 0..im.h {
-                    for x in 0..im.w {
-                        if let Some(c) = im.get(x, y) {
-                            if cell_path && !pit_debt(art) { im.set(x, y, cell_emission(c)); }
-                        }
-                    }
-                }
-                Arc::new(im)
-            })
-            .clone()
-    };
-    let x0 = ((enemy.x * super::UNIT - cv.origin.0) * 2.0).round() as i32 - (legacy.w / 2) * 2;
-    let y0 = ((enemy.y * super::UNIT - cv.origin.1) * 2.0).round() as i32 - im.h + 2;
-    for y in 0..im.h {
-        for x in 0..im.w {
-            let (tx, ty) = (x0 + x, y0 + y);
-            if tx >= 0 && ty >= 0 && tx < cv.w as i32 && ty < cv.h as i32 {
-                if let Some(c) = im.get(x, y) {
-                    cv.px[ty as usize * cv.w + tx as usize] = c;
-                }
-            }
-        }
-    }
+    // Cinderjaw's furnace core: the brightest pigment of its light study,
+    // at full emission.
+    c == [241, 189, 90]
 }
 
 /// A single baseline with short varied ticks. Tiles are decoded once; advancing
@@ -567,86 +402,6 @@ pub(super) fn index_lane_pixel(
 ) -> Option<[u8; 3]> {
     let filled = i * 4 < length * (stage as i32 + 1);
     effects(Art::Index).lane[usize::from(filled)].get(i.rem_euclid(24), 5 + side * 5 / half.max(1))
-}
-
-pub(super) fn paint_study(
-    cv: &mut super::art_v2::paint::Canvas,
-    run: &Run,
-    enemy: &Enemy,
-    art: Art,
-    cell_path: bool,
-) {
-    // Library bodies share V1's material presence; stamp once in the existing
-    // post-light material pass, without the earlier redraw's exposure boost.
-    if library::registered(art) || !legacy(art) { return; }
-    let Some(legacy) = enemy.boss.and_then(|i| super::stature::boss_figure(run, i)) else {
-        return;
-    };
-    let kit = kit(art);
-    let frames = {
-        let mut cache = kit.figures.lock().unwrap();
-        cache
-            .entry((legacy.w, legacy.h, cell_path))
-            .or_insert_with(|| {
-                let mut rest = resize(&kit.study, legacy.w * 2, legacy.h * 2);
-                if cell_path {
-                    let exposure = if art == Art::Cinderjaw { 448 } else if matches!(art, Art::RelicLiege | Art::IronTusk) { 320 } else if pit_debt(art) { 256 } else { 416 };
-                    // Exposure belongs to the cached body, before room light and
-                    // subcell coverage. Scenery, the palette and UI stay intact.
-                    for y in 0..rest.h {
-                        for x in 0..rest.w {
-                            if let Some(c) = rest.get(x, y) {
-                                // A common multiplier preserves hue ratios;
-                                // independent channel clipping washed lights grey.
-                                let peak = u32::from(*c.iter().max().unwrap());
-                                let exposure = if art == Art::TaxKeeper && c[2] > c[0] { 256 } else { exposure };
-                                let gain = (242 * 256 / peak.max(1)).min(exposure);
-                                rest.set(x, y, c.map(|v| (u32::from(v) * gain / 256) as u8));
-                            }
-                        }
-                    }
-                }
-                let mut frames = [
-                    rest.clone(),
-                    rest.clone(),
-                    rest.clone(),
-                    super::marks::heat(&rest),
-                ];
-                for y in 0..rest.h {
-                    for x in 0..rest.w {
-                        if let Some(c) = rest.get(x, y) {
-                            frames[1].set(x, y, super::marks::hit_rgb(c, false));
-                            frames[2].set(x, y, super::marks::hit_rgb(c, true));
-                        }
-                    }
-                }
-                Arc::new(frames)
-            })
-            .clone()
-    };
-    let phase = if enemy.hurt >= 4 {
-        2
-    } else if enemy.hurt > 0 {
-        1
-    } else if enemy.flashing(run.tick) {
-        3
-    } else {
-        0
-    };
-    let im = &frames[phase];
-    // Same feet and integer half-width as `stand`, at two samples per pixel.
-    let x0 = ((enemy.x * super::UNIT - cv.origin.0) * 2.0).round() as i32 - (legacy.w / 2) * 2;
-    let y0 = ((enemy.y * super::UNIT - cv.origin.1) * 2.0).round() as i32 - im.h + 2;
-    for y in 0..im.h {
-        for x in 0..im.w {
-            let (tx, ty) = (x0 + x, y0 + y);
-            if tx >= 0 && ty >= 0 && tx < cv.w as i32 && ty < cv.h as i32 {
-                if let Some(c) = im.get(x, y) {
-                    cv.px[ty as usize * cv.w + tx as usize] = c;
-                }
-            }
-        }
-    }
 }
 
 pub(super) fn inks(art: Art) -> (char, char, char) {
@@ -700,16 +455,16 @@ pub(super) fn effect_review(sample: usize) {
     EFFECT_STUDY.store(sample,std::sync::atomic::Ordering::Relaxed);
 }
 
-fn flight(art: Art, modern: bool) -> &'static [[Img;4];2] {
+fn flight(art: Art) -> &'static [[Img;4];2] {
     let bank=kit(art);
     #[cfg(any(test,feature="testing"))]
     {
         let index=EFFECT_STUDY.load(std::sync::atomic::Ordering::Relaxed);
         if index>0 {
-            let trials=bank.projectile_trials[usize::from(modern)].get_or_init(|| {
+            let trials=bank.projectile_trials.get_or_init(|| {
                 let Some(display)=&effect_slots(art.id()).display else {return Vec::new()};
-                let sizes=if modern {&display.study_v2}else{&display.study_v1};
-                let base=if modern {bank.projectile_v2.as_ref().unwrap_or(&bank.effects[0].projectile)}else{&bank.effects[0].projectile};
+                let sizes=&display.study_v1;
+                let base=&bank.effects.projectile;
                 sizes.iter().map(|&[w,h]| std::array::from_fn(|i| {
                     let p=resize(&base[i][0],w,h);
                     let p1=turn(&p);let p2=turn(&p1);let p3=turn(&p2);
@@ -719,11 +474,7 @@ fn flight(art: Art, modern: bool) -> &'static [[Img;4];2] {
             if let Some(frames)=trials.get(index-1) {return frames;}
         }
     }
-    let frames: &'static [[Img;4];2] = match &bank.projectile_v2 {
-        Some(frames) if modern => frames,
-        _ => &bank.effects[usize::from(modern)].projectile,
-    };
-    toned(art, modern, frames)
+    toned(art, &bank.effects.projectile)
 }
 
 /// Boss flight frames toned for play (operator, 2026-10-15: "insane, and also way too big"): drawn smaller
@@ -735,9 +486,9 @@ fn toned_ink(c: [u8; 3]) -> [u8; 3] {
     c.map(|v| (u32::from(v) * FLIGHT_DIM / 256) as u8)
 }
 
-fn toned(art: Art, modern: bool, frames: &'static [[Img;4];2]) -> &'static [[Img;4];2] {
-    static TONED: OnceLock<Mutex<BTreeMap<(String, bool), &'static [[Img;4];2]>>> = OnceLock::new();
-    let key = (art.id().to_string(), modern);
+fn toned(art: Art, frames: &'static [[Img;4];2]) -> &'static [[Img;4];2] {
+    static TONED: OnceLock<Mutex<BTreeMap<String, &'static [[Img;4];2]>>> = OnceLock::new();
+    let key = art.id().to_string();
     let map = TONED.get_or_init(Default::default);
     if let Some(done) = map.lock().unwrap().get(&key) {
         return done;
@@ -761,28 +512,10 @@ fn toned(art: Art, modern: bool, frames: &'static [[Img;4];2]) -> &'static [[Img
     made
 }
 
+/// A boss whose flight frames carry their own light (it has an enlarged
+/// flight set, `projectile_v2`, in its slots) is drawn with no glow under them.
 pub(super) fn native_projectile(art: Art) -> bool {
     effect_slots(art.id()).projectile_v2.is_some()
-}
-
-/// Source-density flight frames at two samples per world pixel. All decode and
-/// quarter turns belong to the same OnceLock as the ordinary effect bank.
-pub(super) fn projectiles_v2(cv: &mut super::art_v2::paint::Canvas, run: &Run, origin: (i32,i32)) {
-    for shot in &run.projectiles {
-        let Some(art)=Art::of_shot(shot) else {continue};
-        if !native_projectile(art) || shot.traits.path.beam.is_some() || shot.traits.path.waiting() {continue;}
-        let path=&shot.traits.path;
-        if path.bursts() && path.accel<0.0 && path.top==0.0 && shot.vx.hypot(shot.vy)<0.05 {continue;}
-        let im=&flight(art,true)[(run.tick/4%2) as usize][direction(shot.vx,shot.vy)];
-        let x=(shot.x*super::UNIT*2.0).round() as i32-origin.0*2-im.w/2;
-        let y=(shot.y*super::UNIT*2.0).round() as i32-origin.1*2-im.h/2;
-        for yy in 0..im.h {for xx in 0..im.w {
-            let (tx,ty)=(x+xx,y+yy);
-            if tx>=0 && ty>=0 && tx<cv.w as i32 && ty<cv.h as i32 {
-                if let Some(c)=im.get(xx,yy) {cv.px[ty as usize*cv.w+tx as usize]=c;}
-            }
-        }}
-    }
 }
 
 pub(super) fn projectile(cv: &mut Img, art: Art, x: i32, y: i32, vx: f32, vy: f32, tick: u64) {
@@ -790,7 +523,7 @@ pub(super) fn projectile(cv: &mut Img, art: Art, x: i32, y: i32, vx: f32, vy: f3
     if !native_projectile(art) {fx::glow(cv, x, y, hue(art));}
     centered(
         cv,
-        &flight(art,crate::settings::get().art_v2 && !native_projectile(art))[(tick / 4 % 2) as usize][direction],
+        &flight(art)[(tick / 4 % 2) as usize][direction],
         x,
         y,
     );
@@ -1045,7 +778,6 @@ mod tests {
             .map(|&art| {
                 let k = effects(art);
                 assert!(std::ptr::eq(k, effects(art)));
-                assert!(kit(art).study.w <= 64 && kit(art).study.h <= 64);
                 assert_eq!([k.projectile[0][0].w, k.projectile[0][0].h], effect_slots(art.id()).display.as_ref().map(|d|d.v1).unwrap_or(if reliquary(art) || pit_debt(art) { [24, 24] } else { [9, 9] }));
                 assert_ne!(
                     k.projectile[0][0].content_hash(),
@@ -1071,7 +803,7 @@ mod tests {
     #[test]
     fn closing_warning_band_clips_each_pixel_against_stone_and_barred_doors() {
         for tile in [crate::rules::Tile::Wall, crate::rules::Tile::Block, crate::rules::Tile::Door] {
-            let mut run = super::super::art_v2::testing::boss("crypt-tax-keeper");
+            let mut run = super::super::testing::boss("crypt-tax-keeper");
             assert!(run.barred());
             run.dungeon.rooms[run.at].set(12,7,tile);
             let mut cv = Img::black(384,224);
@@ -1083,9 +815,10 @@ mod tests {
 
     #[test]
     fn appearance_preserves_live_attacks_and_split_children() {
-        for art in Art::ALL.into_iter().filter(|a| !matches!(a, Art::Grinwick | Art::BigRipper)) {
+        // The coded guardians' own rules follow their ids, which `plain` renames.
+        for art in Art::ALL.into_iter().filter(|a| !matches!(a, Art::Grinwick | Art::BigRipper | Art::Cinderjaw | Art::RelicLiege)) {
             let id = art.id();
-            let mut painted = super::super::art_v2::testing::boss(id);
+            let mut painted = super::super::testing::boss(id);
             let mut plain = painted.clone();
             let index = plain.enemies[0].boss.unwrap() as usize;
             plain.bosses[index].id = "unpainted-review".into();
@@ -1134,7 +867,7 @@ mod tests {
         for id in ["waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief"] {
             for fury in 0u8..=3 {
                 for prefix in [0u32, 3, 13] {
-                    let mut run = super::super::art_v2::testing::boss(id);
+                    let mut run = super::super::testing::boss(id);
                     run.works.clouds.clear();
                     let index = run.enemies[0].boss.unwrap() as usize;
                     run.bosses[index].moves = crate::rules::bosses::Move::Anchor;
@@ -1234,7 +967,7 @@ mod tests {
 
     #[test]
     fn braking_warning_stays_at_the_simulated_landing() {
-        let mut run = super::super::art_v2::testing::boss("cinderjaw");
+        let mut run = super::super::testing::boss("cinderjaw");
         run.enemies[0].frozen = 1000;
         run.works.clouds.clear();
         for hero in run.players.values_mut() {

@@ -188,6 +188,27 @@ export const DEFAULT_RULES = [
     ],
   },
   {
+    id: 'bend-license-in-cartridge',
+    reason:
+      'The vfx example cartridge is installed on its own, so it carries the Bend Apache-2.0 license it builds with beside its sources; third-party/bend-LICENSE.txt is the same text for the repository notice. Both copies are verbatim upstream.',
+    exact_paths: [
+      ['docs/examples/cartridges/vfx/licenses/Bend-Apache-2.0.txt', 'third-party/bend-LICENSE.txt'],
+    ],
+  },
+  {
+    id: 'bend-game-case-mains',
+    reason:
+      'delve/rules/games_a builds each game into delve/.ga/<game>/ with the same generated cases_main.bend driver, which imports that folder\'s own rules.bend; the bytes are equal but each folder is a separate Bend build root.',
+    all_match: ['delve/.ga/*/cases_main.bend'],
+    min_members: 2,
+  },
+  {
+    id: 'game-palette-for-two-painters',
+    reason:
+      'The game\'s ink palette, written by scripts/delve/inks_hex.py: crates/delve reads it for its arena dyes test and pxl, and crates/kiln embeds it as realm.hex for its painter. Each crate builds on its own, so each keeps the file in its tree.',
+    exact_paths: [['crates/delve/assets/demon-hand/inks.hex', 'crates/kiln/assets/realm.hex']],
+  },
+  {
     id: 'doppelganger-forms-seated',
     reason:
       'The operator seated five models in their first-poll doppelganger forms: DeepSeek, LongCat and Laguna at the Round Table, and the Kimi augur and Nemotron artificer in the chapel and smithy pools (cockpit/assets/realm/avatars/roster.json). The doppelganger set is kept whole under cockpit/assets/realm/doppelgangers/ as the record of that poll, so each seated form is also a doppelganger sprite. Pinning the exact pairs keeps any other realm duplicate a hard failure.',

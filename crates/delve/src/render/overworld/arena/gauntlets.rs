@@ -32,7 +32,7 @@ const ARM: f32 = 4.2;
 /// The baked floor under the room, to light: the dungeon kit's still
 /// picture, where it draws this room.
 fn floor_of(run: &Run) -> Option<std::sync::Arc<dungeon_art::Scene>> {
-    dungeon_art::supported(run).then(|| dungeon_art::scene(run, 1))
+    dungeon_art::supported(run).then(|| dungeon_art::scene(run))
 }
 
 /// Warm light on the black: the stone shows where it falls, the gorge

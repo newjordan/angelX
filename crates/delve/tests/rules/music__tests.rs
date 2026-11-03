@@ -25,14 +25,39 @@ fn every_track_is_a_file_of_the_game() {
 #[test]
 fn a_list_moves_on_to_its_next_track_as_one_ends() {
     let first = play(DUNGEON, 0, 0);
-    let at = DUNGEON.iter().position(|t| t.name == first).unwrap();
-    let len = ticks(DUNGEON[at].secs);
-    // The track still plays until its length is up, then the next does.
+    let len = ticks(DUNGEON.iter().find(|t| t.name == first).unwrap().secs);
+    // The track still plays until its length is up, then another does.
     let start = (0..len * 2).find(|&t| play(DUNGEON, 0, t) != first).unwrap();
-    assert_eq!(play(DUNGEON, 0, start), DUNGEON[(at + 1) % DUNGEON.len()].name);
-    let next_len = ticks(DUNGEON[(at + 1) % DUNGEON.len()].secs);
-    assert_eq!(play(DUNGEON, 0, start + next_len - 1), DUNGEON[(at + 1) % DUNGEON.len()].name);
-    assert_eq!(play(DUNGEON, 0, start + next_len), DUNGEON[(at + 2) % DUNGEON.len()].name);
+    assert!(start <= len);
+    let next = play(DUNGEON, 0, start);
+    let next_len = ticks(DUNGEON.iter().find(|t| t.name == next).unwrap().secs);
+    assert_eq!(play(DUNGEON, 0, start + next_len - 1), next);
+    assert_ne!(play(DUNGEON, 0, start + next_len), next);
+}
+
+#[test]
+fn every_pass_plays_each_track_once_in_a_new_order() {
+    let total: u64 = HOME.iter().map(|t| ticks(t.secs)).sum();
+    let heard = |from: u64| {
+        let mut order: Vec<&str> = Vec::new();
+        let mut t = from;
+        while t < from + total {
+            let name = play(HOME, 0, t);
+            if order.last() != Some(&name) {
+                order.push(name);
+            }
+            t += u64::from(HZ);
+        }
+        order
+    };
+    let seed_start = total - (0u64.wrapping_mul(0x9E37_79B9_7F4A_7C15) % total);
+    let one = heard(seed_start);
+    let two = heard(seed_start + total);
+    let mut sorted = one.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), HOME.len(), "a pass plays every track");
+    assert_ne!(one, two, "the next pass deals a new order");
 }
 
 #[test]
@@ -96,4 +121,31 @@ fn a_floor_rests_between_its_tracks_and_never_plays_one_twice_running() {
         seen
     };
     assert_ne!(order(11), order(12));
+}
+
+#[test]
+fn a_guardian_brings_the_battle_cues_and_each_floor_deals_its_own_list() {
+    let mut run = crate::render::overworld::arena::testing::boss("cinderjaw");
+    for half in 0..20 {
+        run.tick += ticks(30) * half;
+        let track = run.music().expect("a guardian's fight is never quiet");
+        assert!(BOSS.iter().any(|t| t.name == track), "{track} is a battle cue");
+    }
+    // It falls: the floor's own list again, or its quiet.
+    run.enemies.clear();
+    assert!(run.music().is_none_or(|m| DUNGEON.iter().any(|t| t.name == m)));
+    // Floor by floor, a delve's score comes in an order of the floor's own.
+    let floor = |run: &Run| -> Vec<Option<&'static str>> {
+        let mut run = run.clone();
+        run.enemies.clear();
+        (0..60).map(|half| {
+            run.tick = ticks(30) * half;
+            run.music()
+        }).collect()
+    };
+    let mut run = Run::new(7, 1, None);
+    let first = floor(&run);
+    run.descend_for_test();
+    assert_eq!(run.dungeon.depth, 2);
+    assert_ne!(floor(&run), first, "the second floor plays its list in an order of its own");
 }

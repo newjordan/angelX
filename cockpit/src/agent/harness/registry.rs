@@ -4,46 +4,7 @@ use super::interception::Interception;
 use super::registration::Disposable;
 use super::*;
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ToolEventId(pub String);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ExecutionOutcome {
-    Succeeded,
-    /// The harness rejected the call before dispatch, so no tool execution
-    /// occurred and no mutation or verification credit may be attributed.
-    NotStarted,
-    Failed,
-    Denied,
-    Cancelled,
-    Panicked,
-}
-
-impl ExecutionOutcome {
-    /// Stable machine projection. Keep this explicit so multi-word variants do
-    /// not inherit Rust's `Debug` spelling (for example, `NotStarted` must not
-    /// leak as the ambiguous `notstarted`).
-    pub(crate) const fn as_str(self) -> &'static str {
-        match self {
-            Self::Succeeded => "succeeded",
-            Self::NotStarted => "not_started",
-            Self::Failed => "failed",
-            Self::Denied => "denied",
-            Self::Cancelled => "cancelled",
-            Self::Panicked => "panicked",
-        }
-    }
-}
-
-/// Verifier truth is independent from dispatch truth. A verifier process may
-/// run successfully while reporting a red or inconclusive project state.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum VerificationOutcome {
-    NotApplicable,
-    Passed,
-    Failed,
-    Inconclusive,
-}
+pub use crate::telemetry::{ExecutionOutcome, ToolEventId, ToolOutcome, VerificationOutcome};
 
 /// Which child-process pipe produced a live tool-output chunk.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,33 +16,6 @@ pub(crate) enum ProcessStream {
 /// Thread-safe sink used by process-owning tools to expose bounded live output
 /// to an operator surface without changing their final tool receipt.
 pub(crate) type ToolOutputProgress = dyn Fn(ProcessStream, &[u8]) + Send + Sync + 'static;
-
-impl VerificationOutcome {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::NotApplicable => "not-applicable",
-            Self::Passed => "passed",
-            Self::Failed => "failed",
-            Self::Inconclusive => "inconclusive",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ToolOutcome {
-    pub execution: ExecutionOutcome,
-    pub verification: VerificationOutcome,
-}
-
-impl ToolOutcome {
-    pub(crate) fn attributable_success(self) -> bool {
-        self.execution == ExecutionOutcome::Succeeded
-            && matches!(
-                self.verification,
-                VerificationOutcome::NotApplicable | VerificationOutcome::Passed
-            )
-    }
-}
 
 /// Operator-visible state of the competition submission slot. This is typed
 /// telemetry from the harness watcher, not text parsed back out of the UI.
@@ -353,6 +287,9 @@ pub struct ToolRegistry {
     /// enabled. Local tool-bubble routing reuses it without rebuilding or
     /// presenting the catalogue to the root model.
     tool_search_index: Vec<ToolDef>,
+    live_tool_router: std::sync::Mutex<LiveToolRouter>,
+    live_policies: std::sync::Mutex<LivePolicies>,
+    pub(super) live_outcomes: std::sync::Mutex<Option<Arc<super::live_outcomes::Binding>>>,
     /// Advertised (non-deferred) schemas, keyed by `(store version, activation
     /// generation)`: rebuilt when the tool set, the deferred flags, `Σ`, or the
     /// activated set move — and not on every hop of a multi-tool turn.
@@ -373,12 +310,26 @@ enum ToolSchemaProfile {
     Full,
 }
 
+#[derive(Default)]
+struct LivePolicies {
+    offered: std::collections::BTreeMap<String, angel_live::Program>,
+    pinned: std::collections::BTreeMap<String, angel_live::Program>,
+}
+
+#[derive(Default)]
+struct LiveToolRouter {
+    program: Option<angel_live::Program>,
+    selected_digest: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToolBubbleSource {
     Disabled,
     Heuristic,
     Local,
     LocalFallback,
+    Live,
+    LiveFallback,
 }
 
 impl ToolBubbleSource {
@@ -388,6 +339,8 @@ impl ToolBubbleSource {
             Self::Heuristic => "heuristic",
             Self::Local => "local",
             Self::LocalFallback => "local-fallback",
+            Self::Live => "live",
+            Self::LiveFallback => "live-fallback",
         }
     }
 }
@@ -479,6 +432,9 @@ impl ToolRegistry {
             auxiliary: super::auxiliary::AuxiliaryTracker::default(),
             native_context: super::delegated_lineage::NativeToolContext::default(),
             tool_search_index: Vec::new(),
+            live_tool_router: Default::default(),
+            live_policies: Default::default(),
+            live_outcomes: Default::default(),
             advertised_defs: std::sync::Mutex::new(None),
             backplane: Arc::new(crate::agent::backplane::BackplaneRegistry::default()),
             swarm_compiler: None,
@@ -580,6 +536,48 @@ impl ToolRegistry {
         self.tool_activations.reset();
     }
 
+    pub(crate) fn set_live_tool_router(&self, program: Option<angel_live::Program>) {
+        self.live_tool_router
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .program = program;
+    }
+
+    pub(crate) fn set_live_policies(
+        &self,
+        policies: std::collections::BTreeMap<String, angel_live::Program>,
+    ) {
+        self.live_policies
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .offered = policies;
+    }
+
+    /// Pin one generation of every live leg for the coming turn. An edit
+    /// published mid-turn serves the next turn; decisions never mix generations.
+    pub(crate) fn pin_live_policies(&self) {
+        let mut legs = self.live_policies.lock().unwrap_or_else(|p| p.into_inner());
+        legs.pinned = legs.offered.clone();
+    }
+
+    pub(crate) fn live_policy(&self, name: &str) -> Option<angel_live::Program> {
+        self.live_policies
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .pinned
+            .get(name)
+            .cloned()
+    }
+
+    pub(crate) fn tool_router_changed(&self) -> bool {
+        let router = self
+            .live_tool_router
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        router.program.as_ref().map(angel_live::Program::digest)
+            != router.selected_digest.as_deref()
+    }
+
     /// Seed a small, sticky hidden-tool set once at the beginning of a metered
     /// turn. The deterministic shortlist is always available; an explicitly
     /// enabled local router may rerank it and fails open to BM25. Activated
@@ -609,23 +607,70 @@ impl ToolRegistry {
         let candidate_limit = env_usize("ANGEL_TOOL_BUBBLE_CANDIDATES", 16)
             .max(max)
             .min(48);
-        let docs = self
-            .tool_search_index
+        let projected = super::core_catalog::current()
+            .filter(|generation| !generation.is_baseline())
+            .map(|generation| {
+                let mut entries = self.tool_search_index.clone();
+                for entry in &mut entries {
+                    generation.overlay(entry);
+                }
+                entries
+            });
+        let search_index = projected.as_deref().unwrap_or(&self.tool_search_index);
+        let docs = search_index
             .iter()
             .enumerate()
             .filter(|(_, definition)| self.tool_activations.admits(&definition.name))
             .map(|(index, definition)| (index, tool_search_text(definition)))
             .collect::<Vec<_>>();
-        let hits = bm25_rank(task, &docs, candidate_limit);
+        // Pin one immutable dependency generation for this turn. Publishing a
+        // later file edit cannot alter its decision or its advertised schemas.
+        let program = {
+            let mut router = self
+                .live_tool_router
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+            let digest = router
+                .program
+                .as_ref()
+                .map(|program| program.digest().to_string());
+            if digest != router.selected_digest {
+                self.tool_activations.reset();
+            }
+            router.selected_digest = digest;
+            router.program.clone()
+        };
+        let mut source = ToolBubbleSource::Heuristic;
+        let hits = if let Some(program) = program {
+            match super::live_policy::rank_tools(
+                &program,
+                task,
+                &docs,
+                &self.tool_search_index,
+                candidate_limit,
+            ) {
+                Ok(hits) => {
+                    source = ToolBubbleSource::Live;
+                    hits
+                }
+                Err(error) => {
+                    tracing::debug!(%error, digest = program.digest(), "live tool router retained native ranking");
+                    source = ToolBubbleSource::LiveFallback;
+                    bm25_rank(task, &docs, candidate_limit)
+                }
+            }
+        } else {
+            bm25_rank(task, &docs, candidate_limit)
+        };
         if hits.is_empty() {
             return ToolBubbleDecision {
-                source: ToolBubbleSource::Heuristic,
+                source,
                 tools: Vec::new(),
             };
         }
         let candidates = hits
             .iter()
-            .map(|index| &self.tool_search_index[*index])
+            .map(|index| &search_index[*index])
             .collect::<Vec<_>>();
         let fallback = candidates
             .iter()
@@ -637,7 +682,6 @@ impl ToolRegistry {
             .trim()
             .to_ascii_lowercase();
         let wants_local = matches!(router.as_str(), "local" | "auto" | "model");
-        let mut source = ToolBubbleSource::Heuristic;
         let mut selected = fallback;
         if wants_local {
             source = ToolBubbleSource::LocalFallback;
@@ -910,6 +954,7 @@ impl ToolRegistry {
         }
         maybe_register_video_tools(&mut r, workspace.clone());
         maybe_register_vision_tools(&mut r, workspace.clone());
+        maybe_register_hands(&mut r, workspace.clone());
         maybe_register_fleet_tools(&mut r);
         maybe_register_llm_tools(&mut r);
         crate::agent::tools::jev::maybe_register_jev(&mut r);
@@ -1055,6 +1100,7 @@ impl ToolRegistry {
         }
         maybe_register_video_tools(&mut r, workspace.clone());
         maybe_register_vision_tools(&mut r, workspace.clone());
+        maybe_register_hands(&mut r, workspace.clone());
         maybe_register_fleet_tools(&mut r);
         maybe_register_llm_tools(&mut r);
         crate::agent::tools::jev::maybe_register_jev(&mut r);
@@ -1153,7 +1199,6 @@ impl ToolRegistry {
         )
     }
 
-    #[allow(dead_code)]
     fn register_tracked_with(
         &mut self,
         tool: Box<dyn Tool>,
@@ -1243,7 +1288,6 @@ impl ToolRegistry {
     /// The name also leaves the activation set: `activated_schema_failures` is a
     /// zero invariant, and a name left behind by a departed provider would break
     /// it on the next provider request.
-    #[allow(dead_code)]
     pub fn unregister(&mut self, name: &str) -> bool {
         let Some(index) = self.tools.iter().position(|tool| tool.name() == name) else {
             return false;
@@ -1490,6 +1534,20 @@ impl ToolRegistry {
         self.defs_for_turn(window, bounded_task, competition)
     }
 
+    /// Overlay the immutable turn generation after native schema selection.
+    pub(crate) fn apply_core_catalog(
+        &self,
+        defs: &mut [ToolDef],
+        generation: &super::core_catalog::Generation,
+    ) {
+        if generation.is_baseline() {
+            return;
+        }
+        for def in defs {
+            generation.overlay(def);
+        }
+    }
+
     fn lean_defs(&self, full: &[ToolDef], coding_hot_path: bool) -> Vec<ToolDef> {
         // A scoped literature registry has no shell/discovery fallback. Its
         // explicitly registered read-only research capabilities stay visible.
@@ -1535,7 +1593,9 @@ impl ToolRegistry {
         // pending when a tool runs.
         crate::agent::tools::build::settle_pending_pins();
         super::exec::with_call_budget(crate::agent::tools::build::task_call_budget(), || {
-            self.dispatch_within_budget(name, args, cancel, progress)
+            let watch = self.live_watch(name, args);
+            let result = self.dispatch_within_budget(name, args, cancel, progress);
+            self.live_attach(watch, result, cancel)
         })
     }
 
@@ -1566,7 +1626,7 @@ impl ToolRegistry {
                 .unwrap_or_else(|e| e.into_inner())
                 .remove(&key);
             if let Ok(route) = super::shell_verifier::plan(name, args, &self.workspace) {
-                let result = self.dispatch_with_cancel_and_progress(
+                let result = self.dispatch_within_budget(
                     &route.call.name,
                     &route.call.args,
                     cancel,

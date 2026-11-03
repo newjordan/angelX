@@ -1,0 +1,141 @@
+# crates/delve/src/rules/aftermath.rs — what follows the shots on a tick: the synergies, the
+# ultimates and the works, the room's small games, items and secrets, and the bursts,
+# blasts, hexes and mends the shots set off.
+
+# The most hurt knight standing is mended: lifesteal for a blow's mend.
+def aftermath.mend_hurt(run: J.Val, mend: U32) -> J.Val:
+    best: U32 = 0
+    best_key: U32 = 4294967295
+    found: Bool = False{}
+    for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+        if Bool.and(Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))), U32.is_lt(core.u(h, "hp"), core.u(h, "max_hp"))):
+            key: U32 = U32.div((core.u(h, "hp") * 100 : U32), U32.max(core.u(h, "max_hp"), 1))
+            if Bool.or(Bool.not(found), U32.is_lt(key, best_key)):
+                best = rules.Run.step.id(k)
+                best_key = key
+                found = True{}
+    if found:
+        h2: J.Val = core.hero(run, best)
+        (h3: J.Val, gained: U32) = stakes.Hero.leech(h2, mend, 3)
+        run = core.set_hero(run, best, h3)
+    return run
+
+# A burst: the shot's ball bursts, striking the monsters round it but the one it hit.
+def aftermath.burst(run: J.Val, b: J.Val) -> J.Val:
+    hit: U32 = J.u32(J.nth(b, 0))
+    x: F32 = J.f32(J.nth(b, 1))
+    y: F32 = J.f32(J.nth(b, 2))
+    damage: U32 = J.u32(J.nth(b, 3))
+    owner: U32 = J.u32(J.nth(b, 4))
+    enemies: J.Val = J.get(run, "enemies")
+    (enemies2: J.Val, struck: J.Val) = aoe.strike(enemies, x, y, damage, aoe.mask_circle(enemies, x, y, rules.BURST_REACH(), 1.0, hit))
+    run = J.set(run, "enemies", enemies2)
+    for s: J.Val in J.items(struck):
+        i: U32 = J.u32(J.nth(s, 0))
+        dealt: U32 = J.u32(J.nth(s, 1))
+        e: J.Val = J.nth(J.get(run, "enemies"), i)
+        e = J.set(e, "wits", core.set_u(J.get(e, "wits"), "foe", owner))
+        run = J.set(run, "enemies", J.set_nth(J.get(run, "enemies"), i, e))
+        if U32.is_zero(core.u(e, "hp")):
+            run = J.set(run, "feel", feel.Feel.blow(J.get(run, "feel"), core.u(e, "id"), owner, gore.Blow.blast(x, y)))
+        run = feel.Run.credit(run, owner, core.u(e, "id"), dealt)
+    run = core.push_shake(run, 4)
+    if U32.is_lt(core.count(J.get(run, "blasts")), 16):
+        run = J.set(run, "blasts", J.push(J.get(run, "blasts"), J.JA{[J.JF{x}, J.JF{y}, J.JU{rules.BLAST_TICKS()}]}))
+    return run
+
+# What follows the shots.
+def aftermath.Run.aftermath(run: J.Val, inputs: J.Val, sortie: J.Val, struck: J.Val, deeds: J.Val) -> J.Val:
+    run = feel.Run.land_synergies(run, J.get(struck, "burns"), J.get(struck, "turned"), J.get(struck, "kegs"))
+    run = wishcraft.Run.poison_hits(run, J.get(struck, "poisons"))
+    if core.b(struck, "overkill"):
+        run = feats.Run.notice(run, "overkill")
+    # Phantoms with nothing left to give are gone.
+    phantoms: [J.Val] = []
+    for p: J.Val in J.items(J.get(run, "phantoms")):
+        if U32.is_gt(core.u(p, "left"), 0):
+            phantoms = List.append(&2, J.Val, phantoms, [p])
+    run = J.set(run, "phantoms", J.JA{phantoms})
+    run = ults.Run.cast_ults(run, J.get(sortie, "casts"))
+    for f: J.Val in J.items(J.get(sortie, "feats")):
+        run = champions.Run.champion_feat(run, J.u32(J.nth(f, 0)), J.str(J.nth(f, 1)))
+    for s: J.Val in J.items(J.get(sortie, "summons")):
+        run = imps.Run.call_imps(run, J.u32(J.nth(s, 0)), J.str(J.nth(s, 1)))
+        run = minions.Run.call_minion(run, J.u32(J.nth(s, 0)), J.str(J.nth(s, 1)))
+    run = ults.Run.tick_ults(run)
+    run = bard.Run.tick_bard_songs(run)
+    run = champions.Run.tick_champions(run)
+    run = ults.Run.charge_ults(run, J.get(sortie, "credits"))
+    run = folly.Run.credit_bats(run, J.get(sortie, "credits"))
+    run = foes.Run.apply_deeds(run, deeds)
+    run = works.Run.tick_works(run, inputs)
+    run = foes.Run.shoot_kegs(run)
+    run = foes.Run.tick_kegs_and_lobs(run)
+    run = foes.Run.tick_flings(run)
+    run = foes.Run.tick_wells(run)
+    run = critters.Run.tick_critters(run)
+    run = frogs.Run.tick_frogs(run)
+    run = hunters.Run.tick_hunters(run)
+    run = cat.Run.tick_tallow(run)
+    run = cat.Run.pet_tallow(run, inputs)
+    # The follies and the rooms' small games.
+    run = activity.Run.tick_follies(run, inputs)
+    run = pots.Run.tick_pots(run)
+    run = rescues.Run.tick_cage(run, inputs)
+    run = runes.Run.tick_runes(run)
+    run = hexer.Run.tick_hexes(run)
+    run = lich.Run.tick_chill(run)
+    run = horrors.Run.tick_grip(run)
+    run = skulls.Run.tick_skulls(run)
+    run = items.Run.tick_items(run)
+    run = tavern.Run.tick_song(run)
+    run = hireling.Run.tick_hireling(run)
+    run = minions.Run.tick_minions(run)
+    run = secrets.Run.tick_snibbet(run)
+    run = secrets.Run.small_secrets(run, J.get(sortie, "booms"), J.get(sortie, "draughts"))
+    run = rules.Run.spark(run, J.get(struck, "chains"))
+    run = skills.Run.fart_hits(run, J.get(struck, "farts"))
+    for b: J.Val in J.items(J.get(struck, "bursts")):
+        run = aftermath.burst(run, b)
+    # The blasts' rings fade.
+    blasts: [J.Val] = []
+    for b: J.Val in J.items(J.get(run, "blasts")):
+        left: U32 = core.usub(J.u32(J.nth(b, 2)), 1)
+        if U32.is_gt(left, 0):
+            blasts = List.append(&2, J.Val, blasts, [J.JA{[J.nth(b, 0), J.nth(b, 1), J.JU{left}]}])
+    run = J.set(run, "blasts", J.JA{blasts})
+    # Wishes just granted show for a second.
+    now: W.W = W.of_j(J.get(run, "tick"))
+    boons: [J.Val] = []
+    for b: J.Val in J.items(J.get(run, "boons")):
+        if W.lt(W.sat_sub(now, W.of_j(J.nth(b, 1))), W.of_u32(rules.HZ())):
+            boons = List.append(&2, J.Val, boons, [b])
+    run = J.set(run, "boons", J.JA{boons})
+    for id: J.Val in J.items(J.get(struck, "hexed")):
+        run = hexer.Run.hex(run, J.u32(id))
+    if U32.is_gt(core.u(struck, "leaps"), 0):
+        run = core.push_cue(run, "frost_leap")
+    bombs: U32 = core.u(sortie, "bombs")
+    if Bool.and(U32.is_gt(bombs, 0), depths.Run.open_map(run)):
+        # On an open map only a bomb by the crack brings it down.
+        for at: J.Val in J.items(J.get(sortie, "booms")):
+            run = secrets.Run.blast_wall_open(run, J.f32(J.nth(at, 0)), J.f32(J.nth(at, 1)))
+    elif U32.is_gt(bombs, 0):
+        # A knight's bomb fills the room: a cracked wall comes down.
+        run = secrets.Run.blast_wall(run, J.JNull{})
+    for m: J.Val in J.items(J.get(struck, "mends")):
+        run = aftermath.mend_hurt(run, J.u32(J.nth(m, 1)))
+    run = rules.Run.swing_orbits(run)
+    run = imps.Run.tick_imps(run)
+    live: [J.Val] = []
+    for p: J.Val in J.items(J.get(run, "projectiles")):
+        if U32.is_gt(core.u(p, "ttl"), 0):
+            live = List.append(&2, J.Val, live, [p])
+    run = J.set(run, "projectiles", J.JA{live})
+    run = pitstop.Run.pit_events(run, J.get(sortie, "pit_events"))
+    run = pitstop.Run.visit_privy(run)
+    # The Undercroft's rooms, the barony, the holdings, the College, the ranch and the merchant.
+    run = activity.Run.tick_places(run, inputs)
+    run = hell.Run.rain_embers(run)
+    run = hazards.Run.tick_traps(run)
+    return fortune.Run.tick_collapse(run)

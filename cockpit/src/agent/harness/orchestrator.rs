@@ -178,6 +178,8 @@ impl DelegateTool {
     /// Run a delegate from an explicit commit-ish. Proof-carrying swarm runs use
     /// this to make a test-only branch, then base the implementation branch on
     /// that immutable test contribution without touching the shared checkout.
+    /// The bin calls [`Self::run_from_with_cancel`]; tests enter through [`Self::run`].
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn run_from(
         &self,
         club_name: &str,
@@ -603,7 +605,7 @@ pub(crate) fn delegate_result_section(
     let safe_branch = branch.replace(['/', '\\', ':'], "-");
     let ext = delegate_artifact_ext(kind, trimmed);
     let path = dir.join(format!("{safe_branch}-{kind}-{stamp}.{ext}"));
-    std::fs::write(&path, trimmed.as_bytes())
+    crate::platform::workspace_store::write_atomic(&path, trimmed.as_bytes())
         .map_err(|e| format!("write {}: {e}", path.display()))?;
     let preview = cap_text(
         trimmed,
@@ -637,28 +639,7 @@ impl Tool for DelegateTool {
         "delegate"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "delegate".to_string(),
-            description: "Delegate a task to a configured club (a local mode or a SOTA link). It works \
-                          in an isolated git worktree and returns its summary, the branch name, and \
-                          the diff. Local seats are optional and only used while reachable — \
-                          a down local is skipped, not a failed turn. ⠹⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "club": { "type": "string", "description": "⠹⠁⠃" },
-                    "task": { "type": "string", "description": "⠹⠁⠉" },
-                    "mode": {
-                        "type": "string",
-                        "enum": ["write", "review", "read_only"],
-                        "default": "write",
-                        "description": "⠹⠁⠙"
-                    }
-                },
-                "required": ["club", "task"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("delegate")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_native_context(args, None, None, &Default::default())
@@ -1093,18 +1074,7 @@ impl Tool for IntegrateTool {
         "integrate"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "integrate".to_string(),
-            description:
-                "Merge a delegated branch into the shared workspace (serialized, one at a \
-                          time). Reports conflicts instead of leaving a mess. ⠷⠋"
-                    .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": { "branch": { "type": "string", "description": "⠷⠋⠁" } },
-                "required": ["branch"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("integrate")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let branch = args["branch"].as_str().ok_or("missing 'branch'")?;

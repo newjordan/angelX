@@ -9,7 +9,10 @@ use crate::rules::questline::{book, Questline};
 fn every_shipped_file_loads_clean() {
     let b = book();
     assert!(b.notes.is_empty(), "notes: {:?}", b.notes);
-    assert_eq!(b.lines.len(), 22, "the bible names twenty-two seats");
+    let seats = b.lines.iter().filter(|q| !q.is_kingdom()).count();
+    assert_eq!(seats, 22, "the bible names twenty-two seats");
+    // Beside them, the kingdom's own line: the Heartwright's.
+    assert_eq!(b.lines.len(), 23);
     for q in &b.lines {
         assert!(!q.teacher.is_empty(), "{}: no teacher", q.power);
         assert!(!q.art.is_empty(), "{}: no figure", q.power);
@@ -25,67 +28,51 @@ fn a_bad_file_answers_with_line_numbers() {
     assert!(notes.iter().any(|n| n.starts_with("test:3:")), "{notes:?}");
 }
 
-/// A knight is turned away before the questline and granted after it.
+/// A tier 3 wish is granted with no questline walked: no teacher holds the
+/// third tier back any more (2026-10-22).
 #[test]
-fn a_tier_three_wish_is_locked_then_granted() {
+fn a_tier_three_wish_is_granted_with_no_questline_walked() {
     let mut r = crate::rules::Run::new(3, 1, Some("Friend"));
     let book_ = phrasebook::book();
     let wish = book_.iter().find(|w| w.id == "fork").unwrap();
-    let q = book().get("wish:fork").unwrap().clone();
-    let hero = r.players.get(&1).unwrap();
-    let key = crate::rules::home::Home::school_key(hero);
-    // Tier 1 and tier 2 stay as the school set them: Adept and Master,
-    // the school's own locks, untouched by the teachers.
-    r.home.school.knights.insert(
-        key.clone(),
-        crate::rules::school::Standing {
-            rank: crate::rules::school::Rank::Master,
-            ..Default::default()
-        },
-    );
-    for _ in 0..2 {
-        r.grant(1, wish).expect("tiers one and two are free");
+    for tier in 1..=3 {
+        let said = r.grant(1, wish).unwrap_or_else(|why| panic!("tier {tier} is free: {why}"));
+        assert!(said.contains("Fork"), "{said}");
     }
-    // Tier 3 answers in one line naming the teacher and where they live.
-    let refused = r.grant(1, wish).unwrap_err();
-    assert!(
-        refused.contains("Stilt") && refused.contains("millpond"),
-        "the refusal names the teacher and the place: {refused}"
-    );
-    // ...and after the questline is walked to its end, it grants: every
-    // counter at its need and the trial passed.
-    let mut walk = crate::rules::questline::Walk::default();
-    for s in &q.steps {
-        walk.counters.insert(s.counter.clone(), s.need);
-        walk.done.insert(walk.done.len() as u32 + 1);
+}
+
+/// Every wish questline names its wish by the phrasebook's own id, so its
+/// teacher opens and its tier 3 names them: Ricochet, Seeker Fletching,
+/// Fleet Foot, Iron Skin and Blood Drinker once named theirs bounce,
+/// homing, speed, armor and vamp, and were refused with no teacher named.
+#[test]
+fn every_wish_questline_names_a_wish_and_its_teacher_opens() {
+    let wishes = phrasebook::book();
+    for q in book().lines.iter().filter(|q| q.power.starts_with("wish:")) {
+        let id = &q.power["wish:".len()..];
+        assert!(wishes.iter().any(|w| w.id == id), "{}: no such wish", q.power);
     }
-    walk.counters.insert(q.trial.counter.clone(), q.trial.need);
-    walk.trial_done = true;
-    r.home
-        .questlines
-        .knights
-        .entry(key)
-        .or_default()
-        .insert("wish:fork".to_string(), walk);
-    let said = r.grant(1, wish).expect("the questline is walked");
-    assert!(said.contains("Fork"), "{said}");
+    for id in ["ricochet", "seeker", "fleet", "iron", "leech"] {
+        let wish = wishes.iter().find(|w| w.id == id).unwrap();
+        let q = book().get(&format!("wish:{id}")).unwrap_or_else(|| panic!("{id} has no teacher"));
+        let mut r = crate::rules::Run::new(3, 1, Some("Friend"));
+        for t in 0..2 {
+            r.players.get_mut(&1).unwrap().deck.push(wish.card_id(t));
+        }
+        // The teacher opens to a knight holding the second level...
+        assert!(r.quest_gate(1, q), "{id}: the teacher opens");
+        // ...and the third is the knight's without them.
+        r.grant(1, wish).unwrap_or_else(|why| panic!("{id}: the third tier is free: {why}"));
+    }
 }
 
 /// A skill's level III is locked, then taught.
 #[test]
 fn a_skills_level_three_is_locked_then_taught() {
     let mut r = crate::rules::Run::new(3, 1, Some("Friend"));
-    assert_eq!(r.skill_level(1, skills::GAS), 1);
-    // The school's Adept rank buys level II.
+    // Every knight starts at level II.
     let hero = r.players.get(&1).unwrap();
-    let key = crate::rules::home::Home::school_key(hero);
-    r.home.school.knights.insert(
-        key.clone(),
-        crate::rules::school::Standing {
-            rank: crate::rules::school::Rank::Adept,
-            ..Default::default()
-        },
-    );
+    let key = crate::rules::home::Home::knight_key(hero);
     assert_eq!(r.skill_level(1, skills::GAS), 2);
     assert_eq!(r.gas_life(1), skills::GAS_LIFE_L[1]);
     // Level III comes from the questline alone: Widow Peascod's cloud-work.
@@ -140,7 +127,7 @@ fn awakened_fork_walked_step_by_step() {
     r.flush_questlines();
     let walk = {
         let hero = r.players.get(&1).unwrap();
-        let key = crate::rules::home::Home::school_key(hero);
+        let key = crate::rules::home::Home::knight_key(hero);
         r.home.questlines.walk(&key, "wish:fork")
     };
     assert!(walk.finished(), "the trial is passed");
@@ -160,7 +147,7 @@ fn progress_survives_save_and_load() {
     let saved = serde_json::to_string(&r.home).unwrap();
     let loaded: crate::rules::home::Home = serde_json::from_str(&saved).unwrap();
     let hero = r.players.get(&1).unwrap();
-    let key = crate::rules::home::Home::school_key(hero);
+    let key = crate::rules::home::Home::knight_key(hero);
     assert_eq!(loaded.questlines.walk(&key, "wish:fork").count("one_leg_stands"), 1);
 }
 

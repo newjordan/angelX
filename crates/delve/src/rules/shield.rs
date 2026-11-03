@@ -22,6 +22,15 @@
 //! - **What it shows.** Each stopped shot leaves one `feel::Block`: shards
 //!   in the shot's colours off the face, a flash on the shield, the shield
 //!   knocked back a pixel or two, a heavier shot a bigger burst.
+//! - **What it takes.** A kite shield wears as a pavise's tower shield
+//!   does (`critters::guard_struck`): what it turns counts, and at
+//!   `critters::GUARD_BREAK` percent of the knight's health it is knocked
+//!   aside with a clang, and stays down for `SHIELD_DOWN` before it can be
+//!   raised again, its wear gone. Left alone for `SHIELD_CALM` (a volley's
+//!   length), the wear drains away over `SHIELD_MEND` (`Wear`). The user,
+//!   2026-10-21: "we need a shield bar, with auto-refill. its currently a
+//!   bit OP in how much damage it can sustain so have it match the shield
+//!   guys sustain".
 
 use super::*;
 
@@ -32,6 +41,13 @@ use super::*;
 pub const SHIELD_REACH: f32 = 0.9;
 /// A shield's face spans this many degrees either side of its aim.
 pub const SHIELD_ARC: f32 = 65.0;
+/// A shield knocked aside stays down as long as a pavise's: a second.
+pub const SHIELD_DOWN: u32 = critters::GUARD_DOWN;
+/// Once it has turned nothing for this long (a second, longer than the
+/// gaps inside a volley), a shield's wear drains, from its most to none
+/// in `SHIELD_MEND` (two seconds): it mends between volleys, never in one.
+pub const SHIELD_CALM: u32 = HZ;
+pub const SHIELD_MEND: u32 = 2 * HZ;
 
 /// What a shot in flight meets at a knight, and where along its step this
 /// tick (0 where it was, 1 where it is).
@@ -64,7 +80,7 @@ pub fn face(hero: &Hero, centre: (f32, f32), toward: (f32, f32)) -> (f32, f32) {
 
 /// Where a step from `a` to `b` first comes within `r` of `c`, as a share
 /// of the step; 0 when it starts there.
-fn entry(a: (f32, f32), b: (f32, f32), c: (f32, f32), r: f32) -> Option<f32> {
+pub fn entry(a: (f32, f32), b: (f32, f32), c: (f32, f32), r: f32) -> Option<f32> {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let (fx, fy) = (a.0 - c.0, a.1 - c.1);
     let start = fx * fx + fy * fy - r * r;
@@ -123,6 +139,110 @@ pub fn weight(shot: &Projectile) -> u8 {
     (by_damage + u8::from(shot.traits.path.bursts())).min(3)
 }
 
+/// What a knight's shield has turned lately: its meter.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Wear {
+    /// What it has turned and not yet shaken off, in hundredths of a point
+    /// of damage: at `Wear::most` it is knocked aside.
+    #[serde(default, skip_serializing_if = "zero")]
+    pub worn: u32,
+    /// Ticks until the wear starts to drain: every shot turned sets it
+    /// again.
+    #[serde(default, skip_serializing_if = "zero")]
+    pub calm: u32,
+    /// Knocked aside: ticks until it can be raised again.
+    #[serde(default, skip_serializing_if = "zero")]
+    pub down: u32,
+    /// Everything it has turned this run, for the balance sims: never sent
+    /// or saved.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
+    pub turned: u32,
+}
+
+impl Wear {
+    /// Unworn and in hand: nothing worth sending.
+    pub fn fresh(&self) -> bool {
+        self.worn == 0 && self.calm == 0 && self.down == 0
+    }
+
+    /// The most a knight of `max_hp` health's shield turns before it is
+    /// knocked aside, in hundredths of a point: `critters::GUARD_BREAK`
+    /// percent of their health, as a pavise's (a 110-health knight's turns
+    /// 37.4).
+    pub fn most(max_hp: u32) -> u32 {
+        max_hp.max(1) * critters::GUARD_BREAK
+    }
+
+    /// How much more it can turn, 1 unworn to 0 knocked aside.
+    pub fn left(&self, max_hp: u32) -> f32 {
+        if self.down > 0 {
+            return 0.0;
+        }
+        1.0 - (self.worn as f32 / Wear::most(max_hp) as f32).min(1.0)
+    }
+
+    /// Knocked aside, how far it has come back: 0 just struck down, 1 in
+    /// hand again.
+    pub fn back(&self) -> f32 {
+        1.0 - self.down.min(SHIELD_DOWN) as f32 / SHIELD_DOWN as f32
+    }
+
+    /// Whether there is anything to show: worn, or knocked aside.
+    pub fn showing(&self) -> bool {
+        self.worn > 0 || self.down > 0
+    }
+
+    /// A tick: a shield knocked aside comes back to hand, and once calm the
+    /// wear drains.
+    pub(super) fn rest(&mut self, max_hp: u32) {
+        if self.down > 0 {
+            self.down -= 1;
+        } else if self.calm > 0 {
+            self.calm -= 1;
+        } else {
+            self.worn = self.worn.saturating_sub(Wear::most(max_hp).div_ceil(SHIELD_MEND));
+        }
+    }
+
+    /// It turned `damage`; whether that knocked it aside, its wear gone.
+    pub(super) fn take(&mut self, damage: u32, max_hp: u32) -> bool {
+        self.turned = self.turned.saturating_add(damage);
+        self.worn = self.worn.saturating_add(damage.max(1) * 100);
+        self.calm = SHIELD_CALM;
+        if self.worn < Wear::most(max_hp) {
+            return false;
+        }
+        *self = Wear {
+            down: SHIELD_DOWN,
+            turned: self.turned,
+            ..Wear::default()
+        };
+        true
+    }
+}
+
+impl Hero {
+    /// This knight's raised shield turned `damage` (what it would have
+    /// dealt, as the shot carries it): it wears (`Wear`). Whether that
+    /// knocked it aside: then it drops, and what comes after this tick
+    /// meets the knight.
+    pub fn shield_turned(&mut self, damage: u32) -> bool {
+        if self.guard != cards::Guard::Shield {
+            self.shield_wear.turned = self.shield_wear.turned.saturating_add(damage);
+            return false;
+        }
+        let knocked = self.shield_wear.take(damage, self.max_hp);
+        if knocked {
+            self.shielding = false;
+        }
+        knocked
+    }
+}
+
 impl Run {
     /// Knight `id`'s raised shield stopped something of `kind` coming along
     /// `way`, at `at` on its face (which looks out along `out`): the clang,
@@ -136,3 +256,6 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_shield__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/shield_bend_cases__tests.rs"]
+mod shield_bend_cases_tests;

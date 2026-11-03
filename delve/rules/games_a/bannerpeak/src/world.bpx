@@ -1,0 +1,74 @@
+# crates/delve/src/rules/bannerpeak/world.rs — the tile map. A tile is its session
+# code (Tile::code): Air 0, Stone 1, Snow 2, Ledge 3, Coin 4, Power 5, Spent 6, Brick 7,
+# Cracked 8, Water 9, Spikes 10, Hatch 11, Gate(k) 12 + k, Many(n) 20 + n.
+module bannerpeak.world
+
+const TILE: i32 = 16
+const AIR: u32 = 0
+const STONE: u32 = 1
+const SNOW: u32 = 2
+const LEDGE: u32 = 3
+const COIN: u32 = 4
+const POWER: u32 = 5
+const SPENT: u32 = 6
+const BRICK: u32 = 7
+const CRACKED: u32 = 8
+const WATER: u32 = 9
+const SPIKES: u32 = 10
+const HATCH: u32 = 11
+const GATE: u32 = 12
+const MANY: u32 = 20
+
+# A knight cannot enter it.
+fn Tile.solid(t: u32) -> bool:
+  return !(t == AIR || t == LEDGE || t == WATER || t == SPIKES)
+
+fn Tile.one_way(t: u32) -> bool:
+  return t == LEDGE
+
+# A rune block: struck from below it gives something.
+fn Tile.rune(t: u32) -> bool:
+  return t == COIN || t == POWER || inc(t, 21, 25)
+
+fn Tile.slippery(t: u32) -> bool:
+  return t == SNOW
+
+# Tile::from_code: whether a byte names a tile (the rest read as no tile).
+fn Tile.known(b: u32) -> bool:
+  return b <= HATCH || b == 12 || b == 13 || inc(b, 21, 25)
+
+# World::at: the fixed map's tile code at a cell; the sides are stone, above and below air.
+fn World.at(tx: i32, ty: i32) -> u32:
+  if tx < 0 || tx >= layout::WIDTH:
+    return STONE
+  if ty < 0 || ty >= layout::HEIGHT:
+    return AIR
+  return World::runs_code(layout::row(ty as u32), tx as u32)
+
+# The code of column tx in a row's runs (col, code, len triples): air between the runs.
+fn World.runs_code(xs: list<u32>, tx: u32) -> u32:
+  if xs.is_empty():
+    return AIR
+  let col = xs.head()
+  let r1 = xs.tail()
+  let code = r1.head()
+  let r2 = r1.tail()
+  let len = r2.head()
+  if tx < col:
+    return AIR
+  if tx < col + len:
+    return code
+  return World::runs_code(r2.tail(), tx)
+
+struct TileProps:
+  solid: bool
+  one_way: bool
+  rune: bool
+  slippery: bool
+
+fn Tile.props(t: u32) -> TileProps:
+  return TileProps{solid: Tile::solid(t), one_way: Tile::one_way(t), rune: Tile::rune(t), slippery: Tile::slippery(t)}
+
+case World.at
+case Tile.known
+case Tile.props

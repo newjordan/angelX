@@ -10,30 +10,7 @@ use std::time::Duration;
 /// Between sweeps, unless the cartridge sets `fleet_interval_secs`.
 pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(45);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum SubmissionPhase {
-    Queued,
-    Running,
-    Accepted,
-    Rejected,
-    TimedOut,
-    Unknown,
-}
-
-impl SubmissionPhase {
-    pub(crate) fn from_status(status: &str) -> Self {
-        match status.trim().to_ascii_lowercase().as_str() {
-            "queued" | "pending" | "submitted" => Self::Queued,
-            "validating" | "running" | "in-flight" | "in_flight" => Self::Running,
-            "accepted" | "promoted" | "complete" | "completed" => Self::Accepted,
-            "timeout" | "timed_out" | "timed-out" => Self::TimedOut,
-            "rejected" | "failed" | "promotion failed" | "error" | "cancelled" | "canceled" => {
-                Self::Rejected
-            }
-            _ => Self::Unknown,
-        }
-    }
-}
+pub(crate) use crate::telemetry::SubmissionPhase;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct FleetSubmission {

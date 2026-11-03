@@ -144,7 +144,7 @@ impl Tally {
         let fought = u64::from(fighting);
         let line = self.line(id);
         line.damage = line.damage.saturating_add(dealt);
-        line.fought += u32::from(fighting);
+        line.fought = line.fought.saturating_add(u32::from(fighting));
         let pace = self.pace.entry(id).or_default();
         *pace = (pace.0 + u64::from(dealt), pace.1 + fought);
         if let Some(w) = self.wishes.iter_mut().rev().find(|w| w.knight == id) {
@@ -245,6 +245,32 @@ pub struct Results {
     pub deeds: Vec<String>,
     /// Steps a finished run's verdict has stood.
     pub stood: u32,
+    /// The floor was a village of the Deep: what the party left it with.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub village: Option<Left>,
+    /// A finished run's ledger, what each knight earned in the delve, for
+    /// the road ahead (`rewards`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ledger: Option<super::rewards::Ledger>,
+}
+
+/// A village of the Deep as the party leaves it (`Results::village`): its
+/// name, how lit it is, the errands it gave and the wishes made for it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Left {
+    pub town: String,
+    pub hope: u8,
+    pub shines: bool,
+    /// Errands the village has asked of the realm, and how many are done.
+    pub errands: u8,
+    pub done: u8,
+    /// Wishes standing in the city.
+    pub wishes: u8,
+    /// The newest wish made for it this visit: what was built, and for
+    /// whom.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wish: Option<(String, String)>,
 }
 
 impl Results {
@@ -292,6 +318,8 @@ impl Results {
             at: tick,
             deeds: Vec::new(),
             stood: 0,
+            village: None,
+            ledger: None,
         }
     }
 
@@ -368,7 +396,9 @@ impl Run {
 
     /// The floor is behind the party: its results, for the plate.
     pub(super) fn close_floor(&mut self, end: End) {
-        self.floor_results = Some(Results::of(&self.floor_tally, &self.players, self.dungeon.depth, end, self.tick));
+        let mut results = Results::of(&self.floor_tally, &self.players, self.floor(), end, self.tick);
+        results.village = self.leaving_village();
+        self.floor_results = Some(results);
     }
 
     /// The run is won or has fallen: the floor it ended on is closed.
@@ -379,6 +409,7 @@ impl Run {
         self.close_floor(if self.phase == Phase::Won { End::Won } else { End::Fallen });
         if let Some(results) = &mut self.floor_results {
             results.deeds = self.deeds.clone();
+            results.ledger = Some(self.ledger.clone());
         }
     }
 
@@ -394,8 +425,11 @@ impl Run {
     /// How long a finished run's verdict stands with nobody asking to go
     /// (`again`): longer when it has deeds to show.
     pub fn verdict_hold(&self) -> u32 {
-        let deeds = self.floor_results.as_ref().filter(|r| r.end != End::Cleared).map_or(0, |r| r.deeds.len());
-        super::again::VERDICT_HOLD + if deeds > 0 { DEEDS_HOLD } else { 0 }
+        let results = self.floor_results.as_ref().filter(|r| r.end != End::Cleared);
+        let deeds = results.map_or(0, |r| r.deeds.len());
+        // A run with results ends on the road ahead (`rewards`).
+        let road = if results.is_some() { ROAD_HOLD } else { 0 };
+        super::again::VERDICT_HOLD + if deeds > 0 { DEEDS_HOLD } else { 0 } + road
     }
 
     /// The results a seat is shown now, and for how many ticks they have
@@ -418,6 +452,8 @@ impl Run {
 /// the longer it stands with deeds to show.
 pub const VERDICT_FIRST: u32 = 3 * HZ / 2;
 pub const DEEDS_HOLD: u32 = 8 * HZ;
+/// The longer it stands for the road ahead that ends it (`rewards`).
+pub const ROAD_HOLD: u32 = 6 * HZ;
 
 #[cfg(test)]
 #[path = "../../tests/rules/together_floor_stats__tests.rs"]

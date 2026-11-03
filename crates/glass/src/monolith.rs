@@ -54,9 +54,9 @@ pub const QUAY_MESH: u32 = 0x4D_000A;
 /// The internal height, in pixels: the knight's sprite lands near one to one.
 pub const ROWS: u32 = 540;
 
-const KNIGHT_BACK_PNG: &[u8] = include_bytes!("../../../cockpit/assets/dungeon/art-v2/knight-back.png");
-const KNIGHT_SIDE_PNG: &[u8] = include_bytes!("../../../cockpit/assets/dungeon/art-v2/knight-run.png");
-const KNIGHT_FRONT_PNG: &[u8] = include_bytes!("../../../cockpit/assets/dungeon/art-v2/knight-red.png");
+const KNIGHT_BACK_PNG: &[u8] = include_bytes!("../assets/knight-back.png");
+const KNIGHT_SIDE_PNG: &[u8] = include_bytes!("../assets/knight-run.png");
+const KNIGHT_FRONT_PNG: &[u8] = include_bytes!("../assets/knight-red.png");
 
 // ------------------------------------------------------------- palettes ----
 
@@ -947,17 +947,40 @@ pub fn meshes() -> Vec<(u32, MeshData)> {
 }
 
 /// A sprite's PNG as straight RGBA: `(width, height, pixels)`.
+/// Accepts every PNG colour type the decoder can expand (RGB, grayscale,
+/// gray+alpha, palette): kitty shows any PNG, so the sprite path must too.
 fn decode(png_bytes: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = decoder.read_info().ok()?;
-    let mut buffer = vec![0; reader.output_buffer_size()?];
-    let info = reader.next_frame(&mut buffer).ok()?;
-    if info.color_type != png::ColorType::Rgba {
+    // Cap the allocation before it happens, at the texture limit the GPU
+    // upload must meet anyway.
+    if !(1..=8192).contains(&reader.info().width)
+        || !(1..=8192).contains(&reader.info().height)
+    {
         return None;
     }
-    buffer.truncate(info.buffer_size());
-    Some((info.width, info.height, buffer))
+    let mut buffer = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buffer).ok()?;
+    let pixels = &buffer[..info.buffer_size()];
+    let rgba: Vec<u8> = match info.color_type {
+        png::ColorType::Rgba => pixels.to_vec(),
+        png::ColorType::Rgb => pixels
+            .chunks_exact(3)
+            .flat_map(|p| [p[0], p[1], p[2], 255])
+            .collect(),
+        png::ColorType::GrayscaleAlpha => pixels
+            .chunks_exact(2)
+            .flat_map(|p| [p[0], p[0], p[0], p[1]])
+            .collect(),
+        png::ColorType::Grayscale => pixels.iter().flat_map(|&v| [v, v, v, 255]).collect(),
+        // With `normalize_to_color8` (EXPAND) the decoder already turns
+        // palette images into RGB/RGBA, so this is only a guard for a
+        // future decoder default change.
+        png::ColorType::Indexed => return None,
+    };
+    (rgba.len() == (info.width as usize) * (info.height as usize) * 4)
+        .then_some((info.width, info.height, rgba))
 }
 
 /// The knight's sprites as `(id, width, height, rgba)`.
@@ -966,6 +989,24 @@ pub fn sprites() -> Vec<(u32, u32, u32, Vec<u8>)> {
         .into_iter()
         .filter_map(|(id, bytes)| decode(bytes).map(|(w, h, rgba)| (id, w, h, rgba)))
         .collect()
+}
+
+/// Header-first serve headers for an embedded sprite `id`: `Content-Type` +
+/// `Content-Length` plus glass layout/budget/cap annotations from a
+/// [`crate::graphics::ServePlan`], without decoding pixels. Adapter-aware
+/// via [`crate::graphics::serve_plan_for_adapter`] (RTX 3090 → 8192/256MiB,
+/// integrated → 4096/64MiB). `None` for an unknown `id`. Remote-serve and
+/// showcase answer these headers once per blob; kitty pays base64 inflation
+/// every frame.
+pub fn sprite_serve_headers(id: u32, adapter_name: Option<&str>) -> Option<Vec<(String, String)>> {
+    let bytes = match id {
+        KNIGHT_BACK_ID => KNIGHT_BACK_PNG,
+        KNIGHT_SIDE_ID => KNIGHT_SIDE_PNG,
+        KNIGHT_FRONT_ID => KNIGHT_FRONT_PNG,
+        _ => return None,
+    };
+    let plan = crate::graphics::serve_plan_for_adapter(bytes, None, adapter_name)?;
+    Some(plan.http_headers(bytes.len()))
 }
 
 // ---------------------------------------------------------------- scene ----
@@ -1131,7 +1172,7 @@ pub fn scene_stepping(walker: Walker, follow: Follow, t: f32, rows: u32, walking
     let eye = cam.transform.translation;
     let face = (eye[0] - walker.x).atan2(eye[2] - walker.z);
     // The heading relative to the eye's way: 0 away from it. The stride is
-    // the live game's (art_v2 `figures::knight`): the back sprite walking
+    // the second art kit's (cut 2026-10-20): the back sprite walking
     // away, else the standing sprite swapped for the running one at the
     // stride's ends, a lift and a sway on the gait, flipped to face left.
     let relative = walker.heading - follow.orbit;

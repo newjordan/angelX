@@ -243,3 +243,6 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_rescues__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/rescues_bend_cases__tests.rs"]
+mod rescues_bend_cases_tests;

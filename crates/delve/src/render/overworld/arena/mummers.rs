@@ -151,12 +151,60 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         9.2-3.0*a.sin()
     };
     let (x,y)=at(tx*2.0,ty*2.0);
+    // Wobble: horizontal stumble offset on failed launch.
+    let wobble_offset = if h.wobble > 0 {
+        ((std::f32::consts::PI * h.wobble as f32 / 3.0).sin() * 2.0) as i32
+    } else { 0 };
+    let x = x + wobble_offset;
+    // Momentum glow: board glows warmer as momentum builds past launch threshold.
+    if h.momentum > 60 && h.flight == 0 {
+        let intensity = (h.momentum - 60) as f32 / 40.0;
+        let glow_y = y + 5;
+        for gi in 0..((intensity * 3.0) as i32 + 1) {
+            super::fx::glow(cv, x, glow_y + gi * 3, super::fx::Hue::Warm);
+        }
+    }
     let angle=(h.spin as f32).to_radians();
     let (dx,dy)=((angle.cos()*9.0) as i32,(angle.sin()*9.0) as i32);
     cv.line(x-dx,y-dy,x+dx,y+dy,'O');
     cv.rect(x-4,y-13,9,9,'v');
     cv.rect(x-3,y-19,7,6,'h');
     cv.put(x-7,y+3,'k');cv.put(x+7,y+3,'k');
+    // Sparkle burst on successful trick landing: expanding star pattern.
+    if h.trick_sparkle > 0 {
+        let progress = 10 - h.trick_sparkle as i32;
+        let radius = progress * 2 + 2;
+        let sparkles = 8;
+        for i in 0..sparkles {
+            let a = i as f32 * std::f32::consts::TAU / sparkles as f32;
+            let dist = radius as f32 * (0.7 + 0.3 * ((run.tick as i32 + i as i32) % 3) as f32 / 2.0);
+            let sx = x + (a.cos() * dist) as i32;
+            let sy = y + (a.sin() * dist * 0.6) as i32;
+            let ink = if h.trick_sparkle > 7 { '9' } else if h.trick_sparkle > 4 { '6' } else { '5' };
+            cv.put(sx, sy, ink);
+            if h.trick_sparkle > 5 {
+                cv.put(sx + 1, sy, if ink == '9' { '5' } else { '3' });
+                cv.put(sx - 1, sy, if ink == '9' { '5' } else { '3' });
+                cv.put(sx, sy + 1, if ink == '9' { '5' } else { '3' });
+                cv.put(sx, sy - 1, if ink == '9' { '5' } else { '3' });
+            }
+        }
+        if h.trick_sparkle > 7 {
+            cv.put(x, y - 2, '9');
+            cv.put(x + 1, y - 2, '6');
+            cv.put(x - 1, y - 2, '6');
+            cv.put(x, y - 3, '6');
+            cv.put(x, y - 1, '6');
+        }
+    }
+    // Lip flash: bright burst at the lip edge on successful launch.
+    if h.lip_flash > 0 {
+        let lip_tx = if direction == 1 { 19.0 } else { 5.0 };
+        let (lx, ly) = at(lip_tx * 2.0, 9.2 * 2.0);
+        for _ in 0..h.lip_flash {
+            super::fx::glow(cv, lx, ly, super::fx::Hue::Warm);
+        }
+    }
 }
 /// Travel instructions take precedence over sightseeing and fairground games.
 pub(super) fn travel_near(run: &Run) -> bool {

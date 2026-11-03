@@ -170,6 +170,75 @@ pub fn select_window(history: &[ChatMsg], keep_recent: usize) -> Option<(usize, 
     select_window_with_token_tail(history, keep_recent, 0)
 }
 
+/// The live leg that owns this choice: `cockpit/live/compaction-window`.
+const WINDOW_LEG: &str = "compaction-window";
+
+/// The leg's answer: which span of history to compact, or none.
+#[derive(Debug, serde::Deserialize)]
+struct WindowDecision {
+    window: Option<(usize, usize)>,
+}
+
+/// The features the leg decides from: one record per message carrying the
+/// pinned-preamble and Tool-role booleans plus the token estimate. Message text
+/// never crosses.
+fn window_input(
+    history: &[ChatMsg],
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+) -> serde_json::Value {
+    let messages: Vec<serde_json::Value> = history
+        .iter()
+        .map(|message| {
+            serde_json::json!({
+                "pinned": crate::app::bootstrap::is_pinned_preamble(message),
+                "tool": message.role == ChatRole::Tool,
+                "weight": estimate_tokens(std::slice::from_ref(message)),
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "messages": messages,
+        "keep_recent": keep_recent,
+        "keep_recent_tokens": keep_recent_tokens,
+    })
+}
+
+/// What a loaded generation must return: a non-empty span that leaves a live
+/// tail and never starts that tail on a tool result orphaned from its call.
+fn window_contract(decision: &WindowDecision, history: &[ChatMsg]) -> Result<(), String> {
+    let Some((start, end)) = decision.window else {
+        return Ok(());
+    };
+    if start >= end {
+        return Err("a live compaction window must be a non-empty span".into());
+    }
+    if end >= history.len() {
+        return Err("a live compaction window must leave a live tail".into());
+    }
+    if history[end].role == ChatRole::Tool {
+        return Err("a live compaction window must not orphan a tool result".into());
+    }
+    Ok(())
+}
+
+/// The window plus the leg that chose it, for receipts.
+pub(crate) fn select_window_with_source(
+    history: &[ChatMsg],
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+) -> (
+    Option<(usize, usize)>,
+    crate::agent::harness::live_policy::LegSource,
+) {
+    let (decision, source) = crate::agent::harness::live_policy::decide_shipped(
+        WINDOW_LEG,
+        &window_input(history, keep_recent, keep_recent_tokens),
+        |decision: &WindowDecision| window_contract(decision, history),
+    );
+    (decision.window, source)
+}
+
 /// Select the compactable window `[sys_end, window_end)` of `history`: everything
 /// after the leading system preamble and before a recent token-sized tail. When
 /// `keep_recent_tokens` is zero, preserve the legacy last-`keep_recent`-messages
@@ -179,6 +248,17 @@ pub fn select_window(history: &[ChatMsg], keep_recent: usize) -> Option<(usize, 
 /// Returns `None` when there is nothing worth a summarizer round-trip (only
 /// preamble + protected tail, or a sliver).
 pub fn select_window_with_token_tail(
+    history: &[ChatMsg],
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+) -> Option<(usize, usize)> {
+    select_window_with_source(history, keep_recent, keep_recent_tokens).0
+}
+
+/// The native oracle, kept unchanged as the parity target for the shipped leg:
+/// test builds only.
+#[cfg(test)]
+pub(crate) fn select_window_with_token_tail_native(
     history: &[ChatMsg],
     keep_recent: usize,
     keep_recent_tokens: usize,
@@ -1246,11 +1326,19 @@ pub(crate) fn fanout_width() -> usize {
 fn fan_out(club: &dyn Club, prompts: &[String]) -> Vec<Result<String, String>> {
     let width = fanout_width();
     let mut out = Vec::with_capacity(prompts.len());
+    let book_catalog = crate::agent::harness::book::catalog::current();
     for batch in prompts.chunks(width) {
         let batch_out: Vec<Result<String, String>> = std::thread::scope(|s| {
             let handles: Vec<_> = batch
                 .iter()
-                .map(|p| s.spawn(move || summarize_connected(club, p)))
+                .map(|p| {
+                    let book_catalog = book_catalog.clone();
+                    s.spawn(move || {
+                        let _book_catalog =
+                            book_catalog.map(crate::agent::harness::book::catalog::enter);
+                        summarize_connected(club, p)
+                    })
+                })
                 .collect();
             handles
                 .into_iter()

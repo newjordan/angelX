@@ -1,0 +1,16 @@
+{
+  "api_version": 1,
+  "id": "errors",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "kind": "status", "status": 503, "veto": false, "config": false, "cert": false, "auth": false,
+    "quota": false, "rejected": false, "context": false, "answered": false, "capped": false,
+    "attempt": 0, "bounded": false, "budget": 0, "backoff_ms": 500, "cap_ms": 2000, "elapsed_ms": 0
+  },
+  "bend": {
+    "entry": "errors.bend",
+    "proof": "PROOF.bend",
+    "output": "errors.compiled.js"
+  }
+}

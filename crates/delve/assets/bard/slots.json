@@ -1,16 +1,16 @@
 {
   "schema": 1,
-  "status": "temporary placeholders; replace through these slots after art delivery",
-  "style": "Original bard knight; 1990s arcade run-and-gun painted/inked forms, dark colours. Artist owns design.",
+  "status": "the Bard's own art: a sax-blowing troubadour, plumed hat and shades (2026-10-25); swap through these slots",
+  "style": "Original bard knight; 1990s arcade run-and-gun painted/inked forms, dark colours. Plumed hat (the plume is the seat's trim, 7 8 5), black shades, a teal doublet with the seat's sash, a brass sax (timber bank) held to the mouth; in the strike the bell swings up and out.",
   "knight": {
     "asset_id": "bard-knight",
     "native_canvas_wh": [
       20,
-      16
+      17
     ],
     "anchor_xy": [
       10,
-      16
+      17
     ],
     "hit_radius_world": 0.42,
     "facings": [
@@ -47,127 +47,152 @@
     "views": [
       {
         "body": [
-          "................",
-          "................",
-          "....87777778....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4u44uuu4....",
-          "....4u4u4uu4....",
-          "....4u44uuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....875..578....",
-          "....888..888...."
+          "..55............",
+          "..577...........",
+          "...877.XXX......",
+          "....87XjjjX.....",
+          "...gXXXXXXXXg...",
+          "....XoottooX....",
+          ".....kJkkkk.....",
+          ".....ottttO.....",
+          "......obbo......",
+          "...KxSS7SSxK....",
+          "..KSuS575SuSK...",
+          "..XSxSu7uSxSX...",
+          "..XtKSu7uSKtX...",
+          "..X.KbbObbK.X...",
+          "....xSSuSSx.....",
+          "....gK..gK......",
+          "....bI..bI......"
         ],
         "item": {
           "at": [
-            11,
-            9
+            5,
+            7
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            "..k....",
+            "...O...",
+            "..tO...",
+            "..TO...",
+            "..TOR..",
+            "..TOR..",
+            "..TO.TT",
+            "..TOoRO",
+            "...ooO."
           ]
         },
         "strike": {
           "at": [
-            13,
-            8
+            5,
+            7
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            "..k.....",
+            "...O....",
+            "...tO...",
+            "....TO..",
+            "....TOR.",
+            ".....TOR",
+            "...TT.TO",
+            "...ORooO",
+            "....OoO."
           ]
         }
       },
       {
         "body": [
-          "................",
-          "................",
-          "....87777778....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uu4uuu4....",
-          "....4uuu4uu4....",
-          "....4uu4uuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....875..578....",
-          "....888..888...."
+          "...5............",
+          "...57...........",
+          "...877XXX.......",
+          "....8XjjjX......",
+          "..gXXXXXXXXg....",
+          ".....XootoX.....",
+          ".....XkJkkk.....",
+          ".....Xottto.....",
+          "......Xobb......",
+          "....KxSSS7......",
+          "...KSuSS57......",
+          "...XSxSuS7......",
+          "...XSxSut.......",
+          "...X.bbOb.......",
+          "....xSSuS.......",
+          ".....gK.gK......",
+          ".....bI.bI......"
         ],
         "item": {
           "at": [
-            11,
-            9
+            9,
+            8
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            "k....",
+            ".O...",
+            ".tO..",
+            ".TOR.",
+            ".TOR.",
+            ".TO..",
+            "TTOo.",
+            "ROoO."
           ]
         },
         "strike": {
           "at": [
-            13,
-            8
+            9,
+            5
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            "k......",
+            ".O.....",
+            ".tO....",
+            "..TOR..",
+            "...TOR.",
+            "...TO.T",
+            "....OoR",
+            ".....OT"
           ]
         }
       },
       {
         "body": [
-          "................",
-          "................",
-          "....87777778....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uu4uuu4....",
-          "....4u444uu4....",
-          "....4uu4uuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....4uuuuuu4....",
-          "....875..578....",
-          "....888..888...."
+          "..55............",
+          "..577...........",
+          "...877.XXX......",
+          "....87XjjjX.....",
+          "...gXXXXXXXXg...",
+          "....XXXXXXXX....",
+          ".....bbbbbb.....",
+          ".....obbbbo.....",
+          "......oooo......",
+          "...KXXXXXXXK....",
+          "..KXXgXXXgXXK...",
+          "..XXXgXXXgXXX...",
+          "..XtXXgXgXXtX...",
+          "..XXXXXXXXXXX...",
+          "....xXXXXXx.....",
+          "....gK..gK......",
+          "....bI..bI......"
         ],
         "item": {
           "at": [
             11,
-            9
+            10
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            ".TT",
+            ".RO",
+            "oO."
           ]
         },
         "strike": {
           "at": [
-            13,
+            11,
             8
           ],
           "rows": [
-            "444",
-            "4.4",
-            "444"
+            ".TT",
+            ".RO",
+            "oO."
           ]
         }
       }
@@ -198,41 +223,20 @@
   },
   "sleep": {
     "asset_id": "bard-sleep",
-    "native_canvas_wh": [
-      11,
-      7
-    ],
-    "anchor_xy": [
-      5,
-      7
-    ],
-    "frames": 1,
-    "duration_ticks": 60,
-    "boss_duration_ticks": 15,
-    "collision": "none",
-    "label": "Zz"
+    "drawn": "class_looks::bard::sleep_marks: three Zs drifting up off each sleeper by turns, small z to big Z, white to teal",
+    "frames": "a 30-tick loop, each Z ten ticks behind the last",
+    "collision": "none"
   },
   "song": {
     "asset_id": "bard-song-ring",
-    "native_canvas_wh": [
-      113,
-      113
-    ],
-    "anchor_xy": [
-      56,
-      56
-    ],
-    "frames": 1,
+    "drawn": "class_looks::bard::song_rings: opens out of the Bard over 8 ticks; a turning dashed rim (gold and teal), six notes riding it, ripples rolling out every 12 ticks; thins in the last 12",
     "duration_ticks": 60,
     "radius_world": 7,
     "collision": "sound reaches enemy centres in the current room, through scenery"
   },
   "sounds": {
-    "stream": "shot_spark",
-    "ultimate": "boss_rise",
-    "needed": [
-      "muted plucked-note stream loop with release tail",
-      "two-second lullaby phrase with soft onset and ending"
-    ]
+    "stream": "sax_* (rules::bard::RIFF, one stab a volley) and bard_kick on every fourth",
+    "hit": "hit_note",
+    "ultimate": "bard_lullaby"
   }
 }

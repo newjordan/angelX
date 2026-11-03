@@ -1,0 +1,138 @@
+# crates/delve/src/rules/talents.rs — Sir Ector's lessons. Written in bendx
+# (delve/rules/core/_tools/bendx.py). A Prowess is {xp, learned: [side]}; a Talent a J object
+# {name, says, effect, does}.
+
+# The experience that reaches levels 2, 3, 4 and 5.
+def talents.LEVELS() -> [U32]:
+    return [600, 1800, 3600, 6000]
+
+def talents.talent(name: String, says: String, effect: String, does: String) -> J.Val:
+    return J.set(J.set(J.set(J.set(J.obj(), "name", J.JS{name}), "says", J.JS{says}), "effect", J.JS{effect}), "does", J.JS{does})
+
+# `LESSONS[lesson][side]`, or null past the end.
+def talents.LESSON(lesson: U32, side: U32) -> J.Val:
+    if U32.is_eq(lesson, 0):
+        if U32.is_eq(side, 0):
+            return talents.talent("Iron Hide", "Take the blow on the mail, not the face.", "armor 1", "one more piece of mail")
+        return talents.talent("Keen Edge", "A sharp blade is a short fight.", "damage 12", "12% more damage")
+    if U32.is_eq(lesson, 1):
+        if U32.is_eq(side, 0):
+            return talents.talent("Quickdraw", "Faster. No, faster than that.", "rate 15", "strike 15% faster")
+        return talents.talent("Fleet Foot", "The knight who isn't there doesn't get hit.", "speed 12", "walk 12% faster")
+    if U32.is_eq(lesson, 2):
+        if U32.is_eq(side, 0):
+            return talents.talent("Morningstar", "Swing it round your head. Mind the horse.", "orbit 1", "a morningstar circles you")
+        return talents.talent("Arc Lightning", "Hit one. Then, somehow, the one next to it.", "chain 1", "each hit sparks to another")
+    if U32.is_eq(lesson, 3):
+        if U32.is_eq(side, 0):
+            return talents.talent("Bloodthirst", "Every fallen thing gives a little back. Don't ask what.", "vamp 3", "health back from kills, at most 2 a second")
+        return talents.talent("Lady's Veil", "Your blows mend your friends. Arthur never learned this one.", "mend 2", "your hits mend a friend, at most 2 a second")
+    return J.JNull{}
+
+# `Prowess::level`
+def talents.Prowess.level(p: J.Val) -> U32:
+    n: U32 = 1
+    for at: U32 in talents.LEVELS():
+        if U32.is_ge(core.u(p, "xp"), at):
+            n = (n + 1 : U32)
+    return n
+
+# `Prowess::waiting`: lessons earned and not yet taken.
+def talents.Prowess.waiting(p: J.Val) -> U32:
+    return core.usub((talents.Prowess.level(p) - 1 : U32), J.len(J.get(p, "learned")))
+
+# The name the realm keeps a knight's prowess under.
+def talents.knight_key(h: J.Val) -> String:
+    if J.is_null(J.get(h, "knight")):
+        return home.util.lower(core.s(h, "name"))
+    return core.s(h, "knight")
+
+# `Home::prowess`: a knight's prowess, a fresh one when the realm has none.
+def home.Home.prowess(hm: J.Val, who: String) -> J.Val:
+    p: J.Val = J.get(J.get(hm, "knights"), who)
+    if J.is_null(p):
+        return J.set(J.set(J.obj(), "xp", J.JU{0}), "learned", J.JA{[]})
+    return p
+
+# `Home::learn`: `who` learns the left (0) or right (1) talent of their next lesson, if one is
+# waiting. The home after, and {"Ok": talent} or {"Err": text}.
+def home.Home.learn(hm: J.Val, who: String, side: U32) -> (J.Val, J.Val):
+    p: J.Val = home.Home.prowess(hm, who)
+    hm = J.set(hm, "knights", J.set(J.get(hm, "knights"), who, p))
+    n: U32 = J.len(J.get(p, "learned"))
+    if U32.is_ge(n, 4):
+        return (hm, home.util.err("Sir Ector: I've taught you all I know. Go and teach someone else."))
+    if U32.is_zero(talents.Prowess.waiting(p)):
+        at: U32 = core.nu(J.JA{[J.JU{600}, J.JU{1800}, J.JU{3600}, J.JU{6000}]}, n)
+        return (hm, home.util.err("Sir Ector: not yet. The next lesson is at level " ++ U32.show((n + 2 : U32)) ++ " (" ++ U32.show(at) ++ " experience; you have " ++ U32.show(core.u(p, "xp")) ++ ")."))
+    s: U32 = U32.min(side, 1)
+    p = J.set(p, "learned", J.push(J.get(p, "learned"), J.JU{s}))
+    hm = J.set(hm, "knights", J.set(J.get(hm, "knights"), who, p))
+    return (hm, home.util.ok(talents.LESSON(n, s)))
+
+# The lecterns (column, row, width, height in tiles): the left talent, and the right.
+def talents.inside(col: U32, row: U32, w: U32, h: U32, x: F32, y: F32) -> Bool:
+    c: F32 = F32.div(x, layout.TILE_UNITS())
+    r: F32 = F32.div(y, layout.TILE_UNITS())
+    return Bool.and(Bool.and(F32.is_ge(c, U32.to_f32(col)), F32.is_lt(c, U32.to_f32((col + w : U32)))), Bool.and(F32.is_ge(r, U32.to_f32(row)), F32.is_lt(r, U32.to_f32((row + h : U32)))))
+
+# The lectern a point stands on: 0 the left, 1 the right, 9 none.
+def talents.lectern_at(x: F32, y: F32) -> U32:
+    if talents.inside(2, 11, 2, 1, x, y):
+        return 0
+    if talents.inside(6, 11, 2, 1, x, y):
+        return 1
+    return 9
+
+# `Run::mark_experience`: experience for what fell this tick, for every knight in the party.
+def talents.Run.mark_experience(run: J.Val, kinds: [String]) -> J.Val:
+    xp: U32 = 0
+    for k: String in kinds:
+        xp = (xp + U32.max(U32.div(monsters.EnemyKind.bounty(k), 25), 1) : U32)
+    if U32.is_gt(xp, 0):
+        marks: J.Val = J.get(run, "marks")
+        run = J.set(run, "marks", J.set(marks, "xp", J.JU{(core.u(marks, "xp") + xp : U32)}))
+    return run
+
+# `Run::tick_lessons`: the lecterns: holding E on one asks Sir Ector for its talent; he greets
+# whoever walks up. `inputs` is the seats' keys, by seat id.
+def talents.Run.tick_lessons(run: J.Val, inputs: J.Val) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    orders: J.Val = J.get(run, "orders")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        side: U32 = talents.lectern_at(core.f(h, "x"), core.f(h, "y"))
+        if Bool.and(U32.is_lt(side, 2), Bool.and(U32.is_gt(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone")))):
+            input: J.Val = J.get(inputs, k)
+            pressing: Bool = Bool.and(Bool.not(J.is_null(input)), Bool.and(rules.Input.valid(input), core.b(input, "interact")))
+            if Bool.not(pressing):
+                h = core.set_b(h, "buy_spent", False{})
+                h = core.set_u(h, "buying", 0)
+            elif Bool.not(core.b(h, "buy_spent")):
+                h = core.set_u(h, "buying", core.uadd(core.u(h, "buying"), 1))
+                if U32.is_ge(core.u(h, "buying"), 22):
+                    h = core.set_u(h, "buying", 0)
+                    h = core.set_b(h, "buy_spent", True{})
+                    station: String = "lesson_a"
+                    if U32.is_eq(side, 1):
+                        station = "lesson_b"
+                    orders = J.push(orders, J.set(J.set(J.obj(), "knight", J.JU{combos.num(k)}), "station", J.JS{station}))
+            players = J.set(players, k, h)
+    run = J.set(J.set(run, "players", players), "orders", orders)
+    ex: F32 = F32.mul(5.0, layout.TILE_UNITS())
+    ey: F32 = F32.mul(10.2, layout.TILE_UNITS())
+    near: Bool = False{}
+    waiting: Bool = False{}
+    for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+        if Bool.and(U32.is_gt(core.u(h, "hp"), 0), F32.is_lt(RS.f_hypot(F32.sub(core.f(h, "x"), ex), F32.sub(core.f(h, "y"), ey)), 5.0)):
+            near = True{}
+        if U32.is_gt(talents.Prowess.waiting(home.Home.prowess(J.get(run, "home"), talents.knight_key(h))), 0):
+            waiting = True{}
+    greeted: U32 = core.u(run, "greeted")
+    if Bool.and(near, U32.is_zero((greeted .&. 16 : U32))):
+        cue: String = "npc:ector"
+        if waiting:
+            cue = "npc:ector_lesson"
+        run = J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{cue}))
+    if near:
+        return J.set(run, "greeted", J.JU{(greeted .|. 16 : U32)})
+    return J.set(run, "greeted", J.JU{(greeted .&. 239 : U32)})

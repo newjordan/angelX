@@ -92,7 +92,7 @@ export function cleanContainerPolicy(manifest) {
     image.name !== 'clean_release_builder' ||
     !/^sha256:[0-9a-f]{64}$/u.test(String(image.digest || '')) ||
     image.reference !== image.digest ||
-    image.local_tag !== 'angelX-clean-builder:rust-1.95.0-bookworm-v1' ||
+    image.local_tag !== 'angelX-clean-builder:rust-1.99.0-bookworm-v1' ||
     !/^sha256:[0-9a-f]{64}$/u.test(String(image.base_digest || '')) ||
     image.base_reference !== `docker.io/library/rust@${image.base_digest}` ||
     !/^[0-9a-f]{64}$/u.test(String(image.dockerfile_sha256 || '')) ||

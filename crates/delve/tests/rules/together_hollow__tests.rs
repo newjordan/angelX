@@ -20,8 +20,21 @@ fn with_a_hollow() -> (Run, u32) {
     let hollow = run.enemies.last_mut().unwrap();
     (hollow.stage, hollow.timer) = (1, 0);
     let id = hollow.id;
+    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
+    // the old fixture stood; find clear floor on the room's left instead,
+    // or a wedged knight cannot walk at all.
+    let mut clear = None;
+    'find: for gx in 2..8 {
+        for gy in 3..20 {
+            if run.room().tile(gx, gy).ground() {
+                clear = Some(((gx as f32 + 0.5) * TILE_UNITS, (gy as f32 + 0.5) * TILE_UNITS));
+                break 'find;
+            }
+        }
+    }
+    let (hx, hy) = clear.expect("clear floor on the Crypt's left");
     let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y, hero.invulnerable) = (10.0, 12.0, 0);
+    (hero.x, hero.y, hero.invulnerable) = (hx, hy, 0);
     (run, id)
 }
 
@@ -52,12 +65,15 @@ fn still(run: &mut Run, ticks: u32) {
 #[test]
 fn a_hole_warns_then_drags_a_knight_in() {
     let (mut run, id) = with_a_hollow();
-    open(&mut run, id, (15.0, 12.0), false);
+    let start = run.players[&1].x;
+    let sy = run.players[&1].y;
+    // The hole opens five units to the knight's right, on clear floor.
+    open(&mut run, id, (start + 5.0, sy), false);
     still(&mut run, HOLE_WARN - 2);
-    assert_eq!(run.players[&1].x, 10.0, "only a warning so far");
+    assert_eq!(run.players[&1].x, start, "only a warning so far");
     still(&mut run, 30);
     assert!(
-        run.players[&1].x > 11.0,
+        run.players[&1].x > start + 1.0,
         "dragged in: {}",
         run.players[&1].x
     );

@@ -142,6 +142,41 @@ fn code_mode_orchestrates_real_registry_tools() {
 }
 
 #[test]
+fn code_mode_parallel_ledger_reads_keep_the_callers_book_generation() {
+    let _lock = crate::tests::env_lock();
+    let root = scratch("code_mode_book_batch");
+    let mut catalog = crate::agent::harness::book::catalog::Catalog::baseline();
+    catalog.set_test_page(
+        crate::agent::harness::book::Route::new('⠣', '⠁'),
+        0,
+        "code mode pinned first page",
+    );
+    catalog.set_test_page(
+        crate::agent::harness::book::Route::new('⠣', '⠃'),
+        0,
+        "code mode pinned second page",
+    );
+    let _scope = crate::agent::harness::book::catalog::enter(Arc::new(catalog));
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    register_file_tools(&mut registry, root.clone());
+    let names = registry.bindable_tool_names();
+    registry.register(Box::new(CodeModeTool::new(&names)));
+    let output = dispatch_with_hooks(
+        &registry,
+        &Hooks::default(),
+        "code_mode",
+        &serde_json::json!({"script": "const r = batch([
+            {tool:'read_file',args:{path:'ledger://⠣⠁⠁'}},
+            {tool:'read_file',args:{path:'ledger://⠣⠃⠁'}}
+        ]); return r.map(x => x.ok ? x.output : 'ERROR:' + x.error).join('|');"}),
+    );
+    assert!(output.contains("code mode pinned first page"), "{output}");
+    assert!(output.contains("code mode pinned second page"), "{output}");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn code_mode_mixed_batch_parallelizes_safe_segments_around_effect_barrier() {
     use std::sync::atomic::Ordering;
 
@@ -470,7 +505,7 @@ fn code_mode_nested_call_respects_blocking_hook() {
             command: "echo denied; exit 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let args = serde_json::json!({ "script": "return reverse({text:'ab'});" });
     let r = dispatch_with_hooks(&reg, &block, "code_mode", &args);

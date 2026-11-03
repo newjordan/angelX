@@ -1,0 +1,11 @@
+{
+ "name": "dwarf_berserker",
+ "body": "dwarf",
+ "equip": [
+  "helm_open",
+  "horns",
+  "axe",
+  "leather_vest",
+  "gauntlets"
+ ]
+}

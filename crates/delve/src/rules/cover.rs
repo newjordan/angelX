@@ -9,15 +9,25 @@
 //! smaller). Past it, the oldest friendly shots go first, so a new volley
 //! always flies and the room never fills.
 //!
+//! That share is switched off for now ([`PARTY_COVER_ON`], the operator,
+//! 2026-10-22: "we can get rid of the 12% rule for now"): the cure is
+//! smaller shots instead (`wishcraft::Projectile::scale`, a shot is drawn
+//! smaller the faster its arm fires). One change, `PARTY_COVER_ON = true`,
+//! brings it back.
+//!
 //! Every friendly shot lives at most [`SHOT_LIFE`] ticks, and comes off
-//! the stone at most [`BOUNCES`] times.
+//! the stone at most [`BOUNCES`] times; that holds with the share off.
 
 use super::*;
 
-/// A plain shot's drawn side, arena units (a 8-pixel sprite at twice size).
+/// A plain shot's drawn side at the size it was once drawn at, arena units
+/// (a 8-pixel sprite at twice size); a shot is `scale` times it.
 pub const SHOT_SIDE: f32 = 2.0;
 /// Of the screen (or a smaller room), percent the party's shots may cover.
 pub const PARTY_COVER: f32 = 12.0;
+/// Whether the party's shots are held to [`PARTY_COVER`] at all. Off for
+/// now (2026-10-22); the oldest-first retiring below is kept whole.
+pub const PARTY_COVER_ON: bool = false;
 /// The longest a friendly shot flies, ticks.
 pub const SHOT_LIFE: u32 = 3 * HZ;
 /// The most times a friendly shot comes off the stone.
@@ -29,9 +39,12 @@ pub fn counted(p: &Projectile) -> bool {
     !p.hostile && p.traits.owner > 0 && p.in_flight() && !p.traits.boomerang && p.traits.back == 0
 }
 
-/// The area one shot covers, square units.
+/// The area one shot covers, square units: its drawn side, `SHOT_SIDE`
+/// times its size (`Projectile::scale`).
 pub fn area(shot: &Projectile) -> f32 {
-    let side = SHOT_SIDE + 2.0 * shot.reach();
+    // (A sim made as shots were before they scaled counts them as then:
+    // a plain side, wider by its size wish's reach on each side.)
+    let side = if super::wishcraft::legacy() { SHOT_SIDE + 2.0 * shot.reach() } else { SHOT_SIDE * shot.scale() };
     side * side
 }
 
@@ -48,9 +61,9 @@ pub fn covered(shots: &[Projectile], view: f32) -> f32 {
     total * 100.0 / view
 }
 
-/// Hold the knights' shots to [`PARTY_COVER`] of `view`, the oldest gone
-/// first, and every one to [`SHOT_LIFE`] and [`BOUNCES`]. Returns how many
-/// were retired for room.
+/// Hold every knight's shot to [`SHOT_LIFE`] and [`BOUNCES`], and, when
+/// [`PARTY_COVER_ON`], the party's to [`PARTY_COVER`] of `view`, the oldest
+/// gone first. Returns how many were retired for room.
 pub fn hold(shots: &mut Vec<Projectile>, view: f32) -> usize {
     #[cfg(test)]
     if OFF.with(std::cell::Cell::get) {
@@ -60,7 +73,17 @@ pub fn hold(shots: &mut Vec<Projectile>, view: f32) -> usize {
         p.ttl = p.ttl.min(SHOT_LIFE);
         p.traits.bounce = p.traits.bounce.min(BOUNCES);
     }
-    let budget = PARTY_COVER * view / 100.0;
+    #[cfg(test)]
+    let on = PARTY_COVER_ON || super::wishcraft::LEGACY.with(std::cell::Cell::get);
+    #[cfg(not(test))]
+    let on = PARTY_COVER_ON;
+    if on { retire(shots, view, PARTY_COVER) } else { 0 }
+}
+
+/// Hold the party's shots to `share` percent of `view`, the oldest gone
+/// first. Returns how many were retired for room.
+pub fn retire(shots: &mut Vec<Projectile>, view: f32, share: f32) -> usize {
+    let budget = share * view / 100.0;
     let mut total: f32 = shots.iter().filter(|p| counted(p)).map(area).sum();
     if total <= budget {
         return 0;
@@ -88,3 +111,7 @@ thread_local! {
 #[cfg(test)]
 #[path = "../../tests/rules/together_cover__tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "bend-cases-combat"))]
+#[path = "../../tests/rules/cover_bend_cases__tests.rs"]
+mod cover_bend_cases_tests;

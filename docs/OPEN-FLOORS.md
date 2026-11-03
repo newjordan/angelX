@@ -83,9 +83,10 @@ knows both ways).
 - `Run::populate_open` runs on the first walk onto the map. Each chamber's
   roster spawns at its own floor spots, **dormant**
   (`Enemy::dormant`, `Enemy::home` = the chamber). It adds party extras
-  `(EXTRA_FOES[d] + EXTRA_PER_KNIGHT * (knights - 1)) * ramp / 100`, where
+  `(EXTRA_FOES[d] + party_extra(knights)) * ramp / 100`, where
   the ramp grows with the chamber's distance from the arrival
-  (`RAMP_FIRST` to 100). Elites are rolled as `deepen` rolls them. The
+  (`RAMP_FIRST` to 100); on floors 1-2 the first fight chamber off the
+  arrival takes none of the party's (`GENTLE_FIRST_TO`). Elites are rolled as `deepen` rolls them. The
   guardian stands alone on floors 1-3 with its escort's hoard
   (`BOSS_ALONE_TO`); below that it keeps two escorts. Health and damage
   are untouched.
@@ -94,6 +95,8 @@ knows both ways).
 - **Waking.** A dormant company stirs as one when a knight steps into its
   chamber, comes within `WAKE_REACH` of a member with a clear line of
   sight, or hurts one. A woken foe gets a half telegraph, then fights.
+  For five or six knights at most `OPEN_WAVE` (8) of a company fight at
+  once; the rest wake as those fall.
 - **Leash.** A foe never moves farther than `LEASH` tiles outside its
   chamber's stone (the step is undone). A company with no knight within
   `SLEEP_REACH` dozes off again.

@@ -1463,3 +1463,25 @@ fn a_watchdog_handoff_moves_a_wedged_shell_call_to_the_job_table_now() {
     }
     stop_owned_for(owner, "test cleanup");
 }
+
+#[test]
+fn sandbox_annotation_write_failure_is_reported() {
+    use std::os::unix::fs::PermissionsExt;
+    let store = TemporaryLogStore::new("sandbox-note");
+    let path = store.0.join("receipt.json");
+    let original = br#"{"id":1}"#;
+    std::fs::write(&path, original).unwrap();
+    // Atomic publication creates a sibling and renames it over the receipt:
+    // denying writes to the directory exercises that writer's failure path.
+    let perms = std::fs::metadata(&store.0).unwrap().permissions();
+    std::fs::set_permissions(&store.0, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let sandbox = serde_json::json!({"sandbox_profile": "workspace"});
+    let result = annotate_receipt_sandbox(&path, &sandbox);
+    std::fs::set_permissions(&store.0, perms).unwrap();
+    let error = result.unwrap_err();
+    assert!(error.contains("write"), "{error}");
+    let warning = sandbox_annotation_warning(&error);
+    assert!(warning.contains("not persisted"), "{warning}");
+    assert!(warning.contains("write"), "{warning}");
+    assert_eq!(std::fs::read(&path).unwrap(), original, "a failed annotation keeps the original receipt");
+}

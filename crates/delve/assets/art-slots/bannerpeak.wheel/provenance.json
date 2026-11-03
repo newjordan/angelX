@@ -11,6 +11,6 @@
   "prompt_sha256": "adb4e83a7ec40a00fdcdbc769bb3cd25e319a2798bffc15e1aa1fa78c35cd714",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (the re-run; v01-first is kept outside the repo and not used). The delivery's generation.json is the first run's record; the producer note accepts this re-run",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.wheel/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.wheel/v01/source-sheet.png",
   "source_sha256": "6b6937fee30f149d22d161a94b9087858c4f8e46d982f9d4c1ccbe941832fa26"
 }

@@ -1,0 +1,26 @@
+name Lantern Jury
+kind spell
+rarity rare
+text Cast a ring of shots and shelter beneath a two-second ward.
+drop 2
+chest 3
+cooldown 18
+cast ring
+ward 2
+art
+................
+......hhhh......
+.....hYYYYh.....
+.....hYhhYh.....
+...hhhYhhYhhh...
+..hYYYYYYYYYYh..
+..hYhhhhhhhhYh..
+..hYh..WW..hYh..
+..hYh.WYYW.hYh..
+..hYh.WYYW.hYh..
+..hYh..YY..hYh..
+..hYh..RR..hYh..
+..hYYYYYYYYYYh..
+...hhhhhhhhhh...
+.....hYYYYh.....
+......hhhh......

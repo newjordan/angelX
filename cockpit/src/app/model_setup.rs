@@ -1,6 +1,7 @@
 //! Read-only onboarding guidance for model connections.
 
-const USAGE: &str = "usage: /connect [grok|openai|daybreak|glm|deepseek|openrouter|local]";
+const USAGE: &str =
+    "usage: /connect [grok|openai|daybreak|glm|deepseek|openrouter|anthropic|local]";
 
 fn policy_text() -> String {
     let api = match std::env::var("ANGEL_API_CLUBS") {
@@ -28,7 +29,7 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             "{USAGE}\n\
              Setup instructions; run /model after configuring and restarting.\n\
              Easiest: /setup opens a menu that does all of this for you.\n\
-             providers: grok · openai · daybreak · glm · deepseek · openrouter · local\n\
+             providers: grok · openai · daybreak · glm · deepseek · openrouter · anthropic · local\n\
              {}\n\
              after setup: /model · /think · /status",
             policy_text()
@@ -87,6 +88,15 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             Set ANGEL_OPENROUTER_URL/OPENROUTER_BASE_URL, ANGEL_OPENROUTER_MODEL/OPENROUTER_MODEL,\n\
             and ANGEL_OPENROUTER_KEY/OPENROUTER_API_KEY. OpenRouter requires an explicit\n\
             model and credential before its catalog is offered. /connect does not test it."
+        }
+        "anthropic" => {
+            "Anthropic API connection\n\
+            Set ANTHROPIC_API_KEY or ANGEL_ANTHROPIC_KEY. The anthropic seat uses\n\
+            ANGEL_ANTHROPIC_MODEL when set, otherwise claude-sonnet-5-5.\n\
+            Claude Opus 5.5 is a separate seat on that same key. Select it with\n\
+            /model claude-opus-5-5 or ANGEL_DRIVER=claude-opus-5-5 (opus and\n\
+            opus-5.5 select it too). Optional endpoint: ANGEL_ANTHROPIC_URL.\n\
+            /connect does not display or test the key."
         }
         "local" => {
             "Local model connection\n\

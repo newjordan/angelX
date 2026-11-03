@@ -10,15 +10,15 @@ const kind = names.indexOf(process.argv[3]);
 if (kind < 0) throw new Error("parity needs a smoke scene ID");
 const off = process.argv.includes("--off"), four = process.argv.includes("--party");
 const hex = n => (n >>> 0).toString(16).padStart(8,"0");
-for (const art of [0,1]) for (const rage of [false,true]) for (const plain of [false,true]) {
-  scene(kind,art);
+for (const rage of [false,true]) for (const plain of [false,true]) {
+  scene(kind);
   if (off) hitstop_off();
   if (four) party();
   if (plain) plain_art();
   if (rage) force_rage();
   for (let tick=0; tick<=60; tick++) {
     if (tick) step(1);
-    const [w,h] = art ? [768,448] : [384,224];
-    console.log(`${art},${rage},${plain},${tick},${hex(state_hash(off ? 6 : 0))},${hex(state_hash(1))},${hex(state_hash(2))},${hex(state_hash(3))},${state_hash(4)},${hex(frame(w,h))}`);
+    const [w,h] = [384,224];
+    console.log(`${rage},${plain},${tick},${hex(state_hash(off ? 6 : 0))},${hex(state_hash(1))},${hex(state_hash(2))},${hex(state_hash(3))},${state_hash(4)},${hex(frame(w,h))}`);
   }
 }

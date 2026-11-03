@@ -87,6 +87,11 @@ fn cold_and_appended_giant_messages_yield_then_show_the_actual_tail() {
 
 #[test]
 fn selected_pixels_survive_async_resize_and_appended_content() {
+    // The frozen body is the transcript above the idle tool strip; pin the
+    // layout mode so a parallel test's ANGEL_COMP_MODE toggle cannot resize
+    // the body mid-draw.
+    let _lock = crate::tests::env_lock();
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let mut app = app();
     app.messages.push(giant("SELECTED"));
     let mut terminal = Terminal::new(TestBackend::new(43, 12)).unwrap();

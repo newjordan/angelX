@@ -1,0 +1,23 @@
+# The Reaver's second: a bound into the thick of them.
+name   Leap
+kind   spell
+rarity relic
+text   He bounds along the aim and lands in a quake that stuns.
+drop   0
+chest  0
+cooldown 10
+feat 1
+art
+......xx.....
+.....xHix....
+....xHiihx...
+.....xhhx....
+..x...xx...x.
+..hx..BB..xh.
+...hxBbbBxh..
+....xbBBbx...
+.....xbbx....
+...J..xx..J..
+.JhJJ.....JJh
+GJhhJJGGJJhJG
+.GGJJGG.GGJG.

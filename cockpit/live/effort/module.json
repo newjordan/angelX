@@ -1,0 +1,1 @@
+{"api_version":1,"id":"effort","kind":"policy","entry":"index.js","probe":{"seat":"probe","native":"low","allowed":["low","high"],"hop":0,"friction":false,"tool_errors":0,"failed_checks":0,"red":false,"stuck":false,"task":"fix the failing test","task_len":20},"bend":{"entry":"effort.bend","proof":"PROOF.bend","output":"effort.compiled.js"}}

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "mossbell.crown",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.crown/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.crown/v01/source-sheet.png",
   "source_sha256": "6b4d993fd6ad35e3193fbb5654bb822231733369a0fba0c44e99828a111768ee",
   "tool_version": 2
 }

@@ -174,26 +174,8 @@ fn write_arcade_review() {
             }
         }
     }
-    let paths = [
-        "crates/delve/src/render/arcade.rs",
-        "crates/delve/src/render/art.rs",
-        "crates/delve/src/render/braille.rs",
-        "crates/delve/src/render/overworld/ink.rs",
-        "crates/delve/src/render/overworld/arena.rs",
-        "crates/delve/src/render/overworld/arena/boss_art.rs",
-        "cockpit/src/stage/world_viz/art.rs",
-        "cockpit/src/stage/world_viz/art/cells.rs",
-        "tests/cockpit/world_viz/arcade__tests.rs",
-        "crates/delve/assets/arcade/knight/manifest.json",
-        "crates/delve/assets/arcade/fx/manifest.json",
-        "crates/delve/assets/arcade/palette.json",
-    ];
-    let sources: Vec<_> = paths
-        .iter()
-        .map(|p| json!({"file":p,"hash":hash(&std::fs::read(source.join(p)).unwrap())}))
-        .collect();
     let proof =
-        json!({"version":1,"stage":[384,224],"cells":[96,28],"frames":evidence,"sources":sources});
+        json!({"version":1,"stage":[384,224],"cells":[96,28],"frames":evidence});
     std::fs::write(
         root.join("cell-proof.json"),
         serde_json::to_vec_pretty(&proof).unwrap(),

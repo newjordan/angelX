@@ -1677,3 +1677,7 @@ impl Session {
         let _ = HZ;
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
+#[path = "../../../tests/rules/bannerpeak_session_bend_cases__tests.rs"]
+pub mod bend_cases_session;

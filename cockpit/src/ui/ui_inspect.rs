@@ -279,32 +279,7 @@ impl Tool for UiInspectTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "ui_inspect".to_string(),
-            description: "Inspect the next fully rendered interactive cockpit frame. Defaults to the braille Scryglass and returns matching panel, focus, media, world, and control state. ⠮⠋".to_string(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "snapshot_id": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "⠮⠋⠃"
-                    },
-                    "scope": {
-                        "type": "string",
-                        "enum": ["scryglass", "artifacts", "screen", "header", "transcript", "agent", "input", "shell", "image", "transport"],
-                        "default": "scryglass"
-                    },
-                    "format": {
-                        "type": "string",
-                        "enum": ["text", "cells"],
-                        "default": "text"
-                    },
-                    "row_offset": { "type": "integer", "minimum": 0, "default": 0 },
-                    "row_count": { "type": "integer", "minimum": 1, "maximum": 120, "default": 24 }
-                }
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("ui_inspect")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -330,82 +305,7 @@ impl Tool for UiVerifyTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "ui_verify".to_string(),
-            description: "Apply one typed, display-only operation through the ordinary cockpit input path, then return its receipt with exact terminal cells and semantic state from that same completed frame. ⠮⠛".to_string(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "operation": {
-                        "oneOf": [
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "op": { "const": "inspect_image" },
-                                    "action": { "type": "string", "enum": ["zoom_in", "zoom_out", "left", "right", "up", "down", "fit"] }
-                                },
-                                "required": ["op", "action"],
-                                "additionalProperties": false
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "op": { "const": "open_control" },
-                                    "control": { "type": "string", "enum": ["model", "thinking"] }
-                                },
-                                "required": ["op", "control"],
-                                "additionalProperties": false
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "op": { "const": "navigate_control" },
-                                    "direction": { "type": "string", "enum": ["up", "down", "left", "right"] }
-                                },
-                                "required": ["op", "direction"],
-                                "additionalProperties": false
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "op": { "const": "focus_surface" },
-                                    "surface": { "type": "string", "enum": ["core", "agent", "scryglass"] }
-                                },
-                                "required": ["op", "surface"],
-                                "additionalProperties": false
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "op": { "const": "open_observatory" },
-                                    "campaign": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "description": "⠮⠛⠃"
-                                    }
-                                },
-                                "required": ["op"],
-                                "additionalProperties": false
-                            }
-                        ]
-                    },
-                    "scope": {
-                        "type": "string",
-                        "enum": ["scryglass", "artifacts", "screen", "header", "transcript", "agent", "input", "shell", "image", "transport"],
-                        "default": "screen"
-                    },
-                    "format": {
-                        "type": "string",
-                        "enum": ["text", "cells"],
-                        "default": "text"
-                    },
-                    "row_offset": { "type": "integer", "minimum": 0, "default": 0 },
-                    "row_count": { "type": "integer", "minimum": 1, "maximum": 120, "default": 17 }
-                },
-                "required": ["operation"],
-                "additionalProperties": false
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("ui_verify")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -585,7 +485,7 @@ fn semantic_state(app: &App) -> Value {
             "tutor_name": tutor.name
         })
     });
-    let latest_work = app.world.latest_active_work();
+    let latest_work = app.realm.world.latest_active_work();
     let active_work = app
         .world
         .active_work()
@@ -603,10 +503,10 @@ fn semantic_state(app: &App) -> Value {
             })
         })
         .collect::<Vec<_>>();
-    let next_unlock = app.world.next_unlock().map(|(threshold, label)| {
-        json!({ "threshold": threshold, "label": label, "remaining": threshold.saturating_sub(app.world.renown()) })
+    let next_unlock = app.realm.world.next_unlock().map(|(threshold, label)| {
+        json!({ "threshold": threshold, "label": label, "remaining": threshold.saturating_sub(app.realm.world.renown()) })
     });
-    let hearth = app.world.hearth_state();
+    let hearth = app.realm.world.hearth_state();
     let formation = formation_semantics(app);
     let atlas_status = app.atlas.status();
     let atlas_items = app.atlas.list(
@@ -698,26 +598,26 @@ fn semantic_state(app: &App) -> Value {
             })).collect::<Vec<_>>()
         },
         "world": {
-            "town": app.world.town_name(),
-            "tier": app.world.level(),
-            "renown": app.world.renown(),
+            "town": app.realm.world.town_name(),
+            "tier": app.realm.world.level(),
+            "renown": app.realm.world.renown(),
             "next_unlock": next_unlock,
-            "riding": app.world.riding(),
-            "arrived": app.world.arrived_building().map(|building| format!("{:?}", building)),
-            "inside_interior": app.world.inside_interior(),
-            "interior": app.world.interior_building().map(|building| format!("{:?}", building)),
-            "destination": format!("{:?}", app.world.destination()),
+            "riding": app.realm.world.riding(),
+            "arrived": app.realm.world.arrived_building().map(|building| format!("{:?}", building)),
+            "inside_interior": app.realm.world.inside_interior(),
+            "interior": app.realm.world.interior_building().map(|building| format!("{:?}", building)),
+            "destination": format!("{:?}", app.realm.world.destination()),
             "selected_building": match stage_route { crate::ui::scryglass::StageRoute::Explore(building) => Some(format!("{building:?}")), _ => None },
-            "camera_mode": app.world.camera_mode_label(),
+            "camera_mode": app.realm.world.camera_mode_label(),
             "active_events": active_work,
-            "event_diagnostics": app.world.event_diagnostics(),
-            "causal_ribbon": app.world.causal_ribbon(),
+            "event_diagnostics": app.realm.world.event_diagnostics(),
+            "causal_ribbon": app.realm.world.causal_ribbon(),
             "environment": {
-                "weather": app.world.weather_label(),
+                "weather": app.realm.world.weather_label(),
                 "hearth": { "light": hearth.light, "warmth": hearth.warmth, "beats": hearth.beats, "prosperity": hearth.prosperity },
                 "day_phase": hearth.phase().label()
             },
-            "memory_health": format!("{:?}", app.world.memory_health()).to_ascii_lowercase()
+            "memory_health": format!("{:?}", app.realm.world.memory_health()).to_ascii_lowercase()
         },
         "formation": formation,
         "media": {

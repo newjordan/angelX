@@ -386,38 +386,10 @@ impl Tool for SemanticReadTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: self.name().to_string(),
-            description: "Use the shared Casper embedding service to rank bounded chunks from \
-                          explicitly named workspace files, returning only the most relevant \
-                          source passages with path and line provenance. Files stay confined to the active repository; \
-                          hidden, credential, key, and off-limits paths are rejected. ⠡⠋"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "⠡⠋⠃"
-                    },
-                    "paths": {
-                        "type": "array",
-                        "items": { "type": "string" },
-                        "minItems": 1,
-                        "maxItems": MAX_PATHS,
-                        "description": "⠡⠋⠉"
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": MAX_RESULTS,
-                        "description": "⠡⠋⠙"
-                    }
-                },
-                "required": ["query", "paths"],
-                "additionalProperties": false
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("semantic_read");
+        *definition.params.pointer_mut("/properties/paths/maxItems").expect("embedded tool schema") = serde_json::json!(MAX_PATHS);
+        *definition.params.pointer_mut("/properties/max_results/maximum").expect("embedded tool schema") = serde_json::json!(MAX_RESULTS);
+        definition
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -583,3 +555,9 @@ pub(crate) fn maybe_register_embedding_tools(r: &mut ToolRegistry, workspace: Pa
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/embed__tests.rs"]
 mod tests;
+
+
+#[cfg(test)]
+pub(crate) fn catalog_current_semantic_read() -> ToolDef {
+    SemanticReadTool { root: PathBuf::new(), config: EmbeddingConfig { base_url: String::new(), model: String::new(), api_key: None } }.def()
+}

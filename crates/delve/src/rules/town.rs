@@ -257,6 +257,8 @@ impl Run {
             let stall = &STALLS[i];
             let message = if self.town.shut[i] > 0 {
                 "SHUT. SULKING.".to_string()
+            } else if self.marks.contains_key(&sale_mark(i, id)) {
+                "THE LAST SALE IS STILL BEING SETTLED.".to_string()
             } else if self.treasury.get(stall.buys) == 0 {
                 format!("NO {} TO SELL.", stall.word)
             } else if self.town.haggles.values().any(|&(s, _)| usize::from(s) == i) {

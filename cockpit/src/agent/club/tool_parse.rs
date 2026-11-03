@@ -484,6 +484,10 @@ pub(crate) fn contains_raw_tool_markup(content: &str) -> bool {
         "<longcat_arg_key>",
         "<longcat_arg_value>",
         "<parameter=",
+        // DeepSeek's own tool-call dialects: DSML tags (`<｜DSML｜invoke`,
+        // `</｜｜DSML｜｜ parameter>`) and the special tool-call tokens.
+        "｜dsml｜",
+        "<｜tool▁call",
     ]
     .iter()
     .any(|m| lowered.contains(m))

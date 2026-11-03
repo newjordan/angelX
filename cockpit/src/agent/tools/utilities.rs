@@ -23,28 +23,7 @@ impl Tool for PresentTool {
         "present"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "present".to_string(),
-            description: "Show the requested actual work in the ordinary terminal Stage. \
-                image/video displays a local artifact; resource/report displays a local UTF-8 document (including Markdown, source, CSV, or JSON). The display stays \
-                open until dismissed. Remote links show their URL, not fetched page contents. \
-                The result acknowledges a queued display request; decode/read failures are \
-                shown honestly in Stage. ⠫⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "kind": {
-                        "type": "string",
-                        "enum": ["image", "video", "link", "graph", "resource", "report"],
-                        "description": "⠫⠁⠉"
-                    },
-                    "label": { "type": "string", "description": "⠫⠁⠙" },
-                    "url": { "type": "string", "description": "⠫⠁⠑" }
-                },
-                "required": ["kind", "label", "url"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("present")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let kind = args["kind"].as_str().ok_or("missing 'kind'")?;

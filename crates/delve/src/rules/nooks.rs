@@ -16,6 +16,8 @@
 //!   knight's own pack, two jars, one brew; the same jar twice is a frog.
 //! - **The Bell Loft** (Crypt, Archive): the ghost choirmaster rings a
 //!   tune, the party rings it back; a wrong bell calls a wraith.
+//! - **The Gnome's Garden** (an open delve's third floor): herbs, mushrooms,
+//!   or a party, and the garden's guests at the cellar door (`gnome`).
 //!
 //! Nooks only add: their room is extra, never a fight room taken away, and
 //! what they raise is on top of the floor's own monsters. Placement draws
@@ -24,13 +26,20 @@
 use super::*;
 
 mod bellows;
+pub mod gnome;
 mod kitchen;
 mod loft;
 mod ossuary;
+mod ossuary_port;
 mod reading;
 mod still;
 pub use bellows::{HANDLES, HEAT_FULL, HEAT_IMPS};
 pub use kitchen::{Cook, POT, SCOOPS, cook};
+pub use ossuary_port::{
+    BrainTally, MAX_EFFECTS, MAX_GRANT, OssuaryBeast, OssuaryBrain, OssuaryCue, OssuaryEffect, OssuaryFrame,
+    OssuaryKnight, OssuarySaid, OssuaryState, OssuaryStep, SharedOssuaryBrain, install_ossuary_brain, install_shared_ossuary_brain,
+    ossuary_brain_installed, ossuary_brain_tally, reset_ossuary_brain_tally,
+};
 pub use loft::{BELLS, SEQS, Show, show};
 pub use ossuary::{GAPS, PATH, at as domino_at, is_gap};
 pub use reading::{LECTERNS, stand as lectern_stand};
@@ -40,7 +49,7 @@ pub use ossuary::COFFER as OSSUARY_COFFER;
 pub use kitchen::STOVE as KITCHEN_STOVE;
 pub use loft::under as loft_under;
 
-/// The six nooks, as room kinds.
+/// The six nooks a pack keeps, as room kinds.
 pub const KINDS: [RoomKind; 6] = [
     RoomKind::Kitchen,
     RoomKind::Reading,
@@ -53,7 +62,7 @@ pub const KINDS: [RoomKind; 6] = [
 impl RoomKind {
     /// A nook below ground.
     pub fn nook(self) -> bool {
-        KINDS.contains(&self)
+        KINDS.contains(&self) || self == RoomKind::GnomeParty
     }
 }
 
@@ -99,6 +108,7 @@ pub fn room(kind: RoomKind, cell: (i32, i32), door: usize) -> Room {
         RoomKind::Bellows => bellows::BLOCKS.to_vec(),
         RoomKind::Ossuary => ossuary::BLOCKS.to_vec(),
         RoomKind::Still => still::BLOCKS.to_vec(),
+        RoomKind::GnomeParty => gnome::BLOCKS.to_vec(),
         _ => loft::blocks(),
     };
     for rect in blocks {
@@ -205,6 +215,9 @@ pub struct Nook {
     pub shown: u32,
     pub pos: u8,
     pub lit: Option<(u8, u32)>,
+    /// The gnome's garden: the party and its guests.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub garden: Option<gnome::Garden>,
 }
 
 impl Nook {
@@ -231,6 +244,7 @@ impl Nook {
             && self.pos as usize <= SEQS.get(usize::from(self.round)).map_or(0, |s| s.len())
             && self.shown <= loft::show_len(usize::from(self.round.min(SEQS.len() as u8 - 1)))
             && self.lit.is_none_or(|(b, t)| usize::from(b) < BELLS.len() && t <= loft::LIT)
+            && self.garden.as_ref().is_none_or(gnome::Garden::valid)
     }
 }
 
@@ -306,9 +320,16 @@ impl Run {
                 RoomKind::Kitchen => self.tick_kitchen(&mut nook, inputs, pressed),
                 RoomKind::Reading => self.tick_reading(&mut nook, pressed),
                 RoomKind::Bellows => self.tick_bellows(&mut nook, pressed),
-                RoomKind::Ossuary => self.tick_ossuary(&mut nook, pressed),
+                // The Bone Dominoes may run as a hot-loaded module; the native tick
+                // answers when no brain is installed or its answer does not pass.
+                RoomKind::Ossuary => {
+                    if !self.tick_ossuary_brain(&mut nook, pressed) {
+                        self.tick_ossuary(&mut nook, pressed);
+                    }
+                }
                 RoomKind::Still => self.tick_still(&mut nook, pressed),
                 RoomKind::Loft => self.tick_loft(&mut nook, pressed),
+                RoomKind::GnomeParty => self.tick_gnome(&mut nook, pressed),
                 _ => {}
             }
         }

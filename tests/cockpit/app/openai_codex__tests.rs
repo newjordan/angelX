@@ -6,6 +6,86 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
 
+/// Knobs that shape outbound request bytes (dialect, effort, cache markers,
+/// replay and session pins). Tests scrub them under the crate env lock so a hop
+/// pair cannot be built under two different configurations; the list mirrors
+/// the club prefix suite.
+const PREFIX_ENV: &[&str] = &[
+    "ANGEL_REASONING_EFFORT",
+    "ANGEL_DEEPSEEK_REASONING_EFFORT",
+    "ANGEL_ANTHROPIC_EFFORT",
+    "ANGEL_PREFIX_OPENAI_REASONING_EFFORT",
+    "ANGEL_PREFIX_GROK_REASONING_EFFORT",
+    "ANGEL_PREFIX_DEEPSEEK_REASONING_EFFORT",
+    "ANGEL_PREFIX_DEEPSEEK_FORWARDER_REASONING_EFFORT",
+    "ANGEL_PREFIX_QWEN_REASONING_EFFORT",
+    "ANGEL_PREFIX_GLM_REASONING_EFFORT",
+    "ANGEL_ANTHROPIC_REASONING_EFFORT",
+    "ANGEL_OPENROUTER_REASONING_EFFORT",
+    "ANGEL_PREFIX_OPENAI_REASONING_DIALECT",
+    "ANGEL_PREFIX_GROK_REASONING_DIALECT",
+    "ANGEL_PREFIX_DEEPSEEK_REASONING_DIALECT",
+    "ANGEL_PREFIX_DEEPSEEK_FORWARDER_REASONING_DIALECT",
+    "ANGEL_PREFIX_QWEN_REASONING_DIALECT",
+    "ANGEL_PREFIX_GLM_REASONING_DIALECT",
+    "ANGEL_ANTHROPIC_REASONING_DIALECT",
+    "ANGEL_OPENROUTER_REASONING_DIALECT",
+    "ANGEL_SOTA_CAVEMAN",
+    "ANGEL_ECON",
+    "ANGEL_BOOK_INTRO",
+    "ANGEL_OPT_DUP",
+    "ANGEL_OPENROUTER_ANTHROPIC_CACHE",
+    "ANGEL_ANTHROPIC_CACHE_PREFIX_FLOOR",
+    "ANGEL_ANTHROPIC_CACHE_TTL",
+    "ANGEL_OPENAI_REPLAY",
+    "ANGEL_OPENAI_SESSION_ID",
+    "ANGEL_OPENAI_REASONING_EFFORT",
+    "ANGEL_META_REPLAY",
+    "ANGEL_META_API",
+    "ANGEL_META_REASONING_EFFORT",
+    "ANGEL_META_REASONING_SUMMARY",
+    "ANGEL_PXPIPE",
+    "ANGEL_PXPIPE_REQUIRED",
+    "ANGEL_SEAT_PROFILE",
+];
+
+struct PrefixEnv {
+    previous: Vec<(&'static str, Option<std::ffi::OsString>)>,
+}
+
+impl PrefixEnv {
+    fn scrub(keys: &[&'static str]) -> Self {
+        let mut previous = Vec::with_capacity(keys.len());
+        for &key in keys {
+            previous.push((key, std::env::var_os(key)));
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::remove_var(key) };
+        }
+        resync_prefix_env();
+        Self { previous }
+    }
+}
+
+impl Drop for PrefixEnv {
+    fn drop(&mut self) {
+        for (key, value) in self.previous.drain(..).rev() {
+            match value {
+                // TODO: Audit that the environment access only happens in single-threaded code.
+                Some(value) => unsafe { std::env::set_var(key, value) },
+                // TODO: Audit that the environment access only happens in single-threaded code.
+                None => unsafe { std::env::remove_var(key) },
+            }
+        }
+        resync_prefix_env();
+    }
+}
+
+fn resync_prefix_env() {
+    crate::agent::club::resync_reasoning_effort_env_from_env();
+    crate::agent::club::resync_prompt_cache_from_env();
+    crate::agent::club::resync_openrouter_anthropic_cache_from_env();
+}
+
 /// Build a JWT (header.payload.signature) with the given payload JSON. Only the
 /// payload segment is real base64url; header/sig are placeholders.
 fn fake_jwt(payload: serde_json::Value) -> String {
@@ -1838,6 +1918,294 @@ fn an_api_key_seat_replays_its_reasoning_with_the_legend_on() {
     );
 }
 
+/// Request N's serialized Responses `input` must be a literal prefix of request
+/// N+1's, continued by a comma and one more element: the provider caches the
+/// re-rendered history only where those bytes and the instructions above them
+/// stay identical.
+fn assert_responses_input_prefix(
+    label: &str,
+    previous: &serde_json::Value,
+    next: &serde_json::Value,
+) {
+    let previous_items = previous["input"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{label}: previous input must be a JSON array: {previous}"));
+    let next_items = next["input"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{label}: next input must be a JSON array: {next}"));
+    assert!(
+        !previous_items.is_empty(),
+        "{label}: a growing conversation always carries input items"
+    );
+    assert!(
+        next_items.len() > previous_items.len(),
+        "{label}: request N+1 must append an item ({} -> {})",
+        previous_items.len(),
+        next_items.len()
+    );
+    let previous = serde_json::to_string(&previous["input"]).expect("serialize previous input");
+    let next = serde_json::to_string(&next["input"]).expect("serialize next input");
+    let stable = previous
+        .strip_suffix(']')
+        .unwrap_or_else(|| panic!("{label}: input must serialize as a JSON array: {previous}"));
+    assert!(
+        next.starts_with(stable),
+        "{label}: request N's input is not a byte-identical prefix of request N+1's\n\
+         previous: {previous}\nnext: {next}"
+    );
+    assert_eq!(
+        next.as_bytes().get(stable.len()),
+        Some(&b','),
+        "{label}: request N's input is only a string prefix, not a whole-array prefix\n\
+         previous: {previous}\nnext: {next}"
+    );
+}
+
+/// A prefix check alone passes when a route silently drops the newest item:
+/// every new turn must actually appear in the request that carries it.
+fn assert_responses_turn_present(label: &str, body: &serde_json::Value, needle: &str) {
+    assert!(
+        body["input"].to_string().contains(needle),
+        "{label}: `{needle}` is missing from the request that should carry it: {}",
+        body["input"]
+    );
+}
+
+fn responses_tool() -> ToolDef {
+    ToolDef {
+        name: "inspect".into(),
+        description: "Read a file".into(),
+        params: serde_json::json!({
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"]
+        }),
+    }
+}
+
+fn responses_call(id: &str, path: &str) -> ToolCall {
+    ToolCall {
+        id: id.into(),
+        name: "inspect".into(),
+        args: serde_json::json!({"path": path}),
+    }
+}
+
+/// The same growing conversation as the chat suite, with each assistant turn
+/// carrying private reasoning: a reasoned tool call and its result, a reasoned
+/// answer, a new ask, then a second reasoned tool call and its result.
+fn responses_growing_hops() -> Vec<Vec<ChatMsg>> {
+    let hop1 = vec![
+        ChatMsg::system("stable policy"),
+        ChatMsg::user("inspect src/main.rs"),
+    ];
+    let mut hop2 = hop1.clone();
+    hop2.push(ChatMsg::assistant_calls_with_reasoning(
+        vec![responses_call("call-a", "src/main.rs")],
+        Some("read the entry point before editing".into()),
+    ));
+    hop2.push(ChatMsg::tool("call-a", "fn main() {}"));
+    let mut hop3 = hop2.clone();
+    hop3.push(ChatMsg::assistant_with_reasoning(
+        "The entry point is trivial.",
+        Some("the entry point is trivial".into()),
+    ));
+    hop3.push(ChatMsg::user("now read the tests"));
+    let mut hop4 = hop3.clone();
+    hop4.push(ChatMsg::assistant_calls_with_reasoning(
+        vec![responses_call("call-b", "tests/cli.rs")],
+        Some("read the tests before claiming a pass".into()),
+    ));
+    hop4.push(ChatMsg::tool("call-b", "tests: 3 passed"));
+    vec![hop1, hop2, hop3, hop4]
+}
+
+/// What was riding the wire by each hop of the ChatGPT conversation.
+fn assert_chatgpt_turns_present(bodies: &[serde_json::Value]) {
+    assert_eq!(bodies.len(), 4, "the fixture grows through four hops");
+    assert_responses_turn_present("chatgpt responses", &bodies[0], "inspect src/main.rs");
+    assert_responses_turn_present("chatgpt responses", &bodies[1], "call-a");
+    assert_responses_turn_present("chatgpt responses", &bodies[1], "fn main() {}");
+    assert_responses_turn_present(
+        "chatgpt responses",
+        &bodies[2],
+        "The entry point is trivial.",
+    );
+    assert_responses_turn_present("chatgpt responses", &bodies[2], "now read the tests");
+    assert_responses_turn_present("chatgpt responses", &bodies[3], "call-b");
+    assert_responses_turn_present("chatgpt responses", &bodies[3], "tests: 3 passed");
+}
+
+#[test]
+fn responses_chatgpt_input_stays_a_byte_prefix_as_the_turn_grows() {
+    let _lock = env_lock();
+    let _env = PrefixEnv::scrub(PREFIX_ENV);
+    let route = club();
+    let tool = responses_tool();
+    let tools = std::slice::from_ref(&tool);
+    let bodies = responses_growing_hops()
+        .iter()
+        .map(|history| route.build_request_with_effort(history, tools, Some("high")))
+        .collect::<Vec<_>>();
+    for wave in bodies.windows(2) {
+        assert_responses_input_prefix("chatgpt responses", &wave[0], &wave[1]);
+    }
+    assert_chatgpt_turns_present(&bodies);
+    let instructions = bodies[0]["instructions"]
+        .as_str()
+        .expect("the ChatGPT Responses seat always sends instructions");
+    assert!(
+        !instructions.is_empty(),
+        "the ChatGPT Responses seat always sends non-empty instructions"
+    );
+    for body in &bodies[1..] {
+        assert_eq!(
+            body["instructions"].as_str(),
+            Some(instructions),
+            "instructions precede input in the cached prefix and must not drift"
+        );
+    }
+}
+
+/// One Responses SSE answer per accepted connection; returns the request body
+/// the production route sent for each hop.
+fn serve_responses(
+    listener: std::net::TcpListener,
+    expected: usize,
+) -> std::thread::JoinHandle<Vec<serde_json::Value>> {
+    use std::io::Write;
+    std::thread::spawn(move || {
+        let mut bodies = Vec::with_capacity(expected);
+        for _ in 0..expected {
+            let (mut sock, _) = listener.accept().expect("responses connection");
+            sock.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let request = read_http_request(&mut sock);
+            let body = request
+                .split_once("\r\n\r\n")
+                .map(|(_, body)| body)
+                .expect("a Responses request body");
+            bodies.push(serde_json::from_str(body).expect("a JSON Responses request body"));
+            sock.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n\
+                  data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n\
+                  data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
+            )
+            .unwrap();
+        }
+        bodies
+    })
+}
+
+/// Muse is the API-key Responses seat. Its route is built through the same
+/// production constructor the bag uses, so a constructor that forgets to turn
+/// replay on or to send a cache key fails here. The encrypted reasoning rides
+/// back at the head of the turn it belongs to, and the request prefix stays the
+/// one the provider cached as the history grows past it.
+#[test]
+fn responses_muse_input_stays_a_byte_prefix_when_reasoning_replays() {
+    let _lock = env_lock();
+    let _env = PrefixEnv::scrub(PREFIX_ENV);
+    let _clubs = crate::tests::TestEnvGuard::set("ANGEL_API_CLUBS", "meta");
+    let _key = crate::tests::TestEnvGuard::set("ANGEL_META_KEY", "test-key");
+    let _model = crate::tests::TestEnvGuard::set("ANGEL_META_MODEL", "muse-spark-1.3-contributor");
+    let session = "prefix-muse-session";
+    let _session = crate::tests::TestEnvGuard::set("ANGEL_OPENAI_SESSION_ID", session);
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let url = format!("http://{addr}/v1");
+    let _url = crate::tests::TestEnvGuard::set("ANGEL_META_URL", &url);
+    let (_, route, _) = crate::agent::club::optional_meta_http_club()
+        .expect("with a key and the allowlist entry, the Muse seat exists");
+
+    let (items, calls, prose) = replay_fixture();
+    let tool = responses_tool();
+    let tools = std::slice::from_ref(&tool);
+    let mut history = vec![
+        ChatMsg::system("stable policy"),
+        ChatMsg::user("inspect src/main.rs"),
+    ];
+    let replay = ResponseReplay::new(session, &history, &calls, prose, items)
+        .expect("the fixture replay validates against its prefix");
+    let mut assistant = ChatMsg::assistant_calls_full(calls, None, Some(prose.into()));
+    assistant.responses_replay = Some(replay);
+    history.push(assistant);
+    history.push(ChatMsg::tool("call-fixture", "found"));
+    let mut hops = vec![history.clone()];
+    history.push(ChatMsg::assistant_with_reasoning(
+        "The entry point is trivial.",
+        Some("the entry point is trivial".into()),
+    ));
+    history.push(ChatMsg::user("now read the tests"));
+    hops.push(history.clone());
+    history.push(ChatMsg::assistant_calls_with_reasoning(
+        vec![responses_call("call-b", "tests/cli.rs")],
+        Some("read the tests before claiming a pass".into()),
+    ));
+    history.push(ChatMsg::tool("call-b", "tests: 3 passed"));
+    hops.push(history);
+
+    let server = serve_responses(listener, hops.len());
+    for history in &hops {
+        route
+            .chat_streaming(history, tools, &AtomicBool::new(false), &mut |_| {})
+            .expect("the production Muse seat answers every hop");
+    }
+    let bodies = server.join().expect("responses fixture server");
+
+    for wave in bodies.windows(2) {
+        assert_responses_input_prefix("muse responses", &wave[0], &wave[1]);
+    }
+    assert_responses_turn_present("muse responses", &bodies[0], "call-fixture");
+    assert_responses_turn_present("muse responses", &bodies[0], "found");
+    assert_responses_turn_present("muse responses", &bodies[1], "The entry point is trivial.");
+    assert_responses_turn_present("muse responses", &bodies[1], "now read the tests");
+    assert_responses_turn_present("muse responses", &bodies[2], "call-b");
+    assert_responses_turn_present("muse responses", &bodies[2], "tests: 3 passed");
+    assert_eq!(
+        bodies[0]["include"],
+        serde_json::json!(["reasoning.encrypted_content"]),
+        "the production Muse seat must ask for and replay its encrypted reasoning"
+    );
+    assert_eq!(
+        bodies[0]["model"], "muse-spark-1.3-contributor",
+        "the production seat sends the pinned model"
+    );
+    for body in &bodies {
+        assert!(
+            body["input"].to_string().contains("opaque-fixture-state"),
+            "the replayed reasoning is on the wire: {}",
+            body["input"]
+        );
+    }
+    let first_key = bodies[0]["prompt_cache_key"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Muse must send a string prompt_cache_key: {}", bodies[0]));
+    assert!(
+        !first_key.is_empty(),
+        "Muse's prompt_cache_key must not be empty"
+    );
+    let instructions = bodies[0]["instructions"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Muse must send string instructions: {}", bodies[0]));
+    assert!(
+        !instructions.is_empty(),
+        "Muse's instructions must not be empty"
+    );
+    for body in &bodies {
+        let key = body["prompt_cache_key"]
+            .as_str()
+            .unwrap_or_else(|| panic!("every Muse hop must carry a string key: {body}"));
+        assert!(!key.is_empty(), "an empty key caches nothing");
+        assert_eq!(key, first_key, "one key per session");
+        assert_eq!(
+            body["instructions"].as_str(),
+            Some(instructions),
+            "instructions precede input in the cached prefix and must not drift"
+        );
+    }
+}
+
 #[test]
 fn responses_native_replay_invalidates_on_history_or_route_changes() {
     let mut route = club();
@@ -2470,4 +2838,27 @@ fn a_responses_retry_veto_reaches_the_error() {
         );
         assert!(error.contains("HTTP 503"), "{error}");
     }
+}
+
+#[test]
+fn responses_shared_parse_preserves_replay_raw_gate_and_reset() {
+    let done = r#"data: {"type":"response.output_item.done","output_index":0,"item":{"type":"message","status":"completed","content":[{"type":"output_text","text":"first"}]}}"#;
+    let escaped = r#"data: {"type":"response.\u0063ompleted","response":{"output":[{"type":"reasoning","status":"completed"}]}}"#;
+    let escaped_with_literal = r#"data: {"type":"response.\u0063ompleted","hint":"response.completed","response":{"output":[{"type":"reasoning","status":"completed"}]}}"#;
+    let reset = r#"data: {"type":"response.completed","response":{"output":null}}"#;
+    let mut collector = replay::ReplayItems::default();
+    for line in [done, escaped] {
+        collector.observe_parsed(&events::ParsedResponsesLine::new(line));
+    }
+    assert_eq!(collector.finish()[0]["type"], "message");
+    let mut collector = replay::ReplayItems::default();
+    for line in [done, escaped_with_literal] {
+        collector.observe_parsed(&events::ParsedResponsesLine::new(line));
+    }
+    assert_eq!(collector.finish()[0]["type"], "reasoning");
+    let mut collector = replay::ReplayItems::default();
+    for line in [done, escaped_with_literal, reset] {
+        collector.observe_parsed(&events::ParsedResponsesLine::new(line));
+    }
+    assert_eq!(collector.finish()[0]["type"], "message");
 }

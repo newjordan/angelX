@@ -1,0 +1,21 @@
+{
+  "api_version": 1,
+  "id": "seat-order",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "mode": "order",
+    "order": [0, 1, 2, 3],
+    "links": [
+      { "index": 0, "group": 0, "allowed": true, "matches": [2] },
+      { "index": 1, "group": 1, "allowed": false, "matches": [0] },
+      { "index": 2, "group": 2, "allowed": true, "matches": [1, 3] },
+      { "index": 3, "group": 2, "allowed": true, "matches": [1, 3] }
+    ]
+  },
+  "bend": {
+    "entry": "seat-order.bend",
+    "proof": "PROOF.bend",
+    "output": "seat-order.compiled.js"
+  }
+}

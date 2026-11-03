@@ -91,8 +91,13 @@ fn camera(race: &Race3d, seat: Option<u32>, w: i32, h: i32) -> View3 {
     if race.course == Course::Touge {
         let r = seat.and_then(|id| race.riders.get(&id));
         let (s, x, heading) = r.map_or((0.0, 0.0, 0.0), |r| (r.s, r.x, r.drift.heading));
+        // Speed widens the view, and a boost or a perfect shift's kick more.
+        let rush = r.map_or(0.0, |r| {
+            ((r.vs - 12.0).max(0.0) / 14.0).min(1.0) * 0.16
+                + if r.drift.boost > 0 || r.drift.kick > 0 { 0.08 } else { 0.0 }
+        });
         return View3 { pos: world(t, s, x, 2.1),
-            heading_rad: t.at(s).yaw + heading * 0.65, pitch: -0.10, fov_rad: 1.35 };
+            heading_rad: t.at(s).yaw + heading * 0.65, pitch: -0.10, fov_rad: 1.35 + rush };
     }
     let (back, up, ahead, fov, follow) = match race.course {
         Course::Shaft => (4.6, 2.3, 6.0, 1.2, 0.55),
@@ -209,7 +214,7 @@ fn flip_v(im: &Img) -> Img {
 /// Stamp `sprite` standing on world point `feet`, `tall` world units high,
 /// wherever the scene in front of `anchor` (its depth) leaves it showing.
 #[allow(clippy::too_many_arguments)]
-fn stand(scene: &mut Img, depth: &[f32], view: &View3, sprite: &Img, feet: V3, anchor: V3, tall: f32, w: i32, h: i32) -> Option<(i32, i32)> {
+pub(super) fn stand(scene: &mut Img, depth: &[f32], view: &View3, sprite: &Img, feet: V3, anchor: V3, tall: f32, w: i32, h: i32) -> Option<(i32, i32)> {
     let (fx, fy, fd) = raster::project_point(view, w as usize, h as usize, feet)?;
     let (_, _, ad) = raster::project_point(view, w as usize, h as usize, anchor)?;
     let px = raster::dots_tall(view, w as usize, h as usize, tall, fd);
@@ -467,7 +472,7 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
     }
     // The two keys, small and dim along the bottom.
     let [(k1, w1), (k2, w2)] = race.course.keys();
-    let hint = if race.course == Course::Touge { "W GAS  S BRAKE  SPACE DRIFT".into() } else { format!("{k1} {w1}   {k2} {w2}") };
+    let hint = if race.course == Course::Touge { "W GAS  S BRAKE  SPACE DRIFT  F SHIFT".into() } else { format!("{k1} {w1}   {k2} {w2}") };
     let hw = text_width(&hint);
     super::super::chrome::panel(over, ((w - hw) / 2 - 4, h - 12, hw + 8, 11), super::super::chrome::Tone::SLATE);
     over.text((w - hw) / 2, h - 10, &hint, 'J');
@@ -481,6 +486,8 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
         } else if let Some(_) = me.finish {
             let place = race.place(seat.unwrap());
             big(over, w / 2, 44, &format!("{} HOME", place_word(place)), 'O', 2.0);
+        } else if me.drift.kick > 0 && race.course == Course::Touge {
+            big(over, w / 2, 44, "PERFECT SHIFT", 'O', 2.0);
         } else if me.burst > 0 && race.course == Course::Griffin {
             over.text(w / 2 - 14, 70, "BURST", 'O');
         }
@@ -524,6 +531,25 @@ fn drift_hud(over: &mut Img, me: &Rider) {
     for (i, threshold) in r3::CHARGE_TICKS.iter().enumerate() {
         let c = if d.charge >= *threshold || (d.boost > 0 && i < stage) { colours[i + 1] } else { colours[0] };
         for dy in 0..4 { for dx in 0..34 { over.set(over.w / 2 - 56 + i as i32 * 38 + dx, y + 12 + dy, c); } }
+    }
+    tach(over, me);
+}
+
+/// The gearbox: the gear, big, and the revs across a bar whose top fifth
+/// is the perfect shift; it goes green there and red on the limiter.
+fn tach(over: &mut Img, me: &Rider) {
+    let d = &me.drift;
+    let (x, y, w) = (over.w / 2 + 70, over.h - 45, 64);
+    plate(over, x - 4, y - 3, w + 30, 26);
+    big(over, x + w + 13, y + 1, &format!("{}", d.gear + 1), if d.kick > 0 { 'O' } else { 'h' }, 2.0);
+    over.text(x, y, "GEAR", 'J');
+    let rev = d.rev(me.vs);
+    let window = (r3::PERFECT_REV * w as f32) as i32;
+    let fill = (rev * w as f32).round() as i32;
+    let lit = if d.limiter > 0 { [220, 60, 46] } else if rev >= r3::PERFECT_REV { [110, 200, 90] } else { [200, 190, 160] };
+    for dx in 0..w {
+        let c = if dx < fill { lit } else if dx >= window { [40, 70, 40] } else { [61, 58, 54] };
+        for dy in 0..5 { over.set(x + dx, y + 11 + dy, c); }
     }
 }
 

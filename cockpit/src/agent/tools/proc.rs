@@ -1395,33 +1395,7 @@ impl Tool for ProcRunTool {
         "proc_run"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "proc_run".to_string(),
-            description: "Start a long-running command in the BACKGROUND (own process group, \
-                          captured output) and return a handle id immediately. proc_status reads the captured log. Jobs survive successful answers in \
-                          this cockpit; turn cancellation/failure stops its jobs. proc_stop or \
-                          cockpit exit stops remaining jobs and retains their receipts. With persistent=true (only when the operator enabled persistent services) the command is detached into its own session to OUTLIVE this Angel process — for services a post-exit verifier must reach — and is not tracked by proc_status/proc_stop. ⠩⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "command": { "type": "string", "description": "⠩⠙⠑" },
-                    "name": {
-                        "type": "string",
-                        "description": "⠩⠙⠋"
-                    },
-                    "cwd": {
-                        "type": "string",
-                        "description": "⠩⠙⠛"
-                    },
-                    "persistent": {
-                        "type": "boolean",
-                        "description": "⠩⠙⠓"
-                    },
-                },
-                "required": ["command"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("proc_run")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)
@@ -1552,7 +1526,7 @@ impl Tool for ProcRunTool {
         // Persist the spawn receipt so a cockpit restart can adopt (or at
         // least explain) this daemon. Failure to persist must never fail the
         // spawn — but it must be said, not swallowed.
-        let (receipt, receipt_note) = if receipts_enabled() {
+        let (receipt, mut receipt_note) = if receipts_enabled() {
             match write_receipt(id, pid, &name, command, &log, &identity) {
                 Ok(path) => (Some(path), String::new()),
                 Err(e) => (
@@ -1571,14 +1545,9 @@ impl Tool for ProcRunTool {
                     .to_string(),
             )
         };
-        if let (Some(path), Some(sandbox)) = (&receipt, &sandbox_receipt)
-            && let Ok(bytes) = std::fs::read(path)
-            && let Ok(mut value) = serde_json::from_slice::<Value>(&bytes)
-        {
-            value["sandbox_profile"] = sandbox["sandbox_profile"].clone();
-            value["sandbox"] = sandbox.clone();
-            if let Ok(bytes) = serde_json::to_vec(&value) {
-                let _ = std::fs::write(path, bytes);
+        if let (Some(path), Some(sandbox)) = (&receipt, &sandbox_receipt) {
+            if let Err(error) = annotate_receipt_sandbox(path, sandbox) {
+                receipt_note.push_str(&sandbox_annotation_warning(&error));
             }
         }
         table().lock().unwrap().insert(
@@ -1742,34 +1711,7 @@ impl Tool for ProcStatusTool {
         "proc_status"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "proc_status".to_string(),
-            description: "Status of background processes started with proc_run. Without an id: \
-                          one summary line per process. With an id: state + the tail of its \
-                          log. Always a snapshot — wait_ms is ignored so the turn cannot freeze \
-                          thinking. ⠩⠑"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "id": { "type": "integer", "description": "⠩⠑⠙" },
-                    "tail_lines": {
-                        "type": "integer",
-                        "description": "⠩⠑⠑"
-                    },
-                    "contains": {
-                        "type": "string",
-                        "description": "⠩⠑⠋⠩⠑⠛"
-                    },
-                    "wait_ms": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 60000,
-                        "description": "⠩⠑⠓⠩⠑⠊"
-                    },
-                },
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("proc_status")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let identity = crate::platform::workspace_store::repo_identity(&self.workspace);
@@ -2024,19 +1966,7 @@ impl Tool for ProcStopTool {
         "proc_stop"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "proc_stop".to_string(),
-            description: "Stop a background process started with proc_run: SIGTERM to its whole \
-                          process group, escalating to SIGKILL after a short grace period. ⠾⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "id": { "type": "integer", "description": "⠾⠙⠁" },
-                },
-                "required": ["id"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("proc_stop")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_for(args, "proc_stop")
@@ -2202,25 +2132,8 @@ impl Tool for ProcWaitTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "proc_wait".to_string(),
-            description: "Wait for one background job. \
-                          Returns early when the job exits, or after at most 30 seconds, with \
-                          its actual status and captured output. Cancellable. A running \
-                          result means more work remains, not success. Process exit alone is \
-                          not benchmark acceptance. ⠩⠋"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "id": {"type": "integer", "description": "⠩⠋⠉"},
-                    "tail_lines": {"type": "integer", "description": "⠩⠋⠙"}
-                },
-                "required": ["id"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("proc_wait")
     }
-
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)
     }
@@ -2285,6 +2198,29 @@ pub(crate) fn maybe_register_proc_tools(r: &mut ToolRegistry, workspace: Option<
         }));
         r.register(Box::new(ProcStopTool::new(workspace)));
     }
+}
+
+fn annotate_receipt_sandbox(path: &Path, sandbox: &Value) -> Result<(), String> {
+    let bytes = std::fs::read(path).map_err(|error| format!("read {error}"))?;
+    let mut value: Value =
+        serde_json::from_slice(&bytes).map_err(|error| format!("parse {error}"))?;
+    let Some(object) = value.as_object_mut() else {
+        return Err("receipt is not a JSON object".into());
+    };
+    object.insert(
+        "sandbox_profile".into(),
+        sandbox.get("sandbox_profile").cloned().unwrap_or(Value::Null),
+    );
+    object.insert("sandbox".into(), sandbox.clone());
+    let encoded = serde_json::to_vec(&value).map_err(|error| format!("encode {error}"))?;
+    crate::platform::workspace_store::write_private_atomic(path, &encoded)
+        .map_err(|error| format!("write {error}"))
+}
+
+fn sandbox_annotation_warning(error: &str) -> String {
+    format!(
+        "\nreceipt sandbox annotation not persisted ({error}) — restart may not know this daemon's sandbox"
+    )
 }
 
 #[cfg(test)]

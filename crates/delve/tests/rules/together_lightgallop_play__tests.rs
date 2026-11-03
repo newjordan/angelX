@@ -1,8 +1,12 @@
 //! Lightgallop's moves and its road, one at a time: the roll and the leap
 //! that pop a snuffer, the spark that scatters and is taken back, the hay
 //! bale, the pad, the lantern post, the lance-lock chain, the Dimming.
-use super::level::{G, HOLD, level};
+use super::legacy::{RiderOracle, SessionOracle, old, old_rider, old_terrain};
+use super::level::level;
 use super::math::Q;
+use super::oracle::level::{G, HOLD};
+use super::oracle::rider::{Ev, Keys, TOP};
+use super::oracle::session::{GRACE, SPARK_GAUGE};
 use super::rider::*;
 use super::session::*;
 use super::world::*;
@@ -15,7 +19,7 @@ fn heroes(n: u32) -> BTreeMap<u32, Hero> {
 /// A session of `n` knights with the Dimming far behind, and the heroes.
 fn ride(n: u32) -> (Session, BTreeMap<u32, Hero>) {
     let h = heroes(n);
-    let mut s = Session::new(&h);
+    let mut s = Session::new(&h).unwrap();
     s.dim = -4000 * Q;
     (s, h)
 }
@@ -460,11 +464,11 @@ fn the_dimming_stops_at_the_bell_and_the_pack_has_time_to_ring_it() {
 fn the_five_numbers_move_what_they_say() {
     let run_loop = |n: Numbers| {
         let lvl = level();
-        let mut r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(4650));
+        let mut r = old_rider(4650);
         r.gsp = 1150;
         let mut ev = Vec::new();
         for _ in 0..200 {
-            r.step(Keys { x: 1, ..Keys::default() }, &lvl.terrain, &n, &mut ev);
+            r.step(Keys { x: 1, ..Keys::default() }, old_terrain(), &old(&n), &mut ev);
         }
         (ev.contains(&Ev::Fell), r.x / Q)
     };
@@ -474,11 +478,11 @@ fn the_five_numbers_move_what_they_say() {
     // Slope: the same downhill gives more speed at a higher number.
     let down = |slope: i32| {
         let lvl = level();
-        let mut r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(1730));
+        let mut r = old_rider(1730);
         r.gsp = 700;
         let mut ev = Vec::new();
         for _ in 0..30 {
-            r.step(Keys::default(), &lvl.terrain, &Numbers { slope, ..base }, &mut ev);
+            r.step(Keys::default(), old_terrain(), &old(&Numbers { slope, ..base }), &mut ev);
         }
         r.gsp
     };
@@ -486,12 +490,12 @@ fn the_five_numbers_move_what_they_say() {
     // Spur: the cap.
     let spur = |cap: i32| {
         let lvl = level();
-        let mut r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(100));
+        let mut r = old_rider(100);
         r.gsp = 1280;
         r.gauge = GAUGE_MAX;
         let mut ev = Vec::new();
         for _ in 0..40 {
-            r.step(Keys { x: 1, spur: true, ..Keys::default() }, &lvl.terrain, &Numbers { spur_cap: cap, ..base }, &mut ev);
+            r.step(Keys { x: 1, spur: true, ..Keys::default() }, old_terrain(), &old(&Numbers { spur_cap: cap, ..base }), &mut ev);
         }
         r.gsp
     };
@@ -512,7 +516,7 @@ fn the_five_numbers_move_what_they_say() {
     // Dimming: the pace.
     let pace = |d: i32| {
         let h = heroes(1);
-        let mut s = Session::new(&h);
+        let mut s = Session::new(&h).unwrap();
         let before = s.dim;
         s.step(&BTreeMap::new(), &h, &Numbers { dimming: d, ..base });
         s.dim - before
@@ -522,7 +526,7 @@ fn the_five_numbers_move_what_they_say() {
 
 #[test]
 fn no_valley_is_a_trap_a_knight_at_rest_in_any_dip_rides_out_without_the_spur() {
-    use super::bot::{Route, Skill};
+    use super::oracle::{Route, Skill};
     // The trench's foot, the half-pipe's floor, the rhythm's valleys, the
     // valley road, the fen's floor and the marsh.
     let bottoms = [1855, 5420 + 160, 7820 + 120, 7820 + 420, 7820 + 720, 8720 + 450, 11300 + 900, 15000 + 330];
@@ -550,10 +554,10 @@ fn the_real_loops_hold_a_gallop_and_a_spur_and_drop_a_rider_who_slowed() {
     // Each loop's mouth, and how long a run-up he gets.
     for (mouth, run) in [(4700, 340), (16760, 440)] {
         let go = |from: i32, spur: bool| {
-            let mut r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(from));
+            let mut r = old_rider(from);
             let mut ev = Vec::new();
             for _ in 0..400 {
-                r.step(Keys { x: 1, spur, ..Keys::default() }, &lvl.terrain, &NUM, &mut ev);
+                r.step(Keys { x: 1, spur, ..Keys::default() }, old_terrain(), &old(&NUM), &mut ev);
             }
             (ev.contains(&Ev::Fell), r.x / Q)
         };

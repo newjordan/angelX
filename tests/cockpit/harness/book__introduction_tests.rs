@@ -321,7 +321,7 @@ fn the_legend_copy_is_introduced_and_leaves_history_alone() {
 /// sighting; the lead is still said once.
 #[test]
 fn the_every_sighting_arm_repeats_the_english() {
-    let intros = super::introductions_at(&turn(), None, true);
+    let intros = super::introductions_at(&turn(), None, true, "");
     let indices: Vec<usize> = intros.iter().map(|(index, _)| *index).collect();
     assert_eq!(indices, vec![0, 3, 5], "{intros:?}");
     assert!(
@@ -374,4 +374,37 @@ fn a_value_slot_reads_as_an_ellipsis_and_a_doubled_brace_is_kept() {
         unslotted("an open {{ never closes"),
         "an open {{ never closes"
     );
+}
+
+#[test]
+fn advertised_tool_schema_stamps_are_introduced_once() {
+    use crate::agent::club::ToolDef;
+    let tools = [ToolDef {
+        name: "read_file".into(),
+        description: "List a directory. ⠣⠃".into(),
+        params: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "hint": { "type": "string", "description": "⠣⠃⠁" },
+            },
+        }),
+    }];
+    let messages = vec![
+        ChatMsg::system("ready".to_string()),
+        ChatMsg::user("list it".to_string()),
+        ChatMsg::harness("hint ⠣⠃⠁".to_string()),
+    ];
+    let out = super::introduced(&messages, &tools);
+    assert!(
+        out[0].content.contains("filename fragment to rank first"),
+        "{}",
+        out[0].content
+    );
+    assert!(
+        out[0].content.contains("⠣⠃⠁ filename fragment"),
+        "{}",
+        out[0].content
+    );
+    // The same stamp in a later message rides alone.
+    assert_eq!(&*out[2].content, "hint ⠣⠃⠁");
 }

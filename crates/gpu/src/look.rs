@@ -30,8 +30,10 @@ use std::num::NonZeroU64;
 use angel_stage::look::{Look, unit_rgb};
 use bytemuck::{Pod, Zeroable};
 
-/// The mask's format: one 8-bit channel is 1 where an accent was drawn.
-pub(crate) const MASK_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R8Unorm;
+/// The mask's format: the first 8-bit channel is 1 where an accent was
+/// drawn (0.5 where the pixel is final), the second how far the pixel is
+/// out of the depth of field's focus.
+pub(crate) const MASK_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg8Unorm;
 
 /// Internal target sets kept: one per size drawn lately.
 const TARGETS_KEPT: usize = 2;
@@ -48,6 +50,8 @@ pub(crate) struct LookUniform {
     pub counts: [u32; 4],
     /// The internal size, then the output's.
     pub sizes: [f32; 4],
+    /// The depth of field's widest blur in internal pixels (0: none).
+    pub dof: [f32; 4],
 }
 
 /// The shadow map's side, in texels.
@@ -97,6 +101,16 @@ pub(crate) struct SceneLookUniform {
     pub reveal: [[f32; 4]; 4],
     /// x: world units in a metre.
     pub units: [f32; 4],
+    /// How figures' cards are lit: least, most, warm, rim (all 0: not);
+    /// then how much farther the lamps reach them, and how far a card's
+    /// normal map turns its pixels.
+    pub cards: [f32; 4],
+    pub cards_more: [f32; 4],
+    /// The depth of field: the nearest and farthest depths kept sharp, the
+    /// spread, 1 when there is one.
+    pub dof: [f32; 4],
+    /// A point's depth along the camera in world units: `xyz . p + w`.
+    pub depth_row: [f32; 4],
 }
 
 /// The post pass's uniform for a look (already normalized), drawn at
@@ -114,11 +128,26 @@ pub(crate) fn look_uniform(look: &Look, internal: (u32, u32), output: (u32, u32)
     }
     uniform.counts = [look.ramp.len().min(16) as u32, look.accent.len().min(4) as u32, look.dither.bits(), 0];
     uniform.sizes = [internal.0 as f32, internal.1 as f32, output.0 as f32, output.1 as f32];
+    if let Some(dof) = look.dof.as_ref().filter(|_| look.lights()) {
+        uniform.dof = [dof.radius, 0.0, 0.0, 0.0];
+    }
     uniform
 }
 
-/// The mesh pipeline's per-scene uniform for a look and an eye.
-pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3]) -> SceneLookUniform {
+/// A camera's depth along its own axis, in world units, as a row over a
+/// point (`[a, b, c, d]`: `a x + b y + c z + d`): its clip space's `w`, over
+/// the length of how fast `w` grows. For a stage camera that is how far up
+/// the floor from the eye a point is; for a perspective one, its depth in
+/// view. None when the matrix has no depth.
+pub(crate) fn depth_row(view_proj: &angel_stage::scene::Mat4) -> Option<[f32; 4]> {
+    let row = [view_proj[0][3], view_proj[1][3], view_proj[2][3], view_proj[3][3]];
+    let length = (row[0] * row[0] + row[1] * row[1] + row[2] * row[2]).sqrt();
+    (length.is_finite() && length > 1e-12).then(|| row.map(|v| v / length))
+}
+
+/// The mesh pipeline's per-scene uniform for a look and an eye, and the
+/// camera's depth row (`depth_row`) for its depth of field.
+pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3], depth: Option<[f32; 4]>) -> SceneLookUniform {
     let mut uniform = SceneLookUniform::zeroed();
     let lights = look.lights();
     uniform.eye = [eye[0], eye[1], eye[2], if lights { 1.0 } else { 0.0 }];
@@ -134,6 +163,18 @@ pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3]) -> SceneLookUniform
         uniform.reveal[i] = [r.at[0], r.at[1], r.at[2], r.radius];
     }
     uniform.units = [look.metre, 0.0, 0.0, 0.0];
+    if let Some(c) = look.cards {
+        uniform.cards = [c.least, c.most, c.warm, c.rim];
+        uniform.cards_more = [c.reach, c.normals, 0.0, 0.0];
+    }
+    let reveal: Vec<[f32; 3]> = look.reveal.iter().chain(&look.reveals).map(|r| r.at).collect();
+    if let (Some(dof), Some(row)) = (&look.dof, depth)
+        && let Some((near, far)) = dof.band(row, &reveal)
+        && dof.radius > 0.0
+    {
+        uniform.dof = [near, far, dof.spread, 1.0];
+        uniform.depth_row = row;
+    }
     let rgb4 = |c: [u8; 3]| {
         let [r, g, b] = unit_rgb(c);
         [r, g, b, 0.0]
@@ -229,6 +270,10 @@ pub(crate) struct LookState {
     post_buffer: wgpu::Buffer,
     /// The mesh pipeline for the internal targets: indexed by `double_sided`.
     pub(crate) mesh: Option<[wgpu::RenderPipeline; 2]>,
+    /// The pipelines that draw a world's cards lit by its look, at the
+    /// view's size (`fs_card`): indexed as the plain ones are, `blended * 2
+    /// + double_sided`.
+    pub(crate) cards: Option<[wgpu::RenderPipeline; 4]>,
     targets: Vec<Targets>,
 }
 
@@ -419,8 +464,17 @@ impl LookState {
             post,
             post_buffer,
             mesh: None,
+            cards: None,
             targets: Vec::new(),
         }
+    }
+
+    /// This scene's look, eye and depth row into group 3's buffer, ahead of
+    /// the submission that uses them: for a scene drawn through its look
+    /// (`begin`), and for a world's cards lit by it (`fs_card`), which are
+    /// not.
+    pub(crate) fn write_scene(&self, queue: &wgpu::Queue, look: &Look, eye: [f32; 3], depth: Option<[f32; 4]>) {
+        queue.write_buffer(&self.scene_buffer, 0, bytemuck::bytes_of(&scene_look_uniform(look, eye, depth)));
     }
 
     /// The internal colour and mask views of `size`, made when missing (the
@@ -433,16 +487,12 @@ impl LookState {
         queue: &wgpu::Queue,
         view_format: wgpu::TextureFormat,
         look: &Look,
-        eye: [f32; 3],
+        (eye, depth): ([f32; 3], Option<[f32; 4]>),
         size: (u32, u32),
         output: (u32, u32),
         frame: u64,
     ) -> (wgpu::TextureView, wgpu::TextureView) {
-        queue.write_buffer(
-            &self.scene_buffer,
-            0,
-            bytemuck::bytes_of(&scene_look_uniform(look, eye)),
-        );
+        self.write_scene(queue, look, eye, depth);
         queue.write_buffer(
             &self.post_buffer,
             0,
@@ -541,11 +591,12 @@ mod tests {
 
     #[test]
     fn the_uniforms_are_what_the_shaders_declare() {
-        // look.wgsl: 16 + 4 vec4s, a vec4<u32>, a vec4<f32>.
-        assert_eq!(std::mem::size_of::<LookUniform>(), 16 * 16 + 4 * 16 + 16 + 16);
+        // look.wgsl: 16 + 4 vec4s, a vec4<u32>, two vec4<f32>s.
+        assert_eq!(std::mem::size_of::<LookUniform>(), 16 * 16 + 4 * 16 + 16 + 16 + 16);
         // mesh.wgsl: five vec4s, a matrix, two vec4<u32>s, then the ramps,
-        // accents, lamps, zones, the zones' ramps, the water's and the reveal.
-        assert_eq!(std::mem::size_of::<SceneLookUniform>(), (5 + 4 + 2 + 16 + 16 + 4 + 32 + 8 + 64 + 16 + 4 + 1) * 16);
+        // accents, lamps, zones, the zones' ramps, the water's and the reveal,
+        // the units, the cards (two), the depth of field and its row.
+        assert_eq!(std::mem::size_of::<SceneLookUniform>(), (5 + 4 + 2 + 16 + 16 + 4 + 32 + 8 + 64 + 16 + 4 + 1 + 4) * 16);
         assert_eq!(std::mem::size_of::<LookUniform>() % 16, 0);
     }
 
@@ -577,28 +628,52 @@ mod tests {
     #[test]
     fn the_fog_goes_to_the_mesh_shader_as_its_colour_and_range() {
         let l = look();
-        let u = scene_look_uniform(&l, [1.0, 2.0, 3.0]);
+        let u = scene_look_uniform(&l, [1.0, 2.0, 3.0], None);
         assert_eq!(u.eye, [1.0, 2.0, 3.0, 0.0]);
         assert_eq!(u.fog, [4.0, 40.0, 1.0, 0.0]);
         assert_eq!(u.fog_color[3], 1.0);
         assert_eq!(u.fog_color[..3], unit_rgb([0x44, 0x4e, 0x6f]));
         let mut clear = l;
         clear.fog = None;
-        assert_eq!(scene_look_uniform(&clear, [0.0; 3]).fog, [0.0; 4]);
+        assert_eq!(scene_look_uniform(&clear, [0.0; 3], None).fog, [0.0; 4]);
+    }
+
+    #[test]
+    fn the_cards_and_the_depth_of_field_go_to_the_shaders() {
+        use angel_stage::look::{Cards, Dof, Sun};
+        let mut l = look();
+        l.sun = Some(Sun { toward: [0.0, 1.0, 0.0], strength: 1.0, ambient: 0.2, shadow: None, rise: 0.0 });
+        l.cards = Some(Cards::ROOM);
+        l.dof = Some(Dof::room(vec![[0.0, 0.0, 100.0], [0.0, 0.0, 160.0]]));
+        // A stage camera's depth row, before it is made a unit: w = 2 - z / 450.
+        let m: angel_stage::scene::Mat4 = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0 / 450.0], [0.0, 0.0, 0.0, 2.0]];
+        let row = depth_row(&m).unwrap();
+        assert!((row[2] + 1.0).abs() < 1e-6 && (row[3] - 900.0).abs() < 1e-3, "{row:?}");
+        let u = scene_look_uniform(&l, [0.0; 3], Some(row));
+        assert_eq!(u.cards, [0.6, 1.6, 0.75, 0.6]);
+        assert_eq!(u.cards_more[..2], [Cards::ROOM.reach, Cards::ROOM.normals]);
+        let margin = Dof::room(Vec::new()).margin;
+        assert!((u.dof[0] - (740.0 - margin)).abs() < 1e-2 && (u.dof[1] - (800.0 + margin)).abs() < 1e-2, "{:?}", u.dof);
+        assert_eq!(u.dof[3], 1.0);
+        assert_eq!(look_uniform(&l, (8, 8), (8, 8)).dof[0], Dof::room(Vec::new()).radius);
+        // No depth, or nothing to focus on: no blur.
+        assert_eq!(scene_look_uniform(&l, [0.0; 3], None).dof, [0.0; 4]);
+        l.dof = Some(Dof::room(Vec::new()));
+        assert_eq!(scene_look_uniform(&l, [0.0; 3], Some(row)).dof, [0.0; 4]);
     }
 
     #[test]
     fn a_look_that_lights_goes_to_the_mesh_shader_whole() {
         use angel_stage::look::{Lamp, Reveal, Shadow, Sun, Zone};
         let mut l = look();
-        assert_eq!(scene_look_uniform(&l, [0.0; 3]).eye[3], 0.0, "a plain look is placed afterwards");
+        assert_eq!(scene_look_uniform(&l, [0.0; 3], None).eye[3], 0.0, "a plain look is placed afterwards");
         l.sun = Some(Sun { toward: [0.0, 2.0, 0.0], strength: 0.8, ambient: 0.3, shadow: Some(Shadow { focus: [0.0; 3], reach: 50.0 }), rise: 30.0 });
         l.lamps = vec![Lamp { at: [1.0, 2.0, 3.0], reach: 9.0, strength: 0.7 }];
         l.warm = Some(vec![[10, 0, 0], [100, 50, 0], [250, 200, 100]]);
         l.water = Some(vec![[0, 10, 20], [0, 60, 90], [100, 200, 240]]);
         l.zones = vec![Zone { ramp: vec![[5, 5, 5], [60, 60, 60], [200, 200, 200]], at: [4.0, -4.0], half: [2.0, 3.0], radius: 1.0, feather: 5.0 }];
         l.reveal = Some(Reveal { at: [7.0, 8.0, 9.0], radius: 6.0 });
-        let u = scene_look_uniform(&l, [1.0, 2.0, 3.0]);
+        let u = scene_look_uniform(&l, [1.0, 2.0, 3.0], None);
         assert_eq!(u.eye, [1.0, 2.0, 3.0, 1.0]);
         assert_eq!(u.counts, [3, 1, 2, 1]);
         assert_eq!(u.flags, [1, 1, 1, 1]);

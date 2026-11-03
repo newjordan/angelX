@@ -313,20 +313,22 @@ const INK: [u8; 3] = [150, 156, 166];
 const SERIES: [[u8; 3]; 4] = [[196, 134, 92], [143, 163, 168], [128, 140, 196], [176, 170, 150]];
 const BAR: [u8; 3] = [66, 80, 132];
 
-struct Canvas {
-    w: usize,
-    h: usize,
-    rgba: Vec<u8>,
+/// A straight-RGBA drawing surface with anti-aliased marks (shared with
+/// the Heartglass's plate, `ui::heartglass::hud`).
+pub(crate) struct Canvas {
+    pub(crate) w: usize,
+    pub(crate) h: usize,
+    pub(crate) rgba: Vec<u8>,
 }
 
 impl Canvas {
     /// Clear: the chart is drawn on the showcase's glass, not on paper.
-    fn new(w: usize, h: usize) -> Self {
+    pub(crate) fn new(w: usize, h: usize) -> Self {
         Self { w, h, rgba: vec![0; w * h * 4] }
     }
 
     /// `[r, g, b]` at coverage `a` over what is there, straight alpha.
-    fn blend(&mut self, x: i64, y: i64, [r, g, b]: [u8; 3], a: f32) {
+    pub(crate) fn blend(&mut self, x: i64, y: i64, [r, g, b]: [u8; 3], a: f32) {
         if a <= 0.0 || x < 0 || y < 0 || x >= self.w as i64 || y >= self.h as i64 {
             return;
         }
@@ -344,7 +346,7 @@ impl Canvas {
         self.rgba[o + 3] = (out * 255.0).round() as u8;
     }
 
-    fn rect(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8; 3], a: f32) {
+    pub(crate) fn rect(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8; 3], a: f32) {
         let (xa, xb) = (x0.min(x1), x0.max(x1));
         let (ya, yb) = (y0.min(y1), y0.max(y1));
         for y in ya.floor() as i64..yb.ceil() as i64 {
@@ -357,7 +359,7 @@ impl Canvas {
     }
 
     /// A round-capped stroke from `p` to `q`, `width` across.
-    fn line(&mut self, p: [f32; 2], q: [f32; 2], width: f32, color: [u8; 3], a: f32) {
+    pub(crate) fn line(&mut self, p: [f32; 2], q: [f32; 2], width: f32, color: [u8; 3], a: f32) {
         let r = width / 2.0;
         let (x0, x1) = ((p[0].min(q[0]) - r - 1.0).floor() as i64, (p[0].max(q[0]) + r + 1.0).ceil() as i64);
         let (y0, y1) = ((p[1].min(q[1]) - r - 1.0).floor() as i64, (p[1].max(q[1]) + r + 1.0).ceil() as i64);
@@ -376,7 +378,7 @@ impl Canvas {
         }
     }
 
-    fn disc(&mut self, c: [f32; 2], r: f32, color: [u8; 3], a: f32) {
+    pub(crate) fn disc(&mut self, c: [f32; 2], r: f32, color: [u8; 3], a: f32) {
         for y in (c[1] - r - 1.0).floor() as i64..=(c[1] + r + 1.0).ceil() as i64 {
             for x in (c[0] - r - 1.0).floor() as i64..=(c[0] + r + 1.0).ceil() as i64 {
                 let d = ((x as f32 + 0.5 - c[0]).powi(2) + (y as f32 + 0.5 - c[1]).powi(2)).sqrt();
@@ -386,7 +388,7 @@ impl Canvas {
     }
 
     /// Straight-RGBA text pixels at `(x, y)`.
-    fn text(&mut self, (w, h, rgba): &(u32, u32, Vec<u8>), x: f32, y: f32) {
+    pub(crate) fn text(&mut self, (w, h, rgba): &(u32, u32, Vec<u8>), x: f32, y: f32) {
         let (x, y) = (x.round() as i64, y.round() as i64);
         for ty in 0..*h as usize {
             for tx in 0..*w as usize {

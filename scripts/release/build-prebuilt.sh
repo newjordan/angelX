@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# build-prebuilt.sh — build the two binaries a prebuilt angelX package ships.
+# build-prebuilt.sh — build the three binaries a prebuilt angelX package ships.
 #
 #   scripts/release/build-prebuilt.sh MANIFEST TARGET OUT_DIR
 #
 # MANIFEST is the source release manifest `npm run release:evidence` wrote for
 # this checkout's commit. TARGET is linux-x86_64, linux-arm64 or macos-arm64.
-# OUT_DIR receives angel, angel-sandbox and build.json. The binaries carry the
+# OUT_DIR receives angel, angel-sandbox, angel-delve-system, glass and build.json. The binaries carry the
 # manifest's source and resource identities, so `angel --build-info --json`
 # names the exact source release they were built from.
 #
@@ -93,6 +93,8 @@ for map in "${maps[@]}"; do
 done
 export RUSTFLAGS CFLAGS CXXFLAGS
 export ANGEL_PORTABLE_BUILD=1
+# Shipped builds include the browser page.
+export ANGEL_DELVE_WEB=1
 
 empty_cartridges=$(mktemp -d)
 trap 'rm -rf "$empty_cartridges"' EXIT
@@ -112,9 +114,17 @@ case "$target" in
     ;;
 esac
 
+# The Delve system and glass, the terminal, from the engine workspace. glass
+# ships so every install has a terminal that shows what angelX shows.
+system_args=(--locked --release --manifest-path "$root/crates/Cargo.toml" -p angel-delve-system -p angel-glass-term)
+case "$target" in
+  linux-*) CARGO_TARGET_DIR="$root/cockpit/target" cargo zigbuild "${system_args[@]}" --target "$triple.$glibc_floor" ;;
+  macos-*) CARGO_TARGET_DIR="$root/cockpit/target" MACOSX_DEPLOYMENT_TARGET="$macos_floor" cargo build "${system_args[@]}" --target "$triple" ;;
+esac
+
 built="$root/cockpit/target/$triple/release"
 mkdir -p "$out"
-for name in angel angel-sandbox; do
+for name in angel angel-sandbox angel-delve-system glass; do
   [ -x "$built/$name" ] || { echo "build-prebuilt: missing $built/$name" >&2; exit 1; }
   # A builder's own cartridge source leaves its absolute path in the binary.
   if LC_ALL=C grep -aqF "$HOME/.angelX/cartridges/" "$built/$name"; then
@@ -136,7 +146,7 @@ floor=""
 case "$target" in
   linux-*)
     # The newest glibc symbol version either binary needs must not pass the floor.
-    for name in angel angel-sandbox; do
+    for name in angel angel-sandbox angel-delve-system glass; do
       need=$(objdump -T "$out/$name" | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)
       if [ "$(printf '%s\n%s\n' "$need" "$glibc_floor" | sort -V | tail -1)" != "$glibc_floor" ]; then
         echo "build-prebuilt: $name needs glibc $need, above the $glibc_floor floor" >&2
@@ -171,7 +181,7 @@ json.dump({
     "rustc": """$ANGEL_BUILD_RUSTC""".splitlines()[0],
     "features": "glass (its own window); no default features (no video decoding)",
     "glass": True,
-    "binaries": {"angel": "$(sha "$out/angel")", "angel-sandbox": "$(sha "$out/angel-sandbox")"},
+    "binaries": {"angel": "$(sha "$out/angel")", "angel-sandbox": "$(sha "$out/angel-sandbox")", "angel-delve-system": "$(sha "$out/angel-delve-system")", "glass": "$(sha "$out/glass")"},
 }, open(sys.argv[1], "w"), indent=2)
 open(sys.argv[1], "a").write("\n")
 PY

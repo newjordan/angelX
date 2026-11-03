@@ -1,0 +1,761 @@
+# crates/delve/src/rules/pastimes/powder.rs — Powder Keg: one courtyard,
+# kegs, flames, bales and charms. Tiles are (col, row) in an 11 x 9 yard;
+# a knight is at 1/256 tiles (u16).
+
+def pastimes.powder.POSTS_N() -> U32:
+  10
+
+def pastimes.powder.POST_C(+i: U32) -> U32:
+  match i:
+    case 0:
+      3
+    case 1:
+      5
+    case 2:
+      7
+    case 3:
+      3
+    case 4:
+      5
+    case 5:
+      7
+    case 6:
+      3
+    case 7:
+      5
+    case 8:
+      7
+    case _:
+      5
+
+def pastimes.powder.POST_R(+i: U32) -> U32:
+  match i:
+    case 0:
+      3
+    case 1:
+      3
+    case 2:
+      3
+    case 3:
+      5
+    case 4:
+      5
+    case 5:
+      5
+    case 6:
+      7
+    case 7:
+      7
+    case 8:
+      7
+    case _:
+      1
+
+def pastimes.powder.BALE_C(+i: U32) -> U32:
+  match i:
+    case 0:
+      2
+    case 1:
+      4
+    case 2:
+      6
+    case 3:
+      8
+    case 4:
+      2
+    case 5:
+      4
+    case 6:
+      6
+    case 7:
+      8
+    case 8:
+      2
+    case 9:
+      4
+    case 10:
+      6
+    case 11:
+      8
+    case 12:
+      2
+    case 13:
+      4
+    case 14:
+      6
+    case 15:
+      8
+    case 16:
+      7
+    case 17:
+      1
+    case 18:
+      9
+    case _:
+      3
+
+def pastimes.powder.BALE_R(+i: U32) -> U32:
+  match i:
+    case 0:
+      2
+    case 1:
+      2
+    case 2:
+      2
+    case 3:
+      2
+    case 4:
+      4
+    case 5:
+      4
+    case 6:
+      4
+    case 7:
+      4
+    case 8:
+      6
+    case 9:
+      6
+    case 10:
+      6
+    case 11:
+      6
+    case 12:
+      8
+    case 13:
+      8
+    case 14:
+      8
+    case 15:
+      8
+    case 16:
+      1
+    case 17:
+      5
+    case 18:
+      5
+    case _:
+      8
+
+def pastimes.powder.CORNER_C(+i: U32) -> U32:
+  match i:
+    case 0:
+      1
+    case 1:
+      9
+    case 2:
+      9
+    case 3:
+      1
+    case 4:
+      5
+    case _:
+      10
+
+def pastimes.powder.CORNER_R(+i: U32) -> U32:
+  match i:
+    case 0:
+      1
+    case 1:
+      7
+    case 2:
+      1
+    case 3:
+      7
+    case 4:
+      0
+    case _:
+      4
+
+# Powder::new(ids, seed)
+def pastimes.powder.Powder.new(+ids: List<&2, U32>, +seed: U32) -> J.Val:
+  p0: J.Val = J.set(J.set(J.set(J.set(J.set(J.obj(), "knights", J.JA{pastimes.powder.knights(ids, 0)}), "kegs", J.JA{[]}), "flames", J.JA{[]}), "scorch", J.JA{[]}), "charms", J.JA{[]})
+  p1: J.Val = gb.su(J.set(J.set(p0, "bales", pastimes.powder.bales(0)), "burned", pastimes.powder.burned0(ids, J.obj())), "seed", seed)
+  gb.su(J.set(p1, "chain_flash", J.JNull{}), "chain_shockwave", 0)
+
+def pastimes.powder.knights(+ids: List<&2, U32>, +i: U32) -> List<&2, J.Val>:
+  match ids:
+    case Nil{}:
+      []
+    case Con{id: U32, t: List<&2, U32>}:
+      c: U32 = pastimes.powder.CORNER_C(U32.mod(i, 6))
+      r: U32 = pastimes.powder.CORNER_R(U32.mod(i, 6))
+      k0: J.Val = gb.su(gb.su(gb.su(J.obj(), "id", id), "x", (c * 256 + 128 : U32)), "y", (r * 256 + 128 : U32))
+      k1: J.Val = gb.su(gb.su(gb.su(gb.sb(k0, "alive", True{}), "stock", 8), "blast", 3), "soot", 0)
+      gb.sb(gb.sb(k1, "boots", False{}), "spare", False{}) <> pastimes.powder.knights(t, (i + 1 : U32))
+
+def pastimes.powder.bales(+i: U32) -> J.Val:
+  J.JA{pastimes.powder.bales.go(i)}
+
+def pastimes.powder.bales.go(+i: U32) -> List<&2, J.Val>:
+  match i:
+    case 20:
+      []
+    case _:
+      J.JU{(pastimes.powder.BALE_R(i) * 11 + pastimes.powder.BALE_C(i) : U32)} <> pastimes.powder.bales.go((i + 1 : U32))
+
+def pastimes.powder.burned0(+ids: List<&2, U32>, +m: J.Val) -> J.Val:
+  match ids:
+    case Nil{}:
+      m
+    case Con{id: U32, t: List<&2, U32>}:
+      pastimes.powder.burned0(t, J.set(m, U32.show(id), J.JU{0}))
+
+# Powder::alive: the knights still standing, in order.
+def pastimes.powder.Powder.alive(+p: J.Val) -> List<&2, U32>:
+  pastimes.powder.alive.go(J.items(J.get(p, "knights")))
+
+def pastimes.powder.alive.go(+ks: List<&2, J.Val>) -> List<&2, U32>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if gb.b(k, "alive"):
+        gb.u(k, "id") <> pastimes.powder.alive.go(t)
+      else:
+        pastimes.powder.alive.go(t)
+
+def pastimes.powder.Powder.alive_has(+p: J.Val, +id: U32) -> Bool:
+  pastimes.powder.has_id(pastimes.powder.Powder.alive(p), id)
+
+def pastimes.powder.has_id(+ids: List<&2, U32>, +id: U32) -> Bool:
+  match ids:
+    case Nil{}:
+      False{}
+    case Con{h: U32, t: List<&2, U32>}:
+      Bool.or(U32.is_eq(h, id), pastimes.powder.has_id(t, id))
+
+# Powder::post
+def pastimes.powder.post(+c: U32, +r: U32, +i: U32) -> Bool:
+  match i:
+    case 10:
+      False{}
+    case _:
+      Bool.or(Bool.and(U32.is_eq(pastimes.powder.POST_C(i), c), U32.is_eq(pastimes.powder.POST_R(i), r)), pastimes.powder.post(c, r, (i + 1 : U32)))
+
+def pastimes.powder.has_tile(+xs: List<&2, J.Val>, +t: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{h: J.Val, rest: List<&2, J.Val>}:
+      Bool.or(U32.is_eq(J.u32(h), t), pastimes.powder.has_tile(rest, t))
+
+def pastimes.powder.at_tile(+xs: List<&2, J.Val>, +c: U32, +r: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{h: J.Val, rest: List<&2, J.Val>}:
+      Bool.or(Bool.and(U32.is_eq(gb.u(h, "col"), c), U32.is_eq(gb.u(h, "row"), r)), pastimes.powder.at_tile(rest, c, r))
+
+# Powder::solid: a post, a bale or a keg.
+def pastimes.powder.Powder.solid(+p: J.Val, +c: U32, +r: U32) -> Bool:
+  Bool.or(Bool.or(pastimes.powder.post(c, r, 0), pastimes.powder.has_tile(J.items(J.get(p, "bales")), (r * 11 + c : U32))), pastimes.powder.at_tile(J.items(J.get(p, "kegs")), c, r))
+
+# A flame still hot enough to catch someone (more than 37 left) at a tile.
+def pastimes.powder.fresh_at(+fs: List<&2, J.Val>, +c: U32, +r: U32) -> Bool:
+  match fs:
+    case Nil{}:
+      False{}
+    case Con{f: J.Val, rest: List<&2, J.Val>}:
+      Bool.or(Bool.and(Bool.and(U32.is_eq(gb.u(f, "col"), c), U32.is_eq(gb.u(f, "row"), r)), U32.is_gt(gb.u(f, "left"), 37)), pastimes.powder.fresh_at(rest, c, r))
+
+# The tile of a position in 1/256 tiles: (x / 256 % W, y / 256 % H).
+def pastimes.powder.tile_c(+x: U32) -> U32:
+  U32.mod(U32.div(x, 256), 11)
+
+def pastimes.powder.tile_r(+y: U32) -> U32:
+  U32.mod(U32.div(y, 256), 9)
+
+# u16 x.saturating_add_signed(d), d an i16.
+def pastimes.powder.add_signed(+x: U32, +d: U32) -> U32:
+  if RS.i_lt(d, 0):
+    gb.ssub(x, RS.i_neg(d))
+  else:
+    U32.min((x + d : U32), 65535)
+
+# ---- Powder::step ----------------------------------------------------------
+
+# One knight's walk: x then y, a step blocked by solids and fresh fire.
+def pastimes.powder.walk(+p: J.Val, +k: J.Val, +input: J.Val) -> U32 & U32:
+  speed: U32 = Bool.pick(U32, gb.b(k, "boots"), 240, 176)
+  step: U32 = U32.div(speed, 8)
+  (x1: U32, y1: U32) = pastimes.powder.walk.axis(p, gb.u(k, "x"), gb.u(k, "y"), 0, gb.i(input, "move_x"), step)
+  pastimes.powder.walk.axis(p, x1, y1, 1, gb.i(input, "move_y"), step)
+
+def pastimes.powder.walk.axis(+p: J.Val, +x: U32, +y: U32, +axis: U32, +dir: U32, +step: U32) -> U32 & U32:
+  if U32.is_eq(dir, 0):
+    (x, y)
+  else:
+    d: U32 = RS.i_mul(dir, step)
+    nx: U32 = Bool.pick(U32, U32.is_eq(axis, 0), pastimes.powder.add_signed(x, d), x)
+    ny: U32 = Bool.pick(U32, U32.is_eq(axis, 0), y, pastimes.powder.add_signed(y, d))
+    nc: U32 = pastimes.powder.tile_c(nx)
+    nr: U32 = pastimes.powder.tile_r(ny)
+    own: Bool = Bool.and(U32.is_eq(nc, pastimes.powder.tile_c(x)), U32.is_eq(nr, pastimes.powder.tile_r(y)))
+    free: Bool = Bool.and(Bool.not(pastimes.powder.Powder.solid(p, nc, nr)), Bool.not(pastimes.powder.fresh_at(J.items(J.get(p, "flames")), nc, nr)))
+    if Bool.or(own, free):
+      (U32.min(nx, 2815), U32.min(ny, 2303))
+    else:
+      (x, y)
+
+# The moves and the keg drops of every living knight this tick:
+# ([{id, x, y}], [{id, col, row}]).
+def pastimes.powder.plan(+p: J.Val, +inputs: J.Val, +tapped: List<&2, U32>, +ks: List<&2, J.Val>, +alive: U32, +moves: List<&2, J.Val>, +drops: List<&2, J.Val>) -> List<&2, J.Val> & List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      (moves, drops)
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if gb.b(k, "alive"):
+        (x: U32, y: U32) = pastimes.powder.walk(p, k, pastimes.input_of(inputs, gb.u(k, "id")))
+        c: U32 = pastimes.powder.tile_c(x)
+        r: U32 = pastimes.powder.tile_r(y)
+        cap: U32 = (Bool.pick(U32, gb.b(k, "spare"), 2, 1) * alive : U32)
+        used: U32 = (J.len(J.get(p, "kegs")) + U32.from_nat(List.length(&2, J.Val, drops)) : U32)
+        drop: Bool = Bool.and(Bool.and(pastimes.tapped_has(tapped, gb.u(k, "id")), U32.is_gt(gb.u(k, "stock"), 0)), Bool.and(U32.is_lt(used, cap), Bool.and(Bool.not(pastimes.powder.Powder.solid(p, c, r)), Bool.not(pastimes.powder.fresh_at(J.items(J.get(p, "flames")), c, r)))))
+        m: J.Val = gb.su(gb.su(gb.su(J.obj(), "id", gb.u(k, "id")), "x", x), "y", y)
+        d: List<&2, J.Val> = Bool.pick(List<&2, J.Val>, drop, List.append(&2, J.Val, drops, [gb.su(gb.su(gb.su(J.obj(), "id", gb.u(k, "id")), "col", c), "row", r)]), drops)
+        pastimes.powder.plan(p, inputs, tapped, t, alive, List.append(&2, J.Val, moves, [m]), d)
+      else:
+        pastimes.powder.plan(p, inputs, tapped, t, alive, moves, drops)
+
+def pastimes.powder.count_alive(+ks: List<&2, J.Val>) -> U32:
+  match ks:
+    case Nil{}:
+      0
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      (Bool.to_u32(gb.b(k, "alive")) + pastimes.powder.count_alive(t) : U32)
+
+# Knights moved to their planned places.
+def pastimes.powder.apply_moves(+ks: List<&2, J.Val>, +moves: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      m: J.Val = pastimes.find_el(moves, gb.u(k, "id"))
+      Bool.pick(J.Val, J.is_null(m), k, gb.su(gb.su(k, "x", gb.u(m, "x")), "y", gb.u(m, "y"))) <> pastimes.powder.apply_moves(t, moves)
+
+# The kegs dropped: a keg each, one stock off the dropper.
+def pastimes.powder.apply_drops(+p: J.Val, +drops: List<&2, J.Val>) -> J.Val:
+  match drops:
+    case Nil{}:
+      p
+    case Con{d: J.Val, t: List<&2, J.Val>}:
+      keg: J.Val = gb.su(gb.su(gb.su(gb.su(J.obj(), "col", gb.u(d, "col")), "row", gb.u(d, "row")), "left", 90), "owner", gb.u(d, "id"))
+      p1: J.Val = J.set(p, "kegs", J.push(J.get(p, "kegs"), keg))
+      pastimes.powder.apply_drops(J.set(p1, "knights", J.JA{pastimes.powder.restock(J.items(J.get(p1, "knights")), gb.u(d, "id"))}), t)
+
+def pastimes.powder.restock(+ks: List<&2, J.Val>, +id: U32) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(gb.u(k, "id"), id):
+        gb.su(k, "stock", (gb.u(k, "stock") - 1 : U32)) <> t
+      else:
+        k <> pastimes.powder.restock(t, id)
+
+def pastimes.powder.soot_down(+ks: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      gb.su(k, "soot", gb.ssub(gb.u(k, "soot"), 1)) <> pastimes.powder.soot_down(t)
+
+# Every keg a tick closer; the ones that reach 0 are gone and go off.
+def pastimes.powder.fuse(+ks: List<&2, J.Val>) -> List<&2, J.Val> & List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      ([], [])
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      (live: List<&2, J.Val>, boomed: List<&2, J.Val>) = pastimes.powder.fuse(t)
+      left: U32 = (gb.u(k, "left") - 1 : U32)
+      if U32.is_eq(left, 0):
+        (live, k <> boomed)
+      else:
+        (gb.su(k, "left", left) <> live, boomed)
+
+def pastimes.powder.flame(+c: U32, +r: U32, +arm: U32) -> J.Val:
+  gb.su(gb.su(gb.su(gb.su(J.obj(), "col", c), "row", r), "left", 45), "arm", arm)
+
+def pastimes.find_by(+xs: List<&2, J.Val>, +key: String, +v: U32) -> J.Val:
+  match xs:
+    case Nil{}:
+      J.JNull{}
+    case Con{x: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(gb.u(x, key), v):
+        x
+      else:
+        pastimes.find_by(t, key, v)
+
+def pastimes.powder.DC(+d: U32) -> U32:
+  match d:
+    case 0:
+      1
+    case 1:
+      RS.i_neg(1)
+    case _:
+      0
+
+def pastimes.powder.DR(+d: U32) -> U32:
+  match d:
+    case 2:
+      1
+    case 3:
+      RS.i_neg(1)
+    case _:
+      0
+
+# A blast pass's context: {p: the yard, arms: this keg's flames, burned:
+# [{t, owner}], chain: null or [x1, y1, x2, y2]}.
+def pastimes.powder.blasts(+ctx: J.Val, +boomed: List<&2, J.Val>) -> J.Val:
+  match boomed:
+    case Nil{}:
+      ctx
+    case Con{kg: J.Val, t: List<&2, J.Val>}:
+      pastimes.powder.blasts(pastimes.powder.blast(ctx, kg), t)
+
+def pastimes.powder.blast(+ctx: J.Val, +kg: J.Val) -> J.Val:
+  owner: J.Val = pastimes.find_by(J.items(J.get(J.get(ctx, "p"), "knights")), "id", gb.u(kg, "owner"))
+  reach: U32 = Bool.pick(U32, J.is_null(owner), 3, gb.u(owner, "blast"))
+  c0: J.Val = J.set(ctx, "arms", J.JA{[pastimes.powder.flame(gb.u(kg, "col"), gb.u(kg, "row"), 4)]})
+  c1: J.Val = pastimes.powder.arm(pastimes.powder.arm(pastimes.powder.arm(pastimes.powder.arm(c0, kg, reach, 0, 1), kg, reach, 1, 1), kg, reach, 2, 1), kg, reach, 3, 1)
+  pastimes.powder.lay(c1, J.items(J.get(c1, "arms")))
+
+# One arm of the blast: out to `reach`, stopped by a post, a bale or a keg.
+def pastimes.powder.arm(+ctx: J.Val, +kg: J.Val, +reach: U32, +d: U32, +step: U32) -> J.Val:
+  if U32.is_gt(step, reach):
+    ctx
+  else:
+    c: U32 = RS.i_add(gb.u(kg, "col"), RS.i_mul(pastimes.powder.DC(d), step))
+    r: U32 = RS.i_add(gb.u(kg, "row"), RS.i_mul(pastimes.powder.DR(d), step))
+    if Bool.or(Bool.or(RS.i_lt(c, 0), RS.i_ge(c, 11)), Bool.or(RS.i_lt(r, 0), RS.i_ge(r, 9))):
+      ctx
+    else:
+      pastimes.powder.arm.at(ctx, kg, reach, d, step, c, r)
+
+def pastimes.powder.arm.at(+ctx: J.Val, +kg: J.Val, +reach: U32, +d: U32, +step: U32, +c: U32, +r: U32) -> J.Val:
+  p: J.Val = J.get(ctx, "p")
+  t: U32 = (r * 11 + c : U32)
+  c1: J.Val = J.set(ctx, "arms", J.push(J.get(ctx, "arms"), pastimes.powder.flame(c, r, d)))
+  if pastimes.powder.post(c, r, 0):
+    c1
+  else:
+    if pastimes.powder.has_tile(J.items(J.get(p, "bales")), t):
+      J.set(c1, "burned", J.push(J.get(c1, "burned"), gb.su(gb.su(J.obj(), "t", t), "owner", gb.u(kg, "owner"))))
+    else:
+      if pastimes.powder.at_tile(J.items(J.get(p, "kegs")), c, r):
+        p1: J.Val = J.set(p, "kegs", J.JA{pastimes.powder.shorten(J.items(J.get(p, "kegs")), c, r)})
+        J.set(J.set(c1, "p", p1), "chain", J.JA{[J.JU{gb.u(kg, "col")}, J.JU{gb.u(kg, "row")}, J.JU{c}, J.JU{r}]})
+      else:
+        pastimes.powder.arm(c1, kg, reach, d, (step + 1 : U32))
+
+# The first keg at a tile burns down to 1.
+def pastimes.powder.shorten(+ks: List<&2, J.Val>, +c: U32, +r: U32) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(U32.is_eq(gb.u(k, "col"), c), U32.is_eq(gb.u(k, "row"), r)):
+        gb.su(k, "left", U32.min(gb.u(k, "left"), 1)) <> t
+      else:
+        k <> pastimes.powder.shorten(t, c, r)
+
+# This keg's flames laid on the yard, each with a scorch under it unless one is there.
+def pastimes.powder.lay(+ctx: J.Val, +arms: List<&2, J.Val>) -> J.Val:
+  match arms:
+    case Nil{}:
+      ctx
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      p: J.Val = J.get(ctx, "p")
+      sc: J.Val = Bool.pick(J.Val, pastimes.powder.at_tile(J.items(J.get(p, "scorch")), gb.u(f, "col"), gb.u(f, "row")), J.get(p, "scorch"), J.push(J.get(p, "scorch"), gb.su(gb.su(gb.su(J.obj(), "col", gb.u(f, "col")), "row", gb.u(f, "row")), "left", 200)))
+      p1: J.Val = J.set(J.set(p, "scorch", sc), "flames", J.push(J.get(p, "flames"), f))
+      pastimes.powder.lay(J.set(ctx, "p", p1), t)
+
+# Powder::drops: the bales that give up a charm when burned.
+def pastimes.powder.drops(+bales: List<&2, J.Val>, +seed: U32, +i: U32) -> List<&2, J.Val>:
+  match bales:
+    case Nil{}:
+      []
+    case Con{t: J.Val, rest: List<&2, J.Val>}:
+      if U32.is_eq(U32.mod((i + seed : U32), 3), 1):
+        t <> pastimes.powder.drops(rest, seed, (i + 1 : U32))
+      else:
+        pastimes.powder.drops(rest, seed, (i + 1 : U32))
+
+# The burned bales leave: each counts for its keg's owner, some leave a charm.
+def pastimes.powder.burn(+p: J.Val, +burned: List<&2, J.Val>, +drops: List<&2, J.Val>) -> J.Val:
+  match burned:
+    case Nil{}:
+      p
+    case Con{b: J.Val, t: List<&2, J.Val>}:
+      tile: U32 = gb.u(b, "t")
+      owner: String = U32.show(gb.u(b, "owner"))
+      p1: J.Val = J.set(p, "bales", J.JA{pastimes.powder.without(J.items(J.get(p, "bales")), tile)})
+      p2: J.Val = J.set(p1, "burned", J.set(J.get(p1, "burned"), owner, J.JU{(gb.u(J.get(p1, "burned"), owner) + 1 : U32)}))
+      p3: J.Val = Bool.pick(J.Val, pastimes.powder.has_tile(drops, tile), J.set(p2, "charms", J.push(J.get(p2, "charms"), gb.su(gb.su(gb.su(J.obj(), "col", U32.mod(tile, 11)), "row", U32.div(tile, 11)), "kind", U32.mod(U32.div(tile, 7), 3)))), p2)
+      pastimes.powder.burn(p3, t, drops)
+
+def pastimes.powder.without(+xs: List<&2, J.Val>, +t: U32) -> List<&2, J.Val>:
+  match xs:
+    case Nil{}:
+      []
+    case Con{h: J.Val, rest: List<&2, J.Val>}:
+      if U32.is_eq(J.u32(h), t):
+        pastimes.powder.without(rest, t)
+      else:
+        h <> pastimes.powder.without(rest, t)
+
+# The ids of the living knights standing in fresh fire.
+def pastimes.powder.caught(+p: J.Val, +ks: List<&2, J.Val>) -> List<&2, U32>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(gb.b(k, "alive"), pastimes.powder.fresh_at(J.items(J.get(p, "flames")), pastimes.powder.tile_c(gb.u(k, "x")), pastimes.powder.tile_r(gb.u(k, "y")))):
+        gb.u(k, "id") <> pastimes.powder.caught(p, t)
+      else:
+        pastimes.powder.caught(p, t)
+
+# The living knights standing on a charm: [{id, i}] by the charm's place in
+# the list at that moment.
+def pastimes.powder.takes(+p: J.Val, +ks: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      i: U32 = pastimes.powder.charm_at(J.items(J.get(p, "charms")), pastimes.powder.tile_c(gb.u(k, "x")), pastimes.powder.tile_r(gb.u(k, "y")), 0)
+      if Bool.and(gb.b(k, "alive"), U32.is_lt(i, 1000)):
+        gb.su(gb.su(J.obj(), "id", gb.u(k, "id")), "i", i) <> pastimes.powder.takes(p, t)
+      else:
+        pastimes.powder.takes(p, t)
+
+def pastimes.powder.charm_at(+cs: List<&2, J.Val>, +c: U32, +r: U32, +i: U32) -> U32:
+  match cs:
+    case Nil{}:
+      1000
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(U32.is_eq(gb.u(h, "col"), c), U32.is_eq(gb.u(h, "row"), r)):
+        i
+      else:
+        pastimes.powder.charm_at(t, c, r, (i + 1 : U32))
+
+def pastimes.powder.soot(+ks: List<&2, J.Val>, +ids: List<&2, U32>) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if pastimes.powder.has_id(ids, gb.u(k, "id")):
+        gb.su(gb.sb(k, "alive", False{}), "soot", 30) <> pastimes.powder.soot(t, ids)
+      else:
+        k <> pastimes.powder.soot(t, ids)
+
+def pastimes.powder.nth_remove(+xs: List<&2, J.Val>, +i: U32) -> J.Val & List<&2, J.Val>:
+  match xs:
+    case Nil{}:
+      (J.JNull{}, [])
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(i, 0):
+        (h, t)
+      else:
+        (x: J.Val, rest: List<&2, J.Val>) = pastimes.powder.nth_remove(t, (i - 1 : U32))
+        (x, h <> rest)
+
+# The takes in reverse order: each charm leaves the yard and does its work.
+def pastimes.powder.take(+p: J.Val, +takes: List<&2, J.Val>, +picked: List<&2, U32>) -> J.Val & List<&2, U32>:
+  match takes:
+    case Nil{}:
+      (p, picked)
+    case Con{tk: J.Val, t: List<&2, J.Val>}:
+      (p1: J.Val, picked1: List<&2, U32>) = pastimes.powder.take(p, t, picked)
+      (charm: J.Val, left: List<&2, J.Val>) = pastimes.powder.nth_remove(J.items(J.get(p1, "charms")), gb.u(tk, "i"))
+      if J.is_null(charm):
+        (p1, picked1)
+      else:
+        p2: J.Val = J.set(p1, "charms", J.JA{left})
+        id: U32 = gb.u(tk, "id")
+        k: J.Val = pastimes.find_by(J.items(J.get(p2, "knights")), "id", id)
+        if J.is_null(k):
+          (p2, picked1)
+        else:
+          (J.set(p2, "knights", J.JA{pastimes.powder.charmed(J.items(J.get(p2, "knights")), id, gb.u(charm, "kind"))}), List.append(&2, U32, picked1, [id]))
+
+def pastimes.powder.charmed(+ks: List<&2, J.Val>, +id: U32, +kind: U32) -> List<&2, J.Val>:
+  match ks:
+    case Nil{}:
+      []
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(gb.u(k, "id"), id):
+        pastimes.powder.charm_apply(k, kind) <> t
+      else:
+        k <> pastimes.powder.charmed(t, id, kind)
+
+def pastimes.powder.charm_apply(+k: J.Val, +kind: U32) -> J.Val:
+  if U32.is_eq(kind, 0):
+    gb.su(k, "blast", 6)
+  else:
+    if U32.is_eq(kind, 1):
+      gb.sb(k, "boots", True{})
+    else:
+      gb.su(gb.sb(k, "spare", True{}), "stock", 12)
+
+# Flames and scorch burn down; the shockwave and the chain flash fade.
+def pastimes.powder.age(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
+  match xs:
+    case Nil{}:
+      []
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      left: U32 = (gb.u(f, "left") - 1 : U32)
+      if U32.is_gt(left, 0):
+        gb.su(f, "left", left) <> pastimes.powder.age(t)
+      else:
+        pastimes.powder.age(t)
+
+def pastimes.powder.fade(+p: J.Val) -> J.Val:
+  p1: J.Val = gb.su(J.set(J.set(p, "flames", J.JA{pastimes.powder.age(J.items(J.get(p, "flames")))}), "scorch", J.JA{pastimes.powder.age(J.items(J.get(p, "scorch")))}), "chain_shockwave", gb.ssub(gb.u(p, "chain_shockwave"), 1))
+  cf: J.Val = J.get(p1, "chain_flash")
+  if J.is_null(cf):
+    p1
+  else:
+    if U32.is_gt(gb.ag(cf, 0), 0):
+      J.set(p1, "chain_flash", gb.as(cf, 0, (gb.ag(cf, 0) - 1 : U32)))
+    else:
+      J.set(p1, "chain_flash", J.JNull{})
+
+# Powder::step -> (yard, (sooted ids, (burned, (boom, picked ids)))).
+def pastimes.powder.Powder.step(+p: J.Val, +inputs: J.Val, +tapped: List<&2, U32>) -> J.Val & (List<&2, U32> & (Bool & (Bool & List<&2, U32>))):
+  ks: List<&2, J.Val> = J.items(J.get(p, "knights"))
+  (moves: List<&2, J.Val>, drops: List<&2, J.Val>) = pastimes.powder.plan(p, inputs, tapped, ks, pastimes.powder.count_alive(ks), [], [])
+  p1: J.Val = J.set(p, "knights", J.JA{pastimes.powder.apply_moves(ks, moves)})
+  p2: J.Val = pastimes.powder.apply_drops(p1, drops)
+  p3: J.Val = J.set(p2, "knights", J.JA{pastimes.powder.soot_down(J.items(J.get(p2, "knights")))})
+  (live: List<&2, J.Val>, boomed: List<&2, J.Val>) = pastimes.powder.fuse(J.items(J.get(p3, "kegs")))
+  p4: J.Val = J.set(p3, "kegs", J.JA{live})
+  boom: Bool = Bool.or(Bool.not(List.is_empty(&2, J.Val, drops)), Bool.not(List.is_empty(&2, J.Val, boomed)))
+  ctx: J.Val = pastimes.powder.blasts(J.set(J.set(J.set(J.set(J.obj(), "p", p4), "arms", J.JA{[]}), "burned", J.JA{[]}), "chain", J.JNull{}), boomed)
+  p5: J.Val = pastimes.powder.chain(J.get(ctx, "p"), J.get(ctx, "chain"))
+  burned: List<&2, J.Val> = J.items(J.get(ctx, "burned"))
+  p6: J.Val = Bool.pick(J.Val, List.is_empty(&2, J.Val, burned), p5, pastimes.powder.burn(p5, burned, pastimes.powder.drops(J.items(J.get(p5, "bales")), gb.u(p5, "seed"), 0)))
+  ks6: List<&2, J.Val> = J.items(J.get(p6, "knights"))
+  sooted: List<&2, U32> = pastimes.powder.caught(p6, ks6)
+  takes: List<&2, J.Val> = pastimes.powder.takes(p6, ks6)
+  p7: J.Val = J.set(p6, "knights", J.JA{pastimes.powder.soot(ks6, sooted)})
+  (p8: J.Val, picked: List<&2, U32>) = pastimes.powder.take(p7, takes, [])
+  (pastimes.powder.fade(p8), (sooted, (Bool.not(List.is_empty(&2, J.Val, burned)), (boom, picked))))
+
+def pastimes.powder.chain(+p: J.Val, +pair: J.Val) -> J.Val:
+  if J.is_null(pair):
+    p
+  else:
+    J.set(gb.su(p, "chain_shockwave", 6), "chain_flash", J.JA{[J.JU{6}, J.nth(pair, 0), J.nth(pair, 1), J.nth(pair, 2), J.nth(pair, 3)]})
+
+def pastimes.powder.PX0() -> F32:
+  6.0
+
+def pastimes.powder.PY0() -> F32:
+  2.0
+
+# Run::tick_kegs
+def pastimes.powder.Run.tick_kegs(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  p: J.Val = J.get(round, "powder")
+  if J.is_null(p):
+    (run, (round, False{}))
+  else:
+    owner: J.Val = pastimes.powder.owner(J.items(J.get(p, "knights")), elig)
+    if J.is_null(owner):
+      (gb.found(run, 0, "The sappers left. Kegs parked."), (round, False{}))
+    else:
+      pastimes.powder.tick(run, round, p, inputs, tapped, gb.u(owner, "id"))
+
+# The first living knight in the elig list's seats, else the first seated.
+def pastimes.powder.owner(+ks: List<&2, J.Val>, +elig: List<&2, J.Val>) -> J.Val:
+  alive: J.Val = pastimes.powder.owner.pick(ks, elig, True{})
+  Bool.pick(J.Val, J.is_null(alive), pastimes.powder.owner.pick(ks, elig, False{}), alive)
+
+def pastimes.powder.owner.pick(+ks: List<&2, J.Val>, +elig: List<&2, J.Val>, +need_alive: Bool) -> J.Val:
+  match ks:
+    case Nil{}:
+      J.JNull{}
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(pastimes.has_el(elig, gb.u(k, "id")), Bool.or(Bool.not(need_alive), gb.b(k, "alive"))):
+        k
+      else:
+        pastimes.powder.owner.pick(t, elig, need_alive)
+
+def pastimes.powder.tick(+run: J.Val, +round: J.Val, +p: J.Val, +inputs: J.Val, +tapped: List<&2, U32>, +owner: U32) -> J.Val & (J.Val & Bool):
+  prev_kegs: U32 = J.len(J.get(p, "kegs"))
+  (p1: J.Val, rest: List<&2, U32> & (Bool & (Bool & List<&2, U32>))) = pastimes.powder.Powder.step(p, inputs, tapped)
+  (sooted: List<&2, U32>, rest2: Bool & (Bool & List<&2, U32>)) = rest
+  (burned: Bool, rest3: Bool & List<&2, U32>) = rest2
+  (boom: Bool, picked: List<&2, U32>) = rest3
+  run1: J.Val = J.set(run, "players", pastimes.powder.seat(J.items(J.get(p1, "knights")), J.get(run, "players"), 0))
+  run2: J.Val = Bool.pick(J.Val, U32.is_gt(J.len(J.get(p1, "kegs")), prev_kegs), gb.sound(run1, "bomb_toss"), run1)
+  run3: J.Val = Bool.pick(J.Val, boom, gb.sound(run2, "bomb"), run2)
+  shock: Bool = U32.is_gt(gb.u(p1, "chain_shockwave"), 0)
+  run4: J.Val = Bool.pick(J.Val, shock, gb.sound(J.set(run3, "shake", J.JU{U32.max(gb.u(run3, "shake"), 8)}), "boss_roar"), run3)
+  run5: J.Val = Bool.pick(J.Val, burned, gb.sound(run4, "vent_fire"), run4)
+  run6: J.Val = pastimes.powder.picks(run5, picked)
+  prev: U32 = gb.u(round, "progress")
+  progress: U32 = U32.min(gb.u(J.get(p1, "burned"), U32.show(owner)), 8)
+  r1: J.Val = gb.su(round, "progress", progress)
+  r2: J.Val = Bool.pick(J.Val, U32.is_gt(progress, prev), pastimes.popup(r1, "BURN!", 12, 5), r1)
+  run7: J.Val = pastimes.powder.sooted(run6, sooted, owner)
+  heat: J.Val = J.get(pastimes.ps(run7), "heat")
+  last: Bool = Bool.and(Bool.and(Bool.not(J.is_null(heat)), String.eq(gb.s(heat, "game"), "powder")), Bool.and(U32.is_gt(J.len(J.get(heat, "seats")), 1), U32.is_eq((gb.field_len(J.get(heat, "done")) + 1 : U32), J.len(J.get(heat, "seats")))))
+  r3: J.Val = Bool.pick(J.Val, last, gb.su(r2, "progress", U32.max(gb.u(r2, "progress"), 8)), r2)
+  me: J.Val = pastimes.find_by(J.items(J.get(p1, "knights")), "id", owner)
+  stock_left: U32 = Bool.pick(U32, J.is_null(me), 0, gb.u(me, "stock"))
+  empty: Bool = Bool.and(Bool.and(U32.is_eq(stock_left, 0), U32.is_eq(J.len(J.get(p1, "kegs")), 0)), Bool.and(U32.is_gt(J.len(J.get(p1, "bales")), 12), U32.is_le(U32.from_nat(List.length(&2, U32, pastimes.powder.Powder.alive(p1))), 1)))
+  r4: J.Val = J.set(r3, "powder", p1)
+  if empty:
+    (gb.found(run7, owner, "Out of kegs!"), (r4, False{}))
+  else:
+    (run7, (r4, pastimes.powder.has_id(pastimes.powder.Powder.alive(p1), owner)))
+
+# Each knight's hero put in the yard (or on the bench once sooted).
+def pastimes.powder.seat(+ks: List<&2, J.Val>, +players: J.Val, +i: U32) -> J.Val:
+  match ks:
+    case Nil{}:
+      players
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      id: String = U32.show(gb.u(k, "id"))
+      h: J.Val = J.get(players, id)
+      if J.is_null(h):
+        pastimes.powder.seat(t, players, (i + 1 : U32))
+      else:
+        x: F32 = Bool.pick(F32, gb.b(k, "alive"), ((6.0 + (RS.u_as_f32(gb.u(k, "x")) / 256.0 : F32) : F32) * 2.0 : F32), (2.5 * 2.0 : F32))
+        y: F32 = Bool.pick(F32, gb.b(k, "alive"), (((2.0 + (RS.u_as_f32(gb.u(k, "y")) / 256.0 : F32) : F32) + 0.3 : F32) * 2.0 : F32), ((7.0 + (1.1 * RS.u_as_f32(i) : F32) : F32) * 2.0 : F32))
+        pastimes.powder.seat(t, J.set(players, id, gb.sf(gb.sf(h, "x", x), "y", y)), (i + 1 : U32))
+
+def pastimes.powder.picks(+run: J.Val, +picked: List<&2, U32>) -> J.Val:
+  match picked:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      pastimes.powder.picks(gb.sound(run, "spoil_pickup"), t)
+
+def pastimes.powder.sooted(+run: J.Val, +ids: List<&2, U32>, +owner: U32) -> J.Val:
+  if List.is_empty(&2, U32, ids):
+    run
+  else:
+    who: String = Bool.pick(String, pastimes.powder.has_id(ids, owner), "Knight " ++ U32.show(owner), "a friend (" ++ pastimes.powder.join(ids) ++ ")")
+    gb.found(gb.sound(run, "hit_blast"), 0, "Sooted! " ++ who ++ " out of this heat.")
+
+def pastimes.powder.join(+ids: List<&2, U32>) -> String:
+  match ids:
+    case Nil{}:
+      ""
+    case Con{id: U32, t: List<&2, U32>}:
+      if List.is_empty(&2, U32, t):
+        U32.show(id)
+      else:
+        U32.show(id) ++ "," ++ pastimes.powder.join(t)
+
+def pastimes.case.powder_step(+i: J.Val) -> J.Val:
+  (p1: J.Val, rest: List<&2, U32> & (Bool & (Bool & List<&2, U32>))) = pastimes.powder.Powder.step(J.get(i, "s"), J.get(i, "inputs"), pastimes.ids_of(J.get(i, "tapped")))
+  (sooted: List<&2, U32>, rest2: Bool & (Bool & List<&2, U32>)) = rest
+  (burned: Bool, rest3: Bool & List<&2, U32>) = rest2
+  (boom: Bool, picked: List<&2, U32>) = rest3
+  J.set(J.set(J.obj(), "s", p1), "ret", J.JA{[pastimes.ids_json(sooted), J.JBool{burned}, J.JBool{boom}, pastimes.ids_json(picked)]})
+
+def case.pastimes.powder.Powder.step(+i: J.Val) -> J.Val:
+  pastimes.case.powder_step(i)

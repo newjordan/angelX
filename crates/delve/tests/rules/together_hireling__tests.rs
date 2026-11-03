@@ -76,17 +76,33 @@ fn with_beaumains() -> Run {
     if let Some(bat) = run.enemies.last_mut() {
         bat.frozen = u32::MAX / 2;
     }
+    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
+    // the old fixtures stood; stand the pair on clear floor near the room's
+    // left, or a wedged knight hires no one and throws nothing.
+    let mut spot = None;
+    'find: for gy in 3..20 {
+        for gx in 2..8 {
+            if run.room().tile(gx, gy).ground() {
+                spot = Some((gx, gy));
+                break 'find;
+            }
+        }
+    }
+    let (gx, gy) = spot.expect("clear floor on the Crypt's left");
+    let (ux, uy) = ((gx as f32 + 0.5) * TILE_UNITS, (gy as f32 + 0.5) * TILE_UNITS);
     let hero = run.players.get_mut(&1).unwrap();
-    (hero.x, hero.y, hero.invulnerable) = (10.0, 12.0, 0);
+    (hero.x, hero.y, hero.invulnerable) = (ux, uy, 0);
     let hire = run.hireling.as_mut().unwrap();
-    (hire.x, hire.y, hire.invulnerable) = (12.0, 14.0, 0);
+    (hire.x, hire.y, hire.invulnerable) = (ux + 2.0, uy + 2.0, 0);
     run
 }
 
 #[test]
 fn he_throws_knives_at_the_nearest_monster_from_a_few_steps_off() {
     let mut run = with_beaumains();
-    run.spawn_at_for_test(EnemyKind::Bat, 15.0, 14.0);
+    // A bat a few steps off the hireling, on the same clear floor.
+    let (hx, hy) = (run.hireling.as_ref().unwrap().x, run.hireling.as_ref().unwrap().y);
+    run.spawn_at_for_test(EnemyKind::Bat, hx + 3.0, hy);
     let mark = run.enemies.last().unwrap().id;
     if let Some(bat) = run.enemies.last_mut() {
         (bat.frozen, bat.hp, bat.max_hp) = (u32::MAX / 2, 10_000, 10_000);
@@ -167,7 +183,12 @@ fn he_is_no_knight_of_the_party() {
     run.enter_for_test(stairs);
     let boss = run.enemies.iter().find(|e| e.boss.is_some()).unwrap();
     let guardian = &run.bosses[usize::from(boss.boss.unwrap())];
-    assert_eq!(boss.max_hp, guardian.hp, "one knight's worth");
+    let scaled = u64::from(guardian.hp) * u64::from(run.guardian_toughness()) / 100 * u64::from(run.boss_health()) / 100;
+    // Re-pinned 2026-11-02: a guardian stands at 70% of its scaled health
+    // (the operator's boss tuning, `Run::spawn_boss`), still one knight's
+    // worth: the hireling adds nothing to it.
+    let worth = (scaled * 70 / 100).max(1) as u32;
+    assert_eq!(boss.max_hp, worth, "one knight's worth");
     // And the party falls when its knights do, whether he stands or not.
     let mut run = with_beaumains();
     let hero = run.players.get_mut(&1).unwrap();
@@ -335,7 +356,7 @@ fn while_beaumains_walks_with_the_party_summoning_cards_stay_on_the_floor() {
                 card: card.into(),
                 x: 12.0,
                 y: 12.0,
-                held_off: None, took: Vec::new(),
+                held_off: None, took: Vec::new(), dropped: 0, owner: None,
             });
         }
         run.step(&BTreeMap::new());
@@ -739,7 +760,7 @@ fn write_minion_shots() {
             card: card.to_string(),
             x: 16.0 + (i % 5) as f32 * 3.5,
             y: 9.0 + (i / 5) as f32 * 4.0,
-            held_off: Some(1), took: Vec::new(),
+            held_off: Some(1), took: Vec::new(), dropped: 0, owner: None,
         });
     }
     let img = crate::render::overworld::arena::frame(&run, 384, 224);

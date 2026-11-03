@@ -149,15 +149,8 @@ pub(crate) const KNOB_CATALOG: &[&str] = &[
     "ANGEL_TOOL_AGING",
 ];
 
-/// True if a variable name looks like it holds a credential — never recorded,
-/// even if it somehow appears in the catalog. Case-insensitive substring match
-/// on the standard secret markers (`.angel.env` holds live API keys).
-pub(crate) fn is_secret_name(name: &str) -> bool {
-    let up = name.to_ascii_uppercase();
-    ["KEY", "TOKEN", "SECRET", "AUTH", "PASSWORD"]
-        .iter()
-        .any(|p| up.contains(p))
-}
+// The rule lives with the redactor in the Kernel's host services.
+pub(crate) use angel_live::host::secrets::is_secret_name;
 
 /// Snapshot the current values of the catalog knobs (secret-named entries and
 /// empty/unset values dropped). Deterministic order (BTreeMap) so the hash is

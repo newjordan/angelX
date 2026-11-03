@@ -63,6 +63,8 @@ pub(crate) fn answer_stage_with_compaction_prep(stage: &str) -> String {
 }
 
 /// Whether the request warrants the full fan-out or a single direct pass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum Mandate {
     Open,
     Tight,

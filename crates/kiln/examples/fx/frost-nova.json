@@ -1,0 +1,12 @@
+{ "fx": 0, "name": "frost nova (kiln's, at the cartridge's size)", "canvas": [16, 16], "fps": 18, "frames": 18, "seed": 11,
+  "beats": { "anticipation": 2, "action": 2, "follow": 8, "settle": 6 },
+  "layers": [
+    { "type": "particles", "form": "mote", "ramp": "frost", "motion": "gather", "area": [6, 6], "count": 6, "life": [2, 2], "size": 0.5, "t0": 0, "t1": "action" },
+    { "type": "star", "ramp": "frost", "r1": 3.5, "count": 4, "t0": "action", "t1": "follow" },
+    { "type": "rays", "ramp": "frost", "count": 12, "r0": 1, "r1": 7, "th": 0.4, "angle": 15, "gain": 0.85, "t0": "action", "t1": "follow+4" },
+    { "type": "ring", "ramp": "frost", "r0": 0.8, "r1": 7, "th": 0.7, "t0": "action", "t1": "end" },
+    { "type": "particles", "form": "shard", "ramp": "frost", "count": 12, "speed": [0.5, 0.9], "drag": 0.06, "gravity": 0.01, "life": [9, 14],
+      "size": 0.55, "t0": "action", "t1": "end" },
+    { "type": "particles", "form": "flake", "ramp": "frost", "spawn": "disc", "area": [5, 5], "count": 6, "speed": [0.1, 0.3], "life": [10, 14],
+      "size": 0.6, "t0": "follow", "t1": "end" }
+  ] }

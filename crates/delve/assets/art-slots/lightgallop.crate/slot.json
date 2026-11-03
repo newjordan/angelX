@@ -272,7 +272,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lightgallop.crate",
-  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.crate/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lg/prepared/lightgallop.crate/source-sheet.png",
   "source_sha256": "381e33060d74afbd867ad13fa05379d37b32f2c3c59af5e51688522bd23a07cd",
   "tool_version": 2
 }

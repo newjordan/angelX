@@ -78,19 +78,30 @@ pub(super) fn sheet(run: &Run) -> Img {
             ))
         })
         .collect();
+    // Her raid rows: alarms, not wages — the purse is won in the hall.
+    let raids: Vec<String> = run
+        .home
+        .raids
+        .iter()
+        .map(|key| {
+            let name = crate::rules::holdings::Deed::of_key(key).map_or_else(|| key.clone(), |d| d.name());
+            format!("RAIDERS HOLD {}", name.to_uppercase())
+        })
+        .collect();
     let widest = rows
         .iter()
         .map(|(t, p, ..)| text_width(t) + 10 + text_width(p))
+        .chain(raids.iter().map(|r| text_width(r) + 10 + text_width("THE HALL")))
         .max()
         .unwrap_or(0)
         .max(text_width(title))
         .max(text_width("NOTHING PINNED YET"));
     let w = widest + 12;
-    let h = 15 + rows.len().max(1) as i32 * 27;
+    let h = 15 + (rows.len() + raids.len()).max(1) as i32 * 27;
     let mut im = Img::new(w + 1, h + 1);
     chrome::board(&mut im, (0, 0, w, h), 'B');
     im.text((w - text_width(title)) / 2, 3, title, 'O');
-    if rows.is_empty() {
+    if rows.is_empty() && raids.is_empty() {
         let none = "NOTHING PINNED YET";
         im.text((w - text_width(none)) / 2, 15, none, 'h');
     }
@@ -107,6 +118,14 @@ pub(super) fn sheet(run: &Run) -> Img {
             x += mark.w + 2;
             x = im.text(x, y + 16, &n.to_string(), 'i') + 6;
         }
+    }
+    for (i, raid) in raids.iter().enumerate() {
+        let y = 15 + (rows.len() + i) as i32 * 27;
+        im.text(6, y, raid, '7');
+        im.text(w - 6 - text_width("THE HALL"), y, "THE HALL", '7');
+        let claw = Img::from_rows(&["7.7.7", "7.7.7", ".777.", "..7.."]);
+        im.stamp(&claw, 6, y + 14);
+        im.text(6 + claw.w + 3, y + 15, "THROW THEM OUT, BELOW", 'h');
     }
     im
 }

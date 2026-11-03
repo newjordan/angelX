@@ -225,7 +225,8 @@ fn an_old_save_loads() {
     // Every game keeps its place in the list (saved masks index by it).
     assert_eq!(Game::Powder.index(), 16);
     assert_eq!(Game::Gander.index(), 17);
-    assert_eq!(Game::ALL.len(), 19);
+    assert_eq!(Game::Peal.index(), 19);
+    assert_eq!(Game::ALL.len(), 20);
 }
 
 /// The frames, to look at:

@@ -12,9 +12,9 @@ fn fixture() -> App {
         "cmd=echo U09_COMMAND {}; echo END",
         "long-command-界 ".repeat(40)
     );
-    app.world
+    app.realm.world
         .note_tool_call_event(id.clone(), "shell", &command);
-    app.world.note_tool_result_event(
+    app.realm.world.note_tool_result_event(
         &id,
         "shell",
         "scripted failure",
@@ -138,7 +138,7 @@ fn u09_header_activity_never_shares_the_picker_row() {
             "picker row contains tool text: {text}"
         );
         assert!(
-            app.world
+            app.realm.world
                 .causal_ribbon()
                 .is_some_and(|ribbon| ribbon.contains("failed")),
             "failure remains in the event state"
@@ -162,18 +162,21 @@ fn u09_loop_modal_is_topmost_and_esc_preserves_the_underlying_surface() {
         let dialog = app.loop_dialog.as_ref().unwrap();
         expected
             .draw(|f| {
-                loop_dialog::render(f, f.area(), dialog);
+                let area = f.area();
+                crate::ui::loop_card::render_terminal(f.buffer_mut(), area, dialog);
             })
             .unwrap();
-        // 5 durations, 4 iteration presets plus the always-present "set
-        // custom" length slot, 4 token caps, then START and BACK.
+        // 4 lap presets plus the always-present custom length slot, 5
+        // clocks, 4 fuel caps, an arrow each side of every picker, then
+        // DROP THE FLAG and cancel.
         assert_eq!(
             app.loop_dialog_hits.len(),
-            5 + (4 + 1) + 4 + 2,
+            (4 + 1) + 5 + 4 + 3 * 2 + 2,
             "every choice and action must have a visible hit target"
         );
-        for y in (h - 12) / 2..(h - 12) / 2 + 12 {
-            for x in (w - 70) / 2..(w - 70) / 2 + 70 {
+        let card = crate::ui::loop_card::terminal_area(ratatui::layout::Rect::new(0, 0, w, h));
+        for y in card.top()..card.bottom() {
+            for x in card.left()..card.right() {
                 assert_eq!(
                     actual.backend().buffer()[(x, y)],
                     expected.backend().buffer()[(x, y)],
@@ -250,8 +253,7 @@ fn u09_every_loop_choice_and_action_is_keyboard_reachable_at_80x24() {
         .controller
         .show_overlay(scryglass::StageOverlay::Catalog);
     app.loop_command(Some("start U09 local fixture".into()));
-    // The iters row is four presets plus the "set custom" slot, which opens a
-    // typed length entry instead of claiming a cap nobody set.
+    // Preserve the keyboard cycle: clock, laps (including custom), fuel.
     for (field, count) in [(0, 5), (1, 4 + 1), (2, 4)] {
         let mut seen = std::collections::BTreeSet::new();
         for _ in 0..count {
@@ -262,16 +264,13 @@ fn u09_every_loop_choice_and_action_is_keyboard_reachable_at_80x24() {
                 &format!("keyboard-{field}-{}", seen.len()),
             );
             assert!(
-                text.contains("START")
-                    && text.contains("BACK")
-                    && !text.contains("resize for controls"),
+                text.contains("DROP THE FLAG")
+                    && text.contains("cancel")
+                    && !text.contains("make the window larger"),
                 "{text}"
             );
             if app.loop_dialog.as_ref().unwrap().custom_entry_active() {
-                assert!(
-                    text.contains("set custom_") && text.contains("digits set the length"),
-                    "{text}"
-                );
+                assert!(text.contains('▏') && text.contains("0-9 laps"), "{text}");
                 for key in [KeyCode::Char('7'), KeyCode::Enter] {
                     app.on_key(KeyEvent::new(key, KeyModifiers::NONE));
                 }

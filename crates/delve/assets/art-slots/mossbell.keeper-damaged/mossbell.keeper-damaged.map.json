@@ -447,7 +447,7 @@
       }
     ],
     "original_metadata_sha256": "47bd300cbc6f20d7cb8bd93b8291b61adf45854b95ab67bdc5537d3c682f4f09",
-    "original_path": "/work/artifacts/art-prod/slots/mossbell.keeper-damaged/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/mossbell.keeper-damaged/v01/source-sheet.png",
     "original_sha256": "122de375153d0dde6a4114897ec794f691de114721e22a2d5c17a3e1bc80d264",
     "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
     "source_anchor": [

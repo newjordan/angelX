@@ -93,6 +93,19 @@ pub(super) fn populate(
     raid: u64,
     mode: super::fortune::Mode,
 ) -> Option<Gates> {
+    populate_with(floor, bosses, seed, raid, mode, None)
+}
+
+/// `populate`, with the guardian at the stairs named outright: the Deep's
+/// dread on the floor above a village (`deep::dread`), already in `bosses`.
+pub(super) fn populate_with(
+    floor: &Floor,
+    bosses: &mut Vec<Boss>,
+    seed: u64,
+    raid: u64,
+    mode: super::fortune::Mode,
+    dread: Option<u8>,
+) -> Option<Gates> {
     // Admission is transactional: an unsupported floor/catalog cannot leave
     // partially appended templates behind or iterate malformed geometry.
     if bosses.len() > 64
@@ -107,7 +120,7 @@ pub(super) fn populate(
         return None;
     }
     let mut catalog = bosses.clone();
-    let graph = populate_checked(floor, &mut catalog, seed, raid, mode)?;
+    let graph = populate_checked(floor, &mut catalog, seed, raid, mode, dread.filter(|&d| usize::from(d) < bosses.len()))?;
     *bosses = catalog;
     Some(graph)
 }
@@ -121,6 +134,7 @@ fn populate_checked(
     seed: u64,
     raid: u64,
     mode: super::fortune::Mode,
+    dread: Option<u8>,
 ) -> Option<Gates> {
     use super::fortune::Mode;
     // The swamp keeps no chiefs: its horrors answer to the Mire King alone,
@@ -162,6 +176,8 @@ fn populate_checked(
     };
     let guardian_boss = if floor.rooms[guardian].kind == RoomKind::Lair {
         None
+    } else if dread.is_some() {
+        dread
     } else {
         Some(if let Some(id) = signature {
             bosses

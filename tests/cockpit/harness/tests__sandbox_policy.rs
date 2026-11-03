@@ -49,6 +49,50 @@ fn permissive_sandbox_grants_an_exported_cargo_target_dir() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// A headless task swaps the shared `~/.cache` (whose hard-linked tool caches
+/// force the slow Bubblewrap alias path on every launch) for a private, empty
+/// cache root; an operator cache elsewhere and the opt-out are kept.
+#[test]
+fn headless_task_gets_a_private_cache_instead_of_the_shared_one() {
+    let _guard = crate::tests::env_lock();
+    let root = scratch("private_task_cache");
+    let home = root.join("home");
+    let shared = home.join(".cache");
+    let base = root.join("tmp");
+    std::fs::create_dir_all(&shared).unwrap();
+    std::fs::create_dir_all(&base).unwrap();
+    let _home = EnvGuard::set("HOME", home.to_str().unwrap());
+    let _xdg = EnvGuard::set("XDG_CACHE_HOME", shared.to_str().unwrap());
+    let _marker = EnvGuard::unset("ANGEL_TASK_CACHE_HOME");
+    let _switch = EnvGuard::unset("ANGEL_TASK_PRIVATE_CACHE");
+    assert!(SandboxPolicy::permissive().writable_roots.contains(&shared));
+
+    let private = crate::agent::harness::install_private_task_cache_in(&base)
+        .expect("the shared default cache is replaced");
+    assert!(private.is_dir() && std::fs::read_dir(&private).unwrap().next().is_none());
+    assert_eq!(std::env::var_os("XDG_CACHE_HOME"), Some(private.clone().into()));
+    let roots = SandboxPolicy::permissive().writable_roots;
+    assert!(roots.contains(&private), "{roots:?}");
+    assert!(!roots.contains(&shared), "{roots:?}");
+    assert!(
+        crate::agent::harness::install_private_task_cache_in(&base).is_none(),
+        "a nested task inherits the parent's cache"
+    );
+    drop(_marker);
+
+    let _marker = EnvGuard::unset("ANGEL_TASK_CACHE_HOME");
+    let custom = root.join("custom-cache");
+    std::fs::create_dir_all(&custom).unwrap();
+    let _xdg = EnvGuard::set("XDG_CACHE_HOME", custom.to_str().unwrap());
+    assert!(crate::agent::harness::install_private_task_cache_in(&base).is_none());
+    assert_eq!(std::env::var_os("XDG_CACHE_HOME"), Some(custom.into()));
+    let _xdg = EnvGuard::unset("XDG_CACHE_HOME");
+    let _off = EnvGuard::set("ANGEL_TASK_PRIVATE_CACHE", "0");
+    assert!(crate::agent::harness::install_private_task_cache_in(&base).is_none());
+    assert!(SandboxPolicy::permissive().writable_roots.contains(&shared));
+    let _ = std::fs::remove_dir_all(root);
+}
+
 #[test]
 fn permissive_sandbox_allows_local_nvidia_compute_devices() {
     if !sandbox::available() || !Path::new("/dev/nvidiactl").exists() {

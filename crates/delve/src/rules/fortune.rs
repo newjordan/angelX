@@ -335,10 +335,12 @@ impl Run {
     /// knights' ultimates for the delve; any other way down, their own.
     pub(super) fn deal_ults(&mut self) {
         let random = self.mode == Mode::AllRandom;
-        for hero in self.players.values_mut() {
-            hero.ult = None;
+        let owns: BTreeMap<u32, ults::Ult> = self.players.iter().map(|(&id, h)| (id, self.own_ult(h.knight.as_deref()))).collect();
+        for (id, hero) in self.players.iter_mut() {
+            // A recruit carries the ultimate wished for them (`recruit_ults`).
+            hero.ult = hero.knight.as_deref().filter(|k| recruit_ults::recruit(k)).map(|_| owns[id]);
             if random {
-                let own = ults::Ult::of(hero.knight.as_deref());
+                let own = owns[id];
                 let others: Vec<ults::Ult> = ults::Ult::ALL
                     .iter()
                     .copied()
@@ -431,6 +433,7 @@ impl Run {
                 y,
                 fall: hazards::ROCK_FALL,
                 dust: 0,
+                ember: false,
             });
         }
     }

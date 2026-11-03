@@ -1,0 +1,1178 @@
+{
+  "remote": [
+    {
+      "id": "remote_01",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "ssh worker 'cargo test'"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "remote_02",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "ssh -p 2222 worker 'python3 -m pytest'"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "remote_03",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "ssh worker 'cargo test || true'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "remote_04",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "ssh worker 'echo cargo test'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "remote_05",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "cat results.golden.json"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "remote_06",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "echo benchmark"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "remote_07",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "rg benchmark README.md"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "remote_08",
+      "call": {
+        "id": "remote",
+        "name": "shell",
+        "args": {
+          "command": "ssh worker 'cat results.golden.json'"
+        }
+      },
+      "verification": false
+    }
+  ],
+  "classifier": [
+    {
+      "id": "classifier_01",
+      "call": {
+        "id": "call",
+        "name": "write_file",
+        "args": {
+          "path": "src/lib.rs",
+          "content": ""
+        }
+      },
+      "mutation": true
+    },
+    {
+      "id": "classifier_02",
+      "call": {
+        "id": "call",
+        "name": "fmt",
+        "args": {
+          "check": false
+        }
+      },
+      "mutation": true
+    },
+    {
+      "id": "classifier_03",
+      "call": {
+        "id": "call",
+        "name": "fmt",
+        "args": {
+          "check": true
+        }
+      },
+      "mutation": false
+    },
+    {
+      "id": "classifier_04",
+      "call": {
+        "id": "call",
+        "name": "code_mode",
+        "args": {
+          "script": "return grep({pattern:'x'});"
+        }
+      },
+      "mutation": false
+    },
+    {
+      "id": "classifier_05",
+      "call": {
+        "id": "call",
+        "name": "code_mode",
+        "args": {
+          "script": "return shell({command:'true'});",
+          "allow_effects": true
+        }
+      },
+      "mutation": true
+    },
+    {
+      "id": "classifier_06",
+      "path": "docs/guide.MDX",
+      "prose": true
+    },
+    {
+      "id": "classifier_07",
+      "path": "LICENSE",
+      "prose": true
+    },
+    {
+      "id": "classifier_08",
+      "path": "ReadMe",
+      "prose": true
+    },
+    {
+      "id": "classifier_09",
+      "path": "CHANGELOG",
+      "prose": true
+    },
+    {
+      "id": "classifier_10",
+      "path": "Cargo.toml",
+      "prose": false
+    },
+    {
+      "id": "classifier_11",
+      "call": {
+        "id": "call",
+        "name": "write_file",
+        "args": {
+          "path": "README.md",
+          "content": "guide"
+        }
+      },
+      "requires": false
+    },
+    {
+      "id": "classifier_12",
+      "call": {
+        "id": "call",
+        "name": "write_file",
+        "args": {
+          "path": "src/lib.rs",
+          "content": "pub fn x() {}"
+        }
+      },
+      "requires": true
+    },
+    {
+      "id": "classifier_13",
+      "call": {
+        "id": "call",
+        "name": "integrate",
+        "args": {}
+      },
+      "requires": true
+    },
+    {
+      "id": "classifier_14",
+      "call": {
+        "id": "call",
+        "name": "run_tests",
+        "args": {}
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_15",
+      "call": {
+        "id": "call",
+        "name": "check",
+        "args": {}
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_16",
+      "call": {
+        "id": "call",
+        "name": "lint",
+        "args": {}
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_17",
+      "call": {
+        "id": "call",
+        "name": "cargo",
+        "args": {
+          "args": "test --all-targets"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_18",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "npm test"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_19",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "uv run pytest -q"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_20",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cd cockpit && cargo   test 2>&1 | tail -20"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_21",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "GOTOOLCHAIN=auto go build ./..."
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_22",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "dotnet test src/App.Tests/App.Tests.csproj"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_23",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "./gradlew :module:test"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_24",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf 'prep\\n'; cargo test"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_25",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test && printf 'done\\n'"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_26",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test;   "
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_27",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "CARGO TEST"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_28",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "Npm Test"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_29",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "UV RUN PYTEST -q"
+        }
+      },
+      "verification": true
+    },
+    {
+      "id": "classifier_30",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "sed -n '1,40p' src/lib.rs"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_31",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "echo cargo test"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_32",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "echo CARGO TEST"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_33",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true || cargo test"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_34",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test; printf 'done\\n'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_35",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test\nprintf 'done\\n'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_36",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test & printf 'launched\\n'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_37",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test || true"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_38",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf '; cargo test'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_39",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf \"\\n cargo test\""
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_40",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf 'cargo test | tail -1'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_41",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf 'harmless | cargo test'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_42",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "printf 'harmless & cargo test'"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_43",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo test '"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_44",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true $(false; cargo test )"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_45",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true \"$(false; cargo test)\""
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_46",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true `false; cargo test `"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_47",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true > >(false; cargo test )"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_48",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cargo(){ true; }; cargo test"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_49",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "function cargo { true; }; cargo test"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_50",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "cat <<'EOF'\n; cargo test\nEOF"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_51",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "true # ignored; cargo test"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "classifier_52",
+      "call": {
+        "id": "call",
+        "name": "run_tests",
+        "args": {
+          "args": "--all-targets   -- --test-threads=1"
+        }
+      },
+      "sufficient": true
+    },
+    {
+      "id": "classifier_53",
+      "call": {
+        "id": "call",
+        "name": "check",
+        "args": {}
+      },
+      "sufficient": true
+    },
+    {
+      "id": "classifier_54",
+      "call": {
+        "id": "call",
+        "name": "lint",
+        "args": {}
+      },
+      "sufficient": false
+    },
+    {
+      "id": "classifier_55",
+      "call": {
+        "id": "call",
+        "name": "fmt",
+        "args": {
+          "check": true
+        }
+      },
+      "sufficient": false
+    },
+    {
+      "id": "classifier_56",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "GOTOOLCHAIN=auto go test ./execution/rerun/..."
+        }
+      },
+      "sufficient": false
+    },
+    {
+      "id": "classifier_57",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "JAVA_HOME=/jdk mvn -DskipTests package"
+        }
+      },
+      "sufficient": false
+    },
+    {
+      "id": "classifier_58",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "dotnet build src/App/App.csproj"
+        }
+      },
+      "sufficient": false
+    },
+    {
+      "id": "classifier_59",
+      "call": {
+        "id": "call",
+        "name": "shell",
+        "args": {
+          "command": "GOTOOLCHAIN=auto go vet ./execution/rerun/..."
+        }
+      },
+      "sufficient": false
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcomes_01",
+      "call": {
+        "id": "verify",
+        "name": "run_tests",
+        "args": {}
+      },
+      "text": "tests: 12 passed, 0 failed, 1 ignored — reward 1.00",
+      "outcome": "passed"
+    },
+    {
+      "id": "outcomes_02",
+      "call": {
+        "id": "verify",
+        "name": "run_tests",
+        "args": {}
+      },
+      "text": "tests: 11 passed, 1 failed, 0 ignored — reward 0.92",
+      "outcome": "failed"
+    },
+    {
+      "id": "outcomes_03",
+      "call": {
+        "id": "verify",
+        "name": "run_tests",
+        "args": {}
+      },
+      "text": "test runner returned an unfamiliar report",
+      "outcome": "inconclusive"
+    },
+    {
+      "id": "outcomes_04",
+      "call": {
+        "id": "verify",
+        "name": "check",
+        "args": {}
+      },
+      "text": "check: 2 warnings, 0 errors — reward 0.98",
+      "outcome": "passed"
+    },
+    {
+      "id": "outcomes_05",
+      "call": {
+        "id": "verify",
+        "name": "check",
+        "args": {}
+      },
+      "text": "check: 0 warnings, 3 errors — reward 0.00",
+      "outcome": "failed"
+    },
+    {
+      "id": "outcomes_06",
+      "call": {
+        "id": "verify",
+        "name": "check",
+        "args": {}
+      },
+      "text": "tool error: dependency unavailable",
+      "outcome": "failed"
+    },
+    {
+      "id": "outcomes_07",
+      "call": {
+        "id": "verify",
+        "name": "check",
+        "args": {}
+      },
+      "text": "action capsule denied by policy",
+      "outcome": "none"
+    },
+    {
+      "id": "outcomes_08",
+      "call": {
+        "id": "verify",
+        "name": "cargo",
+        "args": {
+          "args": "check --quiet"
+        }
+      },
+      "text": "[cargo verdict: pass]",
+      "outcome": "passed"
+    },
+    {
+      "id": "outcomes_09",
+      "call": {
+        "id": "verify",
+        "name": "cargo",
+        "args": {
+          "args": "check --quiet"
+        }
+      },
+      "text": "Error: Could Not Compile foo",
+      "outcome": "failed"
+    },
+    {
+      "id": "outcomes_10",
+      "call": {
+        "id": "verify",
+        "name": "cargo",
+        "args": {
+          "args": "check --quiet"
+        }
+      },
+      "text": "Finished `dev` profile [unoptimized]",
+      "outcome": "passed"
+    },
+    {
+      "id": "outcomes_11",
+      "call": {
+        "id": "verify",
+        "name": "fmt",
+        "args": {
+          "check": true
+        }
+      },
+      "text": "Already rustfmt-clean",
+      "outcome": "passed"
+    },
+    {
+      "id": "outcomes_12",
+      "call": {
+        "id": "verify",
+        "name": "fmt",
+        "args": {
+          "check": true
+        }
+      },
+      "text": "Needs Formatting",
+      "outcome": "failed"
+    },
+    {
+      "id": "outcomes_13",
+      "call": {
+        "id": "verify",
+        "name": "cargo",
+        "args": {
+          "args": "test --quiet"
+        }
+      },
+      "text": "[cargo verdict: pass]",
+      "outcome": "inconclusive"
+    },
+    {
+      "id": "outcomes_14",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "cargo test"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_15",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "npm test"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_16",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "pytest -q"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_17",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "PATH=./test-shim:$PATH cargo test"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_18",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "BASH_ENV=./test-env cargo test"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_19",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "/tmp/test-shim/cargo test"
+        }
+      },
+      "verification": true,
+      "text": "all checks passed",
+      "outcome": "inconclusive",
+      "sufficient": false
+    },
+    {
+      "id": "outcomes_20",
+      "call": {
+        "id": "verify",
+        "name": "shell",
+        "args": {
+          "command": "npm test"
+        }
+      },
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed"
+    }
+  ],
+  "direct_js": [
+    {
+      "id": "direct_js_01",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npx jest forth.spec.js 2>&1 | tail -30"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_02",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "cd ws && npx jest forth.spec.js 2>&1 | sed -n '1,80p'"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_03",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npx --yes vitest run"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_04",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "bunx vitest run src"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_05",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "pnpm exec mocha test/"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_06",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "pnpm vitest run"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_07",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "yarn jest --ci"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_08",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npm exec -- jest"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_09",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "./node_modules/.bin/jest -i"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_10",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "CI=true jest"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_11",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "mocha"
+        }
+      },
+      "verification": true,
+      "text": "tool error: shell command failed (exit 1)",
+      "outcome": "failed",
+      "sufficient": false
+    },
+    {
+      "id": "direct_js_12",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npx prettier --check ."
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_13",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npx tsc --noEmit"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_14",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "cat jest.config.js"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_15",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "grep -n jest package.json"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_16",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "echo jest"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_17",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "npm install jest"
+        }
+      },
+      "verification": false
+    },
+    {
+      "id": "direct_js_18",
+      "call": {
+        "id": "",
+        "name": "shell",
+        "args": {
+          "command": "yarn add -D vitest"
+        }
+      },
+      "verification": false
+    }
+  ]
+}

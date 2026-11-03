@@ -15,8 +15,11 @@
 
 use super::biome::{self, Biome};
 use super::kingdom::{self, Geography};
-use super::map::{CHUNK_H, CHUNK_W, CHUNKS_X, CHUNKS_Y, MAP_H, MAP_W, Realm, SCREEN_H, SCREEN_W, in_set_piece, set_pieces};
-use crate::render::overworld::ink::hash;
+use super::map::{
+    CHUNK_H, CHUNK_W, CHUNKS_X, CHUNKS_Y, MAP_H, MAP_W, Realm, SCREEN_H, SCREEN_W, in_set_piece,
+    set_pieces,
+};
+use crate::ink::hash;
 use crate::rules::Tile;
 use std::collections::BinaryHeap;
 use std::cmp::Reverse;
@@ -368,8 +371,6 @@ const SLOTS: [(i32, i32); 13] =
 /// closer.
 const SPACING: i32 = 9;
 const WAY_SPACING: i32 = 8;
-/// A wild camp stands at least this far (road steps) from any road.
-const WILD_OFF: u8 = 5;
 /// How far (tiles, across and down) from a spot something to walk to must
 /// be: about the half of a screen either way, a little less.
 const GAP: (i32, i32) = (10, 6);

@@ -31,6 +31,62 @@ impl std::hash::Hasher for RgbHasher {
 
 pub const BLACK: Rgb = [0, 0, 0];
 
+/// What the pen wrote: every line `Img::text` draws on this thread while a
+/// reading is open (`said::read`), where, and on how big a picture; and
+/// every board put up over the view (`notices::board_from`). The
+/// first-session bot reads a seat's screen through it, as a player reads
+/// the words on theirs. Test builds only; nothing is kept when no reading
+/// is open.
+#[cfg(any(test, feature = "testing"))]
+pub mod said {
+    use std::cell::RefCell;
+
+    /// A line drawn: its words, where (in its picture's pixels), and that
+    /// picture's size (a room's whole canvas is cropped to the view later).
+    #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    pub struct Line {
+        pub text: String,
+        pub at: (i32, i32),
+        pub on: (i32, i32),
+    }
+
+    /// What a reading saw: the lines, and the boards' sizes.
+    #[derive(Clone, Debug, Default, PartialEq)]
+    pub struct Said {
+        pub lines: Vec<Line>,
+        pub boards: Vec<(i32, i32)>,
+    }
+
+    thread_local! {
+        static SAID: RefCell<Option<Said>> = const { RefCell::new(None) };
+    }
+
+    /// Run `f`, and what it wrote, in the order written.
+    pub fn read<R>(f: impl FnOnce() -> R) -> (R, Said) {
+        let was = SAID.with(|l| l.borrow_mut().replace(Said::default()));
+        let out = f();
+        let said = SAID.with(|l| std::mem::replace(&mut *l.borrow_mut(), was)).unwrap_or_default();
+        (out, said)
+    }
+
+    pub(crate) fn note(s: &str, at: (i32, i32), on: (i32, i32)) {
+        SAID.with(|l| {
+            if let Some(said) = l.borrow_mut().as_mut() {
+                said.lines.push(Line { text: s.to_string(), at, on });
+            }
+        });
+    }
+
+    /// A board `w` by `h` put up over the view.
+    pub fn board(w: i32, h: i32) {
+        SAID.with(|l| {
+            if let Some(said) = l.borrow_mut().as_mut() {
+                said.boards.push((w, h));
+            }
+        });
+    }
+}
+
 /// Colours per palette bank.
 pub const BANK: usize = 15;
 /// Bank 4 is reserved for meaning: beacons, cues, lamplight, alerts.
@@ -38,7 +94,7 @@ pub const SIGNAL_BANK: usize = 4;
 
 /// The realm master palette (`cockpit/assets/realm/palette.json`): structure,
 /// foliage, timber, stone and signal, fifteen colours each. Every overworld
-/// pixel is one of these or black paper.
+/// pixel is one of these, one of the dyes, or black paper.
 pub const PALETTE: [u32; 75] = [
     0x000000, 0x080505, 0x0b0a08, 0x0b0b0f, 0x151614, 0x1a100c, 0x25140b, 0x322b2b, 0x3d3a36,
     0x515349, 0x63655c, 0x7a7c72, 0x94968c, 0xb0b2a8, 0xcdcfc6, // structure
@@ -52,6 +108,41 @@ pub const PALETTE: [u32; 75] = [
     0xfbd070, 0xc7b48f, 0xe3d2c3, 0xf4e1cb, 0x431e0f, 0xa8341f, // signal
 ];
 
+/// Bank 5, the violet dye: aubergine through plum and amethyst to lilac.
+pub const VIOLET_BANK: usize = 5;
+/// Bank 6, the pink dye: wine through raspberry and rose to blush.
+pub const PINK_BANK: usize = 6;
+/// Every bank there is: the realm's five and the two dyes.
+pub const BANKS: usize = 7;
+
+/// The dyes, each from its darkest to its palest: the purples and pinks
+/// the realm's banks never had (`palette.json`'s `violet` and `pink`).
+/// They are kept apart from `PALETTE`, never part of it: nothing that
+/// quantizes into the realm's colours (`nearest_plain`, the halo and snap
+/// tables, the dimmers that walk `PALETTE`) ever reaches for a dye, so a
+/// dye shows only where an artist inked one, and every picture drawn
+/// before them keeps every pixel it had. Plain material, not signal: a
+/// violet robe dims at dusk like any cloth.
+pub const VIOLET: [u32; 6] = [0x220e20, 0x3c1d40, 0x563165, 0x734d8f, 0x9577b4, 0xcab0d4];
+pub const PINK: [u32; 5] = [0x39101e, 0x6d2542, 0xa84773, 0xde789e, 0xf1bcc9];
+
+/// Bank `bank`'s colours, darkest first as each bank is laid out (the
+/// realm's five in `PALETTE`'s order, a dye from deep to pale); none for a
+/// bank there is not.
+pub fn bank_colours(bank: usize) -> &'static [u32] {
+    match bank {
+        VIOLET_BANK => &VIOLET,
+        PINK_BANK => &PINK,
+        b if b <= SIGNAL_BANK => &PALETTE[b * BANK..(b + 1) * BANK],
+        _ => &[],
+    }
+}
+
+/// Every colour there is to ink with: the realm palette, then the dyes.
+pub fn every_colour() -> impl Iterator<Item = u32> {
+    PALETTE.iter().chain(VIOLET.iter()).chain(PINK.iter()).copied()
+}
+
 pub const fn rgb(v: u32) -> Rgb {
     [
         ((v >> 16) & 255) as u8,
@@ -60,22 +151,47 @@ pub const fn rgb(v: u32) -> Rgb {
     ]
 }
 
+/// Where `c` stands among every colour (`every_colour`): `PALETTE`'s own
+/// index for a realm colour, past its end for a dye.
 pub fn palette_index(c: Rgb) -> Option<usize> {
-    PALETTE.iter().position(|&v| rgb(v) == c)
+    every_colour().position(|v| rgb(v) == c)
 }
 
 pub fn bank_of(c: Rgb) -> Option<usize> {
-    palette_index(c)
-        .filter(|&i| i < (SIGNAL_BANK + 1) * BANK)
-        .map(|i| i / BANK)
+    match PALETTE.iter().position(|&v| rgb(v) == c) {
+        Some(i) => Some(i / BANK),
+        None => dye_bank(c),
+    }
 }
 
 pub fn is_signal(c: Rgb) -> bool {
     bank_of(c) == Some(SIGNAL_BANK)
 }
 
+/// The dye bank `c` is in, if it is a dye: eleven colours to look through,
+/// cheap enough for a pixel at a time.
+pub fn dye_bank(c: Rgb) -> Option<usize> {
+    if VIOLET.iter().any(|&v| rgb(v) == c) {
+        Some(VIOLET_BANK)
+    } else if PINK.iter().any(|&v| rgb(v) == c) {
+        Some(PINK_BANK)
+    } else {
+        None
+    }
+}
+
+/// Whether `c` is one of the dyes.
+pub fn is_dye(c: Rgb) -> bool {
+    dye_bank(c).is_some()
+}
+
 /// Sprite inks: one character per palette entry. Digits and `w a @ $ c` are
-/// the signal bank — game state only, never decoration.
+/// the signal bank — game state only, never decoration. The dyes came when
+/// every letter but `d` was spoken for: `d ( ) [ ] ^` the violet, `! ? ; %
+/// +` the pink, characters no reader of ink rows keeps for itself. `.` is
+/// paper, `|` parts a sprite's frames, `/` an icon's rows, `#` opens a
+/// comment, `_` and space are pxl's own, and `,` `:` `=` part a header's
+/// words, so none of them is an ink.
 pub fn ink(ch: char) -> Option<Rgb> {
     let v: u32 = match ch {
         // structure
@@ -146,6 +262,19 @@ pub fn ink(ch: char) -> Option<Rgb> {
         '9' => 0xf4e1cb,
         '8' => 0x431e0f,
         '7' => 0xa8341f,
+        // violet
+        'd' => 0x220e20,
+        '(' => 0x3c1d40,
+        ')' => 0x563165,
+        '[' => 0x734d8f,
+        ']' => 0x9577b4,
+        '^' => 0xcab0d4,
+        // pink
+        '!' => 0x39101e,
+        '?' => 0x6d2542,
+        ';' => 0xa84773,
+        '%' => 0xde789e,
+        '+' => 0xf1bcc9,
         _ => return None,
     };
     Some(rgb(v))
@@ -156,7 +285,8 @@ fn dist2(p: Rgb, c: [f32; 3]) -> f32 {
 }
 
 /// Nearest palette entry outside the signal bank: derived tones (shadow,
-/// firelight) stay on the palette and can never masquerade as state.
+/// firelight) stay on the palette and can never masquerade as state. Never
+/// a dye: a tone worked out from the realm's colours stays the realm's.
 pub fn nearest_plain(c: [f32; 3]) -> Rgb {
     let mut best = (f32::MAX, BLACK);
     for &v in PALETTE.iter().take(BANK * SIGNAL_BANK) {
@@ -169,8 +299,20 @@ pub fn nearest_plain(c: [f32; 3]) -> Rgb {
     best.1
 }
 
+/// `c` at `k` of its brightness, on the palette: a dye in its own ramp (a
+/// shaded violet is a deeper violet, not a brown), any other colour on the
+/// realm's plain inks.
 pub fn shade(c: Rgb, k: f32) -> Rgb {
-    nearest_plain([c[0] as f32 * k, c[1] as f32 * k, c[2] as f32 * k])
+    let target = [c[0] as f32 * k, c[1] as f32 * k, c[2] as f32 * k];
+    match dye_bank(c) {
+        Some(bank) => bank_colours(bank)
+            .iter()
+            .map(|&v| rgb(v))
+            .chain([BLACK])
+            .min_by(|a, b| dist2(*a, target).total_cmp(&dist2(*b, target)))
+            .unwrap_or(c),
+        _ => nearest_plain(target),
+    }
 }
 
 // ─── deterministic noise ─────────────────────────────────────────────────────
@@ -380,6 +522,34 @@ impl Img {
             return img;
         }
         let img = Img::parse_rows(rows);
+        ATLAS.with(|atlas| atlas.borrow_mut().insert(key, &img));
+        img
+    }
+
+    /// As [`Img::from_rows`], `pal` colouring the inks a sprite gives its
+    /// own colour (`looks::Sprite::pal`), the realm's inking the rest.
+    pub fn from_rows_pal(rows: &[&str], pal: &[(char, Rgb)]) -> Img {
+        if pal.is_empty() {
+            return Img::from_rows(rows);
+        }
+        let mut key = rows_key(rows);
+        for &(c, [r, g, b]) in pal {
+            for byte in [c as u32, u32::from(r), u32::from(g), u32::from(b)] {
+                key ^= u64::from(byte);
+                key = key.wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+        if let Some(img) = ATLAS.with(|atlas| atlas.borrow().get(key)) {
+            return img;
+        }
+        let mut img = Img::parse_rows(rows);
+        for (y, r) in rows.iter().enumerate() {
+            for (x, ch) in r.chars().enumerate() {
+                if let Some(&(_, rgb)) = pal.iter().find(|(c, _)| *c == ch) {
+                    img.set(x as i32, y as i32, rgb);
+                }
+            }
+        }
         ATLAS.with(|atlas| atlas.borrow_mut().insert(key, &img));
         img
     }
@@ -660,6 +830,8 @@ impl Img {
 
     /// Draw `s` in the 5x7 font; returns the x after the last glyph.
     pub fn text(&mut self, x: i32, y: i32, s: &str, ch: char) -> i32 {
+        #[cfg(any(test, feature = "testing"))]
+        said::note(s, (x, y), (self.w, self.h));
         let mut cx = x;
         for g in s.chars() {
             for (ry, bits) in glyph(g).iter().enumerate() {
@@ -953,7 +1125,7 @@ pub fn text_width(s: &str) -> i32 {
     s.chars().count() as i32 * GLYPH_ADVANCE - 1
 }
 
-fn glyph(c: char) -> [u8; 7] {
+pub fn glyph(c: char) -> [u8; 7] {
     match c.to_ascii_uppercase() {
         'A' => [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
         'B' => [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],

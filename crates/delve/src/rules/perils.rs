@@ -202,6 +202,7 @@ impl Run {
                 RoomKind::Fight | RoomKind::Hall | RoomKind::Stairs | RoomKind::Lair
             )
             || self.mode == fortune::Mode::Gauntlet
+            || self.simple_creation()
         {
             return;
         }
@@ -313,7 +314,12 @@ impl Run {
     /// stands there is hurt, monster or knight.
     pub(super) fn tick_perils(&mut self) {
         let tick = self.tick;
-        for peril in self.works.perils.clone() {
+        if self.traps_settled() {
+            return;
+        }
+        let n = self.works.perils.len();
+        for i in 0..n {
+            let peril = self.works.perils[i];
             let beat = peril.beat(tick);
             if let Peril::Seep { x, y, .. } = peril {
                 let hostile = self.works.clouds.iter().filter(|c| c.hostile()).count();

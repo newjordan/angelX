@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.enemy-bolt",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.enemy-bolt/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.enemy-bolt/v01/source-sheet.png",
   "source_sha256": "48f34f4897833ae2c37014db72dd3a5c52edc7e957666e6b164831a49a6896b5",
   "tool_version": 2
 }

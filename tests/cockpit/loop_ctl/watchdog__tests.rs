@@ -135,6 +135,24 @@ struct Fixture {
     _mirror: crate::tests::TestEnvGuard,
     _review: crate::tests::TestEnvGuard,
     _check: crate::tests::TestEnvGuard,
+    book_catalog: Option<Arc<crate::agent::harness::book::catalog::Catalog>>,
+    book_owner: Option<crate::agent::harness::book::catalog::OwnerScope>,
+}
+
+impl Fixture {
+    fn set_book_catalog(
+        &mut self,
+        thinking: &Thinking,
+        catalog: crate::agent::harness::book::catalog::Catalog,
+    ) {
+        self.book_owner.take();
+        let catalog = Arc::new(catalog);
+        self.book_owner = Some(crate::agent::harness::book::catalog::publish_owner(
+            owner(thinking),
+            &catalog,
+        ));
+        self.book_catalog = Some(catalog);
+    }
 }
 
 impl Drop for Fixture {
@@ -147,7 +165,7 @@ fn wedged_loop(tag: &str, quiet_secs: u64) -> (crate::App, Thinking, Fixture) {
     let root = std::env::temp_dir().join(format!("angel-watchdog-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
-    let fixture = Fixture {
+    let mut fixture = Fixture {
         _file: crate::tests::TestEnvGuard::set(
             "ANGEL_LOOP_FILE",
             root.join("loop.json").to_str().unwrap(),
@@ -156,6 +174,8 @@ fn wedged_loop(tag: &str, quiet_secs: u64) -> (crate::App, Thinking, Fixture) {
         _review: crate::tests::TestEnvGuard::unset("ANGEL_LOOP_WATCHDOG_REVIEW_SECS"),
         _check: crate::tests::TestEnvGuard::unset("ANGEL_LOOP_WATCHDOG_CHECK_SECS"),
         root: root.clone(),
+        book_catalog: None,
+        book_owner: None,
     };
     let mut app = crate::seed_preview_app();
     assert!(
@@ -176,6 +196,10 @@ fn wedged_loop(tag: &str, quiet_secs: u64) -> (crate::App, Thinking, Fixture) {
     let mut thinking = Thinking::pending_for_test("practice");
     thinking.started = aged(quiet_secs + 30);
     thinking.last_stream_at = aged(quiet_secs);
+    fixture.set_book_catalog(
+        &thinking,
+        crate::agent::harness::book::catalog::Catalog::baseline(),
+    );
     (app, thinking, fixture)
 }
 
@@ -310,6 +334,88 @@ fn an_hour_quiet_sends_a_reviewer_whose_stop_call_becomes_a_release() {
     assert_eq!(escalate.kind, "escalate");
     assert_eq!(escalate.verdict.as_deref(), Some("restart_turn"));
     assert!(!crate::agent::harness::release_pending(owner(&thinking)));
+}
+
+#[test]
+fn watchdog_reviewer_reads_the_active_turns_book_generation() {
+    struct CatalogSeat(Mutex<Option<String>>);
+    impl Club for CatalogSeat {
+        fn label(&self) -> &str {
+            "catalog-reviewer"
+        }
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Err("connected reviewer must use chat".into())
+        }
+        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+            if let Some(page) = messages
+                .iter()
+                .rev()
+                .find(|m| m.tool_call_id.as_deref() == Some("catalog-read"))
+            {
+                *self.0.lock().unwrap() = Some(page.content.to_string());
+                return Ok(ClubReply::Text("verdict: wait".into()));
+            }
+            Ok(ClubReply::Calls(vec![ToolCall {
+                id: "catalog-read".into(),
+                name: "read_file".into(),
+                args: serde_json::json!({"path":"ledger://⠣⠁⠁"}),
+            }]))
+        }
+    }
+    let _lock = crate::tests::env_lock();
+    let (mut app, mut thinking, mut fixture) = wedged_loop("catalog", 61 * 60);
+    let mut catalog = crate::agent::harness::book::catalog::Catalog::baseline();
+    catalog.set_test_page(
+        crate::agent::harness::book::Route::new('⠣', '⠁'),
+        0,
+        "watchdog pinned navigation",
+    );
+    fixture.set_book_catalog(&thinking, catalog);
+    let seat = Arc::new(CatalogSeat(Mutex::new(None)));
+    thinking.club = Some(seat.clone() as Arc<dyn Club>);
+    app.loop_watchdog(&thinking);
+    app.loop_watchdog(&thinking);
+    assert!(app.loop_watch.review.is_some());
+    assert_eq!(harvest(&mut app, &thinking), None);
+    let page = seat.0.lock().unwrap().clone().expect("ledger read");
+    assert!(page.contains("watchdog pinned navigation"), "{page}");
+}
+
+#[test]
+fn watchdog_defers_a_missing_or_ambiguous_book_owner_then_retries() {
+    let _lock = crate::tests::env_lock();
+    let (mut app, mut thinking, mut fixture) = wedged_loop("catalog-missing", 61 * 60);
+    let seat = Seat::new("verdict: wait");
+    thinking.club = Some(seat.clone() as Arc<dyn Club>);
+    // The owner has not been published yet: do not ask a model under a
+    // guessed generation, and schedule another check rather than giving up.
+    fixture.book_owner.take();
+    app.loop_watchdog(&thinking);
+    assert!(app.loop_watch.checked);
+    let quiet_before = thinking.last_stream_at.elapsed().as_secs();
+    app.loop_watchdog(&thinking);
+    assert!(app.loop_watch.review.is_none());
+    assert!(seat.facts.lock().unwrap().is_none());
+    assert!(app.loop_watch.next_review_secs > quiet_before);
+
+    // Two live registrations for the same owner are ambiguous as well.
+    fixture.set_book_catalog(
+        &thinking,
+        crate::agent::harness::book::catalog::Catalog::baseline(),
+    );
+    let other = Arc::new(crate::agent::harness::book::catalog::Catalog::baseline());
+    let duplicate = crate::agent::harness::book::catalog::publish_owner(owner(&thinking), &other);
+    app.loop_watch.next_review_secs = 0;
+    app.loop_watchdog(&thinking);
+    assert!(app.loop_watch.review.is_none());
+    assert!(seat.facts.lock().unwrap().is_none());
+
+    drop(duplicate);
+    app.loop_watch.next_review_secs = 0;
+    app.loop_watchdog(&thinking);
+    assert!(app.loop_watch.review.is_some());
+    assert_eq!(harvest(&mut app, &thinking), None);
+    assert!(seat.facts.lock().unwrap().is_some());
 }
 
 #[test]

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.block.mines",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.block.mines/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.block.mines/v01/source-sheet.png",
   "source_sha256": "d26fa7cac77f2827a595fe3b4d0d440f28901a6c5a4a37dab1449f6f278b78e0",
   "tool_version": 2
 }

@@ -113,6 +113,15 @@ fn run(host: angel_glass::Host) {
     }
 }
 
+/// The Orrery's panel in a window of `grid` when this launch shows it
+/// (`ANGEL_GLASS_ORRERY=1`): the Heartglass stands beside it.
+pub(crate) fn shown_panel(grid: Grid) -> Option<Panel> {
+    std::env::var("ANGEL_GLASS_ORRERY")
+        .is_ok_and(|v| v == "1")
+        .then(|| Panel::for_grid(grid))
+        .flatten()
+}
+
 /// The window's size, in pixels: all the Orrery knows of the outside.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub(crate) struct Grid {
@@ -170,6 +179,7 @@ impl Panel {
         [self.x + self.w / 2.0, self.y + self.h / 2.0]
     }
 
+    #[allow(dead_code)] // hit-test for the constellation chrome
     fn contains(self, p: [f32; 2], slack: f32) -> bool {
         p[0] >= self.x - slack
             && p[0] <= self.x + self.w + slack
@@ -278,21 +288,32 @@ pub(crate) fn tilted_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
 /// The quad keeps its own size: the window turns it about its own centre,
 /// so only that centre moves round the panel's.
 pub(crate) fn tilted_rect_in(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32)) -> ([f32; 4], f32) {
+    tilted_rect_by(rect, centre, unit, TILT)
+}
+
+/// [`tilted_rect_in`] for a panel that leans by `tilt` instead of the
+/// Orrery's [`TILT`] (the Heartglass, taller, leans less).
+pub(crate) fn tilted_rect_by(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32), tilt: f32) -> ([f32; 4], f32) {
     let [x, y, w, h] = rect;
-    let (sin, cos) = TILT.sin_cos();
+    let (sin, cos) = tilt.sin_cos();
     let (dx, dy) = ((x + w / 2.0 - centre[0]) * unit.0, (y + h / 2.0 - centre[1]) * unit.1);
     let (rx, ry) = (
         centre[0] + (dx * cos - dy * sin) / unit.0,
         centre[1] + (dx * sin + dy * cos) / unit.1,
     );
-    ([rx - w / 2.0, ry - h / 2.0, w, h], TILT)
+    ([rx - w / 2.0, ry - h / 2.0, w, h], tilt)
 }
 
 /// Where point `p` lands when the panel leans [`TILT`] about `centre`:
 /// the same turn [`tilted_rect`] puts a rect through. Segments lean by
 /// leaning their endpoints, then measuring the line between them.
 pub(crate) fn leaned_point(p: [f32; 2], centre: [f32; 2]) -> [f32; 2] {
-    let (sin, cos) = TILT.sin_cos();
+    leaned_point_by(p, centre, TILT)
+}
+
+/// [`leaned_point`] for a panel that leans by `tilt`.
+pub(crate) fn leaned_point_by(p: [f32; 2], centre: [f32; 2], tilt: f32) -> [f32; 2] {
+    let (sin, cos) = tilt.sin_cos();
     let (dx, dy) = (p[0] - centre[0], p[1] - centre[1]);
     [centre[0] + dx * cos - dy * sin, centre[1] + dx * sin + dy * cos]
 }

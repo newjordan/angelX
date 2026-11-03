@@ -161,6 +161,7 @@ impl Run {
     pub(super) fn maybe_frog(&mut self, index: usize, first_visit: bool) {
         // The Wax Maze's lanes are the wax's and the wraiths'.
         if !first_visit
+            || self.simple_creation()
             || self.side_on()
             || self.dungeon.depth == 0
             || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)

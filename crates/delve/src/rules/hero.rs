@@ -17,7 +17,16 @@ pub const BLOW_MOST: u32 = 30;
 pub const ONE_HIT_MOST: u32 = 90;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hero {
+    /// One name-owned squire, independent of hirelings and summoned minions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub squire: Option<super::squires_lodge::Companion>,
     pub name: String,
+    #[serde(default, skip_serializing_if = "creator::Appearance::is_default")]
+    pub look: creator::Appearance,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub mirror_key: String,
+    #[serde(default, skip_serializing_if = "creator::Session::is_default")]
+    pub mirror: creator::Session,
     /// An away host is an untargetable statue, carried with the party.
     #[serde(default)]
     pub stone: bool,
@@ -38,8 +47,12 @@ pub struct Hero {
     pub absent: bool,
     /// How long a hit wards this knight from the next, in ticks: the run's
     /// tune, told it every tick (`Run::set_stakes`).
-    #[serde(skip, default = "hit_ward")]
-    pub(super) hit_ward: u32,
+    #[serde(
+        default = "hit_ward",
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::hit_ward"
+    )]
+    pub hit_ward: u32,
     /// The vigil key was down last tick, and the ticks until it answers again.
     #[serde(default)]
     pub(super) vigil_key: bool,
@@ -58,6 +71,11 @@ pub struct Hero {
     /// Desertion movement ticks, also stepped by client prediction.
     #[serde(default, skip_serializing_if = "peasant::idle")]
     pub flee_ticks: u32,
+    /// The side of the doorway this knight just came out of, while the
+    /// walk key toward it is still down from walking out: that key walks
+    /// nowhere until it is let go (`Hero::held_off`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub door_behind: Option<u8>,
     /// The last guardian's charge-up that struck this knight
     /// (`signatures::tag`): each strikes a knight once.
     #[serde(default, skip_serializing_if = "zero")]
@@ -66,6 +84,9 @@ pub struct Hero {
     /// Re-arm ticks left after a bomb, so a held key throws only one.
     pub bomb_cooldown: u32,
     pub bombs: u32,
+    /// This floor's belt; reconciled by the run before charges are granted.
+    #[serde(default = "bombs::old_belt")]
+    pub bomb_capacity: u32,
     pub armor: u32,
     pub weapon: Weapon,
     /// Pieces owned, distinct from the health-dependent dress stage.
@@ -73,7 +94,7 @@ pub struct Hero {
     pub owned: gear::Owned,
     #[serde(default)]
     pub forged: Option<crate::realm::forge::Weapon>,
-    #[serde(default)]
+    #[serde(default,serialize_with="runtime_state::serialize_avatar")]
     pub avatar: Option<crate::realm::Avatar>,
     #[serde(default)]
     pub swing: u32,
@@ -82,6 +103,10 @@ pub struct Hero {
     pub sword: bool,
     #[serde(default)]
     pub sword_cooldown: u32,
+    /// The guard of the knight's last stroke while it is young: what it
+    /// still turns (`melee::parry`). Left out when none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parrying: Option<melee::Guard>,
     /// Play cards waiting in hand; quaff plays the first.
     #[serde(default)]
     pub hand: Vec<String>,
@@ -89,8 +114,13 @@ pub struct Hero {
     /// loads with the fourth slot empty.
     #[serde(default, deserialize_with = "cards::slots")]
     pub spells: [Option<String>; cards::SPELL_SLOTS],
+    #[serde(default, skip_serializing_if = "abilities::empty_slots")]
+    pub module_spells: [Option<abilities::Slot>; cards::SPELL_SLOTS],
     #[serde(default, deserialize_with = "cards::slots")]
     pub spell_cooldowns: [u32; cards::SPELL_SLOTS],
+    /// Own spell tiers, by card id; absent is I. Slot moves keep the tier.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub spell_tiers: BTreeMap<String, u8>,
     /// The spells in the order they were learned, mirrored from `spells`
     /// for older readers. Draughts never go here: they stay in the hand,
     /// drunk with the quaff key.
@@ -112,7 +142,7 @@ pub struct Hero {
     #[serde(default)]
     pub carried: Spoils,
     #[serde(default)]
-    pub(super) play_cooldown: u32,
+    pub play_cooldown: u32,
     /// What the guard key does, and the card that put it there.
     #[serde(default)]
     pub guard: cards::Guard,
@@ -121,6 +151,9 @@ pub struct Hero {
     /// The shield is up this tick.
     #[serde(default)]
     pub shielding: bool,
+    /// What the shield has turned (`shield::Wear`).
+    #[serde(default, skip_serializing_if = "shield::Wear::fresh")]
+    pub shield_wear: shield::Wear,
     /// A wall is held up this tick.
     #[serde(default)]
     pub walling: bool,
@@ -134,6 +167,12 @@ pub struct Hero {
     /// The floor whose Sanctuary this knight last reforged in (one each).
     #[serde(default)]
     pub reforged_on: Option<u32>,
+    /// Identified asynchronous kit work. A new occupant never inherits it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reforge_job: Option<String>,
+    /// Session-owned spent wishes; a new seat inherits none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wish_jobs: Vec<String>,
     /// Which knight of the company this is, chosen on the Delve's intro.
     #[serde(default)]
     pub knight: Option<String>,
@@ -187,6 +226,12 @@ pub struct Hero {
     /// Shots loosed since the run began, for a volley's cadence.
     #[serde(default)]
     pub loosed: u32,
+    /// The Bard's groove: volleys of its notes loosed without a break
+    /// (`bard::WUB_AT`, `bard::GLITCH_AT`); a ready beat with nothing
+    /// loosed ends it. Never written at rest, so a knight who never plays
+    /// saves and sends as before.
+    #[serde(default, skip_serializing_if = "is_zero_floor")]
+    pub groove: u32,
     /// The privy: a stop under way, stops done, the buffs they left.
     #[serde(default)]
     pub pit: super::pitstop::Pit,
@@ -239,6 +284,13 @@ pub struct Hero {
     /// All Random: the stranger's ultimate this knight carries this delve.
     #[serde(default)]
     pub ult: Option<super::ults::Ult>,
+    /// The recruit whose ultimate this knight is wishing, the first to take
+    /// them up (`recruit_ults`), and every recruit they were handed a wish
+    /// for this delve.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recruit_ult: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recruits_asked: Vec<String>,
     /// Hexed: ticks left as a frog, then warded from the next hex.
     #[serde(default)]
     pub hexed: u32,
@@ -262,6 +314,15 @@ pub struct Hero {
     /// Thrown by a Ravage: ticks left in the air, helpless.
     #[serde(default)]
     pub tossed: u32,
+    /// On a friend's shoulders or thrown off them (`shoulders`): no
+    /// monster's mark, and no hit lands on them (a rider takes a share of
+    /// the carrier's instead). Set by the rules each tick.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
+    pub(super) aloft: bool,
     /// What the moment is worth to a mend, what a hit weighs (percent),
     /// and what passive mends have added this second (`stakes`).
     #[serde(default)]
@@ -269,10 +330,10 @@ pub struct Hero {
     #[serde(default = "hundred")]
     pub incoming: u32,
     #[serde(default)]
-    pub(super) passive: u32,
+    pub passive: u32,
     /// What lifesteal has given this second (`stakes::LEECH_PER_SECOND`).
     #[serde(default)]
-    pub(super) leeched: u32,
+    pub leeched: u32,
     /// Ticks left in which a second draught is worth less, and in which a
     /// second ward holds less.
     #[serde(default)]
@@ -299,6 +360,10 @@ pub struct Hero {
     pub(super) take_key: bool,
     #[serde(default)]
     pub(super) taking: bool,
+    /// The next-card key was down last tick (`cycle_hand`). Left out of a
+    /// save while it is up, so a run without it writes as it always did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(super) cycle_key: bool,
     /// A hit just landed: ticks left in the flinch (`spectacle::STRUCK`
     /// down), whether it was a heavy one, and the way the knight is thrown
     /// back (away from whatever struck).
@@ -326,10 +391,52 @@ pub struct Hero {
     /// takes two steps of a wish's ladder at once.
     #[serde(default)]
     pub great_wishes: u8,
+    /// Fairy wishes held (`nooks::gnome`): the next wish lands three steps
+    /// up at once, a new one at its third tier, Legendary.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub fairy_wishes: u8,
+    /// Freedom wishes held (`freedom`): given when the genie is set free,
+    /// spent on the safe room or the weapons locker, never on the knight.
+    /// The realm keeps as many by the knight's name.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub freedom_wishes: u8,
+    /// A freedom wish begun at a wishing spot: the next words said are for
+    /// this place (`freedom`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place_wish: Option<super::freedom::Place>,
+    /// A shooting star's wish, caught standing under it (`starfall`): one
+    /// wish, free, spent before the knight's own, at one step of a ladder.
+    /// It fades when the party leaves the star's room, and with the floor.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub star_wish: bool,
+    /// The shape this knight began as, under the identity start
+    /// (`identity`): none for a knight who began with a kit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<super::identity::Shape>,
+    /// Wished whole once (`identity::Making::made`), and so for good.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub made: bool,
+    /// What this knight bought in the bazaar (`curios`): their pockets.
+    /// Left off the wire while empty, so an older seat reads the rest.
+    #[serde(default, skip_serializing_if = "super::curios::Pockets::is_empty")]
+    pub pockets: super::curios::Pockets,
+    /// A wish asked for and not yet sealed: the scroll's choices (`genie`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offer: Option<super::genie::Offer>,
+    /// The next wish is ink alone, handed off by the tavern mirror.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mirror_wish: bool,
     /// The floor whose budget holds this knight's wishes (`cards::WISH_BUDGET`):
     /// the floor they stand on, kept by `Run::step`.
     #[serde(default, skip_serializing_if = "is_zero_floor")]
     pub wish_floor: u32,
+    /// A summoner's wishes for his dead, or for him and them both, by the
+    /// wish's id (`dead_wishes`): a wish not here is his own.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dead_wishes: BTreeMap<String, super::dead_wishes::Target>,
+    /// What those wishes give each of his dead, counted with `bonus`.
+    #[serde(default, skip_serializing_if = "super::dead_wishes::Gifts::none")]
+    pub dead_gifts: super::dead_wishes::Gifts,
     /// The fallen friend whose skull this knight carries (`skulls`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub carrying_skull: Option<u32>,
@@ -341,7 +448,7 @@ pub struct Hero {
     #[serde(default)]
     pub stride: f32,
     pub fire_cooldown: u32,
-    pub(super) dash_ticks: u32,
+    pub dash_ticks: u32,
     pub(super) dash_x: f32,
     pub(super) dash_y: f32,
     /// The way this knight walks with no aim held, and for how many ticks
@@ -350,11 +457,24 @@ pub struct Hero {
     pub(super) walk_dir: (i8, i8),
     #[serde(default)]
     pub(super) walk_ticks: u32,
+    /// A champion's own going: a wind-up, a fury, a stink, a haul
+    /// (`champions`). Left out when still.
+    #[serde(default, skip_serializing_if = "champions::Stance::idle")]
+    pub champ: champions::Stance,
+    #[serde(default, skip_serializing_if = "heroes::Stance::is_empty")]
+    pub hero_kit: heroes::Stance,
+    /// A Mage's essences and spells' cooldowns (`weave`).
+    #[serde(default, skip_serializing_if = "weave::Weave::is_empty")]
+    pub weave: weave::Weave,
 }
 
 impl Hero {
     pub(super) fn new(name: &str, x: f32, y: f32) -> Self {
         Hero {
+            look: Default::default(),
+            mirror_key: String::new(),
+            mirror: Default::default(),
+            squire: None,
             name: name.chars().filter(|c| !c.is_control()).take(32).collect(),
             x,
             y,
@@ -371,12 +491,15 @@ impl Hero {
             max_hp: 100,
             aim_x: 0.0,
             aim_y: -1.0,
-            invulnerable: HZ,
+            // A new knight is warded as long as a hit wards one.
+            invulnerable: HIT_WARD,
             flee_ticks: 0,
+            door_behind: None,
             blown: 0,
             dash_cooldown: 0,
             bomb_cooldown: 0,
             bombs: 2,
+            bomb_capacity: bombs::old_belt(),
             armor: 0,
             weapon: Weapon::Bow,
             owned: gear::Owned::equipped(),
@@ -385,9 +508,12 @@ impl Hero {
             swing: 0,
             sword: false,
             sword_cooldown: 0,
+            parrying: None,
             hand: Vec::new(),
             spells: Default::default(),
+            module_spells: Default::default(),
             spell_cooldowns: [0; cards::SPELL_SLOTS],
+            spell_tiers: BTreeMap::new(),
             bar: [None, None, None, None],
             deck: Vec::new(),
             arm: bow_card(),
@@ -398,11 +524,14 @@ impl Hero {
             guard: cards::Guard::Roll,
             guard_card: roll_card(),
             shielding: false,
+            shield_wear: shield::Wear::default(),
             walling: false,
             wall_spent: false,
             mana: MAX_MANA,
             mana_rest: 0,
             reforged_on: None,
+            reforge_job: None,
+            wish_jobs: Vec::new(),
             knight: None,
             house: None,
             vy: 0.0,
@@ -424,6 +553,7 @@ impl Hero {
             rider: false,
             boon: Default::default(),
             loosed: 0,
+            groove: 0,
             relieved: None,
             home_hp: 0,
             winds: 0,
@@ -439,6 +569,8 @@ impl Hero {
             aiming: None,
             rune: None,
             ult: None,
+            recruit_ult: None,
+            recruits_asked: Vec::new(),
             hexed: 0,
             chilled: 0,
             mired: 0,
@@ -447,6 +579,7 @@ impl Hero {
             censer: 0,
             singing: false,
             tossed: 0,
+            aloft: false,
             stakes: stakes::Stakes::Calm,
             incoming: 100,
             passive: 0,
@@ -458,8 +591,12 @@ impl Hero {
             gear: 0,
             gear_was: 0,
             pop: 0,
+            shape: None,
+            made: false,
+            pockets: Default::default(),
             take_key: false,
             taking: false,
+            cycle_key: false,
             struck: 0,
             struck_big: false,
             struck_dir: (0, 0),
@@ -468,7 +605,15 @@ impl Hero {
             body_rearm: 0,
             wishes: 0,
             great_wishes: 0,
+            fairy_wishes: 0,
+            freedom_wishes: 0,
+            place_wish: None,
+            star_wish: false,
+            offer: None,
+            mirror_wish: false,
             wish_floor: 0,
+            dead_wishes: BTreeMap::new(),
+            dead_gifts: Default::default(),
             carrying_skull: None,
             skull_at: None,
             stride: 0.0,
@@ -478,6 +623,9 @@ impl Hero {
             dash_y: 0.0,
             walk_dir: (0, 0),
             walk_ticks: 0,
+            champ: champions::Stance::default(),
+            hero_kit: heroes::Stance::default(),
+            weave: weave::Weave::default(),
         }
     }
 
@@ -487,7 +635,14 @@ impl Hero {
     /// A knight who fights up close (a blade and no bow) takes a third
     /// less, as melee does in the games that do it well: they must stand
     /// in it.
-    pub(super) fn hurt(&mut self, damage: u32) {
+    /// Windrun evades attacks, not fire floors, poison or other hazards.
+    pub(super) fn attack_hurt(&mut self, damage: u32) {
+        // Behind the Lancer's set lance a blow lands at half.
+        let damage = if self.champ.brace > 0 { damage * champions::BRACE_TAKES / 100 } else { damage };
+        if self.hero_kit.windrun == 0 { self.hurt(damage); }
+    }
+
+    pub fn hurt(&mut self, damage: u32) {
         self.hurt_most(damage, u32::MAX);
     }
 
@@ -496,7 +651,7 @@ impl Hero {
     /// for charge-up `tag` — the knights it has struck are those that carry
     /// its tag. True if it struck. A Peasant deserting takes none of it.
     pub(super) fn blow(&mut self, damage: u32, tag: u32) -> bool {
-        if self.stone || self.flee_ticks > 0 || self.invulnerable > 0 || self.hp == 0 || self.blown == tag {
+        if self.stone || self.flee_ticks > 0 || self.aloft || self.invulnerable > 0 || self.hp == 0 || self.blown == tag {
             return false;
         }
         self.blown = tag;
@@ -506,7 +661,7 @@ impl Hero {
 
     /// A hit, taking at most `most` once every multiplier is in.
     fn hurt_most(&mut self, damage: u32, most: u32) {
-        if self.flee_ticks > 0 { return; }
+        if self.flee_ticks > 0 || self.aloft { return; }
         // A booby prize from the countryside takes the next blow whole, then
         // flies off: the loser's consolation.
         if !self.stone && self.invulnerable == 0 && self.hp > 0 && self.booby.is_some() {
@@ -521,6 +676,12 @@ impl Hero {
                 .is_some_and(|w| w.bolt.is_none() && w.melee.is_some());
             let damage = if close { damage * 2 / 3 } else { damage };
             let damage = if self.glass { damage * 2 } else { damage };
+            // A bucket turns the first blow in a room aside whole; other
+            // curios make every blow more or less (`curios`).
+            let Some(damage) = self.curio_turns(damage) else {
+                self.invulnerable = self.hit_ward;
+                return;
+            };
             // What the floor and the party's size make of the hit; then the
             // share the mail turns aside.
             let damage = damage * self.incoming / 100;
@@ -536,8 +697,14 @@ impl Hero {
             let turned = if self.peasant() { 0 } else { ARMOR_TURNS[self.armor.min(MAX_ARMOR) as usize] };
             let most = most.min(self.max_hp * ONE_HIT_MOST / 100);
             let damage = (damage * (100 - turned) / 100).max(4).min(most.max(1));
+            // A living name-owned shieldbearer can take half the final hit.
+            // Do not let a renamed/reused seat borrow the previous owner's guard.
+            let owner = self.name.trim().to_lowercase();
+            let damage = self.squire.as_mut().filter(|s| s.owner == owner)
+                .map_or(damage, |s| s.guard(self.x, self.y, damage));
             self.hp = self.hp.saturating_sub(damage);
             self.invulnerable = self.hit_ward;
+            self.curio_biscuit();
             // A hit breaks Regeneration's mending.
             if self.has_rune(super::runes::RuneKind::Regeneration) {
                 self.rune = None;
@@ -546,17 +713,19 @@ impl Hero {
     }
 }
 
-/// After a hit, a knight can't be hurt again for this many ticks (a whole
-/// second at 30 Hz; the operator, 2026-10-18: "player invuln for one sec
-/// after they are hit"): it blinks while it lasts. The panel's
-/// `hit_ward_s` moves it (`Tune::hit_ward`).
-pub const HIT_WARD: u32 = super::HZ;
+/// After a hit, a knight can't be hurt again for this many ticks: a second
+/// and a half at 30 Hz (the operator, 2026-10-18: "player invuln for one
+/// sec after they are hit"; 2026-10-20, after five friends were felled in
+/// their first room: "more invuln frames, we are getting burst down too
+/// much"). It blinks while it lasts, and nothing that hurts a knight
+/// strips it. The panel's `hit_ward_s` moves it (`Tune::hit_ward`).
+pub const HIT_WARD: u32 = super::HZ * 3 / 2;
 
 fn no_rearm(n: &u32) -> bool {
     *n == 0
 }
 
-fn hit_ward() -> u32 {
+pub(super) fn hit_ward() -> u32 {
     HIT_WARD
 }
 
@@ -567,6 +736,12 @@ fn hundred() -> u32 {
 /// Percent of a hit that mail turns aside, by pieces worn. Songs and cards
 /// share the same ceiling.
 const ARMOR_TURNS: [u32; 3] = [0, 6, 11];
+
+/// The share of a hit `armor` pieces of mail turn aside, in percent: a
+/// knight's, or one of a summoner's dead (`dead_wishes`).
+pub(super) fn armor_turns(armor: u32) -> u32 {
+    ARMOR_TURNS[armor.min(MAX_ARMOR) as usize]
+}
 
 fn bow_card() -> Option<String> {
     Some("bow".into())
@@ -600,6 +775,27 @@ impl Hero {
             _ => 0,
         }
     }
+
+    /// The walk keys as they move this knight: the key toward the doorway
+    /// it just came out of (`door_behind`) walks nowhere while it is still
+    /// down. Let go (or another way taken), the doorway is an ordinary one
+    /// again, and walking into it goes back in on purpose.
+    pub(super) fn held_off(&mut self, mut input: Input) -> Input {
+        let Some(side) = self.door_behind else {
+            return input;
+        };
+        let (dx, dy) = DIRS[usize::from(side)];
+        let toward = (dx != 0 && i32::from(input.move_x.signum()) == dx)
+            || (dy != 0 && i32::from(input.move_y.signum()) == dy);
+        if !toward {
+            self.door_behind = None;
+        } else if dx != 0 {
+            input.move_x = 0;
+        } else {
+            input.move_y = 0;
+        }
+        input
+    }
 }
 
 fn roll_card() -> Option<String> {
@@ -607,6 +803,24 @@ fn roll_card() -> Option<String> {
 }
 
 impl Hero {
+    /// Card `from` in hand moved to slot `to`, the rest closing up round
+    /// it: a knight lining up what the quaff key drinks next (slot 0).
+    /// Refused (false) for a slot past the hand, or a move to where it is.
+    pub fn move_card(&mut self, from: usize, to: usize) -> bool {
+        if from == to || from >= self.hand.len() || to >= self.hand.len() {
+            return false;
+        }
+        let card = self.hand.remove(from);
+        self.hand.insert(to, card);
+        true
+    }
+
+    /// The next-card key: the first card in hand goes to the back, and the
+    /// one behind it is next. Nothing for a hand of one.
+    pub fn cycle_hand(&mut self) -> bool {
+        self.move_card(0, self.hand.len().saturating_sub(1))
+    }
+
     /// Whether walking over `card` takes it.
     pub(super) fn takes(&self, card: &Card) -> bool {
         use cards::{Effect, Kind};
@@ -616,7 +830,9 @@ impl Hero {
             _ => {}
         }
         match card.kind {
-            Kind::Hold | Kind::Arm | Kind::Guard => true,
+            Kind::Hold | Kind::Arm => true,
+            // The guard already held is no swap: it lies on for the others.
+            Kind::Guard => self.guard_card.as_deref() != Some(card.id.as_str()),
             Kind::Play => self.hand.len() < cards::HAND,
             Kind::Spell => {
                 !self.spells.iter().flatten().any(|id| id == &card.id)
@@ -625,32 +841,37 @@ impl Hero {
             // A take card waits on the floor while it would do nothing.
             Kind::Take => card.effects.iter().any(|e| match *e {
                 Effect::Heal(_) => self.hp < self.max_hp,
-                Effect::Bombs(_) => self.bombs < MAX_BOMBS,
+                Effect::Bombs(_) => self.bombs < self.bomb_limit(),
                 _ => true,
             }),
         }
     }
 
     /// A take or play card's effects, now. Nova damage is summed into `nova`.
-    pub(super) fn spend(&mut self, card: &Card, score: &mut u32, nova: &mut u32) {
+    pub fn spend(&mut self, card: &Card, score: &mut u32, nova: &mut u32) {
         use cards::Effect;
         for effect in &card.effects {
             if let Some((spoil, n)) = effect.spoil() {
+                let n = if spoil == Spoil::Gold { self.curio_gold(n) } else { n };
                 self.carried.add(spoil, n);
             }
             match *effect {
                 Effect::Heal(v) => {
+                    let v = if card.kind == cards::Kind::Spell { self.spell_power(&card.id, v) } else { v };
                     self.mend(v, stakes::Mend::Potion);
                 }
                 Effect::Gold(v) => *score += v,
                 _ if effect.spoil().is_some() => {}
-                Effect::Bombs(v) => self.bombs = (self.bombs + v).min(MAX_BOMBS),
+                Effect::Bombs(v) => self.give_bombs(v),
                 Effect::MaxHp(v) => {
                     self.max_hp += v;
                     self.hp = (self.hp + v).min(self.max_hp);
                 }
-                Effect::Nova(v) => *nova += v,
+                Effect::Nova(v) => {
+                    *nova += if card.kind == cards::Kind::Spell { self.spell_power(&card.id, v) } else { v };
+                }
                 Effect::Ward(v) => {
+                    let v = if card.kind == cards::Kind::Spell { self.spell_power(&card.id, v) } else { v };
                     // A second ward soon after the first holds only a third as long.
                     let early = self.stakes == stakes::Stakes::Early;
                     let secs = if self.ward_rest > 0 && !early {
@@ -663,7 +884,7 @@ impl Hero {
                 }
                 Effect::Blink(v) => self.blink = v,
                 Effect::Immune(v) => self.immune = self.immune.max(v * HZ),
-                Effect::Censer(v) => self.censer += v,
+                Effect::Censer(v) => self.censer = self.censer.saturating_add(v),
                 _ => {}
             }
         }
@@ -678,15 +899,29 @@ impl Hero {
 
     /// Recount the held cards' bonus after the deck changed.
     pub fn rebonus(&mut self, book: &Book) {
-        self.bonus = cards::Bonus::within(
-            self.deck.iter().filter_map(|id| book.get(id)),
-            Some(self.wish_floor),
-        );
+        // The curios' held cards count with the deck's, under the same caps.
+        let floor = Some(self.wish_floor);
+        if self.dead_wishes.is_empty() || !super::minions::summoner(self) {
+            self.bonus = cards::Bonus::within(
+                self.deck
+                    .iter()
+                    .filter_map(|id| book.get(id))
+                    .chain(super::curios::held(&self.pockets)),
+                floor,
+            );
+            self.dead_gifts = Default::default();
+        } else {
+            // A summoner's wishes for his dead go on them, not on him, and
+            // a wish for both half on each (`dead_wishes`).
+            let (his, theirs) = self.held_split(book);
+            self.bonus = cards::Bonus::within(his.iter().map(|c| &**c).chain(super::curios::held(&self.pockets)), floor);
+            self.dead_gifts = super::dead_wishes::Gifts::of(theirs.iter().map(|c| &**c), floor);
+        }
         self.armor = if self.peasant() { 0 } else { self.bonus.armor.min(MAX_ARMOR) };
         self.fit_hp();
     }
 
-    pub(super) fn equip(&mut self, card: &Card) {
+    pub(crate) fn equip(&mut self, card: &Card) {
         if self.arm.as_deref() != Some(card.id.as_str()) {
             self.temper = 0;
         }
@@ -717,8 +952,10 @@ impl Hero {
         (self.dash_x, self.dash_y)
     }
 
-    pub(super) fn scaled(&self, damage: u32) -> u32 {
+    pub fn scaled(&self, damage: u32) -> u32 {
         let damage = damage * (100 + self.bonus.damage + self.pit.hit() + self.boon.damage) / 100;
+        // What curios give and take (`curios`).
+        let damage = damage * self.curio_damage() / 100;
         let damage = if self.has_rune(super::runes::RuneKind::DoubleDamage) {
             damage * 2
         } else {
@@ -733,11 +970,449 @@ impl Hero {
             .unwrap_or_else(|| super::ults::Ult::of(self.knight.as_deref()))
     }
 
-    pub(super) fn cooldown(&self, ticks: u32) -> u32 {
-        (ticks * 100 / (100 + self.bonus.rate + self.boon.rate)).max(1)
+    pub fn cooldown(&self, ticks: u32) -> u32 {
+        (ticks * 100 / (100 + self.bonus.rate + self.boon.rate + self.hero_kit.attack_rate()) * self.curio_wait() / 100).max(1)
+    }
+
+    /// The beat of the pull just loosed: the ticks it set before the next
+    /// (`fire_cooldown`), what its shots' size follows
+    /// (`ShotTraits::beat`).
+    pub(super) fn beat(&self) -> u8 {
+        self.fire_cooldown.clamp(1, u32::from(u8::MAX)) as u8
+    }
+}
+
+impl Run {
+    /// Knight `id`'s own hand rearranged from their seat, between ticks: a
+    /// card dragged from slot `from` onto slot `to` (`Hero::move_card`).
+    /// False when there is no such knight or no such move.
+    pub fn move_card(&mut self, id: u32, from: usize, to: usize) -> bool {
+        self.players.get_mut(&id).is_some_and(|hero| hero.move_card(from, to))
     }
 }
 
 fn is_zero_floor(n: &u32) -> bool {
+    *n == 0
+}
+
+/// What a knight's guard key did on a tick, for the sim to sound out.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct Guarded {
+    pub rolled: bool,
+    pub spun: bool,
+    pub wall_raised: bool,
+    pub mana_out: bool,
+    /// A spin's age on this tick, before it ran down: when its axes cut.
+    pub spin_age: Option<u32>,
+}
+
+impl Hero {
+    /// A knight's own keys, the first half of its going on a tick: the
+    /// roll's rearm runs down, the walk and the aim are read, and the guard
+    /// key acts (a roll starts, a shield or a wall goes up, a spin turns),
+    /// a whirl keeps the spin going and mana rests. The sim steps it
+    /// (`Run::play`), and a client drawing its own knight ahead steps it
+    /// the same (`Run::predict`). Returns the walk.
+    pub(super) fn own_keys(&mut self, input: &Input, side: bool, shield_free: bool) -> ((f32, f32), Guarded) {
+        self.hero_kit.tick();
+        // Learned spells survive kit changes, so Power need not be on key 1.
+        // Resolve the held spell here for both the host and prediction.
+        let power_held = usize::from(input.cast)
+            .checked_sub(1)
+            .and_then(|slot| self.spells.get(slot))
+            .and_then(Option::as_deref) == Some("gale-power");
+        self.hero_kit.keys(power_held);
+        let held = self.held_off(*input);
+        let input = &held;
+        self.flee_ticks = self.flee_ticks.saturating_sub(1);
+        let input = if self.flee_ticks > 0 {
+            &Input { move_x: input.move_x, move_y: input.move_y, aim_x: input.aim_x, aim_y: input.aim_y, ..Default::default() }
+        } else { input };
+        let mut guarded = Guarded::default();
+        self.dash_cooldown = self.dash_cooldown.saturating_sub(1);
+        // In the stocks a knight can aim and throw back, but not walk.
+        let (mx, my) = if self.stocked {
+            (0.0, 0.0)
+        } else {
+            unit(input.move_x as f32, input.move_y as f32)
+        };
+        let (ax, ay) = unit(input.aim_x as f32, input.aim_y as f32);
+        let walk = if self.stocked { (0, 0) } else { (input.move_x.signum(), input.move_y.signum()) };
+        if ax != 0.0 || ay != 0.0 || walk == (0, 0) || walk != self.walk_dir {
+            self.walk_ticks = 0;
+        } else {
+            self.walk_ticks = self.walk_ticks.saturating_add(1);
+        }
+        self.walk_dir = if ax != 0.0 || ay != 0.0 { (0, 0) } else { walk };
+        if ax != 0.0 || ay != 0.0 {
+            self.aim_x = ax;
+            self.aim_y = ay;
+        } else if side && mx != 0.0 {
+            // Side-on, a knight faces the way they run.
+            (self.aim_x, self.aim_y) = (mx.signum(), 0.0);
+        } else if self.walk_ticks >= TURN_TO_WALK {
+            // Top-down, a knight who keeps walking one way with no aim held
+            // turns to face it.
+            (self.aim_x, self.aim_y) = (mx, my);
+        }
+        self.shielding = false;
+        self.shield_wear.rest(self.max_hp);
+        match self.guard {
+            cards::Guard::Roll => {
+                if input.dash && self.dash_cooldown == 0 && self.dash_ticks == 0 {
+                    // Roll where you're going, or where you aim when standing.
+                    let (rx, ry) = if side {
+                        // Side-on, a roll runs along the ground.
+                        let along = if mx != 0.0 { mx } else { self.aim_x };
+                        (if along < 0.0 { -1.0 } else { 1.0 }, 0.0)
+                    } else if mx != 0.0 || my != 0.0 {
+                        (mx, my)
+                    } else {
+                        (self.aim_x, self.aim_y)
+                    };
+                    self.dash_ticks = ROLL_TICKS;
+                    self.dash_x = rx;
+                    self.dash_y = ry;
+                    self.invulnerable = self.invulnerable.max(ROLL_TICKS + 1);
+                    self.dash_cooldown = ROLL_REARM;
+                    guarded.rolled = true;
+                }
+            }
+            // A shield in the air is not in the hand, nor one knocked aside.
+            cards::Guard::Shield => {
+                self.shielding = input.dash && shield_free && self.shield_wear.down == 0;
+            }
+            cards::Guard::Spin => {
+                if input.dash && self.dash_cooldown == 0 && self.spin == 0 {
+                    self.spin = spin::TICKS;
+                    self.dash_cooldown = spin::REARM;
+                    guarded.spun = true;
+                }
+            }
+            cards::Guard::Wall(wall) => {
+                // Held while there is mana; once spent, it must be let go
+                // and raised again.
+                if !input.dash {
+                    self.wall_spent = false;
+                }
+                let up = input.dash && !self.wall_spent && self.mana > 0.0;
+                if up {
+                    guarded.wall_raised = !self.walling;
+                    self.mana = (self.mana - wall.drain as f32 * DT).max(0.0);
+                    self.mana_rest = 0;
+                    if self.mana <= 0.0 {
+                        self.wall_spent = true;
+                        guarded.mana_out = true;
+                    }
+                }
+                self.walling = up && self.mana > 0.0;
+            }
+        }
+        if self.whirl > 0 {
+            self.whirl -= 1;
+            if self.spin == 0 {
+                self.spin = spin::TICKS;
+            }
+        }
+        if self.spin > 0 {
+            guarded.spin_age = Some(spin::TICKS.saturating_sub(self.spin));
+            self.spin -= 1;
+        }
+        if !self.walling {
+            self.mana_rest = self.mana_rest.saturating_add(1);
+            if self.mana_rest > MANA_REST {
+                self.mana = (self.mana + MANA_FLOW * DT).min(MAX_MANA);
+            }
+        }
+        ((mx, my), guarded)
+    }
+
+    /// The second half: a Fae Dagger's blink lands (played last tick:
+    /// there, now), then the step this tick takes along `walk`, as
+    /// (dx, dy, speed): a roll running down, fast out of the tuck and
+    /// slowing as the knight comes up; a spin's, a shield's or a wall's
+    /// pace; or the walk at `pace`, read where the knight then stands.
+    /// Also whether it blinked.
+    pub(super) fn own_step(
+        &mut self,
+        (mx, my): (f32, f32),
+        grid: &Grid,
+        roll_speed: f32,
+        pace: impl FnOnce(&Hero) -> f32,
+    ) -> ((f32, f32, f32), bool) {
+        let blinked = self.blink > 0;
+        if blinked {
+            items::blink(self, grid);
+        }
+        let pace = pace(self) * if self.hero_kit.windrun > 0 { 1.65 } else if self.hero_kit.charging { 0.45 } else { 1.0 };
+        let pace = if self.champ.lust > 0 { pace * champions::LUST_PACE } else { pace };
+        let step = if self.champ.haul > 0 {
+            // Hauled along the Butcher's chain, fast and straight.
+            self.champ.haul -= 1;
+            (self.champ.haul_x, self.champ.haul_y, champions::HAUL_SPEED)
+        } else if self.champ.dash > 0 {
+            // A champion's bound: the Reaver's leap, the Lancer's vault or drive.
+            self.champ.dash -= 1;
+            (self.champ.dash_x, self.champ.dash_y, self.champ.dash_kind.speed())
+        } else if self.champ.windup > 0 || self.champ.brace > 0 {
+            // Rooted under the maul's wind-up, or behind the set lance.
+            (mx, my, 0.0)
+        } else if self.flee_ticks > 0 {
+            let (dx, dy) = if mx == 0.0 && my == 0.0 { (self.aim_x, self.aim_y) } else { (mx, my) };
+            (dx, dy, pace * peasant::SPRINT_PACE)
+        } else if self.dash_ticks > 0 {
+            self.dash_ticks -= 1;
+            let ease = 0.55 + 0.45 * self.dash_ticks as f32 / ROLL_TICKS as f32;
+            (self.dash_x, self.dash_y, roll_speed * ease)
+        } else if self.spin > 0 {
+            (mx, my, pace * spin::PACE)
+        } else if self.shielding {
+            (mx, my, pace * SHIELD_PACE)
+        } else if self.walling {
+            (mx, my, pace * WALL_PACE)
+        } else {
+            (mx, my, pace)
+        };
+        (step, blinked)
+    }
+}
+/// What a knight's ranged arm let fly on a tick it fired (`Hero::loose`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Loosed {
+    /// A forged blade, thrown to come back.
+    Throw,
+    /// A forged weapon's bolts, this many.
+    Bolts(u32),
+    /// A plain arm's shots, this many, along its aim.
+    Arm(u32, (f32, f32)),
+}
+
+impl Hero {
+    /// The shots this knight's ranged arm looses on a tick its fire key
+    /// fires, into `shots`, with its cooldown set: a forged weapon's thrown
+    /// blade or its bolts, else the plain arm's (`Weapon::arms`), with every
+    /// card, temper and volley it carries. Fists and a forged weapon's swing
+    /// strike rather than shoot; the sim does those itself. The sim fires by
+    /// it (`Run::play`), and so does a client drawing its own knight's shots
+    /// ahead of the server (`Run::predict_fire`), so the two loose alike.
+    /// `burning`: the bow's Fire Arrows are lit; `rng`: the tick's dice,
+    /// for how a stream strays. `None` for a forged weapon that neither
+    /// throws nor shoots. `flying`: the knight's shots in flight already
+    /// (`volley_in_flight`): what is loosed past `KNIGHT_VOLLEY` stays in the
+    /// quiver, the volley's middle flying (`fit_volley`).
+    pub fn loose(
+        &mut self,
+        id: u32,
+        book: &Book,
+        burning: bool,
+        rng: u64,
+        flying: usize,
+        shots: &mut Vec<Projectile>,
+    ) -> Option<Loosed> {
+        let from = shots.len();
+        let loosed = heroes::loose(self, id, shots).or_else(|| self.loose_all(id, book, burning, rng, shots));
+        fit_volley(shots, from, KNIGHT_VOLLEY.saturating_sub(flying));
+        loosed
+    }
+
+    /// `loose`, every shot the arm and its cards make.
+    fn loose_all(
+        &mut self,
+        id: u32,
+        book: &Book,
+        burning: bool,
+        rng: u64,
+        shots: &mut Vec<Projectile>,
+    ) -> Option<Loosed> {
+        if let Some(weapon) = &self.forged {
+            if let Some(throw) = weapon.throw {
+                // The blade flies out along the aim and comes back.
+                self.fire_cooldown = self.cooldown(throw.every);
+                self.swing = 6;
+                self.sword = false;
+                let (ux, uy) = (self.aim_x, self.aim_y);
+                let out = (throw.range / BLADE_SPEED * HZ as f32).ceil() as u16;
+                shots.push(Projectile {
+                    x: self.x + ux * 0.6,
+                    y: self.y + uy * 0.6,
+                    vx: ux * BLADE_SPEED,
+                    vy: uy * BLADE_SPEED,
+                    hostile: false,
+                    kind: Shot::Blade,
+                    look: self.shot_look(book),
+                    damage: self.scaled(throw.damage),
+                    pierce: u8::MAX,
+                    last_hit: None,
+                    empowered: false,
+                    ttl: u32::from(out) * 2 + 3 * HZ,
+                    traits: ShotTraits {
+                        back: 1,
+                        owner: id as u8,
+                        beat: self.beat(),
+                        out,
+                        ..ShotTraits::of(&self.bonus)
+                    },
+                });
+                return Some(Loosed::Throw);
+            }
+            let bolt = weapon.bolt?;
+            self.fire_cooldown = self.cooldown(bolt.every);
+            // (Hero::volley, by field: the forged weapon is borrowed.)
+            self.loosed = self.loosed.wrapping_add(1);
+            let volley = self.bonus.volley > 0 && self.loosed % self.bonus.volley == 0;
+            let dressed = self.shot_look(book);
+            let count = weapon.shots() + self.bonus.shots + if volley { 2 } else { 0 };
+            let traits = ShotTraits {
+                owner: id as u8,
+                beat: self.beat(),
+                ..ShotTraits::of(&self.bonus)
+            };
+            let arc = weapon
+                .spread
+                .map_or(0.0, |spread| spread.arc.to_radians())
+                .max(if volley { VOLLEY_FAN } else { FAN } * (count - 1) as f32);
+            let angle = self.aim_y.atan2(self.aim_x) + self.curio_veer(self.loosed);
+            // However it was forged, its shots fly fast.
+            let speed = bolt.speed.max(cards::FORGED_SPEED);
+            for i in 0..count {
+                let theta = angle
+                    + if count > 1 {
+                        arc * (i as f32 / (count - 1) as f32 - 0.5)
+                    } else {
+                        0.0
+                    };
+                shots.push(Projectile {
+                    x: self.x + theta.cos() * 0.6,
+                    y: self.y + theta.sin() * 0.6,
+                    vx: theta.cos() * speed,
+                    vy: theta.sin() * speed,
+                    hostile: false,
+                    kind: Shot::Bolt,
+                    damage: self.scaled(bolt.damage),
+                    pierce: self.bonus.pierce as u8,
+                    last_hit: None,
+                    empowered: false,
+                    ttl: (bolt.range / speed * HZ as f32).ceil() as u32,
+                    look: dressed.clone().or_else(|| {
+                        Some((weapon.colour.clone(), weapon.shape.clone()))
+                    }),
+                    traits: traits.clone(),
+                });
+            }
+            return Some(Loosed::Bolts(count));
+        }
+        let arms = self.weapon.arms();
+        let temper = self.temper.min(feel::TEMPER_MAX);
+        self.fire_cooldown = self.cooldown(arms.cooldown);
+        let volley = self.volley();
+        let drill = super::drills::pull(self);
+        let extra = self.bonus.shots + if volley { 2 } else { 0 };
+        // A card's dressing first; else the class's own shot (a Bard's
+        // notes, a Peasant's stones).
+        let dressed = self.shot_look(book).or_else(|| match self.weapon {
+            Weapon::Notes => Some((classes::SONG.into(), "note".into())),
+            Weapon::Stones => Some(("stone".into(), "stone".into())),
+            _ => classes::shot_look(self),
+        });
+        let fan = if volley { VOLLEY_FAN } else { FAN };
+        let base = ShotTraits {
+            owner: id as u8,
+            beat: self.beat(),
+            temper,
+            fire: burning,
+            arm: true,
+            stone: self.weapon == Weapon::Stones,
+            ..ShotTraits::of(&self.bonus)
+        };
+        // A stream strays a little, so it looks alive.
+        let wobble = (rng % 2001) as f32 / 1000.0 - 1.0;
+        let angle = self.aim_y.atan2(self.aim_x) + wobble * arms.jitter + self.curio_veer(self.loosed);
+        let (ax, ay) = (angle.cos(), angle.sin());
+        // Each pull: the arm's own shape, then tempering's.
+        let mut pull: Vec<(f32, f32, ShotTraits)> = Vec::new();
+        match self.weapon {
+            Weapon::Fists => unreachable!("fists use the punch branch"),
+            Weapon::Notes | Weapon::Stones => {
+                let count = arms.shots + extra;
+                for i in 0..count {
+                    let k = i as f32 / (count - 1).max(1) as f32 - 0.5;
+                    pull.push((angle + arms.arc.to_radians() * k, 0.0, base.clone()));
+                }
+            }
+            Weapon::Handgonne => {
+                // Each extra shot a card gives is another fan's worth.
+                let balls =
+                    (arms.shots + if temper >= 1 { 2 } else { 0 }) * (1 + extra);
+                let arc = arms.arc.to_radians() + fan * extra as f32;
+                let traits = ShotTraits {
+                    bounce: base.bounce.max(u8::from(temper >= 2)),
+                    ..base
+                };
+                for i in 0..balls {
+                    let k = i as f32 / (balls - 1).max(1) as f32 - 0.5;
+                    pull.push((angle + arc * k, 0.0, traits.clone()));
+                }
+            }
+            Weapon::Bow | Weapon::Crossbow => {
+                // A tempered bow looses streams side by side.
+                let lanes: &[f32] = match (self.weapon, temper) {
+                    (Weapon::Bow, 0) => &[0.0],
+                    (Weapon::Bow, 1) => &[-0.3, 0.3],
+                    (Weapon::Bow, _) => &[-0.55, 0.0, 0.55],
+                    _ => &[0.0],
+                };
+                let count = 1 + extra;
+                for &lane in lanes {
+                    let traits = ShotTraits {
+                        // The outer streams of a thrice-tempered bow home.
+                        homing: if temper >= 3 && lane != 0.0 {
+                            base.homing.max(2)
+                        } else {
+                            base.homing
+                        },
+                        // A thrice-tempered rail chains.
+                        chain: if self.weapon == Weapon::Crossbow && temper >= 3 {
+                            base.chain.max(2)
+                        } else {
+                            base.chain
+                        },
+                        ..base.clone()
+                    };
+                    for i in 0..count {
+                        let theta = angle + fan * (i as f32 - (count - 1) as f32 / 2.0);
+                        pull.push((theta, lane, traits.clone()));
+                    }
+                }
+            }
+        }
+        let count = pull.len() as u32;
+        for (theta, lane, traits) in pull {
+            let (ux, uy) = (theta.cos(), theta.sin());
+            shots.push(Projectile {
+                x: self.x + ux * 0.6 - ay * lane,
+                y: self.y + uy * 0.6 + ax * lane,
+                vx: ux * arms.speed,
+                vy: uy * arms.speed,
+                hostile: false,
+                kind: match self.weapon {
+                    Weapon::Fists => unreachable!("fists use the punch branch"),
+                    Weapon::Bow | Weapon::Notes | Weapon::Stones => Shot::Arrow,
+                    Weapon::Crossbow => Shot::Bolt,
+                    Weapon::Handgonne => Shot::Ball,
+                },
+                look: dressed.clone(),
+                damage: self.scaled(arms.damage) * drill.damage / 100,
+                pierce: arms.pierce.saturating_add(self.bonus.pierce as u8),
+                last_hit: None,
+                empowered: drill.empowered,
+                traits,
+                ttl: arms.ttl,
+            });
+        }
+        Some(Loosed::Arm(count, (ax, ay)))
+    }
+}
+
+fn is_zero_u8(n: &u8) -> bool {
     *n == 0
 }

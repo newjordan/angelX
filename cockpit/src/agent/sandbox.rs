@@ -212,9 +212,16 @@ impl SandboxPolicy {
         writable_roots.extend(darwin_user_dirs());
         if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
             // Dependency and compiler caches are disposable supporting state,
-            // not project source or user configuration.
+            // not project source or user configuration. A headless task that
+            // installed its own XDG_CACHE_HOME (granted above) leaves the
+            // shared ~/.cache read-only: its hard-linked tool caches would
+            // otherwise put every launch on the Bubblewrap alias path.
+            let private_task_cache = std::env::var_os("ANGEL_TASK_CACHE_HOME")
+                .is_some_and(|value| !value.is_empty());
+            if !private_task_cache {
+                writable_roots.push(home.join(".cache"));
+            }
             writable_roots.extend([
-                home.join(".cache"),
                 home.join(".cargo/registry"),
                 home.join(".cargo/git"),
                 home.join(".npm/_cacache"),
@@ -395,7 +402,6 @@ impl PreparedSandbox {
     /// Restrict the current helper immediately before `exec`. On the success
     /// path this performs only `prctl`, Landlock, seccomp, and fd-close work;
     /// all allocation and filesystem traversal happened in [`prepare`].
-    #[allow(deprecated)]
     pub fn restrict(self) -> Result<(), String> {
         use landlock::RulesetStatus;
 
@@ -622,6 +628,13 @@ fn helper_executable() -> Result<PathBuf, String> {
             // defaults here used to replace the default-feature PTY child
             // behind Cargo's already-compiled integration harness.
             let helper = profile_dir.join(format!("angel-sandbox{}", std::env::consts::EXE_SUFFIX));
+            // A redirected CARGO_TARGET_DIR (scratch crates set one so their
+            // artifacts stay writable) would rebuild this helper from scratch
+            // into that empty target. The profile helper is already the one
+            // this run executes; rebuilding it does not update that path.
+            if helper.is_file() {
+                return Ok(helper);
+            }
             let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
             let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
                 .args([
@@ -1052,7 +1065,6 @@ pub fn apply(policy: &SandboxPolicy) -> Result<(), String> {
 
 /// Probe whether the kernel supports landlock — does NOT restrict the caller
 /// (only `restrict_self` does). Lets tests skip enforcement checks elsewhere.
-#[allow(dead_code)] // diagnostic / test capability probe
 #[cfg(target_os = "linux")]
 pub fn available() -> bool {
     use landlock::{ABI, Access, AccessFs, Ruleset, RulesetAttr};

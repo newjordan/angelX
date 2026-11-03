@@ -20,7 +20,14 @@ fn table(seats: u32) -> Run {
     for id in 2..=seats {
         r.join_seat(id, &format!("Knight {id}"));
     }
-    r.step(&BTreeMap::new());
+    // The rules seat a late knight on their first tick (they run in the module, not in this
+    // crate); these drawings need the table seated, so it is seated here.
+    let s = r.moonfall.as_mut().unwrap();
+    for id in 2..=seats {
+        let at = crate::rules::moonfall::state::SPAWN[(id as usize + 5) % 6];
+        s.seats.insert(id, crate::rules::moonfall::state::Seat { joined: 1, knight: crate::rules::moonfall::state::Knight::at(at) });
+    }
+    s.peak = s.seats.len() as u32;
     r
 }
 
@@ -1352,7 +1359,7 @@ fn every_label_is_whole_inside_the_town_view_and_touches_no_other_at_every_hour_
             views.extend(folk_view(&r).map(|at| ("folk", at)));
             for (view, at) in views {
                 huddle(&mut r, seats, at);
-                let sc = scene(&r, Some(1));
+                let sc = scene_words(&r, Some(1));
                 let at = format!("{seats} seats, {hour}, {view}");
                 let bad = label_faults(&sc);
                 assert!(bad.is_empty(), "{at}: {bad:#?}");

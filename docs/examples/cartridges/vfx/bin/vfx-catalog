@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+import { toolMain } from '../lib/main.mjs'
+await toolMain('vfx_catalog')

@@ -854,3 +854,168 @@ fn c05e_unittest_selectors_report_selected_counts_and_empty_selection() {
         .is_err()
     );
 }
+
+// --- verify-plan leg ---
+
+/// One feature record: the request a call made, and the workspace facts that
+/// settle `auto`.
+fn plan_facts(
+    requested: &'static str,
+    entrypoint: &'static str,
+    kind: &'static str,
+    workspace: [bool; 5],
+) -> plan::PlanFacts {
+    plan::PlanFacts {
+        requested,
+        entrypoint,
+        kind,
+        has_cargo_toml: workspace[0],
+        has_package_json: workspace[1],
+        has_pyproject_toml: workspace[2],
+        has_python_setup: workspace[3],
+        has_pytest_config: workspace[4],
+    }
+}
+
+/// Every planning shape the native verifier can meet: an explicit request, a
+/// decisive entrypoint, and each workspace language combination — including the
+/// empty workspace, the mixed-language ones, and the requests that are refused.
+fn verify_plan_table() -> Vec<plan::PlanFacts> {
+    let f = plan_facts;
+    vec![
+        // `auto` against the manifests.
+        f("auto", "none", "tests", [false, false, false, false, false]),
+        f("auto", "none", "tests", [true, false, false, false, false]),
+        f("auto", "none", "tests", [false, true, false, false, false]),
+        f("auto", "none", "tests", [false, false, true, false, false]),
+        f("auto", "none", "tests", [false, false, false, true, false]),
+        f("auto", "none", "tests", [false, false, false, true, true]),
+        // Mixed language roots: no single language, so no plan.
+        f("auto", "none", "tests", [true, true, false, false, false]),
+        f("auto", "none", "tests", [true, false, true, false, false]),
+        f("auto", "none", "tests", [true, false, false, true, false]),
+        f("auto", "none", "tests", [false, true, true, false, false]),
+        f("auto", "none", "tests", [true, true, true, false, false]),
+        // A configured pytest is not a language.
+        f("auto", "none", "tests", [false, false, false, false, true]),
+        // The entrypoint settles the language before the manifests.
+        f("auto", "node", "tests", [false, false, false, false, false]),
+        f("auto", "unittest", "tests", [false, false, false, false, false]),
+        f("auto", "pytest", "tests", [false, false, false, false, false]),
+        f("auto", "node", "tests", [true, false, false, false, false]),
+        f("auto", "unittest", "tests", [false, true, false, false, false]),
+        f("auto", "other", "tests", [false, false, false, false, false]),
+        f("auto", "other", "tests", [false, true, false, false, false]),
+        // An explicit Rust request never plans a verifier step.
+        f("rust", "none", "tests", [false, false, false, false, false]),
+        f("rust", "none", "tests", [true, true, true, false, false]),
+        f("rust", "other", "lint", [true, false, false, false, false]),
+        // Go owns its own adapter, and only for tests.
+        f("go", "none", "tests", [false, false, false, false, false]),
+        f("go", "none", "check", [false, false, false, false, false]),
+        f("go", "none", "lint", [false, false, false, false, false]),
+        // Explicit languages.
+        f("node", "none", "check", [false, false, false, false, false]),
+        f("node", "none", "tests", [false, false, false, false, false]),
+        f("node", "node", "tests", [false, true, false, false, true]),
+        f("python", "none", "check", [false, false, true, false, false]),
+        f("python", "none", "tests", [false, false, true, false, false]),
+        f("python", "none", "tests", [false, false, true, false, true]),
+        f("python", "unittest", "tests", [false, false, true, false, true]),
+        f("python", "pytest", "tests", [false, false, false, false, false]),
+        f("python", "other", "tests", [false, false, true, false, true]),
+        // A lint request has no trusted adapter in either language.
+        f("python", "none", "lint", [false, false, true, false, false]),
+        f("node", "none", "lint", [false, true, false, false, false]),
+        f("auto", "none", "lint", [false, false, true, false, false]),
+        // The caller's own tool decides check or tests.
+        f("auto", "none", "check", [false, true, false, false, false]),
+    ]
+}
+
+#[test]
+fn verify_plan_leg_matches_every_native_decision() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("verify-plan");
+    let table = verify_plan_table();
+    assert!(table.len() >= 30, "the parity table needs real coverage");
+    for facts in &table {
+        let (live, source) = plan::plan_step_with(facts, Some(leg.clone()));
+        assert!(
+            matches!(
+                &source,
+                crate::agent::harness::live_policy::LegSource::Live { .. }
+            ),
+            "{facts:?} kept the native decision: {source:?}"
+        );
+        assert_eq!(live, plan::plan_step_native(facts), "{facts:?}");
+    }
+}
+
+#[test]
+fn verify_plan_leg_falls_back_when_its_answer_breaks_the_contract() {
+    let root = std::env::temp_dir().join(format!(
+        "angel-verify-plan-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let module = root.join("bad-plan");
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        r#"{"api_version":1,"id":"bad-plan","kind":"policy","entry":"index.js","probe":{}}"#,
+    )
+    .unwrap();
+    // A verify step with no mode: the host has no argv to build from it.
+    std::fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({route:2,runtime:1,mode:0,driver:0,reject:0})}",
+    )
+    .unwrap();
+    let mut registry = angel_live::Registry::validated(
+        root.clone(),
+        crate::agent::hotload::evaluate,
+        |_, _| Ok(()),
+    );
+    registry.refresh(true);
+    let broken = registry
+        .snapshot()
+        .policies
+        .get("bad-plan")
+        .cloned()
+        .expect("broken plan leg did not load");
+    let facts = plan_facts("auto", "none", "tests", [false, true, false, false, false]);
+    let (step, source) = plan::plan_step_with(&facts, Some(broken));
+    assert!(
+        matches!(
+            &source,
+            crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+        ),
+        "{source:?}"
+    );
+    assert_eq!(step, plan::plan_step_native(&facts));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Reported, not asserted: a leg decision is a pure in-process call.
+#[test]
+fn verify_plan_leg_decides_in_microseconds() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("verify-plan");
+    let table = verify_plan_table();
+    let mut live = Vec::with_capacity(200);
+    let mut native = Vec::with_capacity(200);
+    for index in 0..200 {
+        let facts = &table[index % table.len()];
+        let started = std::time::Instant::now();
+        let _ = plan::plan_step_with(facts, Some(leg.clone()));
+        live.push(started.elapsed().as_micros());
+        let started = std::time::Instant::now();
+        let _ = plan::plan_step_native(facts);
+        native.push(started.elapsed().as_micros());
+    }
+    live.sort_unstable();
+    native.sort_unstable();
+    eprintln!(
+        "verify-plan over 200 decisions: median {} µs live, {} µs native; p95 {} µs live",
+        live[100], native[100], live[190]
+    );
+}

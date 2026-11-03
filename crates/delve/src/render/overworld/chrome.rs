@@ -547,12 +547,6 @@ pub fn highlight(im: &mut Img, (x, y, w, h): (i32, i32, i32, i32)) {
     );
 }
 
-/// Whether `c` is the slate fill of a panel (its body, not its words): for
-/// the second art kit, which paints its own panel under ours.
-pub fn is_slate_fill(c: Rgb) -> bool {
-    [SLATE, NAVY, NIGHT].contains(&c)
-}
-
 /// Whether `c` is a highlight bar's or a rule's lit ink.
 pub fn is_highlight(c: Rgb) -> bool {
     [TEAL, DUSK].contains(&c)

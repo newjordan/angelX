@@ -58,7 +58,7 @@
     "alpha_threshold": 128,
     "effect_value_cap": null,
     "metadata_sha256": null,
-    "original_path": "/work/artifacts/art-prod/slots/latch.room/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/latch.room/v01/source-sheet.png",
     "original_sha256": "bd12b157bb73e89199640b05878f3387cb8ed3782d5c64ffa2726dad8880611d",
     "room_gain": {
       "centre": 0.13,

@@ -207,7 +207,7 @@ impl Session {
             ult: d < r.lock,
             ..Default::default()
         };
-        let exposed = self.boss_exposed();
+        let exposed = self.boss_open();
         // A snuffer on top of us comes first, unless the heart is open.
         if !exposed
             && let Some(f) = self

@@ -11,8 +11,10 @@
 //! estuary along the Fen's. Pure: the same realm always grows the same way.
 
 use super::biome::{self, Biome};
-use super::map::{CHUNK_H, CHUNK_W, CHUNKS_X, CHUNKS_Y, MAP_H, MAP_W, SCREEN_H, SCREEN_W, set_pieces};
-use crate::render::overworld::ink::{hash, vnoise};
+use super::map::{
+    CHUNK_H, CHUNK_W, CHUNKS_X, CHUNKS_Y, MAP_H, MAP_W, SCREEN_H, SCREEN_W, set_pieces,
+};
+use crate::ink::{hash, vnoise};
 
 const N: usize = (MAP_W * MAP_H) as usize;
 

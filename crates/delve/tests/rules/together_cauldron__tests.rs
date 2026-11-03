@@ -148,6 +148,57 @@ fn the_cauldron_rises_in_an_open_floors_guardian_chamber() {
 }
 
 #[test]
+fn a_knight_walking_into_the_cauldron_goes_past_it() {
+    // Seed 0, depth 1: the pot rises on the way to the stairs, and a knight
+    // walking east at it was eased back onto the near rim every tick, so the
+    // stairs stayed out of reach.
+    let mut run = Run::new(0, 7, None);
+    run.open_floor_for_test(1);
+    let open = run.dungeon.open.clone().unwrap();
+    let g = usize::from(open.guardian);
+    let (cx, cy) = open.chambers[g].centre();
+    let inside = run.open_spots(open.map, (cx, cy), 1)[0];
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = inside;
+    hero.invulnerable = 100_000;
+    run.step(&BTreeMap::new());
+    for e in run.enemies.iter_mut().filter(|e| e.home == Some(g as u8)) {
+        e.hp = 0;
+    }
+    run.step(&BTreeMap::new());
+    risen(&mut run);
+    let pot = run.cauldron_here().expect("the pot has risen").clone();
+    let (px, py) = (pot.x, pot.y - cauldron::GIRTH_NORTH);
+    let room = run.room();
+    let spot = (-8..0)
+        .flat_map(|dx| (-8..8).map(move |dy| (dx, dy)))
+        .map(|(dx, dy)| (px + dx as f32 * 0.25, py + dy as f32 * 0.25))
+        .filter(|&(x, y)| {
+            let d = (x - px).hypot(y - py);
+            d < cauldron::GIRTH && d > 0.4 && room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) == Tile::Floor
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .expect("a floor tile on the pot's west rim");
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = spot;
+    let east = BTreeMap::from([(1, Input { move_x: 1, ..Input::default() })]);
+    let mut far = spot.0;
+    for _ in 0..HZ * 3 {
+        run.step_sim_for_test(&east);
+        far = far.max(run.players[&1].x);
+    }
+    let hero = &run.players[&1];
+    assert!(
+        far > px + cauldron::GIRTH,
+        "walking east into the pot should carry past it, furthest x {far:.1} at {:.1},{:.1} (pot {:.1},{:.1} spot {spot:?})",
+        hero.x,
+        hero.y,
+        pot.x,
+        pot.y
+    );
+}
+
+#[test]
 fn two_spells_go_in_and_one_new_spell_comes_out() {
     let mut run = won_floor(5, 2);
     learn(&mut run, 1, &["cabbage-storm", "hedge-maze", "the-imposture"]);
@@ -373,4 +424,184 @@ fn a_spells_essence_reads_its_words_then_its_look_then_what_it_does() {
         }
     }
     assert!(tally[1] > tally[2] && tally[2] > tally[3] && tally[3] > 0 && tally[0] > 0, "{tally:?}");
+}
+
+/// Knight `id` is granted a wished spell, as the phrasebook gives it.
+fn wished_spell(run: &mut Run, id: u32) -> String {
+    let book = phrasebook::read(
+        "wish mirror-copies | Mirror Copies\nkind spell\nsay mirror clones\n\
+tier summon 1 turret; cooldown 14 :: A mirror copy of you.\ntier summon 2 turret; cooldown 24 :: Two.\n",
+    );
+    run.grant(id, &book[0]).unwrap();
+    book[0].card_id(0)
+}
+
+#[test]
+fn a_wished_spell_brewed_away_leaves_the_wish_list_and_comes_back_with_its_card() {
+    // Brewed into a new spell: the wish is no longer held, and may be
+    // wished again from its first tier.
+    let mut run = won_floor(5, 2);
+    let wish = wished_spell(&mut run, 1);
+    learn(&mut run, 1, &["cabbage-storm"]);
+    assert_eq!(run.players[&1].spells[0].as_deref(), Some(wish.as_str()));
+    seed_for(&mut run, 1, &wish, "cabbage-storm", is_spell);
+    step_up(&mut run, 1);
+    brew(&mut run, 1, 1, 2);
+    assert!(!run.players[&1].deck.contains(&wish), "in the pot, off the wish list");
+    boil(&mut run);
+    let hero = &run.players[&1];
+    assert!(hero.spells[0].as_deref().is_some_and(|s| s.starts_with("brew-")));
+    assert!(!hero.deck.contains(&wish), "brewed away, it is not held");
+    // A misfire hands it back: held again.
+    let mut run = won_floor(5, 2);
+    let wish = wished_spell(&mut run, 1);
+    learn(&mut run, 1, &["cabbage-storm"]);
+    seed_for(&mut run, 1, &wish, "cabbage-storm", |o| !is_spell(o));
+    step_up(&mut run, 1);
+    brew(&mut run, 1, 1, 2);
+    assert!(!run.players[&1].deck.contains(&wish));
+    boil(&mut run);
+    let hero = &run.players[&1];
+    assert_eq!(hero.spells[0].as_deref(), Some(wish.as_str()), "back where it was");
+    assert_eq!(hero.deck.iter().filter(|c| **c == wish).count(), 1, "and on the wish list once");
+}
+
+/// A spell the host's model might brew from a Cabbage Storm and a Hedge
+/// Maze: `lines` its effects, on `cooldown`.
+fn answer(name: &str, cooldown: u32, lines: &str) -> cards::Card {
+    let raw = format!(
+        "name {name}\nkind spell\nrarity rare\ntext Thorns, a crop and a cold wind.\nby Matt\ndrop 0\nchest 0\ncooldown {cooldown}\n{lines}\nart\n..fDDf..\n.fDEEDf.\nfDE44EDf\nfDE44EDf\n.fDEEDf.\n..fDDf..\n"
+    );
+    cards::check("answer", &raw).unwrap().card
+}
+
+/// Knight 1 brews a Cabbage Storm with a Hedge Maze into its stand-in.
+fn stood_in(seed: u64) -> Run {
+    let mut run = won_floor(seed, 2);
+    learn(&mut run, 1, &["cabbage-storm", "hedge-maze"]);
+    seed_for(&mut run, 1, "cabbage-storm", "hedge-maze", is_spell);
+    step_up(&mut run, 1);
+    brew(&mut run, 1, 1, 2);
+    boil(&mut run);
+    run
+}
+
+#[test]
+fn a_brew_asks_the_host_for_a_spell_of_its_own_and_its_answer_takes_the_stand_ins_place() {
+    let mut run = stood_in(5);
+    let stand_in = run.players[&1].spells[0].clone().unwrap();
+    assert!(stand_in.starts_with("brew-kitchen-garden"), "the recipe stands in at once: {stand_in}");
+    assert_eq!(run.brewing.len(), 1, "the host's model is asked");
+    let ask = run.brewing[0].clone();
+    assert_eq!(ask.knight, 1);
+    assert_eq!(ask.placeholder, stand_in);
+    let mut went_in = ask.cards.to_vec();
+    went_in.sort();
+    assert_eq!(went_in, ["cabbage-storm", "hedge-maze"]);
+    let name = run.brewed(&ask, answer("Frostbriar Orchard", 20, "cabbages 3\nhedge 1\nward 1")).unwrap();
+    assert_eq!(name, "Frostbriar Orchard");
+    let own = ask.card_id();
+    let hero = &run.players[&1];
+    assert_eq!(hero.spells[0].as_deref(), Some(own.as_str()), "the brew's own spell takes the slot");
+    assert!(
+        hero.bar.iter().any(|b| matches!(b, Some(cards::BarSlot::Spell(s)) if *s == own)),
+        "and the bar"
+    );
+    assert!(!hero.spells.iter().any(|s| s.as_deref() == Some(stand_in.as_str())));
+    assert_eq!(run.book.get(&own).unwrap().name, "Frostbriar Orchard");
+    assert!(run.book.get(&stand_in).is_some(), "the recipe stays in the book for others");
+    assert_eq!(run.cauldron_here().unwrap().brew(1).unwrap().outcome.says(), "Frostbriar Orchard");
+    // Once only: the same brew cannot rise twice.
+    assert!(run.brewed(&ask, answer("Another Orchard", 20, "cabbages 2\nhedge 1\nward 2")).is_err());
+    // It saves and loads with the run.
+    let again: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
+    assert_eq!(again.players[&1].spells[0].as_deref(), Some(own.as_str()));
+    assert_eq!(again.book.get(&own), run.book.get(&own));
+    // A brew's own spell is taken, so the next brew cannot copy it.
+    let taken = cauldron::taken(&run.book);
+    assert!(taken.iter().any(|t| t.name == "Frostbriar Orchard"));
+}
+
+#[test]
+fn a_brew_turned_away_leaves_the_stand_in() {
+    let run = stood_in(5);
+    let ask = run.brewing[0].clone();
+    let refused = |card: cards::Card, why: &str| {
+        let mut run = run.clone();
+        let errors = run.brewed(&ask, card).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains(why)), "{why}: {errors:?}");
+        assert_eq!(run.players[&1].spells[0].as_deref(), Some(ask.placeholder.as_str()), "the stand-in stays");
+        assert!(run.book.get(&ask.card_id()).is_none());
+    };
+    // Over the power budget: three cabbages, a hedge and a ward each second.
+    refused(answer("Frostbriar Orchard", 3, "cabbages 3\nhedge 1\nward 1"), "power");
+    // A name already taken, even with a tier on it.
+    refused(answer("Potent Kitchen Garden", 20, "cabbages 3\nhedge 1\nward 1"), "name");
+    refused(answer("Cabbage Storm", 20, "cabbages 3\nhedge 1\nward 1"), "name");
+    // The stand-in's own mix is no fusion.
+    refused(answer("Briar Patch", 20, "cabbages 3\nhedge 1"), "mix");
+    // Not a spell.
+    let mut hold = answer("Briar Coat", 20, "cabbages 3\nhedge 1\nward 1");
+    hold.kind = cards::Kind::Hold;
+    refused(hold, "kind spell");
+}
+
+#[test]
+fn no_cabbages_come_out_unless_a_cabbage_went_in() {
+    let book = cards::Book::builtin();
+    let taken = cauldron::taken(&book);
+    let (bolt, hedge) = (book.get("hedge-maze").unwrap(), book.get("cabbage-storm").unwrap());
+    let card = answer("Frostbriar Orchard", 20, "cabbages 3\nhedge 1\nward 1");
+    assert!(!cauldron::faults(&card, [bolt, hedge], &taken).iter().any(|f| f.contains("cabbage")));
+    let ward = book
+        .cards
+        .iter()
+        .find(|c| c.kind == cards::Kind::Spell && !c.effects.iter().any(|e| matches!(e, cards::Effect::Cabbages(_))))
+        .unwrap();
+    let faults = cauldron::faults(&card, [bolt, ward], &taken);
+    assert!(faults.iter().any(|f| f.contains("no cabbage went in")), "{faults:?}");
+    // The budget note says what the pot measures.
+    assert!(cauldron::power_note().contains(&cauldron::POWER_BUDGET.to_string()));
+}
+
+#[test]
+fn the_stand_in_and_its_ask_are_the_same_from_the_same_seed() {
+    let (one, two) = (stood_in(21), stood_in(21));
+    assert_eq!(one.brewing, two.brewing);
+    assert_eq!(one.players[&1].spells, two.players[&1].spells);
+    assert_eq!(one.book.cards, two.book.cards);
+}
+
+#[test]
+fn a_spell_shown_as_its_file_reads_back_as_the_same_spell() {
+    let book = cards::Book::builtin();
+    for card in book.cards.iter().filter(|c| c.kind == cards::Kind::Spell) {
+        let back = cards::check(&card.id, &card.file()).unwrap_or_else(|r| panic!("{}: {:?}", card.id, r.errors)).card;
+        assert_eq!(
+            (&back.name, back.text.trim(), back.cooldown, &back.effects, &back.art, &back.looks),
+            (&card.name, card.text.trim(), card.cooldown, &card.effects, &card.art, &card.looks),
+            "{}",
+            card.id
+        );
+    }
+}
+
+#[test]
+fn a_pet_and_a_shot_brew_homing_bullets_of_that_pet() {
+    let cat = cards::check("tabby", "name Tabby the Cat\nkind spell\ncooldown 9\nheal 20\n").unwrap().card;
+    let bolt = cards::check("ember-lance", "name Ember Lance\nkind spell\ncooldown 6\ncast bolt\n").unwrap().card;
+    let mend = cards::check("mend", "name Mend\nkind spell\ncooldown 9\nheal 20\n").unwrap().card;
+    assert_eq!(cauldron::pet_shot([&cat, &bolt]).map(|c| c.id.as_str()), Some("tabby"));
+    assert_eq!(cauldron::pet_shot([&bolt, &cat]).map(|c| c.id.as_str()), Some("tabby"));
+    assert!(cauldron::pet_shot([&mend, &bolt]).is_none(), "no creature, no rule");
+    // A brew that only casts is sent back; one whose cats hunt passes the rule.
+    let plain = cards::check("cat-bolt", "name Cat Bolt\nkind spell\ncooldown 6\ncast meteor\nart\n..oo..\n.oooo.\n").unwrap().card;
+    assert!(cauldron::faults(&plain, [&cat, &bolt], &[]).iter().any(|f| f.contains("homing")));
+    let hunting = cards::check(
+        "cat-swarm",
+        "name Pounce Volley\nkind spell\ncooldown 12\nsummon 3 swarm\ndraw summon\n.oo.\noooo\n.oo.\nart\n..oo..\n.oooo.\n",
+    )
+    .unwrap()
+    .card;
+    assert!(!cauldron::faults(&hunting, [&cat, &bolt], &[]).iter().any(|f| f.contains("homing")));
 }

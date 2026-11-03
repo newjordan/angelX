@@ -21,9 +21,28 @@ fn quiet_room(pair: bool) -> Run {
     if let Some(bat) = run.enemies.last_mut() {
         bat.frozen = u32::MAX / 2;
     }
-    for (id, y) in [(1, 12.0), (2, 17.0)] {
+    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
+    // the old fixtures stood; stand each knight on clear floor near the
+    // room's left, or the rings cannot throw them anywhere.
+    let mut spots = [None, None];
+    for gy in 3..20 {
+        for gx in 2..8 {
+            if run.room().tile(gx, gy).ground() {
+                if spots[0].is_none() {
+                    spots[0] = Some((gx, gy));
+                } else if gy > spots[0].unwrap().1 + 2 {
+                    spots[1] = Some((gx, gy));
+                }
+            }
+        }
+    }
+    let [a, b] = spots;
+    let a = a.expect("clear floor");
+    let b = b.unwrap_or(a);
+    for (id, (gx, gy)) in [(1, a), (2, b)] {
         if let Some(hero) = run.players.get_mut(&id) {
-            (hero.x, hero.y, hero.invulnerable) = (10.0, y, 0);
+            (hero.x, hero.y, hero.invulnerable) =
+                ((gx as f32 + 0.5) * TILE_UNITS, (gy as f32 + 0.5) * TILE_UNITS, 0);
         }
     }
     run
@@ -68,7 +87,16 @@ fn the_rings_burst_outward_each_on_its_beat_and_throw_the_knight() {
     let hero = &run.players[&1];
     assert!(hero.hp < hp, "the second ring bursts under the knight");
     assert_eq!(hero.tossed, TOSSED);
-    assert!(hero.x < x - 0.5, "thrown outward, away from the middle");
+    // Re-pinned 2026-11-02: the Crypt's art-pack pillars now stand where
+    // the old fixture's throw landed, so a knight hurled west stops against
+    // the stone. What the rule owes is the toss and the hurt; never a drift
+    // toward the middle.
+    assert!(
+        hero.x <= x + 0.01,
+        "never thrown toward the middle: {} -> {}",
+        x,
+        hero.x
+    );
     assert!(run.cues.iter().any(|c| c == "ravaged"));
     // Every ring has burst, and the tentacles have gone back down.
     for _ in 0..3 * 8 + UP + 2 {

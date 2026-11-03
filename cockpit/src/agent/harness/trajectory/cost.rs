@@ -138,11 +138,323 @@ fn u64_field(usage: &Value, key: &str) -> Option<u64> {
     usage.get(key).and_then(|v| v.as_u64())
 }
 
+/// One record's price features as the leg's plain numbers: token counts and
+/// presence flags exactly as the record reported them, and each rate as whole
+/// cents per million tokens (a rate of `r` USD/M crosses as `r * 100`). A term
+/// is then `tokens * rate_cents` in 1e-8 dollars, which is the native
+/// `round(tokens * rate / 1e6 * 1e8)` without any division.
+#[derive(serde::Serialize)]
+struct CostLegInput {
+    subscription: bool,
+    has_usage: bool,
+    any_usage_field: bool,
+    row_exists: bool,
+    in_total: u64,
+    in_cached: u64,
+    in_uncached: u64,
+    has_in_total: bool,
+    has_cache_read: bool,
+    has_uncached: bool,
+    has_output: bool,
+    out_tokens: u64,
+    has_reasoning: bool,
+    reason_tokens: u64,
+    cached_le_input: bool,
+    reasoning_separate: bool,
+    rate_cached_p: bool,
+    rate_uncached_p: bool,
+    rate_output_p: bool,
+    rate_reasoning_p: bool,
+    rate_cached_cents: u64,
+    rate_uncached_cents: u64,
+    rate_output_cents: u64,
+    rate_reasoning_cents: u64,
+    fee_e8: u64,
+}
+
+/// The leg's answer: which basis applies and, when the record is priced, the
+/// money as e8 numerators. The record's own identity fields (source, model,
+/// confirmed, the row's currency and date) are not decisions; they are copied
+/// from the row when the record is assembled.
+#[derive(serde::Deserialize)]
+struct CostLegDecision {
+    basis: String,
+    #[serde(default)]
+    paid_e8: u64,
+    #[serde(default)]
+    cached_e8: Option<u64>,
+    #[serde(default)]
+    fee_e8: u64,
+}
+
+/// A rate as whole cents per million tokens, or `None` when the leg cannot
+/// carry it exactly (negative, non-finite, or finer than a cent). Those records
+/// keep the native decision; a card with two decimal places never needs more.
+fn rate_cents(rate: Option<f64>) -> Option<(bool, u64)> {
+    match rate {
+        None => Some((false, 0)),
+        Some(rate) if rate.is_finite() && rate >= 0.0 => {
+            let cents = (rate * 100.0).round();
+            ((cents / 100.0) == rate).then_some((true, cents as u64))
+        }
+        Some(_) => None,
+    }
+}
+
+/// A Bend Nat is an immediate below 2^48; the four summed terms keep headroom.
+const LEG_NAT_LIMIT: u64 = 1 << 46;
+
+fn fits_leg_nat(tokens: u64, cents: u64) -> bool {
+    tokens
+        .checked_mul(cents)
+        .is_some_and(|product| product < LEG_NAT_LIMIT)
+}
+
+fn fee_e8(fee: Option<f64>) -> u64 {
+    fee.map(|fee| (fee * 1e8).round() as u64).unwrap_or(0)
+}
+
+/// e8 units back to dollars: the same value `round_cents` reports, because both
+/// are the nearest f64 to that exact amount.
+fn e8_dollars(units: u64) -> f64 {
+    units as f64 / 1e8
+}
+
+/// Native's separate-reasoning probe: a reasoning total is its own line only
+/// when every attempt declared it separate (and output was reported at all).
+fn reasoning_separate(usage: Option<&Value>, output: Option<u64>, reasoning: Option<u64>) -> bool {
+    reasoning.is_some()
+        && output.is_some()
+        && usage
+            .and_then(|usage| usage.get("reasoning_convention_attempts"))
+            .is_none_or(|conventions| {
+                conventions["separate"].as_u64() == usage.unwrap()["attempts"].as_u64()
+                    && usage.unwrap()["attempts"]
+                        .as_u64()
+                        .is_some_and(|n| n > 0)
+            })
+}
+
+/// The decision's features for one record, or `None` when a rate cannot be
+/// carried exactly.
+fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostLegInput> {
+    let usage = usage.filter(|value| value.is_object());
+    let input = usage.and_then(|usage| u64_field(usage, "input"));
+    let uncached_input = usage.and_then(|usage| u64_field(usage, "uncached_input"));
+    let cache_read = usage.and_then(|usage| u64_field(usage, "cache_read"));
+    let output = usage.and_then(|usage| u64_field(usage, "output"));
+    let reasoning = usage.and_then(|usage| u64_field(usage, "reasoning"));
+    let (rate_cached_p, rate_cached_cents) = rate_cents(row.and_then(|row| row.cached_input))?;
+    let (rate_uncached_p, rate_uncached_cents) = rate_cents(row.and_then(|row| row.input))?;
+    let (rate_output_p, rate_output_cents) = rate_cents(row.and_then(|row| row.output))?;
+    let (rate_reasoning_p, rate_reasoning_cents) = rate_cents(row.and_then(|row| row.reasoning))?;
+    // Bounds only, never a decision: a term the leg cannot hold in a Nat keeps
+    // the native record. Uncached tokens are the explicit total or `input`
+    // itself, so `max` of the two reported counts bounds them.
+    let cached_term = cache_read.is_some()
+        && (uncached_input.is_some()
+            || match (cache_read, input) {
+                (Some(cached), Some(total)) => cached <= total,
+                _ => false,
+            })
+        && rate_cached_p;
+    if cached_term && !fits_leg_nat(cache_read.unwrap_or(0), rate_cached_cents) {
+        return None;
+    }
+    if (uncached_input.is_some() || input.is_some())
+        && rate_uncached_p
+        && !fits_leg_nat(
+            uncached_input.unwrap_or(0).max(input.unwrap_or(0)),
+            rate_uncached_cents,
+        )
+    {
+        return None;
+    }
+    if output.is_some() && rate_output_p && !fits_leg_nat(output.unwrap_or(0), rate_output_cents)
+    {
+        return None;
+    }
+    if reasoning.is_some()
+        && rate_reasoning_p
+        && !fits_leg_nat(reasoning.unwrap_or(0), rate_reasoning_cents)
+    {
+        return None;
+    }
+    let fee_units = fee_e8(row.and_then(|row| row.plan_fee_usd_month));
+    if fee_units >= (1 << 48) {
+        return None;
+    }
+    Some(CostLegInput {
+        subscription: row.is_some_and(|row| row.plan_fee_usd_month.is_some()),
+        has_usage: usage.is_some(),
+        any_usage_field: input.is_some()
+            || uncached_input.is_some()
+            || cache_read.is_some()
+            || output.is_some()
+            || reasoning.is_some(),
+        row_exists: row.is_some(),
+        in_total: input.unwrap_or(0),
+        in_cached: cache_read.unwrap_or(0),
+        in_uncached: uncached_input.unwrap_or(0),
+        has_in_total: input.is_some(),
+        has_cache_read: cache_read.is_some(),
+        has_uncached: uncached_input.is_some(),
+        has_output: output.is_some(),
+        out_tokens: output.unwrap_or(0),
+        has_reasoning: reasoning.is_some(),
+        reason_tokens: reasoning.unwrap_or(0),
+        cached_le_input: match (cache_read, input) {
+            (Some(cached), Some(total)) => cached <= total,
+            _ => false,
+        },
+        reasoning_separate: reasoning_separate(usage, output, reasoning),
+        rate_cached_p,
+        rate_uncached_p,
+        rate_output_p,
+        rate_reasoning_p,
+        rate_cached_cents,
+        rate_uncached_cents,
+        rate_output_cents,
+        rate_reasoning_cents,
+        fee_e8: fee_units,
+    })
+}
+
+/// The decision's contract: a basis the native ladder actually produces for
+/// this record. Anything else keeps the native leg.
+fn cost_leg_check(row: Option<&PriceRow>, decision: &CostLegDecision) -> Result<(), String> {
+    let expected_fee = row.and_then(|row| row.plan_fee_usd_month);
+    match decision.basis.as_str() {
+        "subscription-marginal" if expected_fee.is_some() && decision.fee_e8 == fee_e8(expected_fee) => {
+            Ok(())
+        }
+        "list-price" if row.is_some() => Ok(()),
+        "no-price-row" if row.is_none() => Ok(()),
+        "unreported-usage" => Ok(()),
+        other => Err(format!("out-of-contract cost basis: {other}")),
+    }
+}
+
+/// The native record as the leg's decision shape, so the parity tests and an
+/// out-of-units record answer the same type. Test-only: the shipped leg is the
+/// fallback now.
+#[cfg(test)]
+fn native_decision(
+    model_id: &str,
+    usage: Option<&Value>,
+    row: Option<&PriceRow>,
+    source: &str,
+) -> CostLegDecision {
+    let rows: &[PriceRow] = row.map(std::slice::from_ref).unwrap_or(&[]);
+    let value = cost_with_rows(Some(model_id), usage, rows, source);
+    let e8 = |key: &str| {
+        value[key]
+            .as_f64()
+            .map(|amount| (amount * 1e8).round() as u64)
+    };
+    CostLegDecision {
+        basis: value["basis"].as_str().unwrap_or("unreported-usage").to_string(),
+        paid_e8: e8("paid").unwrap_or(0),
+        cached_e8: e8("cached"),
+        fee_e8: e8("plan_fee_usd_month").unwrap_or(0),
+    }
+}
+
+/// The record the native ladder would report, from the leg's decision. Every
+/// field is either the decided basis and money, or a copy of the row/record
+/// identity that no leg owns.
+fn cost_record(
+    model_id: &str,
+    usage: Option<&Value>,
+    row: Option<&PriceRow>,
+    source: &str,
+    decision: &CostLegDecision,
+) -> Value {
+    let unpriced = |basis: &str, source: &str| {
+        json!({"paid":null,"cached":null,"currency":null,"price_date":null,
+            "basis":basis,"source":source,"model":model_id})
+    };
+    match decision.basis.as_str() {
+        "subscription-marginal" => match row {
+            Some(row) => json!({
+                "paid": 0.0,
+                "cached": null,
+                "currency": "USD",
+                "price_date": row.price_date,
+                "basis": "subscription-marginal",
+                "plan_fee_usd_month": row.plan_fee_usd_month,
+                "confirmed": row.confirmed,
+                "source": source,
+                "model": model_id,
+            }),
+            None => unpriced("unreported-usage", "no-price-table"),
+        },
+        "list-price" => match row {
+            Some(row) => json!({
+                "paid": e8_dollars(decision.paid_e8),
+                "cached": decision.cached_e8.map(e8_dollars),
+                "currency": row.currency,
+                "price_date": row.price_date,
+                "basis": "list-price",
+                "source": source,
+                "model": model_id,
+            }),
+            None => unpriced("unreported-usage", "no-price-table"),
+        },
+        "no-price-row" => unpriced("no-price-row", source),
+        // The native ladder names "no-price-table" when the record reported no
+        // usable usage block at all, and the table source when it reported
+        // fields that no rate priced.
+        _ => {
+            let priced = usage.filter(|usage| usage.is_object()).is_some_and(|usage| {
+                ["input", "uncached_input", "cache_read", "output", "reasoning"]
+                    .iter()
+                    .any(|key| u64_field(usage, key).is_some())
+            });
+            unpriced("unreported-usage", if priced { source } else { "no-price-table" })
+        }
+    }
+}
+
+/// One record through the `cost` leg. `None` when the leg cannot be consulted
+/// at all.
+fn cost_leg(
+    model_id: &str,
+    usage: Option<&Value>,
+    row: Option<&PriceRow>,
+    source: &str,
+) -> Option<Value> {
+    let input = serde_json::to_value(cost_leg_input(usage, row)?).ok()?;
+    let (decision, _leg) = crate::agent::harness::live_policy::decide_shipped(
+        "cost",
+        &input,
+        |value: &CostLegDecision| cost_leg_check(row, value),
+    );
+    Some(cost_record(model_id, usage, row, source, &decision))
+}
+
+/// The record's cost through the live leg when it can decide, else natively.
+fn cost_decided(
+    model_id: Option<&str>,
+    usage: Option<&Value>,
+    rows: &[PriceRow],
+    source: &str,
+) -> Value {
+    let decided = model_id.filter(|id| !id.is_empty()).and_then(|model_id| {
+        let row = rows
+            .iter()
+            .find(|row| row.model == model_id)
+            .or_else(|| rows.iter().find(|row| family_prefix(&row.model, model_id)));
+        cost_leg(model_id, usage, row, source)
+    });
+    decided.unwrap_or_else(|| cost_with_rows(model_id, usage, rows, source))
+}
+
 /// Compute `cost` for one record from its own `usage` block. Called after the
 /// usage ledger is attached. Subscription marginal cost does not require tokens.
 pub(super) fn cost_for(model_id: Option<&str>, usage: Option<&Value>) -> Value {
     let (rows, source) = load_rows();
-    cost_with_rows(model_id, usage, &rows, source)
+    cost_decided(model_id, usage, &rows, source)
 }
 
 fn cost_with_rows(
@@ -268,7 +580,7 @@ pub(super) fn cost_for_attempts(
             let model = sample["identity"]["model"]["id"]
                 .as_str()
                 .filter(|model| !model.is_empty() && *model != "unbound");
-            let mut cost = cost_with_rows(model, Some(&sample["usage_accounting"]), &rows, source);
+            let mut cost = cost_decided(model, Some(&sample["usage_accounting"]), &rows, source);
             cost["attempt_id"] = sample["id"].clone();
             cost
         })

@@ -1,0 +1,132 @@
+# crates/delve/src/rules/bannerpeak/knight.rs — a seated knight.
+module bannerpeak.knight
+
+use world.TILE
+use body.Q
+use layout.WIDTH
+use layout.HEIGHT
+
+const PIPS: u8 = 8
+const START_PIPS: u8 = 6
+const BACK_PIPS: u8 = 3
+const WIPE_PIPS: u8 = 4
+const HURT_GRACE: u32 = 70
+const BUBBLE_TICKS: u32 = 330
+const PIT_TICKS: u32 = 14
+const POSE_TICKS: u32 = 54
+const B_JUMP: u8 = 1
+const B_DOWN: u8 = 2
+const B_ACT: u8 = 4
+const B_BRACE: u8 = 8
+const B_DIVE: u8 = 16
+const B_USE: u8 = 32
+const CAM_W: i32 = 384
+const CAM_H: i32 = 224
+
+# A knight standing at the feet position (x, y) pixels.
+fn Knight.at(joined: u32, x: i32, y: i32) -> Knight:
+  return Knight{joined: joined, body: Body::new(x, y), size: Size::Small, pips: START_PIPS, coins: 0, score: 0, chain: 0, hurt: 0, bubble: None, pit: 0, pose: 0, pole: 0, grip: 0, poled: false, safe: (x, y), safe_t: 0, cam: (0, 0), prev: 0, cooldown: 0, carry: false, shock: 0, landed: 0}
+
+# Standing and playing: not in a bubble, a pit or a pose.
+fn Knight.free(self: Knight) -> bool:
+  return self.bubble.is_none() && self.pit == 0 && self.pose == 0 && self.pole == 0
+
+# Able to rescue a friend, take a hit and be hit.
+fn Knight.alive(self: Knight) -> bool:
+  return self.bubble.is_none() && self.pit == 0
+
+fn Knight.big(self: Knight) -> bool:
+  return self.size != Size::Small
+
+# Whether button `b` is down in `bits` and was not down last tick.
+fn Knight.edge(self: Knight, bits: u32, b: u32) -> bool:
+  return bits & b != 0 && self.prev & b == 0
+
+# The keys of this tick as the body wants them, and the button bits to remember.
+fn Knight.cmd(self: Knight, i: Input) -> (Cmd, u8):
+  let up = i.move_y < 0
+  let jump = i.dash || up
+  let down = i.move_y > 0
+  let mut bits: u32 = 0
+  if jump:
+    bits |= B_JUMP
+  if down:
+    bits |= B_DOWN
+  if i.fire:
+    bits |= B_ACT
+  if i.interact:
+    bits |= B_BRACE
+  if i.swing:
+    bits |= B_DIVE
+  # Fire dives in the air for a knight with no flame to throw.
+  let dive = self.edge(bits, B_DIVE) || (self.edge(bits, B_ACT) && self.size != Size::Flame && !self.carry)
+  return (Cmd{x: i.move_x, jump: jump, jump_edge: self.edge(bits, B_JUMP), down: down, down_edge: self.edge(bits, B_DOWN), dive_edge: dive, brace: i.interact}, bits)
+
+# Whether fire was pressed this tick (for flames and for picking up).
+fn Knight.act_edge(self: Knight, bits: u32) -> bool:
+  return bits & B_ACT != 0 && self.prev & B_ACT == 0
+
+fn Knight.use_edge(self: Knight, bits: u32) -> bool:
+  return bits & B_BRACE != 0 && self.prev & B_BRACE == 0
+
+# Take a hit from the side `from`. Returns whether it landed; a size is lost before a wedge.
+fn Knight.hit(self: Knight mut, from: i8) -> bool:
+  if self.hurt > 0 || !self.free():
+    return false
+  self.hurt = HURT_GRACE
+  self.chain = 0
+  self.carry = false
+  if self.size == Size::Flame:
+    self.size = Size::Big
+  elif self.size == Size::Big:
+    self.size = Size::Small
+  else:
+    self.pips = self.pips.saturating_sub(1)
+  self.body.big = self.big()
+  self.body.hurt(from)
+  return true
+
+fn Bubble.valid(b: Bubble) -> bool:
+  return inc(b.x, 0, WIDTH * TILE * Q) && inc(b.y, -8 * TILE * Q, (HEIGHT + 4) * TILE * Q) && b.t <= BUBBLE_TICKS
+
+fn Knight.valid(self: Knight) -> bool:
+  if !self.body.valid():
+    return false
+  return self.pips <= PIPS && self.hurt <= HURT_GRACE && self.pit <= PIT_TICKS && self.pose <= POSE_TICKS && self.pole < 600 && inc(self.grip, 0, 9) && self.safe_t < 16777216 && self.cooldown <= 60 && self.shock <= 12 && self.landed < 16777216 && self.body.big == self.big() && self.chain <= 12 && self.coins < 1048576 && self.score < 268435456 && inc(self.safe.0, 0, WIDTH * TILE) && inc(self.safe.1, -64, HEIGHT * TILE + 64) && inc(self.cam.0, -512, WIDTH * TILE + 512) && inc(self.cam.1, -512, HEIGHT * TILE + 512) && (self.bubble.is_none() || Bubble::valid(self.bubble.unwrap()))
+
+# The camera `cam` eased toward a knight at feet (fx, fy) pixels facing `face`, moving
+# vx/vy (fixed units): it leads the way of travel, shows the drop on a fall, and never
+# lets the knight near the edge of the view.
+fn follow(cam: (i32, i32), fx: i32, fy: i32, face: i8, vx: i32, vy: i32) -> (i32, i32):
+  let lead = ((face as i32) * 26 + vx / 40).clamp(-70, 70)
+  let want_x = (fx + lead - CAM_W / 2).clamp(0, WIDTH * TILE - CAM_W)
+  # Feet a little below the middle; a fall pulls the view down after it.
+  let mut look: i32 = 0
+  if vy > 1500:
+    look = ((vy - 1500) / 40).min(48)
+  let want_y = (fy - 158 + look).clamp(0, HEIGHT * TILE - CAM_H)
+  let mut most_y: i32 = 6
+  if vy > 1500:
+    most_y = 14
+  let mut x = cam.0 + (want_x - cam.0).clamp(-7, 7)
+  let mut y = cam.1 + (want_y - cam.1).clamp(-most_y, most_y)
+  # Never lose the knight: keep them inside the middle of the view.
+  x = x.clamp(fx - 270, fx - 114).clamp(0, WIDTH * TILE - CAM_W)
+  y = y.clamp(fy - 200, fy - 70).clamp(0, HEIGHT * TILE - CAM_H)
+  return (x, y)
+
+struct KnightSmall:
+  free: bool
+  alive: bool
+  big: bool
+  act: bool
+  use: bool
+  bits: u8
+
+fn Knight.small(self: Knight, bits: u32) -> KnightSmall:
+  return KnightSmall{free: self.free(), alive: self.alive(), big: self.big(), act: self.act_edge(bits), use: self.use_edge(bits), bits: bits}
+
+case Knight.cmd: knight=self, input=i
+case Knight.hit: knight=self => knight=self, ok=ret
+case Knight.valid: knight=self
+case follow

@@ -39,6 +39,7 @@ the refusal is not a successful check.
 |---|---|
 | `/new`, `/clear` | Start a new conversation. |
 | `/sessions`, `/resume [id]` | List or resume current-project sessions; no ID selects the latest. |
+| `/peers` | List peer angelX instances publishing heartbeats to the shared peer directory (`ANGEL_PEER_DIR` / `~/.angelX/peers.json`, default `~/.angelX/peers/`), plus recent guardian resurrections recorded there. |
 | `/save`, `/rename <name>`, `/fork` | Save, rename or fork the session. |
 | `/archive`, `/delete` | Archive or delete the current session. |
 | `/history [1-50]`, `/retry`, `/undo`, `/redo` | Inspect or revise conversation history. |
@@ -87,6 +88,13 @@ the refusal is not a successful check.
 `benchmark_compare`, `loop_research` and `rl_campaign` are model tools, not
 slash commands. See [environment settings](../cockpit/docs/ENV.md).
 
+`/graph run polyglot-departments <task>` assigns eight non-game application
+departments of roughly 25,000 Rust lines each. Their analysis nodes can run in
+parallel; the graph orders code-writing nodes because they share a workspace,
+then integrates and reviews the result. The graph is a starting assignment:
+its line counts are approximate and its path boundaries are instructions to
+the agents, not filesystem-enforced restrictions.
+
 ## Display and execution controls
 
 | Command | Behavior |
@@ -94,7 +102,8 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/show <image\|video\|report>`, `/hide` | Open or close Scryglass media; video requires a video-enabled build. |
 | `/see <image>`, `/hear <audio>` | Attach media to the model flow; route capabilities apply. |
 | `/open <n\|url\|module>`, `/media` | Open a media card, URL or module; browse media. |
-| `/modules`, `/close <module>`, `/layout save\|load <name>` | Inspect modules or save/restore pane layout. |
+| `/modules`, `/close <module>`, `/layout save\|load <name>`, `/layout reload-manifests` | Inspect modules, save/restore pane layout, or reload the native surface manifests. |
+
 | `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate the overworld map, Dotmax scenery and room views. |
 | `/world visit school`, `/world visit school-study`, `/world visit school-vault` | Visit the School of Magic, its study, or its underground evidence archive. |
 | `/dungeon [start]` | Walk to the Delve's gate (`start` skips the walk). F4 expands the game; Esc returns to the composer. [The Delve](DELVE.md). |
@@ -107,6 +116,7 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/world follow` | Return from an explicit visit to the working knight; active quests use the 3D adventure view. |
 | `/world walk` | Step onto the map as your own knight. [Walking the map](#walking-the-map). |
 | `/raytrace`, `/cube` | Display the debug cube. |
+| `/heart` | Show or hide the Heartglass as floating modules over angelX's window; `/heart plate` explicitly puts it on its leaned plate, and `/heart float` returns to the floating default. `/heart demo` shows its synthetic demo campaign (no VE data read; safe to record anywhere). [The Heartglass](HEARTGLASS.md). |
 | `/tourney calibrate <scene>` | Display a calibration animation; it does not indicate a won run. |
 | `/trace`, `/rollout` | Toggle the tool transcript; `/rollout` shows the current session file path. |
 | `/redraw` | Repaint the terminal; also `Ctrl-L`. |
@@ -116,6 +126,17 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/approvals [on\|off\|probe\|selftest]` | Control or exercise the approval gate. |
 | `/yolo [on\|off\|status\|smart\|full]`, `/yolos [on\|off\|status]` | Change execution authority. Read [SECURITY.md](../SECURITY.md) first. |
 | `/experimental` | Inspect or toggle optional experiments. |
+
+`/layout reload-manifests` reads all six files in the active resource root's
+`cockpit/modules/` directory. It applies them together only if every file parses
+and retains its registered ID and native kind; an error leaves the current
+configuration in place. Current pane geometry, focus where available, and
+operator activation choices survive the reload. Data-source requirements take
+effect immediately; default rectangles and startup activation do not change
+existing surfaces. The embedded manifests remain the startup defaults, so run
+the command again after restarting to apply disk edits. This reloads surface
+configuration, not executable code. Finish saving the files before invoking it;
+the command reads each file once and does not coordinate concurrent editors.
 
 Compatibility names with limited behavior: `/setup-default-sandbox` and
 `/sandbox-add-read-dir` only display sandbox status; `/approve` and

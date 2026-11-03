@@ -1,0 +1,104 @@
+# crates/delve/src/rules/bodies.rs: what a knight in a monster's body fights with.
+# `Arms` is a transient value: {"kind": "bite", reach, arc, damage, drain, every}
+# or {"kind": "volley", chain: [[emitter, shot], ...], damage, every}.
+import Base
+
+def bodies.bite(kind: String, reach: F32, arc: F32, damage: U32, every: U32) -> J.Val:
+  o: J.Val = J.obj()
+  o = J.set(o, "kind", J.JS{"bite"})
+  o = J.set(o, "reach", J.of_f32(reach))
+  o = J.set(o, "arc", J.of_f32(arc))
+  o = J.set(o, "damage", J.of_u32(damage))
+  o = J.set(o, "drain", J.of_bool(String.eq(kind, "leech")))
+  J.set(o, "every", J.of_u32(every))
+
+def bodies.volley(chain: J.Val, damage: U32, every: U32) -> J.Val:
+  o: J.Val = J.obj()
+  o = J.set(o, "kind", J.JS{"volley"})
+  o = J.set(o, "chain", chain)
+  o = J.set(o, "damage", J.of_u32(damage))
+  J.set(o, "every", J.of_u32(every))
+
+def bodies.one(emitter: String, shot: String) -> J.Val:
+  J.JA{[J.JA{[J.JS{emitter}, J.JS{shot}]}]}
+
+def bodies.arms(kind: String, pack: String) -> J.Val:
+  fungal: Bool = String.eq(pack, "fungal")
+  if String.eq(kind, "hollow"):
+    return bodies.volley(bodies.one("darts", "frost"), 12, 15)
+  if String.eq(kind, "bat"):
+    return bodies.bite(kind, 1.3, 100.0, 16, 8)
+  if String.eq(kind, "warboar"):
+    return bodies.bite(kind, 1.6, 90.0, 34, 16)
+  if Bool.and(String.eq(kind, "slime"), Bool.not(fungal)):
+    return bodies.bite(kind, 1.5, 120.0, 22, 12)
+  if String.eq(kind, "flesher"):
+    return bodies.bite(kind, 1.9, 100.0, 30, 14)
+  if Bool.or(String.eq(kind, "spiderling"), String.eq(kind, "biter")):
+    return bodies.bite(kind, 1.1, 90.0, 12, 7)
+  if String.eq(kind, "shard"):
+    return bodies.bite(kind, 1.2, 90.0, 16, 8)
+  if String.eq(kind, "mole"):
+    return bodies.bite(kind, 1.5, 110.0, 26, 12)
+  if String.eq(kind, "leech"):
+    return bodies.bite(kind, 1.4, 80.0, 18, 10)
+  if String.eq(kind, "bog_hand"):
+    return bodies.bite(kind, 1.6, 120.0, 24, 12)
+  if String.eq(kind, "drowned"):
+    return bodies.bite(kind, 2.0, 110.0, 34, 18)
+  if String.eq(kind, "hound"):
+    return bodies.volley(bodies.one("lead", "ember"), 12, 14)
+  if String.eq(kind, "sapper"):
+    return bodies.volley(bodies.one("lob", "ball"), 30, 24)
+  if String.eq(kind, "hob"):
+    return bodies.volley(bodies.one("lob", "ball"), 26, 20)
+  if Bool.and(String.eq(kind, "spitter"), Bool.not(fungal)):
+    return bodies.volley(bodies.one("lob", "spore"), 16, 18)
+  if String.eq(kind, "hexer"):
+    return bodies.volley(bodies.one("burst", "spore"), 12, 15)
+  if String.eq(kind, "lich"):
+    return bodies.volley(bodies.one("darts", "frost"), 12, 15)
+  if String.eq(kind, "marksman"):
+    return bodies.volley(bodies.one("darts", "bolt"), 20, 24)
+  if String.eq(kind, "mirrorling"):
+    return bodies.volley(bodies.one("burst", "wisp"), 12, 14)
+  if String.eq(kind, "geode"):
+    return bodies.volley(bodies.one("gap_ring", "ore"), 10, 26)
+  if String.eq(kind, "broodmarrow"):
+    return bodies.volley(bodies.one("lob", "flame"), 24, 22)
+  if String.eq(kind, "wisp"):
+    return bodies.volley(bodies.one("flower", "wisp"), 10, 24)
+  sig: J.Val = patterns.signature(kind, pack, False{})
+  if J.is_null(sig):
+    return bodies.volley(bodies.one("burst", "wisp"), 12, 15)
+  bodies.volley(J.get(sig, "chain"), J.u32(J.get(sig, "damage")), RS.u_clamp((J.u32(J.get(sig, "every")) / 4 : U32), bodies.BODY_QUICKEST(), bodies.BODY_SLOWEST()))
+
+def bodies.cast(name: String, emitter: String, shot: String, damage: U32, chain: U32, stun: U32, chill: U32) -> J.Val:
+  o: J.Val = J.obj()
+  o = J.set(o, "name", J.JS{name})
+  o = J.set(o, "emitter", J.JS{emitter})
+  o = J.set(o, "shot", J.JS{shot})
+  o = J.set(o, "damage", J.of_u32(damage))
+  o = J.set(o, "chain", J.of_u32(chain))
+  o = J.set(o, "stun", J.of_u32(stun))
+  J.set(o, "chill", J.of_u32(chill))
+
+# The spell a knight in this body casts (null for none): {name, emitter, shot,
+# damage, chain, stun, chill}. Rimeleap's bounces and the hex's ticks are
+# lich::BOUNCES and hexer::HEX_TICKS.
+def bodies.spell(kind: String) -> J.Val:
+  if String.eq(kind, "lich"):
+    return bodies.cast("Rimeleap", "seeker", "frost", 30, lich.BOUNCES(), 0, 2)
+  if String.eq(kind, "hexer"):
+    return bodies.cast("Hex", "burst", "hex", 10, 0, RS.u_min(hexer.HEX_TICKS(), 255), 0)
+  if String.eq(kind, "necromancer"):
+    return bodies.cast("Grave Call", "reaim", "wisp", 18, 0, 0, 0)
+  if String.eq(kind, "shaman"):
+    return bodies.cast("Fire Rain", "rain", "flame", 20, 0, 0, 0)
+  if String.eq(kind, "hollow"):
+    return bodies.cast("Void Gaze", "sweep", "eye", 30, 0, 0, 0)
+  if String.eq(kind, "demon"):
+    return bodies.cast("Hellsweep", "sweep", "flame", 30, 0, 0, 0)
+  if String.eq(kind, "wraith"):
+    return bodies.cast("Stare", "laser", "eye", 30, 0, 0, 0)
+  J.JNull{}

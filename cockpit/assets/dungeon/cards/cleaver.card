@@ -1,0 +1,16 @@
+# The Butcher's own: a cleaver as long as a man's arm.
+name   Cleaver
+kind   arm
+rarity relic
+text   Hold F: heavy chops up close.
+drop   0
+chest  0
+look   steel blade
+melee  damage=32 reach=3.0 arc=140 every=16
+art
+WWWWW...
+WiiiWh..
+WWWWWh..
+...hBB..
+....BB..
+....bb..

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.odoor.fungal",
-  "source_path": "/work/tmp/dungeon-fin/crates/delve/assets/dungeon-src/dgn.odoor.fungal/source-sheet.png",
+  "source_path": "angelX-archive/2026-10-20/source-art/dungeon-src/dgn.odoor.fungal/source-sheet.png",
   "source_sha256": "706b6bcbedbf091455d646ae392e9b8cb5e306c4f71265713dfbb1674be02d30",
   "tool_version": 2
 }

@@ -695,7 +695,7 @@ fn dungeon_miniviz_stays_the_realm_while_a_delve_is_on() {
     app.collapse_dungeon();
     app.input = "Tune my sword".into();
     app.cursor = 5;
-    let raid = app.dungeon.shooter.as_ref().unwrap().raid_id;
+    let raid = app.realm.dungeon.shooter.as_ref().unwrap().raid_id;
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(64, 24)).unwrap();
     terminal
         .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
@@ -712,7 +712,7 @@ fn dungeon_miniviz_stays_the_realm_while_a_delve_is_on() {
         "the mini-viz is the realm, not the room: {text}"
     );
     assert_eq!(app.input, "Tune my sword");
-    assert!(!app.dungeon.expanded);
-    assert!(app.dungeon.hosting.is_none());
-    assert_eq!(app.dungeon.shooter.as_ref().unwrap().raid_id, raid);
+    assert!(!app.realm.dungeon.expanded);
+    assert!(app.realm.dungeon.hosting.is_none());
+    assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().raid_id, raid);
 }

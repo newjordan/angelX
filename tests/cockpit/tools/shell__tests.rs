@@ -324,15 +324,21 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
     let _target = crate::tests::TestEnvGuard::set("CARGO_TARGET_DIR", target.to_str().unwrap());
     let _build_target = crate::tests::TestEnvGuard::unset("CARGO_BUILD_TARGET_DIR");
 
+    let manifest = dir.join("Cargo.toml");
+    let check = format!(
+        "cargo check --offline --manifest-path {}",
+        manifest.display()
+    );
     // Ground truth: unpiped, this build fails (cargo exits 101).
-    let (bare_exit, bare_verdict, _) = row(&dir, "cargo check");
+    // --manifest-path pins the check to this scratch crate.
+    let (bare_exit, bare_verdict, _) = row(&dir, &check);
     if bare_exit.is_none() || bare_verdict == VERDICT_NONE {
         return; // no usable cargo in this environment — nothing to assert
     }
     assert_eq!(bare_verdict, VERDICT_FAIL, "the crate really is broken");
 
     // The real-world case, verbatim.
-    let (exit, verdict, _) = row(&dir, "cargo check 2>&1 | tail -20");
+    let (exit, verdict, _) = row(&dir, &format!("{check} 2>&1 | tail -20"));
     assert_ne!(
         verdict, VERDICT_PASS,
         "a broken build behind `| tail -20` must never record a pass (got exit {exit:?})"
@@ -345,13 +351,13 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
 
     // `| head -N` truncates, but cargo (like every Rust binary) ignores
     // SIGPIPE, so the build verdict survives that too.
-    let (_, verdict, _) = row(&dir, "cargo check 2>&1 | head -5");
+    let (_, verdict, _) = row(&dir, &format!("{check} 2>&1 | head -5"));
     assert_ne!(verdict, VERDICT_PASS, "still not a pass through `| head`");
 
     // And the same pipelines over a crate that DOES build must still pass —
     // the fix must not manufacture failures.
     std::fs::write(dir.join("src/main.rs"), "fn main() { println!(\"ok\"); }\n").unwrap();
-    for cmd in ["cargo check", "cargo check 2>&1 | tail -20"] {
+    for cmd in [check.as_str(), &format!("{check} 2>&1 | tail -20")] {
         assert_eq!(row(&dir, cmd).1, VERDICT_PASS, "{cmd} on a good crate");
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -572,53 +578,21 @@ fn interactive_shell_allows_long_sleep() {
     assert!(task_shell_poll_redirect("sleep 2; cargo check").is_none());
 }
 
+fn sleep_guard_cases(group: &str) -> Vec<String> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/sleep-guard-cases.json");
+    let mut cases: std::collections::BTreeMap<String, Vec<String>> =
+        serde_json::from_slice(&std::fs::read(path).expect("sleep guard cases fixture"))
+            .expect("valid sleep guard cases fixture");
+    assert_eq!(cases.len(), 2);
+    assert_eq!(cases["reject"].len(), 43);
+    assert_eq!(cases["allow"].len(), 31);
+    cases.remove(group).expect("known sleep guard case group")
+}
+
 #[test]
 fn interactive_sleep_guard_recognizes_literal_duration_and_command_forms() {
-    for command in [
-        "sleep 1m",
-        "sleep .01h",
-        "sleep 0.001d",
-        "sleep 1e2",
-        "sleep inf",
-        "sleep 6 6",
-        "sleep 0.1m 5s",
-        "sleep 1;sleep 30",
-        "true&&sleep 30",
-        "printf ok|sleep 30",
-        "(sleep 30)",
-        "/bin/sleep 30",
-        "'sleep' '30'",
-        "sl\\eep 30",
-        "DELAY=30 sleep 30",
-        "time -p sleep 30",
-        "time -p -- sleep 30",
-        "command -- sleep 30",
-        "exec -a wait sleep 30",
-        "env -u DELAY sleep 30",
-        "env --unset DELAY sleep 30",
-        "env --chdir=/tmp sleep 30",
-        "env -S 'sleep 30'",
-        "env --split-string='sleep 1m'",
-        "env -S 'sleep' 30",
-        "timeout 60 sleep 30",
-        "timeout -k 2 -s TERM 60 sleep 30",
-        "gtimeout --signal=TERM 60s sleep 30",
-        "nice -n 10 sleep 30",
-        "stdbuf -oL sleep 30",
-        "busybox sleep 30",
-        "eval 'sleep 30'",
-        "ssh host 'sleep 30'",
-        "ssh -o BatchMode=yes -p 22 host 'sleep 1m'",
-        "ssh -p22 host sleep 30",
-        "while true;do sleep 30;done",
-        "sleep 30 >/dev/null",
-        "sleep '30'>/dev/null",
-        "sleep 1m>/dev/null",
-        "2>/dev/null sleep 30",
-        "bash -lc 'sleep 1m'",
-        "bash --noprofile -o pipefail -c 'sleep 30'",
-        "sh -c \"sleep 6 6\"",
-    ] {
+    for command in sleep_guard_cases("reject").iter().map(String::as_str) {
         assert!(
             contains_excessive_sleep(command, 10),
             "must reject {command:?}"
@@ -628,39 +602,7 @@ fn interactive_sleep_guard_recognizes_literal_duration_and_command_forms() {
 
 #[test]
 fn interactive_sleep_guard_allows_short_waits_and_literal_data() {
-    for command in [
-        "sleep 10",
-        "sleep 5s 5s",
-        "sleep 0.1m",
-        "sleep 0.002h",
-        "sleep --help",
-        "sleep 30 --help",
-        "sleep 30 --bogus",
-        "sleep 30>/dev/null",
-        "sleep \"3\\0\"",
-        "\"sl\\eep\" 30",
-        "command -v sleep 30",
-        "command -V sleep 30",
-        "env --help sleep 30",
-        "env -S 'printf \"sleep 30\"'",
-        "nohup --help sleep 30",
-        "timeout --help sleep 30",
-        "nice --help sleep 30",
-        "ssh -G host sleep 30",
-        "ssh host 'printf \"sleep 30\"'",
-        "eval 'printf \"sleep 30\"'",
-        "printf '%s\\n' 'sleep 30'",
-        "printf '%s\\n' sleep 30",
-        "grep -n \"sleep 30\" benchmark.sh",
-        "rg sleep 30",
-        "cat sleep 30",
-        "echo sleep 30 # sleep 1m",
-        "cat <<'EOF'\nsleep 30\nEOF",
-        "bash -c 'printf \"sleep 30\"'",
-        "bash benchmark.sh -c 'sleep 30'",
-        "printf ok >sleep 30",
-        "sleep 1;printf done",
-    ] {
+    for command in sleep_guard_cases("allow").iter().map(String::as_str) {
         assert!(
             !contains_excessive_sleep(command, 10),
             "must allow {command:?}"

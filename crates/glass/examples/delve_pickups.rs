@@ -1,11 +1,15 @@
 //! The floor pickups as the window draws them (crates/delve
-//! render/overworld/arena/pickup_cards.rs): every kind of pickup the book
-//! has lying in rows on one fight room's floor, each a card turning about its
-//! upright over a pool of light, drawn as solid shapes by the GPU core
-//! offscreen, as the window draws the Delve's stage. With `--lit` the room is
-//! stood up in 3D and its pickups are the older shapes (`pickup_meshes`).
+//! render/overworld/arena/pickup_cards.rs, item_pack.rs): every kind of
+//! pickup the book has lying in rows on one fight room's floor, what has an
+//! approved model dropped onto the floor as it, the rest each a card turning
+//! about its upright, over a pool of light, drawn by the GPU core offscreen,
+//! as the window draws the Delve's stage. With `--lit` the room is stood up
+//! in 3D and its pickups are the older shapes (`pickup_meshes`). With
+//! `--age T` every pickup was let go of `T` ticks ago (a model is still
+//! falling under 20 or so); with `--friend` a friend has taken their own of
+//! each, and is seen taking one.
 //!
-//! cargo run --release -p angel-glass --example delve_pickups -- <outdir> [--scale N] [--room ITEM] [--cards a,b,c] [--turn N] [--lit]
+//! cargo run --release -p angel-glass --example delve_pickups -- <outdir> [--scale N] [--room ITEM] [--cards a,b,c] [--turn N] [--lit] [--age T] [--friend]
 //!
 //! Writes `pickups-<n>.png`, the book's cards in groups of forty laid in rows
 //! on the room's floor. With `--turn N` it also writes `turn.png`, one row
@@ -51,6 +55,7 @@ fn run() -> Result<(), String> {
     let mut words = std::env::args().skip(1);
     let (mut out, mut scale, mut room_id, mut only, mut lit) = (None, 3u32, String::from("crypt-processional"), None::<String>, false);
     let mut turn = 0u32;
+    let (mut age, mut friend) = (None::<u64>, false);
     while let Some(word) = words.next() {
         match word.as_str() {
             "--scale" => {
@@ -65,6 +70,8 @@ fn run() -> Result<(), String> {
             // The room stood up lit in 3D, as a page that draws scenes sees
             // it: pickups as cards with their drawings (`pickup_cards`).
             "--lit" => lit = true,
+            "--age" => age = Some(words.next().and_then(|w| w.parse().ok()).ok_or("--age takes ticks")?),
+            "--friend" => friend = true,
             _ if out.is_none() => out = Some(PathBuf::from(word)),
             other => return Err(format!("`{other}`: {usage}")),
         }
@@ -87,8 +94,13 @@ fn run() -> Result<(), String> {
         .collect();
     eprintln!("{} cards", cards.len());
     let mut proof = room::proof(&room_id)
-        .ok_or_else(|| format!("no such proof room; the items are {:?}", angel_delve::world3d::assets::ids()))?;
+        .ok_or_else(|| format!("no such proof room; the items are {:?}", angel_delve::world3d::pilot::all().iter().map(|i| i.id()).collect::<Vec<_>>()))?;
     let (w, h) = arena::seat_size();
+    if friend {
+        proof.run.join("Ann");
+    }
+    // Late enough in the run that every drop's tick is its own.
+    proof.run.tick = proof.run.tick.max(10_000);
     for (n, group) in cards.chunks(40).chain(cards.is_empty().then_some(&[][..])).enumerate() {
         let (cx, cy) = {
             let at = proof.run.at;
@@ -108,13 +120,17 @@ fn run() -> Result<(), String> {
             }
             for (k, id) in group.iter().enumerate() {
                 let (col, row) = ((k % 8) as f32, (k / 8) as f32);
-                room.items.push(angel_delve::rules::Item {
-                    card: id.clone(),
-                    x: x0 + col * 2.4,
-                    y: y0 + row * 2.8,
-                    held_off: None,
-                    took: Vec::new(),
-                });
+                let mut item = angel_delve::rules::Item::lying(id.clone(), x0 + col * 2.4, y0 + row * 2.8, 0);
+                if let Some(age) = age {
+                    // Each its own drop, a tick apart, so no two lie alike.
+                    item.dropped = proof.run.tick + 1 - age + k as u64 % 3;
+                } else {
+                    item.dropped = 1 + k as u64 * 37;
+                }
+                if friend {
+                    item.took.push(2);
+                }
+                room.items.push(item);
             }
             (x0 + 8.4, y0 + 14.0)
         };
@@ -122,12 +138,23 @@ fn run() -> Result<(), String> {
             (hero.x, hero.y) = (cx + 9.0, cy);
             hero.camera = Some((cx, cy - 6.0));
         }
+        if let Some(ann) = proof.run.players.get_mut(&2) {
+            (ann.x, ann.y) = (cx - 12.0, cy - 2.0);
+        }
+        if friend {
+            // Ann has just taken her own of the first, and it flies to her.
+            let first = proof.run.room().items.first().map(|i| (i.x, i.y));
+            if let Some((x, y)) = first {
+                proof.run.feel.takes.push(angel_delve::rules::feel::Take { x, y, by: 2, ttl: 38 });
+            }
+        }
         proof.run.tick += 1;
         let scene = Arc::new(arena::seat_scene(&proof.run, w as i32, h as i32, Some(1)));
         let mut maker = StageMaker::default();
         let mut frame = maker.make(&scene, |_| None);
         for _ in 0..4 {
             gpu.upload(std::mem::take(&mut frame.pictures));
+            gpu.meshes(std::mem::take(&mut frame.meshes));
             frame = maker.make(&scene, |_| None);
         }
         let size = (frame.size.0 * scale, frame.size.1 * scale);
@@ -175,7 +202,7 @@ fn filmstrip(gpu: &mut Gpu, proof: &mut room::Proof, cards: &[String], frames: u
         let mut cell = (0, 0);
         for k in 0..frames {
             let at = proof.run.at;
-            proof.run.dungeon.rooms[at].items = vec![angel_delve::rules::Item { card: id.clone(), x: px, y: py, held_off: None, took: Vec::new() }];
+            proof.run.dungeon.rooms[at].items = vec![angel_delve::rules::Item { card: id.clone(), x: px, y: py, held_off: None, took: Vec::new(), dropped: 0, owner: None }];
             // The tick at which this card, here, is `k` frames of the turn
             // round from its start.
             // (The phase is the card's own place in the turn at tick 0:
@@ -188,6 +215,7 @@ fn filmstrip(gpu: &mut Gpu, proof: &mut room::Proof, cards: &[String], frames: u
             let mut frame = maker.make(&scene, |_| None);
             for _ in 0..4 {
                 gpu.upload(std::mem::take(&mut frame.pictures));
+                gpu.meshes(std::mem::take(&mut frame.meshes));
                 frame = maker.make(&scene, |_| None);
             }
             let size = (frame.size.0 * scale, frame.size.1 * scale);
@@ -251,6 +279,15 @@ impl Gpu {
     fn upload(&mut self, pictures: Vec<angel_stage::Picture>) {
         for p in pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });
+        }
+    }
+
+    /// The models a frame names, as the window takes them (`Host::upload_mesh`).
+    fn meshes(&mut self, meshes: Vec<(u32, angel_stage::scene::MeshData)>) {
+        for (id, mesh) in meshes {
+            if let Err(why) = self.core.upload_mesh(id, &mesh) {
+                eprintln!("mesh {id} refused: {why:?}");
+            }
         }
     }
 

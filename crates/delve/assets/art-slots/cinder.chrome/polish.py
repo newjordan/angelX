@@ -1,8 +1,12 @@
 from pathlib import Path
 from PIL import Image
-import json,hashlib,math
+import json,hashlib,math,os
+def env_dir(name):
+ value=os.environ.get(name)
+ if not value:raise SystemExit(f'set {name} to the art-production directory it names')
+ return Path(value)
 root=Path(__file__).resolve().parents[5]
-slot='latch.room'; dst=Path('/work/artifacts/boss-art-20261015/polish-a/prepared')/slot;dst.mkdir(parents=True,exist_ok=True)
+slot='latch.room'; dst=env_dir('POLISH_PREPARED')/slot;dst.mkdir(parents=True,exist_ok=True)
 mfile=root/'crates/delve/assets/art-slots'/slot/(slot+'.map.json');m=json.loads(mfile.read_text())
 src=Path(m['source_preparation']['original_path']);assert hashlib.sha256(src.read_bytes()).hexdigest()==m['source_preparation']['original_sha256']
 im=Image.open(src).convert('RGBA');px=im.load()

@@ -249,7 +249,7 @@ Examined and left:
   and `rl_ctl.rs` text shared with the operator's `/rl` (launch message,
   `log_tail`, settle errors), whose reader cannot decode the ledger.
 
-### 2026-09-29 (local, atlas) — pre-registration: four models in place of GLM
+### 2026-09-29 (local, the workstation) — pre-registration: four models in place of GLM
 
 Written before any counted run. The operator replaced the hand-off's single
 GLM-5.3 with four models, to calibrate the introduction across providers and
@@ -333,35 +333,35 @@ harness is built to compete in.
   compared with the verified iterations in the loop record. Any `status`
   calls the model made itself are read from the log as well.
 
-### 2026-09-29 (local) — E3 moves to sparky (operator's call)
+### 2026-09-29 (local) — E3 moves to the DGX Spark host (operator's call)
 
-Written before any counted session on the new host. Benchmarks run on sparky
-(DGX Spark, aarch64, 20 cores, 121 GiB), not on atlas; the bench lives on its
-external drive (`/srv/models-hdd/angelx-bench`, `WORKROOT` there).
+Written before any counted session on the new host. Benchmarks run on the DGX
+Spark host (aarch64, 20 cores, 121 GiB), not on the workstation; the bench lives on its
+external drive (`<bench-root>`, `WORKROOT` there).
 
-- **Atlas round 1 is not counted.** Its six sessions (both arms of GLM flash,
+- **The workstation's round 1 is not counted.** Its six sessions (both arms of GLM flash,
   DeepSeek flash and Muse) were stopped at 5,488 s of the registered 7,200 s
   when the operator moved the benchmarks. Its logs stay under `out/e3-*-1.*`
   and are reported as a truncated pilot only.
-- **The counted design is unchanged:** five fresh rounds on sparky, the same
+- **The counted design is unchanged:** five fresh rounds on the Spark host, the same
   `DEV` build (`158b7a8`, built natively for aarch64), the same heesch commit
-  (`947f057`, set up on sparky) and the same settings.
-- **Muse needs its key on sparky.** Its rounds run as soon as the operator
+  (`947f057`, set up on the Spark host) and the same settings.
+- **Muse needs its key on the Spark host.** Its rounds run as soon as the operator
   provides it; each Muse round still pairs its two arms in time.
-- **Session hygiene.** On atlas, solvers the models started under
+- **Session hygiene.** On the workstation, solvers the models started under
   `angel-sandbox` outlived their TUI (24 processes). The session now stops
   every process still working in its workspace at the end. The harness bug
   behind it is fixed too (`54e6a34`, `4b5cbab`).
-- **The first sparky launch was aborted, and its logs are not counted
-  (`out/aborted-sparky-round1/`).**
+- **The first launch on the Spark host was aborted, and its logs are not
+  counted (kept apart under `out/aborted-*-round1/`).**
   - A random proxy port collided: the GLM bare session's proxy failed to
     bind, and its harness talked to a DeepSeek session's proxy, which logged
     six GLM requests answered with 400s.
   - Proxies now take an OS-assigned port and prove they bound it (`d1b9d59`).
-  - The counted run restarted at 16:23. The atlas logs carry no mismatched
+  - The counted run restarted at 16:23. The workstation's logs carry no mismatched
     model.
 
-### 2026-09-29 (sparky) — pre-registration: Grok joins E1, E2, E3 and E5
+### 2026-09-29 (DGX Spark) — pre-registration: Grok joins E1, E2, E3 and E5
 
 Written before any counted Grok run. The operator approved their logged-in Grok
 OAuth for the benchmarks.
@@ -371,8 +371,8 @@ OAuth for the benchmarks.
   (re-read from `~/.grok/auth.json` at most once a minute); the harness sees
   only a placeholder key. Near expiry, one minimal call through angelX's own
   Grok OAuth seat refreshes and persists the token.
-- **Host.** Grok runs on sparky; E1, E2 and E5 for the other three models ran
-  on atlas. Tokens, turns and ledger reads do not depend on the host. Wall
+- **Host.** Grok runs on the Spark host; E1, E2 and E5 for the other three
+  models ran on the workstation. Tokens, turns and ledger reads do not depend on the host. Wall
   time does, so Grok's wall is compared only within its own arms.
 - **The same protocol throughout:**
   - E1: intro, bare and pre-book on the two-bug task, n = 5 per arm, shuffled
@@ -384,8 +384,8 @@ OAuth for the benchmarks.
   for the introduction was fixed with three models and has already fired
   (two of three killed), so Grok's E1 is reported as a fourth model's finding
   and does not reopen the flip.
-- **The Muse key is on sparky**, pinned to `muse-spark-1.3-contributor` (the
-  operator's call, for price). Muse's E3 rounds run on sparky, and its wire
+- **The Muse key is on the Spark host**, pinned to `muse-spark-1.3-contributor` (the
+  operator's call, for price). Muse's E3 rounds run on the Spark host, and its wire
   shows only that model.
 
 ### 2026-09-29 (local) — E1: the introduction on three models — killed on two
@@ -466,7 +466,7 @@ introduction's English is the largest share of a short prompt.
 GLM's tokenizer counts the same 213-request wire about 30% smaller than
 DeepSeek's or Muse's.
 
-### 2026-09-29 (sparky) — Grok: E1 and E2
+### 2026-09-29 (DGX Spark) — Grok: E1 and E2
 
 Grok 4.7 at effort `low`, as pre-registered (n = 5 per arm, shuffled; 15/15
 solved; 0 ledger reads).
@@ -555,10 +555,10 @@ What went wrong here, stated plainly:
   meaning arrives inline. Whether the legend's routes change actions is
   E3's measure.
 - **Muse's legend arm is rerun on the fixed build**
-  (`e1-muse-introfix-*`, sparky), since its first intro arm never received
+  (`e1-muse-introfix-*`, on the Spark host), since its first intro arm never received
   the legend.
 
-### 2026-09-29 (sparky) — does a route change the next move? (decision replay)
+### 2026-09-29 (DGX Spark) — does a route change the next move? (decision replay)
 
 The test E1 could not run: at a route's decision point, does the model's next
 move become the route's action? The harness's own requests at three decision
@@ -619,10 +619,10 @@ Totals: ⠺⠛ 16 / 21 / 23 / **35** of 40; ⠧⠋ 19 / – / 10 / **35** of 40.
   per cell, so the intervals are wide (95% Wilson in the report). Muse was
   asked over its Chat Completions endpoint, not its Responses seat.
 
-Data: `/work/artifacts/book-handoff-20260929/decide/` (captures and every
+Data: `<artifacts>/book-handoff-20260929/decide/` (captures and every
 reply); report section "Does a route change the next move?".
 
-### 2026-09-29 (sparky) — the legend against English at every sighting
+### 2026-09-29 (DGX Spark) — the legend against English at every sighting
 
 The operator's question: is the legend more efficient than injecting English
 into the prompt? The fair competitor is the same routes with their English at

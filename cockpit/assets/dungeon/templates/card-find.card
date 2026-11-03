@@ -1,0 +1,31 @@
+# TEMPLATE: a card a knight finds (in a chest, from a monster) and keeps.
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+# and add it to cockpit/assets/dungeon/cards/ and `cards::BUILTIN` when it passes.
+#
+# Change: name (at most 22), kind (take, hold, play, arm, guard or spell),
+#   rarity (common, rare, relic), text (one line of what it does, at most 64),
+#   its effects (at most 3, from `/dungeon cards`), the art.
+# Keep: numbers inside their ranges (a number past one is held to it, and the
+#   card says so: write the number the game will use); `drop` and `chest` only
+#   to weigh it off its rarity's own.
+# The bar: its art Fine or better (a template, Masterwork), up to 16 by 16:
+#   one silhouette, a dark edge, 4 to 6 inks shaded dark to light.
+name   Hunter's Whetstone
+kind   hold
+rarity common
+text   An edge kept keen: every shot and swing bites a little deeper.
+damage 8
+art
+...........KK.
+..........KHK.
+.........KHiK.
+........KHiK..
+.......KHiK...
+..KKKKKHiKKK..
+.KuvvvVHKvvuK.
+KuvVVVVvvvvvuK
+KuUvvvvvvvvUuK
+KsuUUUUUUUUusK
+.KssuuuuuussK.
+..KKKKKKKKKK..

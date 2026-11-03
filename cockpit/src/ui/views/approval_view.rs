@@ -4,6 +4,7 @@ use crate::{
     hud::{HUD_BLUE, HUD_GOLD, HUD_TEXT, panel_style},
 };
 use ratatui::{
+    buffer::Buffer,
     crossterm::event::KeyCode,
     layout::Rect,
     style::{Modifier, Style},
@@ -138,6 +139,95 @@ pub fn decision_text(decision: Decision) -> &'static str {
         Decision::ApproveAll => "approved (all this turn)",
         Decision::Deny => "denied",
     }
+}
+
+/// The ask as the window's card: the prompt, its scope, and the three
+/// answers as rows that take a click, each with its key. The squire stands
+/// guard on the roof; the card pops in at once, never waiting on him.
+#[cfg(feature = "glass")]
+pub(crate) fn card(
+    root: Rect,
+    prompt: &str,
+    scope_label: Option<&str>,
+) -> Option<(angel_glass::card::Card, Vec<(Rect, Decision)>)> {
+    use super::setup_view::{ACCENT, BRIGHT, INSET, SOFT, TEXT};
+    use angel_glass::card::{Card, Entrance, Knight, TITLE_ROWS};
+    const MOST_PROMPT_ROWS: usize = 12;
+    let width = root.width.saturating_sub(8).min(MODAL_MAX_WIDTH + 12);
+    let room = usize::from(width.saturating_sub(2 * INSET)).max(1);
+    if width < MODAL_MIN_WIDTH + 2 * INSET || root.height < TITLE_ROWS + 8 {
+        return None;
+    }
+    let mut prompt_rows: Vec<String> = prompt
+        .split('\n')
+        .flat_map(|line| {
+            let chars: Vec<char> = line.chars().collect();
+            if chars.is_empty() {
+                return vec![String::new()];
+            }
+            chars.chunks(room).map(|c| c.iter().collect()).collect::<Vec<String>>()
+        })
+        .collect();
+    if prompt_rows.len() > MOST_PROMPT_ROWS {
+        prompt_rows.truncate(MOST_PROMPT_ROWS);
+        if let Some(last) = prompt_rows.last_mut() {
+            last.push('…');
+        }
+    }
+    let answers = [
+        ("y", "Approve", Decision::Approve),
+        ("a", "Approve all this turn", Decision::ApproveAll),
+        ("n", "Deny", Decision::Deny),
+    ];
+    let scope_rows = usize::from(scope_label.is_some()) * 2;
+    let height = TITLE_ROWS + (prompt_rows.len() + scope_rows + 1 + answers.len() + 2) as u16;
+    let height = height.min(root.height.saturating_sub(4));
+    let mut buffer = Buffer::empty(Rect::new(0, 0, width, height));
+    let right = width.saturating_sub(INSET);
+    let mut y = TITLE_ROWS;
+    for (i, row) in prompt_rows.iter().enumerate() {
+        let ink = if i == 0 { BRIGHT } else { TEXT };
+        buffer.set_stringn(INSET, y, row, usize::from(right - INSET), Style::new().fg(ink));
+        y += 1;
+    }
+    if let Some(scope) = scope_label {
+        y += 1;
+        buffer.set_stringn(INSET, y, format!("{SCOPE_PREFIX}{scope}"), usize::from(right - INSET), Style::new().fg(SOFT));
+        y += 1;
+    }
+    y += 1;
+    let mut hits = Vec::new();
+    let first = y;
+    for (key, words, decision) in answers {
+        if y + 1 >= height {
+            break;
+        }
+        let picked = y == first;
+        let x = buffer.set_stringn(INSET, y, key, 1, Style::new().fg(ACCENT)).0;
+        let style = if picked { Style::new().fg(BRIGHT).add_modifier(Modifier::BOLD) } else { Style::new().fg(TEXT) };
+        buffer.set_stringn(x + 2, y, words, usize::from(right.saturating_sub(x + 2)), style);
+        hits.push((Rect::new(INSET - 1, y, width - 2 * INSET + 2, 1), decision));
+        y += 1;
+    }
+    let area = Rect::new(
+        root.x + root.width.saturating_sub(width) / 2,
+        root.y + root.height.saturating_sub(height) / 2 + 1,
+        width,
+        height,
+    );
+    let mut card = Card::new(area, buffer)?;
+    card.title = "Approval needed".into();
+    card.serial = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        prompt.hash(&mut hasher);
+        scope_label.hash(&mut hasher);
+        hasher.finish()
+    };
+    card.cursor = Some(first);
+    card.knight = Knight::Guard;
+    card.entrance = Entrance::Pop;
+    Some((card, super::setup_view::offset(hits, area)))
 }
 
 #[cfg(test)]

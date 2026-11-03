@@ -76,6 +76,45 @@ impl Club for ScriptedClub {
     }
 }
 
+#[test]
+fn compaction_fanout_ledger_reads_use_parent_book_generation() {
+    struct LedgerClub;
+    impl Club for LedgerClub {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Err("connected ledger test must use chat".into())
+        }
+        fn label(&self) -> &str {
+            "ledger-fixture"
+        }
+        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+            if let Some(message) = messages
+                .iter()
+                .rev()
+                .find(|m| m.role == crate::agent::club::ChatRole::Tool)
+            {
+                return Ok(ClubReply::Text(message.content.to_string()));
+            }
+            Ok(ClubReply::Calls(vec![ToolCall {
+                id: "ledger-read".into(),
+                name: "read_file".into(),
+                args: serde_json::json!({"path": "ledger://⠣⠁⠁"}),
+            }]))
+        }
+    }
+    let mut catalog = crate::agent::harness::book::catalog::Catalog::baseline();
+    catalog.set_test_page(
+        crate::agent::harness::book::Route::new('⠣', '⠁'),
+        0,
+        "pinned compaction navigation",
+    );
+    let _scope = crate::agent::harness::book::catalog::enter(std::sync::Arc::new(catalog));
+    let replies = fan_out(&LedgerClub, &["first".into(), "second".into()]);
+    assert_eq!(replies.len(), 2);
+    for reply in replies {
+        assert!(reply.unwrap().contains("pinned compaction navigation"));
+    }
+}
+
 fn sys(s: &str) -> ChatMsg {
     ChatMsg::system(s)
 }
@@ -1198,5 +1237,257 @@ fn summary_section_pages_mirror_the_parsed_sections() {
             .map(|page| page.to_string())
             .collect::<Vec<_>>(),
         expected
+    );
+}
+
+// --- the `compaction-window` live leg -------------------------------------
+
+use crate::agent::harness::live_policy::{decide_with, LegSource};
+
+/// The shipped leg in `cockpit/live/compaction-window`, pinned for a test.
+fn window_leg() -> angel_live::Program {
+    crate::agent::harness::live_policy::shipped_leg(WINDOW_LEG)
+}
+
+/// A history written as a role script: `p` a pinned system preamble, `h` a
+/// pinned workspace-context carrier, `c` a compaction note (never pinned), `u`
+/// user, `a` assistant, `t` a tool result. Sizes vary so a token-sized tail has
+/// something real to weigh.
+fn scripted(script: &str) -> Vec<ChatMsg> {
+    script
+        .chars()
+        .enumerate()
+        .map(|(index, role)| match role {
+            'p' => sys("static policy preamble"),
+            'h' => ChatMsg::harness(format!(
+                "{}\n{{\"bytes\":{index}}}",
+                crate::app::bootstrap::WORKSPACE_CONTEXT_HEADER
+            )),
+            'c' => sys(&format!(
+                "{COMPACTION_NOTE_HEADER}{COMPACTION_NOTE_HEADER} carried note {index}"
+            )),
+            'u' => user(&"u".repeat(4 + index * 3)),
+            'a' => asst(&"a".repeat(8 + index)),
+            't' => ChatMsg::tool(format!("call-{index}"), "tool output ".repeat(1 + index)),
+            other => panic!("unknown role script letter {other:?}"),
+        })
+        .collect()
+}
+
+struct WindowCase {
+    name: String,
+    history: Vec<ChatMsg>,
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+}
+
+fn window_cases() -> Vec<WindowCase> {
+    let scripts = [
+        ("empty", ""),
+        ("preamble only", "p"),
+        ("preamble and one turn", "pua"),
+        ("no preamble", "uauaua"),
+        ("plain turns", "puauauaua"),
+        ("prior note", "pcpuaua"),
+        ("workspace carrier", "phuauaua"),
+        ("tool pair", "puautau"),
+        ("tool tail", "puauautt"),
+        ("tool wall", "puatttt"),
+        ("long turn", "puaaaaaaaaaa"),
+        ("boundary tool", "puaautauau"),
+    ];
+    let mut cases = Vec::new();
+    for (label, script) in scripts {
+        let history = scripted(script);
+        for keep_recent in [0usize, 1, 2, 3, 5, 12] {
+            for keep_recent_tokens in [0usize, 1, 40, 400, 4000] {
+                cases.push(WindowCase {
+                    name: format!("{label} / keep {keep_recent} / tokens {keep_recent_tokens}"),
+                    history: history.clone(),
+                    keep_recent,
+                    keep_recent_tokens,
+                });
+            }
+        }
+    }
+    cases
+}
+
+fn window_decision(
+    leg: Option<angel_live::Program>,
+    history: &[ChatMsg],
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+) -> (Option<(usize, usize)>, LegSource) {
+    let native = select_window_with_token_tail_native(history, keep_recent, keep_recent_tokens);
+    let (decision, source) = decide_with(
+        leg,
+        WINDOW_LEG,
+        &window_input(history, keep_recent, keep_recent_tokens),
+        |decision: &WindowDecision| window_contract(decision, history),
+        || WindowDecision { window: native },
+    );
+    (decision.window, source)
+}
+
+#[test]
+fn the_shipped_window_leg_matches_the_native_choice_over_a_table() {
+    let leg = window_leg();
+    let cases = window_cases();
+    let mut windows = 0;
+    let mut pulled_tool_results = 0;
+    for case in &cases {
+        let native = select_window_with_token_tail_native(
+            &case.history,
+            case.keep_recent,
+            case.keep_recent_tokens,
+        );
+        let (live, source) = window_decision(
+            Some(leg.clone()),
+            &case.history,
+            case.keep_recent,
+            case.keep_recent_tokens,
+        );
+        assert_eq!(source.as_str(), "live", "{}: {source:?}", case.name);
+        assert_eq!(live, native, "{}", case.name);
+        if let Some((start, end)) = native {
+            assert!(start < end, "{}: empty window", case.name);
+            assert!(end < case.history.len(), "{}: no live tail", case.name);
+            assert_ne!(
+                case.history[end].role,
+                ChatRole::Tool,
+                "{}: kept tail starts on an orphaned tool result",
+                case.name
+            );
+            if end > start + 1 && case.history[end - 1].role == ChatRole::Tool {
+                pulled_tool_results += 1;
+            }
+            windows += 1;
+        }
+    }
+    assert!(cases.len() >= 200, "only {} inputs were compared", cases.len());
+    assert!(windows >= 60, "only {windows} inputs produced a window");
+    assert!(
+        pulled_tool_results >= 10,
+        "the table must stress a tool result on the window boundary: {pulled_tool_results}"
+    );
+}
+
+/// A throwaway policy module, so a deliberately out-of-contract window can be
+/// pinned without touching the shipped leg.
+fn temporary_window_leg(render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!(
+        "angel-compaction-window-leg-{}-{:x}",
+        std::process::id(),
+        content_hash(render)
+    ));
+    let module = root.join(WINDOW_LEG);
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        format!(r#"{{"api_version":1,"id":"{WINDOW_LEG}","kind":"policy","entry":"index.js","probe":{{}}}}"#),
+    )
+    .unwrap();
+    std::fs::write(module.join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(WINDOW_LEG)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg did not publish: {render}"))
+}
+
+#[test]
+fn an_out_of_contract_window_keeps_the_native_choice() {
+    let history = scripted("puauatau");
+    let native = select_window_with_token_tail_native(&history, 2, 0);
+    assert_eq!(native, Some((1, 6)), "fixture history changed");
+    let renders = [
+        "module.exports = {apiVersion: 1, render: () => ({window: [3, 3]})}",
+        "module.exports = {apiVersion: 1, render: () => ({window: [1, 99]})}",
+        "module.exports = {apiVersion: 1, render: () => ({window: [1, 5]})}",
+    ];
+    for render in renders {
+        let leg = temporary_window_leg(render);
+        let (choice, source) = window_decision(Some(leg), &history, 2, 0);
+        assert_eq!(choice, native, "{render}");
+        assert_eq!(source.as_str(), "live-fallback", "{render}");
+        assert!(
+            matches!(source, LegSource::LiveFallback { .. }),
+            "{render}: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn with_no_live_generation_the_shipped_window_leg_answers() {
+    // Nothing offers a live generation in a test process, so the leg compiled
+    // into the binary answers — and it must answer exactly what the oracle does,
+    // because the native body is no longer a fallback.
+    let history = scripted("puauatauauauautau");
+    let mut windows = 0;
+    for (keep_recent, keep_recent_tokens) in [(0usize, 0usize), (2, 0), (3, 8), (3, 16), (12, 4000)]
+    {
+        let native = select_window_with_token_tail_native(&history, keep_recent, keep_recent_tokens);
+        let (window, source) = select_window_with_source(&history, keep_recent, keep_recent_tokens);
+        assert_eq!(
+            window, native,
+            "keep {keep_recent} / tokens {keep_recent_tokens}"
+        );
+        assert_eq!(source.as_str(), "shipped", "{source:?}");
+        assert!(matches!(source, LegSource::Shipped { .. }), "{source:?}");
+        windows += usize::from(window.is_some());
+    }
+    assert!(windows >= 2, "the table must exercise a real window");
+}
+
+#[test]
+fn the_window_leg_decision_costs_a_bounded_number_of_microseconds() {
+    let leg = window_leg();
+    let history = scripted("puauatauauauautau");
+    // Any budget with a real token tail will do; take the first one this
+    // history actually yields so the measurement never times a refusal.
+    let (keep_recent, keep_recent_tokens) = [(3usize, 8usize), (3, 16), (2, 4)]
+        .into_iter()
+        .find(|(keep_recent, keep_tokens)| {
+            select_window_with_token_tail_native(&history, *keep_recent, *keep_tokens).is_some()
+        })
+        .expect("fixture history offers a token-tail window");
+    let input = window_input(&history, keep_recent, keep_recent_tokens);
+    let native = select_window_with_token_tail_native(&history, keep_recent, keep_recent_tokens);
+    let mut timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (decision, source) = decide_with(
+            Some(leg.clone()),
+            WINDOW_LEG,
+            &input,
+            |decision: &WindowDecision| window_contract(decision, &history),
+            || WindowDecision { window: native },
+        );
+        timings.push(started.elapsed());
+        assert_eq!(source.as_str(), "live");
+        assert_eq!(decision.window, native);
+    }
+    timings.sort();
+    let mut native_timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        assert_eq!(
+            select_window_with_token_tail_native(&history, keep_recent, keep_recent_tokens),
+            native
+        );
+        native_timings.push(started.elapsed());
+    }
+    native_timings.sort();
+    eprintln!(
+        "compaction-window leg: median {:.1} us/decision, p95 {:.1} us, max {:.1} us over 200 calls (native oracle median {:.3} us)",
+        timings[timings.len() / 2].as_secs_f64() * 1e6,
+        timings[timings.len() * 95 / 100].as_secs_f64() * 1e6,
+        timings[timings.len() - 1].as_secs_f64() * 1e6,
+        native_timings[native_timings.len() / 2].as_secs_f64() * 1e6,
     );
 }

@@ -1,5 +1,5 @@
-//! The science synthesis bench — the good parts of a research workbench,
-//! ripped down to Rust and native to the cockpit.
+//! Scientific literature synthesis: native network and citation authority,
+//! with provider field mapping, ranking and briefing in a reloadable module.
 //!
 //! `OpenScience` (github.com/newjordan/openscience) exposes ~30 scientific
 //! databases as agent tools. The valuable, load-bearing part of that is not the
@@ -8,15 +8,10 @@
 //! list the agent can act on. That is what this module ports.
 //!
 //! It talks to the free, key-less JSON APIs with the cockpit's existing
-//! blocking `ureq` client — no async runtime, no vendored TypeScript, no npm.
-//! `synthesize` fans a query concurrently across every wired [`Source`], folds
-//! the hits into one deduplicated, citation-ranked list, and hands back a [`Synthesis`] the
-//! rest of the cockpit (tool surface, MCP, the miniworld's future Observatory)
-//! can render. Parsing is driven off `serde_json::Value` so a schema tweak
-//! upstream degrades to a missing field, never a panic.
-//!
-//! Networked calls live behind `search_*`; the pure `parse_*` folders are unit
-//! tested offline so the synthesis logic is covered without touching the wire.
+//! blocking transport. It fans out across sources while the host owns network
+//! authority, bounded responses, URL validation and cache persistence. The
+//! replaceable analysis module is invoked per request; it receives no ambient
+//! credentials and its implementation does not make network calls.
 
 #![allow(dead_code)] // wired incrementally: parsers + synthesis land before the tool/MCP surface.
 
@@ -33,6 +28,92 @@ const MAX_TITLE_CHARS: usize = 500;
 const MAX_AUTHOR_CHARS: usize = 160;
 pub(crate) const MAX_QUERY_CHARS: usize = 500;
 
+/// A private copy of the complete currently declared JS dependency set.
+/// All workers for one synthesis use these exact bytes, even when the source
+/// files are edited while requests are running. Drop removes the generation.
+#[derive(Debug)]
+struct ScienceSnapshot {
+    generation: crate::platform::worker_snapshot::Snapshot,
+    protocol: ExtractionProtocol,
+}
+
+impl std::ops::Deref for ScienceSnapshot {
+    type Target = crate::platform::worker_snapshot::Snapshot;
+    fn deref(&self) -> &Self::Target {
+        &self.generation
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExtractionProtocol {
+    Legacy,
+    Batch,
+}
+
+/// Identity of the shipped v1 entry point, before capability negotiation was
+/// introduced. Unknown entry points must identify themselves explicitly; a
+/// generic worker failure is never mistaken for the older protocol.
+const LEGACY_ENTRY_SHA256: &str =
+    "2e6ed05d3a64b2f2c0a6a568595ee1063a297fdf2fb75fbcd8e5312e8eeb3f59";
+
+impl ScienceSnapshot {
+    fn load() -> Result<std::sync::Arc<Self>, String> {
+        const FILES: &[&str] = &["scripts/runtime/science-brief.mjs", "lib/science/brief.mjs"];
+        let generation = crate::platform::worker_snapshot::Snapshot::capture(
+            &crate::platform::runtime_paths::root(),
+            FILES,
+            "science",
+        )?;
+        let entry =
+            crate::platform::worker_snapshot::read(&generation.dir.join(FILES[0]), "science")?;
+        let protocol = if crate::knowledge::cut::sha256_hex(&entry) == LEGACY_ENTRY_SHA256 {
+            ExtractionProtocol::Legacy
+        } else {
+            ExtractionProtocol::Batch
+        };
+        let snapshot = std::sync::Arc::new(Self {
+            generation,
+            protocol,
+        });
+        // Import the staged dependency set and exercise a side-effect-free
+        // empty fold before admitting network work. This is a readiness probe,
+        // not a guarantee about arbitrary future inputs.
+        match snapshot.protocol {
+            ExtractionProtocol::Legacy => {
+                let probe: Vec<usize> =
+                    science_worker(&snapshot, &serde_json::json!({"op":"fold", "papers":[]}))
+                        .map_err(|e| format!("science module preparation failed: {e}"))?;
+                if !probe.is_empty() {
+                    return Err("science module preparation returned unexpected data".into());
+                }
+            }
+            ExtractionProtocol::Batch => {
+                let probe: serde_json::Value =
+                    science_worker(&snapshot, &serde_json::json!({"op":"capabilities"})).map_err(
+                        |e| format!("science module capability negotiation failed: {e}"),
+                    )?;
+                if probe.get("protocol").and_then(serde_json::Value::as_u64) != Some(2)
+                    || probe
+                        .get("extract_batch")
+                        .and_then(serde_json::Value::as_bool)
+                        != Some(true)
+                    || probe
+                        .get("batch_source_identity")
+                        .and_then(serde_json::Value::as_bool)
+                        != Some(true)
+                    || probe
+                        .get("empty_fold")
+                        .and_then(serde_json::Value::as_array)
+                        .is_none_or(|v| !v.is_empty())
+                {
+                    return Err("science module has an unsupported capability contract".into());
+                }
+            }
+        }
+        Ok(snapshot)
+    }
+}
+
 /// A scientific literature index we can query. Each maps to one free JSON API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Source {
@@ -48,6 +129,15 @@ pub(crate) enum Source {
 }
 
 impl Source {
+    fn protocol_id(self) -> &'static str {
+        match self {
+            Source::OpenAlex => "OpenAlex",
+            Source::Crossref => "Crossref",
+            Source::SemanticScholar => "SemanticScholar",
+            Source::EuropePmc => "EuropePmc",
+        }
+    }
+
     pub(crate) fn label(self) -> &'static str {
         match self {
             Source::OpenAlex => "OpenAlex",
@@ -119,18 +209,6 @@ impl Paper {
             .map(CitationLocator::Source)
     }
 
-    /// Ranking score — citations carry it (log-damped so a megahit doesn't bury
-    /// everything), with a gentle recency nudge so a strong recent paper can
-    /// edge an older one. Deterministic; no wall clock.
-    fn score(&self, newest_year: u32) -> f64 {
-        let cites = (self.citations as f64 + 1.0).ln();
-        let recency = match self.year {
-            Some(y) if newest_year >= y => 1.0 - ((newest_year - y) as f64 * 0.05).min(1.0),
-            _ => 0.0,
-        };
-        cites + recency * 1.5
-    }
-
     /// A one-line digest with an attributable, validated citation locator.
     pub(crate) fn line(&self) -> String {
         let safe_authors = self
@@ -178,6 +256,13 @@ pub(crate) struct Synthesis {
     pub(crate) papers: Vec<Paper>,
     pub(crate) sources_hit: Vec<Source>,
     pub(crate) notes: Vec<String>,
+    /// Pre-deduplication candidates retain enough evidence to re-rank a cached
+    /// search under the next policy generation. Old cache files omit them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    candidates: Option<Vec<Paper>>,
+    /// Per-request immutable code generation; never persisted in the cache.
+    #[serde(skip)]
+    snapshot: Option<std::sync::Arc<ScienceSnapshot>>,
 }
 
 impl Synthesis {
@@ -199,11 +284,21 @@ impl Synthesis {
 /// reading list. A source that errors is noted and skipped — a down index
 /// degrades the result, it never fails the call.
 pub(crate) fn synthesize(query: &str, per_source: usize) -> Synthesis {
-    synthesize_with(query, per_source, &search)
+    synthesize_impl(query, per_source, &|source, query, limit, snapshot| {
+        search(source, query, limit, snapshot).map(SourcePayload::Raw)
+    })
+}
+
+enum SourcePayload {
+    /// The native HTTP worker returns parsed but otherwise untrusted metadata.
+    Raw(serde_json::Value),
+    /// Offline test injection retains the same fan-out seam without network IO.
+    #[cfg(test)]
+    Papers(Vec<Paper>),
 }
 
 enum SourceWorkerOutcome {
-    Completed(Result<Vec<Paper>, String>),
+    Completed(Result<SourcePayload, String>),
     Panicked,
 }
 
@@ -212,21 +307,42 @@ enum SourceWorkerOutcome {
 /// That keeps diagnostics and source provenance deterministic even when the
 /// network completes in reverse order. A worker panic is source-attributed and
 /// degraded like any other unavailable index rather than unwinding the tool.
+#[cfg(test)]
 fn synthesize_with<F>(query: &str, per_source: usize, searcher: &F) -> Synthesis
 where
-    F: Fn(Source, &str, usize) -> Result<Vec<Paper>, String> + Sync,
+    F: Fn(Source, &str, usize, &ScienceSnapshot) -> Result<Vec<Paper>, String> + Sync,
 {
+    synthesize_impl(query, per_source, &|source, query, limit, snapshot| {
+        searcher(source, query, limit, snapshot).map(SourcePayload::Papers)
+    })
+}
+
+fn synthesize_impl<F>(query: &str, per_source: usize, searcher: &F) -> Synthesis
+where
+    F: Fn(Source, &str, usize, &ScienceSnapshot) -> Result<SourcePayload, String> + Sync,
+{
+    let snapshot = match ScienceSnapshot::load() {
+        Ok(s) => s,
+        Err(e) => {
+            return Synthesis {
+                query: query.to_string(),
+                notes: vec![format!("science analysis: {e}")],
+                ..Synthesis::default()
+            };
+        }
+    };
     let outcomes = std::thread::scope(|scope| {
         let handles = Source::all()
             .into_iter()
             .map(|source| {
+                let snapshot = &snapshot;
                 let http_context = crate::agent::tools::http_transport::context();
                 (
                     source,
                     scope.spawn(move || {
                         match crate::ui::term::catch_background_unwind(|| {
                             crate::agent::tools::http_transport::with_context(http_context, || {
-                                searcher(source, query, per_source)
+                                searcher(source, query, per_source, snapshot)
                             })
                         }) {
                             Ok(result) => SourceWorkerOutcome::Completed(result),
@@ -242,70 +358,208 @@ where
             .collect::<Vec<_>>()
     });
 
+    // Keep outcomes in source order. Raw bodies are mapped together after all
+    // native HTTP workers have completed; this module performs no HTTP calls.
+    let mut ordered = Vec::with_capacity(outcomes.len());
+    let mut batch = Vec::new();
+    for (source, outcome) in outcomes {
+        let index = ordered.len();
+        let result = match outcome {
+            #[cfg(test)]
+            Ok(SourceWorkerOutcome::Completed(Ok(SourcePayload::Papers(papers)))) => {
+                Some(Ok(papers))
+            }
+            Ok(SourceWorkerOutcome::Completed(Ok(SourcePayload::Raw(mut body)))) => {
+                match prepare_provider_body(source, &mut body) {
+                    Some(count) => {
+                        batch.push((index, source, count, body));
+                        None
+                    }
+                    None => Some(Err(format!(
+                        "unexpected response shape (missing `{}`)",
+                        container_key(source)
+                    ))),
+                }
+            }
+            Ok(SourceWorkerOutcome::Completed(Err(error))) => Some(Err(error)),
+            Ok(SourceWorkerOutcome::Panicked) | Err(_) => {
+                Some(Err("source worker panicked".to_string()))
+            }
+        };
+        ordered.push((source, result));
+    }
+    if !batch.is_empty() && snapshot.protocol == ExtractionProtocol::Legacy {
+        // The exact previously shipped entry point is known to support the
+        // single-source protocol. Do not retry generic batch failures here.
+        for (index, source, count, body) in batch.drain(..) {
+            let result = science_worker(
+                &snapshot,
+                &serde_json::json!({"op":"extract", "source":source, "body":body}),
+            )
+            .and_then(|items| admit_extracted(source, items, count));
+            ordered[index].1 = Some(result);
+        }
+    }
+    if !batch.is_empty() {
+        let requests: Vec<_> = batch
+            .iter()
+            .map(|(_, source, _, body)| serde_json::json!({"source":source, "body":body}))
+            .collect();
+        let responses: Result<Vec<serde_json::Value>, String> = science_worker_limited(
+            &snapshot,
+            &serde_json::json!({"op":"extract-batch", "items":requests}),
+            32 * 1024 * 1024,
+            16 * 1024 * 1024,
+        );
+        match responses {
+            Ok(responses) if responses.len() == batch.len() => {
+                for ((index, source, count, _), response) in batch.into_iter().zip(responses) {
+                    let result = if response.get("source").and_then(serde_json::Value::as_str)
+                        != Some(source.protocol_id())
+                    {
+                        Err("science module returned a mismatched batch source".into())
+                    } else {
+                        match response.get("papers") {
+                            Some(value) => {
+                                serde_json::from_value::<Vec<ExtractedPaper>>(value.clone())
+                                    .map_err(|e| format!("invalid science module result: {e}"))
+                                    .and_then(|items| admit_extracted(source, items, count))
+                            }
+                            None => Err("science module could not extract source records".into()),
+                        }
+                    };
+                    ordered[index].1 = Some(result);
+                }
+            }
+            Ok(_) => {
+                for (index, _, _, _) in batch {
+                    ordered[index].1 =
+                        Some(Err("science module returned an invalid batch length".into()));
+                }
+            }
+            Err(error) => {
+                for (index, _, _, _) in batch {
+                    ordered[index].1 = Some(Err(error.clone()));
+                }
+            }
+        }
+    }
     let mut all: Vec<Paper> = Vec::new();
     let mut hit = Vec::new();
     let mut notes = Vec::new();
-    for (source, outcome) in outcomes {
-        match outcome {
-            Ok(SourceWorkerOutcome::Completed(Ok(mut papers))) => {
+    for (source, result) in ordered {
+        match result.expect("each source was resolved") {
+            Ok(mut papers) => {
                 if !papers.is_empty() {
                     hit.push(source);
                 }
                 all.append(&mut papers);
             }
-            Ok(SourceWorkerOutcome::Completed(Err(error))) => {
-                notes.push(format!("{}: {error}", source.label()));
-            }
-            Ok(SourceWorkerOutcome::Panicked) | Err(_) => {
-                notes.push(format!("{}: source worker panicked", source.label()));
-            }
+            Err(error) => notes.push(format!("{}: {error}", source.label())),
         }
     }
-    let papers = fold(all);
+    let candidates = all.clone();
+    let papers = match fold_with(&snapshot, all) {
+        Ok(papers) => papers,
+        Err(error) => {
+            notes.push(format!("science analysis: {error}"));
+            Vec::new()
+        }
+    };
     Synthesis {
         query: query.to_string(),
         papers,
         sources_hit: hit,
         notes,
+        candidates: Some(candidates),
+        snapshot: Some(snapshot),
     }
 }
 
-/// Dedupe by [`Paper::key`] (keeping the better-cited copy) and rank. Pure — the
-/// unit tests drive it straight, no network.
-fn fold(papers: Vec<Paper>) -> Vec<Paper> {
-    use std::collections::HashMap;
-    let newest = papers.iter().filter_map(|p| p.year).max().unwrap_or(0);
-    let mut by_key: HashMap<String, Paper> = HashMap::new();
-    for p in papers {
-        by_key
-            .entry(p.key())
-            .and_modify(|existing| {
-                // Keep the richer record: more citations wins; ties keep the one
-                // with a syntactically valid DOI.
-                let existing_has_doi = existing.doi.as_deref().and_then(normalize_doi).is_some();
-                let candidate_has_doi = p.doi.as_deref().and_then(normalize_doi).is_some();
-                if p.citations > existing.citations
-                    || (p.citations == existing.citations && !existing_has_doi && candidate_has_doi)
-                {
-                    *existing = p.clone();
-                }
-            })
-            .or_insert(p);
+/// Fold via a replaceable policy module. The native host owns each paper,
+/// its citation validation and identity; the worker returns indices only.
+#[cfg(test)]
+fn fold(papers: Vec<Paper>) -> Result<Vec<Paper>, String> {
+    let snapshot = ScienceSnapshot::load()?;
+    fold_with(snapshot.as_ref(), papers)
+}
+
+fn fold_with(snapshot: &ScienceSnapshot, papers: Vec<Paper>) -> Result<Vec<Paper>, String> {
+    use std::collections::HashSet;
+    if papers.is_empty() {
+        return Ok(Vec::new());
     }
-    let mut out: Vec<Paper> = by_key.into_values().collect();
-    out.sort_by(|a, b| {
-        b.score(newest)
-            .partial_cmp(&a.score(newest))
-            .unwrap_or(std::cmp::Ordering::Equal)
-            // Stable tie-break so the ranking is deterministic across runs.
-            .then_with(|| a.title.cmp(&b.title))
-    });
-    out
+    let rows: Vec<_> = papers
+        .iter()
+        .enumerate()
+        .map(|(index, p)| {
+            serde_json::json!({
+                "index": index, "key": p.key(), "title": p.title, "year": p.year,
+                "citations": p.citations.to_string(),
+                "valid_doi": p.doi.as_deref().and_then(normalize_doi).is_some()
+            })
+        })
+        .collect();
+    let indices: Vec<usize> =
+        science_worker(snapshot, &serde_json::json!({"op":"fold", "papers":rows}))?;
+    let expected: HashSet<String> = papers.iter().map(Paper::key).collect();
+    let mut seen = HashSet::new();
+    let mut selected = Vec::with_capacity(indices.len().min(papers.len()));
+    for index in indices {
+        let paper = papers
+            .get(index)
+            .ok_or("science module returned an invalid paper index")?;
+        if !seen.insert(paper.key()) {
+            return Err("science module returned duplicate paper identities".into());
+        }
+        selected.push(paper.clone());
+    }
+    if seen != expected {
+        return Err("science module omitted a paper identity".into());
+    }
+    Ok(selected)
+}
+
+fn science_worker<T: serde::de::DeserializeOwned>(
+    snapshot: &ScienceSnapshot,
+    request: &serde_json::Value,
+) -> Result<T, String> {
+    science_worker_limited(snapshot, request, 8 * 1024 * 1024, 4 * 1024 * 1024)
+}
+
+fn science_worker_limited<T: serde::de::DeserializeOwned>(
+    snapshot: &ScienceSnapshot,
+    request: &serde_json::Value,
+    input_limit: usize,
+    output_limit: usize,
+) -> Result<T, String> {
+    let node = crate::agent::tools::runtime_missing::resolve("node")
+        .map_err(|_| "Node.js unavailable (install Node or set ANGEL_NODE_BIN)".to_string())?;
+    let mut command = std::process::Command::new(node);
+    command
+        .env_clear()
+        .arg(snapshot.dir.join("scripts/runtime/science-brief.mjs"));
+    let input = serde_json::to_vec(request).map_err(|e| format!("science request: {e}"))?;
+    let context = crate::agent::tools::http_transport::context();
+    let output = crate::platform::worker::run_cancellable(
+        command,
+        &input,
+        std::time::Duration::from_secs(10),
+        input_limit,
+        output_limit,
+        || context.interrupted(),
+    )?;
+    serde_json::from_slice(&output).map_err(|e| format!("invalid science module result: {e}"))
 }
 
 /// Query one source. Networked; the pure `parse_*` folders below carry the
 /// logic and are what the tests exercise.
-pub(crate) fn search(src: Source, query: &str, limit: usize) -> Result<Vec<Paper>, String> {
+fn search(
+    src: Source,
+    query: &str,
+    limit: usize,
+    _snapshot: &ScienceSnapshot,
+) -> Result<serde_json::Value, String> {
     let enc = urlencode(query);
     let url = match src {
         Source::OpenAlex => format!(
@@ -331,24 +585,18 @@ pub(crate) fn search(src: Source, query: &str, limit: usize) -> Result<Vec<Paper
         .call()
         .map_err(|e| e.to_string())?;
     let body = read_bounded_json(response.into_reader(), SCIENCE_RESPONSE_MAX_BYTES)?;
-    let papers = match src {
-        Source::OpenAlex => parse_openalex(&body),
-        Source::Crossref => parse_crossref(&body),
-        Source::SemanticScholar => parse_semantic_scholar(&body),
-        Source::EuropePmc => parse_europepmc(&body),
-    };
     // Distinguish schema drift or a 200 error-envelope (the expected result
     // container is absent) from a legitimate empty result set (container present
     // but empty). The former is a degraded source worth a note, not a silent
     // "no matches" — [`synthesize_with`] folds the Err into the briefing's
     // skipped-sources line.
-    if papers.is_empty() && !result_container_present(src, &body) {
+    if !result_container_present(src, &body) {
         return Err(format!(
             "unexpected response shape (missing `{}`)",
             container_key(src)
         ));
     }
-    Ok(papers)
+    Ok(body)
 }
 
 /// The JSON path each source's result array lives at — used to explain a
@@ -372,261 +620,166 @@ fn result_container_present(src: Source, v: &serde_json::Value) -> bool {
     container.is_some_and(serde_json::Value::is_array)
 }
 
-/// OpenAlex `works` → [`Paper`]s. Tolerant: any missing field is skipped, never
-/// fatal, so an upstream schema drift degrades gracefully.
-fn parse_openalex(v: &serde_json::Value) -> Vec<Paper> {
-    let mut out = Vec::new();
-    let Some(results) = v.get("results").and_then(|r| r.as_array()) else {
-        return out;
-    };
-    for w in results {
-        let title = sanitize_metadata(
-            w.get("display_name").and_then(|t| t.as_str()).unwrap_or(""),
-            MAX_TITLE_CHARS,
-        );
-        if title.is_empty() {
-            continue;
-        }
-        let authors = w
-            .get("authorships")
-            .and_then(|a| a.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|au| {
-                        au.get("author")
-                            .and_then(|x| x.get("display_name"))
-                            .and_then(|n| n.as_str())
-                            .map(|name| sanitize_metadata(name, MAX_AUTHOR_CHARS))
-                    })
-                    .filter(|name| !name.is_empty())
-                    .take(4)
-                    .collect()
-            })
-            .unwrap_or_default();
-        out.push(Paper {
-            title,
-            authors,
-            year: w
-                .get("publication_year")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(sane_year),
-            doi: w
-                .get("doi")
-                .and_then(|d| d.as_str())
-                .and_then(normalize_doi),
-            url: w
-                .get("id")
-                .and_then(|i| i.as_str())
-                .and_then(|url| trusted_source_url(Source::OpenAlex, url)),
-            citations: w
-                .get("cited_by_count")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0),
-            source: Source::OpenAlex,
-        });
-    }
-    out
+/// A module can select source fields but never creates a trusted citation:
+/// the native host validates every returned identifier and sanitizes all text.
+#[derive(Deserialize)]
+struct ExtractedPaper {
+    title: Option<String>,
+    authors: Vec<String>,
+    year: Option<String>,
+    doi: Option<String>,
+    url: Option<String>,
+    citations: Option<String>,
+    record_source: Option<String>,
+    record_id: Option<String>,
 }
 
-/// Crossref `message.items` → [`Paper`]s.
-fn parse_crossref(v: &serde_json::Value) -> Vec<Paper> {
-    let mut out = Vec::new();
-    let Some(items) = v
-        .get("message")
-        .and_then(|m| m.get("items"))
-        .and_then(|i| i.as_array())
-    else {
-        return out;
-    };
-    for w in items {
-        let title = sanitize_metadata(
-            w.get("title")
-                .and_then(|t| t.as_array())
-                .and_then(|a| a.first())
-                .and_then(|t| t.as_str())
-                .unwrap_or(""),
-            MAX_TITLE_CHARS,
-        );
-        if title.is_empty() {
-            continue;
-        }
-        let authors = w
-            .get("author")
-            .and_then(|a| a.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|au| {
-                        let fam = au.get("family").and_then(|f| f.as_str());
-                        let given = au.get("given").and_then(|g| g.as_str());
-                        match (given, fam) {
-                            (Some(g), Some(f)) => {
-                                Some(sanitize_metadata(&format!("{g} {f}"), MAX_AUTHOR_CHARS))
-                            }
-                            (None, Some(f)) => Some(sanitize_metadata(f, MAX_AUTHOR_CHARS)),
-                            _ => None,
-                        }
-                    })
-                    .filter(|name| !name.is_empty())
-                    .take(4)
-                    .collect()
-            })
-            .unwrap_or_default();
-        let year = w
-            .get("issued")
-            .and_then(|i| i.get("date-parts"))
-            .and_then(|d| d.as_array())
-            .and_then(|a| a.first())
-            .and_then(|a| a.as_array())
-            .and_then(|a| a.first())
-            .and_then(serde_json::Value::as_u64)
-            .and_then(sane_year);
-        out.push(Paper {
-            title,
-            authors,
-            year,
-            doi: w
-                .get("DOI")
-                .and_then(|d| d.as_str())
-                .and_then(normalize_doi),
-            url: w
-                .get("URL")
-                .and_then(|u| u.as_str())
-                .and_then(|url| trusted_source_url(Source::Crossref, url)),
-            citations: w
-                .get("is-referenced-by-count")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0),
-            source: Source::Crossref,
-        });
+fn source_records_mut(
+    source: Source,
+    body: &mut serde_json::Value,
+) -> Option<&mut Vec<serde_json::Value>> {
+    match source {
+        Source::OpenAlex => body.get_mut("results"),
+        Source::Crossref => body.get_mut("message").and_then(|v| v.get_mut("items")),
+        Source::SemanticScholar => body.get_mut("data"),
+        Source::EuropePmc => body.get_mut("resultList").and_then(|v| v.get_mut("result")),
     }
-    out
+    .and_then(serde_json::Value::as_array_mut)
 }
 
-/// Semantic Scholar `paper/search` → [`Paper`]s. Carries the DOI out of the
-/// `externalIds` bag when present.
-fn parse_semantic_scholar(v: &serde_json::Value) -> Vec<Paper> {
-    let mut out = Vec::new();
-    let Some(data) = v.get("data").and_then(|d| d.as_array()) else {
-        return out;
-    };
-    for w in data {
-        let title = sanitize_metadata(
-            w.get("title").and_then(|t| t.as_str()).unwrap_or(""),
-            MAX_TITLE_CHARS,
-        );
-        if title.is_empty() {
-            continue;
-        }
-        let authors = w
-            .get("authors")
-            .and_then(|a| a.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|au| {
-                        au.get("name")
-                            .and_then(|n| n.as_str())
-                            .map(|name| sanitize_metadata(name, MAX_AUTHOR_CHARS))
-                    })
-                    .filter(|name| !name.is_empty())
-                    .take(4)
-                    .collect()
-            })
-            .unwrap_or_default();
-        out.push(Paper {
-            title,
-            authors,
-            year: w
-                .get("year")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(sane_year),
-            doi: w
-                .get("externalIds")
-                .and_then(|e| e.get("DOI"))
-                .and_then(|d| d.as_str())
-                .and_then(normalize_doi),
-            url: w
-                .get("url")
-                .and_then(|u| u.as_str())
-                .and_then(|url| trusted_source_url(Source::SemanticScholar, url)),
-            citations: w
-                .get("citationCount")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0),
-            source: Source::SemanticScholar,
-        });
+fn preserve_unsigned(value: Option<&mut serde_json::Value>) {
+    if let Some(v) = value {
+        *v = v
+            .as_u64()
+            .map(|n| serde_json::Value::String(n.to_string()))
+            .unwrap_or(serde_json::Value::Null);
     }
-    out
 }
 
-/// Europe PMC `resultList.result` → [`Paper`]s. Its authors arrive as one
-/// comma-joined `authorString` and the year as a string, so both are split /
-/// parsed here.
-fn parse_europepmc(v: &serde_json::Value) -> Vec<Paper> {
-    let mut out = Vec::new();
-    let Some(results) = v
-        .get("resultList")
-        .and_then(|r| r.get("result"))
-        .and_then(|r| r.as_array())
-    else {
-        return out;
+#[cfg(test)]
+fn parse_papers(source: Source, body: &serde_json::Value) -> Result<Vec<Paper>, String> {
+    let snapshot = ScienceSnapshot::load()?;
+    parse_papers_with(snapshot.as_ref(), source, body)
+}
+
+fn parse_papers_with(
+    snapshot: &ScienceSnapshot,
+    source: Source,
+    body: &serde_json::Value,
+) -> Result<Vec<Paper>, String> {
+    let mut body = body.clone();
+    let Some(record_count) = prepare_provider_body(source, &mut body) else {
+        return Ok(Vec::new());
     };
-    for w in results {
-        let title = sanitize_metadata(
-            w.get("title")
-                .and_then(|t| t.as_str())
-                .unwrap_or("")
-                .trim_end_matches('.'),
-            MAX_TITLE_CHARS,
-        );
-        if title.is_empty() {
-            continue;
-        }
-        let authors = w
-            .get("authorString")
-            .and_then(|a| a.as_str())
-            .map(|s| {
-                s.trim_end_matches('.')
-                    .split(", ")
-                    .filter(|a| !a.is_empty())
-                    .take(4)
-                    .map(|name| sanitize_metadata(name, MAX_AUTHOR_CHARS))
-                    .filter(|name| !name.is_empty())
-                    .collect()
-            })
-            .unwrap_or_default();
-        let url = match (
-            w.get("source").and_then(|s| s.as_str()),
-            w.get("id").and_then(|i| i.as_str()),
-        ) {
-            (Some(s), Some(id)) if valid_record_component(s) && valid_record_component(id) => {
-                trusted_source_url(
-                    Source::EuropePmc,
-                    &format!("https://europepmc.org/article/{s}/{id}"),
-                )
-            }
-            _ => None,
+    let extracted: Vec<ExtractedPaper> = science_worker(
+        snapshot,
+        &serde_json::json!({"op":"extract", "source":source, "body":body}),
+    )?;
+    admit_extracted(source, extracted, record_count)
+}
+
+/// Preserve integer identities before the JavaScript boundary. Provider years
+/// and citation counts stay exact even above JavaScript's safe integer range.
+fn prepare_provider_body(source: Source, body: &mut serde_json::Value) -> Option<usize> {
+    let records = source_records_mut(source, body)?;
+    let record_count = records.len();
+    for row in records {
+        let (year, cites) = match source {
+            Source::OpenAlex => ("publication_year", "cited_by_count"),
+            Source::Crossref => ("", "is-referenced-by-count"),
+            Source::SemanticScholar => ("year", "citationCount"),
+            Source::EuropePmc => ("", "citedByCount"),
         };
-        out.push(Paper {
+        if !year.is_empty() {
+            preserve_unsigned(row.get_mut(year));
+        }
+        preserve_unsigned(row.get_mut(cites));
+        if source == Source::Crossref {
+            preserve_unsigned(
+                row.get_mut("issued")
+                    .and_then(|v| v.get_mut("date-parts"))
+                    .and_then(|v| v.as_array_mut())
+                    .and_then(|v| v.first_mut())
+                    .and_then(|v| v.as_array_mut())
+                    .and_then(|v| v.first_mut()),
+            );
+        }
+    }
+    Some(record_count)
+}
+
+/// Convert untrusted module output using the same native limits and citation
+/// validation as the single-provider path.
+fn admit_extracted(
+    source: Source,
+    extracted: Vec<ExtractedPaper>,
+    record_count: usize,
+) -> Result<Vec<Paper>, String> {
+    if extracted.len() != record_count {
+        return Err("science module returned an invalid record count".into());
+    }
+    let mut papers = Vec::new();
+    for item in extracted {
+        let title = sanitize_metadata(item.title.as_deref().unwrap_or(""), MAX_TITLE_CHARS);
+        if title.is_empty() {
+            continue;
+        }
+        let authors = item
+            .authors
+            .iter()
+            .map(|a| sanitize_metadata(a, MAX_AUTHOR_CHARS))
+            .filter(|a| !a.is_empty())
+            .take(4)
+            .collect();
+        let url = if source == Source::EuropePmc {
+            match (item.record_source.as_deref(), item.record_id.as_deref()) {
+                (Some(s), Some(id)) if valid_record_component(s) && valid_record_component(id) => {
+                    trusted_source_url(source, &format!("https://europepmc.org/article/{s}/{id}"))
+                }
+                _ => None,
+            }
+        } else {
+            item.url
+                .as_deref()
+                .and_then(|u| trusted_source_url(source, u))
+        };
+        papers.push(Paper {
             title,
             authors,
-            year: w
-                .get("pubYear")
-                .and_then(|y| y.as_str())
+            year: item
+                .year
+                .as_deref()
                 .and_then(|y| y.parse::<u64>().ok())
                 .and_then(sane_year),
-            doi: w
-                .get("doi")
-                .and_then(|d| d.as_str())
-                .and_then(normalize_doi),
+            doi: item.doi.as_deref().and_then(normalize_doi),
             url,
-            citations: w
-                .get("citedByCount")
-                .and_then(serde_json::Value::as_u64)
+            citations: item
+                .citations
+                .as_deref()
+                .and_then(|n| n.parse::<u64>().ok())
                 .unwrap_or(0),
-            source: Source::EuropePmc,
+            source,
         });
     }
-    out
+    Ok(papers)
+}
+
+// Existing offline parser fixtures use these compatibility names.
+#[cfg(test)]
+fn parse_openalex(v: &serde_json::Value) -> Vec<Paper> {
+    parse_papers(Source::OpenAlex, v).expect("science extraction")
+}
+#[cfg(test)]
+fn parse_crossref(v: &serde_json::Value) -> Vec<Paper> {
+    parse_papers(Source::Crossref, v).expect("science extraction")
+}
+#[cfg(test)]
+fn parse_semantic_scholar(v: &serde_json::Value) -> Vec<Paper> {
+    parse_papers(Source::SemanticScholar, v).expect("science extraction")
+}
+#[cfg(test)]
+fn parse_europepmc(v: &serde_json::Value) -> Vec<Paper> {
+    parse_papers(Source::EuropePmc, v).expect("science extraction")
 }
 
 /// Plausible publication-year band. The module deliberately avoids the wall
@@ -826,6 +979,26 @@ pub(crate) fn synthesize_cached(query: &str, per_source: usize, ttl_secs: u64) -
     if let Some(p) = &path
         && let Some(hit) = read_fresh(p, ttl_secs)
     {
+        let snapshot = match ScienceSnapshot::load() {
+            Ok(s) => s,
+            Err(e) => {
+                return Synthesis {
+                    query: query.to_string(),
+                    notes: vec![format!("science analysis: {e}")],
+                    ..Synthesis::default()
+                };
+            }
+        };
+        let mut hit = hit;
+        let candidates = hit.candidates.clone().unwrap_or_else(|| hit.papers.clone());
+        match fold_with(&snapshot, candidates) {
+            Ok(papers) => hit.papers = papers,
+            Err(e) => {
+                hit.papers.clear();
+                hit.notes.push(format!("science analysis: {e}"));
+            }
+        }
+        hit.snapshot = Some(snapshot);
         return hit;
     }
     let syn = synthesize(query, per_source);
@@ -865,7 +1038,7 @@ fn write_cache(path: &std::path::Path, syn: &Synthesis) {
         prune_stale(dir, CACHE_PRUNE_SECS);
     }
     if let Ok(raw) = crate::platform::secrets::to_redacted_vec(syn) {
-        let _ = std::fs::write(path, raw);
+        let _ = crate::platform::workspace_store::write_atomic(path, &raw);
     }
 }
 
@@ -900,251 +1073,86 @@ fn fnv1a_str(s: &str) -> u64 {
     h
 }
 
-// ─── S4: analysis — a briefing, not just a bibliography ──────────────────────
+// Analysis and briefing are loaded per invocation. The host formats each
+// citation first so a worker cannot bypass the native URL/DOI checks.
+#[derive(Deserialize)]
+struct ScienceAnalysis {
+    brief: String,
+    #[cfg(test)]
+    themes: Vec<(String, usize)>,
+    #[cfg(test)]
+    clusters: Vec<TopicCluster>,
+    #[cfg(test)]
+    cues: Vec<String>,
+}
 
-/// Generic words that don't discriminate a research theme, dropped before the
-/// keyword vote so `themes()` surfaces the domain terms that actually cluster.
-const STOPWORDS: &[&str] = &[
-    "the",
-    "and",
-    "for",
-    "with",
-    "without",
-    "via",
-    "using",
-    "from",
-    "into",
-    "onto",
-    "between",
-    "across",
-    "over",
-    "under",
-    "that",
-    "this",
-    "these",
-    "those",
-    "study",
-    "studies",
-    "analysis",
-    "approach",
-    "approaches",
-    "method",
-    "methods",
-    "based",
-    "novel",
-    "toward",
-    "towards",
-    "case",
-    "review",
-    "paper",
-    "results",
-    "effects",
-    "role",
-    "evidence",
-    "data",
-    "their",
-    "have",
-    "been",
-];
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub(crate) struct TopicCluster {
     pub(crate) theme: String,
     pub(crate) paper_count: usize,
-    pub(crate) citation_sum: u64,
+    pub(crate) citation_sum: String,
     pub(crate) anchors: Vec<String>,
 }
 
-/// Significant keywords in a title: lowercased alphanumeric words ≥4 chars that
-/// aren't stopwords. Cheap thematic signal for the briefing.
-fn keywords(title: &str) -> Vec<String> {
-    title
-        .split(|c: char| !c.is_alphanumeric())
-        .map(str::to_lowercase)
-        .filter(|w| w.len() >= 4 && !STOPWORDS.contains(&w.as_str()))
-        .collect()
-}
-
 impl Synthesis {
-    /// The dominant themes across the reading list — the most common significant
-    /// title keywords (one vote per paper each), with how many papers carry each.
-    /// Deterministic order (count desc, then alpha) so a briefing reproduces.
-    pub(crate) fn themes(&self, top_n: usize) -> Vec<(String, usize)> {
-        use std::collections::{HashMap, HashSet};
-        let mut counts: HashMap<String, usize> = HashMap::new();
-        for p in &self.papers {
-            let mut seen = HashSet::new();
-            for k in keywords(&p.title) {
-                if seen.insert(k.clone()) {
-                    *counts.entry(k).or_insert(0) += 1;
-                }
-            }
-        }
-        let mut v: Vec<(String, usize)> = counts.into_iter().filter(|(_, c)| *c >= 2).collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        v.truncate(top_n);
-        v
+    fn analysis(
+        &self,
+        limit: usize,
+        theme_limit: usize,
+        cluster_limit: usize,
+        anchor_limit: usize,
+        cue_limit: usize,
+    ) -> Result<ScienceAnalysis, String> {
+        let papers: Vec<_> = self.papers.iter().map(|p| serde_json::json!({
+            "title": p.title, "year": p.year, "citations": p.citations.to_string(), "line": p.line()
+        })).collect();
+        let notes: Vec<_> = self
+            .notes
+            .iter()
+            .map(|n| sanitize_metadata(n, 240))
+            .collect();
+        let snapshot = match &self.snapshot {
+            Some(s) => s.clone(),
+            None => ScienceSnapshot::load()?,
+        };
+        science_worker(
+            &snapshot,
+            &serde_json::json!({"op":"analyze", "query":sanitize_metadata(&self.query, 240),
+            "papers":papers, "notes":notes, "source_count":self.sources_hit.len(), "limit":limit,
+            "theme_limit":theme_limit, "cluster_limit":cluster_limit, "anchor_limit":anchor_limit, "cue_limit":cue_limit}),
+        )
     }
 
-    /// Cheap topical clusters from shared title keywords. This is deliberately
-    /// a proxy, not a claim of true co-citation clustering: the public search
-    /// APIs in the fast path do not all return reference lists. Once refs are
-    /// wired, this method is the seam to upgrade from keyword votes to shared-
-    /// reference / co-citation clusters without changing the briefing contract.
+    #[cfg(test)]
+    pub(crate) fn themes(&self, top_n: usize) -> Vec<(String, usize)> {
+        self.analysis(0, top_n, 0, 0, 0)
+            .expect("science analysis")
+            .themes
+    }
+
+    #[cfg(test)]
     pub(crate) fn topic_clusters(
         &self,
         max_clusters: usize,
         anchors_per_cluster: usize,
     ) -> Vec<TopicCluster> {
-        let mut clusters = Vec::new();
-        for (theme, _) in self.themes(max_clusters.saturating_mul(3).max(max_clusters)) {
-            let mut papers: Vec<&Paper> = self
-                .papers
-                .iter()
-                .filter(|p| keywords(&p.title).iter().any(|k| k == &theme))
-                .collect();
-            if papers.len() < 2 {
-                continue;
-            }
-            papers.sort_by(|a, b| {
-                b.citations
-                    .cmp(&a.citations)
-                    .then_with(|| a.title.cmp(&b.title))
-            });
-            clusters.push(TopicCluster {
-                theme,
-                paper_count: papers.len(),
-                citation_sum: papers.iter().map(|p| p.citations).sum(),
-                anchors: papers
-                    .iter()
-                    .take(anchors_per_cluster.max(1))
-                    .map(|p| p.line())
-                    .collect(),
-            });
-        }
-        clusters.sort_by(|a, b| {
-            b.paper_count
-                .cmp(&a.paper_count)
-                .then_with(|| b.citation_sum.cmp(&a.citation_sum))
-                .then_with(|| a.theme.cmp(&b.theme))
-        });
-        clusters.truncate(max_clusters);
-        clusters
+        self.analysis(0, 0, max_clusters, anchors_per_cluster, 0)
+            .expect("science analysis")
+            .clusters
     }
 
-    /// The seminal work (most cited) — the anchor a reader wants first.
-    fn seminal(&self) -> Option<&Paper> {
-        self.papers.iter().max_by_key(|p| p.citations)
-    }
-
-    /// The freshest work (latest year) — the current edge of the field.
-    fn freshest(&self) -> Option<&Paper> {
-        self.papers
-            .iter()
-            .filter_map(|p| p.year.map(|y| (y, p)))
-            .max_by_key(|(y, _)| *y)
-            .map(|(_, p)| p)
-    }
-
-    /// Metadata-only reading cues. No abstract or full text is fetched, so these
-    /// labels deliberately avoid claim/evidence language.
+    #[cfg(test)]
     pub(crate) fn metadata_cues(&self, limit: usize) -> Vec<String> {
-        self.papers
-            .iter()
-            .take(limit)
-            .map(|p| {
-                let title_l = p.title.to_ascii_lowercase();
-                let kind = if ["survey", "review", "meta-analysis", "systematic"]
-                    .iter()
-                    .any(|m| title_l.contains(m))
-                {
-                    "survey/review"
-                } else if ["benchmark", "evaluation", "comparison", "comparative"]
-                    .iter()
-                    .any(|m| title_l.contains(m))
-                {
-                    "evaluation"
-                } else if [
-                    "improve",
-                    "improves",
-                    "improving",
-                    "increase",
-                    "increases",
-                    "reduce",
-                    "reduces",
-                    "enhance",
-                    "enhances",
-                ]
-                .iter()
-                .any(|m| title_l.contains(m))
-                {
-                    "effect/intervention"
-                } else {
-                    "method/finding"
-                };
-                let year = p.year.map_or_else(|| "n.d.".to_string(), |y| y.to_string());
-                format!("{kind} cue: {} ({year}, {} cites)", p.title, p.citations)
-            })
-            .collect()
+        self.analysis(0, 0, 0, 0, limit)
+            .expect("science analysis")
+            .cues
     }
 
-    /// A briefing: themes, the seminal + freshest anchors, then the ranked list.
-    /// This is the "synthesis" — orientation before the bibliography.
-    pub(crate) fn brief(&self, limit: usize) -> String {
-        let mut out = format!(
-            "◇ synthesis · \"{}\"\n  {} works across {} source(s)\n",
-            sanitize_metadata(&self.query, 240),
-            self.papers.len(),
-            self.sources_hit.len()
-        );
-        let themes = self.themes(5);
-        if !themes.is_empty() {
-            let t: Vec<String> = themes.iter().map(|(k, c)| format!("{k}×{c}")).collect();
-            out.push_str(&format!("  themes: {}\n", t.join(", ")));
-        }
-        if let Some(s) = self.seminal() {
-            out.push_str(&format!("  seminal: {}\n", s.line()));
-        }
-        if let Some(f) = self.freshest() {
-            out.push_str(&format!("  freshest: {}\n", f.line()));
-        }
-        if !self.notes.is_empty() {
-            let notes = self
-                .notes
-                .iter()
-                .map(|note| sanitize_metadata(note, 240))
-                .collect::<Vec<_>>();
-            out.push_str(&format!("  (skipped: {})\n", notes.join("; ")));
-        }
-        let clusters = self.topic_clusters(4, 2);
-        if !clusters.is_empty() {
-            out.push_str(
-                "  metadata clusters (shared title keywords only; not citation clusters):\n",
-            );
-            for c in clusters {
-                out.push_str(&format!(
-                    "    - {}: {} papers, {} citations\n",
-                    c.theme, c.paper_count, c.citation_sum
-                ));
-                for anchor in c.anchors {
-                    out.push_str(&format!("      * {anchor}\n"));
-                }
-            }
-        }
-        let cues = self.metadata_cues(3);
-        if !cues.is_empty() {
-            out.push_str(
-                "  metadata cues (title text only; not evidence—read the paper before relying):\n",
-            );
-            for c in cues {
-                out.push_str(&format!("    - {c}\n"));
-            }
-        }
-        out.push_str("  ── reading list ──\n");
-        for (i, p) in self.papers.iter().take(limit).enumerate() {
-            out.push_str(&format!("  {:>2}. {}\n", i + 1, p.line()));
-        }
-        out
+    pub(crate) fn brief(&self, limit: usize) -> Result<String, String> {
+        self.analysis(limit, 5, 4, 2, 3)
+            .map(|v| v.brief)
+            .map_err(|e| format!("science report unavailable: {e}"))
     }
 }
 
@@ -1172,7 +1180,7 @@ pub(crate) fn run(arg: Option<&str>) -> String {
             sanitize_metadata(query, MAX_QUERY_CHARS)
         );
     }
-    syn.brief(12)
+    syn.brief(12).unwrap_or_else(|e| e)
 }
 
 #[cfg(test)]

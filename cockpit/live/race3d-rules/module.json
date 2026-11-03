@@ -1,0 +1,15 @@
+{
+  "api_version": 1,
+  "id": "race3d-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "plank",
+    "plank": 3
+  },
+  "bend": {
+    "entry": "race3d-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "race3d-rules.compiled.js"
+  }
+}

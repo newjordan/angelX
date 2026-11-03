@@ -25,6 +25,10 @@
 //! | `angel_frame_w()`, `angel_frame_h()` | the frame's size (0 before the first snapshot) |
 //! | `angel_stage(now_ms) -> ptr`, `angel_stage_len()` | after `angel_frame`, the frame as a stage (`angel-stage`'s wire format), length 0 when the game has none; asking turns the game's stage on |
 //! | `angel_stage_reset()` | the page lost its pictures (a lost context): the next stage sends them all |
+//! | `angel_painting_wanted() -> len` | the name of a picture the stage would draw that the page fetches itself (the Delve's paintings, `/paint/<name>.png`), in the text buffer; 0 for none |
+//! | `angel_put_painting(name, name_len, w, h, rgba, rgba_len) -> ok` | that picture's pixels, decoded by the page: straight RGBA |
+//! | `angel_painting_failed(name, name_len)` | the page could not fetch or decode it: the stage draws without it |
+//! | `angel_hd_manifest(ptr, len, scale, rung) -> ok` | the host's HD art manifest (`/hd/pack.json`), the page's whole-number scale, and a rung to show every figure at (0: the game's rule): the HD drawings the stage would draw are then among the pictures it wants (`hd/<file>`, fetched from `/hd/<file>`) |
 //! | `angel_stage_props(on)` | the page can draw a stage's 3D props and rooms in 3D (`STG3` and `STG4` frames): 0 (the default) keeps the game to what `stage.js` draws, 1 lets it send them |
 //! | `angel_out() -> len`, `angel_out_ptr()` | messages to send, each `[u32 len LE][bytes]` |
 //! | `angel_lines() -> len` | lines for the shell (`sfx <name>`, `notice <text>`...), `\n`-separated, in the text buffer |
@@ -35,6 +39,9 @@
 //! | `angel_controls() -> len` | the game's controls as JSON, in the text buffer |
 //! | `angel_rtt() -> f64` | the smoothed round trip in ms, or -1 |
 //! | `angel_sheet() -> len` | the game's sheet of the player's own state, plain text, in the text buffer |
+//! | `angel_choices() -> len` | the game's choices to tap, one a line, in the text buffer |
+//! | `angel_choose(n)` | the player tapped choice `n` |
+//! | `angel_picks() -> len` | the game's picks beside its text line, a heading then one a line (`GameClient::picks`), in the text buffer |
 //! | `angel_text_ptr()` | where the text calls above wrote |
 //! | `angel_bye()`, `angel_action(kind, ptr, len)` | leaving on purpose; a one-off choice |
 //! | `angel_own_x() -> f64`, `angel_own_y() -> f64` | where the last frame drew the own character, in frame pixels, or NaN (for probes) |
@@ -229,6 +236,38 @@ impl<G: GameClient> Glue<G> {
         }
     }
 
+    /// The next picture the page is to fetch itself (`GameClient::
+    /// painting_wanted`): its name in the text buffer, empty for none.
+    pub fn painting_wanted(&mut self) -> &[u8] {
+        let name = self.rt.game_mut().and_then(|game| game.painting_wanted()).unwrap_or_default();
+        self.set_text(&name)
+    }
+
+    /// The pixels of the picture named `name`, as the page decoded them.
+    pub fn put_painting(&mut self, name: &[u8], width: u32, height: u32, rgba: &[u8]) -> bool {
+        let Ok(name) = std::str::from_utf8(name) else {
+            return false;
+        };
+        let whole = rgba.len() == width as usize * height as usize * 4;
+        whole && self.rt.game_mut().is_some_and(|game| game.put_painting(name, width, height, rgba))
+    }
+
+    /// The page could not fetch or decode the picture named `name`.
+    pub fn painting_failed(&mut self, name: &[u8]) {
+        if let (Ok(name), Some(game)) = (std::str::from_utf8(name), self.rt.game_mut()) {
+            game.painting_failed(name);
+        }
+    }
+
+    /// The host's HD art manifest, as the page fetched it, and the page's
+    /// whole-number scale (`GameClient::hd_manifest`).
+    pub fn hd_manifest(&mut self, json: &[u8], scale: u32, rung: u32) -> bool {
+        let Ok(json) = std::str::from_utf8(json) else {
+            return false;
+        };
+        self.rt.game_mut().is_some_and(|game| game.hd_manifest(json, scale, rung))
+    }
+
     /// The page can draw a stage's 3D props (or cannot, again): the game is
     /// told before each stage it makes.
     pub fn stage_props(&mut self, on: bool) {
@@ -304,6 +343,23 @@ impl<G: GameClient> Glue<G> {
     pub fn sheet(&mut self) -> &[u8] {
         let sheet = self.rt.sheet();
         self.set_text(&sheet)
+    }
+
+    /// The game's choices to tap, one a line, in the text buffer.
+    pub fn choices(&mut self) -> &[u8] {
+        let choices = self.rt.choices();
+        self.set_text(&choices)
+    }
+
+    /// The player tapped choice `n`.
+    pub fn choose(&mut self, n: u32) {
+        self.rt.choose(n);
+    }
+
+    /// The game's picks beside its text line, in the text buffer.
+    pub fn picks(&mut self) -> &[u8] {
+        let picks = self.rt.picks();
+        self.set_text(&picks)
     }
 
     pub fn text(&self) -> &[u8] {
@@ -563,6 +619,42 @@ macro_rules! export_client {
             }
 
             #[unsafe(no_mangle)]
+            pub extern "C" fn angel_painting_wanted() -> usize {
+                with(|g| g.painting_wanted().len())
+            }
+
+            /// # Safety
+            /// Each pointer and length is a buffer from `angel_alloc`.
+            #[unsafe(no_mangle)]
+            pub unsafe extern "C" fn angel_put_painting(
+                name: *const u8,
+                name_len: usize,
+                width: u32,
+                height: u32,
+                rgba: *const u8,
+                rgba_len: usize,
+            ) -> u32 {
+                let (name, rgba) = unsafe { ($crate::bytes(name, name_len), $crate::bytes(rgba, rgba_len)) };
+                with(|g| g.put_painting(name, width, height, rgba) as u32)
+            }
+
+            /// # Safety
+            /// `ptr`, `len` is a buffer from `angel_alloc`.
+            #[unsafe(no_mangle)]
+            pub unsafe extern "C" fn angel_painting_failed(ptr: *const u8, len: usize) {
+                let name = unsafe { $crate::bytes(ptr, len) };
+                with(|g| g.painting_failed(name))
+            }
+
+            /// # Safety
+            /// `ptr`, `len` is a buffer from `angel_alloc`.
+            #[unsafe(no_mangle)]
+            pub unsafe extern "C" fn angel_hd_manifest(ptr: *const u8, len: usize, scale: u32, rung: u32) -> u32 {
+                let json = unsafe { $crate::bytes(ptr, len) };
+                with(|g| g.hd_manifest(json, scale, rung) as u32)
+            }
+
+            #[unsafe(no_mangle)]
             pub extern "C" fn angel_frame_w() -> u32 {
                 with(|g| g.size().0)
             }
@@ -620,6 +712,21 @@ macro_rules! export_client {
             #[unsafe(no_mangle)]
             pub extern "C" fn angel_sheet() -> usize {
                 with(|g| g.sheet().len())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_choices() -> usize {
+                with(|g| g.choices().len())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_choose(n: u32) {
+                with(|g| g.choose(n))
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_picks() -> usize {
+                with(|g| g.picks().len())
             }
 
             #[unsafe(no_mangle)]

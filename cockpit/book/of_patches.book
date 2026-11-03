@@ -1,0 +1,42 @@
+@@book-page 1@@
+workspace path, or conflict://N / conflict://* virtual URL
+@@book-page 1@@
+full file contents, or @ours/@theirs/@base/@both for conflict resolve
+@@book-page 2@@
+Fewer hops than repeated str_replace for a multi-site refactor.
+@@book-page 2@@
+path inside the workspace (relative or absolute)
+@@book-page 2@@
+optional stale-edit guard: the file's content tag from read_file's [path#tag] header.
+@@book-page 2@@
+All edits are rejected if the live file no longer matches it.
+@@book-page 2@@
+ordered edits, each applied to the result of the previous
+@@book-page 3@@
+Hashline also supports stage=true: preflight and queue the plan without writing; call resolve_edit to accept or reject.
+@@book-page 3@@
+unified diff (a/ b/ headers)
+@@book-page 3@@
+path strip level -pN (default 1)
+@@book-page 3@@
+hashline only: when true, preflight and stage the plan (no disk write); resolve with resolve_edit
+@@book-page 4@@
+accept | reject | list (default list)
+@@book-page 4@@
+staged edit id from the proposal card (required for accept/reject)
+@@book-page 4@@
+optional note recorded on accept/reject
+@@book-page 5@@
+Set execute=true to stage each unit and commit in that order.
+@@book-page 5@@
+false (default) = print plan only; true = stage+commit each unit
+@@book-page 5@@
+true (default) = one commit per file class; false = single commit
+@@book-page 5@@
+commit subject (and optional blank-line + body).
+@@book-page 5@@
+Used for the first/only unit; further split units get class-scoped subjects
+@@book-page 5@@
+include untracked files in the plan (default true)
+@@book-page 6@@
+branch from delegate

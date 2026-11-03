@@ -327,3 +327,245 @@ output = "1.0"
     );
     std::fs::remove_file(&path).ok();
 }
+
+// --- the live `cost` leg -----------------------------------------------------
+//
+// `cost_with_rows` stays the oracle: the leg is only allowed to be a different
+// implementation of the same decision, never a different decision.
+
+fn leg_row<'a>(rows: &'a [PriceRow], model: &str) -> Option<&'a PriceRow> {
+    rows.iter()
+        .find(|row| row.model == model)
+        .or_else(|| rows.iter().find(|row| family_prefix(&row.model, model)))
+}
+
+/// Model ids and usage blocks that reach every gate the native ladder has:
+/// reported fields, cache conventions both blessed and unblessed, reasoning
+/// conventions, zero counts, a subscription row, an unparseable row and no usage.
+fn leg_cases() -> Vec<(&'static str, Option<Value>)> {
+    vec![
+        ("glm-5.3-air", usage(json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,"output":500_000,"reasoning":100_000,"attempts":1}))),
+        ("glm-5.3-air", usage(json!({"input":1_000_000}))),
+        ("glm-5.3-air", usage(json!({"output":500_000}))),
+        ("glm-5.3-air", usage(json!({"cache_read":200_000}))),
+        ("glm-5.3-air", usage(json!({"input":1_000,"cache_read":100}))),
+        ("glm-5.3-air", usage(json!({"input":100,"cache_read":1_000}))),
+        ("glm-5.3-air", usage(json!({"input":1_000,"cache_read":1_000}))),
+        ("glm-5.3-air", usage(json!({"uncached_input":7_000}))),
+        ("glm-5.3-air", usage(json!({"reasoning":9_000}))),
+        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
+            "reasoning_convention_attempts":{"separate":2}}))),
+        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
+            "reasoning_convention_attempts":{"separate":1}}))),
+        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":0,
+            "reasoning_convention_attempts":{"separate":0}}))),
+        ("glm-5.3-air", usage(json!({"input":0,"cache_read":0,"uncached_input":0,"output":0,"reasoning":0,"attempts":1}))),
+        ("glm-5.3-air", usage(json!({"output":0}))),
+        ("glm-5.3-air", usage(json!({"input":1_000_000_000,"output":1_000_000_000}))),
+        ("glm-5.3-air", usage(json!({"input":123_457,"output":9_876,"cache_read":57}))),
+        ("glm-5.3-air", usage(json!({"input":5,"cache_read":5,"uncached_input":0}))),
+        ("glm-5.3-air", usage(json!({"input":3,"output":3,"attempts":1,
+            "reasoning_convention_attempts":{"separate":1}}))),
+        ("deepseek-v4-flash", usage(json!({"input":2_000_000,"cache_read":500_000,"output":1_500_000,"reasoning":250_000,"attempts":1}))),
+        ("deepseek-v4-flash", usage(json!({"input":10_000,"output":20_000}))),
+        ("deepseek-v4-flash", usage(json!({"cache_read":4_000}))),
+        ("deepseek-v4-flash-exp", usage(json!({"input":1_000_000,"output":1_000_000}))),
+        ("deepseek-v4-flash-exp", usage(json!({"output":0}))),
+        ("subscription-model", usage(json!({"input":1_000,"output":500}))),
+        ("subscription-model", usage(json!({}))),
+        ("subscription-model", None),
+        ("subscription-model", usage(json!({"input":0,"output":0}))),
+        ("unknown-price-model", usage(json!({"input":1_000,"output":500}))),
+        ("unknown-price-model", None),
+        ("unknown-price-model", usage(json!({}))),
+        ("glm-5.3-air", usage(json!({}))),
+        ("glm-5.3-air", None),
+        ("glm-5.3-air", usage(json!({"attempts":3}))),
+        ("glm-5.3-air", usage(json!({"input":9_000_000,"cache_read":3_000_000,"output":4_000_000,
+            "reasoning":2_000_000,"attempts":2,"reasoning_convention_attempts":{"separate":2}}))),
+    ]
+}
+
+#[test]
+fn cost_leg_decides_every_record_exactly_like_the_native_ladder() {
+    let rows = parse_rows(TABLE);
+    let leg = crate::agent::harness::live_policy::shipped_leg("cost");
+    let cases = leg_cases();
+    assert!(cases.len() >= 30, "the parity table stays broad");
+    for (model, usage) in &cases {
+        // Every case must be inside the leg's contract: a rate the e8 units
+        // cannot carry keeps the native decision and is reported here.
+        let row = leg_row(&rows, model);
+        let input = serde_json::to_value(
+            cost_leg_input(usage.as_ref(), row).expect("fixture rates are e8-exact"),
+        )
+        .unwrap();
+        let native = cost_with_rows(Some(model), usage.as_ref(), &rows, "fixture");
+        let (decision, source) = crate::agent::harness::live_policy::decide_with(
+            Some(leg.clone()),
+            "cost",
+            &input,
+            |value: &CostLegDecision| cost_leg_check(row, value),
+            || native_decision(model, usage.as_ref(), row, "fixture"),
+        );
+        assert!(
+            matches!(source, crate::agent::harness::live_policy::LegSource::Live { .. }),
+            "{model}/{usage:?} did not decide in the leg: {source:?}"
+        );
+        assert_eq!(
+            cost_record(model, usage.as_ref(), row, "fixture", &decision),
+            native,
+            "{model}/{usage:?} diverged from the native ladder"
+        );
+    }
+}
+
+/// A shipped directory with one deliberately out-of-contract `cost` module.
+fn out_of_contract_leg() -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-cost-broken-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("cost");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("module.json"),
+        r#"{"api_version":1,"id":"cost","kind":"policy","entry":"index.js","probe":{"input":1}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("index.js"),
+        "module.exports={apiVersion:1,render: () => ({basis: 'list-price', paid_e8: 1})}",
+    )
+    .unwrap();
+    let mut registry = angel_live::Registry::validated(
+        root.clone(),
+        crate::agent::hotload::evaluate,
+        |_, _| Ok(()),
+    );
+    registry.refresh(true);
+    let program = registry
+        .snapshot()
+        .policies
+        .get("cost")
+        .cloned()
+        .expect("the out-of-contract leg loads");
+    let _ = std::fs::remove_dir_all(&root);
+    program
+}
+
+#[test]
+fn cost_leg_out_of_contract_answer_keeps_the_native_decision() {
+    let rows = parse_rows(TABLE);
+    let model = "unknown-price-model";
+    let usage = usage(json!({"input":1_000,"output":500}));
+    let row = leg_row(&rows, model);
+    assert!(row.is_none(), "this case has no price row to claim");
+    let input =
+        serde_json::to_value(cost_leg_input(usage.as_ref(), row).unwrap()).unwrap();
+    let native = cost_with_rows(Some(model), usage.as_ref(), &rows, "fixture");
+    let (decision, source) = crate::agent::harness::live_policy::decide_with(
+        Some(out_of_contract_leg()),
+        "cost",
+        &input,
+        |value: &CostLegDecision| cost_leg_check(row, value),
+        || native_decision(model, usage.as_ref(), row, "fixture"),
+    );
+    assert!(
+        matches!(
+            source,
+            crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+        ),
+        "a basis the record cannot have must fall back: {source:?}"
+    );
+    assert_eq!(
+        cost_record(model, usage.as_ref(), row, "fixture", &decision),
+        native
+    );
+    // The same contract also rejects a subscription row that invents a fee.
+    let rows = parse_rows(TABLE);
+    let model = "subscription-model";
+    let row = leg_row(&rows, model);
+    let denied = CostLegDecision {
+        basis: "subscription-marginal".into(),
+        paid_e8: 0,
+        cached_e8: None,
+        fee_e8: 1,
+    };
+    assert!(cost_leg_check(row, &denied).is_err());
+}
+
+#[test]
+fn cost_leg_decision_timing() {
+    let rows = parse_rows(TABLE);
+    let leg = crate::agent::harness::live_policy::shipped_leg("cost");
+    let model = "glm-5.3-air";
+    let usage = usage(json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,
+        "output":500_000,"reasoning":100_000,"attempts":1}));
+    let row = leg_row(&rows, model);
+    let input = serde_json::to_value(cost_leg_input(usage.as_ref(), row).unwrap()).unwrap();
+    let mut samples = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (_decision, source) = crate::agent::harness::live_policy::decide_with(
+            Some(leg.clone()),
+            "cost",
+            &input,
+            |value: &CostLegDecision| cost_leg_check(row, value),
+            || native_decision(model, usage.as_ref(), row, "fixture"),
+        );
+        assert!(matches!(
+            source,
+            crate::agent::harness::live_policy::LegSource::Live { .. }
+        ));
+        samples.push(started.elapsed().as_micros() as u64);
+    }
+    samples.sort_unstable();
+    eprintln!(
+        "cost leg: median {} µs per decision over 200 calls (p95 {} µs, max {} µs)",
+        samples[100],
+        samples[190],
+        samples[199]
+    );
+}
+
+/// A card whose rates are finer than a cent, or a record whose product outgrows
+/// a Bend Nat immediate, stays on the native decision rather than being rounded.
+#[test]
+fn cost_leg_keeps_records_outside_its_units_on_the_native_decision() {
+    const FINE_TABLE: &str = r#"
+[[prices]]
+provider = "test"
+model = "fine-rate-model"
+currency = "usd"
+price_date = "2026-09-10"
+input = "0.035"
+output = "1.005"
+"#;
+    let rows = parse_rows(FINE_TABLE);
+    let model = "fine-rate-model";
+    let spend = usage(json!({"input":1_000_000,"output":1_000_000}));
+    let row = leg_row(&rows, model);
+    assert!(row.is_some(), "the row itself parses");
+    assert!(
+        cost_leg_input(spend.as_ref(), row).is_none(),
+        "a rate finer than a cent has no exact integer"
+    );
+    assert!(cost_leg(model, spend.as_ref(), row, "fixture").is_none());
+    assert_eq!(
+        cost_decided(Some(model), spend.as_ref(), &rows, "fixture"),
+        cost_with_rows(Some(model), spend.as_ref(), &rows, "fixture")
+    );
+
+    // 2*10^12 input tokens at 0.50/M is past the leg's Nat budget (2^46).
+    let rows = parse_rows(TABLE);
+    let model = "glm-5.3-air";
+    let huge = usage(json!({"input":2_000_000_000_000u64}));
+    let row = leg_row(&rows, model);
+    assert!(
+        cost_leg_input(huge.as_ref(), row).is_none(),
+        "a product past 2^48-1 is out of contract"
+    );
+    assert_eq!(
+        cost_decided(Some(model), huge.as_ref(), &rows, "fixture"),
+        cost_with_rows(Some(model), huge.as_ref(), &rows, "fixture")
+    );
+}

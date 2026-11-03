@@ -11,7 +11,7 @@ Use image generation for each original boss and effect family. Request the
 prompt in `scripts/boss-art.py::PROMPT` is available with:
 
 ```sh
-TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges \
+TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges \
 python scripts/boss-art.py prompt 'furnace guardian' --size 28 23
 ```
 
@@ -34,7 +34,7 @@ e.g. slate `sSuU`, ember `PR@6`, warm rim `Ro@6`; walnut `bPot`, brass `PotT`,
 teal `sSU2`; bark `bPRo`, cream `PotT`, rust `bR7o`, moss `mAY`.
 
 ```sh
-TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges \
+TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges \
 python scripts/boss-art.py boss concept.png \
   --boss cockpit/assets/dungeon/bosses/example.boss \
   --output cockpit/assets/dungeon/bosses/example \
@@ -71,7 +71,7 @@ that records and protected layers exist, not that taste is automatic.
 The accepted pilot recipe is now the source of truth for every frame:
 
 ```sh
-TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges \
+TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges \
 python scripts/boss-art.py recipe scripts/boss-art-pilots.json
 ```
 
@@ -79,7 +79,7 @@ It writes exact `.boss` grids, PNG previews and `.art` frames. Re-running it
 must produce no diff. `frames` contains v1, v2, two projectiles, four warning
 stages and five impacts. Other singleton exceptions include Cinderjaw's two hand-placed v1 eyes and one
 retained silhouette pixel each on the Index's foot and Mother's root. Prompts and concepts are retained under the `boss-1b/` and `boss-1c/` review
-directories in `/work/artifacts/boss-art-20261015/`.
+directories in `<artifacts>/boss-art-20261015/`.
 
 ## Combat art and geometry
 
@@ -151,7 +151,7 @@ Set `ANGEL_BOSS_SHOTS=OUT/terminal` and `ANGEL_BOSS_OLD=OLD_BOSS_DIR`.
 Every review sheet must be at most 1800 px wide and contain at most 12 views.
 
 Build the host and browser bundle with the assigned target directories and
-`TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges`. Use only the
+`TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges`. Use only the
 assigned host/CDP ports, headless `shot.mjs` / `render.mjs`, and both kits with
 `--scene boss --boss ID --bots 3`. Measure before/after with
 `crates/delve/smoke`; run the complete delve tests once at the end. Check the
@@ -412,7 +412,7 @@ exact. No renderer changes or master-ink changes are required.
 `scripts/boss-art-crypt-detail-concepts.py CONCEPTS OUTPUT` keeps the three
 nearest/palette candidates before hand cleanup; `boss-art-crypt.json` owns
 the final rows. Concepts, prompts, rejected passes and six identical-room
-comparison sheets live in `/work/artifacts/boss-art-20261015/boss-2c/`. Each
+comparison sheets live in `<artifacts>/boss-art-20261015/boss-2c/`. Each
 sheet compares ORIGINAL / BOSS-2B / NEW at 3x, native 1x and actual cells,
 with one kit per sheet (nine views). The original-presence, native/room,
 light-form and player-stage gates retain their existing thresholds.

@@ -318,10 +318,16 @@ fn selected_id() -> Option<String> {
 /// The active cartridge: `ANGEL_CARTRIDGE` by id, else the first competition
 /// plugged in. `None` when there is none; the engine then runs without one.
 pub(crate) fn active() -> Option<&'static Cartridge> {
-    let all = all();
-    selected_id()
-        .and_then(|id| all.iter().find(|c| c.id() == id))
-        .or_else(|| all.iter().find(|c| c.competes()))
+    choose(all(), selected_id().as_deref())
+}
+
+fn choose<'a>(all: &'a [Cartridge], id: Option<&str>) -> Option<&'a Cartridge> {
+    let selected = id.and_then(|id| all.iter().find(|c| c.id() == id));
+    if id == Some("yukon") {
+        selected
+    } else {
+        selected.or_else(|| all.iter().find(|c| c.competes()))
+    }
 }
 
 /// The plugged-in command typed as `/<word>`, with its cartridge.

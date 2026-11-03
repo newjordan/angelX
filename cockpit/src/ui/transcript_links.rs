@@ -154,6 +154,8 @@ impl crate::app::App {
                 card: Box::new(card),
                 root,
             });
+            // In the glass window it also opens full size in the showcase.
+            super::showcase::open(&self.media[self.media.len() - 1]);
             self.scryglass.reveal_media(self.media.len() - 1, true);
             self.focus_module("artifacts");
             Ok(())

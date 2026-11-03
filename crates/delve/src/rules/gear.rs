@@ -33,20 +33,44 @@ impl Kept {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Wardrobe {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub looks: BTreeMap<String, creator::Appearance>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeSet::is_empty")]
+    pub mirror_seen: std::collections::BTreeSet<String>,
     pub knights: BTreeMap<String, Kept>,
     pub legacy: bool,
+    /// Painted ink only, kept per named knight in this realm.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mirror_looks: BTreeMap<String, super::cosmetic_wish::Look>,
 }
 pub fn legacy_wardrobe() -> Wardrobe { Wardrobe { legacy: true, ..Default::default() } }
 
 pub fn piece(id: &str) -> bool { matches!(id, "iron-helm" | "body-armour" | "kite-shield") }
-/// Taken with E: arms, helm and mail. A shield is a guard and is taken by walking over it, as ever.
+/// Taken with E: arms, helm and mail. A guard of the knight's own kind is taken by walking over it (`manual_for`).
 pub fn manual(card: &Card) -> bool { card.kind == cards::Kind::Arm || matches!(card.id.as_str(), "iron-helm" | "body-armour") }
+
+/// Taken with E by this knight, never by walking over it: `manual`'s pieces,
+/// and a guard of another kind than the one they play, so a knight on the
+/// roll keeps it until they choose a shield, and a shield is never lost to a
+/// roll card underfoot. 2026-10-22: "fix the bug where the shield is auto
+/// picked up for a character with roll".
+pub fn manual_for(hero: &Hero, card: &Card) -> bool {
+    manual(card)
+        || (card.kind == cards::Kind::Guard
+            && std::mem::discriminant(&card.guard.unwrap_or_default()) != std::mem::discriminant(&hero.guard))
+}
 
 impl Hero {
     pub fn unarmed(&self) -> bool { self.weapon == Weapon::Fists && self.forged.is_none() }
     pub fn helmet_worn(&self) -> bool {
         self.owned.helmet && stage(self.hp, self.max_hp) == 0 && self.pit.bare().unwrap_or(0) == 0
     }
+    /// A shield in hand: the guard is a shield, however it came (the kite
+    /// shield found and worn, a shield card, a wish, the kit's own). The
+    /// knight is drawn with it all the while it is held, raised or not, on
+    /// every seat's screen. 2026-10-19: "if you grab a shield, we should
+    /// always see the shield".
+    pub fn holds_shield(&self) -> bool { self.guard == cards::Guard::Shield }
     pub(super) fn kept(&self) -> Kept {
         Kept { owned: self.owned, weapon: self.weapon, arm: self.arm.clone(), guard: self.guard_card.clone() }
     }
@@ -66,7 +90,32 @@ impl Run {
         self.players.get_mut(&1).unwrap().name = name.into();
         self.restore_gear(1);
     }
+    /// A friend takes knight 1: a host who plays no knight hands its place
+    /// to the last friend in. The knight takes their name and their kept
+    /// gear; the name it bore keeps its gear for when it comes back.
+    pub fn seat_first(&mut self, name: &str) {
+        let name = Hero::new(name, 0.0, 0.0).name;
+        if self.players.get(&1).is_none_or(|h| h.name == name) {
+            return;
+        }
+        self.keep_gear(1);
+        self.retire_wish_seat(1);
+        self.playtest.seats.remove(&1);
+        if let Some(hero) = self.players.get_mut(&1) {
+            hero.name = name;
+        }
+        self.restore_gear(1);
+        self.stock_gear_cache();
+    }
     pub fn restore_gear(&mut self, id: u32) {
+        self.restore_freedom_wishes(id);
+        self.restore_look(id);
+        self.restore_mirror_look(id);
+        if let Some(hero) = self.players.get_mut(&id) { hero.mirror_wish = false; }
+        // The identity start: a shape, whatever came home (`identity`).
+        if self.identity {
+            return self.unmake(id);
+        }
         let Some(hero) = self.players.get_mut(&id) else { return; };
         if let Some(kept) = self.home.wardrobe.knights.get(&hero.name) {
             hero.owned = kept.owned;
@@ -91,10 +140,19 @@ impl Run {
             hero.guard = cards::Guard::Roll;
             hero.guard_card = Some("dodge-roll".into());
         }
+        // A ranger starts on the roll, whatever guard came home with them: a
+        // shield kept from the last delve is not in hand. 2026-10-19:
+        // "rangers should have roll not shield on start".
+        if classes::of(hero).is_some_and(|c| c.name == "Archer") {
+            hero.guard = cards::Guard::Roll;
+            hero.guard_card = Some("dodge-roll".into());
+        }
         hero.dress();
     }
     pub(super) fn keep_gear(&mut self, id: u32) {
-        if let Some(hero) = self.players.get(&id) {
+        // A shape's ball is no gear to keep: what was kept stays for a
+        // delve begun with a kit.
+        if let Some(hero) = self.players.get(&id).filter(|h| h.shape.is_none()) {
             self.home.wardrobe.knights.insert(hero.name.clone(), hero.kept());
         }
     }
@@ -105,16 +163,20 @@ impl Run {
     /// Supplies follow missing equipment, never change the monsters' numbers.
     /// Floor one opens with a weapon cache; helm and mail follow early kills.
     /// Floor two's chest supplies any remaining pieces, including shields.
+    /// A piece is shared loot (`loot::shared`): one lying serves every knight
+    /// who lacks it, so one goes down for the party, not one a knight (the
+    /// operator, 2026-10-19: "get rid of so many shield cards").
     pub(super) fn stock_gear_cache(&mut self) {
         let depth = self.dungeon.depth;
-        if !(1..=2).contains(&depth) { return; }
+        // A shape wishes its weapon and its body: no cache waits for it.
+        if !(1..=2).contains(&depth) || self.identity { return; }
         let mut cards = Vec::new();
         for hero in self.players.values() {
             if hero.unarmed() { cards.push(["bow", "crossbow", "handgonne"][cards.len() % 3]); }
-            if depth == 2 {
-                if !hero.owned.helmet { cards.push("iron-helm"); }
-                if !hero.owned.body { cards.push("body-armour"); }
-                if !hero.owned.shield { cards.push("kite-shield"); }
+        }
+        if depth == 2 {
+            for (card, owned) in PIECES {
+                if self.players.values().any(|h| !owned(&h.owned)) { cards.push(card); }
             }
         }
         let mut reserved = BTreeMap::<String, usize>::new();
@@ -134,19 +196,19 @@ impl Run {
         let (cx, cy) = arrival.map_or((room.width() / 2.0, room.height() - 9.0), |(x, y)| (x, y - 6.0));
         room.chest = Some(layout::Chest { x: cx, y: cy, open: false });
         for (n, card) in cards.into_iter().enumerate() {
-            room.items.push(Item { card: card.into(), x: cx - 4.5 + (n % 4) as f32 * 3.0, y: cy + 3.0 + (n / 4) as f32 * 2.5, held_off: None, took: Vec::new() });
+            room.items.push(Item { card: card.into(), x: cx - 4.5 + (n % 4) as f32 * 3.0, y: cy + 3.0 + (n / 4) as f32 * 2.5, held_off: None, took: Vec::new(), dropped: 0, owner: None });
         }
     }
 
+    /// An early kill drops the first piece some knight lacks and has none
+    /// lying for them to take: one serves them all (shared loot). An empty
+    /// seat's knight (the host who plays none, a friend gone) is owed none:
+    /// 2026-10-21, shields kept falling for the host's empty seat.
     pub(super) fn early_gear_drop(&mut self, x: f32, y: f32) {
-        if !(1..=2).contains(&self.dungeon.depth) { return; }
-        for (card, missing) in [
-            ("iron-helm", self.players.values().filter(|h| !h.owned.helmet).count()),
-            ("body-armour", self.players.values().filter(|h| !h.owned.body).count()),
-            ("kite-shield", self.players.values().filter(|h| !h.owned.shield).count()),
-        ] {
-            let waiting = self.dungeon.rooms.iter().flat_map(|r| &r.items).filter(|i| i.card == card).count();
-            if waiting < missing {
+        if !(1..=2).contains(&self.dungeon.depth) || self.identity { return; }
+        for (card, owned) in PIECES {
+            let waiting = |id: u32| self.dungeon.rooms.iter().flat_map(|r| &r.items).any(|i| i.card == card && i.seen_by(Some(id)));
+            if self.players.iter().any(|(&id, h)| !h.absent && !owned(&h.owned) && !waiting(id)) {
                 self.drop_item(card.into(), x, y, None);
                 break;
             }
@@ -154,6 +216,13 @@ impl Run {
     }
 }
 
+
+/// The pieces a knight is outfitted with, and whether one is owned.
+const PIECES: [(&str, fn(&Owned) -> bool); 3] = [
+    ("iron-helm", |o| o.helmet),
+    ("body-armour", |o| o.body),
+    ("kite-shield", |o| o.shield),
+];
 
 /// Extra share of every hit, in percent, for a knight without body armour
 /// or a helmet. A shield guards in its own way (`Guard::Shield`).
@@ -181,7 +250,7 @@ pub fn stage(hp: u32, max_hp: u32) -> u8 {
 impl Hero {
     /// Once a tick: dress or undress to the health the knight has, and
     /// start the pop when something has just come off.
-    pub(super) fn dress(&mut self) {
+    pub fn dress(&mut self) {
         self.pop = self.pop.saturating_sub(1);
         self.pit.tick();
         if self.hp == 0 {

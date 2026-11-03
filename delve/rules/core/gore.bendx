@@ -1,0 +1,31 @@
+# crates/delve/src/rules/gore.rs — the finishers of monsters just felled; what the step reaches.
+
+# Ticks since the blow.
+def gore.Gore.age(g: J.Val, tick: W.W) -> W.W:
+    return W.sat_sub(tick, W.of_j(J.get(g, "born")))
+
+# Whether the record has outlived its stains.
+def gore.Gore.over(g: J.Val, tick: W.W) -> Bool:
+    return W.ge(gore.Gore.age(g, tick), gore.LIFE())
+
+# The tick's end: records age out, and an echo whose moment has come sounds.
+def gore.Run.age_gore(run: J.Val) -> J.Val:
+    tick: W.W = W.of_j(J.get(run, "tick"))
+    kept: [J.Val] = []
+    for g: J.Val in J.items(J.get(run, "gore")):
+        if Bool.not(gore.Gore.over(g, tick)):
+            kept = List.append(&2, J.Val, kept, [g])
+    run = J.set(run, "gore", J.JA{kept})
+    feel: J.Val = J.get(run, "feel")
+    echoes: J.Val = J.get(feel, "echoes")
+    if U32.is_zero(core.count(echoes)):
+        return run
+    due: [J.Val] = []
+    waiting: [J.Val] = []
+    for e: J.Val in J.items(echoes):
+        if W.le(W.of_j(J.nth(e, 0)), tick):
+            due = List.append(&2, J.Val, due, [J.nth(e, 1)])
+        else:
+            waiting = List.append(&2, J.Val, waiting, [e])
+    run = J.set(run, "feel", J.set(feel, "echoes", J.JA{waiting}))
+    return J.set(run, "sounds", J.JA{List.append(&2, J.Val, J.items(J.get(run, "sounds")), due)})

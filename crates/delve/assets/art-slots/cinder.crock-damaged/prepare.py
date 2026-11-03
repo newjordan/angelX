@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """Register reviewed source crops without changing the shared slot converter."""
-import argparse, hashlib, importlib.util, json
+import argparse, hashlib, importlib.util, json, os
 from pathlib import Path
 from PIL import Image
 ROOT=Path(__file__).resolve().parents[5]
+def env_dir(name):
+ value=os.environ.get(name)
+ if not value:raise SystemExit(f'set {name} to the art-production directory it names')
+ return Path(value)
+SLOTS=env_dir('ART_PROD_SLOTS')
 spec=importlib.util.spec_from_file_location('slots',ROOT/'scripts/slot-art-import.py');imp=importlib.util.module_from_spec(spec);spec.loader.exec_module(imp)
 p=argparse.ArgumentParser();p.add_argument('--output',required=True,type=Path);p.add_argument('--check',action='store_true');a=p.parse_args()
 specs=json.loads(Path(__file__).with_name('registrations.json').read_text())
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 for slot,cfg in specs.items():
  dst=ROOT/'crates/delve/assets/art-slots'/slot;dst.mkdir(exist_ok=True)
- source=Path('/work/artifacts/art-prod/slots')/slot/'v01';assert sha(source/'source-sheet.png')==cfg['sha256'],'Delivery changed; inspect and update registration explicitly'
+ source=SLOTS/slot/'v01';assert sha(source/'source-sheet.png')==cfg['sha256'],'Delivery changed; inspect and update registration explicitly'
  raw=Image.open(source/'source-sheet.png').convert('RGBA');notes=(source/'notes.md').read_text()
  cw,ch=cfg['source_canvas'];ax,ay=cfg['source_anchor'];sheet=Image.new('RGBA',(cw*4+2,ch*3+2));meta={'pieces':[],'warnings':cfg.get('warnings',[])}
  for i,f in enumerate(cfg['frames']):

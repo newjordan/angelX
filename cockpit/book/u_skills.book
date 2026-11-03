@@ -1,0 +1,40 @@
+@@book-page 1@@
+Skills — focused playbooks you can load on demand.
+@@book-page 1@@
+Call `skill(name)` to get a skill's full instructions before doing that kind of task:
+@@book-page 2@@
+Playbooks: {count} available.
+@@book-page 2@@
+Use `tool_search` to discover the `skill` tool and its available names, then `skill(name)` to load a relevant procedure when needed.
+@@book-page 3@@
+[skill hint — harness-selected playbook]
+@@book-page 3@@
+Relevant playbook: `{name}`.
+@@book-page 3@@
+Call `skill(name="{name}")` before acting if it fits this task.
+@@book-page 4@@
+Call a tool labelled active-next-request directly:
+@@book-page 5@@
+read: handle_read tool (tool_search it if unlisted)
+@@book-page 6@@
+pin another runner with `runner` or use `shell`
+@@book-page 7@@
+this only blocks TYPED (reward-labeled) verifier evidence, not compilation.
+@@book-page 7@@
+Run the same check through the `shell` tool instead (e.g. `cargo +<pinned> check`), which is legal unlabeled verification for this workspace.
+@@book-page 8@@
+[skill instructions truncated by the harness at 65536 UTF-8 bytes; inspect the source skill before treating this playbook as complete]
+@@book-page 8@@
+[skill resources — contents not loaded]
+@@book-page 9@@
+Read it with `agent://{rel}` or call handle_read with handle `{rel}`
+@@book-page 9@@
+Read agent://hnd_… for a capped body slice.
+@@book-page 9@@
+re-call handle_read with a higher budget if enabled
+@@book-page 9@@
+use agent://id without a path
+@@book-page 0@@
+The operator's ANGEL_TOOL_SEARCH_ACTIVE_MAX setting limits activation; repeating the search cannot raise it.
+@@book-page 0@@
+operator must set ANGEL_CODE_MODE_EFFECTS=1 in addition to allow_effects=true (or enable /yolos / /yolo)

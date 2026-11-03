@@ -61,7 +61,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "bannerpeak.sky",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.sky/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.sky/v01/source-sheet.png",
   "source_sha256": "cc0a3e7222a5510c34f8ad8479976e497779d83927fba129f6069c74ba040125",
   "tool_version": 2
 }

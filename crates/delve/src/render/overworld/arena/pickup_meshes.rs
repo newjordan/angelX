@@ -99,6 +99,14 @@ pub struct ScenePickup {
     pub accent: char,
     pub shine: bool,
     pub tick: u32,
+    /// Ticks since it came to lie there (`Item::dropped`): a model falls
+    /// onto the floor and settles (`plop`). `u32::MAX` for long since.
+    pub age: u32,
+    /// Its own fixed throw of the dice, from where and when it fell: which
+    /// way it lies.
+    pub seed: u32,
+    /// A bottle that wards (holy water), its glass pale, not red.
+    pub pale: bool,
 }
 
 /// The family a built-in card falls into. Every card gets at least a family default.
@@ -180,6 +188,10 @@ fn spoil_kind(spoil: Spoil) -> PickupKind {
         Spoil::Ember => PickupKind::Ember,
         Spoil::Scale => PickupKind::Scale,
         Spoil::Bond => PickupKind::Gear,
+        // The relics of the deep: crystal-bright, each its own colour of
+        // the same cut.
+        Spoil::Hearthstone | Spoil::Forgeheart | Spoil::Bellmetal | Spoil::Ledgerglass
+        | Spoil::Warhorn | Spoil::Waystone | Spoil::Wishmote => PickupKind::Gem,
     }
 }
 
@@ -365,6 +377,82 @@ impl Maker<'_> {
     fn point(&mut self, offset: [f32; 3], width: f32, len: f32, paint: Paint) {
         self.push(MeshRef::Cone { segments: 6 }, offset, QUAT_IDENTITY, [width, len, width * DEPTH], paint);
     }
+}
+
+/// How high a model is let go of over the floor, at its middle: between
+/// a knight's knee and chest.
+pub const DROP_FROM: f32 = 11.0;
+/// Seconds a model takes to fall to the floor.
+const FALL: f32 = 0.3;
+/// How much of its fall's speed comes back up off the floor: a small hop.
+const BOUNCE: f32 = 0.35;
+/// How far a model turns over as it falls, in radians, before it lies.
+const TUMBLE: f32 = 1.3;
+/// How far off flat a model may come to lie, in radians.
+const SETTLE_TIP: f32 = 0.16;
+/// How much a model glows of itself, so it reads in a dark room; more for
+/// what shines (gold, gems, bottles).
+const MODEL_GLOW: f32 = 0.2;
+const MODEL_SHINE: f32 = 0.4;
+
+/// Where a dropped model is `seconds` after it was let go: its middle's
+/// height over where it rests, and how far it is still turned from lying
+/// (radians). It falls, hops once and lies still; from the run's tick alone,
+/// as the cards' bob is.
+pub fn fall(seconds: f32) -> (f32, f32) {
+    let g = 2.0 * DROP_FROM / (FALL * FALL);
+    let up = BOUNCE * g * FALL;
+    let hop = 2.0 * up / g;
+    if seconds < FALL {
+        let k = (seconds / FALL).clamp(0.0, 1.0);
+        (DROP_FROM - 0.5 * g * seconds * seconds, TUMBLE * (1.0 - k) * (1.0 - k))
+    } else if seconds < FALL + hop {
+        let u = seconds - FALL;
+        // A rock on the hop, settling as it lands again.
+        (up * u - 0.5 * g * u * u, 0.12 * (u / hop * std::f32::consts::PI).sin())
+    } else {
+        (0.0, 0.0)
+    }
+}
+
+/// A pickup that has a model (`item_pack::model`), dropped onto the floor:
+/// let go of at about chest height, falling with a small hop, then lying
+/// still, flat (an arm, a shield) or standing (a bottle, a purse), turned
+/// its own way (`seed`). One node, id `id`.
+pub fn plop(id: u64, item: &ScenePickup, mesh: u32, model: &super::item_pack::Model, plate: u8, centre: (f32, f32)) -> Node {
+    use std::f32::consts::FRAC_PI_2;
+    let size = super::item_pack::size(plate);
+    let flat = super::item_pack::lies_flat(plate);
+    let dice = |k: u32| (item.seed.rotate_left(k).wrapping_mul(0x9E37_79B9) >> 8) as f32 / (1u32 << 24) as f32;
+    // An arm lies across the view, turned its own way off level and either
+    // end first (pointing away it would read as a stick); what stands keeps
+    // its face more or less to the camera.
+    let yaw = if flat {
+        let end = if dice(3) < 0.5 { FRAC_PI_2 } else { -FRAC_PI_2 };
+        end + (dice(0) - 0.5) * 1.4
+    } else {
+        (dice(0) - 0.5) * 1.0
+    };
+    let tip = (dice(7) - 0.5) * 2.0 * SETTLE_TIP;
+    let lying = if flat { quat_axis_angle([1.0, 0.0, 0.0], -FRAC_PI_2) } else { QUAT_IDENTITY };
+    let rest = quat_mul(quat_axis_angle([0.0, 1.0, 0.0], yaw), quat_mul(quat_axis_angle([0.0, 0.0, 1.0], tip), lying));
+    // Its middle over the floor at rest: half its depth when it lies, half
+    // its height when it stands, and the tip's lift.
+    let [hx, hy, hz] = model.half;
+    let half = if flat { hz + hx * tip.abs().sin() } else { hy + hx * tip.abs().sin() };
+    let (over, turned) = fall(item.age as f32 / crate::rules::HZ as f32);
+    // It turns over about the level line across its length.
+    let across = [yaw.cos(), 0.0, -yaw.sin()];
+    let spin = if dice(13) < 0.5 { 1.0 } else { -1.0 };
+    let rotation = quat_mul(quat_axis_angle(across, turned * spin), rest);
+    let glow = if item.shine { MODEL_SHINE } else { MODEL_GLOW };
+    let mut node = Node::new(id, MeshRef::Uploaded(mesh), Material::lit([1.0; 4], glow));
+    node.transform = Transform {
+        translation: [item.x - centre.0, half * size + 0.15 + over, item.y - centre.1],
+        rotation,
+        scale: [size; 3],
+    };
+    node
 }
 
 /// Build one pickup into `out`. `n` is its index in the room. Returns whether a shape was added.

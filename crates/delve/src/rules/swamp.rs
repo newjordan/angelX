@@ -188,13 +188,6 @@ pub fn fog(pack: Pack, room: &Room, depth: u32) -> Vec<(f32, f32)> {
     patches
 }
 
-/// Whether a point lies in one of the room's fog patches.
-pub fn in_fog(patches: &[(f32, f32)], x: f32, y: f32) -> bool {
-    patches
-        .iter()
-        .any(|&(px, py)| (px - x).hypot(py - y) < FOG_REACH)
-}
-
 /// Where the pen stands in the Mire King's hall: by a wall the party does
 /// not come in by, off the middle where the King himself rises (arena
 /// units, the middle of a tile).

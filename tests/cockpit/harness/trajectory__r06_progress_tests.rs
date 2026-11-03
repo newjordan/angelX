@@ -88,7 +88,7 @@ fn trajectory_remote_verification_receipt_resets_unproductive_streak() {
         note_tool_outcome(
             i + 1,
             "shell",
-            &json!({"command": "ssh sparky './bench.sh'"}),
+            &json!({"command": "ssh gpu-host './bench.sh'"}),
             receipt,
             "ok",
             false,
@@ -106,7 +106,7 @@ fn trajectory_remote_verification_receipt_resets_unproductive_streak() {
         note_tool_outcome(
             i + 1,
             "shell",
-            &json!({"command": "ssh sparky './bench.sh'"}),
+            &json!({"command": "ssh gpu-host './bench.sh'"}),
             receipt,
             "ok",
             false,

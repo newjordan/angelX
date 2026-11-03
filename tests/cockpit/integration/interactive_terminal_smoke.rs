@@ -144,6 +144,9 @@ impl CockpitPty {
         command.env("HOME", scratch.path().join("home"));
         command.env("XDG_CONFIG_HOME", scratch.path().join("config"));
         command.env("XDG_CACHE_HOME", scratch.path().join("cache"));
+        if let Some(compiler) = std::env::var_os("ANGEL_BEND_COMPILER") {
+            command.env("ANGEL_BEND_COMPILER", compiler);
+        }
         command.env("XDG_STATE_HOME", scratch.path().join("state"));
         command.env("ANGEL_WORKSPACE", scratch.path().join("work"));
         command.env("ANGEL_SESSION_DIR", scratch.path().join("sessions"));
@@ -167,6 +170,14 @@ impl CockpitPty {
         command.env("ANGEL_TUI_MOTION", motion);
         command.env("ANGEL_IMAGE_PROTOCOL", "halfblocks");
         command.env("ANGEL_OVERWATCH_CMD", "true");
+        if scratch.path().join("delve-engine").is_file() {
+            command.env("ANGEL_DELVE_SYSTEM", scratch.path().join("delve-engine"));
+        } else {
+            command.env("ANGEL_HOT_SYSTEMS", "0");
+        }
+        if scratch.path().join("live").is_dir() {
+            command.env("ANGEL_LIVE_DIR", scratch.path().join("live"));
+        }
 
         Self::spawn_command(rows, cols, command)
     }
@@ -277,6 +288,15 @@ impl CockpitPty {
         self.send(bytes)?;
         self.wait_for(label, predicate)?;
         Ok(started.elapsed())
+    }
+
+    // Start/resume can build a room before the event loop accepts game keys.
+    // Observe the expanded viewport before sending a cast or returning to code.
+    fn wait_for_game_view(&mut self) -> Result<(), String> {
+        self.wait_for("expanded game viewport", |screen| {
+            !screen.trim().is_empty() && !screen.contains("Write a message")
+        })?;
+        Ok(())
     }
 
     fn drain_for(&mut self, duration: Duration) -> Result<(), String> {
@@ -1192,6 +1212,587 @@ fn run_brain_route_controls_scenario() -> Result<(), String> {
     assert_terminal_restored(&raw)
 }
 
+fn run_live_module_scenario() -> Result<(), String> {
+    let scratch = ScratchDir::new("pty-live-module")?;
+    let ui = scratch.path().join("live/ui");
+    fs::create_dir_all(&ui).map_err(|e| e.to_string())?;
+    let shipped_ui = Path::new(env!("CARGO_MANIFEST_DIR")).join("live/ui");
+    fs::copy(shipped_ui.join("module.json"), ui.join("module.json")).map_err(|e| e.to_string())?;
+    let ui_source = fs::read_to_string(shipped_ui.join("index.js")).map_err(|e| e.to_string())?;
+    fs::write(ui.join("index.js"), &ui_source).map_err(|e| e.to_string())?;
+    let module = scratch.path().join("live/smoke");
+    fs::create_dir_all(&module).map_err(|e| e.to_string())?;
+    fs::write(module.join("module.json"),
+        r#"{"api_version":1,"id":"smoke","kind":"text","entry":"index.js","probe":{"label":"probe"}}"#)
+        .map_err(|e| e.to_string())?;
+    fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render: input=>'live-v1-'+input.label};",
+    )
+    .map_err(|e| e.to_string())?;
+    let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+    cockpit.wait_for("live host startup", |screen| {
+        screen.contains("Write a message")
+    })?;
+    let pid = cockpit.child.process_id();
+    cockpit.send_until_visible(
+        b"/live smoke {\"label\":\"first\"}\r",
+        "first live generation",
+        |screen| screen.contains("live-v1-first"),
+    )?;
+
+    let edited = Instant::now();
+    fs::write(
+        module.join("index.tmp"),
+        "module.exports={apiVersion:1,render: input=>'live-v2-'+input.label};",
+    )
+    .map_err(|e| e.to_string())?;
+    fs::rename(module.join("index.tmp"), module.join("index.js")).map_err(|e| e.to_string())?;
+    // Allow the watcher and debounce to activate without calling /reload.
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    cockpit.send_until_visible(
+        b"/live smoke {\"label\":\"second\"}\r",
+        "automatic live replacement",
+        |screen| screen.contains("live-v2-second"),
+    )?;
+    eprintln!("PTY edit-to-observed replacement: {:?}", edited.elapsed());
+
+    fs::write(module.join("index.js"), "module.exports={").map_err(|e| e.to_string())?;
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    // A fresh label proves this is a new reply, not the prior rendered row.
+    cockpit.send_until_visible(
+        b"/live smoke {\"label\":\"third\"}\r",
+        "last working code after bad edit",
+        |screen| screen.contains("live-v2-third"),
+    )?;
+    fs::write(
+        ui.join("index.js"),
+        ui_source.replace("Write a message…", "LIVE COMPOSER EDIT"),
+    )
+    .map_err(|e| e.to_string())?;
+    cockpit.wait_for("live UI repainted without a command", |screen| {
+        screen.contains("LIVE COMPOSER EDIT")
+    })?;
+    fs::write(ui.join("index.js"), "module.exports={").map_err(|e| e.to_string())?;
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    // Force an input clear/repaint: retained terminal pixels cannot satisfy it.
+    cockpit.send(b"temporary draft\x15")?;
+    cockpit.wait_for(
+        "live UI survived a broken edit and fresh repaint",
+        |screen| screen.contains("LIVE COMPOSER EDIT") && !screen.contains("temporary draft"),
+    )?;
+    if pid != cockpit.child.process_id()
+        || cockpit
+            .child
+            .try_wait()
+            .map_err(|e| e.to_string())?
+            .is_some()
+    {
+        return Err("live module changes restarted or exited the native host".into());
+    }
+    assert_terminal_restored(&cockpit.finish()?)
+}
+
+#[test]
+fn ordinary_cockpit_real_pty_live_module_replacement_and_bad_edit_smoke() {
+    if let Err(error) = run_live_module_scenario() {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            eprintln!("PTY_LIVE_MODULE_SKIPPED: {error}");
+            return;
+        }
+        panic!("PTY live module smoke failed: {error}");
+    }
+}
+
+fn run_live_game_scenario() -> Result<(), String> {
+    let scratch = ScratchDir::new("pty-live-game")?;
+    let module = scratch.path().join("live/game");
+    fs::create_dir_all(&module).map_err(|e| e.to_string())?;
+    fs::write(
+        module.join("module.json"),
+        r#"{"api_version":1,"id":"game","kind":"game","entry":"index.js"}"#,
+    )
+    .map_err(|e| e.to_string())?;
+    fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({knobs:{}})}",
+    )
+    .map_err(|e| e.to_string())?;
+    let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+    cockpit.wait_for("live game host startup", |screen| {
+        screen.contains("Write a message")
+    })?;
+    let pid = cockpit.child.process_id();
+    cockpit.send(b"/dungeon start\r")?;
+    cockpit.drain_for(Duration::from_millis(500))?;
+    cockpit.send(b"\x1bOQ")?; // F2: keep the run and return to coding.
+    cockpit.wait_for("composer beside the running game", |screen| {
+        screen.contains("Write a message")
+    })?;
+    fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({knobs:{hero_speed:20,fire_rate:200}})}",
+    )
+    .map_err(|e| e.to_string())?;
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    cockpit.send_until_visible(
+        b"/dungeon tune hero_speed 10\r",
+        "live rules applied to the existing game",
+        |screen| screen.contains("currently overrides it to 20"),
+    )?;
+    fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({knobs:{hero_speed:30,unknown_rule:1}})}",
+    )
+    .map_err(|e| e.to_string())?;
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    cockpit.send_until_visible(
+        b"/dungeon tune hero_speed 12\r",
+        "invalid rule set retained the whole working generation",
+        |screen| {
+            screen.contains("Saved hero_speed = 12")
+                && screen.contains("currently overrides it to 20")
+        },
+    )?;
+    fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({knobs:{}})}",
+    )
+    .map_err(|e| e.to_string())?;
+    cockpit.drain_for(Duration::from_millis(1500))?;
+    cockpit.send_until_visible(
+        b"/dungeon tune hero_speed 14\r",
+        "removed overlay restored ordinary game tuning",
+        |screen| screen.contains("hero_speed = 14 for everyone"),
+    )?;
+    if cockpit.child.process_id() != pid
+        || cockpit
+            .child
+            .try_wait()
+            .map_err(|e| e.to_string())?
+            .is_some()
+    {
+        return Err("live game rules replaced or exited the native host".into());
+    }
+    assert_terminal_restored(&cockpit.finish()?)
+}
+
+#[test]
+fn ordinary_cockpit_real_pty_live_game_rules_smoke() {
+    if let Err(error) = run_live_game_scenario() {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            eprintln!("PTY_LIVE_GAME_SKIPPED: {error}");
+            return;
+        }
+        panic!("PTY live game smoke failed: {error}");
+    }
+}
+
+fn install_character_modules(scratch: &ScratchDir) -> Result<(), String> {
+    for module in ["abilities", "ability-code", "ability-sounds", "ability-effects", "characters"] {
+        let destination = scratch.path().join("live").join(module);
+        fs::create_dir_all(&destination).map_err(|e| e.to_string())?;
+        for entry in fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("live").join(module)).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            fs::copy(entry.path(), destination.join(entry.file_name())).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires the two native system binaries built by cargo test -p angel-delve-system --features swap-test"]
+fn ordinary_cockpit_real_pty_native_system_swap_preserves_the_host_and_run() {
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-system-swap")?;
+        install_character_modules(&scratch)?;
+        let baseline = std::env::var("ANGEL_SYSTEM_TEST_WORKER")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_WORKER")?;
+        let replacement = std::env::var("ANGEL_SYSTEM_TEST_REPLACEMENT")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_REPLACEMENT")?;
+        let engine = scratch.path().join("delve-engine");
+        fs::copy(baseline, &engine).map_err(|e| e.to_string())?;
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("system host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.send(b"/dungeon start\r")?;
+        cockpit.drain_for(Duration::from_millis(500))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("composer beside existing run", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "initial native system", |s| {
+            s.contains("swaps=1") && s.contains("score=0")
+        })?;
+        cockpit.send_until_visible(b"/character gold 1\r", "character module alongside native rules", |s|s.contains("character gold selected for player 1"))?;
+        let pending = engine.with_extension("pending");
+        fs::copy(replacement, &pending).map_err(|e| e.to_string())?;
+        fs::rename(pending, &engine).map_err(|e| e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(900))?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "whole executable replaced between requests",
+            |s| s.contains("swaps=2"),
+        )?;
+        // The replacement's new rule awards seven points every simulation step.
+        cockpit.send(b"/dungeon resume\r")?;
+        cockpit.drain_for(Duration::from_millis(900))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.drain_for(Duration::from_millis(200))?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "changed executable behavior on the retained run",
+            |s| {
+                let last = s.rsplit("Delve system:").next().unwrap_or("");
+                last.contains("swaps=2") && last.contains("score=") && !last.contains("score=0")
+            },
+        )?;
+        if cockpit.child.process_id() != pid
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("system swap replaced/exited the cockpit".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        panic!("native system PTY swap failed: {error}");
+    }
+}
+
+#[test]
+fn ordinary_cockpit_real_pty_executable_abilities_keep_in_flight_casts() {
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-executable-abilities")?;
+        install_character_modules(&scratch)?;
+        let module = scratch.path().join("live/ability-code");
+        let spells = fs::read_to_string(module.join("spells.js")).map_err(|e| e.to_string())?;
+        // A long cast stays active while the player returns to coding and
+        // changes its executable. Cooldown prevents held-key repeat casts.
+        fs::write(
+            module.join("spells.js"),
+            spells
+                .replace("cooldown: 24", "cooldown: 240")
+                .replace("delay: 5", "delay: 600"),
+        )
+        .map_err(|e| e.to_string())?;
+        if let Ok(worker) = std::env::var("ANGEL_SYSTEM_TEST_WORKER") {
+            fs::copy(worker, scratch.path().join("delve-engine")).map_err(|e| e.to_string())?;
+        }
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("ability host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.send_until_visible(b"/ability spark\r", "registered ability command", |s| {
+            s.contains("ability spark selected for player 1 slot 1")
+        })?;
+        cockpit.send(b"/dungeon start\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(600))?;
+        cockpit.send(b"1")?; // Actual spell input through the seat/rules seam.
+        cockpit.drain_for(Duration::from_millis(450))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding beside active ability", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "first executable cast", |s| {
+            let status = s.rsplit("Delve system:").next().unwrap_or("");
+            status.contains("active=1 pending=0 generations=1 started=1 effects=1 faults=0")
+                && status.contains("sounds=1")
+        })?;
+        cockpit.send_until_visible(
+            b"/open live.abilities\r",
+            "original authored ability view",
+            |s| s.contains("Twin Spark"),
+        )?;
+        let edited = Instant::now();
+        let wave = scratch.path().join("live/ability-sounds/spark.wav");
+        let mut bytes = fs::read(&wave).map_err(|e| e.to_string())?;
+        bytes[80] ^= 0x40;
+        fs::write(wave, bytes).map_err(|e| e.to_string())?;
+        fs::write(
+            module.join("spells.pending"),
+            spells
+                .replace("Twin Spark", "Prism Burst")
+                .replace("damage: 28", "damage: 77")
+                .replace("cooldown: 24", "cooldown: 240"),
+        )
+        .map_err(|e| e.to_string())?;
+        fs::rename(module.join("spells.pending"), module.join("spells.js"))
+            .map_err(|e| e.to_string())?;
+        cockpit.wait_for("new authored ability view", |s| s.contains("Prism Burst"))?;
+        eprintln!(
+            "PTY executable ability edit-to-observed replacement: {:?}",
+            edited.elapsed()
+        );
+        // Back to chat, with both the game and cast still owned by the host.
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.drain_for(Duration::from_millis(150))?;
+        cockpit.send_until_visible(
+            b"/ability spark 1 2\r",
+            "new generation selected in another slot",
+            |s| s.contains("ability spark selected for player 1 slot 2"),
+        )?;
+        cockpit.send(b"/dungeon resume\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(250))?;
+        cockpit.send(b"2")?;
+        cockpit.drain_for(Duration::from_millis(600))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding after new ability", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "new cast finished while original timeline remains",
+            |s| {
+                let status = s.rsplit("Delve system:").next().unwrap_or("");
+                status.contains("active=1 pending=0 generations=1 started=2 effects=3 faults=0")
+                    && status.contains("sounds=3")
+            },
+        )?;
+        cockpit.send_until_visible(b"/ability cancel 1\r", "explicit cast cancellation", |s| {
+            s.contains("cancelled module abilities for player 1")
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "retired executable generations", |s| {
+            let status = s.rsplit("Delve system:").next().unwrap_or("");
+            status.contains("active=0 pending=0 generations=0 started=2 effects=3 faults=0")
+                && status.contains("sounds=3")
+        })?;
+        if cockpit.child.process_id() != pid
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("ability replacement restarted/exited the cockpit".into());
+        }
+        let raw = cockpit.finish()?;
+        if let Some(pid) = pid {
+            let prefix = format!("angel-live-sound-{pid}-");
+            let leaked = fs::read_dir(std::env::temp_dir())
+                .map_err(|e| e.to_string())?
+                .filter_map(Result::ok)
+                .any(|entry| entry.file_name().to_string_lossy().starts_with(&prefix));
+            if leaked {
+                return Err("sound files survived normal host shutdown".into());
+            }
+        }
+        assert_terminal_restored(&raw)
+    })();
+    if let Err(error) = result {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            return;
+        }
+        panic!("executable ability PTY failed: {error}");
+    }
+}
+
+#[test]
+fn ordinary_cockpit_real_pty_resource_dependencies_rebind_an_open_surface_atomically() {
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-resource-dependencies")?;
+        for (id, version) in [("ink", 1), ("fabric", 2)] {
+            let module = scratch.path().join("live").join(id);
+            fs::create_dir_all(&module).map_err(|e| e.to_string())?;
+            fs::write(module.join("module.json"),format!(r#"{{"api_version":2,"id":"{id}","kind":"system","entry":"index.js","state_schema":1,"exports":[{{"kind":"command","name":"{id}","contract":"command/1"}},{{"kind":"resource","name":"pack","contract":"pack/1"}}]}}"#)).map_err(|e|e.to_string())?;
+            fs::write(module.join("index.js"),format!("module.exports={{apiVersion:2,initialize:()=>({{}}),reduce:state=>({{state}}),resources:()=>({{pack:{{version:{version}}}}})}}")).map_err(|e|e.to_string())?;
+        }
+        let consumer = scratch.path().join("live/a-choice");
+        fs::create_dir_all(&consumer).map_err(|e| e.to_string())?;
+        fs::write(consumer.join("module.json"),r#"{"api_version":2,"id":"a-choice","kind":"system","entry":"index.js","state_schema":1,"imports":[{"module":"ink","contract":"pack/1"},{"module":"fabric","contract":"pack/1"}],"exports":[{"kind":"command","name":"outfit","contract":"command/1"},{"kind":"resource","name":"pack","contract":"choice/1"},{"kind":"surface","name":"choice","contract":"surface/1"}]}"#).map_err(|e|e.to_string())?;
+        fs::write(consumer.join("index.js"),r#"const ink=resource('ink','pack'),fabric=resource('fabric','pack');module.exports={apiVersion:2,initialize:()=>({selected:'ordinary'}),migrate:p=>({...p.state,selected:'MIGRATION RERAN'}),reduce:(state,event)=>({state:{selected:event.arguments},output:'selection '+event.arguments}),resources:state=>{if(ink.value.version===99)throw Error('incompatible ink selection');return {pack:{ink:ink.value.version,fabric:fabric.value.version,selected:state.selected}}},view:state=>({choice:{title:'Dependent resource view',lines:[`ink ${ink.value.version} fabric ${fabric.value.version} selected ${state.selected}`]}})}"#).map_err(|e|e.to_string())?;
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("resource host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.send_until_visible(b"/outfit chosen\r", "persistent choice", |s| {
+            s.contains("selection chosen")
+        })?;
+        cockpit.send_until_visible(b"/open live.choice\r", "initial dependency view", |s| {
+            s.contains("ink 1 fabric 2 selected chosen")
+        })?;
+        let source = scratch.path().join("live/ink/index.js");
+        let original = fs::read_to_string(&source).map_err(|e| e.to_string())?;
+        let edited = Instant::now();
+        fs::write(&source, original.replace("version:1", "version:3"))
+            .map_err(|e| e.to_string())?;
+        cockpit.wait_for("rebound open view without changing consumer source", |s| {
+            s.contains("ink 3 fabric 2 selected chosen")
+        })?;
+        eprintln!(
+            "PTY independent resource edit-to-view: {:?}",
+            edited.elapsed()
+        );
+        fs::write(&source, original.replace("version:1", "version:99"))
+            .map_err(|e| e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(450))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding after incompatible resource", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(b"/reload\r", "rejected dependency candidate", |s| {
+            s.contains("incompatible ink selection") && s.contains("a-choice · generation 2")
+        })?;
+        cockpit.send_until_visible(
+            b"/open live.choice\r",
+            "retained coherent dependency view",
+            |s| s.contains("ink 3 fabric 2 selected chosen"),
+        )?;
+        if cockpit.child.process_id() != pid
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("resource rebind replaced the host".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            return;
+        }
+        panic!("resource dependency PTY failed: {error}");
+    }
+}
+
+#[test]
+fn ordinary_cockpit_real_pty_visual_swap_keeps_effects_after_cast_completion() {
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-module-vfx")?;
+        install_character_modules(&scratch)?;
+        let module = scratch.path().join("live/ability-effects");
+        let spells = fs::read_to_string(scratch.path().join("live/ability-code/spells.js")).map_err(|e| e.to_string())?;
+        fs::write(
+            scratch.path().join("live/ability-code/spells.js"),
+            spells
+                .replace("delay: 5", "delay: 0")
+                .replace("cooldown: 24", "cooldown: 240"),
+        )
+        .map_err(|e| e.to_string())?;
+        let effects = fs::read_to_string(module.join("effects.js"))
+            .map_err(|e| e.to_string())?
+            .replace("ticks: 90", "ticks: 600")
+            .replace("key(90,", "key(600,");
+        fs::write(module.join("effects.js"), &effects).map_err(|e| e.to_string())?;
+        if let Ok(worker) = std::env::var("ANGEL_SYSTEM_TEST_WORKER") {
+            fs::copy(worker, scratch.path().join("delve-engine")).map_err(|e| e.to_string())?;
+        }
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("VFX host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.send_until_visible(b"/ability spark\r", "select one-shot ability", |s| {
+            s.contains("ability spark selected for player 1 slot 1")
+        })?;
+        cockpit.send(b"/dungeon start\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(600))?;
+        cockpit.send(b"1")?;
+        cockpit.drain_for(Duration::from_millis(300))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding beside finished cast", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "effect outlives its cast", |s| {
+            let status = s
+                .rsplit("Delve system:")
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .collect::<String>();
+            status.contains("active=0pending=0generations=0started=1effects=1faults=0")
+                && status.contains("vfx=1vfx-active=1vfx-generations=1")
+        })?;
+        cockpit.send_until_visible(
+            b"/open live.abilities\r",
+            "original effect description",
+            |s| s.contains("Crystal sigils"),
+        )?;
+        let edited = Instant::now();
+        image::RgbaImage::from_pixel(32, 32, image::Rgba([255, 40, 80, 255]))
+            .save(module.join("sigil.png"))
+            .map_err(|e| e.to_string())?;
+        fs::write(
+            module.join("effects.pending"),
+            effects.replace("Crystal sigils", "Ember sigils"),
+        )
+        .map_err(|e| e.to_string())?;
+        fs::rename(module.join("effects.pending"), module.join("effects.js"))
+            .map_err(|e| e.to_string())?;
+        cockpit.wait_for("new effect description without a reload", |s| {
+            s.contains("Ember sigils")
+        })?;
+        eprintln!(
+            "PTY effect source/asset edit-to-observed activation: {:?}",
+            edited.elapsed()
+        );
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.drain_for(Duration::from_millis(100))?;
+        cockpit.send_until_visible(
+            b"/ability spark 1 2\r",
+            "new effect generation selected",
+            |s| s.contains("ability spark selected for player 1 slot 2"),
+        )?;
+        cockpit.send(b"/dungeon resume\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(250))?;
+        cockpit.send(b"2")?;
+        cockpit.drain_for(Duration::from_millis(300))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding beside both effects", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "old and new VFX live independently of finished casts",
+            |s| {
+                let status = s
+                    .rsplit("Delve system:")
+                    .next()
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .collect::<String>();
+                status.contains("active=0pending=0generations=0started=2effects=2faults=0")
+                    && status.contains("vfx=2vfx-active=2vfx-generations=2")
+            },
+        )?;
+        cockpit.send_until_visible(
+            b"/ability cancel 1\r",
+            "explicit effect cancellation",
+            |s| s.contains("cancelled module abilities for player 1"),
+        )?;
+        cockpit.send_until_visible(b"/reload status\r", "retired visual resources", |s| {
+            let status = s
+                .rsplit("Delve system:")
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .collect::<String>();
+            status.contains("vfx=2vfx-active=0vfx-generations=0")
+        })?;
+        if cockpit.child.process_id() != pid
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("effect replacement restarted/exited the cockpit".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            return;
+        }
+        panic!("module VFX PTY failed: {error}");
+    }
+}
+
 #[test]
 fn ordinary_cockpit_real_pty_lifecycle_and_focus_smoke() {
     let strict = strict_pty_smoke();
@@ -1470,5 +2071,530 @@ fn ordinary_cockpit_real_pty_brain_route_controls_smoke() {
             return;
         }
         panic!("PTY Brain Route controls smoke failed: {error}");
+    }
+}
+
+#[test]
+fn ordinary_cockpit_registers_stateful_command_and_surface_then_swaps_them_live() {
+    let result=(|| -> Result<(),String> {
+        let scratch=ScratchDir::new("pty-stateful-system")?;
+        fs::create_dir_all(scratch.path().join("live")).map_err(|e|e.to_string())?;
+        let mut cockpit=CockpitPty::spawn(40,144,&scratch)?;
+        cockpit.wait_for("kernel host startup",|s|s.contains("Write a message"))?;
+        let pid=cockpit.child.process_id();
+        // Install a completely new command and surface after the host booted.
+        let module=scratch.path().join("live/tally");
+        fs::create_dir_all(&module).map_err(|e|e.to_string())?;
+        let manifest=|schema|format!(r#"{{"api_version":2,"id":"tally","kind":"system","entry":"index.js","state_schema":{schema},"exports":[{{"kind":"command","name":"tally","contract":"command/1"}},{{"kind":"surface","name":"tally","contract":"surface/1"}}]}}"#);
+        fs::write(module.join("module.json"),manifest(1)).map_err(|e|e.to_string())?;
+        fs::write(module.join("index.js"),"module.exports={apiVersion:2,initialize:()=>({n:0}),reduce:(s,e)=>({state:{n:s.n+1},output:'TALLY-FIRST-'+(s.n+1)}),view:s=>({tally:{title:'Tally module',lines:['LIVE-SURFACE-FIRST-'+s.n]}})}").map_err(|e|e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(1500))?;
+        cockpit.send_until_visible(b"/tally\r","registered command",|s|s.contains("TALLY-FIRST-1"))?;
+        cockpit.send_until_visible(b"/open live.tally\r","registered Glass surface",|s|s.contains("LIVE-SURFACE-FIRST-1"))?;
+        // Change the state shape and executable reducer. The old count survives.
+        let edited=Instant::now();
+        fs::write(module.join("next.js"),"module.exports={apiVersion:2,migrate:p=>({total:p.state.n}),reduce:(s,e)=>({state:{total:s.total+10},output:'TALLY-SECOND-'+(s.total+10)}),view:s=>({tally:{title:'Migrated tally',lines:['LIVE-SURFACE-SECOND-'+s.total]}})}").map_err(|e|e.to_string())?;
+        fs::rename(module.join("next.js"),module.join("index.js")).map_err(|e|e.to_string())?;
+        fs::write(module.join("module.json"),manifest(2)).map_err(|e|e.to_string())?;
+        cockpit.wait_for("surface replaced while it stayed open",|s|s.contains("LIVE-SURFACE-SECOND-1"))?;
+        eprintln!("PTY stateful system edit-to-paint: {:?}",edited.elapsed());
+        cockpit.send(b"/tally\r")?;
+        cockpit.wait_for("new reducer on migrated state",|s|s.contains("LIVE-SURFACE-SECOND-11"))?;
+        fs::write(module.join("index.js"),"module.exports={apiVersion:2,migrate:()=>{throw Error('bad migration')},reduce:()=>{}}").map_err(|e|e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(1500))?;
+        cockpit.send(b"/tally\r")?;
+        cockpit.wait_for("failed migration retained state and code",|s|s.contains("LIVE-SURFACE-SECOND-21"))?;
+        cockpit.send(b"/close live.tally\r")?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("returned to coding",|s|s.contains("Write a message"))?;
+        if pid!=cockpit.child.process_id() || cockpit.child.try_wait().map_err(|e|e.to_string())?.is_some() {return Err("module transaction restarted the host".into());}
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error)=result {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {eprintln!("PTY_SYSTEM_SKIPPED: {error}");return;}
+        panic!("PTY stateful module smoke failed: {error}");
+    }
+}
+
+#[test]
+#[ignore = "requires the pinned optional Bend developer compiler; run explicitly"]
+fn ordinary_cockpit_real_pty_fairy_field_controls_enemies_and_keeps_old_fields_on_swap() {
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-fairy-field")?;
+        install_character_modules(&scratch)?;
+        // Resume a real combat save, so a field must stop actual enemy AI.
+        let mut run = angel_delve::rules::Run::new(3, 9, None);
+        let room = run
+            .dungeon
+            .rooms
+            .iter()
+            .position(|room| room.kind == angel_delve::rules::RoomKind::Fight)
+            .unwrap();
+        run.enter_for_test(room);
+        run.calm_for_test();
+        run.enemies.clear();
+        let floor = &mut run.dungeon.rooms[room];
+        for y in 1..floor.rows - 1 {
+            for x in 1..floor.cols - 1 {
+                floor.set(x, y, angel_delve::rules::Tile::Floor);
+            }
+        }
+        let hero = run.players.get_mut(&1).unwrap();
+        hero.x = 8.0;
+        hero.y = 8.0;
+        run.spawn_at_for_test(angel_delve::rules::EnemyKind::Skeleton, 10.0, 8.0);
+        run.spawn_at_for_test(angel_delve::rules::EnemyKind::Skeleton, 14.0, 8.0);
+        let save = scratch.path().join("work/.angel/dungeon/session.json");
+        fs::create_dir_all(save.parent().unwrap()).map_err(|e| e.to_string())?;
+        fs::write(
+            save,
+            serde_json::to_vec(
+                &serde_json::json!({"version":1,"raid_serial":9,"run":run,"invitation":null}),
+            )
+            .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        if let Ok(worker) = std::env::var("ANGEL_SYSTEM_TEST_WORKER") {
+            fs::copy(worker, scratch.path().join("delve-engine")).map_err(|e| e.to_string())?;
+        }
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("field host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.send_until_visible(b"/ability fairies\r", "registered fairy skill", |s| {
+            s.contains("ability fairies selected for player 1 slot 1")
+        })?;
+        cockpit.send(b"/dungeon resume\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(300))?;
+        cockpit.send(b"1")?;
+        cockpit.drain_for(Duration::from_millis(170))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding beside first fairy field", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "nearby enemy actually stunned", |s| {
+            let status = s
+                .rsplit("Delve system:")
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .collect::<String>();
+            status.contains("active=1pending=0generations=1started=1")
+                && status.contains("faults=0")
+                && status.contains("controlled-enemies=1")
+        })?;
+        cockpit.send_until_visible(
+            b"/open live.abilities\r",
+            "original fairy definition",
+            |s| s.contains("Fairy Stun Field"),
+        )?;
+        let source = scratch.path().join("live/ability-code/fairies.bend");
+        let before = fs::read_to_string(&source).map_err(|e| e.to_string())?;
+        let edited = Instant::now();
+        fs::write(
+            &source,
+            before
+                .replace("Fairy Stun Field", "Wide Fairy Field")
+                .replace("Params{3.5, 150, 12, 12}", "Params{7.0, 150, 12, 12}"),
+        )
+        .map_err(|e| e.to_string())?;
+        cockpit.wait_for("new field module without restart", |s| {
+            s.contains("Wide Fairy Field")
+        })?;
+        eprintln!("PTY fairy field edit-to-activation: {:?}", edited.elapsed());
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.drain_for(Duration::from_millis(100))?;
+        cockpit.send_until_visible(b"/ability fairies 1 2\r", "new field selected", |s| {
+            s.contains("ability fairies selected for player 1 slot 2")
+        })?;
+        cockpit.send(b"/dungeon resume\r")?;
+        cockpit.wait_for_game_view()?;
+        cockpit.drain_for(Duration::from_millis(150))?;
+        cockpit.send(b"2")?;
+        cockpit.drain_for(Duration::from_millis(170))?;
+        cockpit.send(b"\x1bOQ")?;
+        cockpit.wait_for("coding beside two field generations", |s| {
+            s.contains("Write a message")
+        })?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "wider new field controls the second enemy",
+            |s| {
+                let status = s
+                    .rsplit("Delve system:")
+                    .next()
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .collect::<String>();
+                status.contains("active=2pending=0generations=2started=2")
+                    && status.contains("faults=0")
+                    && status.contains("controlled-enemies=2")
+                    && status.contains("vfx-active=2")
+            },
+        )?;
+        cockpit.send_until_visible(b"/ability cancel 1\r", "cancel both fields", |s| {
+            s.contains("cancelled module abilities for player 1")
+        })?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "field actors and visual resources retired",
+            |s| {
+                let status = s
+                    .rsplit("Delve system:")
+                    .next()
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .collect::<String>();
+                status.contains("active=0pending=0generations=0started=2")
+                    && status.contains("vfx-active=0")
+            },
+        )?;
+        if cockpit.child.process_id() != pid
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("fairy field swap replaced/exited the cockpit".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        panic!("fairy field PTY failed: {error}");
+    }
+}
+
+#[test]
+#[ignore = "requires the two native system binaries built with swap-test"]
+fn ordinary_cockpit_real_pty_pending_realm_claim_survives_a_native_rules_swap() {
+    let result = (|| -> Result<(), String> {
+        use angel_delve::realm::{Haul, Spoil, Spoils};
+        use angel_delve::rules::{Run, home::Home, host_commands::Journal};
+        let scratch = ScratchDir::new("pty-realm-claim-swap")?;
+        let worker = std::env::var("ANGEL_SYSTEM_TEST_WORKER")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_WORKER")?;
+        let replacement = std::env::var("ANGEL_SYSTEM_TEST_REPLACEMENT")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_REPLACEMENT")?;
+        let engine = scratch.path().join("delve-engine");
+        fs::copy(worker, &engine).map_err(|e| e.to_string())?;
+        let mut run = Run::at_home(3, 9, None, Home::default(), Spoils::default());
+        let mut gold = Spoils::default();
+        gold.add(Spoil::Gold, 19);
+        run.bank.push(Haul {
+            hero: 1,
+            spoils: gold,
+            why: "earned before the implementation swap".into(),
+        });
+        assert!(run.valid_snapshot());
+        let save = scratch.path().join("work/.angel/dungeon/session.json");
+        fs::create_dir_all(save.parent().unwrap()).map_err(|e| e.to_string())?;
+        fs::write(
+            &save,
+            serde_json::to_vec(
+                &serde_json::json!({"version":1,"raid_serial":9,"run":run,"invitation":null}),
+            )
+            .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        // Block only the destination store; the rest of normal startup remains
+        // available. The game must durably retain its claim before trying it.
+        let directory = scratch.path().join("home/.angelX/world-rewards");
+        fs::create_dir_all(directory.parent().unwrap()).map_err(|e| e.to_string())?;
+        fs::write(&directory, b"treasury storage is unavailable").map_err(|e| e.to_string())?;
+        let journal = || -> Result<Journal, String> {
+            let saved: serde_json::Value =
+                serde_json::from_slice(&fs::read(&save).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            if saved["version"] != 6 || saved["run"]["raid_id"] != 9 {
+                return Err("missing current private checkpoint".into());
+            }
+            let session = saved["commands"]["session"]
+                .as_str()
+                .ok_or("missing saved session")?
+                .to_owned();
+            Journal::restore(saved["commands"].clone(), &session, 9)
+        };
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("claim host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.wait_for("retained claim saved before destination payment", |_| {
+            journal()
+                .ok()
+                .and_then(|j| j.pending_realm().ok().flatten())
+                .is_some()
+        })?;
+        let claim = journal()?
+            .pending_realm()?
+            .ok_or("no retained realm claim")?;
+        if claim.transfer.hauls.len() != 1 || claim.transfer.hauls[0].spoils.get(Spoil::Gold) != 19
+        {
+            return Err("bank claim did not retain its original payload".into());
+        }
+        cockpit.send_until_visible(b"/reload status\r", "original native rules", |s| {
+            s.contains("swaps=1")
+        })?;
+        let staged = engine.with_extension("pending");
+        fs::copy(replacement, &staged).map_err(|e| e.to_string())?;
+        let edited = Instant::now();
+        fs::rename(staged, &engine).map_err(|e| e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(900))?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "native replacement with an unresolved claim",
+            |s| s.contains("swaps=2"),
+        )?;
+        eprintln!(
+            "PTY pending-claim rules swap observed: {:?}",
+            edited.elapsed()
+        );
+        if journal()?.pending_realm()? != Some(claim.clone()) {
+            return Err("rules replacement changed the pending claim identity/payload".into());
+        }
+        fs::remove_file(&directory).map_err(|e| e.to_string())?;
+        fs::create_dir(&directory).map_err(|e| e.to_string())?;
+        let economy = || -> Option<serde_json::Value> {
+            let path = fs::read_dir(&directory)
+                .ok()?
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .find(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| name.ends_with(".realm.json"))
+                })?;
+            serde_json::from_slice(&fs::read(path).ok()?).ok()
+        };
+        cockpit.wait_for(
+            "original claim paid and acknowledged after recovery",
+            |_| {
+                let paid = economy().is_some_and(|value| {
+                    value["treasury"]["gold"] == 19
+                        && value["settlements"][&claim.session]["request"] == claim.request
+                });
+                let acknowledged = journal().is_ok_and(|j| {
+                    j.session() == claim.session
+                        && j.pending_realm().is_ok_and(|claim| claim.is_none())
+                });
+                paid && acknowledged
+            },
+        )?;
+        cockpit.send(b"/dungeon off\r")?;
+        cockpit.wait_for("game close after settlement", |s| {
+            s.contains("Dungeon closed")
+        })?;
+        if economy().ok_or("realm disappeared")?["treasury"]["gold"] != 19 {
+            return Err("close replayed the original reward".into());
+        }
+        if pid != cockpit.child.process_id()
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("claim recovery restarted/exited the host".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        panic!("PTY realm-claim swap failed: {error}");
+    }
+}
+
+#[test]
+#[ignore = "requires the two native system binaries built with swap-test"]
+fn ordinary_cockpit_real_pty_pending_home_purchase_survives_a_native_rules_swap() {
+    let result = (|| -> Result<(), String> {
+        use angel_delve::realm::{Spoil, Spoils};
+        use angel_delve::rules::{
+            Run,
+            home::{Home, Order, Station},
+            host_commands::Journal,
+            home_settlement::{HomeOutbox, settle},
+        };
+        let scratch = ScratchDir::new("pty-home-claim-swap")?;
+        let worker = std::env::var("ANGEL_SYSTEM_TEST_WORKER")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_WORKER")?;
+        let replacement = std::env::var("ANGEL_SYSTEM_TEST_REPLACEMENT")
+            .map_err(|_| "set ANGEL_SYSTEM_TEST_REPLACEMENT")?;
+        let engine = scratch.path().join("delve-engine");
+        fs::copy(worker, &engine).map_err(|e| e.to_string())?;
+        let mut run = Run::at_home(3, 9, None, Home::default(), Spoils::default());
+        run.stall = vec!["potion".into()];
+        run.orders.push(Order {
+            knight: 1,
+            station: Station::StallA,
+        });
+        run.marks.insert("xp".into(), 2);
+        run.marks.insert("native_policy_probe".into(), 1);
+        run.marks.insert("country:fireflies".into(), 1);
+        run.marks.insert("country:song".into(), 1);
+        run.feats.push("roadkill");
+        run.dungeon.rooms[run.at].items.clear();
+        for hero in run.players.values_mut() {
+            hero.hand.retain(|id| id != "potion");
+            hero.deck.retain(|id| id != "potion");
+        }
+        let mut journal = Journal::new("pty-home-session".into(), 9);
+        let claim = journal
+            .claim_home(&mut run)?
+            .ok_or("missing initial home claim")?;
+        let mut home = Home::default();
+        let mut treasury = Spoils::default();
+        let expected = settle(
+            &mut angel_delve::rules::activity::Realm {
+                home: &mut home,
+                treasury: &mut treasury,
+                reclaimed: &Default::default(),
+                raids_won: 0,
+            },
+            &claim.transfer,
+            "Host",
+            false,
+        )?;
+        if expected.sales != [(0, 1)] || expected.treasury.get(Spoil::Gold) == 0 {
+            return Err("home fixture did not earn and buy its reserved item".into());
+        }
+        // The replacement executable grants seven gold for this explicit fact.
+        // A host-linked settlement policy would retain the old balance and fail.
+        let expected_gold = expected.treasury.get(Spoil::Gold) + 7;
+        let save = scratch.path().join("work/.angel/dungeon/session.json");
+        fs::create_dir_all(save.parent().unwrap()).map_err(|e| e.to_string())?;
+        let country: std::collections::BTreeMap<_, _> = run
+            .marks
+            .iter()
+            .filter(|(key, _)| angel_delve::rules::countryside::intent_key(key))
+            .map(|(key, value)| (key.clone(), *value))
+            .collect();
+        fs::write(
+            &save,
+            serde_json::to_vec(&serde_json::json!({
+                "version":3,"raid_serial":9,"run":run,"invitation":null,
+                "country_intents":country,"home_outbox":HomeOutbox::capture(&run)?,
+                "commands":journal.capture()?
+            }))
+            .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let directory = scratch.path().join("home/.angelX/world-rewards");
+        fs::create_dir_all(directory.parent().unwrap()).map_err(|e| e.to_string())?;
+        fs::write(&directory, b"treasury storage is unavailable").map_err(|e| e.to_string())?;
+        let checkpoint = || -> Result<(serde_json::Value, Journal), String> {
+            let saved: serde_json::Value =
+                serde_json::from_slice(&fs::read(&save).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            let journal = Journal::restore(saved["commands"].clone(), &claim.session, 9)?;
+            Ok((saved, journal))
+        };
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("home claim host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
+        cockpit.wait_for("host rewrote durable pending home facts", |_| {
+            checkpoint().is_ok_and(|(saved, journal)| {
+                saved.get("realm_triumph").is_some()
+                    && journal.pending_home().ok().flatten() == Some(claim.clone())
+                    && saved["home_outbox"]["marks"]["xp"] == 2
+                    && saved["home_outbox"]["orders"]
+                        .as_array()
+                        .is_some_and(|orders| orders.len() == 1)
+            })
+        })?;
+        cockpit.send_until_visible(b"/reload status\r", "original home rules worker", |s| {
+            s.contains("swaps=1")
+        })?;
+        let staged = engine.with_extension("pending");
+        fs::copy(replacement, &staged).map_err(|e| e.to_string())?;
+        let edited = Instant::now();
+        fs::rename(staged, &engine).map_err(|e| e.to_string())?;
+        cockpit.drain_for(Duration::from_millis(900))?;
+        cockpit.send_until_visible(
+            b"/reload status\r",
+            "replacement retains pending home claim",
+            |s| s.contains("swaps=2"),
+        )?;
+        eprintln!(
+            "PTY pending-home rules swap observed: {:?}",
+            edited.elapsed()
+        );
+        let (saved, pending) = checkpoint()?;
+        if pending.pending_home()? != Some(claim.clone())
+            || saved["home_outbox"]["marks"]["xp"] != 2
+        {
+            return Err("worker swap lost or changed pending home facts".into());
+        }
+        fs::remove_file(&directory).map_err(|e| e.to_string())?;
+        fs::create_dir(&directory).map_err(|e| e.to_string())?;
+        let economy = || -> Option<serde_json::Value> {
+            let path = fs::read_dir(&directory)
+                .ok()?
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .find(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| name.ends_with(".realm.json"))
+                })?;
+            serde_json::from_slice(&fs::read(path).ok()?).ok()
+        };
+        let key = format!("{}/home", claim.session);
+        cockpit.wait_for("home reward and purchase committed once", |_| {
+            let paid = economy().is_some_and(|value| {
+                value["treasury"]["gold"] == expected_gold
+                    && value["home"]["countryside"]["fireflies_paid"] == true
+                    && value["settlements"][&key]["request"] == claim.request
+                    && value["settlements"][&key]["home"]["delivery_fingerprint"].is_string()
+                    && value["settlements"][&key]["home"]["result"].is_null()
+            });
+            let delivered = checkpoint().is_ok_and(|(saved, journal)| {
+                let item = saved["run"]["dungeon"]["rooms"]
+                    .as_array()
+                    .is_some_and(|rooms| {
+                        rooms.iter().any(|room| {
+                            room["items"].as_array().is_some_and(|items| {
+                                items.iter().any(|item| item["card"] == "potion")
+                            })
+                        })
+                    });
+                let held = saved["run"]["players"].as_object().is_some_and(|players| {
+                    players.values().any(|hero| {
+                        ["hand", "deck"].iter().any(|field| {
+                            hero[field]
+                                .as_array()
+                                .is_some_and(|cards| cards.iter().any(|id| id == "potion"))
+                        })
+                    })
+                });
+                journal
+                    .pending_home()
+                    .is_ok_and(|pending| pending.is_none())
+                    && saved["home_outbox"]["orders"] == serde_json::json!([])
+                    && saved["home_outbox"]["marks"]
+                        .as_object()
+                        .is_some_and(|marks| marks.is_empty())
+                    && (item || held)
+            });
+            paid && delivered
+        })?;
+        cockpit.send(b"/dungeon off\r")?;
+        cockpit.wait_for("close after the home receipt", |s| {
+            s.contains("Dungeon closed")
+        })?;
+        if economy().ok_or("home realm disappeared")?["treasury"]["gold"] != expected_gold {
+            return Err("close replayed a home reward or purchase".into());
+        }
+        if pid != cockpit.child.process_id()
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("home claim recovery restarted/exited the host".into());
+        }
+        assert_terminal_restored(&cockpit.finish()?)
+    })();
+    if let Err(error) = result {
+        panic!("PTY home-claim swap failed: {error}");
     }
 }

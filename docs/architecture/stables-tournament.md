@@ -52,6 +52,6 @@ then Lancelot again). While mounted the knight's keys go only to the joust
   them (`joust::settle_stable`).
 
 Tests: `tests/cockpit/app/together_joust__tests.rs`,
-`tests/cockpit/drive/chivalry__tests.rs`,
+`crates/realm-host/tests/chivalry__tests.rs`,
 `tests/cockpit/app/dungeon_chivalry__tests.rs`. Renders:
 `write_joust_shots` in `tests/cockpit/world_viz/overworld__arena_tests.rs`.

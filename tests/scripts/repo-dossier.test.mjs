@@ -16,6 +16,8 @@ import {
   writeFileSync,
   existsSync,
   symlinkSync,
+  openSync,
+  closeSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -23,7 +25,9 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import {
   RELEASE_PATHS,
+  REQUIRED_COCKPIT_EMBEDDED_FILES,
   assertRuntimeHelperClosure,
+  assertPublicReleaseEntries,
 } from '../../scripts/release/release-evidence.mjs'
 
 import CausalGraph, { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
@@ -170,6 +174,95 @@ test('bundled workers refresh dossier facts and habit drafts without a browser d
   assert.equal(existsSync(join(root, 'installed-skills')), false, 'drafts are not installed')
   assert.equal(existsSync(join(root, 'public')), false)
 })
+
+test('bundled cut report runs without its producing checkout', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-cut-bundle-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  for (const path of ['scripts/runtime/cut-report.mjs', 'lib/cut/report.mjs']) {
+    assert.ok(RELEASE_PATHS.includes(path), `${path} must ship`)
+    const target = join(root, path)
+    mkdirSync(dirname(target), { recursive: true })
+    copyFileSync(new URL(`../../${path}`, import.meta.url), target)
+  }
+  const report = spawnSync(process.execPath, [join(root, 'scripts/runtime/cut-report.mjs'), '--dir', join(root, 'missing-cut'), '--workspace', root], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000,
+  })
+  assert.equal(report.status, 0, report.stderr)
+  assert.match(report.stdout, /authored: 0/)
+})
+
+test('bundled moa report runs without its producing checkout', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-moa-bundle-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const path = 'scripts/runtime/moa-report.mjs'
+  assert.ok(RELEASE_PATHS.includes(path), `${path} must ship`)
+  const target = join(root, path)
+  mkdirSync(dirname(target), { recursive: true })
+  copyFileSync(new URL(`../../${path}`, import.meta.url), target)
+  const report = spawnSync(process.execPath, [target], {
+    cwd: root,
+    encoding: 'utf8',
+    input: JSON.stringify({ records: [], lo: 0.45, hi: 0.7 }),
+    timeout: 5000,
+  })
+  assert.equal(report.status, 0, report.stderr)
+  assert.match(report.stdout, /moa ledger · 0 turn\(s\)/)
+})
+
+test('bundled science and repository policies run without their producing checkout', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-policy-bundle-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const paths = [
+    'scripts/runtime/science-brief.mjs', 'lib/science/brief.mjs',
+    'scripts/runtime/repo-search.mjs', 'lib/repo-search/rules.mjs',
+  ]
+  for (const path of paths) {
+    assert.ok(RELEASE_PATHS.includes(path), `${path} must ship`)
+    const target = join(root, path)
+    mkdirSync(dirname(target), { recursive: true })
+    copyFileSync(new URL(`../../${path}`, import.meta.url), target)
+  }
+  assertRuntimeHelperClosure(root, paths.map((path) => ({ path })))
+  for (const [script, request] of [
+    ['scripts/runtime/science-brief.mjs', { op: 'fold', papers: [] }],
+    ['scripts/runtime/repo-search.mjs', { version: 1, op: 'rank', mode: 'best', repos: [] }],
+  ]) {
+    const input = join(root, 'request.json')
+    writeFileSync(input, JSON.stringify(request))
+    const fd = openSync(input, 'r')
+    try {
+      const result = spawnSync(process.execPath, [join(root, script)], {
+        cwd: root, encoding: 'utf8', timeout: 10_000, stdio: [fd, 'pipe', 'pipe'],
+      })
+      assert.equal(result.status, 0, result.stderr)
+      assert.doesNotThrow(() => JSON.parse(result.stdout))
+    } finally { closeSync(fd) }
+  }
+})
+
+test('bundled Sloptomizer publisher can publish a complete generation', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-research-bundle-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const base = 'cockpit/research/sloptomizer/'
+  const publisher = `${base}publish_runtime.py`
+  assert.ok(RELEASE_PATHS.includes(publisher), 'the publisher must ship')
+  assertPublicReleaseEntries(fileURLToPath(new URL('../..', import.meta.url)), [{ path: publisher }])
+  const paths = [publisher, ...REQUIRED_COCKPIT_EMBEDDED_FILES.filter((path) => path.startsWith(base))]
+  for (const path of paths) {
+    const target = join(root, path)
+    mkdirSync(dirname(target), { recursive: true })
+    copyFileSync(new URL(`../../${path}`, import.meta.url), target)
+  }
+  const dir = join(root, base)
+  const result = spawnSync('python3', [join(root, publisher), dir], { cwd: root, encoding: 'utf8', timeout: 10_000 })
+  assert.equal(result.status, 0, result.stderr)
+  const manifest = JSON.parse(readFileSync(join(dir, 'generation.json'), 'utf8'))
+  assert.equal(manifest.schema, 'angel.sloptomizer-generation/v1')
+  assert.equal(Object.keys(manifest.files).length, paths.length - 1)
+})
+
 
 test('dossier compiler rejects repository keys that escape its output directory', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'angel-dossier-invalid-key-'))

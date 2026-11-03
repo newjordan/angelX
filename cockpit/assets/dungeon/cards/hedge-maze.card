@@ -2,7 +2,7 @@
 name   Hedge Maze
 kind   spell
 rarity rare
-text   A hedge rises round where you aim, with one gap: yours. It will be pruned for no one.
+text   A hedge rises round where you aim, with one gap: yours.
 drop   9
 chest  5
 cooldown 26

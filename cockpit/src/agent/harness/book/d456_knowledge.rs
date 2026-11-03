@@ -15,6 +15,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d456_knowledge.book");
 pub(crate) const CELL: char = '⠸';
 pub(crate) const DOSSIER: Route = Route::new(CELL, '⠁');
 pub(crate) const CADDY: Route = Route::new(CELL, '⠃');
@@ -58,13 +60,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the repo dossier opens and closes on this route (its facts inside; a trap, the last session and a withheld count each beside its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "[repo dossier — what angel has verified about this workspace]",
-                "[/dossier]",
-                "({withheld} fact(s) below {min_belief} belief withheld pending re-verification)",
-                "trap: `{text}` fails here ({evidence})",
-                "last session here: {age} ago, ended with {stop} ({driver})",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'1'),
         },
         Sub {
             route: CADDY,
@@ -72,15 +68,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the caddy card's headings, in order (its entries under `recipes:` and `hazards:`); its identity line and its doors, each value beside its page",
             action: "",
             ideas: "",
-            pages: &[
-                "recipes (verified on this workspace):",
-                "recipes (historical; source unbound; rerun before relying):",
-                "hazards (what failed here and why):",
-                "[caddy · {repo} · HEAD {head} · {dirty} dirty · {langs} · host: {host}]",
-                "recipes degraded",
-                "hazards degraded",
-                "doors: skills {skills} · dossier rituals: {rituals}",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'2'),
         },
         Sub {
             route: MARKS,
@@ -88,10 +76,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a mark on the scoped project docs: a doc's middle elided, the block's byte count",
             action: "",
             ideas: "",
-            pages: &[
-                "[scoped project doc truncated: middle elided]",
-                "<!-- angel-project-doc-bytes: {n} -->",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'3'),
         },
         Sub {
             route: VISION,
@@ -99,15 +84,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the vision sidecar: its describe question (the operator's question beside it), its frame, its absence, the operator's question after the description",
             action: "",
             ideas: "",
-            pages: &[
-                "Describe this image in detail.",
-                "Include any visible text (OCR), layout, objects, and anything needed to answer a follow-up question about it.",
-                "The operator's question about this image:",
-                "Describe the image carefully (OCR any text) so a text-only model can answer that question without seeing the pixels.",
-                "[vision sidecar · {backend} · {n} image(s)]",
-                "[vision sidecar unavailable — image attachments dropped; configure ANGEL_VISION_URL + ANGEL_VISION_MODEL or use vision_look once a backend is up]",
-                "Operator question: {question}",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'4'),
         },
         Sub {
             route: KG_EXTRACT,
@@ -115,17 +92,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "extract a typed knowledge graph from the document below (each value beside its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "You extract a typed knowledge graph from one document.",
-                "Entity types — the ONLY allowed values for \"type\": PERSON, ORGANIZATION, LOCATION, EVENT, ARTIFACT.",
-                "Rules:\n- Extract only entities central to what the document is about; skip incidental mentions.",
-                "- For each entity write a one-sentence description grounded in THIS document (it is used later to disambiguate entities with similar names).",
-                "- Predicates are short verb phrases: \"commanded\", \"launched from\", \"part of\".",
-                "- Every relation must connect two entities you extracted.",
-                "Reply with STRICT JSON only — no prose, no code fence — matching exactly:\n{\"entities\":[{\"name\":\"…\",\"type\":\"PERSON\",\"description\":\"…\"}],\n \"relations\":[{\"source\":\"…\",\"predicate\":\"…\",\"target\":\"…\"}]}",
-                "Document (source id: {source_doc}):",
-                "(The document was truncated to fit; extract from what is shown.)",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'5'),
         },
         Sub {
             route: KG_RESOLVE,
@@ -133,15 +100,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "deduplicate one entity type's surface forms (the type and the entities below)",
             action: "",
             ideas: "",
-            pages: &[
-                "You deduplicate entities in a knowledge graph.",
-                "Below are {type} entities, one per line as `name — description`.",
-                "Cluster entries that refer to the SAME real-world {type}.",
-                "Use the descriptions — do NOT merge entities that merely share a name (\"Armstrong — walked on the Moon\" and \"Armstrong — jazz trumpeter\" stay separate), and DO merge different surface forms of one thing (\"Edwin Aldrin\" and \"Buzz Aldrin\").",
-                "The canonical name is the most complete, unambiguous form and MUST be one of the listed names.",
-                "Only output clusters with 2+ members; singletons are implied.",
-                "Reply with STRICT JSON only — no prose, no code fence:\n{\"clusters\":[{\"canonical\":\"…\",\"aliases\":[\"…\"]}]}",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'6'),
         },
         Sub {
             route: KG_PROFILE,
@@ -149,11 +108,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "profile one hub entity from its edges (the entity and its facts below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Write a profile for one entity in a knowledge graph, grounded ONLY in the facts below.",
-                "Do not add outside knowledge; if the facts do not support a claim, leave it out.",
-                "Reply with STRICT JSON only — no prose, no code fence:\n{\"summary\":\"2-3 sentences\",\"key_facts\":[\"…\"],\"time_range\":{\"start\":\"YYYY or YYYY-MM or unknown\",\"end\":\"YYYY or YYYY-MM or ongoing or unknown\"}}",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'7'),
         },
         Sub {
             route: KG_QUERY,
@@ -161,11 +116,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "answer the question below from the knowledge-graph facts below it",
             action: "",
             ideas: "",
-            pages: &[
-                "Answer the question using ONLY the knowledge-graph facts below.",
-                "Every claim must cite at least one edge, written as (source —predicate→ target [doc]).",
-                "If the graph does not contain the answer, say exactly what is missing — do not guess.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'8'),
         },
         Sub {
             route: BUBBLE_ROUTER,
@@ -173,12 +124,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "pick the tools the task below needs from the candidates below (each value beside its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "Select 0 to {max} tools that the coding agent is likely to need for the current task.",
-                "Return ONLY JSON in this exact shape: {\"tools\":[\"tool_name\"]}.",
-                "Use only names from the candidate list.",
-                "Prefer fewer tools; the base read/edit/shell/search tools are already present.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'9'),
         },
         Sub {
             route: ATLAS_CLERK,
@@ -186,15 +132,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the Living Atlas teacher: draft review candidates from the harvest below (the shape beside its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "You are the Living Atlas teacher.",
-                "Draft zero to three review candidates from the bounded harvest below.",
-                "Output only strict JSON matching {\"schema\":\"angel-atlas-clerk/v1\",\"action\":\"propose|merge|abstain\",\"candidates\":[{\"kind\":\"fact|decision|procedure|note|preference|open_thread|entity|artifact\",\"content\":\"...\",\"confidence\":0.0,\"sources\":[{\"id\":\"...\",\"kind\":\"...\",\"digest\":\"...\",\"excerpt\":null,\"independent\":true,\"influenced_by\":null}],\"merge_into\":null}]}.",
-                "Never activate, accept, share, or train on a claim.",
-                "Copy source ids and digests exactly from receipt_sources; independence and influence are owned by the harness.",
-                "A merge is a proposed revision linked to merge_into, never an automatic edit.",
-                "Abstain when bound independent receipts are absent or evidence is insufficient.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'0'),
         },
     ],
 };

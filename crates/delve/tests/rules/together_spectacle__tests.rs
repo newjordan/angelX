@@ -276,6 +276,7 @@ fn the_dragons_death_raises_a_hell_gate_that_opens_the_first_circle() {
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 1, "through the gate");
+    crate::rules::crossroads::testing::finish(&mut run);
     assert_eq!(run.dungeon.depth, 1, "the delve starts over, a circle down");
     assert!(run.spectacle.gate.is_none());
     let (circle, _) = run.circle_card().expect("the title card shows");
@@ -333,6 +334,7 @@ fn the_end_of_each_circle_opens_the_next_gate() {
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 2);
+    crate::rules::crossroads::testing::finish(&mut run);
     assert_eq!(run.dungeon.depth, 1);
     assert_eq!(run.circle_card().map(|c| c.0), Some(2));
     assert_eq!(spectacle::circle_name(2), "Second Circle");
@@ -365,7 +367,8 @@ fn the_tray_shows_icons_for_the_weapon_guard_bombs_and_cards() {
     let slots: Vec<_> = tray.iter().map(|i| i.slot).collect();
     use tray::Slot;
     // Weapon, guard, the spells on their keys, the ultimate, then the bombs
-    // and the hand, the first card on the quaff key.
+    // and the hand, the first card on the quaff key, the second on the
+    // next-card key.
     assert_eq!(slots[0], Slot::Weapon);
     assert_eq!(slots[1], Slot::Guard);
     assert_eq!(slots[2], Slot::Ult);
@@ -373,7 +376,7 @@ fn the_tray_shows_icons_for_the_weapon_guard_bombs_and_cards() {
     assert_eq!(slots.iter().filter(|s| **s == Slot::Card).count(), 2);
     assert_eq!(*slots.last().unwrap(), Slot::Card);
     assert_eq!(tray[4].key, "Z");
-    assert_eq!(tray[5].key, "", "the rest wait their turn");
+    assert_eq!(tray[5].key, "P", "the next-card key brings the second up");
     for icon in &tray {
         let rows = icon.rows();
         assert!(rows.len() <= tray::SIZE, "{}", icon.name);
@@ -602,4 +605,24 @@ fn write_spectacle_shots() {
     let mut sheet = Img::black(tray.w + 8, tray.h + 8);
     sheet.stamp(&tray, 4, 4);
     save(&sheet, &dir, "tray_only");
+}
+
+/// Every third tick of a guardian's claim, from the crack to the shut
+/// ground, for looking at the hand frame by frame:
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_demon_hand_frames -- --ignored`
+#[test]
+#[ignore]
+fn write_demon_hand_frames() {
+    let Some(dir) = shots_dir() else { return };
+    let mut run = quiet();
+    slay_guardian(&mut run);
+    let fell = run.tick;
+    while run.tick < fell + u64::from(CLAIM) {
+        run.players.get_mut(&1).unwrap().invulnerable = 100_000;
+        run.step(&BTreeMap::new());
+        let age = (run.tick - fell) as u32;
+        if age >= LOOT_WAIT && (age - LOOT_WAIT) % 3 == 0 {
+            save(&frame(&run), &dir, &format!("claim_{:03}", age - LOOT_WAIT));
+        }
+    }
 }

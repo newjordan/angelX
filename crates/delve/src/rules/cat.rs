@@ -40,7 +40,7 @@ pub struct Cat {
     #[serde(default)]
     pub petted: u64,
     /// Knights holding E since they last petted her, so one press is one pat.
-    #[serde(default, skip_serializing)]
+    #[serde(default, skip_serializing_if = "crate::rules::runtime_state::omit")]
     pub pet_held: std::collections::BTreeSet<u32>,
 }
 
@@ -256,3 +256,6 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_cat__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/cat_bend_cases__tests.rs"]
+mod cat_bend_cases_tests;

@@ -1,0 +1,900 @@
+{
+  "path_scoped_shell_cat_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cat src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "head -n 80 src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "tail -20 ./src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cat kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cat LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cat /tmp/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cat src/kernel.cu | wc -l",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "cat src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped cat is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "head -n 80 src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped head is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "cat kernel.cu",
+      "expected": false,
+      "message": "workspace basename cat stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "cat LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "cat of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_sed_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -n 1,80p src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -ne 1,80p ./src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed --quiet 1,80p src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_sed_is_quiet_print",
+      "input": "sed -n 1,80p src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_sed_is_inplace",
+      "input": "sed -i s/a/b/ src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -n 1,80p kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -n 1,80p LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -i s/a/b/ src/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed 1,80p src/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sed -n 1,80p src/kernel.cu | wc -l",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "sed -n 1,80p src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped sed -n is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "sed -i s/a/b/ src/kernel.cu",
+      "expected": false,
+      "message": "sed -i must not launder as preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "sed -n 1,80p kernel.cu",
+      "expected": false,
+      "message": "workspace basename sed stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "sed -n 1,80p LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "sed of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_stat_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat -c %s ./src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "file src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "file kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat /tmp/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "stat src/kernel.cu | cat",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "stat src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped stat is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "file src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped file is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "stat kernel.cu",
+      "expected": false,
+      "message": "workspace basename stat stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "stat LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "stat of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_xxd_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "xxd src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "od -Ax -tx1 ./src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "hexdump -C src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "md5sum src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "sha256sum ./src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "xxd kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "md5sum kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "xxd LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "xxd /tmp/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "xxd src/kernel.cu | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "xxd src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped xxd is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "md5sum src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped md5sum is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "xxd kernel.cu",
+      "expected": false,
+      "message": "workspace basename xxd stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "md5sum LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "md5sum of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_objdump_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "nm src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "objdump -d ./src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "readelf -h src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "size src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "base64 src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "nm kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "objdump -d kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "nm LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "objdump -d /tmp/kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "objdump -d src/kernel.o | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "objdump -d src/kernel.o",
+      "expected": true,
+      "message": "path-scoped objdump is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "nm src/kernel.o",
+      "expected": true,
+      "message": "path-scoped nm is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "objdump -d kernel.o",
+      "expected": false,
+      "message": "workspace basename objdump stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "nm LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "nm of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_llvm_objdump_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-nm src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-objdump -d ./src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-readelf -h src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-size src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-nm kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-objdump -d kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-nm LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-objdump -d /tmp/kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-objdump -d src/kernel.o | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-objdump -d src/kernel.o",
+      "expected": true,
+      "message": "path-scoped llvm-objdump is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-nm src/kernel.o",
+      "expected": true,
+      "message": "path-scoped llvm-nm is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-objdump -d kernel.o",
+      "expected": false,
+      "message": "workspace basename llvm-objdump stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-nm LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "llvm-nm of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_addr2line_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line -e src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line -e ./src/kernel.o 0x401000",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-nm src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-readelf -h src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-objdump -d src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-dwarfdump src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line -e kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-nm kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-nm LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line -e /tmp/kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line -e src/kernel.o | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "addr2line -e src/kernel.o",
+      "expected": true,
+      "message": "path-scoped addr2line is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "eu-nm src/kernel.o",
+      "expected": true,
+      "message": "path-scoped eu-nm is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "addr2line -e kernel.o",
+      "expected": false,
+      "message": "workspace basename addr2line stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "eu-nm LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "eu-nm of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_llvm_addr2line_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-addr2line -e src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-addr2line -e ./src/kernel.o 0x401000",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "dwarfdump src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-size src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "rust-objdump -d src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "rust-nm src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "rust-addr2line -e src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-addr2line -e kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "dwarfdump kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "eu-addr2line LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-addr2line -e /tmp/kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-addr2line -e src/kernel.o | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-addr2line -e src/kernel.o",
+      "expected": true,
+      "message": "path-scoped llvm-addr2line is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "rust-nm src/kernel.o",
+      "expected": true,
+      "message": "path-scoped rust-nm is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-addr2line -e kernel.o",
+      "expected": false,
+      "message": "workspace basename llvm-addr2line stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "eu-addr2line LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "eu-addr2line of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_llvm_symbolizer_is_preflight": [
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "--obj=src/kernel.o",
+      "expected_path": "src/kernel.o"
+    },
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "--exe=./src/kernel.o",
+      "expected_path": "./src/kernel.o"
+    },
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "-e=src/kernel.o",
+      "expected_path": "src/kernel.o"
+    },
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "--obj",
+      "expected_path": null
+    },
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "-e",
+      "expected_path": null
+    },
+    {
+      "kind": "shell_inspect_flag_path",
+      "input": "src/kernel.o",
+      "expected_path": null
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj=src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj src/kernel.o",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "addr2line --exe=src/kernel.o 0x401000",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj=kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj=LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj=/tmp/kernel.o",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "llvm-symbolizer --obj=src/kernel.o | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-symbolizer --obj=src/kernel.o",
+      "expected": true,
+      "message": "path-scoped llvm-symbolizer --obj= is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-symbolizer --obj src/kernel.o",
+      "expected": true,
+      "message": "llvm-symbolizer --obj PATH still counts"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-symbolizer --obj=kernel.o",
+      "expected": false,
+      "message": "workspace basename --obj= stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "llvm-symbolizer --obj=LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "board --obj= must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_diff_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "diff -u src/kernel.cu src/ref.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "cmp ./src/kernel.cu src/ref.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "strings src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "diff kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "strings kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "diff LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "diff /tmp/kernel.cu",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_inspect",
+      "input": "diff -u src/kernel.cu | head",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "diff -u src/kernel.cu src/ref.cu",
+      "expected": true,
+      "message": "path-scoped diff is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "strings src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped strings is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "diff kernel.cu",
+      "expected": false,
+      "message": "workspace basename diff stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "diff LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "diff of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_ls_is_preflight": [
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls src",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls src/kernel",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls -la src",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls -la",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls -r src",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "ls /tmp",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_product_ls",
+      "input": "",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "ls src",
+      "expected": true,
+      "message": "ls src is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "ls src/kernel",
+      "expected": true,
+      "message": "ls src/kernel is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "ls -la",
+      "expected": false,
+      "message": "bare ls stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "ls -R src",
+      "expected": false,
+      "message": "recursive ls stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "ls LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "ls of a board name must not launder as preflight"
+    }
+  ],
+  "path_scoped_shell_grep_is_preflight": [
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "grep stream src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "rg stream src/",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "grep -n stream src/kernel.cu",
+      "expected": true
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "grep TODO",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "grep -r stream src/",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "grep stream LIVING_HANDOFF.md",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "git grep stream src/",
+      "expected": false
+    },
+    {
+      "kind": "shell_hay_is_path_scoped_grep",
+      "input": "",
+      "expected": false
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "grep stream src/kernel.cu",
+      "expected": true,
+      "message": "path-scoped grep is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "rg stream src/",
+      "expected": true,
+      "message": "path-scoped rg is candidate preflight"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "grep TODO",
+      "expected": false,
+      "message": "pathless grep stays recon"
+    },
+    {
+      "kind": "is_local_preflight_call",
+      "input": "grep stream LIVING_HANDOFF.md",
+      "expected": false,
+      "message": "grep of a board name must not launder as preflight"
+    }
+  ]
+}

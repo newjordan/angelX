@@ -172,10 +172,19 @@ pub(crate) struct FormationRoster {
 
 impl FormationRoster {
     pub(crate) fn new(formation: FormationId, models: &[MoaModelChoice]) -> Self {
+        let preferences = crate::agent::club::moa_preferences();
+        Self::new_with_preferences(formation, models, &preferences)
+    }
+
+    fn new_with_preferences(
+        formation: FormationId,
+        models: &[MoaModelChoice],
+        preferences: &crate::agent::club::MoaPreferences,
+    ) -> Self {
         let slots = crate::agent::formations::formation(formation).slots();
         let assignments = slots
             .iter()
-            .map(|slot| recommended_model(formation, slot, models))
+            .map(|slot| recommended_model(formation, slot, models, preferences))
             .collect();
         let role_efforts = HashMap::new();
         Self {
@@ -729,6 +738,7 @@ fn recommended_model(
     formation: FormationId,
     slot: &FormationSlot,
     models: &[MoaModelChoice],
+    preferences: &crate::agent::club::MoaPreferences,
 ) -> Option<MoaModelRef> {
     let available = |selector: &str| {
         models
@@ -745,7 +755,9 @@ fn recommended_model(
     }
 
     if self_seats()
-        && let Some(own) = models.iter().find(|choice| choice.in_hand && choice.available)
+        && let Some(own) = models
+            .iter()
+            .find(|choice| choice.in_hand && choice.available)
     {
         return Some(own.route.clone());
     }
@@ -760,7 +772,8 @@ fn recommended_model(
         // a homogeneous roster; the bag's ANGEL_SOTA_MOA_ALLOW_SINGLE path
         // already does this today).
         let seat = |ordinal: usize| -> Option<MoaModelRef> {
-            crate::agent::club::SOTA_MOA_INTELLIGENCE_ORDER
+            preferences
+                .standard
                 .iter()
                 .filter_map(|selector| available(selector))
                 .nth(ordinal)
@@ -797,7 +810,7 @@ fn recommended_model(
     if let Some(model) = specialist.and_then(available) {
         return Some(model);
     }
-    for preferred in crate::agent::club::SOTA_MOA_INTELLIGENCE_ORDER {
+    for preferred in &preferences.standard {
         if let Some(model) = available(preferred) {
             return Some(model);
         }
@@ -846,9 +859,15 @@ impl MoaDeckState {
             .iter()
             .position(|formation| formation.id == FormationId::SoloStrike)
             .unwrap_or(0);
+        let preferences = crate::agent::club::moa_preferences();
         let rosters = BUILT_INS
             .iter()
-            .map(|formation| (formation.id, FormationRoster::new(formation.id, &models)))
+            .map(|formation| {
+                (
+                    formation.id,
+                    FormationRoster::new_with_preferences(formation.id, &models, &preferences),
+                )
+            })
             .collect();
         Self {
             selected,

@@ -40,6 +40,7 @@ function fixture(t) {
     mkdirSync(directory, { recursive: true })
   copyFileSync(runner, script)
   copyFileSync(copier, join(dirname(script), 'copy-cockpit-test-image.py'))
+  writeFileSync(join(dirname(script), 'check-locks.sh'), 'exit 0\n')
   writeFileSync(join(dirname(script), 'check-legacy-terminal-boundary.sh'), 'exit 0\n')
   writeFileSync(join(dirname(script), 'check-active-connections.py'), 'pass\n')
   const binary = join(artifacts, 'angel-tests')
@@ -54,8 +55,8 @@ set -eu
 [[ "$ANGEL_YOLO" == 0 && "$ANGEL_YOLO_SMART" == 0 ]]
 [[ "$PWD" == "$FIXTURE_ROOT/cockpit" ]]
 [[ "$*" == '--test-threads=1' ]]
-[[ "$CARGO_BIN_EXE_angel" == "$TMPDIR/image/debug/angel" ]]
-[[ "$ANGEL_T_SANDBOX_HELPER" == "$TMPDIR/image/debug/angel-sandbox" ]]
+[[ "$CARGO_BIN_EXE_angel" == "$TMPDIR/image/devfast/angel" ]]
+[[ "$ANGEL_T_SANDBOX_HELPER" == "$TMPDIR/image/devfast/angel-sandbox" ]]
 printf '%s\n' "$TMPDIR"
 mkdir -p "$TMPDIR/unfinished-fixture/nested"
 printf fixture > "$TMPDIR/unfinished-fixture/nested/file"
@@ -74,6 +75,14 @@ exit "$FIXTURE_GATE_EXIT"
     join(commands, 'cargo'),
     `#!/usr/bin/env bash
 set -eu
+[[ " $* " == *' --profile devfast '* && "$ANGEL_BUILD_PROFILE" == devfast ]]
+[[ "$RUSTC" == "$FIXTURE_COMMANDS/rustc" && "$RUSTUP_AUTO_INSTALL" == 0 ]]
+[[ "$ANGEL_BUILD_RUSTC" == $'rustc 1.95.0 (fixture)\nhost: fixture-host' ]]
+if [[ " $* " == *' --package angel-code-mode --lib '* ]]; then
+  [[ "$ANGEL_YOLO" == 0 && "$ANGEL_YOLO_SMART" == 0 ]]
+  printf covered > "$FIXTURE_ROOT/code-mode-covered"
+  exit "\${FIXTURE_CODE_MODE_EXIT:-0}"
+fi
 if [[ "$1" == build ]]; then
   [[ " $* " == *' --bins '* && " $* " == *' --message-format=json '* ]]
   if [[ "\${FIXTURE_BUILD_EXIT:-0}" != 0 ]]; then
@@ -89,6 +98,14 @@ else
     exec "$FIXTURE_ARTIFACT" --test-threads=1
   fi
 fi
+`,
+    { mode: 0o755 },
+  )
+  writeFileSync(
+    join(commands, 'rustc'),
+    `#!/usr/bin/env bash
+[[ "$*" == -vV ]] || exit 2
+printf '%s\\n' 'rustc 1.95.0 (fixture)' 'host: fixture-host'
 `,
     { mode: 0o755 },
   )
@@ -110,6 +127,9 @@ esac
     ANGEL_T_SANDBOX_HELPER: helper,
     ANGEL_YOLO: '1',
     ANGEL_YOLO_SMART: '1',
+    RUSTC: '/stale-parent-toolchain/rustc',
+    RUSTUP_AUTO_INSTALL: '1',
+    ANGEL_BUILD_RUSTC: 'stale parent compiler identity',
     FIXTURE_ROOT: root,
     FIXTURE_COMMANDS: commands,
     FIXTURE_ARTIFACT: binary,
@@ -151,6 +171,7 @@ for (const exitCode of [0, 17]) {
     assert.ok(ownTemp.startsWith(join(f.parent, 'angelx-tests.')), result.stdout)
     assert.equal(existsSync(ownTemp), false)
     assert.equal(existsSync(callerFile), true)
+    assert.equal(existsSync(join(f.root, 'code-mode-covered')), exitCode === 0)
   })
 }
 
@@ -231,5 +252,17 @@ int main(int argc, char **argv) {
   const status = await closed
   assert.equal(status, 0, stderr)
   assert.equal(existsSync(owned), false, 'private image is removed after the process settles')
+  assert.deepEqual(readdirSync(f.parent), [])
+})
+
+
+test('independent V8 test failure fails the standard gate', (t) => {
+  const f = fixture(t)
+  const result = spawnSync('bash', [f.script, '--test-threads=1'], {
+    cwd: f.root, encoding: 'utf8', timeout: 10_000,
+    env: { ...f.env, FIXTURE_CODE_MODE_EXIT: '29' },
+  })
+  assert.equal(result.status, 29, result.stderr)
+  assert.equal(existsSync(join(f.root, 'code-mode-covered')), true)
   assert.deepEqual(readdirSync(f.parent), [])
 })

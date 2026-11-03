@@ -2,7 +2,7 @@
 """Scorecard v2 driver: paired, order-randomized repetitions of the
 pre-registered races, then bootstrap verdicts (analyze.py).
 
-  SCORECARD_RUN=/work/tmp/render-scorecard/v2-1 \
+  SCORECARD_RUN=/tmp/render-scorecard/v2-1 \
     python3 scripts/bench/render/run_v2.py [reps] [angel-binary]
 
 Randomization is seeded (recorded in the run dir), so the schedule

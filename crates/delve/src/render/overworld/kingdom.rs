@@ -84,6 +84,8 @@ fn draw_building(site: &Site, i: usize) -> Img {
         match site.room {
             RoomKind::Ranch => super::arena::ranch::landmark(),
             RoomKind::LandOffice => super::arena::holdings::land_office_building(),
+            // The kingdom's own hall on a lot (`HALLS`): the Lantern Hall.
+            RoomKind::RealmHall => super::landmarks::lantern_hall(),
             // A countryside place with no landmark of its own: a house,
             // at dusk like the landmarks round it.
             _ => super::light::at_dusk(&kit::house(&House {

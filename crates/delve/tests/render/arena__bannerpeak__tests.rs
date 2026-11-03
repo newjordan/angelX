@@ -2,7 +2,7 @@
 //! the way, for one to six knights. `ANGEL_ARENA_SHOTS=<dir> cargo test -p
 //! angel-delve write_bannerpeak_review -- --ignored` writes the pictures to
 //! open: native, three times over, and the terminal's layers.
-use super::super::{art_v2, frame_for};
+use super::super::frame_for;
 use super::*;
 use super::super::super::ink::{ink, palette_index};
 use crate::rules::bannerpeak::{
@@ -255,7 +255,7 @@ fn every_moment_draws_on_both_routes_for_every_table() {
             } else {
                 assert_eq!(tbase.content_hash(), base.content_hash(), "{name}");
             }
-            assert!(art_v2::terminal_layers(&r, Some(1)).is_some());
+            assert!(super::super::terminal_layers(&r, Some(1)).is_some());
             for (w, h) in [(384, 224), (768, 448), (96, 56)] {
                 let img = frame_for(&r, w, h, Some(1));
                 assert_eq!((img.w, img.h), (w, h), "{name}");
@@ -489,7 +489,7 @@ fn write_bannerpeak_review() {
             &format!("bannerpeak-{}-3x", name.replace(':', "-")),
             &frame_for(&r, 1152, 672, Some(2)),
         );
-        let (base, fx) = art_v2::terminal_layers(&r, Some(1)).unwrap();
+        let (base, fx) = super::super::terminal_layers(&r, Some(1)).unwrap();
         let mut both = base.clone();
         both.stamp(&fx, 0, 0);
         save(&format!("bannerpeak-{}-terminal-layers", name.replace(':', "-")), &both);

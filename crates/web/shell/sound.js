@@ -10,11 +10,13 @@
 /* exported makeSound */
 const VOICES = 6;
 // A sound that took longer than this to load is skipped: late is worse
-// than silent.
+// than silent. Use wall time: the audio clock freezes while suspended.
 const LATE_S = 0.25;
-// Music sits under the effects (the Delve's host plays it at 0.35 against
-// effects at 0.5).
-const MUSIC_LEVEL = 0.7;
+// Music sits well under the effects: 15% (the operator, 2026-10-28; the
+// Delve's host plays it at 0.15 too).
+const MUSIC_LEVEL = 0.15;
+const MUSIC_RETRY_MS = 1000;
+const MUSIC_LOAD_MS = 15000;
 // The player's own volume (0 to 1) and mute, kept in this browser.
 const VOLUME_KEY = 'angel-volume';
 const MUTE_KEY = 'angel-muted';
@@ -32,7 +34,9 @@ function remember(key, value) {
 
 function makeSound(manifest) {
   let ctx = null, master = null, musicGain = null, track = null, trackName = '';
-  const buffers = new Map(); // name -> Promise<AudioBuffer | null>
+  const buffers = new Map(); // SFX only: name -> Promise<AudioBuffer | null>
+  let playingName = '', generation = 0, loading = null, retryTimer = null, retries = 0;
+  let effectsGeneration = 0;
   const voices = []; // playing sources, oldest first
   let played = 0;
   let volume = Math.min(1, Math.max(0, Number(remembered(VOLUME_KEY, 0.8)) || 0));
@@ -54,18 +58,30 @@ function makeSound(manifest) {
       musicGain.gain.value = MUSIC_LEVEL;
       musicGain.connect(master);
     }
-    if (ctx.state !== 'running') ctx.resume().catch(() => {});
-    play();
+    resume();
   }
 
-  function load(name) {
+  function loadEffect(name) {
     let p = buffers.get(name);
     if (!p) {
-      const url = manifest[name];
+      const url = manifest[name] || (/^live-[a-f0-9]{48}\.wav$/.test(name) ? `/a/${name}` : null);
       p = !url ? Promise.resolve(null) : fetch(url)
         .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
         .then(bytes => ctx.decodeAudioData(bytes))
-        .catch(() => null);
+        .catch(() => {
+          if (buffers.get(name) === p) buffers.delete(name);
+          return null;
+        });
+      // Playing sources retain their own AudioBuffers when cached generations
+      // retire. Bound the reusable decoded bank across arbitrarily many edits:
+      // room for every shipped effect (the Bard's riff alone is fifteen, the
+      // blades, the magic's families and the wishes thirty-four more, the
+      // knights' clips ninety-six), so only live edits ever turn it over.
+      while (buffers.size >= 256) buffers.delete(buffers.keys().next().value);
+      if (/^live-[a-f0-9]{48}\.wav$/.test(name)) {
+        const liveNames = [...buffers.keys()].filter(key => /^live-[a-f0-9]{48}\.wav$/.test(key));
+        while (liveNames.length >= 32) buffers.delete(liveNames.shift());
+      }
       buffers.set(name, p);
     }
     return p;
@@ -73,56 +89,135 @@ function makeSound(manifest) {
 
   function sfx(name) {
     if (!ctx || ctx.state !== 'running') return;
-    const asked = ctx.currentTime;
-    load(name).then(buffer => {
-      if (!buffer || ctx.currentTime - asked > LATE_S) return;
+    let gain = 1;
+    const live = /^(live-[a-f0-9]{48}\.wav)@(\d{1,3})$/.exec(name);
+    if (live) {
+      gain = Number(live[2]) / 100;
+      if (gain > 1 || gain === 0) return;
+      name = live[1];
+    }
+    const now = () => typeof performance === 'undefined' ? Date.now() : performance.now();
+    const asked = now(), epoch = effectsGeneration;
+    loadEffect(name).then(buffer => {
+      if (!buffer || epoch !== effectsGeneration || ctx.state !== 'running'
+          || now() - asked > LATE_S * 1000) return;
       while (voices.length >= VOICES) voices.shift().stop();
       const src = ctx.createBufferSource();
       src.buffer = buffer;
-      src.connect(master);
+      let channel = null;
+      if (live) { channel = ctx.createGain(); channel.gain.value = gain; src.connect(channel); channel.connect(master); }
+      else src.connect(master);
       src.onended = () => {
+        src.disconnect();
+        if (channel) channel.disconnect();
         const i = voices.indexOf(src);
         if (i >= 0) voices.splice(i, 1);
+        src.disconnect();
+        src.buffer = null;
       };
-      src.start();
-      voices.push(src);
-      played++;
+      try {
+        src.start();
+        voices.push(src);
+        played++;
+      } catch (e) { src.onended(); }
     });
+  }
+
+  function stopTrack() {
+    if (!track) return;
+    track.stop();
+    track.disconnect();
+    track.buffer = null;
+    track = null;
+    playingName = '';
   }
 
   function music(name) {
-    if (name === trackName) return;
+    if (name === trackName && (playingName === name || loading?.generation === generation || retryTimer !== null)) return;
     trackName = name;
-    if (track) {
-      track.stop();
-      track = null;
-    }
+    generation++;
+    retries = 1;
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    retryTimer = null;
+    // Fetch can be cancelled; decodeAudioData cannot. Keep that one decode
+    // in flight until it settles, then prepare only the latest request.
+    if (loading) loading.controller.abort();
+    if (!name) stopTrack();
     play();
   }
 
-  // Start the track wanted, once there is audio to play it on.
-  let starting = '';
+  function retryMusic(epoch) {
+    if (epoch !== generation || retries <= 0) return;
+    retries--;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (epoch === generation) play();
+    }, MUSIC_RETRY_MS);
+  }
+
+  // No decoded music cache: only the playing source and one preparing track
+  // own buffers. Serial preparation also bounds rapid A/B/C requests while
+  // a decode (which AbortController cannot cancel) is still working.
   function play() {
-    const name = trackName;
-    if (!name || !ctx || track || starting === name) return;
-    starting = name;
-    load(name).then(buffer => {
-      if (starting === name) starting = '';
-      if (!buffer || trackName !== name || track) return;
-      track = ctx.createBufferSource();
-      track.buffer = buffer;
-      track.loop = true;
-      track.connect(musicGain);
-      track.start();
-    });
+    const name = trackName, epoch = generation;
+    if (!name || !ctx || playingName === name || loading || retryTimer !== null || !manifest[name]) return;
+    const controller = new AbortController();
+    loading = { controller, generation: epoch };
+    const timeout = setTimeout(() => controller.abort(), MUSIC_LOAD_MS);
+    fetch(manifest[name], { signal: controller.signal })
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+      .then(bytes => {
+        clearTimeout(timeout);
+        if (epoch !== generation) return null;
+        return ctx.decodeAudioData(bytes);
+      })
+      .catch(() => null)
+      .then(buffer => {
+        clearTimeout(timeout);
+        loading = null;
+        if (epoch !== generation) { play(); return; }
+        if (!buffer) { retryMusic(epoch); return; }
+        let next;
+        try {
+          next = ctx.createBufferSource();
+          next.buffer = buffer;
+          next.loop = true;
+          next.connect(musicGain);
+          // Start successfully before retiring the old source: network and
+          // decode delays (or a failure) must not turn a switch into silence.
+          next.start();
+        } catch (e) {
+          if (next) { next.disconnect(); next.buffer = null; }
+          retryMusic(epoch);
+          return;
+        }
+        stopTrack();
+        track = next;
+        playingName = name;
+      });
+  }
+
+  function resume() {
+    if (!ctx) return;
+    if (ctx.state !== 'running') ctx.resume().then(play).catch(() => {});
+    play();
   }
 
   return {
     unlock,
     sfx,
     music,
-    suspend() { if (ctx) ctx.suspend().catch(() => {}); },
-    resume() { if (ctx) ctx.resume().catch(() => {}); },
+    suspend() {
+      effectsGeneration++; // A frozen audio clock must not preserve old SFX.
+      while (voices.length) {
+        const src = voices.shift();
+        src.stop();
+        src.disconnect();
+        src.buffer = null;
+      }
+      if (ctx) ctx.suspend().catch(() => {});
+    },
+    resume,
     get state() { return ctx ? ctx.state : 'locked'; },
     get volume() { return volume; },
     get muted() { return muted; },

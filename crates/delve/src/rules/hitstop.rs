@@ -19,6 +19,22 @@ pub(super) enum Impact {
     Phase,
     EliteKill,
     BossKill,
+    /// The best of a minion's finishers (`gore`); off unless the knob is set.
+    Finisher,
+    /// A knight's blow that lands solid, and one that kills (`melee`): both
+    /// wait on the cooldown, so a crowded room is never held still.
+    Melee,
+    MeleeKill,
+}
+
+/// What a hold does with the caller's map.
+pub(super) enum Resume {
+    /// Still frozen; the caller steps nothing.
+    Wait,
+    /// The caller's map, unchanged.
+    Same,
+    /// Presses buffered through the hold, laid over the latest.
+    Fresh(BTreeMap<u32, Input>),
 }
 
 impl State {
@@ -48,6 +64,9 @@ impl State {
             Impact::Phase => (tune.hitstop_phase, false),
             Impact::EliteKill => (tune.hitstop_elite_kill, true),
             Impact::BossKill => (tune.hitstop_boss_kill, true),
+            Impact::Finisher => (tune.hitstop_finisher, true),
+            Impact::Melee => (tune.hitstop_melee, false),
+            Impact::MeleeKill => (tune.hitstop_melee_kill, false),
         };
         if kill || self.cooldown == 0 {
             self.pending = self.pending.max(ticks);
@@ -71,7 +90,7 @@ impl State {
         tune: &tune::Tune,
         players: &BTreeMap<u32, Hero>,
         inputs: &BTreeMap<u32, Input>,
-    ) -> Option<BTreeMap<u32, Input>> {
+    ) -> Resume {
         if tune.hitstop == 0 {
             // Disabling a running hold releases its buffered presses too.
             self.left = 0;
@@ -98,15 +117,18 @@ impl State {
             }
             self.left -= 1;
             self.held = true;
-            return None;
+            return Resume::Wait;
         }
         self.held = false;
+        if self.buffered.is_empty() {
+            return Resume::Same;
+        }
         let mut resumed = inputs.clone();
         for (id, press) in std::mem::take(&mut self.buffered) {
             let now = resumed.entry(id).or_default();
             *now = command::lay_over(press, &Some(*now).filter(|i| i.valid()).unwrap_or_default());
         }
-        Some(resumed)
+        Resume::Fresh(resumed)
     }
 }
 

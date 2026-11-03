@@ -140,7 +140,9 @@ pub(super) fn floor(cv:&mut Img,run:&Run,s:i32,fires:&[(i32,i32)]) -> (Vec<(i32,
         let dry_s=room.tile(c,r+1)!=Tile::Hazard;
         let dry_w=room.tile(c-1,r)!=Tile::Hazard;
         let dry_e=room.tile(c+1,r)!=Tile::Hazard;
-        let step=if tile==Tile::Hazard {1}else{s};
+        // The kit's own floors are drawn a pixel to `s` of the room's; an HD
+        // pack's (3 and up) has finer stone than that, so every pixel is lit.
+        let step=if tile==Tile::Hazard || s>2 {1}else{s};
         for yy in (0..t).step_by(step as usize) {for xx in (0..t).step_by(step as usize) {
         let (x,y)=(c*t+xx,r*t+yy);
         let Some(source)=raw.get(x,y) else {continue;};

@@ -2,6 +2,7 @@
 """Native cleanup and retained nearest candidates for the pit/debt trio."""
 import argparse
 import json
+import os
 import runpy
 import subprocess
 from pathlib import Path
@@ -10,7 +11,10 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 A = runpy.run_path(str(ROOT / 'scripts/boss-art.py'))
 NAMES = ('red-pick-chief', 'the-foreman', 'late-fee-leviathan')
-OUT = Path('/work/artifacts/boss-art-20261015/boss-4b')
+# Art deliveries and review output live outside the checkout, under
+# ANGEL_ART_ARTIFACTS (default ~/angel-art).
+ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
+OUT = ART/'boss-art-20261015/boss-4b'
 PALS = [
     dict(s='#3f5a2a', S='#5f7f34', U='#86a24a', h='#b0c46a',
          o='#6e1f1c', O='#a8322a', t='#d0503a', T='#b83a2e', H='#8a96a0', n='#6b4a2a'),
@@ -421,7 +425,7 @@ def main():
                      frames=dict(v1=[v1], v2=[v2], projectile=projectiles(i), tell=tells(i), impact=impacts(i)),
                      review=dict(theme='Original pit/debt character; named props checked in both terminal kits.', originality='No commercial likeness; original silhouettes and material design.',
                                  identity_props=dict(props=props, source_text=text, compared_original_1x=False, compared_original_cells=False, inspected_cells_2x=False,
-                                                     evidence=[str(OUT / 'review' / f'{name}-v{k}.png') for k in (1, 2)])))
+                                                     evidence=[str(OUT.relative_to(ART) / 'review' / f'{name}-v{k}.png') for k in (1, 2)])))
         entries.append(entry)
     target = ROOT / 'scripts/boss-art-pit-debt.json'
     if target.exists():

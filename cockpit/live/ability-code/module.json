@@ -1,0 +1,20 @@
+{
+  "api_version": 2,
+  "id": "ability-code",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 1,
+  "assets": [],
+  "exports": [
+    {
+      "kind": "resource",
+      "name": "pack",
+      "contract": "ability-pack/1"
+    }
+  ],
+  "bend": {
+    "entry": "fairies.bend",
+    "proof": "PROOF.bend",
+    "output": "fairies.compiled.js"
+  }
+}

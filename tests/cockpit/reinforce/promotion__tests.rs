@@ -1725,3 +1725,352 @@ fn cohort_manifest_rejects_drift_relabeling_and_final_audit_overlap() {
     assert_eq!(report.candidate_version, 1);
     assert_eq!(report.decision, PromotionDecision::Promoted);
 }
+
+// The verdict math is a live leg now. The Rust oracle stays the fallback and
+// the parity target, so these tests compare the shipped Bend module against it
+// on raw score samples rather than on a generator.
+fn gate_case(complete: bool, incumbent: &[f32], candidate: &[f32]) -> GateCase {
+    GateCase {
+        complete,
+        incumbent: incumbent.to_vec(),
+        candidate: candidate.to_vec(),
+    }
+}
+
+fn gate_config(min_cases: usize, samples: usize, floor: f32, delta: f32, regression: f32) -> PromotionConfig {
+    PromotionConfig {
+        min_cases,
+        samples_per_case: samples,
+        absolute_floor: floor,
+        min_mean_delta: delta,
+        max_case_regression: regression,
+        confidence_z: 1.96,
+    }
+}
+
+struct GateFixture {
+    name: &'static str,
+    config: PromotionConfig,
+    case_count: usize,
+    cases: Vec<GateCase>,
+}
+
+fn gate_fixture(
+    name: &'static str,
+    config: PromotionConfig,
+    cases: Vec<GateCase>,
+) -> GateFixture {
+    let case_count = cases.len();
+    GateFixture {
+        name,
+        config,
+        case_count,
+        cases,
+    }
+}
+
+fn promotion_gate_fixtures() -> Vec<GateFixture> {
+    let strict_config = gate_config(2, 2, 0.5, 0.1, 0.0);
+    let mut fixtures = vec![
+        gate_fixture("empty-cohort", strict_config.clone(), Vec::new()),
+        gate_fixture(
+            "undersized-cohort",
+            strict_config.clone(),
+            vec![gate_case(true, &[0.6, 0.6], &[0.9, 0.9])],
+        ),
+        gate_fixture(
+            "incomplete-cohort",
+            strict_config.clone(),
+            vec![
+                gate_case(false, &[0.6, 0.6], &[0.9, 0.9]),
+                gate_case(true, &[0.6, 0.6], &[0.9, 0.9]),
+            ],
+        ),
+        gate_fixture(
+            "below-floor",
+            strict_config.clone(),
+            vec![
+                gate_case(true, &[0.6, 0.6], &[0.1, 0.1]),
+                gate_case(true, &[0.6, 0.6], &[0.9, 0.9]),
+            ],
+        ),
+        gate_fixture(
+            "case-regression",
+            gate_config(2, 2, 0.0, 0.1, 0.05),
+            vec![
+                gate_case(true, &[0.9, 0.9], &[0.2, 0.2]),
+                gate_case(true, &[0.2, 0.2], &[0.9, 0.9]),
+            ],
+        ),
+        gate_fixture(
+            "insufficient-delta",
+            gate_config(2, 3, 0.0, 0.5, 0.5),
+            vec![
+                gate_case(true, &[0.60, 0.60, 0.60], &[0.65, 0.65, 0.65]),
+                gate_case(true, &[0.60, 0.60, 0.60], &[0.70, 0.70, 0.70]),
+            ],
+        ),
+        gate_fixture(
+            "promoted",
+            strict_config.clone(),
+            vec![
+                gate_case(true, &[0.6, 0.6], &[0.9, 0.9]),
+                gate_case(true, &[0.5, 0.5], &[0.8, 0.8]),
+            ],
+        ),
+        gate_fixture(
+            "exactly-at-floor",
+            gate_config(2, 2, 0.5, 0.1, 0.0),
+            vec![
+                gate_case(true, &[0.5, 0.5], &[0.5, 0.5]),
+                gate_case(true, &[0.5, 0.5], &[0.9, 0.9]),
+            ],
+        ),
+        gate_fixture(
+            "wide-spread-single-case",
+            gate_config(1, 5, 0.0, 0.01, 0.4),
+            vec![gate_case(true, &[0.1, 0.9, 0.3, 0.7, 0.5], &[0.2, 0.95, 0.35, 0.8, 0.55])],
+        ),
+        gate_fixture(
+            "zero-variance-twelve-cases",
+            gate_config(12, 2, 0.0, 0.01, 0.1),
+            (0..12)
+                .map(|index| {
+                    let base = 0.4 + index as f32 * 0.01;
+                    gate_case(true, &[base, base], &[base + 0.05, base + 0.05])
+                })
+                .collect(),
+        ),
+    ];
+    let mut state = 0x5eed_1234_9abc_def0u64;
+    for index in 0..24 {
+        let mut next = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 40) as u32 as f32) / ((1u32 << 24) as f32)
+        };
+        let samples = 2 + index % 4;
+        let cohort = 2 + index % 3;
+        let cases = (0..cohort)
+            .map(|_| {
+                let incumbent: Vec<f32> = (0..samples).map(|_| 0.3 + next() * 0.5).collect();
+                let candidate: Vec<f32> = (0..samples).map(|_| 0.3 + next() * 0.6).collect();
+                gate_case(true, &incumbent, &candidate)
+            })
+            .collect();
+        let config = gate_config(
+            2,
+            samples,
+            next() * 0.4,
+            0.01 + next() * 0.2,
+            next() * 0.1,
+        );
+        fixtures.push(gate_fixture("generated-cohort", config, cases));
+    }
+    fixtures
+}
+
+// The parity oracle: the arithmetic the shipped `promotion` leg replaced. It
+// lives here so production keeps only the gate's input and contract check.
+/// Native oracle: the arithmetic the live leg must reproduce bit for bit. Sums
+/// run in case order from +0.0, exactly as the score series above.
+fn gate_native(request: &GateRequest<'_>) -> GateVerdict {
+    fn blank(decision: u32) -> GateVerdict {
+        GateVerdict {
+            decision,
+            mean_delta_bits: None,
+            delta_lower_bound_bits: None,
+        }
+    }
+    fn scored(decision: u32, mean_delta: f32, lower_bound: f32) -> GateVerdict {
+        GateVerdict {
+            decision,
+            mean_delta_bits: Some(mean_delta.to_bits()),
+            delta_lower_bound_bits: Some(lower_bound.to_bits()),
+        }
+    }
+    if request.case_count == 0 {
+        return blank(1);
+    }
+    if request.case_count < request.min_cases {
+        return blank(2);
+    }
+    if request.cases.iter().any(|case| !case.complete) {
+        return blank(3);
+    }
+    let samples = request.samples_per_case as f32;
+    let mut deltas = Vec::with_capacity(request.cases.len());
+    let mut delta_variances = Vec::with_capacity(request.cases.len());
+    let mut under_floor = false;
+    let mut regressed = false;
+    for case in request.cases {
+        let incumbent_mean = series_mean(&case.incumbent).unwrap_or(0.0);
+        let candidate_mean = series_mean(&case.candidate).unwrap_or(0.0);
+        let delta = candidate_mean - incumbent_mean;
+        deltas.push(delta);
+        delta_variances.push(
+            series_variance(&case.incumbent) / samples + series_variance(&case.candidate) / samples,
+        );
+        if candidate_mean < request.absolute_floor {
+            under_floor = true;
+        }
+        if delta < -request.max_case_regression {
+            regressed = true;
+        }
+    }
+    let mean_delta = deltas.iter().sum::<f32>() / deltas.len() as f32;
+    let mean_delta_variance = delta_variances.iter().sum::<f32>() / deltas.len().pow(2) as f32;
+    let lower_bound = mean_delta - request.confidence_z * mean_delta_variance.sqrt();
+    let decision = if under_floor {
+        4
+    } else if regressed {
+        5
+    } else if lower_bound < request.min_mean_delta {
+        6
+    } else {
+        0
+    };
+    scored(decision, mean_delta, lower_bound)
+}
+
+fn live_gate(
+    leg: &angel_live::Program,
+    request: &GateRequest<'_>,
+) -> (GateVerdict, crate::agent::harness::live_policy::LegSource) {
+    let input = serde_json::to_value(request).expect("gate input is plain data");
+    crate::agent::harness::live_policy::decide_with(
+        Some(leg.clone()),
+        "promotion",
+        &input,
+        |verdict: &GateVerdict| gate_contract(request, verdict),
+        || gate_native(request),
+    )
+}
+
+/// A throwaway policy module, so a deliberately out-of-contract leg can be
+/// pinned without touching the shipped one.
+fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-gate-leg-{}-{id}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let module = root.join(id);
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        format!(r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{}}}}"#),
+    )
+    .unwrap();
+    std::fs::write(module.join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(id)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
+}
+
+#[test]
+fn live_promotion_leg_matches_the_native_gate_bit_for_bit() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("promotion");
+    let fixtures = promotion_gate_fixtures();
+    let mut checked = 0;
+    for fixture in &fixtures {
+        let request = GateRequest::new(&fixture.config, fixture.case_count, &fixture.cases);
+        let native = gate_native(&request);
+        let (live, source) = live_gate(&leg, &request);
+        assert_eq!(source.as_str(), "live", "{}: {source:?}", fixture.name);
+        assert_eq!(live, native, "{}", fixture.name);
+        assert_eq!(live.decision(), native.decision(), "{}", fixture.name);
+        assert_eq!(live.mean_delta(), native.mean_delta(), "{}", fixture.name);
+        assert_eq!(
+            live.delta_lower_bound(),
+            native.delta_lower_bound(),
+            "{}",
+            fixture.name
+        );
+        checked += 1;
+    }
+    assert!(checked >= 30, "only {checked} gate inputs were compared");
+    let decisions: std::collections::BTreeSet<&'static str> = fixtures
+        .iter()
+        .map(|fixture| {
+            let request = GateRequest::new(&fixture.config, fixture.case_count, &fixture.cases);
+            gate_native(&request).decision().label()
+        })
+        .collect();
+    assert!(
+        decisions.len() >= 6,
+        "the table must reach every gate branch: {decisions:?}"
+    );
+}
+
+#[test]
+fn an_out_of_contract_live_gate_keeps_the_native_verdict() {
+    let config = gate_config(2, 2, 0.5, 0.1, 0.0);
+    let cases = vec![
+        gate_case(true, &[0.6, 0.6], &[0.9, 0.9]),
+        gate_case(true, &[0.5, 0.5], &[0.8, 0.8]),
+    ];
+    let request = GateRequest::new(&config, cases.len(), &cases);
+    let native = gate_native(&request);
+    assert_eq!(native.decision(), PromotionDecision::Promoted);
+    for (id, render) in [
+        (
+            "gate-missing-margin",
+            "module.exports={apiVersion:1,render:()=>({decision:0,mean_delta_bits:null,delta_lower_bound_bits:null})}",
+        ),
+        (
+            "gate-unknown-code",
+            "module.exports={apiVersion:1,render:()=>({decision:9,mean_delta_bits:0,delta_lower_bound_bits:0})}",
+        ),
+    ] {
+        let leg = temporary_policy_leg(id, render);
+        let (verdict, source) = live_gate(&leg, &request);
+        assert!(
+            matches!(
+                source,
+                crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+            ),
+            "{id} reported {source:?}"
+        );
+        assert_eq!(verdict, native, "{id}");
+    }
+}
+
+#[test]
+fn live_promotion_leg_decides_in_microseconds() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("promotion");
+    let config = gate_config(3, 4, 0.5, 0.1, 0.0);
+    let cases = vec![
+        gate_case(true, &[0.60, 0.62, 0.58, 0.61], &[0.90, 0.91, 0.89, 0.92]),
+        gate_case(true, &[0.55, 0.57, 0.53, 0.56], &[0.86, 0.88, 0.84, 0.87]),
+        gate_case(true, &[0.51, 0.52, 0.50, 0.53], &[0.81, 0.83, 0.80, 0.82]),
+    ];
+    let request = GateRequest::new(&config, cases.len(), &cases);
+    let native = gate_native(&request);
+    let mut timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (verdict, source) = live_gate(&leg, &request);
+        timings.push(started.elapsed());
+        assert_eq!(source.as_str(), "live");
+        assert_eq!(verdict, native);
+    }
+    timings.sort();
+    let mut native_timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        assert_eq!(gate_native(&request), native);
+        native_timings.push(started.elapsed());
+    }
+    native_timings.sort();
+    eprintln!(
+        "promotion leg: median {:.2} us/decision, p95 {:.2} us over 200 calls (native oracle median {:.3} us)",
+        timings[timings.len() / 2].as_secs_f64() * 1e6,
+        timings[timings.len() * 95 / 100].as_secs_f64() * 1e6,
+        native_timings[native_timings.len() / 2].as_secs_f64() * 1e6,
+    );
+}

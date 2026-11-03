@@ -12,6 +12,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d467_receipts.book");
 pub(crate) const CELL: char = '⡨';
 pub(crate) const HANDOFF: Route = Route::new(CELL, '⠁');
 pub(crate) const ELISION: Route = Route::new(CELL, '⠃');
@@ -64,15 +66,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the handoff note or an action list refused the call (the fact above)",
             action: "",
             ideas: "",
-            pages: &[
-                "action=write {note} to set one",
-                "A resume brief must name the goal, completed work with evidence, in-flight state, ordered next steps, and load-bearing facts.",
-                "Write the full brief.",
-                "keep it a dense resume brief, not a transcript",
-                "use list|add|complete|set",
-                "use show|write",
-                "use list|add|clear",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'1'),
         },
         Sub {
             route: ELISION,
@@ -80,18 +74,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the harness elided part of the context here (counts beside the mark)",
             action: "",
             ideas: "",
-            pages: &[
-                "tool output elided",
-                "[duplicate inspection output elided ({original_bytes} bytes) — newest identical result retained at {newer_call}]",
-                "[tool argument elided: {} bytes]",
-                "…[{omitted} additional recalled note(s) omitted to fit context]",
-                "…[middle of active user task omitted by bounded compaction anchor]…",
-                "…[{dropped} middle line(s) elided — {} of {} lines shown]",
-                "…[{dropped} middle byte(s) elided — ~{} of {} bytes shown]",
-                "tool output elided for context fit",
-                "…[truncated at {max} matches]",
-                "[tool-aging boundary: aged {results} result(s), dropped {excerpts} excerpt(s), saved {bytes} payload bytes]",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'2'),
         },
         Sub {
             route: NOTES,
@@ -99,13 +82,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the harness noted what happened to a result or a request (values beside the mark)",
             action: "",
             ideas: "",
-            pages: &[
-                "[Operator task retained separately; sha256:{sha}]",
-                "[worker killed by {signal}; reason=signal:{signal}; signal {number}; verification inconclusive]",
-                "[grandchild_holds_stdout: drain deadline reached; inherited output pipe closed; capture incomplete]",
-                "[grandchild_holds_stderr: drain deadline reached; inherited error pipe closed; capture incomplete]",
-                "[code_mode: both script and recipe given; ran script]",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'3'),
         },
     ],
 };

@@ -2,10 +2,18 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from PIL import Image
 
-SOURCE = Path('/work/artifacts/art-prod/slots')
+def env_dir(name):
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(f'set {name} to the art-production directory it names')
+    return Path(value)
+
+
+SOURCE = env_dir('ART_PROD_SLOTS')
 EXPECTED = {
     'pennon.captain': '02f5b64c2df71643c7a9c57668af282f16367be2923a2630fb262c06361fd067',
     'pennon.sentry': '4a0dc90339b6b402d19caa3e6c4ac9be0027aa84b975207f2afcb06f61387067',

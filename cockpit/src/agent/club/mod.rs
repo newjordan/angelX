@@ -41,6 +41,7 @@ mod recovery_context;
 mod retry;
 mod sse;
 mod tool_parse;
+pub(crate) mod transform;
 mod types;
 mod usage;
 pub(crate) mod wire_log;
@@ -845,6 +846,10 @@ pub(crate) fn is_sota_label(label: &str) -> bool {
         || contains_ascii_ignore_case(label, "daybreak")
         || contains_ascii_ignore_case(label, "kimi")
         || contains_ascii_ignore_case(label, "moonshot")
+        // Kimi Code plan seats wear the plan's wire ids as labels.
+        || eq_ascii_ignore_case(label, "k3")
+        || starts_with_ascii_ignore_case(label, "k3-")
+        || starts_with_ascii_ignore_case(label, "k3.")
         || contains_ascii_ignore_case(label, "glm")
         || contains_ascii_ignore_case(label, "deepseek")
         || contains_ascii_ignore_case(label, "cerebras")
@@ -873,6 +878,13 @@ pub(crate) fn is_sota_label(label: &str) -> bool {
         || eq_ascii_ignore_case(label, "qwen3.7-plus")
         || contains_ascii_ignore_case(label, "longcat")
         || contains_ascii_ignore_case(label, "sota")
+        // First-party Claude seats wear the provider model id as their
+        // label. `claude-local` and `qwopus` stay local.
+        || contains_ascii_ignore_case(label, "claude-opus")
+        || contains_ascii_ignore_case(label, "claude-sonnet")
+        || contains_ascii_ignore_case(label, "claude-haiku")
+        || contains_ascii_ignore_case(label, "claude-fable")
+        || eq_ascii_ignore_case(label, "anthropic")
 }
 
 /// The designated smart-escalation seat — what `smart`/`sota` means in

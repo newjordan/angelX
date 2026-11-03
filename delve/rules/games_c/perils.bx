@@ -1,0 +1,486 @@
+# crates/delve/src/rules/perils.rs — the rooms' own dangers: fire jets, gas seeps,
+# ember cracks and crumbling floors. A Peril is {"jet"|"seep"|"crack"|"crumble": {x, y, phase[, across]}}.
+
+def perils.ODDS(+tier: U32) -> U32:
+  gc.nth_u([35, 55, 75], tier)
+
+def perils.MOST(+tier: U32) -> U32:
+  gc.nth_u([1, 1, 2], tier)
+
+def perils.DOOR_CLEAR() -> F32:
+  6.0
+
+def perils.JET_PERIOD() -> U32:
+  150
+
+def perils.JET_WARN() -> U32:
+  90
+
+def perils.JET_LIVE() -> U32:
+  120
+
+def perils.JET_END() -> U32:
+  146
+
+def perils.JET_REACH() -> F32:
+  1.5
+
+def perils.SEEP_PERIOD() -> U32:
+  210
+
+def perils.SEEP_WARN() -> U32:
+  150
+
+def perils.SEEP_PUFF() -> U32:
+  180
+
+def perils.SEEP_LIFE() -> U32:
+  (5 * rules.HZ() : U32)
+
+def perils.CRACK_PERIOD() -> U32:
+  240
+
+def perils.CRACK_WARN() -> U32:
+  150
+
+def perils.CRACK_LIVE() -> U32:
+  200
+
+def perils.CRACK_END() -> U32:
+  224
+
+def perils.CRACK_LONG() -> F32:
+  3.2
+
+def perils.CRACK_WIDE() -> F32:
+  1.0
+
+def perils.CRUMBLE_PERIOD() -> U32:
+  300
+
+def perils.CRUMBLE_WARN() -> U32:
+  190
+
+def perils.CRUMBLE_FALL() -> U32:
+  250
+
+def perils.CRUMBLE_RUBBLE() -> U32:
+  275
+
+def perils.CRUMBLE_HALF() -> F32:
+  2.0
+
+def perils.GAS_HARM() -> U32:
+  5
+
+def perils.FIRE_HARM() -> U32:
+  14
+
+# The variant name of a peril: its one object key.
+def perils.Peril.kind(+p: J.Val) -> String:
+  perils.kind.go(J.fields(p))
+
+def perils.kind.go(+fs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> String:
+  match fs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      ""
+    case Con{(k: String, v: J.Val), t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      k
+
+# The variant's body {x, y, phase[, across]}.
+def perils.Peril.body(+p: J.Val) -> J.Val:
+  J.get(p, perils.Peril.kind(p))
+
+# pub fn at(&self) -> (x, y)
+def perils.Peril.at(+p: J.Val) -> F32 & F32:
+  (gc.f(perils.Peril.body(p), "x"), gc.f(perils.Peril.body(p), "y"))
+
+def perils.Peril.phase(+p: J.Val) -> U32:
+  gc.u(perils.Peril.body(p), "phase")
+
+def perils.Peril.period(+p: J.Val) -> U32:
+  perils.period_of(perils.Peril.kind(p))
+
+def perils.period_of(+k: String) -> U32:
+  if String.eq(k, "jet"):
+    perils.JET_PERIOD()
+  else:
+    if String.eq(k, "seep"):
+      perils.SEEP_PERIOD()
+    else:
+      gc.pu(String.eq(k, "crack"), perils.CRACK_PERIOD(), perils.CRUMBLE_PERIOD())
+
+# pub fn beat(&self, tick) -> u32: (tick as u32).wrapping_add(phase) % period
+def perils.Peril.beat(+p: J.Val, +tick: W.W) -> U32:
+  U32.mod((W.lo32(tick) + perils.Peril.phase(p) : U32), perils.Peril.period(p))
+
+# (from, to) of the warning window and of the striking window.
+def perils.warn_from(+k: String) -> U32:
+  if String.eq(k, "jet"):
+    perils.JET_WARN()
+  else:
+    if String.eq(k, "seep"):
+      perils.SEEP_WARN()
+    else:
+      gc.pu(String.eq(k, "crack"), perils.CRACK_WARN(), perils.CRUMBLE_WARN())
+
+def perils.warn_to(+k: String) -> U32:
+  if String.eq(k, "jet"):
+    perils.JET_LIVE()
+  else:
+    if String.eq(k, "seep"):
+      perils.SEEP_PUFF()
+    else:
+      gc.pu(String.eq(k, "crack"), perils.CRACK_LIVE(), perils.CRUMBLE_FALL())
+
+def perils.strike_from(+k: String) -> U32:
+  perils.warn_to(k)
+
+def perils.strike_to(+k: String) -> U32:
+  if String.eq(k, "jet"):
+    perils.JET_END()
+  else:
+    if String.eq(k, "seep"):
+      (perils.SEEP_PUFF() + 30 : U32)
+    else:
+      gc.pu(String.eq(k, "crack"), perils.CRACK_END(), perils.CRUMBLE_RUBBLE())
+
+# warning(tick) -> Option<f32>: a value in 0..1, or -1.0 for none.
+def perils.Peril.warning(+p: J.Val, +tick: W.W) -> Maybe<&2, F32>:
+  perils.window(perils.Peril.beat(p, tick), perils.warn_from(perils.Peril.kind(p)), perils.warn_to(perils.Peril.kind(p)))
+
+def perils.Peril.striking(+p: J.Val, +tick: W.W) -> Maybe<&2, F32>:
+  perils.window(perils.Peril.beat(p, tick), perils.strike_from(perils.Peril.kind(p)), perils.strike_to(perils.Peril.kind(p)))
+
+def perils.window(+beat: U32, +from: U32, +to: U32) -> Maybe<&2, F32>:
+  if Bool.and(U32.is_ge(beat, from), U32.is_lt(beat, to)):
+    Some{((RS.u_as_f32((beat - from : U32)) / RS.u_as_f32((to - from : U32)) : F32))}
+  else:
+    None{}
+
+def perils.is_some(+m: Maybe<&2, F32>) -> Bool:
+  match m as Maybe<&2, F32>:
+    case None{}:
+      False{}
+    case Some{v}:
+      True{}
+
+# fn strikes(&self, px, py, slack) -> bool
+def perils.Peril.strikes(+p: J.Val, +px: F32, +py: F32, +slack: F32) -> Bool:
+  at: F32 & F32 = perils.Peril.at(p)
+  (x: F32, y: F32) = at
+  k: String = perils.Peril.kind(p)
+  if String.eq(k, "jet"):
+    F32.is_le(RS.f_hypot((px - x : F32), (py - y : F32)), (perils.JET_REACH() + slack : F32))
+  else:
+    if String.eq(k, "seep"):
+      False{}
+    else:
+      if String.eq(k, "crack"):
+        across: Bool = gc.b(perils.Peril.body(p), "across")
+        along: F32 = gc.pf(across, RS.f_abs((px - x : F32)), RS.f_abs((py - y : F32)))
+        over: F32 = gc.pf(across, RS.f_abs((py - y : F32)), RS.f_abs((px - x : F32)))
+        Bool.and(F32.is_le(along, (perils.CRACK_LONG() + slack : F32)), F32.is_le(over, (perils.CRACK_WIDE() + slack : F32)))
+      else:
+        Bool.and(F32.is_le(RS.f_abs((px - x : F32)), (perils.CRUMBLE_HALF() + slack : F32)), F32.is_le(RS.f_abs((py - y : F32)), (perils.CRUMBLE_HALF() + slack : F32)))
+
+# fn menu(pack, depth) -> [(kind, weight)]: 0 jet, 1 seep, 2 crack, 3 crumble. Two parallel lists in menu
+# order; a zero weight is never picked, as the caller's filter would have dropped it.
+def perils.menu.kinds(+pack: String) -> List<&2, U32>:
+  if String.eq(pack, "crypt"):
+    [3, 1, 0]
+  else:
+    if String.eq(pack, "cavern"):
+      [1, 3, 0]
+    else:
+      if String.eq(pack, "hellforge"):
+        [0, 2, 1]
+      else:
+        if String.eq(pack, "archive"):
+          [1, 3, 0]
+        else:
+          if String.eq(pack, "fungal"):
+            [1, 3, 2]
+          else:
+            if String.eq(pack, "unknown"):
+              [2, 1, 3, 0]
+            else:
+              [1, 3]
+
+def perils.menu.weights(+pack: String, +depth: U32) -> List<&2, U32>:
+  if String.eq(pack, "crypt"):
+    [4, 3, gc.pu(U32.is_ge(depth, 2), 2, 0)]
+  else:
+    if String.eq(pack, "cavern"):
+      [4, gc.pu(U32.is_ge(depth, 2), 3, 0), gc.pu(U32.is_ge(depth, 3), 2, 0)]
+    else:
+      if String.eq(pack, "hellforge"):
+        [4, 3, 2]
+      else:
+        if String.eq(pack, "archive"):
+          [4, 3, gc.pu(U32.is_ge(depth, 5), 1, 0)]
+        else:
+          if String.eq(pack, "fungal"):
+            [5, 3, gc.pu(U32.is_ge(depth, 5), 1, 0)]
+          else:
+            if String.eq(pack, "unknown"):
+              [3, 2, 2, 2]
+            else:
+              [5, gc.pu(U32.is_ge(depth, 2), 2, 0)]
+
+def perils.any_weight(+ws: List<&2, U32>) -> Bool:
+  match ws as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{h: U32, t: List<&2, U32>}:
+      Bool.or(U32.is_gt(h, 0), perils.any_weight(t))
+
+# fn arm_perils(&mut self)
+def perils.Run.arm_perils(+run: J.Val) -> J.Val:
+  r1: J.Val = J.set(run, "works", J.set(J.get(run, "works"), "perils", J.JA{Nil{}}))
+  depth: U32 = gc.u(J.get(r1, "dungeon"), "depth")
+  room: J.Val = rules.Run.room(r1)
+  kind: String = J.str(J.get(room, "kind"))
+  roomy: Bool = Bool.or(String.eq(kind, "fight"), Bool.or(String.eq(kind, "hall"), Bool.or(String.eq(kind, "stairs"), String.eq(kind, "lair"))))
+  if Bool.or(U32.is_zero(depth), Bool.or(ledge.Run.side_on(r1), Bool.or(Bool.not(roomy), Bool.or(String.eq(gc.s(r1, "mode"), "gauntlet"), identity.Run.simple_creation(r1))))):
+    r1
+  else:
+    perils.arm.go(r1, room, kind, depth, gc.ssub(gc.umin(depth, 3), 1))
+
+def perils.arm.go(+run: J.Val, +room: J.Val, +kind: String, +depth: U32, +tier: U32) -> J.Val:
+  seed: W.W = W.xor(W.xor(W.xor(W.xor(W.of_j(J.get(run, "seed")), W.rotl(W.of_j(J.get(run, "raid_id")), 13)), W.shl(W.of_u32(depth), 40)), W.shl(W.of_u32(gc.u(run, "at")), 24)), W.of_u32(40337))
+  rng: W.W = loot.Rng.new(rules.mix(seed))
+  odds: U32 = gc.pu(Bool.and(Bool.or(String.eq(kind, "stairs"), String.eq(kind, "lair")), U32.is_lt(depth, 3)), 0, gc.pu(String.eq(kind, "hall"), U32.div(perils.ODDS(tier), 2), perils.ODDS(tier)))
+  c1: W.W & Bool = loot.Rng.chance(rng, odds)
+  (rng1: W.W, hit: Bool) = c1
+  if hit:
+    perils.arm.count(run, room, depth, tier, rng1)
+  else:
+    run
+
+# count = 1 + (MOST > 1 && chance(40)) + (depth >= 5 && chance(35))
+def perils.arm.count(+run: J.Val, +room: J.Val, +depth: U32, +tier: U32, +rng: W.W) -> J.Val:
+  if U32.is_gt(perils.MOST(tier), 1):
+    c: W.W & Bool = loot.Rng.chance(rng, 40)
+    (rng1: W.W, hit: Bool) = c
+    perils.arm.count2(run, room, depth, rng1, gc.pu(hit, 2, 1))
+  else:
+    perils.arm.count2(run, room, depth, rng, 1)
+
+def perils.arm.count2(+run: J.Val, +room: J.Val, +depth: U32, +rng: W.W, +n: U32) -> J.Val:
+  if U32.is_ge(depth, 5):
+    c: W.W & Bool = loot.Rng.chance(rng, 35)
+    (rng1: W.W, hit: Bool) = c
+    perils.arm.lay(run, room, depth, rng1, gc.pu(hit, (n + 1 : U32), n))
+  else:
+    perils.arm.lay(run, room, depth, rng, n)
+
+def perils.arm.lay(+run: J.Val, +room: J.Val, +depth: U32, +rng: W.W, +count: U32) -> J.Val:
+  pack: String = gc.s(J.get(run, "dungeon"), "pack")
+  ws: List<&2, U32> = perils.menu.weights(pack, depth)
+  if Bool.not(perils.any_weight(ws)):
+    run
+  else:
+    doors: List<&2, GcPt> = perils.doors(room, 0)
+    laid: J.Val = perils.lay.each(gc.umin(count, 3), room, doors, perils.menu.kinds(pack), ws, rng, J.JA{Nil{}})
+    J.set(run, "works", J.set(J.get(run, "works"), "perils", laid))
+
+# the doorway points of the room's open doors, sides 0..4
+def perils.pt(+p: F32 & F32) -> GcPt:
+  (x: F32, y: F32) = p
+  GcPt{x, y}
+
+def perils.doors(+room: J.Val, +d: U32) -> List<&2, GcPt>:
+  if U32.is_ge(d, 4):
+    Nil{}
+  else:
+    if J.bool(J.nth(J.get(room, "doors"), d)):
+      perils.pt(hazards.doorway.at(room, d)) <> perils.doors(room, (d + 1 : U32))
+    else:
+      perils.doors(room, (d + 1 : U32))
+
+# for _ in 0..count: pick a kind, then up to 40 tries to lay it.
+def perils.lay.each(+n: U32, +room: J.Val, +doors: List<&2, GcPt>, +kinds: List<&2, U32>, +ws: List<&2, U32>, +rng: W.W, +laid: J.Val) -> J.Val:
+  if U32.is_zero(n):
+    laid
+  else:
+    p: W.W & U32 = loot.Rng.pick(rng, ws)
+    (rng1: W.W, idx: U32) = p
+    r: W.W & J.Val = perils.lay.try(40, room, doors, gc.nth_u(kinds, idx), rng1, laid)
+    (rng2: W.W, laid2: J.Val) = r
+    perils.lay.each((n - 1 : U32), room, doors, kinds, ws, rng2, laid2)
+
+def perils.period_kind(+kind: U32) -> U32:
+  gc.nth_u([150, 210, 240, 300], kind)
+
+def perils.lay.try(+tries: U32, +room: J.Val, +doors: List<&2, GcPt>, +kind: U32, +rng: W.W, +laid: J.Val) -> W.W & J.Val:
+  if U32.is_zero(tries):
+    (rng, laid)
+  else:
+    c: W.W & U32 = loot.Rng.below(rng, gc.umax(gc.ssub(J.u32(J.get(room, "cols")), 8), 1))
+    (rng1: W.W, dc: U32) = c
+    r: W.W & U32 = loot.Rng.below(rng1, gc.umax(gc.ssub(J.u32(J.get(room, "rows")), 8), 1))
+    (rng2: W.W, dr: U32) = r
+    a: W.W & Bool = loot.Rng.chance(rng2, 50)
+    (rng3: W.W, across: Bool) = a
+    perils.lay.cell(tries, room, doors, kind, rng3, laid, (4 + dc : U32), (4 + dr : U32), across)
+
+# The floor tiles a peril needs are all ground.
+def perils.ground_all(+room: J.Val, +kind: U32, +col: U32, +row: U32, +across: Bool) -> Bool:
+  if Bool.or(U32.is_eq(kind, 0), U32.is_eq(kind, 1)):
+    perils.ground_box(room, (col - 1 : U32), (row - 1 : U32), 3, 3)
+  else:
+    if U32.is_eq(kind, 2):
+      if across:
+        perils.ground_box(room, (col - 2 : U32), row, 5, 1)
+      else:
+        perils.ground_box(room, col, (row - 2 : U32), 1, 5)
+    else:
+      perils.ground_box(room, (col - 1 : U32), (row - 1 : U32), 2, 2)
+
+def perils.ground_box(+room: J.Val, +c0: U32, +r0: U32, +w: U32, +h: U32) -> Bool:
+  perils.ground_rows(room, c0, r0, w, (r0 + h : U32))
+
+def perils.ground_rows(+room: J.Val, +c0: U32, +r: U32, +w: U32, +end: U32) -> Bool:
+  if U32.is_ge(r, end):
+    True{}
+  else:
+    Bool.and(perils.ground_cols(room, c0, r, w), perils.ground_rows(room, c0, (r + 1 : U32), w, end))
+
+def perils.ground_cols(+room: J.Val, +c: U32, +r: U32, +w: U32) -> Bool:
+  if U32.is_zero(w):
+    True{}
+  else:
+    Bool.and(layout.Tile.ground(layout.Room.tile(room, c, r)), perils.ground_cols(room, (c + 1 : U32), r, (w - 1 : U32)))
+
+def perils.lay.cell(+tries: U32, +room: J.Val, +doors: List<&2, GcPt>, +kind: U32, +rng: W.W, +laid: J.Val, +col: U32, +row: U32, +across: Bool) -> W.W & J.Val:
+  ux: F32 = ((RS.i_as_f32(col) + 0.5 : F32) * layout.TILE_UNITS() : F32)
+  uy: F32 = ((RS.i_as_f32(row) + 0.5 : F32) * layout.TILE_UNITS() : F32)
+  x: F32 = gc.pf(U32.is_eq(kind, 3), (RS.i_as_f32(col) * layout.TILE_UNITS() : F32), ux)
+  y: F32 = gc.pf(U32.is_eq(kind, 3), (RS.i_as_f32(row) * layout.TILE_UNITS() : F32), uy)
+  clear: Bool = perils.ground_all(room, kind, col, row, across)
+  far: Bool = Bool.and(perils.far_doors(doors, x, y), perils.far_laid(J.items(laid), x, y))
+  if Bool.and(clear, far):
+    p: W.W & U32 = loot.Rng.below(rng, perils.period_kind(kind))
+    (rng1: W.W, phase: U32) = p
+    (rng1, J.push(laid, perils.Peril.new(kind, x, y, phase, across)))
+  else:
+    perils.lay.try((tries - 1 : U32), room, doors, kind, rng, laid)
+
+def perils.far_doors(+doors: List<&2, GcPt>, +x: F32, +y: F32) -> Bool:
+  match doors as List<&2, GcPt>:
+    case Nil{}:
+      True{}
+    case Con{d: GcPt, t: List<&2, GcPt>}:
+      match d as GcPt:
+        case GcPt{dx: F32, dy: F32}:
+          Bool.and(F32.is_gt(RS.f_hypot((dx - x : F32), (dy - y : F32)), perils.DOOR_CLEAR()), perils.far_doors(t, x, y))
+
+def perils.far_laid(+ps: List<&2, J.Val>, +x: F32, +y: F32) -> Bool:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      True{}
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      at: F32 & F32 = perils.Peril.at(p)
+      (px: F32, py: F32) = at
+      Bool.and(F32.is_gt(RS.f_hypot((px - x : F32), (py - y : F32)), 6.0), perils.far_laid(t, x, y))
+
+def perils.Peril.new(+kind: U32, +x: F32, +y: F32, +phase: U32, +across: Bool) -> J.Val:
+  body: J.Val = gc.su(gc.sf(gc.sf(J.obj(), "x", x), "y", y), "phase", phase)
+  if U32.is_eq(kind, 2):
+    J.set(J.obj(), "crack", gc.sb(body, "across", across))
+  else:
+    J.set(J.obj(), gc.nth_s(["jet", "seep", "crack", "crumble"], kind), body)
+
+# fn tick_perils(&mut self)
+def perils.Run.tick_perils(+run: J.Val) -> J.Val:
+  perils.tick.each(run, gc.tick(run), 0, gc.len(J.items(J.get(J.get(run, "works"), "perils"))))
+
+def perils.tick.each(+run: J.Val, +tick: W.W, +i: U32, +n: U32) -> J.Val:
+  if U32.is_ge(i, n):
+    run
+  else:
+    perils.tick.each(perils.tick.one(run, tick, J.nth(J.get(J.get(run, "works"), "perils"), i)), tick, (i + 1 : U32), n)
+
+def perils.tick.one(+run: J.Val, +tick: W.W, +p: J.Val) -> J.Val:
+  beat: U32 = perils.Peril.beat(p, tick)
+  k: String = perils.Peril.kind(p)
+  if String.eq(k, "seep"):
+    perils.tick.seep(run, p, beat)
+  else:
+    striking: Bool = perils.is_some(perils.Peril.striking(p, tick))
+    beats: Bool = gc.pb(String.eq(k, "crumble"), U32.is_eq(beat, perils.CRUMBLE_FALL()), striking)
+    every: U32 = gc.pu(String.eq(k, "jet"), 5, gc.pu(String.eq(k, "crack"), 6, 1))
+    if Bool.or(Bool.not(beats), U32.is_ne(W.rem_u32(tick, every), 0)):
+      run
+    else:
+      perils.tick.strike(run, p, k, beat)
+
+def perils.hostile_clouds(+cs: List<&2, J.Val>) -> U32:
+  match cs as List<&2, J.Val>:
+    case Nil{}:
+      0
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      (gc.pu(U32.is_zero(gc.u(h, "owner")), 1, 0) + perils.hostile_clouds(t) : U32)
+
+# A seep puffs a cloud at beat SEEP_PUFF while fewer than three hostile clouds drift.
+def perils.tick.seep(+run: J.Val, +p: J.Val, +beat: U32) -> J.Val:
+  hostile: U32 = perils.hostile_clouds(J.items(J.get(J.get(run, "works"), "clouds")))
+  if Bool.and(U32.is_eq(beat, perils.SEEP_PUFF()), U32.is_lt(hostile, 3)):
+    at: F32 & F32 = perils.Peril.at(p)
+    (x: F32, y: F32) = at
+    cloud: J.Val = perils.cloud(x, y)
+    gc.sound(J.set(run, "works", J.set(J.get(run, "works"), "clouds", J.push(J.get(J.get(run, "works"), "clouds"), cloud))), "vent_fire")
+  else:
+    run
+
+# Cloud { x, y, vx: 0, vy: -0.3, age: GAS_LIFE - SEEP_LIFE, owner: 0, power: 4, tint: 1 }
+def perils.cloud(+x: F32, +y: F32) -> J.Val:
+  c0: J.Val = gc.sf(gc.sf(gc.sf(gc.sf(J.obj(), "x", x), "y", y), "vx", 0.0), "vy", F32.neg(0.3))
+  gc.su(gc.su(gc.su(gc.su(c0, "age", (skills.GAS_LIFE() - perils.SEEP_LIFE() : U32)), "owner", 0), "power", 4), "tint", 1)
+
+def perils.tick.strike(+run: J.Val, +p: J.Val, +k: String, +beat: U32) -> J.Val:
+  r1: J.Val = gc.ifj(Bool.or(Bool.and(U32.is_eq(beat, perils.JET_LIVE()), String.eq(k, "jet")), U32.is_eq(beat, perils.CRACK_LIVE())), _ => gc.sound(run, "vent_fire"), _ => run)
+  at: F32 & F32 = perils.Peril.at(p)
+  (px: F32, py: F32) = at
+  r2: J.Val = perils.tick.boom(r1, k, beat, px, py)
+  knight: U32 = gc.pu(String.eq(k, "crumble"), 18, perils.FIRE_HARM())
+  foe: U32 = gc.pu(String.eq(k, "jet"), 16, gc.pu(String.eq(k, "crack"), 20, 40))
+  r3: J.Val = perils.hurt_knights(r2, p, knight, gc.ids(J.get(r2, "players")))
+  perils.hurt_foes(r3, p, foe, String.eq(k, "crumble"))
+
+def perils.tick.boom(+run: J.Val, +k: String, +beat: U32, +px: F32, +py: F32) -> J.Val:
+  if String.eq(k, "crumble"):
+    r1: J.Val = gc.sound(run, "rock_land")
+    r2: J.Val = gc.push(r1, "fx", J.set(J.obj(), "Shake", J.JU{5}))
+    skills.Run.boom(r2, px, py, "dust", perils.CRUMBLE_HALF())
+  else:
+    if Bool.and(String.eq(k, "jet"), U32.is_eq(beat, perils.JET_LIVE())):
+      skills.Run.boom(run, px, py, "burst", perils.JET_REACH())
+    else:
+      run
+
+def perils.hurt_knights(+run: J.Val, +p: J.Val, +dmg: U32, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(J.get(run, "players"), id)
+      if Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), Bool.and(U32.is_zero(gc.u(h, "privy")), perils.Peril.strikes(p, gc.f(h, "x"), gc.f(h, "y"), rules.HERO_RADIUS())))):
+        perils.hurt_knights(J.set(run, "players", gc.put_seat(J.get(run, "players"), id, hero.Hero.hurt(h, dmg))), p, dmg, t)
+      else:
+        perils.hurt_knights(run, p, dmg, t)
+
+def perils.hurt_foes(+run: J.Val, +p: J.Val, +foe: U32, +ground: Bool) -> J.Val:
+  J.set(run, "enemies", J.JA{perils.foes(J.items(J.get(run, "enemies")), p, foe, ground)})
+
+def perils.foes(+es: List<&2, J.Val>, +p: J.Val, +foe: U32, +ground: Bool) -> List<&2, J.Val>:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      kind: String = gc.s(e, "kind")
+      live: Bool = Bool.and(U32.is_gt(gc.u(e, "hp"), 0), Bool.and(Bool.not(String.eq(kind, "dummy")), Bool.not(Bool.and(ground, monsters.EnemyKind.flies(kind)))))
+      hit: Bool = Bool.and(live, perils.Peril.strikes(p, gc.f(e, "x"), gc.f(e, "y"), (monsters.Enemy.radius(e) * 0.5 : F32)))
+      e2: J.Val = gc.ifj(hit, _ => gc.su(e, "hp", gc.ssub(gc.u(e, "hp"), foe)), _ => e)
+      e2 <> perils.foes(t, p, foe, ground)

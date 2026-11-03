@@ -399,6 +399,16 @@ pub struct LoopState {
     /// Novel verified submission receipts this run.
     #[serde(default)]
     pub submissions: usize,
+    /// Submission count the submission clock last re-armed at. The clock
+    /// restarts after every submission, so a run that uploaded once still has
+    /// to keep sending its new measured winners (embryo podrace, 2026-10-26:
+    /// one upload, then 17 measured candidates over 18 laps and none sent).
+    #[serde(default)]
+    pub submissions_seen: usize,
+    /// Measured-candidate count at the last submission; the clock runs only
+    /// while there are newer measured candidates than this.
+    #[serde(default)]
+    pub measured_at_submission: usize,
     /// Every stamped `<board> submit --model grok-4.6 --harness angelX` (accepted, refused, or rejected).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub submissions_log: Vec<SubmissionLogRow>,
@@ -958,7 +968,8 @@ impl crate::App {
             "stop" => {
                 self.loop_cancel_inflight();
                 match self.loop_finish_with_checkpoint(LoopStatus::Stopped, "stopped by user") {
-                    Ok(()) => "loop stopped".to_string(),
+                    Ok(Some(notice)) => format!("loop stopped\n  {notice}"),
+                    Ok(None) => "loop stopped".to_string(),
                     Err(error) => format!("loop stopped in memory; checkpoint failed: {error}"),
                 }
             }
@@ -973,7 +984,10 @@ impl crate::App {
                     self.loop_task_text(),
                 );
                 match checkpoint {
-                    Ok(()) => "loop paused — /loop resume to continue".to_string(),
+                    Ok(Some(notice)) => {
+                        format!("loop paused — /loop resume to continue\n  {notice}")
+                    }
+                    Ok(None) => "loop paused — /loop resume to continue".to_string(),
                     Err(error) => format!("loop paused in memory; checkpoint failed: {error}"),
                 }
             }
@@ -992,8 +1006,13 @@ impl crate::App {
                     .clone()
                     .unwrap_or_else(|| self.session.id.clone());
                 self.loop_ctl = LoopState::default();
-                clear_file_for(Some(&workspace), Some(&owner_session_id));
-                "loop cleared".to_string()
+                match clear_file_for(Some(&workspace), Some(&owner_session_id)) {
+                    Ok(Some(notice)) => format!("loop cleared; {notice}"),
+                    Ok(None) => "loop cleared".to_string(),
+                    Err(error) => {
+                        format!("loop cleared in memory; checkpoint not removed: {error}")
+                    }
+                }
             }
             "sota" => {
                 if self.loop_pending.is_some() {
@@ -1094,16 +1113,21 @@ impl crate::App {
             .as_ref()
             .map(|g| !g.text.trim().is_empty())
             .unwrap_or(false);
-        if task.is_empty()
-            && !has_goal
-            && let Some(saved) = self.saved_loop_for_current_workspace()
+        let (saved, set_aside) = match carry_on_if_set_aside(self.saved_loop_for_current_workspace())
         {
+            Ok(saved) => saved,
+            Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
+        };
+        if task.is_empty() && !has_goal && let Some(saved) = saved {
             task = saved.task;
             interval = saved.interval_secs;
             deli |= saved.deli;
         }
         if task.trim().is_empty() && !has_goal {
-            return "nothing to loop on — /loop <task>, or set a /goal first".to_string();
+            return with_checkpoint_notice(
+                "nothing to loop on — /loop <task>, or set a /goal first".to_string(),
+                set_aside,
+            );
         }
         self.loop_dialog = Some(if podrace {
             LoopLaunchDialog::podrace(task, interval)
@@ -1117,19 +1141,24 @@ impl crate::App {
         let _ = self
             .module_host
             .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
-        if podrace {
-            "competition podrace armed — 5 days, unlimited iterations/tokens; review then Start"
+        let opened = if podrace {
+            "competition podrace armed — 5 days, unlimited iterations/tokens; review then drop the flag"
                 .to_string()
         } else {
-            "loop workshop opened — choose time, iterations, budget, then Start".to_string()
-        }
+            "loop card open — set laps, clock and fuel, then drop the flag".to_string()
+        };
+        with_checkpoint_notice(opened, set_aside)
     }
 
     fn loop_restart_dialog(&mut self, rest: String, deli: bool) -> String {
         let was_active = self.loop_active();
         self.loop_cancel_inflight();
         self.loop_ctl.last_failed_acceptance = None;
-        let saved = self.saved_loop_for_current_workspace();
+        let (saved, set_aside) = match carry_on_if_set_aside(self.saved_loop_for_current_workspace())
+        {
+            Ok(saved) => saved,
+            Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
+        };
         let limits = if self.loop_ctl.status != LoopStatus::Idle {
             Some(&self.loop_ctl)
         } else {
@@ -1167,21 +1196,26 @@ impl crate::App {
             save(&self.loop_ctl);
         }
         let notice = self.loop_open_dialog_profile(task, interval, deli, podrace);
-        if let (Some(dialog), Some(limits)) = (&mut self.loop_dialog, limits) {
+        let opened = if let (Some(dialog), Some(limits)) = (&mut self.loop_dialog, limits) {
             dialog.restore_settings(limits);
-            "loop restart workshop opened — saved operator limits retained exactly; review then Start".into()
+            "loop restart card open — saved operator limits retained exactly; review then drop the flag".into()
         } else {
             notice
-        }
+        };
+        with_checkpoint_notice(opened, set_aside)
     }
 
     fn loop_resume(&mut self) -> String {
         let loaded_saved = self.loop_ctl.status == LoopStatus::Idle;
         if loaded_saved {
-            let Some(saved) = self.saved_loop_for_current_workspace() else {
-                return "no paused loop to resume".to_string();
-            };
-            self.loop_ctl = saved;
+            match self.saved_loop_for_current_workspace() {
+                Ok(Some(saved)) => self.loop_ctl = saved,
+                Ok(None) => return "no paused loop to resume".to_string(),
+                Err(error) if set_aside_destination(&error).is_some() => {
+                    return format!("{error}; no paused loop to resume");
+                }
+                Err(error) => return format!("loop resume refused: {error}"),
+            }
         }
         let legacy_terminal_stall =
             self.loop_ctl.status == LoopStatus::Stopped && stall_limit_reached(&self.loop_ctl);
@@ -1243,7 +1277,7 @@ impl crate::App {
         }
     }
 
-    fn saved_loop_for_current_workspace(&self) -> Option<LoopState> {
+    fn saved_loop_for_current_workspace(&self) -> Result<Option<LoopState>, String> {
         load_for_session(self.tools.current_workspace(), &self.session.id)
     }
 
@@ -1347,6 +1381,7 @@ impl crate::App {
         };
         let settings = dialog.settings();
         let is_handoff = dialog.is_handoff_rl();
+        let shown = dialog.clone();
         self.loop_dialog_hits.clear();
         self.scryglass
             .controller
@@ -1361,6 +1396,16 @@ impl crate::App {
                 Some(settings),
             )
         };
+        // The flag is down: once the run is live, the card plays the start
+        // and docks in the corner to follow it.
+        let running = if is_handoff {
+            self.handoff_rl.active
+        } else {
+            self.loop_active()
+        };
+        if running {
+            self.loop_card.launched(shown, Instant::now());
+        }
         // Starting the loop may activate its lifecycle ceremony, which focuses
         // Stage. Hand ownership back after that presentation is armed so compact
         // terminals keep the console visible while the operator steers.
@@ -1485,7 +1530,8 @@ impl crate::App {
             self.loop_ctl.status = LoopStatus::Running;
         }
         self.loop_bind_rl();
-        save(&self.loop_ctl);
+        let checkpoint = save_checkpoint(&self.loop_ctl);
+        persist_state_dir(&self.loop_ctl);
         let what = if task.is_empty() {
             format!(
                 "goal: {}",
@@ -1516,6 +1562,11 @@ impl crate::App {
         // say so where the operator is looking.
         if let Some(error) = crate::agent::harness::cartridges::selection_error() {
             started.push_str(&format!("\n  {error}"));
+        }
+        match checkpoint {
+            Ok(Some(notice)) => started.push_str(&format!("\n  {notice}")),
+            Err(error) => started.push_str(&format!("\n  checkpoint failed: {error}")),
+            Ok(None) => {}
         }
         started
     }
@@ -1915,9 +1966,10 @@ impl crate::App {
         if self.loop_submission_overdue() {
             let since = self.loop_iters_since_first_measurement().unwrap_or(0);
             prompt.push_str(&format!(
-                "\n\n{} measured={} submissions=0 iterations_since_first_measurement={since}",
+                "\n\n{} measured={} submissions={} iterations_since_first_measurement={since}",
                 ou_checkpoints::OVERDUE.cells(),
-                self.loop_ctl.measured_candidates
+                self.loop_ctl.measured_candidates,
+                self.loop_ctl.submissions
             ));
         }
         if f_skip > 0 || d_skip > 0 {
@@ -2007,6 +2059,13 @@ impl crate::App {
         if self.loop_ctl.podrace {
             prompt.push_str(&format!("\n\n{}", er_loop::PODRACE.cells()));
         }
+        // What ranks the learned entries below. The task is often a one-line
+        // pointer to a brief, so recent hypotheses and findings carry the topic.
+        let harness_query = std::iter::once(prompt.as_str())
+            .chain(self.loop_ctl.hypotheses.iter().rev().take(8).map(String::as_str))
+            .chain(self.loop_ctl.findings.iter().rev().take(8).map(String::as_str))
+            .collect::<Vec<_>>()
+            .join("\n");
         let mut user = ChatMsg::user(prompt);
         user.recovery_context = self.loop_recovery_context_refs();
         let mut conversation = vec![ChatMsg::system(system), user];
@@ -2024,8 +2083,10 @@ impl crate::App {
         }
         // A campaign may have installed a measured, audited policy since the
         // original session system prompt was built. Fresh loop turns consume it.
-        let learned =
-            crate::drive::continual_harness::context_block(self.tools.current_workspace());
+        let learned = crate::drive::continual_harness::context_block_for(
+            self.tools.current_workspace(),
+            &harness_query,
+        );
         if !learned.is_empty() {
             conversation.push(ChatMsg::harness(learned));
         }
@@ -2864,7 +2925,7 @@ impl crate::App {
         &mut self,
         status: LoopStatus,
         reason: &str,
-    ) -> Result<(), String> {
+    ) -> Result<Option<String>, String> {
         self.tools.rl().end_loop();
         self.loop_account_rl();
         self.loop_ctl.status = status;
@@ -2920,22 +2981,29 @@ impl crate::App {
             && self.loop_ctl.measured_candidates == 0
     }
 
-    /// Pin the iteration of the first measured candidate (the submission
-    /// clock starts there).
+    /// Pin the iteration of the first measured candidate since the last
+    /// submission (the submission clock starts there). Each new submission
+    /// re-arms the clock instead of retiring it for the rest of the run.
     fn loop_note_first_measurement(&mut self) {
-        if self.loop_ctl.measured_candidates > 0 && self.loop_ctl.first_measured_iteration.is_none()
+        let st = &mut self.loop_ctl;
+        if st.submissions > st.submissions_seen {
+            st.submissions_seen = st.submissions;
+            st.measured_at_submission = st.measured_candidates;
+            st.first_measured_iteration = None;
+        }
+        if st.measured_candidates > st.measured_at_submission && st.first_measured_iteration.is_none()
         {
-            self.loop_ctl.first_measured_iteration = Some(self.loop_ctl.iteration);
+            st.first_measured_iteration = Some(st.iteration);
         }
     }
 
-    /// Iterations since the first measured candidate while no submission has
-    /// landed; `None` when the clock is not running.
+    /// Iterations since the first measured candidate that no submission has
+    /// followed yet; `None` when the clock is not running.
     fn loop_iters_since_first_measurement(&self) -> Option<usize> {
         let first = self.loop_ctl.first_measured_iteration?;
         (self.loop_ctl.podrace
             && self.loop_ctl.first_submission_iters > 0
-            && self.loop_ctl.submissions == 0)
+            && self.loop_ctl.measured_candidates > self.loop_ctl.measured_at_submission)
             .then(|| self.loop_ctl.iteration.saturating_sub(first))
     }
 
@@ -4083,32 +4151,36 @@ impl LoopState {
 
 /// Persist the loop atomically. Idle/unscoped loops publish no checkpoint;
 /// failed writes return the publication error without advancing confirmation.
-fn save_checkpoint(st: &LoopState) -> Result<(), String> {
+fn save_checkpoint(st: &LoopState) -> Result<Option<String>, String> {
     if st.status == LoopStatus::Idle {
-        return Ok(());
+        return Ok(None);
     }
     let path = store_path_for_session(st.workspace.as_deref(), st.owner_session_id.as_deref());
     let Some(workspace) = st.workspace.as_deref() else {
-        return Ok(());
+        return Ok(None);
     };
+    let mut set_aside = None;
     if path.exists() {
-        let existing_matches = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|raw| serde_json::from_str::<LoopState>(&raw).ok())
-            .and_then(|existing| existing.workspace)
-            .is_some_and(|root| {
-                let stored = crate::platform::workspace_store::repo_identity(&root);
-                crate::platform::workspace_store::matches_project(
-                    workspace,
-                    &stored.root,
-                    &stored.key,
-                )
-            });
-        if !existing_matches {
-            return Err(format!(
-                "existing checkpoint {} does not belong to this project",
-                path.display()
-            ));
+        match load_from_path(path.clone()) {
+            Ok(existing) => {
+                let matches = existing.workspace.as_deref().is_some_and(|root| {
+                    let stored = crate::platform::workspace_store::repo_identity(root);
+                    crate::platform::workspace_store::matches_project(
+                        workspace,
+                        &stored.root,
+                        &stored.key,
+                    )
+                });
+                if !matches {
+                    return Err(format!(
+                        "existing checkpoint {} does not belong to this project",
+                        path.display()
+                    ));
+                }
+            }
+            Err(error) if is_missing_checkpoint(&error) => {}
+            Err(error) if set_aside_destination(&error).is_some() => set_aside = Some(error),
+            Err(error) => return Err(error),
         }
     }
     let json = serde_json::to_string_pretty(st)
@@ -4129,11 +4201,12 @@ fn save_checkpoint(st: &LoopState) -> Result<(), String> {
     // The canonical restart checkpoint owns publication. Never advance the
     // watchdog projection when that checkpoint did not commit.
     persist_state_dir(st);
-    Ok(())
+    Ok(set_aside)
 }
 
 /// Preserve best-effort checkpointing for routine loop updates. Stop and pause
-/// surface the same failure through their command result.
+/// surface the same failure through their command result. A corrupt file is
+/// renamed aside inside `save_checkpoint` so the publish is not wedged.
 pub fn save(st: &LoopState) {
     let _ = save_checkpoint(st);
 }
@@ -4287,13 +4360,13 @@ fn sync_jsonl<T>(
 /// and task gates. Explicit pauses/stops and interrupted approvals stay parked.
 #[cfg(test)]
 pub fn load() -> Option<LoopState> {
-    load_from_path(store_path())
+    load_from_path(store_path()).ok()
 }
 
 #[cfg(test)]
 pub fn load_for(workspace: &Path) -> Option<LoopState> {
     let expected = crate::platform::workspace_store::repo_identity(workspace);
-    let state = load_from_path(store_path_for(Some(workspace)))?;
+    let state = load_from_path(store_path_for(Some(workspace))).ok()?;
     let stored_workspace = state.workspace.as_deref()?;
     let stored = crate::platform::workspace_store::repo_identity(stored_workspace);
     (stored.key == expected.key && stored.root == expected.root).then_some(state)
@@ -4302,21 +4375,133 @@ pub fn load_for(workspace: &Path) -> Option<LoopState> {
 /// Load only the loop checkpoint owned by this cockpit session. Default storage
 /// is keyed by both repository and session; `ANGEL_LOOP_FILE` remains an
 /// explicit single-file override for tests and operator-directed recovery.
-pub fn load_for_session(workspace: &Path, session_id: &str) -> Option<LoopState> {
+pub fn load_for_session(
+    workspace: &Path,
+    session_id: &str,
+) -> Result<Option<LoopState>, String> {
     let expected = crate::platform::workspace_store::repo_identity(workspace);
     let explicit = explicit_loop_file().is_some();
-    let state = load_from_path(store_path_for_session(Some(workspace), Some(session_id)))?;
-    let stored_workspace = state.workspace.as_deref()?;
+    let state = match load_from_path(store_path_for_session(Some(workspace), Some(session_id))) {
+        Ok(state) => state,
+        Err(error) if is_missing_checkpoint(&error) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let Some(stored_workspace) = state.workspace.as_deref() else {
+        return Ok(None);
+    };
     let stored = crate::platform::workspace_store::repo_identity(stored_workspace);
     if stored.key != expected.key || stored.root != expected.root {
-        return None;
+        return Ok(None);
     }
-    (explicit || state.owner_session_id.as_deref() == Some(session_id)).then_some(state)
+    Ok((explicit || state.owner_session_id.as_deref() == Some(session_id)).then_some(state))
 }
 
-fn load_from_path(path: PathBuf) -> Option<LoopState> {
-    let raw = std::fs::read_to_string(path).ok()?;
-    let mut st: LoopState = serde_json::from_str(&raw).ok()?;
+const MISSING_CHECKPOINT_PREFIX: &str = "missing loop checkpoint";
+const SET_ASIDE_PREFIX: &str = "loop checkpoint was unreadable and set aside at ";
+
+fn is_missing_checkpoint(error: &str) -> bool {
+    error.starts_with(MISSING_CHECKPOINT_PREFIX)
+}
+
+fn set_aside_destination(error: &str) -> Option<&str> {
+    let path = error.strip_prefix(SET_ASIDE_PREFIX)?.trim();
+    (!path.is_empty()).then_some(path)
+}
+
+fn set_aside_notice(aside: &Path) -> String {
+    format!("{SET_ASIDE_PREFIX}{}", aside.display())
+}
+
+/// Rename a corrupt checkpoint beside itself. The new name is
+/// `<file>.corrupt-<unix_ms>`. Never deletes the bytes, and never replaces an
+/// existing aside file.
+fn set_corrupt_checkpoint_aside(path: &Path) -> Result<PathBuf, String> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "loop.json".to_string());
+    let stamp = now_ms();
+    let mut aside = parent.join(format!("{name}.corrupt-{stamp}"));
+    let mut extra = 1u32;
+    while aside.exists() {
+        aside = parent.join(format!("{name}.corrupt-{stamp}-{extra}"));
+        extra = extra.saturating_add(1);
+        if extra > 1000 {
+            break;
+        }
+    }
+    std::fs::rename(path, &aside).map_err(|error| {
+        format!(
+            "could not set aside corrupt loop checkpoint {}: {error}",
+            path.display()
+        )
+    })?;
+    Ok(aside)
+}
+
+/// A corrupt file is set aside and reported once. If the rename fails, the
+/// original read/parse error stands and the bytes stay where they are.
+fn read_corrupt_checkpoint(path: &Path, original: String) -> Result<LoopState, String> {
+    Err(match set_corrupt_checkpoint_aside(path) {
+        Ok(aside) => set_aside_notice(&aside),
+        Err(_) => original,
+    })
+}
+
+/// A saved loop that was just set aside is absent for the caller, with the
+/// notice to report once. Any other read error still refuses.
+fn carry_on_if_set_aside(
+    loaded: Result<Option<LoopState>, String>,
+) -> Result<(Option<LoopState>, Option<String>), String> {
+    match loaded {
+        Ok(saved) => Ok((saved, None)),
+        Err(error) if set_aside_destination(&error).is_some() => Ok((None, Some(error))),
+        Err(error) => Err(error),
+    }
+}
+
+fn with_checkpoint_notice(mut message: String, set_aside: Option<String>) -> String {
+    if let Some(error) = set_aside {
+        message.push_str(&format!("\nsaved loop checkpoint unreadable: {error}"));
+    }
+    message
+}
+
+/// Read a loop checkpoint. A missing file is [`MISSING_CHECKPOINT_PREFIX`].
+/// Truncated, malformed, or non-UTF-8 bytes are renamed aside and reported as
+/// [`SET_ASIDE_PREFIX`]; a failed rename keeps the original error and the file.
+fn load_from_path(path: PathBuf) -> Result<LoopState, String> {
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Err(format!("{MISSING_CHECKPOINT_PREFIX} {}", path.display()));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+            return read_corrupt_checkpoint(
+                &path,
+                format!("read loop checkpoint {}: {error}", path.display()),
+            );
+        }
+        Err(error) => {
+            return Err(format!("read loop checkpoint {}: {error}", path.display()));
+        }
+    };
+    let mut st: LoopState = match serde_json::from_str(&raw) {
+        Ok(st) => st,
+        Err(error) => {
+            return read_corrupt_checkpoint(
+                &path,
+                format!(
+                    "loop checkpoint {} is truncated or malformed JSON ({error}); refusing to treat it as absent",
+                    path.display()
+                ),
+            );
+        }
+    };
     // Legacy snapshots cannot distinguish inherited defaults from operator choices.
     // Do not infer authority to stop a run from those ambiguous values.
     if !st.operator_caps {
@@ -4377,7 +4562,7 @@ fn load_from_path(path: PathBuf) -> Option<LoopState> {
         st.cycle_started_ms = None;
     }
     st.confirm_settlement_checkpoint();
-    Some(st)
+    Ok(st)
 }
 
 fn sanitize_loaded_acceptance_memo(st: &mut LoopState) {
@@ -4412,22 +4597,36 @@ fn sanitize_loaded_acceptance_memo(st: &mut LoopState) {
     }
 }
 
-fn clear_file_for(workspace: Option<&Path>, session_id: Option<&str>) {
+fn clear_file_for(
+    workspace: Option<&Path>,
+    session_id: Option<&str>,
+) -> Result<Option<String>, String> {
     let Some(workspace) = workspace else {
-        return;
+        return Ok(None);
     };
     let path = store_path_for_session(Some(workspace), session_id);
-    let owned = std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<LoopState>(&raw).ok())
-        .and_then(|state| state.workspace)
-        .is_some_and(|root| {
-            let stored = crate::platform::workspace_store::repo_identity(&root);
-            crate::platform::workspace_store::matches_project(workspace, &stored.root, &stored.key)
-        });
-    if owned {
-        let _ = crate::platform::workspace_store::remove_durable(&path);
+    if !path.exists() {
+        return Ok(None);
     }
+    let state = match load_from_path(path.clone()) {
+        Ok(state) => state,
+        Err(error) if is_missing_checkpoint(&error) => return Ok(None),
+        Err(error) if set_aside_destination(&error).is_some() => return Ok(Some(error)),
+        Err(error) => return Err(error),
+    };
+    let owned = state.workspace.as_deref().is_some_and(|root| {
+        let stored = crate::platform::workspace_store::repo_identity(root);
+        crate::platform::workspace_store::matches_project(workspace, &stored.root, &stored.key)
+    });
+    if !owned {
+        return Err(format!(
+            "existing checkpoint {} does not belong to this project",
+            path.display()
+        ));
+    }
+    crate::platform::workspace_store::remove_durable(&path)
+        .map_err(|error| format!("remove loop checkpoint {}: {error}", path.display()))?;
+    Ok(None)
 }
 
 fn gen_id() -> String {

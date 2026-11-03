@@ -1,0 +1,12 @@
+{ "fx": 0, "name": "hit sparks, heavy", "canvas": [32, 32], "fps": 12, "seed": 23,
+  "beats": { "anticipation": 0, "action": 2, "follow": 4, "settle": 5 },
+  "layers": [
+    { "type": "flash", "ramp": "holy", "r0": 3, "r1": 3.5, "ease": "linear", "heat": [1.2, 1.2], "t0": "action", "t1": "follow" },
+    { "type": "star", "ramp": "spark", "r1": 9, "count": 8, "t0": 0, "t1": "follow+1" },
+    { "type": "shock", "ramp": "spark", "r0": 2, "r1": 12, "th": 1.1, "squash": 0.7, "t0": "follow", "t1": "settle+2" },
+    { "type": "rays", "ramp": "spark", "count": 10, "r0": 2, "r1": 13, "th": 0.7, "angle": 9, "t0": "follow", "t1": "settle+1" },
+    { "type": "particles", "form": "spark", "ramp": "spark", "count": 14, "angle": 180, "spread": 240,
+      "speed": [2, 4.5], "life": [3, 7], "t0": "follow", "t1": "end" },
+    { "type": "particles", "form": "ember", "ramp": "ember", "count": 8, "angle": -90, "spread": 160,
+      "speed": [1, 2.2], "gravity": 0.25, "life": [6, 10], "t0": "follow", "t1": "end" }
+  ] }

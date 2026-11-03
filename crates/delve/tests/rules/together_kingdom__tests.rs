@@ -302,6 +302,7 @@ fn together_kingdom_built_wishes_keep_their_lots_and_open_real_halls() {
         near: "chapel".into(),
         paid: Vec::new(),
         raised: 1,
+        lot: None,
     }]);
     r.raise_kingdom();
     let geo = geography::geography(&r.kingdom.wishes);
@@ -1461,4 +1462,39 @@ fn party_check_legacy_saves() {
         println!("PCK,FAIL,{f}");
     }
     assert!(fails.is_empty(), "{} failures", fails.len());
+}
+
+#[test]
+fn together_kingdom_a_fresh_party_at_the_delve_goes_in_on_e_where_its_sign_says_enter() {
+    // A box's fresh run: a watching host (knight 1's place empty), the
+    // run begun at the Delve's door, friends joining beside it as their
+    // pages load, each stone until it plays.
+    let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
+    r.walk_kingdom(None);
+    r.set_absent(1, true);
+    for (id, name) in [(2, "Ada"), (3, "Bors"), (4, "Cai")] {
+        r.join_seat(id, name);
+        r.set_away(id, true);
+        r.set_away(id, false);
+    }
+    let gate = map::geography(&r.kingdom.wishes)
+        .sites
+        .iter()
+        .position(|s| s.room == RoomKind::Gate)
+        .unwrap();
+    r.step(&BTreeMap::new());
+    assert_eq!(r.room().kind, RoomKind::Kingdom);
+    let geo = map::geography(&r.kingdom.wishes);
+    let ada = &r.players[&2];
+    assert!(ada.stone, "a friend just arrived stands as stone until it plays");
+    // Where a friend lands, the footer says ENTER for the Delve's door
+    // (`door_at`, which the sign asks)...
+    assert_eq!(door_at(&geo, ada.x, ada.y), Some(gate));
+    // ...and E there, with no step first, takes the party in.
+    r.step(&BTreeMap::from([(2, e())]));
+    if r.room().kind == RoomKind::Kingdom {
+        r.step(&BTreeMap::from([(2, e())]));
+    }
+    assert_eq!(r.room().kind, RoomKind::Gate, "E under the ENTER sign opens the Delve");
+    assert!(!r.players[&2].stone, "the press woke the knight that made it");
 }

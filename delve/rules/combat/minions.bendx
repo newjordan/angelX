@@ -1,0 +1,34 @@
+# crates/delve/src/rules/minions.rs (so far: what the foes see of the raised).
+import Base
+
+# The minions and graves standing where the foes can see them: they draw fire
+# as Beaumains does. An array of [x, y].
+def minions.decoys(minions: J.Val) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  for m: J.Val in J.items(J.get(minions, "raised")):
+    if Bool.and(U32.is_ne(J.u32(J.get(m, "hp")), 0), U32.is_eq(J.u32(J.get(m, "rising")), 0)):
+      out = J.push(out, cb.of_pair(J.f32(J.get(m, "x")), J.f32(J.get(m, "y"))))
+  for s: J.Val in J.items(J.get(minions, "stones")):
+    out = J.push(out, cb.of_pair(J.f32(J.get(s, "x")), J.f32(J.get(s, "y"))))
+  out
+
+# hireling::great: a guardian, the dragon, the pit tyrant, the dummy.
+def hireling.great(enemy: Enemy) -> Bool:
+  Bool.or(Bool.not(J.is_null(J.get(enemy, "boss"))), Bool.or(Bool.or(String.eq(enemy.kind, "boss"), String.eq(enemy.kind, "dragon")), Bool.or(String.eq(enemy.kind, "pit_tyrant"), String.eq(enemy.kind, "dummy"))))
+
+# A warden roaring near `enemy` is all it sees: `seen` holds only him. A great
+# foe pays no heed.
+def minions.roared(minions: J.Val, enemy: Enemy, seen: J.Val) -> J.Val:
+  if hireling.great(enemy):
+    return seen
+  best: J.Val = J.JNull{}
+  bd: F32 = 0.0
+  for m: J.Val in J.items(J.get(minions, "raised")):
+    d: F32 = cb.hyp((J.f32(J.get(m, "x")) - enemy.x : F32), (J.f32(J.get(m, "y")) - enemy.y : F32))
+    if Bool.and(Bool.and(String.eq(J.str(J.get(m, "kind")), "warden"), U32.is_gt(J.u32(J.get(m, "taunt")), 0)), Bool.and(U32.is_ne(J.u32(J.get(m, "hp")), 0), (d <= (hireling.ROAR_REACH() + monsters.Enemy.radius(enemy) : F32) : F32))):
+      if Bool.or(J.is_null(best), (d < bd : F32)):
+        best = m
+        bd = d
+  if J.is_null(best):
+    return seen
+  J.JA{[cb.of_pair(J.f32(J.get(best, "x")), J.f32(J.get(best, "y")))]}

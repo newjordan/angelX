@@ -268,7 +268,7 @@ scripted 7-hop task gains less (305.5 → 286.5 ms) because the stub answers at
 once and the first dispatch waits out the remaining hash; behind a real model,
 whose first reply takes far longer than the hash, the whole saving lands.
 
-## Local replication (2026-09-29, atlas)
+## Local replication (2026-09-29, the workstation)
 
 Host: AMD Ryzen 9 9950X3D (16C/32T), 91 GiB, Linux 7.2.5, a normal host with
 user namespaces. `DEV` = `158b7a8` (`h/`) against the baseline `3295966`
@@ -360,7 +360,7 @@ shuffled within each round (`out/x6-*`). All ten runs solved.
   to the first request. Both change what the seat decides, not only when it
   learns it.
 
-### E5 for Grok (sparky)
+### E5 for Grok (the DGX Spark host)
 
 grok-4.7 at `low`, base against head, n = 5 each, all solved:
 

@@ -192,6 +192,8 @@ pub(crate) fn missing_artifact_paths(named: &[PathBuf], workspace: &Path) -> Vec
 }
 
 /// How many named artifacts are absent; `None` when none were named.
+/// Tests assert this count; the bin uses [`missing_artifact_paths`] directly.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn missing_artifacts(named: &[PathBuf], workspace: &Path) -> Option<usize> {
     if named.is_empty() {
         return None;

@@ -1,0 +1,15 @@
+name Banked Coals
+kind spell
+rarity relic
+text Kindle a lingering patch of fire ahead.
+drop 0
+chest 0
+cooldown 12
+feat 1
+art
+..O...O..
+.ORO.ORO.
+..RROOR..
+...RRR...
+..BBBBB..
+.BB...BB.

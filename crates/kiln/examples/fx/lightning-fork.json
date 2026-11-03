@@ -1,0 +1,15 @@
+{ "fx": 0, "name": "lightning fork", "canvas": [32, 48], "pivot": [16, 42], "fps": 12, "seed": 41,
+  "beats": { "anticipation": 3, "action": 1, "follow": 4, "settle": 4 },
+  "layers": [
+    { "type": "orb", "ramp": "storm", "y": -40, "r0": 2, "r1": 4, "gain": 0.55, "t0": 0, "t1": "follow" },
+    { "type": "particles", "form": "spark", "ramp": "storm", "y": -40, "count": 5, "spread": 360, "speed": [0.6, 1.4], "life": [2, 3],
+      "t0": 1, "t1": "action" },
+    { "type": "bolt", "ramp": "storm", "y": -42, "x1": 0, "y1": 0, "count": 3, "jag": 5, "flicker": 1, "th": 1.5,
+      "t0": "action", "t1": "settle+1" },
+    { "type": "bolt", "ramp": "storm", "x": 4, "y": -42, "x1": -3, "y1": 0, "count": 1, "jag": 4, "flicker": 1, "th": 1,
+      "gain": 0.75, "seed": 2, "t0": "follow", "t1": "follow+3" },
+    { "type": "star", "ramp": "storm", "r1": 6, "count": 6, "t0": "follow", "t1": "follow+2" },
+    { "type": "ring", "ramp": "storm", "r0": 2, "r1": 12, "th": 1, "squash": 0.35, "t0": "follow", "t1": "settle+2" },
+    { "type": "particles", "form": "spark", "ramp": "storm", "count": 10, "angle": -90, "spread": 180, "speed": [1.5, 3],
+      "life": [3, 6], "t0": "follow", "t1": "end" }
+  ] }

@@ -57,7 +57,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "bannerpeak.great-pole",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
   "source_sha256": "a9467e8233f4f1568eb877e9273de48368a211224d53f2f884346699dab49662",
   "tool_version": 2
 }

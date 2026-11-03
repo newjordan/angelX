@@ -182,6 +182,27 @@ pub(crate) const DEEPSEEK_API_MODEL_OPTIONS: &[&str] = &["deepseek-v4-pro", "dee
 /// seat. GLM-5.3-Flash and the preceding generation remain selectable beside it.
 pub(crate) const GLM_API_MODEL_OPTIONS: &[&str] = &["glm-5.3", "glm-5.3-flash", "glm-5.2"];
 
+/// Kimi routes exposed by the ordinary cockpit when Moonshot credentials are
+/// configured. Keep the flagship first: it is the configurable/default `kimi`
+/// seat. Kimi K3.1 is the newer generation and sits beside K3, never replacing
+/// it — a pinned `ANGEL_KIMI_MODEL=kimi-k3` must keep its route unchanged.
+/// Provider-authored ids only — local nicknames belong in the resolver below
+/// and `driver_target`, never in a request body.
+pub(crate) const KIMI_API_MODEL_OPTIONS: &[&str] = &["kimi-k3", "kimi-k3.1"];
+
+/// The same Kimi generations as served by the Kimi Code plan
+/// (`api.kimi.ai|api.kimi.com/coding/v1`), whose catalog names them
+/// differently: K3 is `k3`, K3.1 ships only as `k3.1-pro` and its 2x-cost
+/// `k3.1-pro-highspeed` (live `/models` catalog, 2026-10-26). Sending
+/// Moonshot's `kimi-k3.1` there is a 400 "model id does not exist".
+pub(crate) const KIMI_CODE_MODEL_OPTIONS: &[&str] = &["k3", "k3.1-pro", "k3.1-pro-highspeed"];
+
+/// Whether a Kimi base URL is the Kimi Code plan rather than Moonshot's API.
+pub(crate) fn is_kimi_code_url(url: &str) -> bool {
+    let url = url.to_ascii_lowercase();
+    (url.contains("kimi.ai") || url.contains("kimi.com")) && url.contains("/coding")
+}
+
 /// OpenRouter free seats the ordinary cockpit exposes when a key is configured.
 /// Keep the default first: Ox Alpha is the `openrouter` bag slot and the
 /// cheap-MoA breadth route. Remaining ids are extra selectable `sota` routes.
@@ -231,6 +252,36 @@ pub(crate) fn resolve_glm_model_alias(raw: &str) -> String {
     }
 }
 
+/// Local Kimi K3.1 nicknames. Provider-authored ids (`kimi-k3`, `kimi-k3.1`,
+/// and the Kimi Code plan's `k3`) pass through unchanged; unknown explicit
+/// pins stay forward-compatible for private gateways.
+pub(crate) fn resolve_kimi_model_alias(raw: &str) -> String {
+    resolve_kimi_model_alias_for(raw, false)
+}
+
+/// [`resolve_kimi_model_alias`] for a known endpoint: on the Kimi Code plan
+/// every K3.1 nickname (and Moonshot's `kimi-k3.1`) maps to `k3.1-pro`, and
+/// Moonshot's `kimi-k3` maps to the plan's `k3`.
+pub(crate) fn resolve_kimi_model_alias_for(raw: &str, kimi_code: bool) -> String {
+    let trimmed = raw.trim();
+    if kimi_code {
+        return match trimmed.to_ascii_lowercase().as_str() {
+            "k3.1" | "kimi-3.1" | "kimi3.1" | "kimi-k3.1" | "k3.1-pro" => "k3.1-pro".to_string(),
+            "k3.1-highspeed" | "kimi-k3.1-highspeed" | "k3.1-pro-highspeed" => {
+                "k3.1-pro-highspeed".to_string()
+            }
+            "kimi-k3" | "k3" => "k3".to_string(),
+            _ => trimmed.to_string(),
+        };
+    }
+    match trimmed.to_ascii_lowercase().as_str() {
+        // `kimi-k3.1` is also an arm so mixed-case pins canonicalize to the
+        // exact provider id (idempotent, same shape as the GLM resolver).
+        "k3.1" | "kimi-3.1" | "kimi3.1" | "kimi-k3.1" => "kimi-k3.1".to_string(),
+        _ => trimmed.to_string(),
+    }
+}
+
 /// Map OpenRouter model aliases onto current defaults. Explicit
 /// paid pins and unknown ids pass through unchanged.
 pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
@@ -256,8 +307,15 @@ pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
 pub(crate) fn api_club_enabled(alias: &str) -> bool {
     let family = if alias.starts_with("glm-") {
         "glm"
+    } else if alias.starts_with("kimi-") || alias == "k3" || alias.starts_with("k3-") || alias.starts_with("k3.") {
+        // Kimi Code plan ids (`k3`, `k3-256k`, `k3.1-pro*`) share the seat.
+        "kimi"
     } else if alias == "deepseek-flash" {
         "deepseek"
+    } else if alias.starts_with("claude-") || alias == "opus" {
+        // Opus 5.5 and the other first-party Claude seats share the
+        // `anthropic` allowlist entry and the same API key.
+        "anthropic"
     } else if alias == "grok-api" {
         "grok"
     } else if alias == "openai-api" {
@@ -306,6 +364,9 @@ pub(crate) fn optional_sota_http_club(
         resolve_openrouter_model_alias(&model)
     } else if default_url.contains("z.ai") || default_url.contains("bigmodel.cn") {
         resolve_glm_model_alias(&model)
+    } else if default_url.contains("moonshot.ai") {
+        let actual = env_first(url_keys).unwrap_or_else(|| default_url.to_string());
+        resolve_kimi_model_alias_for(&model, is_kimi_code_url(&actual))
     } else {
         model
     };
@@ -322,6 +383,7 @@ pub(crate) fn optional_sota_http_club(
         || default_url.contains("z.ai")
         || default_url.contains("bigmodel.cn")
         || default_url.contains("api.meta.ai")
+        || default_url.contains("moonshot.ai")
     {
         model.clone()
     } else {
@@ -357,18 +419,25 @@ pub(crate) fn optional_sota_http_club(
     Some((alias.to_string(), club, Arc::new(AtomicBool::new(true))))
 }
 
-/// The first-party Anthropic Messages seat (`anthropic`): Claude over
-/// `POST {ANGEL_ANTHROPIC_URL}/v1/messages` with `x-api-key`, adaptive thinking
-/// at `ANGEL_ANTHROPIC_EFFORT` (default medium), signed thinking replayed and
-/// prompt-cache breakpoints placed (see `http/anthropic_messages.rs`). Its
-/// output cap is `ANGEL_ANTHROPIC_MAX_TOKENS` (default 32000).
-pub(crate) fn optional_anthropic_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+/// Provider-authored id for the Claude Opus 5.5 seat. Nicknames (`opus`,
+/// `opus-5.5`) resolve in `driver_target` and never go on the wire.
+pub(crate) const ANTHROPIC_OPUS_55_MODEL: &str = "claude-opus-5-5";
+
+/// The configurable first-party seat when `ANGEL_ANTHROPIC_MODEL` is unset.
+const ANTHROPIC_DEFAULT_MODEL: &str = "claude-sonnet-5-5";
+
+/// One first-party Messages club. `alias` is the bag slot; `model` is the
+/// id on the wire and the club label. The key is `ANGEL_ANTHROPIC_KEY` or
+/// `ANTHROPIC_API_KEY`. Adaptive thinking, signed-thinking replay, and
+/// cache breakpoints are the Messages contract (`http/anthropic_messages.rs`).
+fn anthropic_messages_club(
+    alias: &str,
+    model: String,
+) -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     if !api_club_enabled("anthropic") {
         return None;
     }
     let key = env_first(&["ANGEL_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"])?;
-    let model =
-        env_first(&["ANGEL_ANTHROPIC_MODEL"]).unwrap_or_else(|| "claude-sonnet-5-5".to_string());
     let url = env_first(&["ANGEL_ANTHROPIC_URL"])
         .unwrap_or_else(|| "https://api.anthropic.com".to_string());
     let http = HttpClub::new(model.clone(), url, model, Some(key))
@@ -376,10 +445,43 @@ pub(crate) fn optional_anthropic_http_club() -> Option<(String, Arc<dyn Club>, A
         .with_provider_contract(ProviderContract::Anthropic)
         .with_anthropic_messages(env_first(&["ANGEL_ANTHROPIC_WORKSPACE_ID"]));
     Some((
-        "anthropic".to_string(),
+        alias.to_string(),
         Arc::new(http.sota_tuned()),
         Arc::new(AtomicBool::new(true)),
     ))
+}
+
+/// The configurable Anthropic seat (`anthropic`): `ANGEL_ANTHROPIC_MODEL`,
+/// or Claude Sonnet 5.5 when that pin is unset. Output cap is
+/// `ANGEL_ANTHROPIC_MAX_TOKENS` (default 32000); effort is
+/// `ANGEL_ANTHROPIC_EFFORT` (default medium).
+pub(crate) fn optional_anthropic_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    let model = env_first(&["ANGEL_ANTHROPIC_MODEL"])
+        .unwrap_or_else(|| ANTHROPIC_DEFAULT_MODEL.to_string());
+    anthropic_messages_club("anthropic", model)
+}
+
+/// The configurable Anthropic seat, plus Claude Opus 5.5 on the same key
+/// and endpoint. A pin that is already Opus 5.5 is not seated twice.
+/// Metered per token: selectable by name, never a MoA preference.
+pub(crate) fn optional_anthropic_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    let Some(primary) = optional_anthropic_http_club() else {
+        return Vec::new();
+    };
+    let configured = primary.1.model_identity();
+    let mut links = vec![primary];
+    if configured
+        .as_deref()
+        .is_some_and(|model| model.eq_ignore_ascii_case(ANTHROPIC_OPUS_55_MODEL))
+    {
+        return links;
+    }
+    if let Some(opus) =
+        anthropic_messages_club(ANTHROPIC_OPUS_55_MODEL, ANTHROPIC_OPUS_55_MODEL.to_string())
+    {
+        links.push(opus);
+    }
+    links
 }
 
 /// Build the configurable GLM seat plus every other built-in GLM catalog
@@ -465,6 +567,60 @@ pub(crate) fn glm_key_env_order(url: &str) -> &'static [&'static str] {
     } else {
         GENERIC_KEYS
     }
+}
+
+/// Build the configurable Kimi seat plus every other built-in Kimi catalog
+/// choice. The configured model is never duplicated, even when it is one of
+/// the built-ins (mirror of [`optional_glm_http_clubs`]).
+pub(crate) fn optional_kimi_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    const URL_KEYS: &[&str] = &["ANGEL_KIMI_URL", "KIMI_API_URL", "MOONSHOT_API_URL"];
+    const MODEL_KEYS: &[&str] = &["ANGEL_KIMI_MODEL", "KIMI_MODEL", "MOONSHOT_MODEL"];
+    const KEY_KEYS: &[&str] = &["ANGEL_KIMI_KEY", "KIMI_API_KEY", "MOONSHOT_API_KEY"];
+
+    // The catalog follows the endpoint actually configured: a Kimi Code
+    // plan URL serves its own ids, never Moonshot's.
+    let options = if env_first(URL_KEYS).is_some_and(|url| is_kimi_code_url(&url)) {
+        KIMI_CODE_MODEL_OPTIONS
+    } else {
+        KIMI_API_MODEL_OPTIONS
+    };
+    let configured = optional_sota_http_club(
+        "kimi",
+        "kimi-k3",
+        URL_KEYS,
+        "https://api.moonshot.ai/v1",
+        MODEL_KEYS,
+        Some(options[0]),
+        KEY_KEYS,
+    );
+    let configured_model = configured
+        .as_ref()
+        .and_then(|(_, club, _)| club.model_identity());
+
+    let mut links = Vec::with_capacity(options.len());
+    if let Some(link) = configured {
+        links.push(link);
+    }
+    for model in options {
+        if configured_model
+            .as_deref()
+            .is_some_and(|configured| configured.eq_ignore_ascii_case(model))
+        {
+            continue;
+        }
+        if let Some(link) = optional_sota_http_club(
+            model,
+            model,
+            URL_KEYS,
+            "https://api.moonshot.ai/v1",
+            &[],
+            Some(model),
+            KEY_KEYS,
+        ) {
+            links.push(link);
+        }
+    }
+    links
 }
 
 /// An explicitly enabled, explicitly pinned OpenRouter route only. A retained
@@ -623,14 +779,48 @@ pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", 
 /// and the cached prefix breaks where the reasoning was. Every request carries a
 /// `prompt_cache_key`, which Meta needs before it caches anything.
 pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    let model = env_first(&["ANGEL_META_MODEL"]).unwrap_or_else(|| "muse-spark-1.3".to_string());
+    meta_http_club("meta", model, &["ANGEL_META_MODEL"])
+}
+
+/// Built-in Meta catalog choices seated beside the configured `meta` seat, each
+/// under its own model id (`ANGEL_DRIVER=muse-wonder-1.0`). Muse Wonder 1.0 is
+/// Meta's flagship (listed by `GET /v1/models`, served on Responses).
+pub(crate) const META_API_MODEL_OPTIONS: &[&str] = &["muse-wonder-1.0"];
+
+/// The configured `meta` seat plus every other built-in Meta choice, never
+/// duplicating the configured model.
+pub(crate) fn optional_meta_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    let configured = optional_meta_http_club();
+    let configured_model = configured
+        .as_ref()
+        .and_then(|(_, club, _)| club.model_identity());
+    let mut links: Vec<_> = configured.into_iter().collect();
+    for model in META_API_MODEL_OPTIONS {
+        if configured_model
+            .as_deref()
+            .is_some_and(|configured| configured.eq_ignore_ascii_case(model))
+        {
+            continue;
+        }
+        links.extend(meta_http_club(model, model.to_string(), &[]));
+    }
+    links
+}
+
+fn meta_http_club(
+    alias: &str,
+    model: String,
+    model_keys: &[&str],
+) -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     if std::env::var("ANGEL_META_API").is_ok_and(|api| api.trim().eq_ignore_ascii_case("chat")) {
         return optional_sota_http_club(
-            "meta",
-            "muse-spark-1.3",
+            alias,
+            &model,
             &["ANGEL_META_URL"],
             "https://api.meta.ai/v1",
-            &["ANGEL_META_MODEL"],
-            Some("muse-spark-1.3"),
+            model_keys,
+            Some(&model),
             &["ANGEL_META_KEY", "META_API_KEY"],
         );
     }
@@ -638,7 +828,6 @@ pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<At
         return None;
     }
     let key = env_first(&["ANGEL_META_KEY", "META_API_KEY"])?;
-    let model = env_first(&["ANGEL_META_MODEL"]).unwrap_or_else(|| "muse-spark-1.3".to_string());
     let base =
         env_first(&["ANGEL_META_URL"]).unwrap_or_else(|| "https://api.meta.ai/v1".to_string());
     let effort = env_first(&["ANGEL_META_REASONING_EFFORT"])
@@ -671,7 +860,7 @@ pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<At
     .with_prompt_cache_key()
     .sota_tuned();
     Some((
-        "meta".to_string(),
+        alias.to_string(),
         Arc::new(club),
         Arc::new(AtomicBool::new(true)),
     ))

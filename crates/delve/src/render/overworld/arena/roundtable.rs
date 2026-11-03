@@ -26,6 +26,8 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
         "bannerpeak" => super::bannerpeak::layers(run, focus),
         "griffinwing" => super::griffinwing::layers(run, focus),
         "lightgallop" => super::lightgallop::layers(run, focus),
+        "knight_racers" => super::knight_racers::layers(run, focus),
+        "deathmatch" => super::deathmatch::layers(run, focus),
         _ => return None,
     })
 }
@@ -38,6 +40,8 @@ pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img
         "bannerpeak" => super::bannerpeak::terminal_layers(run, focus),
         "griffinwing" => super::griffinwing::terminal_layers(run, focus),
         "lightgallop" => super::lightgallop::terminal_layers(run, focus),
+        "knight_racers" => super::knight_racers::layers(run, focus),
+        "deathmatch" => super::deathmatch::layers(run, focus),
         _ => return None,
     })
 }
@@ -69,6 +73,8 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
     super::bannerpeak::kingdom(im, run, origin);
     super::griffinwing::kingdom(im, run, origin);
     super::lightgallop::kingdom(im, run, origin);
+    super::knight_racers::kingdom(im, run, origin);
+    super::deathmatch::kingdom(im, run, origin);
 }
 
 /// Words on a dark plate, so they read on any ground.

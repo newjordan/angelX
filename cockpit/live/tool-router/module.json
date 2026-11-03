@@ -1,0 +1,1 @@
+{"api_version":1,"id":"tool-router","kind":"tool-router","entry":"index.js","probe":{"task":"run cargo tests","candidates":[{"name":"run_tests","text":"run cargo tests and report results"}],"max":3}}

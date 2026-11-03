@@ -268,3 +268,34 @@ fn approval_title_is_cached() {
     assert!(title.contains("approval required"));
     assert_eq!(title.as_ptr(), approval_title().as_ptr());
 }
+
+#[test]
+#[cfg(feature = "glass")]
+fn the_approval_card_pops_in_with_three_clickable_answers() {
+    use angel_glass::card::{Entrance, Knight};
+    let root = Rect::new(0, 0, 120, 40);
+    let (ask, hits) = card(root, "run cargo test\nin ~/angelX", Some("action batch · tests")).unwrap();
+    assert_eq!(ask.entrance, Entrance::Pop, "an ask never waits on the squire");
+    assert_eq!(ask.knight, Knight::Guard);
+    let decisions: Vec<_> = hits.iter().map(|(_, d)| *d).collect();
+    assert_eq!(decisions, [Decision::Approve, Decision::ApproveAll, Decision::Deny]);
+    for (rect, _) in &hits {
+        assert!(ask.hit(rect.x, rect.y).is_some(), "each answer lies on the card");
+    }
+    assert_eq!(ask.area.y + ask.cursor.unwrap(), hits[0].0.y, "Enter's answer is the chosen row");
+    let mut shown = String::new();
+    for y in 0..ask.buffer.area.height {
+        for x in 0..ask.buffer.area.width {
+            shown.push_str(ask.buffer[(x, y)].symbol());
+        }
+        shown.push('\n');
+    }
+    assert!(shown.contains("run cargo test") && shown.contains("in ~/angelX"), "{shown}");
+    assert!(shown.contains("scope: action batch · tests"));
+    assert!(shown.contains("y  Approve") && shown.contains("n  Deny"));
+    // A huge prompt stays on the screen.
+    let long = "x\n".repeat(200);
+    let (big, _) = card(root, &long, None).unwrap();
+    assert!(big.area.bottom() <= root.bottom());
+    assert!(card(Rect::new(0, 0, 20, 8), "tiny", None).is_none());
+}

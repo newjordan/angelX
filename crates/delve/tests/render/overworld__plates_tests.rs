@@ -168,24 +168,19 @@ fn write_floor_plate_shots() {
 }
 
 #[test]
-fn delivered_plates_fill_both_native_grains_and_keep_the_original_titles() {
+fn delivered_plates_fill_the_native_grain_and_keep_the_original_titles() {
     // The swamp's plate is painted here; no plate is delivered for it.
     for &(kind, depth) in DESTINATIONS.iter().filter(|(k, _)| *k != Kind::Swamp) {
-        for scale in [1,2] {
-            let im = delivered(kind,depth,scale).expect("reviewed plate embedded");
-            assert_eq!((im.w,im.h),(W*scale,H*scale));
-            assert!(im.pixels().all(|c| super::super::super::ink::palette_index(c).is_some()));
-            let frame = frame(Playing { kind, depth, age:27, results: 0 },W*scale,H*scale);
-            assert_eq!(&frame,im);
-            assert_eq!(frame,super::frame(Playing {kind,depth,age:20,results:0},W*scale,H*scale));
-            let mut label = Img::new(W,H); title(&mut label,kind,depth);
-            for y in 189..H { for x in 0..W { if let Some(c)=label.get(x,y) {
-                assert_eq!(im.get(x*scale,y*scale),Some(c));
-            } } }
-            assert!(im.get(W*scale/2,50*scale).is_some_and(|c|c!=BLACK));
-        }
-        let low = delivered(kind,depth,1).unwrap();
-        let high = delivered(kind,depth,2).unwrap();
-        assert!((0..HORIZON*2).any(|y|(0..W*2).any(|x|high.get(x,y)!=low.get(x/2,y/2))),"v2 must sample the rich source independently");
+        let im = delivered(kind,depth).expect("reviewed plate embedded");
+        assert_eq!((im.w,im.h),(W,H));
+        assert!(im.pixels().all(|c| super::super::super::ink::palette_index(c).is_some()));
+        let frame = frame(Playing { kind, depth, age:27, results: 0 },W,H);
+        assert_eq!(&frame,im);
+        assert_eq!(frame,super::frame(Playing {kind,depth,age:20,results:0},W,H));
+        let mut label = Img::new(W,H); title(&mut label,kind,depth);
+        for y in 189..H { for x in 0..W { if let Some(c)=label.get(x,y) {
+            assert_eq!(im.get(x,y),Some(c));
+        } } }
+        assert!(im.get(W/2,50).is_some_and(|c|c!=BLACK));
     }
 }

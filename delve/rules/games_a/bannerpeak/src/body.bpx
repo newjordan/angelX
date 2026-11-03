@@ -1,0 +1,836 @@
+# crates/delve/src/rules/bannerpeak/body.rs — a knight's body: the whole of the jump
+# vocabulary on integer ground. Position is the feet's centre in 1/256 pixels, speed
+# is 1/256 pixel a tick.
+module bannerpeak.body
+
+use world.TILE
+
+const Q: i32 = 256
+const TQ: i32 = TILE * Q
+const TOP_ACCEL: i32 = 56
+const AIR_ACCEL: i32 = 44
+const AIR_DRAG: i32 = 10
+const FRICTION: i32 = 84
+const SKID_BRAKE: i32 = 184
+const SKID_MIN: i32 = 520
+const SLIDE_FRICTION: i32 = 14
+const SLIDE_MIN: i32 = 420
+const CROUCH_FRICTION: i32 = 110
+const GRAV_UP: i32 = 150
+const GRAV_CUT: i32 = 340
+const GRAV_DOWN: i32 = 210
+const GRAV_LONG: i32 = 90
+const FALL_MAX: i32 = 3584
+const JUMP_V: i32 = 2200
+const JUMP_FROM_SPEED: i32 = 5
+const CUT_V: i32 = 820
+const HOP2_PERCENT: i32 = 111
+const HOP3_PERCENT: i32 = 133
+const HOP_MIN_SPEED: i32 = 560
+const LONG_MIN_SPEED: i32 = 760
+const LONG_V: i32 = 1560
+const LONG_PERCENT: i32 = 145
+const LONG_MAX: i32 = 1900
+const BACK_V: i32 = 2800
+const BACK_VX: i32 = 300
+const KICK_V: i32 = 1900
+const KICK_VX: i32 = 1150
+const WALL_SLIDE: i32 = 560
+const WIND: u32 = 6
+const SLAM_V: i32 = 3200
+const RECOVER: u32 = 9
+const SLAM_JUMP_WINDOW: u32 = 5
+const SLAM_JUMP_V: i32 = 2700
+const DIVE_VX: i32 = 1800
+const DIVE_VY: i32 = 700
+const BELLY: u32 = 16
+const BELLY_FRICTION: i32 = 30
+const BOUNCE_V: i32 = 1500
+const BOUNCE_HELD_V: i32 = 2350
+const HURT_TICKS: u32 = 14
+const BRACE_TICKS: u32 = 5
+const LEDGE_LIP: i32 = 6
+const SHIELD_ID: u32 = 1000
+
+# --- events: the J shape of `Ev` is {k, s, a, b}
+fn Ev.jump(kind: str) -> Ev:
+  return Ev{k: "Jump", s: kind, a: 0, b: 0}
+
+fn Ev.land(fell: i32) -> Ev:
+  return Ev{k: "Land", s: "", a: fell, b: 0}
+
+fn Ev.bump(x: i32, y: i32) -> Ev:
+  return Ev{k: "Bump", s: "", a: x, b: y}
+
+fn Ev.slam(x: i32, y: i32) -> Ev:
+  return Ev{k: "Slam", s: "", a: x, b: y}
+
+fn Ev.skid() -> Ev:
+  return Ev{k: "Skid", s: "", a: 0, b: 0}
+
+fn Ev.spring() -> Ev:
+  return Ev{k: "Spring", s: "", a: 0, b: 0}
+
+fn Ev.hatch() -> Ev:
+  return Ev{k: "Hatch", s: "", a: 0, b: 0}
+
+# `v` moved toward `to` by at most `by`.
+fn approach(v: i32, to: i32, by: i32) -> i32:
+  if v < to:
+    return (v + by).min(to)
+  return (v - by).max(to)
+
+fn Body.new(x_px: i32, y_px: i32) -> Body:
+  return Body{x: x_px * Q, y: y_px * Q, vx: 0, vy: 0, face: 1, mode: Move::Ground, jump: Jump::None, big: false, ground: true, plank: None, coyote: 0, buffer: 0, hop_next: 0, hop_t: 0, hop: 0, crouch: false, wall: 0, wall_t: 0, t: 0, freeze: 0, squash: 0, cut: false, skid: false, was_skid: false, pose: Pose::Idle, run_t: 0}
+
+fn Body.valid(self: Body) -> bool:
+  return inc(self.x, -(8 * TQ), 1200 * TQ) && inc(self.y, -(64 * TQ), 80 * TQ) && inc(self.vx, -6000, 6000) && inc(self.vy, -6000, 6000) && (self.face == -1 || self.face == 1) && self.coyote <= 12 && self.buffer <= 12 && self.hop_next <= 3 && self.hop_t <= 40 && self.hop <= 3 && inc(self.wall, -1, 1) && self.wall_t <= 12 && self.t <= 600 && self.freeze <= 8 && self.squash <= 8 && self.run_t < 16777216
+
+# Width and height in pixels.
+fn Body.dims(self: Body) -> (i32, i32):
+  let low = self.crouch || self.mode == Move::Dive || self.mode == Move::Belly || self.mode == Move::Recover
+  if !self.big:
+    if !low:
+      return (12, 20)
+    return (12, 12)
+  if !low:
+    return (14, 30)
+  return (14, 18)
+
+# The standing height, whatever the crouch.
+fn Body.stand_height(self: Body) -> i32:
+  if self.big:
+    return 30
+  return 20
+
+# The box in fixed units: left, top, right, bottom.
+fn Body.rect(self: Body) -> (i32, i32, i32, i32):
+  let (w, h) = self.dims()
+  return (self.x - w * Q / 2, self.y - h * Q, self.x + w * Q / 2, self.y)
+
+# The feet in pixels.
+fn Body.foot(self: Body) -> (i32, i32):
+  return (self.x.div_euclid(Q), self.y.div_euclid(Q))
+
+fn Body.slamming(self: Body) -> bool:
+  return self.mode == Move::Pound
+
+# The shield, raised: a friend may stand on it (JNull for none).
+fn Body.shield(self: Body, id: u32) -> Option<Mover>:
+  if self.mode == Move::Brace && self.t >= BRACE_TICKS && self.ground:
+    let (w, h) = self.dims()
+    return Some(Mover{id: id, p: Plank{x: self.x.div_euclid(Q) - 9, y: self.y.div_euclid(Q) - h - 1, w: 18, lift: false}})
+  return None
+
+# A hit: thrown back and stunned for a moment.
+fn Body.hurt(self: Body mut, from: i8) -> unit:
+  self.mode = Move::Hurt
+  self.t = 0
+  self.vx = -from.signum() * 760
+  self.vy = -1500
+  self.ground = false
+  self.plank = None
+  self.crouch = false
+  self.jump = Jump::None
+
+# Bounced off a foe's head.
+fn Body.bounce(self: Body mut, held: bool) -> unit:
+  self.vy = if held { -BOUNCE_HELD_V } else { -BOUNCE_V }
+  self.mode = Move::Air
+  self.ground = false
+  self.plank = None
+  self.jump = Jump::Bounce
+  self.hop = 0
+  self.hop_t = 0
+  self.cut = true
+
+# Put somewhere, still.
+fn Body.place(self: Body mut, x_px: i32, y_px: i32) -> unit:
+  self.x = x_px * Q
+  self.y = y_px * Q
+  self.vx = 0
+  self.vy = 0
+  self.mode = Move::Ground
+  self.jump = Jump::None
+  self.ground = true
+  self.plank = None
+  self.crouch = false
+  self.hop_t = 0
+  self.hop = 0
+  self.t = 0
+  self.freeze = 0
+  self.buffer = 0
+  self.wall_t = 0
+
+# Whether any solid tile overlaps the fixed-unit box.
+fn Body.blocked(g: View, l: i32, t: i32, r: i32, b: i32) -> bool:
+  if r <= l || b <= t:
+    return false
+  return Body::blocked_rows(g, t.div_euclid(TQ), (b - 1).div_euclid(TQ), l.div_euclid(TQ), (r - 1).div_euclid(TQ))
+
+fn Body.blocked_rows(g: View, ty: i32, ty1: i32, tx0: i32, tx1: i32) -> bool:
+  if ty > ty1:
+    return false
+  if Body::blocked_cols(g, ty, tx0, tx1):
+    return true
+  return Body::blocked_rows(g, ty + 1, ty1, tx0, tx1)
+
+fn Body.blocked_cols(g: View, ty: i32, tx: i32, tx1: i32) -> bool:
+  if tx > tx1:
+    return false
+  if Tile::solid(g.tile(tx, ty)):
+    return true
+  return Body::blocked_cols(g, ty, tx + 1, tx1)
+
+# After a size change: a body that grew under a low roof stays crouched.
+fn Body.regrow(self: Body mut, g: View) -> unit:
+  if !self.can_stand(g):
+    self.crouch = true
+
+fn Body.can_stand(self: Body, g: View) -> bool:
+  let (w, h) = self.dims()
+  let top = self.y - self.stand_height() * Q
+  return !Body::blocked(g, self.x - w * Q / 2, top, self.x + w * Q / 2, self.y - h * Q)
+
+# The side (-1 or 1) a solid wall touches the body on, 0 for none.
+fn Body.wall_side(self: Body, g: View, toward: i8) -> i8:
+  let (w, h) = self.dims()
+  let t = self.y - h * Q + 2 * Q
+  let b = self.y - 2 * Q
+  let s1 = self.wall_probe(g, toward, w, t, b)
+  if s1 != 0:
+    return s1
+  return self.wall_probe(g, -toward, w, t, b)
+
+fn Body.wall_probe(self: Body, g: View, side: i8, w: i32, t: i32, b: i32) -> i8:
+  if side == 0:
+    return 0
+  let mut l: i32 = 0
+  let mut r: i32 = 0
+  if side > 0:
+    l = self.x + w * Q / 2
+    r = self.x + w * Q / 2 + Q + Q / 2
+  else:
+    l = self.x - w * Q / 2 - Q - Q / 2
+    r = self.x - w * Q / 2
+  if Body::blocked(g, l, t, r, b):
+    return side
+  return 0
+
+fn Body.tile_below(self: Body, g: View) -> u32:
+  return g.tile(self.x.div_euclid(TQ), self.y.div_euclid(TQ))
+
+# The first mover of `ms` with this id.
+fn Body.find_mover(ms: Vec<Mover>, id: u32, n: u32) -> Option<Mover>:
+  if n >= ms.len():
+    return None
+  let m = ms[n]
+  if m.id == id:
+    return Some(m)
+  return Body::find_mover(ms, id, n + 1)
+
+# One tick of this body.
+fn Body.step(self: Body mut, c: Cmd, k: Knobs, g: View, now: Vec<Mover>, before: Vec<Mover>, out: Vec<Ev> mut) -> unit:
+  if c.jump_edge:
+    self.buffer = k.grace + 1
+  self.hop_t = self.hop_t.saturating_sub(1)
+  self.squash = self.squash.saturating_sub(1)
+  if self.freeze > 0:
+    self.freeze -= 1
+    self.buffer = self.buffer.saturating_sub(1)
+    return
+  self.carried(now, before)
+  self.unstick(g)
+  self.was_skid = self.skid
+  self.skid = false
+  if self.mode == Move::Brace && (!(c.brace && self.ground) || c.jump_edge || c.down):
+    self.mode = Move::Ground
+    self.t = 0
+  let was_ground = self.ground
+  if self.ground:
+    self.coyote = k.grace + 2
+  self.modes(c, k, g, out)
+  self.buffer = self.buffer.saturating_sub(1)
+  let dx = self.vx
+  let dy = self.vy
+  let blocked_x = self.move_x(g, dx)
+  if blocked_x && self.mode == Move::Dive:
+    self.mode = Move::Air
+  self.move_y(g, now, dy, k, c.x, out)
+  if !self.ground && self.plank.is_none():
+    self.coyote = self.coyote.saturating_sub(1)
+  self.wall_t = self.wall_t.saturating_sub(1)
+  if !self.ground && self.mode == Move::Ground:
+    self.mode = Move::Air
+  if self.ground && !was_ground:
+    self.landed(k, out)
+  if self.ground && self.mode == Move::Ground && c.down_edge && self.tile_below_feet(g) == HATCH:
+    out.push(Ev::hatch())
+  self.settle_pose(c)
+
+# Carried by what it stands on.
+fn Body.carried(self: Body mut, now: Vec<Mover>, before: Vec<Mover>) -> unit:
+  if self.plank.is_none():
+    return
+  let id = self.plank.unwrap()
+  let a = Body::find_mover(now, id, 0)
+  let b = Body::find_mover(before, id, 0)
+  if a.is_some() && b.is_some():
+    let pa = a.unwrap().p
+    let pb = b.unwrap().p
+    self.x += (pa.x - pb.x) * Q
+    self.y += (pa.y - pb.y) * Q
+  else:
+    self.plank = None
+    self.ground = false
+
+fn Body.tile_below_feet(self: Body, g: View) -> u32:
+  return self.tile_below(g)
+
+# What the mode does this tick.
+fn Body.modes(self: Body mut, c: Cmd, k: Knobs, g: View, out: Vec<Ev> mut) -> unit:
+  if self.mode == Move::Wind:
+    self.vx = 0
+    self.vy = 0
+    self.t += 1
+    if self.t >= WIND:
+      self.mode = Move::Pound
+      self.vy = SLAM_V
+      self.t = 0
+  elif self.mode == Move::Pound:
+    self.vx = 0
+    self.vy = SLAM_V
+  elif self.mode == Move::Recover:
+    self.t += 1
+    self.vx = approach(self.vx, 0, FRICTION)
+    if self.t <= SLAM_JUMP_WINDOW && self.buffer > 0:
+      self.vy = -SLAM_JUMP_V
+      self.mode = Move::Air
+      self.jump = Jump::Plain
+      self.hop = 0
+      self.hop_t = 0
+      self.ground = false
+      self.plank = None
+      self.buffer = 0
+      self.cut = true
+      out.push(Ev::jump("Plain"))
+    elif self.t >= RECOVER:
+      self.mode = Move::Ground
+    self.gravity(c)
+  elif self.mode == Move::Hurt:
+    self.t += 1
+    if self.t >= HURT_TICKS:
+      if self.ground:
+        self.mode = Move::Ground
+      else:
+        self.mode = Move::Air
+    self.gravity(c)
+  elif self.mode == Move::Dive:
+    self.t += 1
+    self.gravity(c)
+  elif self.mode == Move::Belly:
+    self.t += 1
+    self.vx = approach(self.vx, 0, BELLY_FRICTION)
+    if self.t >= BELLY:
+      self.mode = Move::Ground
+    elif self.t >= 3 && self.buffer > 0:
+      self.vy = -(JUMP_V * 70 / 100)
+      self.mode = Move::Air
+      self.jump = Jump::Plain
+      self.hop = 0
+      self.hop_t = 0
+      self.ground = false
+      self.plank = None
+      self.buffer = 0
+      out.push(Ev::jump("Plain"))
+    self.gravity(c)
+  elif self.mode == Move::Brace:
+    self.t = (self.t + 1).min(BRACE_TICKS)
+    self.vx = approach(self.vx, 0, FRICTION)
+    self.gravity(c)
+  else:
+    self.free(c, k, g, out)
+
+# Gravity for the modes that fall without steering.
+fn Body.gravity(self: Body mut, c: Cmd) -> unit:
+  let mut g: i32 = GRAV_DOWN
+  if self.mode == Move::Dive || self.mode == Move::Hurt:
+    g = GRAV_DOWN
+  elif self.jump == Jump::Long:
+    g = GRAV_LONG
+  elif self.vy < 0:
+    if c.jump || !self.cuttable():
+      g = GRAV_UP
+    else:
+      g = GRAV_CUT
+  if !self.ground || self.vy < 0:
+    self.vy = (self.vy + g).min(FALL_MAX)
+  else:
+    self.vy = g
+
+fn Body.cuttable(self: Body) -> bool:
+  return self.jump == Jump::Plain || self.jump == Jump::Second
+
+# The ordinary modes: run, jump, crouch, slide, kick, slam, dive, shield.
+fn Body.free(self: Body mut, c: Cmd, k: Knobs, g: View, out: Vec<Ev> mut) -> unit:
+  let braced = self.free_move(c, k, g, out)
+  if braced:
+    return
+  let stopped = self.free_jump(c, k, out)
+  if stopped:
+    return
+  # Rising: let go to cut the jump short.
+  if self.vy < 0 && !c.jump && !self.cut && self.cuttable():
+    self.vy = self.vy.max(-CUT_V)
+    self.cut = true
+  self.gravity(c)
+  if self.mode == Move::Wall:
+    self.vy = self.vy.min(WALL_SLIDE)
+
+# Run, skid, crouch, slide, turn in the air. True when it went into the stance.
+fn Body.free_move(self: Body mut, c: Cmd, k: Knobs, g: View, out: Vec<Ev> mut) -> bool:
+  let top = k.run
+  let mut slip_up: i32 = 1
+  let mut slip_down: i32 = 1
+  if self.ground && Tile::slippery(self.tile_below(g)):
+    slip_up = 2
+    slip_down = 4
+  let dir = c.x as i32
+  if self.ground:
+    if c.down && !self.crouch:
+      self.crouch = true
+    elif !c.down && self.crouch && self.can_stand(g):
+      self.crouch = false
+    if c.brace && !c.down && self.vx.abs() < 260 && !c.jump_edge && self.buffer == 0:
+      self.mode = Move::Brace
+      self.t = 0
+      self.crouch = false
+      self.vx = 0
+      self.vy = GRAV_DOWN
+      return true
+    if self.crouch:
+      let mut fric: i32 = CROUCH_FRICTION
+      if self.vx.abs() >= SLIDE_MIN:
+        fric = SLIDE_FRICTION
+      self.vx = approach(self.vx, 0, fric / slip_down)
+      if dir != 0 && self.vx.abs() < SLIDE_MIN:
+        self.face = c.x
+    elif dir == 0:
+      self.vx = approach(self.vx, 0, FRICTION / slip_down)
+    elif self.vx != 0 && self.vx.signum() != dir.signum() && self.vx.abs() > SKID_MIN:
+      self.vx = approach(self.vx, 0, SKID_BRAKE / slip_down.min(3))
+      self.skid = true
+      if !self.was_skid:
+        out.push(Ev::skid())
+    else:
+      self.vx = approach(self.vx, dir * top, TOP_ACCEL / slip_up)
+      self.face = c.x
+  else:
+    self.crouch = false
+    if dir != 0:
+      self.face = c.x
+      let aligned = self.vx.signum() == dir.signum()
+      if !aligned || self.vx.abs() <= top:
+        # Never slower to turn in the air than on the ground.
+        let target = dir * top
+        self.vx = approach(self.vx, target, AIR_ACCEL)
+    elif !(self.jump == Jump::Long || self.jump == Jump::Kick || self.jump == Jump::Back):
+      self.vx = approach(self.vx, 0, AIR_DRAG)
+  return false
+
+# A jump: the same tick as the press, or the next landing's; else the slam and the dive.
+# True when the slam or the dive took over the tick.
+fn Body.free_jump(self: Body mut, c: Cmd, k: Knobs, out: Vec<Ev> mut) -> bool:
+  let mut leave: str = ""
+  if self.buffer > 0:
+    if self.mode == Move::Wall && !self.ground:
+      leave = "Kick"
+    elif self.ground || self.coyote > 0:
+      leave = self.pick_jump(k)
+    elif self.wall_t > 0 && self.wall != 0:
+      leave = "Kick"
+  if leave != "":
+    self.launch(leave, k)
+    out.push(Ev::jump(leave))
+  elif !self.ground:
+    if c.down_edge:
+      self.mode = Move::Wind
+      self.t = 0
+      self.vx = 0
+      self.vy = 0
+      self.crouch = false
+      self.wall_t = 0
+      return true
+    if c.dive_edge:
+      self.mode = Move::Dive
+      self.t = 0
+      self.vx = (self.face as i32) * DIVE_VX
+      self.vy = self.vy.max(0) + DIVE_VY
+      self.wall_t = 0
+      return true
+  return false
+
+# Which jump a press would make from here.
+fn Body.pick_jump(self: Body, k: Knobs) -> str:
+  let speed = self.vx.abs()
+  if self.plank.is_some() && self.plank.unwrap() >= SHIELD_ID:
+    return "Spring"
+  if self.crouch:
+    if speed >= LONG_MIN_SPEED:
+      return "Long"
+    return "Back"
+  if self.hop_t > 0 && self.hop_next >= 2 && speed >= HOP_MIN_SPEED:
+    if self.hop_next >= 3:
+      return "Triple"
+    return "Second"
+  return "Plain"
+
+fn Body.launch(self: Body mut, kind: str, k: Knobs) -> unit:
+  let speed = self.vx.abs()
+  let bonus = speed / JUMP_FROM_SPEED
+  if kind == Jump::Plain:
+    self.vy = -(JUMP_V + bonus)
+    self.hop = 1
+  elif kind == Jump::Second:
+    self.vy = -(JUMP_V * HOP2_PERCENT / 100 + bonus)
+    self.hop = 2
+  elif kind == Jump::Triple:
+    self.vy = -(JUMP_V * HOP3_PERCENT / 100 + bonus)
+    self.hop = 3
+  elif kind == Jump::Long:
+    self.vy = -LONG_V
+    let mut dir: i32 = self.face as i32
+    if self.vx != 0:
+      dir = self.vx.signum()
+    self.vx = dir * (speed * LONG_PERCENT / 100).min(LONG_MAX)
+    self.face = dir
+    self.hop = 0
+  elif kind == Jump::Spring:
+    self.vy = -k.ledge
+    self.hop = 0
+  elif kind == Jump::Back:
+    self.vy = -BACK_V
+    self.vx = -(self.face as i32) * BACK_VX
+    self.hop = 0
+  elif kind == Jump::Kick:
+    self.vy = -KICK_V
+    self.vx = -(self.wall as i32) * KICK_VX
+    self.face = -self.wall
+    self.hop = 0
+  self.jump = kind
+  self.mode = Move::Air
+  self.ground = false
+  self.plank = None
+  self.crouch = false
+  self.coyote = 0
+  self.buffer = 0
+  self.hop_t = 0
+  self.hop_next = 0
+  self.cut = false
+  self.wall_t = 0
+  self.t = 0
+
+fn Body.landed(self: Body mut, k: Knobs, out: Vec<Ev> mut) -> unit:
+  let fell = self.vy.max(0)
+  let was = self.mode
+  self.vy = 0
+  self.coyote = k.grace + 2
+  self.cut = false
+  let speed = self.vx.abs()
+  # The hops chain only from a plain run of jumps.
+  if self.jump == Jump::Plain || self.jump == Jump::Second:
+    if self.hop >= 1 && self.hop <= 2 && speed >= HOP_MIN_SPEED:
+      self.hop_next = self.hop + 1
+      self.hop_t = k.hop + 1
+    else:
+      self.hop_next = 0
+      self.hop_t = 0
+  else:
+    self.hop_next = 0
+    self.hop_t = 0
+  self.hop = 0
+  self.jump = Jump::None
+  self.wall = 0
+  if was == Move::Pound || was == Move::Wind:
+    self.mode = Move::Recover
+    self.t = 0
+    self.freeze = 3
+    self.hop_next = 0
+    self.hop_t = 0
+    out.push(Ev::slam(self.x.div_euclid(Q), self.y.div_euclid(Q)))
+  elif was == Move::Dive:
+    self.mode = Move::Belly
+    self.t = 0
+  elif was == Move::Hurt:
+    self.t = self.t
+  else:
+    self.mode = Move::Ground
+    self.t = 0
+  if fell > 1700:
+    self.squash = 4
+  out.push(Ev::land(fell))
+
+# Out of a tile that has closed round it, upward.
+fn Body.unstick(self: Body mut, g: View) -> unit:
+  self.unstick_n(g, 16)
+
+fn Body.unstick_n(self: Body mut, g: View, n: u32) -> unit:
+  if n == 0:
+    return
+  let (l, t, r, b) = self.rect()
+  if !Body::blocked(g, l, t + 1, r, b - 1):
+    return
+  self.y -= Q
+  self.unstick_n(g, n - 1)
+
+# Whether any of rows `row..=bottom` of column `col` is solid.
+fn Body.solid_rows(g: View, col: i32, row: i32, bottom: i32) -> bool:
+  if row > bottom:
+    return false
+  if Tile::solid(g.tile(col, row)):
+    return true
+  return Body::solid_rows(g, col, row + 1, bottom)
+
+fn Body.move_x(self: Body mut, g: View, dx: i32) -> bool:
+  if dx == 0:
+    return false
+  let (w, h) = self.dims()
+  let half = w * Q / 2
+  let nx = self.x + dx
+  let mut edge: i32 = nx - half
+  if dx > 0:
+    edge = nx + half - 1
+  let col = edge.div_euclid(TQ)
+  let top = (self.y - h * Q).div_euclid(TQ)
+  let bottom = (self.y - 1).div_euclid(TQ)
+  if Body::solid_rows(g, col, top, bottom):
+    if dx > 0:
+      self.x = col * TQ - half
+    else:
+      self.x = (col + 1) * TQ + half
+    self.vx = 0
+    return true
+  self.x = nx
+  return false
+
+# The first tile top, row by row, that the falling body crosses: (found, top).
+fn Body.stop_rows(g: View, row: i32, last: i32, c0: i32, c1: i32, old: i32) -> (bool, i32):
+  if row > last:
+    return (false, 0)
+  let top = row * TQ
+  if Body::stop_cols(g, row, c0, c1, old, top):
+    return (true, top)
+  return Body::stop_rows(g, row + 1, last, c0, c1, old)
+
+fn Body.stop_cols(g: View, row: i32, col: i32, c1: i32, old: i32, top: i32) -> bool:
+  if col > c1:
+    return false
+  let t = g.tile(col, row)
+  if (Tile::solid(t) && old <= top) || (Tile::one_way(t) && old <= top + LEDGE_LIP * Q):
+    return true
+  return Body::stop_cols(g, row, col + 1, c1, old, top)
+
+# The last mover (highest index) a falling body crosses the top of, or -1.
+fn Body.landing(ms: Vec<Mover>, i: i32, old_y: i32, y: i32, x: i32) -> i32:
+  if i < 0:
+    return -1
+  let p = ms[i].p
+  if old_y <= p.y * Q && y >= p.y * Q && x >= p.x - 4 && x < p.x + p.w + 4:
+    return i
+  return Body::landing(ms, i - 1, old_y, y, x)
+
+fn Body.move_y(self: Body mut, g: View, now: Vec<Mover>, dy: i32, k: Knobs, toward: i8, out: Vec<Ev> mut) -> unit:
+  let (w, h) = self.dims()
+  let half = w * Q / 2
+  let old = self.y
+  let new = old + dy
+  if dy >= 0:
+    # Falling or standing: land on the first tile top, or plank, crossed.
+    let c0 = (self.x - half).div_euclid(TQ)
+    let c1 = (self.x + half - 1).div_euclid(TQ)
+    # A ledge keeps a knight whose feet sank a few pixels into it.
+    let first = (old - LEDGE_LIP * Q + TQ - 1).div_euclid(TQ)
+    let last = new.div_euclid(TQ)
+    let (found, top) = Body::stop_rows(g, first, last, c0, c1, old)
+    let mut stop = found
+    let mut stop_top = top
+    let mut on: Option<u16> = None
+    if self.vy >= 0:
+      let i = Body::landing(now, now.len() as i32 - 1, old, new, self.x.div_euclid(Q))
+      if i >= 0:
+        let ptop = now[i].p.y * Q
+        if !stop || ptop < stop_top:
+          stop = true
+          stop_top = ptop
+          on = Some(now[i].id)
+    if stop:
+      self.y = stop_top
+      self.ground = true
+      self.plank = on
+      if self.mode == Move::Wall:
+        self.mode = Move::Ground
+      return
+    self.y = new
+    self.ground = false
+    self.plank = None
+    self.wall_check(g, k, toward)
+  else:
+    # Rising: the head meets the first tile above.
+    let head = old - h * Q
+    let new_head = head + dy
+    self.ground = false
+    self.plank = None
+    let done = self.rise_rows(g, (head - 1).div_euclid(TQ), new_head.div_euclid(TQ), half, h, new, new_head, head, out)
+    if !done:
+      self.y = new
+      self.wall_check(g, k, toward)
+
+fn Body.any_solid(g: View, col: i32, c1: i32, row: i32) -> bool:
+  if col > c1:
+    return false
+  if Tile::solid(g.tile(col, row)):
+    return true
+  return Body::any_solid(g, col + 1, c1, row)
+
+# The rows the head crosses, from the nearest up; true once one is struck or slipped past.
+fn Body.rise_rows(self: Body mut, g: View, row: i32, lo: i32, half: i32, h: i32, new: i32, new_head: i32, head: i32, out: Vec<Ev> mut) -> bool:
+  if row < lo:
+    return false
+  let c0 = (self.x - half).div_euclid(TQ)
+  let c1 = (self.x + half - 1).div_euclid(TQ)
+  if !Body::any_solid(g, c0, c1, row):
+    return self.rise_rows(g, row - 1, lo, half, h, new, new_head, head, out)
+  # A rim clipped by a few pixels is slipped past, not struck.
+  let l_col = Tile::solid(g.tile(c0, row))
+  let r_col = Tile::solid(g.tile(c1, row))
+  if c0 != c1 && l_col != r_col:
+    let mut slip: i32 = (self.x + half) - c1 * TQ
+    if l_col:
+      slip = (c0 + 1) * TQ - (self.x - half)
+    if slip <= 5 * Q:
+      let mut shift: i32 = -slip
+      if l_col:
+        shift = slip
+      self.x += shift
+      let free = !Body::blocked(g, self.x - half, new_head, self.x + half, head)
+      if free:
+        self.y = new
+        return true
+      self.x -= shift
+  self.y = (row + 1) * TQ + h * Q
+  self.vy = 0
+  let mut col: i32 = c0
+  if c0 != c1:
+    let centre = self.x.div_euclid(TQ)
+    if Tile::solid(g.tile(centre, row)):
+      col = centre
+    elif l_col:
+      col = c0
+    else:
+      col = c1
+  out.push(Ev::bump(col, row))
+  return true
+
+# Falling against a wall with the stick toward it: slide down it.
+fn Body.wall_check(self: Body mut, g: View, k: Knobs, toward: i8) -> unit:
+  if self.vy < 0 || self.mode == Move::Wind || self.mode == Move::Pound || self.mode == Move::Dive || self.mode == Move::Hurt:
+    if self.mode == Move::Wall:
+      self.mode = Move::Air
+    return
+  let mut side: i32 = 0
+  if toward != 0:
+    side = self.wall_side(g, toward)
+  if side != 0 && side == toward:
+    self.mode = Move::Wall
+    self.wall = side
+    self.wall_t = k.grace + 1
+    self.vy = self.vy.min(WALL_SLIDE)
+  elif self.mode == Move::Wall:
+    self.mode = Move::Air
+
+fn Body.settle_pose(self: Body mut, c: Cmd) -> unit:
+  self.run_t = self.run_t + (self.vx.abs() / 128) as u32 + 1
+  let mut pose: str = Pose::Idle
+  if self.mode == Move::Ground:
+    if self.squash > 0:
+      pose = Pose::Land
+    elif self.crouch:
+      if self.vx.abs() > SLIDE_MIN / 2:
+        pose = Pose::Slide
+      else:
+        pose = Pose::Crouch
+    elif self.skid:
+      pose = Pose::Skid
+    elif (self.vx.abs() > 90 && c.x != 0) || self.vx.abs() > 200:
+      if self.run_t / 24 % 2 == 0:
+        pose = Pose::Run
+      else:
+        pose = Pose::RunB
+    else:
+      pose = Pose::Idle
+  elif self.mode == Move::Air:
+    if self.jump == Jump::Triple:
+      pose = Pose::Spin
+    elif self.jump == Jump::Second:
+      pose = Pose::Second
+    elif self.jump == Jump::Long:
+      pose = Pose::Long
+    elif self.jump == Jump::Back:
+      pose = Pose::Back
+    elif self.vy < 0:
+      pose = Pose::Rise
+    else:
+      pose = Pose::Fall
+  elif self.mode == Move::Wall:
+    pose = Pose::Wall
+  elif self.mode == Move::Wind:
+    pose = Pose::Wind
+  elif self.mode == Move::Pound:
+    pose = Pose::Slam
+  elif self.mode == Move::Recover:
+    pose = Pose::Land
+  elif self.mode == Move::Dive:
+    pose = Pose::Dive
+  elif self.mode == Move::Belly:
+    pose = Pose::Belly
+  elif self.mode == Move::Hurt:
+    pose = Pose::Hurt
+  else:
+    pose = Pose::Brace
+  self.pose = pose
+
+struct BodySmall:
+  valid: bool
+  dims: (i32, i32)
+  stand: i32
+  rect: (i32, i32, i32, i32)
+  foot: (i32, i32)
+  slamming: bool
+  shield: Option<Mover>
+  can_stand: bool
+  tile_below: u32
+
+fn Body.small(self: Body, g: View, id: u32) -> BodySmall:
+  return BodySmall{valid: self.valid(), dims: self.dims(), stand: self.stand_height(), rect: self.rect(), foot: self.foot(), slamming: self.slamming(), shield: self.shield(SHIELD_ID + id), can_stand: self.can_stand(g), tile_below: self.tile_below(g)}
+
+case approach
+case Body.new: x=x_px, y=y_px
+case Body.valid: body=self
+case Body.small: body=self
+case Body.hurt: body=self
+case Body.bounce: body=self
+case Body.place: body=self, x=x_px, y=y_px
+case Body.regrow: body=self
+case Body.blocked
+case Body.step: body=self, cmd=c, knobs=k => body=self
+case Body.gravity: body=self
+case Body.settle_pose: body=self
+case Body.pick_jump: body=self
+case Body.launch: body=self
+case Body.landed: body=self => body=self
+case Body.unstick: body=self
+case Body.move_x: body=self => body=self, blocked=ret
+case Body.move_y: body=self => body=self
+case Body.wall_check: body=self
+case Body.wall_side: body=self
+case Body.free: body=self => body=self

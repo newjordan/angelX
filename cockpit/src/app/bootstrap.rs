@@ -72,13 +72,27 @@ pub(crate) fn workspace_context_message(
     skills_catalog: String,
     evidence: String,
 ) -> Option<ChatMsg> {
+    workspace_context_message_with_live(workspace, project_guidance, skills_catalog, evidence, None)
+}
+
+/// `live_dir` is the module root the running cockpit hot-loads, when it has one.
+pub(crate) fn workspace_context_message_with_live(
+    workspace: &Path,
+    project_guidance: String,
+    skills_catalog: String,
+    evidence: String,
+    live_dir: Option<&Path>,
+) -> Option<ChatMsg> {
     // Even a fresh, empty project needs an unambiguous working-directory anchor.
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "workspace": workspace.to_string_lossy(),
         "project_guidance": project_guidance,
         "skills_catalog": skills_catalog,
         "evidence": evidence,
     });
+    if let Some(live_dir) = live_dir {
+        payload["live_dir"] = live_dir.to_string_lossy().into();
+    }
     Some(ChatMsg::harness(format!(
         "{WORKSPACE_CONTEXT_HEADER}\n{payload}"
     )))
@@ -149,11 +163,15 @@ fn build_history_with_skills(
     }
     evidence.push_str(&crate::drive::continual_harness::context_block(workspace));
     evidence.push_str(&crate::agent::tools::self_model::self_context(workspace));
-    if let Some(context) = workspace_context_message(
+    let live_dir = crate::agent::hotload::enabled()
+        .then(crate::agent::hotload::root)
+        .filter(|root| root.is_dir());
+    if let Some(context) = workspace_context_message_with_live(
         workspace,
         harness::project_context(workspace),
         harness::skills_catalog(skills),
         evidence,
+        live_dir.as_deref(),
     ) {
         history.push(context);
     }

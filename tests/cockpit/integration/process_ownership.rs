@@ -5,6 +5,22 @@
 #[allow(dead_code)]
 mod process_owner;
 
+// Exercise the startup probe's readiness wait with the real ownership module,
+// without compiling the entire cockpit's unit-test binary.
+#[path = "../../../cockpit/src/agent/sandbox/compatibility.rs"]
+#[allow(dead_code)]
+mod compatibility;
+
+// The compatibility module's doctor formatter expects its parent's Landlock
+// capability probe. Match sandbox::available without restricting this runner.
+fn available() -> bool {
+    use landlock::{ABI, Access, AccessFs, Ruleset, RulesetAttr};
+    Ruleset::default()
+        .handle_access(AccessFs::from_all(ABI::V1))
+        .and_then(|rules| rules.create())
+        .is_ok()
+}
+
 use process_owner::OwnedCommandExt;
 use std::collections::BTreeMap;
 use std::os::unix::process::{CommandExt, ExitStatusExt};

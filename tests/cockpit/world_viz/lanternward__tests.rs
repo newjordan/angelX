@@ -47,7 +47,7 @@ const MOMENTS: &[(&str, u32)] = &[
 #[test]
 fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
     for &(moment, seats) in MOMENTS {
-        let run = Run::lanternward_review_for_test(moment, seats);
+        let run = crate::lanternward_oracle::review::review(moment, seats);
         let terminal = draw(&run, 1);
         let header = row(&terminal, 0);
         assert!(header.contains("LANTERNWARD"), "{moment}: {header:?}");
@@ -70,12 +70,12 @@ fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
 
 #[test]
 fn the_warden_bar_and_the_wisps_line_are_terminal_text() {
-    let run = Run::lanternward_review_for_test("warden-open", 2);
+    let run = crate::lanternward_oracle::review::review("warden-open", 2);
     let terminal = draw(&run, 1);
     let all: String = (0..28).map(|y| row(&terminal, y)).collect::<Vec<_>>().join("\n");
     assert!(all.contains("WARDEN"), "{all}");
     assert!(all.contains("HEART OPEN"), "{all}");
-    let run = Run::lanternward_review_for_test("stair", 1);
+    let run = crate::lanternward_oracle::review::review("stair", 1);
     let terminal = draw(&run, 1);
     let foot = row(&terminal, 26);
     assert!(foot.contains("[E ROLL]"), "{foot:?}");
@@ -94,7 +94,7 @@ fn write_lanternward_terminal_review() {
         _ => [0, 0, 0],
     };
     for &(moment, seats) in MOMENTS {
-        let run = Run::lanternward_review_for_test(moment, seats);
+        let run = crate::lanternward_oracle::review::review(moment, seats);
         let terminal = draw(&run, 1);
         let buf = terminal.backend().buffer();
         let (cw, ch) = (8u32, 16u32);

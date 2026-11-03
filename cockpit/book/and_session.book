@@ -1,0 +1,34 @@
+@@book-page 1@@
+default 'list'
+@@book-page 1@@
+for action=add
+@@book-page 1@@
+for action=complete
+@@book-page 1@@
+for action=set
+@@book-page 2@@
+This does NOT start an autonomous loop — that is the operator's call.
+@@book-page 2@@
+default 'show'
+@@book-page 2@@
+the objective (action=set)
+@@book-page 2@@
+optional verifiable command whose success means the goal is met (action=set)
+@@book-page 2@@
+optional acceptance criteria (action=set)
+@@book-page 3@@
+Report how many tokens the conversation holds against its compaction threshold; older turns compact automatically there, so the threshold never ends the work.
+@@book-page 4@@
+file path, git diff, or raw code snippet to review
+@@book-page 4@@
+review focus area
+@@book-page 4@@
+optional club (default: self / in-hand)
+@@book-page 5@@
+input text
+@@book-page 6@@
+input text
+@@book-page 7@@
+Task text used to condition `repo_recon`; encoded as data, never executable code.
+@@book-page 7@@
+Request nested mutation or execution tools; also requires operator ANGEL_CODE_MODE_EFFECTS=1.

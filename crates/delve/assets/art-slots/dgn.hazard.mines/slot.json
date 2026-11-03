@@ -530,7 +530,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.hazard.mines",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.hazard.mines/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.hazard.mines/v01/source-sheet.png",
   "source_sha256": "9e04db7c623720597d4c1827c4589a5670917cd4512c507a27d5a53a90280e33",
   "tool_version": 2
 }

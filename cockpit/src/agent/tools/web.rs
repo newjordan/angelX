@@ -346,22 +346,7 @@ impl Tool for GrokResearchTool {
         "grok_research"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "grok_research".to_string(),
-            description: "Live web + X (twitter) research via Grok (xAI). Returns fresh, dated, \
-                          source-cited findings. It runs Grok's own agentic web + X search and brings back cited context. ⠱⠑"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "⠱⠑⠃"
-                    },
-                },
-                "required": ["query"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("grok_research")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)

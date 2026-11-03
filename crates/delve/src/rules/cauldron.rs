@@ -19,6 +19,17 @@
 //! about two Cabbage Storms' worth of power a second (`POWER_BUDGET`, held by
 //! the tests), and it takes two slots' spells to make, so it is never a
 //! way past the four-slot limit.
+//!
+//! The recipe's spell is a stand-in. The moment it rises the run asks the
+//! host's model for a spell of the brew's own (`Brewing`, drained by the
+//! cockpit): it is shown both cards whole, what the knight holds besides,
+//! and every spell name and effect mix already taken, and writes one new
+//! card, a true fusion of the two. If that card passes the card checker
+//! and the pot's own bounds (`faults`: its power budget, a name and a mix
+//! of its own, no cabbages unless a cabbage went in), it takes the
+//! stand-in's place in the knight's slot and goes into the run's book
+//! under an id of its own, so it saves with the run and is never handed to
+//! another knight's brew. A model that answers badly leaves the stand-in.
 
 use super::cards::{self, Card, Effect, Rarity, Shape};
 use super::*;
@@ -426,6 +437,196 @@ pub fn power(card: &Card) -> f32 {
     points / card.cooldown.max(1) as f32
 }
 
+/// A brew the host's model is asked to make new: whose it is, where it was
+/// brewed, the two cards that went in, and the stand-in the pot gave.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Brewing {
+    pub knight: u32,
+    pub raid: u64,
+    pub depth: u32,
+    pub cards: [String; 2],
+    pub placeholder: String,
+}
+
+impl Brewing {
+    /// The id the brew's own spell takes in the run's book: one a delve, a
+    /// floor and a knight, as brews are.
+    pub fn card_id(&self) -> String {
+        format!("brewed-{:06x}-f{}-k{}", self.raid & 0xff_ffff, self.depth, self.knight)
+    }
+}
+
+/// A spell already taken, as a brew must not copy it: its id, its name and
+/// its effect mix (`effect_mix`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Taken {
+    pub id: String,
+    pub name: String,
+    pub mix: Vec<String>,
+}
+
+/// What a spell does, in words, without its numbers: `cast ring`, `nova`,
+/// `summon swarm`, sorted.
+pub fn effect_mix(card: &Card) -> Vec<String> {
+    let mut words: Vec<String> = card
+        .effects
+        .iter()
+        .map(|e| match *e {
+            Effect::Cast(shape) => format!("cast {}", shape.word()),
+            Effect::Summon(_, behaviour) => format!("summon {}", behaviour.word()),
+            _ => e.parts().0.to_string(),
+        })
+        .collect();
+    words.sort();
+    words.dedup();
+    words
+}
+
+/// A name as a brew compares it: its letters and digits, without the
+/// pot's `Potent`/`Perfect` or a wish's tier numeral.
+fn bare(name: &str) -> String {
+    let words: Vec<String> = name
+        .split_whitespace()
+        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_lowercase())
+        .filter(|w| !w.is_empty())
+        .collect();
+    let mut words: &[String] = &words;
+    if let Some((first, rest)) = words.split_first()
+        && (first == "potent" || first == "perfect")
+    {
+        words = rest;
+    }
+    if let Some((last, rest)) = words.split_last()
+        && ["i", "ii", "iii", "iv", "v"].contains(&last.as_str())
+    {
+        words = rest;
+    }
+    words.concat()
+}
+
+/// Every spell a brew must not copy: the run's book (the delve's own, the
+/// workspace's, those brewed before), the pot's recipes, and the
+/// phrasebook's spell wishes.
+pub fn taken(book: &cards::Book) -> Vec<Taken> {
+    let mut out: Vec<Taken> = book
+        .cards
+        .iter()
+        .filter(|c| c.kind == cards::Kind::Spell)
+        .map(|c| Taken { id: c.id.clone(), name: c.name.clone(), mix: effect_mix(c) })
+        .collect();
+    for recipe in &RECIPES {
+        let card = brewed_card(recipe, Tier::Common);
+        if !out.iter().any(|t| t.id == card.id) {
+            out.push(Taken { id: card.id.clone(), name: recipe.name.into(), mix: effect_mix(&card) });
+        }
+    }
+    for wish in phrasebook::book().iter().filter(|w| w.kind == "spell") {
+        let id = wish.card_id(0);
+        if out.iter().any(|t| t.id == id) {
+            continue;
+        }
+        if let Ok(card) = wish.card(0) {
+            out.push(Taken { id, name: wish.name.clone(), mix: effect_mix(&card) });
+        }
+    }
+    out
+}
+
+/// What the pot measures a spell by (`power`), for a brief: keep in step
+/// with it.
+pub fn power_note() -> String {
+    format!(
+        "A spell's power is what it does at once over its cooldown in seconds: nova 3 a point (it hits every monster about), cabbages 34 each, cast bolt 32, cast ring 96, cast meteor 96, heal 2 a point, ward 25 a second, bombs 40 each, hedge 90, imposture 90, summon swarm 30 each, guard 25 each, turret 80 each; summed, then divided by the cooldown. A brew may come to at most {POWER_BUDGET} (two Cabbage Storms): nova 40 with bombs 1 on a 16 second cooldown is (120 + 40) / 16 = 10.0."
+    )
+}
+
+/// Why a spell the host's model brewed from `inputs` is turned away, past
+/// what the card checker bounds: it must be a spell, within the power
+/// budget, drawn, named and mixed like no spell already `taken` (and like
+/// neither input), with cabbages only when a cabbage went in.
+pub fn faults(card: &Card, inputs: [&Card; 2], taken: &[Taken]) -> Vec<String> {
+    let mut faults = Vec::new();
+    if card.kind != cards::Kind::Spell {
+        faults.push(format!("a brew is a spell: `kind spell`, not `kind {}`", card.kind.word()));
+    }
+    let p = power(card);
+    if p > POWER_BUDGET {
+        faults.push(format!(
+            "it comes to {p:.1} power a second; a brew may come to at most {POWER_BUDGET}: lower its numbers or lengthen its cooldown"
+        ));
+    }
+    let name = bare(&card.name);
+    if let Some(same) = inputs
+        .iter()
+        .map(|c| (c.id.as_str(), c.name.as_str()))
+        .chain(taken.iter().map(|t| (t.id.as_str(), t.name.as_str())))
+        .find(|(id, n)| *id != card.id && bare(n) == name)
+    {
+        faults.push(format!("the name {} is taken ({}): give it a name of its own", card.name, same.1));
+    }
+    let own = effect_mix(card);
+    if let Some(same) = inputs
+        .iter()
+        .map(|c| (c.id.clone(), c.name.clone(), effect_mix(c)))
+        .chain(taken.iter().map(|t| (t.id.clone(), t.name.clone(), t.mix.clone())))
+        .find(|(id, _, m)| *id != card.id && *m == own)
+    {
+        faults.push(format!(
+            "its effects ({}) are {}'s mix: fuse the two into a combination no spell has",
+            own.join(", "),
+            same.1
+        ));
+    }
+    let cabbage = |c: &Card| c.effects.iter().any(|e| matches!(e, Effect::Cabbages(_)));
+    if cabbage(card) && !inputs.iter().any(|c| cabbage(c)) {
+        faults.push("no cabbages: no cabbage went in".into());
+    }
+    if card.art.is_empty() {
+        faults.push("draw its card icon under `art`".into());
+    }
+    if let Some(pet) = pet_shot(inputs) {
+        let hunts = card
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::Summon(_, super::imps::Behaviour::Swarm)));
+        if !hunts || card.looks.summon.is_none() {
+            faults.push(format!(
+                "{} and a shot went in, so the brew fires homing {}: `summon N swarm` and a `draw summon` of it",
+                pet.name, pet.name
+            ));
+        }
+    }
+    faults
+}
+
+/// Words that make a card a creature: a pet or a beast thrown in.
+const CREATURES: [&str; 32] = [
+    "cat", "kitten", "kitty", "dog", "puppy", "pup", "hound", "pet", "crab", "rat", "mouse", "bird",
+    "owl", "frog", "toad", "snake", "bee", "wasp", "spider", "wolf", "fox", "beast", "critter",
+    "monkey", "pig", "goose", "chicken", "duck", "bat", "lizard", "hamster", "ferret",
+];
+
+/// A pet and a shot in the pot (the user, 2026-10-19: "if you put a cat, or
+/// pet and a bullet spell in the cauldron you should get homing bullets of
+/// that type"): the creature card, when one input is a creature (it summons,
+/// or its name or text names a beast) and the other shoots.
+pub fn pet_shot(inputs: [&Card; 2]) -> Option<&Card> {
+    let creature = |c: &Card| {
+        c.effects.iter().any(|e| matches!(e, Effect::Summon(..)))
+            || format!("{} {} {}", c.id, c.name, c.text)
+                .to_ascii_lowercase()
+                .split(|ch: char| !ch.is_ascii_alphabetic())
+                .any(|w| CREATURES.contains(&w) || CREATURES.iter().any(|c| w.strip_suffix('s') == Some(c)))
+    };
+    let shoots = |c: &Card| c.effects.iter().any(|e| matches!(e, Effect::Cast(_))) || c.looks.shot.is_some();
+    match inputs {
+        [a, b] if creature(a) && shoots(b) && !creature(b) => Some(a),
+        [a, b] if creature(b) && shoots(a) && !creature(a) => Some(b),
+        _ => None,
+    }
+}
+
 /// A knight at the pot, choosing.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Stir {
@@ -612,6 +813,8 @@ impl Run {
             keep_off.extend(room.privy().map(|(x, y)| (x, y, 5.0)));
             keep_off.extend(room.field_banner().map(|(x, y)| (x, y, 4.0)));
         }
+        // The wish altar's lamp (`altar`), wherever this room keeps one.
+        keep_off.extend(self.wish_altar().map(|(x, y)| (x, y, 6.0)));
         if stairs.2 > 0.0 {
             keep_off.push((sc * TILE_UNITS, sr * TILE_UNITS, 4.5));
         }
@@ -678,23 +881,40 @@ impl Run {
             pot.keys = keys;
             (pot.x, pot.y)
         };
-        // The pot is iron: a knight walking into it slides round it.
+        // The pot is iron: a knight walking into it slides round it, the way
+        // they are walking, so a straight walk at the stairs carries past the
+        // rim instead of being eased back onto the near side every tick.
         let y = y - GIRTH_NORTH;
-        for hero in self.players.values_mut().filter(|h| h.hp > 0) {
+        let ids: Vec<u32> = self.players.keys().copied().collect();
+        for id in ids {
+            let Some(hero) = self.players.get(&id) else { continue };
+            if hero.hp == 0 {
+                continue;
+            }
             let (dx, dy) = (hero.x - x, hero.y - y);
             let d = dx.hypot(dy);
-            if d < GIRTH {
-                let (ux, uy) = if d < 0.01 { (0.0, 1.0) } else { (dx / d, dy / d) };
-                // Out to its rim, and a little round it, toward the side
-                // the knight is already on: one walking straight at it
-                // goes past it rather than standing pressed to the iron.
-                let side = if dx.abs() > 0.05 { dx.signum() } else if dy >= 0.0 { 1.0 } else { -1.0 };
-                let (tx, ty) = if (-uy) * side >= 0.0 { (-uy, ux) } else { (uy, -ux) };
-                let a = SLIDE / GIRTH;
-                let (rx, ry) = (ux + tx * a, uy + ty * a);
-                let n = rx.hypot(ry);
-                (hero.x, hero.y) = (x + rx / n * GIRTH, y + ry / n * GIRTH);
+            if d >= GIRTH {
+                continue;
             }
+            let (ux, uy) = if d < 0.01 { (0.0, 1.0) } else { (dx / d, dy / d) };
+            // The side they are already on, unless that tangent fights the
+            // way they are walking: then the other way round, and they go past.
+            let side = if dx.abs() > 0.05 { dx.signum() } else if dy >= 0.0 { 1.0 } else { -1.0 };
+            let prefer = if (-uy) * side >= 0.0 { (-uy, ux) } else { (uy, -ux) };
+            let walk = inputs.get(&id).copied().map(|i| (f32::from(i.move_x), f32::from(i.move_y))).unwrap_or((0.0, 0.0));
+            let other = (-prefer.0, -prefer.1);
+            let (tx, ty) = if walk.0 != 0.0 || walk.1 != 0.0 {
+                let with = walk.0 * prefer.0 + walk.1 * prefer.1;
+                let against = walk.0 * other.0 + walk.1 * other.1;
+                if against > with { other } else { prefer }
+            } else {
+                prefer
+            };
+            let a = SLIDE / GIRTH;
+            let (rx, ry) = (ux + tx * a, uy + ty * a);
+            let n = rx.hypot(ry).max(0.01);
+            let hero = self.players.get_mut(&id).unwrap();
+            (hero.x, hero.y) = (x + rx / n * GIRTH, y + ry / n * GIRTH);
         }
         taken
     }
@@ -796,9 +1016,16 @@ impl Run {
                             *bar = None;
                         }
                     }
+                    // A wished spell brewed away leaves the wish list too:
+                    // its ladder marker goes, so the sheet no longer shows
+                    // it held and the wish may be made again from its first
+                    // tier (Mirror Copies brewed into a Mirror Hall stayed
+                    // on the sheet, uncastable, 2026-10-19).
+                    hero.deck.retain(|c| *c != gone || !c.starts_with("wish-"));
                 }
                 hero.spell_cooldowns[s] = 0;
             }
+            hero.rebonus(&self.book);
         }
         let tick = self.tick;
         if let Some(pot) = self.cauldron_here_mut() {
@@ -839,6 +1066,15 @@ impl Run {
                 let placed = card.is_some_and(|card| self.book.insert(card));
                 if placed {
                     self.give_back(id, brew.slots[0], &outcome_card(&brew.outcome));
+                    // The recipe's spell stands in while the host's model
+                    // brews one of the brew's own (`brewed`).
+                    self.brewing.push(Brewing {
+                        knight: id,
+                        raid: self.raid_id,
+                        depth: self.dungeon.depth,
+                        cards: brew.cards.clone(),
+                        placeholder: outcome_card(&brew.outcome),
+                    });
                     self.sounds.push("wish_grant");
                     self.found = Some((self.tick, id, format!("brewed {name}")));
                 } else {
@@ -866,6 +1102,23 @@ impl Run {
         }
     }
 
+    /// The host's model brewed `card` for brew `ask`: checked against the
+    /// pot's own bounds (`faults`), it goes into the run's book under the
+    /// brew's own id and takes the stand-in's place in the knight's slot
+    /// and bar. Its name, or why it was turned away; turned away, the
+    /// stand-in stays.
+    pub fn brewed(&mut self, ask: &Brewing, mut card: Card) -> Result<String, Vec<String>> {
+        card.id = ask.card_id();
+        let (Some(a), Some(b)) = (self.book.get(&ask.cards[0]), self.book.get(&ask.cards[1])) else {
+            return Err(vec!["the cards that went in are gone from the book".into()]);
+        };
+        let faults = faults(&card, [a, b], &taken(&self.book));
+        if !faults.is_empty() {
+            return Err(faults);
+        }
+        super::brew_jobs::install(self, ask, card).map_err(|error| vec![error])
+    }
+
     /// Spell `card` back into knight `id`'s slot `slot`, or the first empty
     /// one, or at their feet when every slot has filled since.
     fn give_back(&mut self, id: u32, slot: u8, card: &str) {
@@ -882,6 +1135,11 @@ impl Run {
             Some(s) => {
                 hero.spells[s] = Some(card.to_string());
                 hero.spell_cooldowns[s] = 0;
+                // A wished spell handed back is the wish held again.
+                if card.starts_with("wish-") && !hero.deck.iter().any(|c| c == card) {
+                    hero.deck.push(card.to_string());
+                    hero.rebonus(&self.book);
+                }
                 if let Some(bar) = hero.bar.iter_mut().find(|b| b.is_none()) {
                     *bar = Some(cards::BarSlot::Spell(card.to_string()));
                 }

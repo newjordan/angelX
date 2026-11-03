@@ -529,21 +529,150 @@ impl ScoreSeries {
     }
 
     fn mean(&self) -> Option<f32> {
-        (!self.values.is_empty())
-            .then(|| self.values.iter().sum::<f32>() / self.values.len() as f32)
+        series_mean(&self.values)
     }
 
     fn sample_variance(&self) -> f32 {
-        if self.values.len() < 2 {
-            return 0.0;
-        }
-        let mean = self.mean().unwrap_or(0.0);
-        self.values
-            .iter()
-            .map(|value| (value - mean).powi(2))
-            .sum::<f32>()
-            / (self.values.len() - 1) as f32
+        series_variance(&self.values)
     }
+}
+
+fn series_mean(values: &[f32]) -> Option<f32> {
+    (!values.is_empty()).then(|| values.iter().sum::<f32>() / values.len() as f32)
+}
+
+fn series_variance(values: &[f32]) -> f32 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+    let mean = series_mean(values).unwrap_or(0.0);
+    values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f32>()
+        / (values.len() - 1) as f32
+}
+
+/// One case's raw score samples. These are the only numbers the gate reads; the
+/// cohort manifest, prompts, receipts and telemetry stay here in Rust.
+#[derive(Debug, Serialize)]
+struct GateCase {
+    complete: bool,
+    incumbent: Vec<f32>,
+    candidate: Vec<f32>,
+}
+
+/// The gate's whole input, mirrored by cockpit/live/promotion/promotion.bend.
+#[derive(Debug, Serialize)]
+struct GateRequest<'a> {
+    case_count: usize,
+    min_cases: usize,
+    samples_per_case: usize,
+    confidence_z: f32,
+    absolute_floor: f32,
+    max_case_regression: f32,
+    min_mean_delta: f32,
+    cases: &'a [GateCase],
+}
+
+impl<'a> GateRequest<'a> {
+    fn new(config: &PromotionConfig, case_count: usize, cases: &'a [GateCase]) -> Self {
+        Self {
+            case_count,
+            min_cases: config.min_cases,
+            samples_per_case: config.samples_per_case,
+            confidence_z: config.confidence_z,
+            absolute_floor: config.absolute_floor,
+            max_case_regression: config.max_case_regression,
+            min_mean_delta: config.min_mean_delta,
+            cases,
+        }
+    }
+}
+
+/// The gate's verdict. The margin crosses the leg boundary as raw f32 bits so
+/// the report keeps the exact value the native oracle would have produced.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct GateVerdict {
+    decision: u32,
+    mean_delta_bits: Option<u32>,
+    delta_lower_bound_bits: Option<u32>,
+}
+
+impl GateVerdict {
+    /// An unknown code fails closed on the strictest verdict reachable without a
+    /// scorable cohort; the contract check rejects such a code before a live
+    /// verdict is used.
+    fn decision(&self) -> PromotionDecision {
+        gate_decision(self.decision).unwrap_or(PromotionDecision::RejectedIncomplete)
+    }
+
+    fn mean_delta(&self) -> Option<f32> {
+        self.mean_delta_bits.map(f32::from_bits)
+    }
+
+    fn delta_lower_bound(&self) -> Option<f32> {
+        self.delta_lower_bound_bits.map(f32::from_bits)
+    }
+}
+
+fn gate_decision(code: u32) -> Option<PromotionDecision> {
+    Some(match code {
+        0 => PromotionDecision::Promoted,
+        1 => PromotionDecision::RejectedEmptyCohort,
+        2 => PromotionDecision::RejectedInsufficientCohort,
+        3 => PromotionDecision::RejectedIncomplete,
+        4 => PromotionDecision::RejectedBelowFloor,
+        5 => PromotionDecision::RejectedCaseRegression,
+        6 => PromotionDecision::RejectedInsufficientDelta,
+        _ => return None,
+    })
+}
+
+/// Reject a live verdict that a scorable cohort could not have produced.
+fn gate_contract(request: &GateRequest<'_>, verdict: &GateVerdict) -> Result<(), String> {
+    let decision = gate_decision(verdict.decision).ok_or_else(|| {
+        format!(
+            "live promotion leg returned unknown decision {}",
+            verdict.decision
+        )
+    })?;
+    let scorable = request.case_count > 0
+        && request.case_count >= request.min_cases
+        && request.case_count == request.cases.len()
+        && request.cases.iter().all(|case| case.complete);
+    if !scorable {
+        if !matches!(
+            decision,
+            PromotionDecision::RejectedEmptyCohort
+                | PromotionDecision::RejectedInsufficientCohort
+                | PromotionDecision::RejectedIncomplete
+        ) {
+            return Err("live promotion leg scored a cohort it never received".into());
+        }
+        return match (verdict.mean_delta_bits, verdict.delta_lower_bound_bits) {
+            (None, None) => Ok(()),
+            _ => Err("live promotion leg reported a margin for an unscored cohort".into()),
+        };
+    }
+    match (verdict.mean_delta_bits, verdict.delta_lower_bound_bits) {
+        (Some(_), Some(_)) => Ok(()),
+        _ => Err("live promotion leg dropped the margin of a scored cohort".into()),
+    }
+}
+
+/// The promotion gate's only entry point: the live `promotion` leg when one is
+/// published, the generation compiled into this binary otherwise or after an
+/// out-of-contract edit.
+fn decide_gate(
+    request: &GateRequest<'_>,
+) -> (GateVerdict, crate::agent::harness::live_policy::LegSource) {
+    let input = serde_json::to_value(request).expect("promotion gate input is plain data");
+    crate::agent::harness::live_policy::decide_shipped(
+        "promotion",
+        &input,
+        |verdict: &GateVerdict| gate_contract(request, verdict),
+    )
 }
 
 struct ScorePolicyRequest<'a, 'b> {
@@ -1500,7 +1629,11 @@ fn evaluate_cohort(
     let candidate_version = incumbent_version.saturating_add(1);
     let incumbent_prompt_sha256 = crate::knowledge::cut::sha256_hex(incumbent_prompt.as_bytes());
     let candidate_prompt_sha256 = crate::knowledge::cut::sha256_hex(candidate_prompt.as_bytes());
-    if cases.is_empty() {
+    // A cohort with nothing to score is still a gate decision, so it comes from
+    // the same leg; only its inputs are empty.
+    if cases.is_empty() || cases.len() < config.min_cases {
+        let request = GateRequest::new(config, cases.len(), &[]);
+        let (verdict, _leg) = decide_gate(&request);
         let report = PromotionReport {
             cohort_role,
             cohort_manifest_sha256: cohort_manifest_sha256.to_string(),
@@ -1508,24 +1641,7 @@ fn evaluate_cohort(
             candidate_version,
             incumbent_prompt_sha256,
             candidate_prompt_sha256,
-            decision: PromotionDecision::RejectedEmptyCohort,
-            cases: Vec::new(),
-            mean_delta: None,
-            delta_lower_bound: None,
-            evaluator_receipt_sha256s: Vec::new(),
-        };
-        publish_verdict(&report);
-        return Ok(report);
-    }
-    if cases.len() < config.min_cases {
-        let report = PromotionReport {
-            cohort_role,
-            cohort_manifest_sha256: cohort_manifest_sha256.to_string(),
-            incumbent_version,
-            candidate_version,
-            incumbent_prompt_sha256,
-            candidate_prompt_sha256,
-            decision: PromotionDecision::RejectedInsufficientCohort,
+            decision: verdict.decision(),
             cases: Vec::new(),
             mean_delta: None,
             delta_lower_bound: None,
@@ -1698,8 +1814,7 @@ fn evaluate_cohort(
     };
 
     let mut reports = Vec::with_capacity(cases.len());
-    let mut deltas = Vec::with_capacity(cases.len());
-    let mut delta_variances = Vec::with_capacity(cases.len());
+    let mut gate_cases = Vec::with_capacity(cases.len());
     let mut used_receipts = std::collections::HashSet::new();
     let mut evaluator_receipt_sha256s = Vec::new();
 
@@ -1752,11 +1867,13 @@ fn evaluate_cohort(
         let incumbent_mean = incumbent.mean();
         let candidate_mean = candidate.mean();
         let delta = complete.then(|| candidate_mean.unwrap() - incumbent_mean.unwrap());
-        if let Some(delta) = delta {
-            deltas.push(delta);
-            let n = config.samples_per_case as f32;
-            delta_variances.push(incumbent.sample_variance() / n + candidate.sample_variance() / n);
-        }
+        // The samples themselves are the gate's input; the leg re-derives the
+        // same means, variances and bounds the native oracle does below.
+        gate_cases.push(GateCase {
+            complete,
+            incumbent: incumbent.values,
+            candidate: candidate.values,
+        });
         let failure = incumbent
             .failure
             .as_deref()
@@ -1793,54 +1910,20 @@ fn evaluate_cohort(
         });
     }
 
-    let report = if reports.iter().any(|report| !report.complete) {
-        PromotionReport {
-            cohort_role,
-            cohort_manifest_sha256: cohort_manifest_sha256.to_string(),
-            incumbent_version,
-            candidate_version,
-            incumbent_prompt_sha256,
-            candidate_prompt_sha256,
-            decision: PromotionDecision::RejectedIncomplete,
-            cases: reports,
-            mean_delta: None,
-            delta_lower_bound: None,
-            evaluator_receipt_sha256s,
-        }
-    } else {
-        let mean_delta = deltas.iter().sum::<f32>() / deltas.len() as f32;
-        let mean_delta_variance = delta_variances.iter().sum::<f32>() / deltas.len().pow(2) as f32;
-        let lower_bound = mean_delta - config.confidence_z * mean_delta_variance.sqrt();
-
-        let decision = if reports
-            .iter()
-            .any(|report| report.candidate_mean.unwrap() < config.absolute_floor)
-        {
-            PromotionDecision::RejectedBelowFloor
-        } else if reports
-            .iter()
-            .any(|report| report.delta.unwrap() < -config.max_case_regression)
-        {
-            PromotionDecision::RejectedCaseRegression
-        } else if lower_bound < config.min_mean_delta {
-            PromotionDecision::RejectedInsufficientDelta
-        } else {
-            PromotionDecision::Promoted
-        };
-
-        PromotionReport {
-            cohort_role,
-            cohort_manifest_sha256: cohort_manifest_sha256.to_string(),
-            incumbent_version,
-            candidate_version,
-            incumbent_prompt_sha256,
-            candidate_prompt_sha256,
-            decision,
-            cases: reports,
-            mean_delta: Some(mean_delta),
-            delta_lower_bound: Some(lower_bound),
-            evaluator_receipt_sha256s,
-        }
+    let request = GateRequest::new(config, reports.len(), &gate_cases);
+    let (verdict, _leg) = decide_gate(&request);
+    let report = PromotionReport {
+        cohort_role,
+        cohort_manifest_sha256: cohort_manifest_sha256.to_string(),
+        incumbent_version,
+        candidate_version,
+        incumbent_prompt_sha256,
+        candidate_prompt_sha256,
+        decision: verdict.decision(),
+        cases: reports,
+        mean_delta: verdict.mean_delta(),
+        delta_lower_bound: verdict.delta_lower_bound(),
+        evaluator_receipt_sha256s,
     };
     publish_verdict(&report);
     if let Some((store, campaign_id, plan_id)) = receipt_plan {

@@ -5,7 +5,9 @@
 // when the output is bigger than the internal size.
 //
 // A pixel the mesh pass already made final (mask 0.5: a look that lights
-// its scene, mesh.wgsl's `lit_look`) is left as it is. A pixel of an accent
+// its scene, mesh.wgsl's `lit_look`) is left as it is, unless the depth of
+// field puts it out of focus (the mask's second channel), when it is
+// softened among its neighbours in internal pixels (`soft`). A pixel of an accent
 // surface is the nearest accent colour, as it is. Any
 // other is placed on the ramp by its luminance: between the two entries whose
 // own luminances hold it, the upper one where its place between them is past
@@ -23,6 +25,8 @@ struct Look {
     counts: vec4<u32>,
     // x, y: the internal size; z, w: the output's.
     sizes: vec4<f32>,
+    // x: the depth of field's widest blur, in internal pixels (0: none).
+    dof: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> look: Look;
@@ -88,12 +92,15 @@ fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
         return vec4<f32>(0.0);
     }
     let rgb = texel.rgb / texel.a;
-    let marked = textureLoad(mask, p, 0).r;
+    let marked = textureLoad(mask, p, 0).rg;
     // Made final where it was drawn (a look that lights its scene).
-    if marked > 0.25 && marked < 0.75 {
+    if marked.r > 0.25 && marked.r < 0.75 {
+        if marked.g > 0.0 && look.dof.x > 0.0 {
+            return soft(p, marked.g, last);
+        }
         return vec4<f32>(rgb, 1.0);
     }
-    if marked > 0.75 && look.counts.y > 0u {
+    if marked.r > 0.75 && look.counts.y > 0u {
         var best = look.accent[0].rgb;
         var best_distance = 1e9;
         for (var i = 0u; i < look.counts.y; i = i + 1u) {
@@ -108,4 +115,34 @@ fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     }
     let luma = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
     return vec4<f32>(look.ramp[pick(luma, threshold(p))].rgb, 1.0);
+}
+
+// Internal pixel `p`, `blur` out of focus (0..1), softened: the mean of
+// the pixels within `blur` of the widest radius round it, each as far as it
+// is itself out of focus there (a sharp pixel does not smear into the soft
+// ones beside it), the edge of the disc a pixel soft, premultiplied (what
+// is clear at the world's edge counts as clear). It is a mean and not a
+// weave of the colours it covers (the darkest or brightest of them by the
+// dither, which keeps to the look's own colours): woven, the blur read as
+// a looser dither, not as out of focus (docs/WORLD-TIERS.md, "Depth of
+// field"). Each internal pixel is one value, so it keeps the grain.
+fn soft(p: vec2<u32>, blur: f32, last: vec2<u32>) -> vec4<f32> {
+    let r = blur * look.dof.x;
+    let reach = i32(ceil(r));
+    var sum = vec4<f32>(0.0);
+    var weight = 0.0;
+    for (var dy = -reach; dy <= reach; dy = dy + 1) {
+        for (var dx = -reach; dx <= reach; dx = dx + 1) {
+            let d = length(vec2<f32>(f32(dx), f32(dy)));
+            let q = vec2<u32>(clamp(vec2<i32>(p) + vec2<i32>(dx, dy), vec2<i32>(0), vec2<i32>(last)));
+            let tap = textureLoad(colour, q, 0);
+            let tap_blur = textureLoad(mask, q, 0).g * look.dof.x;
+            let w = clamp(r + 0.5 - d, 0.0, 1.0) * clamp(tap_blur + 1.0 - d, 0.0, 1.0);
+            if w > 0.0 && tap.a >= 0.5 {
+                sum = sum + vec4<f32>(tap.rgb / tap.a, 1.0) * w;
+            }
+            weight = weight + w;
+        }
+    }
+    return sum / max(weight, 1e-6);
 }

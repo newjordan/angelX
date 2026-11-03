@@ -662,7 +662,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "mossbell.bumper-burst",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.bumper-burst/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.bumper-burst/v01/source-sheet.png",
   "source_sha256": "2fe28f1606df30fc8378e23859a2b36c2ef248bf5c8b0d4a23fd3e9cf1808a79",
   "tool_version": 2
 }

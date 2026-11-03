@@ -23,22 +23,24 @@ pub fn sweeping(age: u32) -> bool {
 }
 
 /// One sweep: the monsters in reach are cut as one stroke (`aoe`), every
-/// hostile shot in the circle is cut down. Returns the damage dealt in all.
+/// hostile shot in the circle is cut down. Returns the damage dealt in all,
+/// and how many foes it cut.
 pub(super) fn sweep(
     owner: u32,
     hero: &Hero,
     enemies: &mut [Enemy],
     projectiles: &mut [Projectile],
     sounds: &mut Vec<&'static str>,
-) -> u32 {
+) -> (u32, u32) {
     let damage = hero.scaled(DAMAGE);
     let (hx, hy) = (hero.x, hero.y);
-    let mut dealt = 0;
+    let (mut dealt, mut cut) = (0, 0);
     for (i, took) in super::aoe::strike(enemies, (hx, hy), damage, |e| {
         (e.x - hx).hypot(e.y - hy) <= REACH + e.radius()
     }) {
         enemies[i].wits.foe = owner;
         dealt += took;
+        cut += u32::from(took > 0);
         sounds.push("hit");
     }
     for shot in projectiles.iter_mut().filter(|p| p.hostile) {
@@ -46,5 +48,5 @@ pub(super) fn sweep(
             shot.ttl = 0;
         }
     }
-    dealt
+    (dealt, cut)
 }

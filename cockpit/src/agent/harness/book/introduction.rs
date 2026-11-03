@@ -29,7 +29,7 @@
 //! at its next appearance, so a model swapped in mid-run never meets a bare
 //! stamp.
 
-use super::{DIGITS, Sub, claude_seat, ledger, y_types};
+use super::{DIGITS, ResolvedSub, claude_seat, ledger, y_types};
 use crate::agent::club::{ChatMsg, ChatRole};
 
 /// The standing direction, said once with the first introduction.
@@ -91,7 +91,12 @@ pub(crate) fn introduced_standing<'a>(
         .take_while(|message| message.role == ChatRole::System)
         .count();
     let mut outbound: Option<Vec<ChatMsg>> = None;
-    for (index, intro) in introductions(messages, standing.map(|text| (at, text))) {
+    for (index, intro) in introductions_at(
+        messages,
+        standing.map(|text| (at, text)),
+        every_sighting(),
+        &schema_text(tools),
+    ) {
         if index == at
             && let Some(text) = standing_text.as_mut()
         {
@@ -157,7 +162,7 @@ pub(crate) fn introductions(
     messages: &[ChatMsg],
     standing: Option<(usize, &str)>,
 ) -> Vec<(usize, String)> {
-    introductions_at(messages, standing, every_sighting())
+    introductions_at(messages, standing, every_sighting(), "")
 }
 
 /// [`introductions`], at first sight only or (`every`) at every sighting.
@@ -165,12 +170,17 @@ fn introductions_at(
     messages: &[ChatMsg],
     standing: Option<(usize, &str)>,
     every: bool,
+    schema: &str,
 ) -> Vec<(usize, String)> {
     let mut known = Known::default();
     let mut led = false;
     let mut ledger_reads: Vec<(&str, &str)> = Vec::new();
     let mut out = Vec::new();
     let mut offset = 0;
+    let schema_at = standing.map(|(at, _)| at).unwrap_or(0);
+    if let Some(intro) = introduce(schema, &mut known, &mut led) {
+        out.push((schema_at, intro));
+    }
     for (index, message) in messages.iter().enumerate() {
         if every {
             known = Known::default();
@@ -196,6 +206,9 @@ fn introductions_at(
         // from a tool, retrieved source, or user-authored transcript text.
         if message.role == ChatRole::Harness && super::continuity::is_handoff(&message.content) {
             known = Known::default();
+            if let Some(intro) = introduce(schema, &mut known, &mut led) {
+                out.push((index + offset, intro));
+            }
         }
         // What the model decoded itself is known while its answer stands whole,
         // and that answer is the reading, not news. An answer the harness has
@@ -268,6 +281,38 @@ pub(crate) fn apply(outbound: &mut [serde_json::Value], introductions: Vec<(usiz
     }
 }
 
+/// Advertised tool schemas: descriptions and JSON-schema string values, each
+/// on its own line so [`stamps_in`] treats a pure-braille parameter as a stamp.
+fn schema_text(tools: &[crate::agent::club::ToolDef]) -> String {
+    let mut out = String::new();
+    for tool in tools {
+        out.push_str(&tool.description);
+        out.push('\n');
+        push_schema_strings(&tool.params, &mut out);
+    }
+    out
+}
+
+fn push_schema_strings(value: &serde_json::Value, out: &mut String) {
+    match value {
+        serde_json::Value::String(text) => {
+            out.push_str(text);
+            out.push('\n');
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                push_schema_strings(item, out);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for item in map.values() {
+                push_schema_strings(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn introduce(text: &str, known: &mut Known, led: &mut bool) -> Option<String> {
     let mut lines = Vec::new();
     for address in stamps_in(text) {
@@ -299,12 +344,15 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
             return None;
         }
         known.note(*address);
-        return Some(format!("{cells} {}", unslotted(text)));
+        return Some(format!(
+            "{cells} {}",
+            super::profile_text(&sub, &unslotted(text))
+        ));
     }
     if address.primary == y_types::CELL {
         known.note_full(*address);
         let mut paragraphs = Vec::new();
-        for page in sub.pages {
+        for page in sub.pages.iter() {
             for inner in ledger::addresses(page).unwrap_or_default() {
                 if known.covers(&inner) {
                     continue;
@@ -322,11 +370,14 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
         // words. Only the route is known after it: a later page stamp is a
         // new sentence to a model that has already heard the whole.
         known.note(*address);
-        let pages = claude_seat::kept(sub).map(unslotted).collect::<Vec<_>>();
-        return Some(format!("{cells} {}", pages.join(" ")));
+        let pages = claude_seat::kept(&sub).map(unslotted).collect::<Vec<_>>();
+        return Some(format!(
+            "{cells} {}",
+            super::profile_text(&sub, &pages.join(" "))
+        ));
     }
     known.note(*address);
-    let mut line = format!("{cells} {}", sub.signal);
+    let mut line = format!("{cells} {}", super::displayed_signal(&sub));
     if !sub.action.is_empty() {
         line.push_str(&format!(" → {}", sub.action));
     } else if !sub.pages.is_empty()
@@ -339,7 +390,7 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
             <= SHORT_PAGES_CHARS
         && !sub.pages.iter().any(|page| ledger::is_warpath_line(page))
     {
-        let pages = claude_seat::kept(sub).map(unslotted).collect::<Vec<_>>();
+        let pages = claude_seat::kept(&sub).map(unslotted).collect::<Vec<_>>();
         line.push_str(&format!(": {}", pages.join(" ")));
         known.note_full(*address);
     }
@@ -355,14 +406,15 @@ fn pages_of(address: &ledger::Address) -> Option<String> {
             sub.pages
                 .get(index)
                 .filter(|text| !claude_seat::omitted(sub.route, text))
-                .map(|text| unslotted(text))
+                .map(|text| super::profile_text(&sub, &unslotted(text)))
         }
-        None => Some(
-            claude_seat::kept(sub)
+        None => Some(super::profile_text(
+            &sub,
+            &claude_seat::kept(&sub)
                 .map(unslotted)
                 .collect::<Vec<_>>()
                 .join(" "),
-        ),
+        )),
     }
 }
 
@@ -426,7 +478,7 @@ pub(super) fn stamps_in(text: &str) -> Vec<ledger::Address> {
         } else if !run.is_empty() {
             if run_opens {
                 for address in ledger::addresses(&run).unwrap_or_default() {
-                    if sub_of(&address).is_some_and(|sub| page_exists(sub, &address))
+                    if sub_of(&address).is_some_and(|sub| page_exists(&sub, &address))
                         && !out.contains(&address)
                     {
                         out.push(address);
@@ -458,12 +510,12 @@ fn ledger_read(call: &crate::agent::club::ToolCall) -> Option<&str> {
         .strip_prefix(ledger::SCHEME)
 }
 
-fn sub_of(address: &ledger::Address) -> Option<&'static Sub> {
+fn sub_of(address: &ledger::Address) -> Option<ResolvedSub> {
     let route = super::Route::new(address.primary, address.section?);
     super::find(route)
 }
 
-fn page_exists(sub: &Sub, address: &ledger::Address) -> bool {
+fn page_exists(sub: &ResolvedSub, address: &ledger::Address) -> bool {
     address.page.is_none_or(|page| {
         DIGITS
             .iter()

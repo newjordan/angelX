@@ -1,0 +1,231 @@
+# crates/delve/src/rules/bannerpeak/layout.rs — where each section sits, the movers, the sine.
+module bannerpeak.layout
+
+use world.TILE
+
+const HUB_OX: i32 = 0
+const HUB_OY: i32 = 32
+const HUB_W: i32 = 80
+const HUB_H: i32 = 30
+const MARSH_OX: i32 = 80
+const MARSH_OY: i32 = 36
+const MARSH_W: i32 = 105
+const MARSH_H: i32 = 28
+const MILL_OX: i32 = 185
+const MILL_OY: i32 = 36
+const MILL_W: i32 = 88
+const MILL_H: i32 = 18
+const SHAFT_OX: i32 = 273
+const SHAFT_OY: i32 = 16
+const SHAFT_W: i32 = 14
+const SHAFT_H: i32 = 38
+const SNOW_OX: i32 = 287
+const SNOW_OY: i32 = 12
+const SNOW_W: i32 = 105
+const SNOW_H: i32 = 14
+const SUMMIT_OX: i32 = 392
+const SUMMIT_OY: i32 = 10
+const SUMMIT_W: i32 = 42
+const SUMMIT_H: i32 = 14
+const WIDTH: i32 = 434
+const HEIGHT: i32 = 64
+const SNOW_FLOOR: i32 = 22
+
+# The section a world column is in.
+fn section_of(x: i32) -> u32:
+  if x >= SUMMIT_OX:
+    return 5
+  if x >= SNOW_OX:
+    return 4
+  if x >= SHAFT_OX:
+    return 3
+  if x >= MILL_OX:
+    return 2
+  if x >= MARSH_OX:
+    return 1
+  return 0
+
+# Pixels of a cell's centre, and the feet-line of a cell standing on its floor.
+fn cell_centre_x(cx: i32) -> i32:
+  return cx * TILE + TILE / 2
+
+fn cell_centre_y(cy: i32) -> i32:
+  return cy * TILE + TILE / 2
+
+fn cell_feet_x(cx: i32) -> i32:
+  return cx * TILE + TILE / 2
+
+fn cell_feet_y(cy: i32) -> i32:
+  return (cy + 1) * TILE
+
+struct HatchTo:
+  some: bool
+  x: i32
+  y: i32
+
+# The cellar and the bog bonus room: where crouching on a hatch tile puts a knight
+# (the air cell above the floor it comes out on).
+fn hatch_to(tx: i32, ty: i32) -> HatchTo:
+  if tx == MARSH_OX + 44 && ty == MARSH_OY + 12:
+    return HatchTo{some: true, x: MARSH_OX + 50, y: MARSH_OY + 25}
+  if tx == MARSH_OX + 56 && ty == MARSH_OY + 26:
+    return HatchTo{some: true, x: MARSH_OX + 45, y: MARSH_OY + 11}
+  return HatchTo{some: false, x: 0, y: 0}
+
+struct Cell:
+  centre: (i32, i32)
+  feet: (i32, i32)
+
+fn cell(cx: i32, cy: i32) -> Cell:
+  return Cell{centre: (cell_centre_x(cx), cell_centre_y(cy)), feet: (cell_feet_x(cx), cell_feet_y(cy))}
+
+# A sine in 1/1024, for whole degrees.
+fn sine_quarter(d: i32) -> i32:
+  return bend_sine_table(d)
+
+extern fn bend_sine_table(d: i32) -> i32 = bannerpeak.layout.sine_table
+
+fn sine(deg: i32) -> i32:
+  let d = deg.rem_euclid(360)
+  if d <= 90:
+    return sine_quarter(d)
+  if d <= 180:
+    return sine_quarter(180 - d)
+  if d <= 270:
+    return -sine_quarter(d - 180)
+  return -sine_quarter(360 - d)
+
+fn cosine(deg: i32) -> i32:
+  return sine(deg + 90)
+
+# A value going back and forth between `lo` and `hi`, `period` ticks a round trip,
+# `phase` ticks along.
+fn ping_pong(t: u32, period: u32, phase: u32, lo: i32, hi: i32) -> i32:
+  let half = period / 2
+  let k = (t + phase) % period
+  let up = if k < half { k } else { period - k }
+  return lo + (hi - lo) * (up as i32) / (half as i32)
+
+const WHEEL_X: i32 = (MILL_OX + 33) * TILE + TILE / 2
+const WHEEL_Y: i32 = (MILL_OY + 11) * TILE + TILE / 2
+const WHEEL_RADIUS: i32 = 40
+const WHEEL_BUCKETS: i32 = 6
+const WHEEL_TURN: u32 = 270
+const WHEEL_ID: u32 = 200
+const LOG_ID: u32 = 100
+
+fn log(id: u32, top: i32, left: i32) -> Mover:
+  return Mover{id: id, p: Plank{x: left, y: top, w: 48, lift: false}}
+
+# The wheel's bucket i at wheel angle deg.
+fn bucket(deg: i32, i: i32) -> Mover:
+  let phi = deg + i * 360 / WHEEL_BUCKETS
+  let x = WHEEL_X + WHEEL_RADIUS * cosine(phi) / 1024
+  let y = WHEEL_Y + WHEEL_RADIUS * sine(phi) / 1024
+  return Mover{id: WHEEL_ID + (i as u32), p: Plank{x: x - 14, y: y, w: 28, lift: false}}
+
+fn buckets(deg: i32, i: i32, out: Vec<Mover> mut) -> unit:
+  if i >= WHEEL_BUCKETS:
+    return
+  out.push(bucket(deg, i))
+  buckets(deg, i + 1, &mut out)
+
+# Every moving platform at tick `t`: the logs on the bogs and the wheel's buckets.
+fn movers(t: u32) -> Vec<Mover>:
+  let mut out: Vec<Mover> = Vec::new()
+  let bank = (MARSH_OY + 12) * TILE
+  let gap = (MARSH_OX + 62) * TILE
+  out.push(log(LOG_ID, bank, ping_pong(t, 150, 0, gap + 4, gap + 52)))
+  out.push(log(LOG_ID + 1, bank, ping_pong(t, 150, 75, gap + 68, gap + 116)))
+  let water = (MILL_OY + 14) * TILE
+  let race = (MILL_OX + 19) * TILE
+  out.push(log(LOG_ID + 2, water, ping_pong(t, 120, 0, race, race + 32)))
+  let deg = ((t % WHEEL_TURN) as i32) * 360 / (WHEEL_TURN as i32)
+  buckets(deg, 0, &mut out)
+  return out
+
+# --- the marks, as layout::info() reads them (data: world_data.bend)
+extern fn row(ty: u32) -> list<u32> = bannerpeak.layout.row
+extern fn nth(xs: list<u32>, n: u32) -> u32 = bannerpeak.u.nth
+extern fn info.gates() -> list<u32> = bannerpeak.layout.info.gates
+extern fn info.sparks() -> list<u32> = bannerpeak.layout.info.sparks
+extern fn info.coins() -> list<u32> = bannerpeak.layout.info.coins
+extern fn info.foes() -> list<u32> = bannerpeak.layout.info.foes
+extern fn info.hints() -> list<u32> = bannerpeak.layout.info.hints
+extern fn info.banners() -> list<u32> = bannerpeak.layout.info.banners
+extern fn info.gates_len() -> u32 = bannerpeak.layout.info.gates_len
+extern fn info::sparks_len() -> u32 = bannerpeak.layout.info.sparks_len
+extern fn info.coins_len() -> u32 = bannerpeak.layout.info.coins_len
+extern fn info.foes_len() -> u32 = bannerpeak.layout.info.foes_len
+extern fn info.start_x() -> i32 = bannerpeak.layout.info.start_x
+extern fn info.start_y() -> i32 = bannerpeak.layout.info.start_y
+extern fn info.pole_x() -> i32 = bannerpeak.layout.info.pole_x
+extern fn info.pole_y() -> i32 = bannerpeak.layout.info.pole_y
+extern fn info.great_pole_x() -> i32 = bannerpeak.layout.info.great_pole_x
+extern fn info.great_pole_y() -> i32 = bannerpeak.layout.info.great_pole_y
+extern fn info.finale_x() -> i32 = bannerpeak.layout.info.finale_x
+extern fn info.finale_y() -> i32 = bannerpeak.layout.info.finale_y
+extern fn info.arch_x() -> i32 = bannerpeak.layout.info.arch_x
+extern fn info.arch_y() -> i32 = bannerpeak.layout.info.arch_y
+extern fn info.board_x() -> i32 = bannerpeak.layout.info.board_x
+extern fn info.board_y() -> i32 = bannerpeak.layout.info.board_y
+extern fn info.cinder_x() -> i32 = bannerpeak.layout.info.cinder_x
+extern fn info.cinder_y() -> i32 = bannerpeak.layout.info.cinder_y
+
+# gate / spark / coin number i: its cell
+fn info.gate_x(i: u32) -> i32:
+  return nth(info::gates(), i * 2)
+
+fn info.gate_y(i: u32) -> i32:
+  return nth(info::gates(), i * 2 + 1)
+
+fn info.spark_x(i: u32) -> i32:
+  return nth(info::sparks(), i * 2)
+
+fn info.spark_y(i: u32) -> i32:
+  return nth(info::sparks(), i * 2 + 1)
+
+# banner n: whether it is picked up at a place, and where
+fn info.banner_has(n: u32) -> bool:
+  return nth(info::banners(), n * 3 + 2) == 1
+
+fn info.banner_x(n: u32) -> i32:
+  return nth(info::banners(), n * 3)
+
+fn info.banner_y(n: u32) -> i32:
+  return nth(info::banners(), n * 3 + 1)
+
+# The hint glyph on cell (x, y), or 0.
+fn hint_at(x: i32, y: i32) -> u32:
+  return hint_scan(info::hints(), x, y)
+
+fn hint_scan(xs: list<u32>, x: i32, y: i32) -> u32:
+  if xs.is_empty():
+    return 0
+  let g = xs.head()
+  let r1 = xs.tail()
+  let hx = r1.head()
+  let r2 = r1.tail()
+  let hy = r2.head()
+  if hx == x && hy == y:
+    return g
+  return hint_scan(r2.tail(), x, y)
+
+# Index of the spark at cell (x, y) among the sparks, or 8 for none.
+fn spark_index(x: i32, y: i32) -> u32:
+  return spark_scan(0, x, y)
+
+fn spark_scan(n: u32, x: i32, y: i32) -> u32:
+  if n >= info::sparks_len():
+    return 8
+  if info::spark_x(n) == x && info::spark_y(n) == y:
+    return n
+  return spark_scan(n + 1, x, y)
+
+case sine
+case cosine
+case ping_pong
+case movers
+case section_of
+case cell
+case hatch_to

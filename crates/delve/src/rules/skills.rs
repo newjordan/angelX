@@ -39,9 +39,9 @@ pub const NAMES: [&str; SKILLS] =
 /// the rest, is what holds a skill back.
 pub const REST: [u32; SKILLS] = [3 * HZ; SKILLS];
 
-/// Skill levels I, II and III. Level I is where every knight starts; II
-/// comes with the school's Adept rank; III is taught by a questline's
-/// teacher (`questline`). Named constants per level, fixed numbers only.
+/// Skill levels I, II and III. Every knight starts at II; III is taught by
+/// a questline's teacher (`questline`). Named constants per level, fixed
+/// numbers only.
 pub const GAS_LIFE_L: [u32; 3] = [8 * HZ, 9 * HZ, 10 * HZ];
 pub const GAS_RADIUS_L: [f32; 3] = [3.5, 4.0, 4.5];
 pub const POISON_BASE_L: [u32; 3] = [4, 5, 6];
@@ -58,33 +58,15 @@ pub const SHIELD_REST_L: [u32; 3] = [3 * HZ, 5 * HZ / 2, 2 * HZ];
 pub const SHIELD_LINKS_L: [u8; 3] = [1, 2, 3];
 
 impl Run {
-    /// Knight `id`'s level with a skill, I–III. I is the default; II comes
-    /// with the school's Adept rank; III only from the skill's questline.
+    /// Knight `id`'s level with a skill, I–III. Every knight has the second
+    /// level from the start; III only from the skill's questline.
     pub fn skill_level(&self, id: u32, which: usize) -> usize {
         let taught = self
             .players
             .get(&id)
-            .and_then(|h| self.home.questlines.level(&super::home::Home::school_key(h), which))
-            .unwrap_or(1);
-        if taught >= 2 {
-            return taught;
-        }
-        // II rides on the school's Adept rank (or better).
-        if self
-            .players
-            .get(&id)
-            .is_some_and(|h| {
-                self.home
-                    .school
-                    .standing(&super::home::Home::school_key(h))
-                    .rank
-                    >= super::school::Rank::Adept
-            })
-        {
-            2
-        } else {
-            1
-        }
+            .and_then(|h| self.home.questlines.level(&super::home::Home::profile_key(h), which))
+            .unwrap_or(2);
+        taught.max(2)
     }
 
     /// The live constants for knight `id`'s skills: the named constant per
@@ -94,42 +76,6 @@ impl Run {
     }
     pub fn gas_radius(&self, id: u32) -> f32 {
         GAS_RADIUS_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
-    }
-    pub fn poison_base(&self, id: u32) -> u32 {
-        POISON_BASE_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
-    }
-    pub fn fire_life(&self, id: u32) -> u32 {
-        FIRE_LIFE_L[self.skill_level(id, FIRE).clamp(1, 3) - 1]
-    }
-    pub fn fire_radius(&self, id: u32) -> f32 {
-        FIRE_RADIUS_L[self.skill_level(id, FIRE).clamp(1, 3) - 1]
-    }
-    pub fn mine_max(&self, id: u32) -> usize {
-        MINE_MAX_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
-    }
-    pub fn mine_arm(&self, id: u32) -> u32 {
-        MINE_ARM_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
-    }
-    pub fn mine_blast(&self, id: u32) -> f32 {
-        MINE_BLAST_L[self.skill_level(id, MINE).clamp(1, 3) - 1]
-    }
-    pub fn wall_max(&self, id: u32) -> usize {
-        WALL_MAX_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
-    }
-    pub fn wall_hp(&self, id: u32) -> u32 {
-        WALL_HP_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
-    }
-    pub fn wall_life(&self, id: u32) -> u32 {
-        WALL_LIFE_L[self.skill_level(id, WALL).clamp(1, 3) - 1]
-    }
-    pub fn shield_speed(&self, id: u32) -> f32 {
-        SHIELD_SPEED_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
-    }
-    pub fn shield_rest(&self, id: u32) -> u32 {
-        SHIELD_REST_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
-    }
-    pub fn shield_links(&self, id: u32) -> u8 {
-        SHIELD_LINKS_L[self.skill_level(id, SHIELD).clamp(1, 3) - 1]
     }
 }
 /// How far a canister or firebomb flies, in arena units.
@@ -145,7 +91,7 @@ pub const GAS_LIFE: u32 = 7 * HZ;
 pub const GAS_RADIUS: f32 = 3.0;
 const GAS_SWELL: u32 = HZ / 2;
 const GAS_DRIFT: f32 = 1.1;
-pub(super) const POISON_BASE: u32 = 4;
+pub const POISON_BASE: u32 = 4;
 const POISON_EVERY: u32 = HZ / 2;
 const POISON_LINGER: u32 = 3 * HZ;
 /// Fart Bombs: a cloud's life, a knight's rest between two (at N 1), and
@@ -474,7 +420,7 @@ impl Run {
 
     /// Where a canister thrown by knight `id` lands, `reach` units along
     /// their aim: short of any stone, and on the ground side-on.
-    fn lob_target(&self, id: u32, reach: f32) -> (f32, f32) {
+    pub(super) fn lob_target(&self, id: u32, reach: f32) -> (f32, f32) {
         let Some(hero) = self.players.get(&id) else {
             return (0.0, 0.0);
         };
@@ -810,8 +756,9 @@ impl Run {
             }
         }
         self.works.clouds.retain(|c| c.age < GAS_LIFE);
-        let clouds = self.works.clouds.clone();
-        for cloud in &clouds {
+        let n = self.works.clouds.len();
+        for i in 0..n {
+            let cloud = self.works.clouds[i];
             let r = cloud.radius();
             // The nearest in full, the rest at the share past them (`aoe`).
             let caught = aoe::reached(&self.enemies, (cloud.x, cloud.y), |enemy| {
@@ -855,16 +802,18 @@ impl Run {
             blaze.age += 1;
         }
         self.works.blazes.retain(|b| b.age < b.life);
-        let blazes = self.works.blazes.clone();
-        for blaze in &blazes {
+        let n = self.works.blazes.len();
+        for i in 0..n {
+            let blaze = self.works.blazes[i];
             // The nearest in full, the rest at the share past them (`aoe`).
             let caught = aoe::reached(&self.enemies, (blaze.x, blaze.y), |enemy| {
-                self.reaches(
-                    (blaze.x, blaze.y),
-                    blaze.radius,
-                    (enemy.x, enemy.y),
-                    enemy.radius() * 0.5,
-                )
+                !(blaze.hostile() && furnace::fireproof(enemy, &self.bosses))
+                    && self.reaches(
+                        (blaze.x, blaze.y),
+                        blaze.radius,
+                        (enemy.x, enemy.y),
+                        enemy.radius() * 0.5,
+                    )
             });
             for (rank, i) in caught.into_iter().enumerate() {
                 afflict(
@@ -1213,7 +1162,9 @@ impl Run {
         for bane in &mut self.works.banes {
             bane.left = bane.left.saturating_sub(1);
         }
-        for bane in self.works.banes.clone() {
+        let n = self.works.banes.len();
+        for i in 0..n {
+            let bane = self.works.banes[i];
             let every = match bane.kind {
                 Bane::Poison => POISON_EVERY,
                 Bane::Burn => BURN_EVERY,

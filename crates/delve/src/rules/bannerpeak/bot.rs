@@ -709,7 +709,8 @@ impl Session {
         }
         if let Some(d) = flee {
             let d = if (d > 0 && fx > hi - 10) || (d < 0 && fx < lo + 10) { -d } else { d };
-            return keys(d, ground && !held_jump && (b.vy == 0) && false, false);
+            // The hop is held off: leaving a mark is a step, not a jump.
+            return keys(d, false, false);
         }
         let dx = bo.x - fx;
         match bo.beat {
@@ -832,3 +833,7 @@ impl Session {
         false
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
+#[path = "../../../tests/rules/bannerpeak_bot_bend_cases__tests.rs"]
+pub mod bend_cases_bot;

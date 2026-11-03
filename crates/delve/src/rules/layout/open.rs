@@ -529,6 +529,7 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         rooms: Vec::new(),
         secret: None,
         open: None,
+        altar_at: std::collections::BTreeMap::new(),
     };
     let mut open = Open {
         map: 0,
@@ -599,12 +600,21 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         o.sort_by_key(|&i| (std::cmp::Reverse(dist[i]), i));
         o
     };
+    // The side-on halls hang only while switched on (`ledge_on`, `wanted_on`).
     if depth == 1 {
-        hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| ledge(c, d), rng);
+        if super::ledge_on() {
+            hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| ledge(c, d), rng);
+        }
     } else if depth < DEEPEST && super::super::mix(shape).is_multiple_of(2) {
         hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| pit(c, d), rng);
     }
-    hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| wanted(c, d), rng);
+    if super::wanted_on() {
+        hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| wanted(c, d), rng);
+    }
+    // The Gnome's Garden, behind its gate on the third floor (`nooks::gnome`).
+    if depth == super::super::nooks::gnome::DEPTH {
+        hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| super::super::nooks::room(RoomKind::GnomeParty, c, d), rng);
+    }
     if depth >= DEEPEST {
         hang(&mut floor, &mut open, &mut taken, &[guardian], &|c, d, rng| {
             let mut doors = [false; 4];

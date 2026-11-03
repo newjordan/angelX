@@ -81,7 +81,7 @@ mod detect;
 #[cfg(feature = "image")]
 pub mod gif;
 mod router;
-#[cfg(feature = "video")]
+#[cfg(feature = "video-playback")]
 pub mod video;
 #[cfg(feature = "video")]
 pub mod webcam;
@@ -97,7 +97,7 @@ pub use detect::{is_animated_png, is_animated_png_from_bytes};
 #[cfg(feature = "image")]
 pub use gif::{DisposalMethod, GifFrame, GifPlayer};
 pub use router::{MediaContent, MediaPlayer};
-#[cfg(feature = "video")]
+#[cfg(feature = "video-playback")]
 pub use video::{TimedFrame, TimedRgbaFrame, VideoPlayer};
 #[cfg(feature = "video")]
 pub use webcam::{list_webcams, WebcamDevice, WebcamDeviceId, WebcamPlayer, WebcamPlayerBuilder};

@@ -215,6 +215,7 @@ fn throw(
         kind,
         damage,
         guardian: None,
+        shield_line: false,
     };
     let start = shots.len();
     patterns::emit(emitter, &aim, shots);

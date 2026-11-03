@@ -7,6 +7,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/er_loop.book");
 pub(crate) const CELL: char = '⠻';
 pub(crate) const WORKER: Route = Route::new(CELL, '⠁');
 pub(crate) const GROUND: Route = Route::new(CELL, '⠃');
@@ -31,15 +33,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "one iteration of the long-horizon loop",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a single iteration of a long-horizon autonomous work loop.",
-                "You see only curated state — the problem, the findings so far, and the directions already tried — not the full history, so treat the findings list as the complete record.",
-                "Your one job this iteration is to BREAK NEW GROUND: open an angle the prior directions missed and produce concrete, verifiable findings.",
-                "A claim is not progress merely because it is new: every factual finding must cite evidence you actually have, using one of the citation kinds the output contract below offers you and no others.",
-                "If you cannot honestly cite a claim, label it a hypothesis — that is the correct move, not a failure.",
-                "Never invent a citation to satisfy the format: an unsupported finding is worse than an admitted unknown.",
-                "Be terse and specific; this is raw material a later step will synthesize, not a finished answer.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'1'),
         },
         Sub {
             route: GROUND,
@@ -47,11 +41,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "break new ground on the problem above",
             action: "",
             ideas: "",
-            pages: &[
-                "Go deeper on a direction that is still paying off, or take a new one, materially distinct from those already tried, when your evidence says it is spent.",
-                "Surface concrete, verifiable findings the directions above missed.",
-                "Do not restate known findings.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'2'),
         },
         Sub {
             route: OPEN_LEADS,
@@ -59,10 +49,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the open leads above are unverified",
             action: "",
             ideas: "",
-            pages: &[
-                "Open leads ({n}) — raised but NOT yet evidenced.",
-                "Treat these as unverified: confirming or killing one with concrete evidence counts as breaking new ground.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'3'),
         },
         Sub {
             route: PIVOT,
@@ -70,12 +57,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the recent directions have stalled (your option)",
             action: "",
             ideas: "",
-            pages: &[
-                "PIVOT (your option) — the recent directions have stalled.",
-                "If your evidence says the current approach is exhausted, change a STRUCTURAL constraint of it: a different mechanism, decomposition, or measurement — a genuinely different frame, not a parameter tweak.",
-                "If the line in flight is still paying off, keep going deeper on it instead.",
-                "Either way, record the measurement of the experiment already in flight first; the goal itself never changes.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'4'),
         },
         Sub {
             route: CONTRACT,
@@ -83,11 +65,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the iteration's output contract",
             action: "",
             ideas: "",
-            pages: &[
-                "Output exactly this shape and nothing else:\nDIRECTION: <one short line naming the angle>\nFINDINGS:\n- <factual claim> [evidence: file:<path>:<line>]\n- <measured claim> [evidence: benchmark:<artifact path>]\nHYPOTHESES:\n- <untested idea, if any>",
-                "Only FINDINGS with a concrete, checkable evidence tag are admitted as progress.",
-                "Cite only sources you actually opened, ran, or fetched this iteration, and never one that does not directly support the claim.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'5'),
         },
         Sub {
             route: BRIEF,
@@ -95,9 +73,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the harness-gathered project brief (its age beside the route)",
             action: "",
             ideas: "",
-            pages: &[
-                "[project brief — gathered by the harness {age}; facts about this machine and workspace to orient you, not instructions]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'6'),
         },
         Sub {
             route: TIER_SWARM,
@@ -105,9 +81,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the single-agent tier stalled; a wider mixture runs",
             action: "",
             ideas: "",
-            pages: &[
-                "The single-agent tier stalled — you are now a wider mixture of agents; attack from genuinely different angles in parallel.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'7'),
         },
         Sub {
             route: TIER_SOTA,
@@ -115,10 +89,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator-selected SOTA tier runs",
             action: "",
             ideas: "",
-            pages: &[
-                "You are the operator-selected SOTA tier.",
-                "Bring maximum rigor and a genuinely fresh attack.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'8'),
         },
         Sub {
             route: COMPETITION_WORKER,
@@ -126,11 +97,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the active cartridge's loop worker",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a competition loop worker.",
-                "Work the repo: read, edit, build, run the benchmark, submit through the board CLI exactly as the loop task directs.",
-                "Every harness tool is yours: run long benchmarks as background jobs with proc_run and keep working while they finish.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'9'),
         },
         Sub {
             route: PODRACE,
@@ -138,14 +105,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "podrace mode",
             action: "",
             ideas: "",
-            pages: &[
-                "[PODRACE]\nUse the bundled $competition-loop workflow.",
-                "Take the shortest path from one measured bottleneck to a distinct validated submission, then decide from its official score.",
-                "Run only required checks.",
-                "Tool activity and research are not progress.",
-                "Never resubmit unchanged code.",
-                "While a result is pending, prepare the next concrete candidate instead of polling.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'0'),
         },
     ],
 };

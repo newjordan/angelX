@@ -47,21 +47,62 @@ pub(crate) enum ResponseEvent {
     Ignore,
 }
 
-/// Decode one SSE line. The Responses API carries the event kind inside each
-/// `data:` JSON `type`, so the `event:` lines are ignored and we dispatch on it.
+/// Parse once for the event decoder, replay capture, and wire observer. The
+/// original line and payload remain available because those consumers have
+/// different prefix and provenance rules.
+pub(super) struct ParsedResponsesLine<'a> {
+    pub(super) line: &'a str,
+    pub(super) payload: &'a str,
+    pub(super) value: Option<serde_json::Value>,
+    done: bool,
+}
+
+impl<'a> ParsedResponsesLine<'a> {
+    pub(super) fn new(line: &'a str) -> Self {
+        let trimmed = line.trim();
+        let payload = trimmed
+            .strip_prefix("data:")
+            .map(str::trim)
+            .unwrap_or(trimmed);
+        let ignored =
+            trimmed.is_empty() || trimmed.starts_with(':') || trimmed.starts_with("event:");
+        let done = !ignored && payload == "[DONE]";
+        let value = if ignored || done {
+            None
+        } else {
+            serde_json::from_str(payload).ok()
+        };
+        Self {
+            line,
+            payload,
+            value,
+            done,
+        }
+    }
+
+    pub(super) fn event(&self) -> ResponseEvent {
+        if self.done {
+            return ResponseEvent::Done(None);
+        }
+        self.value
+            .as_ref()
+            .map(parse_responses_value)
+            .unwrap_or(ResponseEvent::Ignore)
+    }
+
+    pub(super) fn wire_payload(&self) -> Option<&str> {
+        let data = self.line.strip_prefix("data:")?.trim();
+        (!data.is_empty() && data != "[DONE]").then_some(data)
+    }
+}
+
+/// Decode one SSE line, including bare JSON accepted by compatible providers.
+#[cfg(test)]
 pub(crate) fn parse_responses_event(line: &str) -> ResponseEvent {
-    let line = line.trim();
-    if line.is_empty() || line.starts_with(':') || line.starts_with("event:") {
-        return ResponseEvent::Ignore;
-    }
-    let payload = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
-    if payload == "[DONE]" {
-        return ResponseEvent::Done(None);
-    }
-    let v: serde_json::Value = match serde_json::from_str(payload) {
-        Ok(v) => v,
-        Err(_) => return ResponseEvent::Ignore,
-    };
+    ParsedResponsesLine::new(line).event()
+}
+
+fn parse_responses_value(v: &serde_json::Value) -> ResponseEvent {
     let kind = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
     match kind {
         "response.output_text.delta" => v

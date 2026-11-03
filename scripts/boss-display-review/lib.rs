@@ -130,7 +130,7 @@ mod tests {
 #[cfg(test)]
 mod effects_study {
     use super::tests::capture;
-    use angel_delve::render::overworld::arena::{self,art_v2::testing};
+    use angel_delve::render::overworld::arena::{self,testing};
     #[test]
     #[ignore = "writes four-seat effect display trials and unchanged simulation"]
     fn write_effect_study() {

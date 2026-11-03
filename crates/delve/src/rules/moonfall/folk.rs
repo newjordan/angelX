@@ -325,16 +325,6 @@ fn build(day: u32) -> Timetable {
     Timetable { legs, seen }
 }
 
-/// The next tick at or after `clock` that `folk` can be seen (the schedule
-/// only: Aster after a shoe keeps his own).
-pub fn next_seen(folk: Folk, clock: u32, day: u32) -> Option<u32> {
-    let table = timetable(day);
-    table.seen[folk.index()]
-        .iter()
-        .find(|&&(_, b)| b > clock)
-        .map(|&(a, _)| a.max(clock))
-}
-
 /// The timetable for a day length (cached: a pure function of it).
 pub fn timetable(day: u32) -> Arc<Timetable> {
     static CACHE: OnceLock<Mutex<BTreeMap<u32, Arc<Timetable>>>> = OnceLock::new();

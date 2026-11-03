@@ -1,0 +1,233 @@
+# crates/delve/src/rules/stakes.rs — how hard the delve pushes back, and how little a hurt knight gets back.
+# `Stakes` is its snake_case word ("calm", "fight", "boss", "early"); a `Mend` is a number:
+# 0 Rest, 1 Potion, 2 Party, 3 Passive.
+
+# The i-th of a table (0 past its end).
+def core.at(xs: [U32], i: U32) -> U32:
+    match (List.get(&2, U32, xs, U32.to_nat(i)) : U32?):
+        case Some{v: U32}:
+            return v
+        case None{}:
+            return 0
+
+def stakes.DEPTH_HEALTH(i: U32) -> U32:
+    return core.at([100, 100, 110, 115, 130, 160], i)
+
+def stakes.DEPTH_HIT(i: U32) -> U32:
+    return core.at([100, 115, 135, 165, 200, 240], i)
+
+def stakes.FURY(i: U32) -> U32:
+    return core.at([0, 0, 0, 3, 3, 3], i)
+
+def stakes.EXTRA_FOES(i: U32) -> U32:
+    return core.at([0, 0, 2, 4, 6, 7], i)
+
+def stakes.ELITE_CHANCE(i: U32) -> U32:
+    return core.at([0, 0, 30, 45, 55, 60], i)
+
+def stakes.PARTY_HIT(i: U32) -> U32:
+    return core.at([60, 100, 120, 135, 140, 145], i)
+
+def stakes.EARLY_PARTY_HIT(i: U32) -> U32:
+    return core.at([100, 115, 130, 145, 150, 155], i)
+
+def stakes.PARTY_EXTRA(i: U32) -> U32:
+    return core.at([0, 2, 4, 6, 7, 8], i)
+
+def stakes.PARTY_FURY_TABLE(i: U32) -> U32:
+    return core.at([0, 1, 2, 3, 3, 3], i)
+
+def stakes.BOSS_HEALTH(i: U32) -> U32:
+    return core.at([100, 100, 200, 240, 310, 390], i)
+
+# The gunners the party brings to every room.
+def stakes.party_extra(knights: U32) -> U32:
+    if U32.is_zero(knights):
+        return 0
+    return stakes.PARTY_EXTRA((U32.min(knights, 6) - 1 : U32))
+
+# How many of an open chamber's company fight at once for a party of `knights`.
+def stakes.open_wave(knights: U32) -> U32:
+    if U32.is_ge(RS.u_clamp(knights, 1, 6), 5):
+        return 8
+    return 4294967295
+
+# The extra fury a party of `knights` brings to every monster's volleys.
+def stakes.party_fury(knights: U32) -> U32:
+    return stakes.PARTY_FURY_TABLE((RS.u_clamp(knights, 1, 6) - 1 : U32))
+
+# What a mend is worth in a moment, in percent.
+def stakes.worth(how: U32, stakes: String) -> U32:
+    if Bool.or(String.eq(stakes, "calm"), String.eq(stakes, "early")):
+        return 100
+    boss: Bool = String.eq(stakes, "boss")
+    if U32.is_eq(how, 0):
+        return Bool.pick(U32, boss, 40, 60)
+    if U32.is_eq(how, 1):
+        return Bool.pick(U32, boss, 40, 50)
+    if U32.is_eq(how, 2):
+        return Bool.pick(U32, boss, 20, 35)
+    return Bool.pick(U32, boss, 15, 30)
+
+# What `amount` comes to as a `how` in a `stakes` moment, before the passive budget and the room left.
+def stakes.landed(amount: U32, how: U32, stakes: String) -> U32:
+    return U32.max(core.div_ceil(RS.u_sat_mul(amount, stakes.worth(how, stakes)), 100), 1)
+
+# How much harder than a fresh knight this one hits.
+def stakes.Hero.strength(h: J.Val) -> F32:
+    b: J.Val = J.get(h, "bonus")
+    damage: F32 = (1.0 + (RS.u_as_f32(core.u(b, "damage")) / 100.0 : F32) : F32)
+    rate: F32 = (1.0 + (RS.u_as_f32(core.u(b, "rate")) / 100.0 : F32) : F32)
+    volley: F32 = 1.0
+    if U32.is_gt(core.u(b, "volley"), 0):
+        volley = (1.0 + (2.0 / RS.u_as_f32(core.u(b, "volley")) : F32) : F32)
+    arrows: F32 = (RS.u_as_f32((1 + core.u(b, "shots") : U32)) * volley : F32)
+    reach: F32 = (1.0 + (0.12 * RS.u_as_f32(core.u(b, "pierce")) : F32) + (0.1 * RS.u_as_f32(core.u(b, "chain")) : F32) + (0.1 * RS.u_as_f32(core.u(b, "bounce")) : F32) : F32)
+    orbit: F32 = (1.0 + (0.25 * RS.u_as_f32(core.u(b, "orbit")) : F32) : F32)
+    burst: F32 = (1.0 + (RS.u_as_f32(core.u(b, "burst")) / 150.0 : F32) : F32)
+    return (damage * rate * arrows * reach * orbit * burst : F32)
+
+# The most health this knight can be carried to.
+def stakes.Hero.hp_cap(h: J.Val) -> U32:
+    kit: U32 = 100
+    if Bool.not(J.is_null(J.get(h, "knight"))):
+        match (knights.knight_max_hp(core.s(h, "knight")) : U32?):
+            case Some{m: U32}:
+                kit = m
+            case None{}:
+                kit = 100
+    return core.uadd(core.uadd(150, U32.div(core.usub(kit, 100), 2)), core.u(J.get(h, "boon"), "plus"))
+
+# Hold the knight's health to the cap.
+def stakes.Hero.fit_hp(h: J.Val) -> J.Val:
+    cap: U32 = stakes.Hero.hp_cap(h)
+    if U32.is_gt(core.u(h, "max_hp"), cap):
+        h = core.set_u(h, "max_hp", cap)
+    return core.set_u(h, "hp", U32.min(core.u(h, "hp"), core.u(h, "max_hp")))
+
+# Mend the knight by `amount`, as `how` and the moment make it worth. (knight, what landed)
+def stakes.Hero.mend(h: J.Val, amount: U32, how: U32) -> (J.Val, U32):
+    if Bool.or(U32.is_zero(core.u(h, "hp")), U32.is_zero(amount)):
+        return (h, 0)
+    st: String = core.s(h, "stakes")
+    gain: U32 = stakes.landed(amount, how, st)
+    if Bool.and(U32.is_eq(how, 1), Bool.or(String.eq(st, "fight"), String.eq(st, "boss"))):
+        # Draughts one on another do less.
+        if U32.is_gt(core.u(h, "sipped"), 0):
+            gain = U32.max(core.div_ceil(RS.u_sat_mul(gain, stakes.DRAUGHT_AGAIN()), 100), 1)
+        h = core.set_u(h, "sipped", stakes.DRAUGHT_REST())
+    if Bool.and(U32.is_eq(how, 3), Bool.not(String.eq(st, "early"))):
+        budget: U32 = Bool.pick(U32, String.eq(st, "calm"), stakes.PASSIVE_CALM_PER_SECOND(), stakes.PASSIVE_PER_SECOND())
+        gain = U32.min(gain, core.usub(budget, core.u(h, "passive")))
+        h = core.set_u(h, "passive", (core.u(h, "passive") + gain : U32))
+    room: U32 = core.usub(core.u(h, "max_hp"), core.u(h, "hp"))
+    gain = U32.min(gain, room)
+    h = core.set_u(h, "hp", (core.u(h, "hp") + gain : U32))
+    return (h, gain)
+
+# Lifesteal: a mend of `amount` as `how`, within what the second's `LEECH_PER_SECOND` has left.
+def stakes.Hero.leech(h: J.Val, amount: U32, how: U32) -> (J.Val, U32):
+    amount = U32.min(amount, core.usub(stakes.LEECH_PER_SECOND(), core.u(h, "leeched")))
+    (h2: J.Val, gain: U32) = stakes.Hero.mend(h, amount, how)
+    return (core.set_u(h2, "leeched", (core.u(h2, "leeched") + gain : U32)), gain)
+
+# Fight, or a boss, or calm.
+def stakes.Run.stakes(run: J.Val) -> String:
+    if U32.is_le(rules.Run.floor(run), 2):
+        return "early"
+    if Bool.not(depths.Run.fighting(run)):
+        return "calm"
+    for e: J.Val in J.items(J.get(run, "enemies")):
+        if Bool.and(U32.is_ne(core.u(e, "hp"), 0), desperate.Enemy.is_boss(e)):
+            return "boss"
+    return "fight"
+
+# The living knights' average strength.
+def stakes.Run.party_strength(run: J.Val) -> F32:
+    sum: F32 = 0.0
+    n: U32 = 0
+    for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+        if Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "away"))):
+            sum = (sum + stakes.Hero.strength(h) : F32)
+            n = (n + 1 : U32)
+    if U32.is_zero(n):
+        return 1.0
+    return (sum / RS.u_as_f32(n) : F32)
+
+# Monsters' health from here on, in percent of their base (before the head count).
+def stakes.Run.toughness(run: J.Val) -> U32:
+    depth: U32 = core.u(J.get(run, "dungeon"), "depth")
+    floor: U32 = stakes.DEPTH_HEALTH((RS.u_clamp(depth, 1, 6) - 1 : U32))
+    power: F32 = 0.0
+    if U32.is_gt(depth, 2):
+        power = RS.f_clamp(((stakes.Run.party_strength(run) - 1.0 : F32) * stakes.POWER_HEALTH() : F32), 0.0, stakes.POWER_HEALTH_MAX())
+    return tune.Tune.percent((floor + RS.f_as_u32(power) : U32), tune.Tune.foe_health(J.get(run, "tune")))
+
+# A guardian's health on top of the floor's, in percent.
+def stakes.Run.boss_health(run: J.Val) -> U32:
+    return stakes.BOSS_HEALTH((RS.u_clamp(core.u(J.get(run, "dungeon"), "depth"), 1, 6) - 1 : U32))
+
+# What monsters deal, in percent: by floor, by the head count, and a little by the party's strength.
+def stakes.Run.pressure(run: J.Val) -> U32:
+    depth: U32 = core.u(J.get(run, "dungeon"), "depth")
+    floor: U32 = stakes.DEPTH_HIT((RS.u_clamp(depth, 1, 6) - 1 : U32))
+    knights: U32 = RS.u_clamp(rules.Run.party_len(run), 1, 6)
+    power: F32 = 0.0
+    if U32.is_gt(depth, 2):
+        power = RS.f_clamp(((stakes.Run.party_strength(run) - 1.0 : F32) * stakes.POWER_HIT() : F32), 0.0, stakes.POWER_HIT_MAX())
+    hit: U32 = 0
+    if U32.is_le(depth, 2):
+        hit = U32.div((floor * stakes.EARLY_PARTY_HIT((knights - 1 : U32)) : U32), 100)
+    else:
+        hit = U32.div(((floor + RS.f_as_u32(power) : U32) * stakes.PARTY_HIT((knights - 1 : U32)) : U32), 100)
+    return tune.Tune.percent(hit, tune.Tune.foe_hit(J.get(run, "tune")))
+
+# The ward after a hit, in ticks: `HIT_WARD` at its default.
+def tune.Tune.hit_ward_ticks(t: J.Val) -> U32:
+    return RS.f_as_u32(RS.f_max(RS.f_round((tune.Tune.hit_ward(t) * RS.u_as_f32(rules.HZ()) : F32)), 0.0))
+
+# Once a tick, before anything acts: tell every knight what the moment is worth, and what a hit weighs now.
+def stakes.Run.set_stakes(run: J.Val) -> J.Val:
+    st: String = stakes.Run.stakes(run)
+    # A guardian's blows land a little harder than the floor's.
+    pressure: U32 = U32.div((stakes.Run.pressure(run) * Bool.pick(U32, String.eq(st, "boss"), stakes.BOSS_HIT(), 100) : U32), 100)
+    new_second: Bool = U32.is_zero(W.rem_u32(W.of_j(J.get(run, "tick")), rules.HZ()))
+    ward: U32 = tune.Tune.hit_ward_ticks(J.get(run, "tune"))
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        h = core.set_s(h, "stakes", st)
+        h = core.set_u(h, "incoming", pressure)
+        h = core.set_u(h, "hit_ward", ward)
+        if new_second:
+            h = core.set_u(h, "passive", 0)
+            h = core.set_u(h, "leeched", 0)
+        h = core.set_u(h, "sipped", core.usub(core.u(h, "sipped"), 1))
+        h = core.set_u(h, "ward_rest", core.usub(core.u(h, "ward_rest"), 1))
+        players = J.set(players, k, stakes.Hero.fit_hp(h))
+    return J.set(run, "players", players)
+
+# A volley's shots from `from` on, each with `fury` more beside it, fanned a little to either side.
+def stakes.fan_out(fury: U32, shots: [J.Val], from: U32) -> [J.Val]:
+    fired: [J.Val] = []
+    i: U32 = 0
+    for s: J.Val in shots:
+        if Bool.and(U32.is_ge(i, from), Bool.and(J.is_null(J.get(J.get(J.get(s, "traits"), "path"), "beam")), U32.is_lt(U32.from_nat(List.length(&2, J.Val, fired)), stakes.FAN_SHOTS()))):
+            fired = List.append(&2, J.Val, fired, [s])
+        i = (i + 1 : U32)
+    for s: J.Val in fired:
+        k: U32 = 1
+        while U32.is_le(k, fury):
+            turn: F32 = (stakes.FAN_ANGLE() * RS.u_as_f32(k) : F32)
+            shots = List.append(&2, J.Val, shots, [stakes.fan_copy(s, turn)])
+            shots = List.append(&2, J.Val, shots, [stakes.fan_copy(s, F32.neg(turn))])
+            k = (k + 1 : U32)
+    return shots
+
+# A copy of a shot turned `turn` radians.
+def stakes.fan_copy(s: J.Val, turn: F32) -> J.Val:
+    c: F32 = F32.cos(turn)
+    sn: F32 = F32.sin(turn)
+    vx: F32 = core.f(s, "vx")
+    vy: F32 = core.f(s, "vy")
+    s = core.set_f(s, "vx", ((vx * c : F32) - (vy * sn : F32) : F32))
+    return core.set_f(s, "vy", ((vx * sn : F32) + (vy * c : F32) : F32))

@@ -1,0 +1,16 @@
+{ "fx": 0, "name": "frost shatter", "canvas": [40, 32], "pivot": [20, 24], "fps": 12, "seed": 31,
+  "beats": { "anticipation": 3, "action": 2, "follow": 3, "settle": 6 },
+  "layers": [
+    { "type": "particles", "form": "flake", "ramp": "frost", "motion": "gather", "area": [12, 5], "count": 8, "life": [3, 3],
+      "size": 0.9, "t0": 0, "t1": "action" },
+    { "type": "ring", "ramp": "frost", "r0": 11, "r1": 2, "th": 0.8, "squash": 0.4, "ease": "in", "t0": 0, "t1": "action" },
+    { "type": "ring", "ramp": "frost", "r0": 3, "r1": 13, "th": 1, "squash": 0.35, "t0": "action", "t1": "settle+1" },
+    { "type": "spikes", "ramp": "frost", "count": 6, "r1": 7, "th": 1.6, "size": 12, "t0": "action", "t1": "settle+2" },
+    { "type": "star", "ramp": "frost", "x": 1, "y": -11, "r1": 3, "count": 4, "t0": "follow", "t1": "settle" },
+    { "type": "particles", "form": "shard", "ramp": "frost", "y": -5, "spawn": "box", "area": [12, 8], "count": 14, "angle": -90,
+      "spread": 220, "speed": [2.2, 4.2], "drag": 0.08, "gravity": 0.35, "life": [5, 9], "size": 1.2, "t0": "settle", "t1": "end" },
+    { "type": "particles", "form": "flake", "ramp": "frost", "y": -6, "spawn": "box", "area": [14, 10], "count": 7, "angle": -90,
+      "spread": 360, "speed": [0.5, 1.1], "gravity": 0.02, "life": [8, 12], "size": 1.1, "t0": "settle", "t1": "end" },
+    { "type": "puffs", "ramp": "frost", "spawn": "line", "area": [16, 0], "count": 6, "life": [8, 12], "size": [1.4, 2.2], "gain": 1.1,
+      "t0": "settle", "t1": "end" }
+  ] }

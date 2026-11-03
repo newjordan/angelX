@@ -1,7 +1,8 @@
 //! The whole ride, played by bots: the Moonwell Road cleared at every seat
 //! count and by both routes, with the tick counts recorded.
-use super::bot::Route;
+use super::legacy::{RiderOracle, SessionOracle, old, old_rider, old_terrain};
 use super::level::level;
+use super::oracle::Route;
 use super::*;
 
 /// A table of `seats` knights, each bot taking the route `route(id)` names.
@@ -388,8 +389,8 @@ fn the_fork_report() {
     }
 }
 
-use super::bot::Skill;
-use super::rider::{Ev, Keys, Rider};
+use super::oracle::Skill;
+use super::oracle::rider::{Ev, Keys};
 
 /// What a tuning round saw.
 #[derive(Default, Debug)]
@@ -484,12 +485,12 @@ fn the_dimming_and_loop_report() {
         let lvl = level();
         let mut least = None;
         for v in (400..2600).step_by(20) {
-            let mut r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(4690));
+            let mut r = old_rider(4690);
             r.gsp = v;
             let n = Numbers { loop_min: l, ..Numbers::default() };
             let mut ev = Vec::new();
             for _ in 0..200 {
-                r.step(Keys { x: 1, ..Keys::default() }, &lvl.terrain, &n, &mut ev);
+                r.step(Keys { x: 1, ..Keys::default() }, old_terrain(), &old(&n), &mut ev);
             }
             if !ev.contains(&Ev::Fell) && r.x / 256 > 4800 {
                 least = Some(v);

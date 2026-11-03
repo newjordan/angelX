@@ -50,9 +50,8 @@ fn draw(run: &Run, focus: Option<u32>) -> (Img, Img) {
     if let Some((id, seat)) = id.and_then(|id| s.seats.get(&id).map(|seat| (id, seat))) {
         let r = &seat.rider;
         // A heavy blow jolts the picture, never the heads-up display.
-        let amp = (i32::from(r.shake) + 2) / 4;
-        let jolt = |k: u32| if amp == 0 { 0 } else { hash(s.elapsed as i32, id as i32, k) as i32 % (2 * amp + 1) - amp };
-        let v = View { cx: r.cam_x + jolt(1), cy: r.cam_y + jolt(2), zoom: r.zoom, w: 384, h: 224 };
+        let jolt = super::camera::smooth_shake(u64::from(s.elapsed), u32::from(r.shake), 12, 3.0);
+        let v = View { cx: r.cam_x + jolt.0, cy: r.cam_y + jolt.1, zoom: r.zoom, w: 384, h: 224 };
         let words = hud_words(s, &seat.rider);
         // What the riders' tags keep clear of: the heads-up display's words,
         // and the tally's panel when it is up.
@@ -610,11 +609,11 @@ pub fn scene(im: &mut Img, s: &Session, id: u32, v: &View, taken: &[Rect]) {
         if !(-80..v.w + 80).contains(&sx) {
             continue;
         }
-        let tw = text_width(sign.words);
+        let tw = text_width(&sign.words);
         im.rect(sx - 1, sy - 20, 2, 20, 'b');
         im.rect(sx - tw / 2 - 3, sy - 34, tw + 6, 14, 'P');
         im.frame(sx - tw / 2 - 3, sy - 34, tw + 6, 14, 'B');
-        im.text(sx - tw / 2, sy - 31, sign.words, 'T');
+        im.text(sx - tw / 2, sy - 31, &sign.words, 'T');
     }
     for (i, p) in lvl.pads.iter().enumerate() {
         let sx = v.sx(p.x);

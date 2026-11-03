@@ -12,6 +12,39 @@ use super::{Primary, Route, Sub};
 
 pub(crate) const CELL: char = '⠣';
 
+// The compile-time fallback uses the same catalog shipped for runtime reloads.
+const CATALOG: &str = include_str!("../../../../book/gh_navigation.tsv");
+
+const fn catalog_pages<const N: usize>(route: u8) -> [&'static str; N] {
+    let mut pages = [""; N];
+    let mut i = 0;
+    while i < N {
+        pages[i] = catalog_page(CATALOG, route, i);
+        i += 1;
+    }
+    pages
+}
+
+const fn catalog_page(catalog: &'static str, route: u8, ordinal: usize) -> &'static str {
+    let bytes = catalog.as_bytes();
+    let mut start = 0;
+    let mut seen = 0;
+    while start < bytes.len() {
+        let mut end = start;
+        while end < bytes.len() && bytes[end] != b'\n' {
+            end += 1;
+        }
+        if end >= start + 2 && bytes[start] == route && bytes[start + 1] == b'\t' {
+            if seen == ordinal {
+                return catalog.split_at(start + 2).1.split_at(end - start - 2).0;
+            }
+            seen += 1;
+        }
+        start = end + 1;
+    }
+    panic!("missing navigation catalog page");
+}
+
 pub(crate) const PRIMARY: Primary = Primary {
     cell: CELL,
     name: "navigation",
@@ -23,7 +56,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `outline`",
             action: "",
             ideas: "",
-            pages: &["path inside the workspace (relative or absolute)"],
+            pages: &catalog_pages::<1>(b'1'),
         },
         Sub {
             route: Route::new(CELL, '⠃'),
@@ -31,15 +64,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `list_dir`",
             action: "",
             ideas: "",
-            pages: &[
-                "filename fragment to rank first (exact, substring, then fuzzy); does not filter",
-                "basename glob to rank first; does not filter",
-                "zero-based entry offset in the sorted listing",
-                "page size (default 700); 24000-byte page window also applies; omitted counts and continuation are reported",
-                "include ignored/generated paths (default false); credential and quarantine exclusions still apply",
-                "include hidden paths (default false); .git and credential files remain excluded",
-                "workspace-relative directory (default '.')",
-            ],
+            pages: &catalog_pages::<7>(b'2'),
         },
         Sub {
             route: Route::new(CELL, '⠉'),
@@ -47,17 +72,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `grep`",
             action: "",
             ideas: "",
-            pages: &[
-                "include ignored/generated paths (default false); credential and quarantine exclusions still apply",
-                "include hidden paths (default false); .git and credential files remain excluded",
-                "regular expression",
-                "file or directory inside the workspace, relative or absolute (default '.'); may be combined with `paths` — both are merged and deduplicated",
-                "1-8 files/directories to search as one sorted, deduplicated union; both `path` and `paths` together are accepted (merged, deduplicated)",
-                "deterministic continuation cursor from a prior grep receipt; only files lexically after this workspace-relative path are considered",
-                "workspace-relative files to omit (maximum 128); useful for bounded explicit resumption/exclusion",
-                "case-insensitive (default false)",
-                "lines before and after each match (default 0, maximum 10); overlapping windows are merged",
-            ],
+            pages: &catalog_pages::<9>(b'3'),
         },
         Sub {
             route: Route::new(CELL, '⠙'),
@@ -65,11 +80,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `find_files`",
             action: "",
             ideas: "",
-            pages: &[
-                "include ignored/generated paths (default false); credential and quarantine exclusions still apply",
-                "include hidden paths (default false); .git and credential files remain excluded",
-                "glob pattern, matched against workspace-relative paths",
-            ],
+            pages: &catalog_pages::<3>(b'4'),
         },
         Sub {
             route: Route::new(CELL, '⠑'),
@@ -77,17 +88,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `defs`",
             action: "",
             ideas: "",
-            pages: &[
-                "Set include_source with 1-8 discovered file paths to collect bounded definition and reference windows with file hashes in one read per file.",
-                "Provide exactly one of name/names.",
-                "optional workspace file or directory to scope; outside targets are refused",
-                "one symbol name to locate",
-                "1-8 symbol names to resolve in one workspace scan",
-                "case-insensitive symbol matching (default false)",
-                "return JSON source windows from explicit paths (default false)",
-                "discovered source files for include_source; no directories",
-                "total returned source text bytes, excluding JSON metadata (default 16384)",
-            ],
+            pages: &catalog_pages::<9>(b'5'),
         },
         Sub {
             route: Route::new(CELL, '⠋'),
@@ -95,9 +96,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `git_status`",
             action: "",
             ideas: "",
-            pages: &[
-                "A compact orientation before editing or committing; complements git_diff (which shows the actual changes).",
-            ],
+            pages: &catalog_pages::<1>(b'6'),
         },
         Sub {
             route: Route::new(CELL, '⠛'),
@@ -105,12 +104,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `self_map`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use this to understand or plan changes to yourself.",
-                "source module stem, e.g. agent/harness/registry (the layer prefix is optional)",
-                "a module stem (e.g. \"harness\", \"swarm\", \"tools/nav\") for its outline only",
-                "also persist the full map to SELF.md at the crate root",
-            ],
+            pages: &catalog_pages::<4>(b'7'),
         },
     ],
 };

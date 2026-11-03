@@ -22,11 +22,14 @@ impl Drop for Temp {
 }
 
 use crate::{
-    drive::together_shooter::{Run, home::Home},
+    drive::{
+        loop_ctl::LoopState,
+        together_shooter::{Run, home::Home},
+    },
     stage::world_viz::crawl::{dungeon::Dungeon, party},
 };
 
-pub(super) fn facts(id: &str, iterations: &[usize]) -> LoopState {
+pub(super) fn state(id: &str, iterations: &[usize]) -> LoopState {
     let mut st = LoopState {
         id: id.into(),
         iteration: iterations.last().copied().unwrap_or(200),
@@ -54,6 +57,10 @@ pub(super) fn facts(id: &str, iterations: &[usize]) -> LoopState {
     st.workspace = Some(std::env::temp_dir());
     st.confirm_settlement_checkpoint_for_test();
     st
+}
+
+pub(super) fn facts(id: &str, iterations: &[usize]) -> LoopSummary {
+    state(id, iterations).summary()
 }
 
 pub(super) fn value(site: &Site) -> serde_json::Value {
@@ -341,7 +348,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
 fn settlement_rendering_time_never_awards_work_and_motion_off_is_stable() {
     use crate::{
         stage::world_viz::{World, crawl::settlement::Scene},
-        ui::viz::lifecycle_viz::MotionMode,
+        telemetry::MotionMode,
     };
     let mut world = World::new(77);
     world.sync_settlement(&facts("A", &[]), "Miner", false);
@@ -377,15 +384,15 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
     use crate::app::App;
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     let player = app.host_name();
-    app.loop_ctl = facts("A", &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    app.loop_ctl = state("A", &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     app.adventure_mirror_drain();
-    let site = app.world.settlement_site().unwrap().unwrap().clone();
+    let site = app.realm.world.settlement_site().unwrap().unwrap().clone();
     assert_eq!(site.player, player);
     assert!(
         app.dungeon_command(Some("settlement"))
             .contains("PLAYER HALL")
     );
-    let run = app.dungeon.shooter.as_ref().unwrap();
+    let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(site.id.as_str()));
     assert_eq!(
         serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
@@ -395,10 +402,10 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
         value(&site)["floor"]
     );
     let before = serde_json::to_value(run).unwrap();
-    app.loop_ctl = facts("A", &(1..=20).collect::<Vec<_>>());
+    app.loop_ctl = state("A", &(1..=20).collect::<Vec<_>>());
     app.adventure_mirror_drain();
     assert_eq!(
-        serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+        serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
         before
     );
     assert!(
@@ -406,7 +413,7 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
             .contains("map is unchanged")
     );
     assert_eq!(
-        serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+        serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
         before
     );
 }
@@ -469,10 +476,10 @@ fn settlement_entry_requires_a_real_loop_association_even_before_work() {
         app.dungeon_command(Some("settlement"))
             .contains("Start a loop first")
     );
-    assert!(app.dungeon.shooter.is_none());
-    app.loop_ctl = facts("real-empty-loop", &[]);
+    assert!(app.realm.dungeon.shooter.is_none());
+    app.loop_ctl = state("real-empty-loop", &[]);
     app.adventure_mirror_drain();
-    let site = app.world.settlement_site().unwrap().unwrap().clone();
+    let site = app.realm.world.settlement_site().unwrap().unwrap().clone();
     assert!(site.associated());
     assert_eq!(site.work, 0);
     assert!(
@@ -480,7 +487,7 @@ fn settlement_entry_requires_a_real_loop_association_even_before_work() {
             .contains("PLAYER HALL")
     );
     assert_eq!(
-        app.dungeon
+        app.realm.dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -494,7 +501,7 @@ fn settlement_entry_requires_a_real_loop_association_even_before_work() {
 fn settlement_measurement_and_stall_ceremonies_cannot_mint_resources() {
     use crate::{
         stage::world_viz::{AdventureEvent, World},
-        ui::viz::lifecycle_viz::MotionMode,
+        telemetry::MotionMode,
     };
     let mut world = World::new(77);
     world.sync_settlement(&facts("A", &[1]), "Miner", false);
@@ -568,7 +575,7 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
     let dir = Temp::new();
     let rewards = dir.path().join("island.json");
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
-    let seed = app.world.realm_seed();
+    let seed = app.realm.world.realm_seed();
     let player = app.host_name();
     let mut store = Store::beside(Some(&rewards), seed, &player).unwrap();
     store
@@ -578,10 +585,10 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
     // loaded Store is installed in this disk-free App preview at the narrow
     // World's test seam, then /dungeon start does its ordinary refresh/admit.
     let saved = Store::beside(Some(&rewards), seed, &player).unwrap();
-    app.world.settlement_restore_for_test(saved);
+    app.realm.world.settlement_restore_for_test(saved);
     assert!(app.loop_ctl.id.is_empty());
     app.dungeon_command(Some("start"));
-    let run = app.dungeon.shooter.as_ref().unwrap();
+    let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(store.site.id.as_str()));
     assert_eq!(
         serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
@@ -600,17 +607,17 @@ fn settlement_paid_realm_wing_is_not_lost_on_admission_between_loops() {
     let rewards = dir.path().join("island.json");
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     let player = app.host_name();
-    let mut store = Store::beside(Some(&rewards), app.world.realm_seed(), &player).unwrap();
+    let mut store = Store::beside(Some(&rewards), app.realm.world.realm_seed(), &player).unwrap();
     store.sync(&facts("completed-loop", &[1]), false).unwrap();
     let resources = store.site.resources.clone();
-    app.world.settlement_restore_for_test(store);
+    app.realm.world.settlement_restore_for_test(store);
     // Existing realm construction, not a loop reward or free purchase.
-    app.realm().home.levels.insert(Station::Wing, 1);
+    app.economy().home.levels.insert(Station::Wing, 1);
     assert!(app.loop_ctl.id.is_empty());
     app.dungeon_command(Some("start"));
-    let run = app.dungeon.shooter.as_ref().unwrap();
+    let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert!(run.dungeon.rooms.iter().any(|r| r.kind == RoomKind::Tavern));
-    let saved = Store::beside(Some(&rewards), app.world.realm_seed(), &player).unwrap();
+    let saved = Store::beside(Some(&rewards), app.realm.world.realm_seed(), &player).unwrap();
     assert!(saved.site.tavern);
     assert_eq!(saved.site.work, 1);
     assert_eq!(saved.site.resources, resources);
@@ -623,12 +630,12 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
     let rewards = dir.path().join("island.json");
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     let player = app.host_name();
-    let mut store = Store::beside(Some(&rewards), app.world.realm_seed(), &player).unwrap();
+    let mut store = Store::beside(Some(&rewards), app.realm.world.realm_seed(), &player).unwrap();
     store.sync(&facts("completed-loop", &[1]), false).unwrap();
     let site_id = store.site.id.clone();
     let path = store.path.clone().unwrap();
     let original = std::fs::read(&path).unwrap();
-    app.world.settlement_restore_for_test(store);
+    app.realm.world.settlement_restore_for_test(store);
     assert!(app.loop_ctl.id.is_empty());
     std::fs::write(&path, b"broken save").unwrap();
 
@@ -636,21 +643,21 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
         app.dungeon_command(Some("settlement"))
             .contains("Settlement not opened")
     );
-    assert!(app.dungeon.shooter.is_none());
-    assert!(app.world.settlement_site().is_err());
+    assert!(app.realm.dungeon.shooter.is_none());
+    assert!(app.realm.world.settlement_site().is_err());
     // The ordinary entry can fall back to its standard home, but must not
     // advertise success or admit cached settlement tiles after a disk failure.
     app.dungeon_command(Some("start"));
     assert!(
-        app.dungeon
+        app.realm.dungeon
             .shooter
             .as_ref()
             .unwrap()
             .settlement_site
             .is_none()
     );
-    assert!(app.dungeon.notice.contains("Settlement unavailable"));
-    assert!(app.world.settlement_site().is_err());
+    assert!(app.realm.dungeon.notice.contains("Settlement unavailable"));
+    assert!(app.realm.world.settlement_site().is_err());
     assert_eq!(std::fs::read(&path).unwrap(), b"broken save");
 
     app.dungeon_command(Some("off"));
@@ -660,7 +667,7 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
             .contains("PLAYER HALL")
     );
     assert_eq!(
-        app.dungeon
+        app.realm.dungeon
             .shooter
             .as_ref()
             .unwrap()

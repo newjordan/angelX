@@ -8,6 +8,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d4_angles.book");
 pub(crate) const CELL: char = '⠈';
 pub(crate) const FIRST_PRINCIPLES: Route = Route::new(CELL, '⠁');
 pub(crate) const RED_TEAM: Route = Route::new(CELL, '⠃');
@@ -31,11 +33,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the first-principles lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a first-principles analyst.",
-                "Strip the problem to its fundamentals and reason up from what must be true.",
-                "Ignore convention; derive the answer.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'1'),
         },
         Sub {
             route: RED_TEAM,
@@ -43,11 +41,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the red-team lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a skeptical red-teamer.",
-                "Hunt the flaws, failure modes, and hidden assumptions in the obvious answer.",
-                "Argue what would make it wrong, then say what survives that scrutiny.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'2'),
         },
         Sub {
             route: PRAGMATIST,
@@ -55,10 +49,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the pragmatist lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a pragmatic builder.",
-                "Focus on what actually works in practice, the simplest thing that ships, and the real-world constraints others gloss over.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'3'),
         },
         Sub {
             route: LATERAL,
@@ -66,10 +57,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the lateral lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a lateral, inventive thinker.",
-                "Find the unconventional angle, the reframing, or the analogy from a distant field that cracks the problem open.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'4'),
         },
         Sub {
             route: SYSTEMS,
@@ -77,11 +65,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the systems lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are a systems thinker.",
-                "Trace second-order effects, feedback loops, and how the parts interact over time.",
-                "Map the whole, not the part.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'5'),
         },
         Sub {
             route: EMPIRICIST,
@@ -89,11 +73,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the empiricist lens",
             action: "",
             ideas: "",
-            pages: &[
-                "You are an empiricist.",
-                "Ground every claim in evidence, numbers, and what can be measured or tested.",
-                "Flag what is unknown and how you would find out.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'6'),
         },
         Sub {
             route: STANCES,
@@ -101,16 +81,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a stance overlaid on a lens, sent as its pages",
             action: "",
             ideas: "",
-            pages: &[
-                "Stance overlay:",
-                "Keep the base angle's natural emphasis.",
-                "Do not add novelty for its own sake.",
-                "Prefer the smallest sufficient answer.",
-                "Strip optional complexity unless it clearly pays.",
-                "Look for omitted branches, adjacent options, and second-path answers others may miss.",
-                "Prioritize failure modes, edge cases, reversibility, and what could make the answer unsafe.",
-                "Translate the angle into concrete implementation, sequencing, and verification constraints.",
-            ],
+            pages: &super::catalog_pages::<8>(CATALOG, b'7'),
         },
         Sub {
             route: WAVE,
@@ -118,12 +89,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a proposer wave's frame: the scout's sources, the disagreement frontier",
             action: "",
             ideas: "",
-            pages: &[
-                "Research scout context — use what is relevant, ignore the rest, and never fabricate citations:",
-                "Earlier drafts exposed this disagreement frontier:",
-                "Add a materially new angle or sharpen the unresolved split.",
-                "No clear lexical disagreement frontier yet.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'8'),
         },
         Sub {
             route: REFINE,
@@ -131,10 +97,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a refine layer's frame: its emphasis, the critic's weaknesses",
             action: "",
             ideas: "",
-            pages: &[
-                "Work the synthesis with this emphasis:",
-                "Known weaknesses in these drafts — fix or address them:",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'9'),
         },
         Sub {
             route: SCOUT,
@@ -142,13 +105,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the live research scout, recited to a seat with no tool channel",
             action: "",
             ideas: "",
-            pages: &[
-                "You are Grok, the live research scout for an angelX mixture-of-agents panel.",
-                "Bring fresh web/X context back to the team without solving the whole task.",
-                "Focus on current, latest, trending, or online facts.",
-                "Return concise bullets with dates when available, include source URLs, and flag uncertainty.",
-                "User request:",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'0'),
         },
     ],
 };

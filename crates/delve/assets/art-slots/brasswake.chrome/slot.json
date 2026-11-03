@@ -662,7 +662,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "brasswake.chrome",
-  "source_path": "/work/artifacts/art-prod/slots/brasswake.chrome/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/brasswake.chrome/v01/source-sheet.png",
   "source_sha256": "add21e3e22b3543156507495a586be3c46e4bafa61e62073dfb4dee86d9c9797",
   "tool_version": 2
 }

@@ -63,7 +63,7 @@ verified outcome are different events.
 | Goal, loop, graph | Outer controllers choose the next turn | [`drive/goal.rs`](../../cockpit/src/drive/goal.rs), [`loop_ctl.rs`](../../cockpit/src/drive/loop_ctl.rs), [`graph_ctl.rs`](../../cockpit/src/drive/graph_ctl.rs) |
 | Proof-carrying candidate | Investigate, mark a red regression, implement, verify, review | [`swarm_compile/`](../../cockpit/src/agent/harness/swarm_compile/) |
 | Campaign and competition | Durable coordination and cartridge hooks | [`drive/campaign/`](../../cockpit/src/drive/campaign/), [`drive/competition/`](../../cockpit/src/drive/competition/), [cartridges](../CARTRIDGES.md) |
-| Research and reinforcement | Labyrinth, science, RL, self-loop, conductor | [`drive/labyrinth.rs`](../../cockpit/src/drive/labyrinth.rs), [`science.rs`](../../cockpit/src/drive/science.rs), [`rl_ctl/`](../../cockpit/src/drive/rl_ctl/), [`self_loop.rs`](../../cockpit/src/drive/self_loop.rs) |
+| Research and reinforcement | Labyrinth, science, RL, self-loop, conductor | [`drive/labyrinth/`](../../cockpit/src/drive/labyrinth/), [`science.rs`](../../cockpit/src/drive/science.rs), [`rl_ctl/`](../../cockpit/src/drive/rl_ctl/), [`self_loop.rs`](../../cockpit/src/drive/self_loop.rs) |
 | Session and recall | Persist conversation, compact context, recall stores | [State](#state-knowledge-and-presentation), [memory](../MEMORY.md) |
 | Workers | Node folds experience into dossier, habits, and optional exhibits | [`scripts/runtime/`](../../scripts/runtime/), [`lib/`](../../lib/), [workers](../WORKERS.md) |
 | Terminal, world, Delve | Draw a frame; live cards change the game, not the verifier | [Presentation](#terminal-world-media-and-the-delve), [Delve](../DELVE.md) |
@@ -277,15 +277,15 @@ flowchart LR
   [`scryglass/`](../../cockpit/src/ui/scryglass/),
   [`viewer.rs`](../../cockpit/src/ui/viewer.rs),
   [`observatory.rs`](../../cockpit/src/app/observatory.rs).
-- **Co-op and game execution:** [`together.rs`](../../cockpit/src/drive/together.rs),
-  [`together_sim.rs`](../../cockpit/src/drive/together_sim.rs),
-  [`together_seat.rs`](../../cockpit/src/drive/together_seat.rs),
-  [`together_join.rs`](../../cockpit/src/drive/together_join.rs),
-  [`together_shooter/`](../../cockpit/src/drive/together_shooter/).
-- **Live content:** [`dungeon_shooter.rs`](../../cockpit/src/app/control/dungeon_shooter.rs)
+- **Co-op and game execution:** [`together.rs`](../../crates/realm-host/src/together.rs),
+  [`together_sim.rs`](../../crates/realm-host/src/together_sim.rs),
+  [`together_seat.rs`](../../crates/realm-host/src/together_seat.rs),
+  [`together_join.rs`](../../crates/realm-host/src/together_join.rs),
+  [`delve/src/rules/`](../../crates/delve/src/rules/).
+- **Live content:** [`dungeon_shooter.rs`](../../crates/realm-host/src/control/dungeon_shooter.rs)
   calls the spell loader in
-  [`spells.rs`](../../cockpit/src/drive/together_shooter/spells.rs);
-  [`dungeon_reforge.rs`](../../cockpit/src/app/control/dungeon_reforge.rs) handles
+  [`together_files.rs`](../../crates/realm-host/src/together_files.rs);
+  [`dungeon_reforge.rs`](../../crates/realm-host/src/control/dungeon_reforge.rs) handles
   related card workflows. See [Delve operations](../DELVE.md).
 - **Display evidence:** [`ui_inspect.rs`](../../cockpit/src/ui/ui_inspect.rs) and
   [`visual_export.rs`](../../cockpit/src/ui/visual_export.rs). Display-only
@@ -333,5 +333,5 @@ necessarily Cargo filter names; follow their `#[path]` wiring.
 | Dossier bridge | [`dossier__tests.rs`](../../tests/cockpit/app/dossier__tests.rs), [`repo-dossier.test.mjs`](../../tests/scripts/repo-dossier.test.mjs), [`dossier-tick.test.mjs`](../../tests/scripts/dossier-tick.test.mjs) |
 | Habits and graph writer lease | [`habitsmith.test.mjs`](../../tests/scripts/habitsmith.test.mjs), [`process-lease.test.mjs`](../../tests/scripts/process-lease.test.mjs) |
 | Cartridge hooks | [`cartridges__tests.rs`](../../tests/cockpit/harness/cartridges__tests.rs) |
-| Delve content and execution | [`together_cards__tests.rs`](../../tests/cockpit/app/together_cards__tests.rs), [`together_shooter__tests.rs`](../../tests/cockpit/app/together_shooter__tests.rs) |
+| Delve content and execution | [`together_cards__tests.rs`](../../crates/delve/tests/rules/together_cards__tests.rs), [`together_shooter__tests.rs`](../../crates/delve/tests/rules/together_shooter__tests.rs) |
 | Packaging and installation | [`release-evidence.test.mjs`](../../tests/scripts/release-evidence.test.mjs), [`verify-release-install.test.mjs`](../../tests/scripts/verify-release-install.test.mjs) |

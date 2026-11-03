@@ -1,0 +1,461 @@
+{
+  "schema": "angel.book-migration-golden/v1",
+  "chapters": [
+    {
+      "cell": "⠅",
+      "module": "k_competition:PRIMARY",
+      "name": "competition",
+      "surface": "the competition loop: engage at a pace, then its techniques",
+      "section_count": 9,
+      "sections": [
+        {
+          "primary": "⠅",
+          "sub": "⠁",
+          "name": "rapid",
+          "signal": "engage the competition loop at rapid pace — always be improving",
+          "action": "",
+          "ideas": "- Keep one bat in flight and the next best being prepped; sitting on a prepped submission is a competition failure.\n- Long monologues or passive waiting do not count.\n- Report only new results; do not restate the board, the slot or the plan.",
+          "page_count": 10,
+          "pages": [
+            "COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING.",
+            "Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best.",
+            "Start from the current promoted leader source, preserving useful local work in a separate branch or checkout. Compare optimized baseline and candidate builds on the same hardware and evaluator protocol; retain the source identities and measured results.",
+            "Keep the exact submission ID and check its official result; automatic tracking is not connected to ordinary submissions.",
+            "Use the platform CLI for status, score, rejection reason and metrics. A configured watcher is supplementary; a missing notification is not evidence that a job is pending.",
+            "Sitting on a prepped submission is a competition failure.",
+            "Constant output: one bat in flight, the next best being prepped.",
+            "After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate.",
+            "Long monologues or passive waiting do not count.",
+            "Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight is the most common cause of \"no verifier result\"."
+          ]
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠃",
+          "name": "deep",
+          "signal": "engage the competition loop at deep pace — a slow-burn solve",
+          "action": "",
+          "ideas": "- Hop count and watcher state are never instructions to submit; a candidate that passes the local gate is submitted (receipt/ID) and then improved.\n- Depth is a reason to measure more, never to withhold a measured candidate.\n- Report only new results; do not restate the board, the slot or the plan.",
+          "page_count": 4,
+          "pages": [
+            "COMPETITION CHALLENGE PACE — DEEP.",
+            "This is a slow-burn solve: build a coherent evidence chain, test distinct hypotheses, and converge only when the candidate is defensible.",
+            "Hop count, first-write pressure, and watcher state are never instructions to submit — but a candidate that passes the local gate IS submitted (receipt/ID) and then improved; depth is a reason to measure more, never a reason to withhold a measured candidate.",
+            "Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling, long tools are reported live, and a self-imposed timeout that kills a load mid-flight is the most common cause of \"no verifier result\"."
+          ]
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠉",
+          "name": "submission-status",
+          "signal": "inspect the official submission result or current frontier",
+          "action": "correlate the exact terminal UUID with its dispatched candidate and durable receipt; queued is pending, rejection or failure feeds rerooting at the latest frontier, and only a promoted source plus a verified score/frontier is a win; then improve or submit-next",
+          "ideas": "- Inspect the exact submission result when it can change your next decision; continue useful work while it runs.",
+          "page_count": 3,
+          "pages": [
+            "Read officialMetrics and rejectionReason as well as officialScore. Compare verified work with self-reported work when both exist. A discrepancy needs investigation; self-reported peak throughput is not proof of tested candidates or lost hits.",
+            "Historical briefs and handoffs are evidence, not new restrictions. Recheck inherited prohibitions against current user instructions and actual tool capabilities. Inspect the leader source before deciding to keep an older local lineage.",
+            "Use the optimized build and only the validation needed for the changed candidate. Reuse a valid receipt for unchanged bytes and inputs; do not delay an eligible winner with broad repeated checks."
+          ]
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠙",
+          "name": "submit",
+          "signal": "technique: the current best goes up to bat",
+          "action": "when authorized, submit only after correctness/preflight checks and preserve the preflight receipt; record the exact candidate commit, source/archive and evaluated-binary SHA256 when available, predecessor, protocol, and terminal receipt/ID. Deduplicate the same in-flight job, but allow controlled rule-compliant repeated measurements with a stated reason",
+          "ideas": "",
+          "page_count": 0,
+          "pages": []
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠑",
+          "name": "improve",
+          "signal": "technique: improve the next best while one is in flight",
+          "action": "form one measurable hypothesis, reroot any rejected mechanism at the latest frontier, make the smallest distinct patch, preserve passing bytes and receipt before edits, compare same-binary A/B against a fresh baseline, credit the original author, and record correctness/noise/protocol identity in the durable measurement ledger (`⠪⠃`)",
+          "ideas": "",
+          "page_count": 0,
+          "pages": []
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠋",
+          "name": "no-timeout",
+          "signal": "technique: let long loads finish",
+          "action": "never wrap builds, engine boots or benchmarks in `timeout`",
+          "ideas": "- The harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight is the most common cause of \"no verifier result\".",
+          "page_count": 0,
+          "pages": []
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠛",
+          "name": "doctrine",
+          "signal": "the always-driving competition doctrine (local GPU MoA)",
+          "action": "",
+          "ideas": "",
+          "page_count": 5,
+          "pages": [
+            "[always driving competition doctrine] ALWAYS BE IMPROVING.",
+            "The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight.",
+            "Submit a verified competitive candidate promptly; inspect pending results when useful.",
+            "Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier.",
+            "The agent owns result follow-through. Inspect the exact ID with the platform CLI."
+          ]
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠓",
+          "name": "living-peer",
+          "signal": "the living B200 peer frontier (evidence below)",
+          "action": "the live status, verbatim, is the latest evidence",
+          "ideas": "",
+          "page_count": 0,
+          "pages": []
+        },
+        {
+          "primary": "⠅",
+          "sub": "⠊",
+          "name": "free-train",
+          "signal": "the free-train LoRA cycle (evidence below)",
+          "action": "the live status, verbatim, is the latest evidence",
+          "ideas": "",
+          "page_count": 0,
+          "pages": []
+        }
+      ]
+    },
+    {
+      "cell": "⡅",
+      "module": "k_competition:SHELF",
+      "name": "competition-advisories",
+      "surface": "the competition's advisories: a verified candidate, a changed candidate, the first write",
+      "section_count": 3,
+      "sections": [
+        {
+          "primary": "⡅",
+          "sub": "⠁",
+          "name": "winner-bank",
+          "signal": "a local check passed on the candidate in a competition turn",
+          "action": "",
+          "ideas": "",
+          "page_count": 4,
+          "pages": [
+            "COMPETITION CANDIDATE VERIFIED. A local check passed on this candidate.",
+            "Preserve the passing candidate and its existing preflight receipt before further edits.",
+            "Check eligibility against the current promoted leader and submit promptly within the operator's instructions. Additional checks need a specific unresolved concern; do not repeat passing checks on unchanged bytes and inputs.",
+            "A local pass is not proof of a leaderboard win; read the official submission result."
+          ]
+        },
+        {
+          "primary": "⡅",
+          "sub": "⠃",
+          "name": "candidate-changed",
+          "signal": "the workspace changed after a passing check in a competition turn",
+          "action": "",
+          "ideas": "",
+          "page_count": 3,
+          "pages": [
+            "VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check.",
+            "Check whether candidate code, inputs, or the evaluator changed. Reuse the existing receipt when only notes or unrelated files changed; rerun only the affected required check.",
+            "Follow the operator-authorized submission plan; a local pass alone does not prove a competitive win."
+          ]
+        },
+        {
+          "primary": "⡅",
+          "sub": "⠉",
+          "name": "first-write-rapid",
+          "signal": "the armed inspection budget is spent in a rapid competition turn",
+          "action": "",
+          "ideas": "",
+          "page_count": 4,
+          "pages": [
+            "RAPID COMPETITION CANDIDATE PROGRESS. Inspection has not yet produced candidate progress.",
+            "The next tool must mutate the candidate or follow the explicitly armed submission contract; a board receipt remains legal.",
+            "Do not wrap another source read in a build/check.",
+            "If no defensible edit exists, report the concrete blocker."
+          ]
+        }
+      ]
+    },
+    {
+      "cell": "⠌",
+      "module": "st_connected:PRIMARY",
+      "name": "connected",
+      "surface": "seats without workspace tools, connected through the ledger reader",
+      "section_count": 10,
+      "sections": [
+        {
+          "primary": "⠌",
+          "sub": "⠁",
+          "name": "bare-seat",
+          "signal": "a spawn seat with no workspace tools (the ledger reader only)",
+          "action": "",
+          "ideas": "",
+          "page_count": 2,
+          "pages": [
+            "You have no tools this run: answer from reasoning alone.",
+            "Tool use and workspace mutation are intentionally out of scope for this consult; return the completed answer directly."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠃",
+          "name": "bare-node",
+          "signal": "a graph node with no workspace tools (the ledger reader only)",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "You have no tools this run: answer from reasoning alone."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠉",
+          "name": "aggregator",
+          "signal": "the aggregator of a spawn formation (task and drafts below)",
+          "action": "",
+          "ideas": "",
+          "page_count": 3,
+          "pages": [
+            "You are the aggregator of a spawn formation.",
+            "Fold the drafts into one best answer: keep every well-supported point, drop contradictions and filler, resolve disagreements explicitly.",
+            "Output only the final answer."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠙",
+          "name": "code-review",
+          "signal": "an adversarial code review (focus beside the route, code below)",
+          "action": "",
+          "ideas": "",
+          "page_count": 3,
+          "pages": [
+            "You are an expert adversarial code reviewer focusing on {focus}.",
+            "Review the provided code carefully and structure your response with:\n1. **Summary & Verdict**: Clean / Issues Found / Critical Bugs\n2. **Key Findings**: Specific lines, invariant breaks, logic bugs, or security flaws\n3. **Actionable Fixes**: Precise replacement snippets or refactor advice.",
+            "Please review the following code ({focus} focus):"
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠑",
+          "name": "reasoning-contract",
+          "signal": "the text-only worker's output contract",
+          "action": "",
+          "ideas": "",
+          "page_count": 8,
+          "pages": [
+            "You are reasoning only.",
+            "You have NO repository, NO filesystem, NO shell, and NO network this iteration: you cannot open a file, run a command or benchmark, or fetch a URL.",
+            "Therefore you must NOT emit file:, benchmark:, test:, command:, tool: or url: citations — a citation of that kind would be fabricated, and a fabricated citation is worse than no finding at all.",
+            "It will be rejected and counted against progress.",
+            "Any claim about specific code, concrete file contents, or a measured number is a HYPOTHESIS here, not a finding — no matter how confident you are.",
+            "Output exactly this shape and nothing else:\nDIRECTION: <one short line naming the angle>\nFINDINGS:\n- <claim that follows from the problem statement as given> [evidence: premise:<the part of the problem it rests on>]\n- <claim that follows logically from a premise or an earlier finding> [evidence: derivation:<the step>]\nHYPOTHESES:\n- <anything needing code, measurement, or an external source to settle>",
+            "Only FINDINGS carrying a premise: or derivation: tag are admitted as progress.",
+            "Putting a real uncertainty under HYPOTHESES costs you nothing and is the correct move; dressing one up as a finding is the one thing that fails."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠋",
+          "name": "summarizer",
+          "signal": "distill the conversation excerpt below into the sections",
+          "action": "",
+          "ideas": "",
+          "page_count": 5,
+          "pages": [
+            "Distill the earlier portion of an assistant/tool conversation below into dense, durable notes for later reference (these REPLACE the excerpt as background — not instructions).",
+            "Use EXACTLY these sections, each introduced by its `## ` header, in this order.",
+            "Under each, write terse bullet points; if a section has nothing, write `(none)`.",
+            "Do not add other sections or any preamble.",
+            "Do not record transient tool errors, retries, crashes, or harness warnings as tasks, open threads, or facts unless the user explicitly asked to investigate or fix them."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠛",
+          "name": "summary-sections",
+          "signal": "the summary's sections, in order",
+          "action": "",
+          "ideas": "",
+          "page_count": 6,
+          "pages": [
+            "## Task\nthe current goal — what the user is ultimately trying to achieve",
+            "## Decisions\nchoices made and the reasoning; approaches considered and rejected",
+            "## Files\nfiles created or changed and the purpose of each change",
+            "## Facts\ndurable facts established — versions, paths, config values, constraints",
+            "## OpenThreads\nunfinished work and next steps for what the user asked for; never transient tool or runtime errors",
+            "## Entities\nkey named things — functions, modules, endpoints, commands, people"
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠓",
+          "name": "map-notes",
+          "signal": "note the conversation excerpt below densely",
+          "action": "",
+          "ideas": "",
+          "page_count": 3,
+          "pages": [
+            "Densely note the key decisions, files changed, durable facts, open threads, and named entities in this conversation excerpt.",
+            "Terse bullet points, no preamble.",
+            "Do not record transient tool errors, retries, crashes, or harness warnings as tasks, open threads, or facts unless the user explicitly asked to investigate or fix them."
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠊",
+          "name": "advisor",
+          "signal": "the final-answer advisor (the task and the proposed answer below)",
+          "action": "",
+          "ideas": "",
+          "page_count": 8,
+          "pages": [
+            "You are a terse senior reviewer.",
+            "You are shown a TASK and a proposed ANSWER.",
+            "Reply with exactly one verdict line and nothing else:\n- `CLEAR` if the answer is sound and complete.\n- `NOTE: <one sentence>` for a real but non-blocking concern.\n- `BLOCK: <one sentence>` if the answer is wrong, unsafe, or misses the task's core requirement.",
+            "Judge substance, not style.",
+            "Do not rewrite the answer; add nothing after the verdict line.",
+            "TASK:",
+            "ANSWER:",
+            "Your verdict line:"
+          ]
+        },
+        {
+          "primary": "⠌",
+          "sub": "⠚",
+          "name": "text-only",
+          "signal": "a text-only mixture stage: no workspace tools; after a tool call, the correction",
+          "action": "",
+          "ideas": "",
+          "page_count": 6,
+          "pages": [
+            "This is an analysis-only stage.",
+            "You have no tools here and no tool call will execute — a reply containing tool-call markup is discarded unread.",
+            "Answer in prose from what you already know.",
+            "Your previous reply was a tool call.",
+            "No tools are available in this stage and nothing was executed — a tool call here is discarded.",
+            "Answer now in plain prose, from what you already know: no tool calls and no tool-call markup of any kind (`[TOOL_CALLS]`, `<tool_call>`, `<function=…>`, `<SHELL>{…}`)."
+          ]
+        }
+      ]
+    },
+    {
+      "cell": "⡌",
+      "module": "st_connected:SHELF",
+      "name": "compactor",
+      "surface": "the Treebeard compactor: a local seat that digests parked bulk so the root carries only what it needs",
+      "section_count": 8,
+      "sections": [
+        {
+          "primary": "⡌",
+          "sub": "⠁",
+          "name": "compactor",
+          "signal": "digest the parked tool output below for the root (its call beside the route)",
+          "action": "",
+          "ideas": "",
+          "page_count": 4,
+          "pages": [
+            "The root model sees a handle to the tool output below, not the output itself.",
+            "Write the digest it needs to act without opening the handle: what the output is, and the paths, line numbers, names, values and errors that matter.",
+            "Quote a line exactly only when its exact text matters.",
+            "Terse bullet points, no preamble."
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠃",
+          "name": "compactor-digest",
+          "signal": "the local compactor's digest of the parked output above; its handle keeps the full body",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "read the exact bytes with handle_read when the digest is not enough"
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠉",
+          "name": "compactor-late",
+          "signal": "the local compactor's digest of an earlier parked output, named by the handle beside the route",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "read the exact bytes with handle_read when the digest is not enough"
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠙",
+          "name": "handoff",
+          "signal": "a foreground call ran past its limit and now runs as the background job named above; nothing was stopped",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "The job keeps running; its output so far and its process tree are above."
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠑",
+          "name": "overseer",
+          "signal": "read the handed-off job below for the root (its facts beside the route)",
+          "action": "",
+          "ideas": "",
+          "page_count": 3,
+          "pages": [
+            "A foreground tool call ran past its limit and was moved to the background, still running.",
+            "From its command, process tree, CPU, state and output, say what it is doing and whether it looks like progress or a stall.",
+            "Terse bullet points, no preamble."
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠋",
+          "name": "overseer-read",
+          "signal": "the local compactor's read of a handed-off job: the receipt above, or the job named beside the route",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "check the job with proc_status before relying on this read"
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠛",
+          "name": "watchdog",
+          "signal": "a loop iteration has made no harness progress for a long time; say whether the harness is wedged and how to free it (its facts below the route)",
+          "action": "",
+          "ideas": "",
+          "page_count": 5,
+          "pages": [
+            "You are the loop watchdog: your only job is to keep the harness moving, not to judge or advance the loop's task.",
+            "The facts below say what the iteration is blocked on: the tool call in flight, its process activity, and how long since the model last streamed.",
+            "Choose wait when the blocked work is visibly advancing (fresh output, a delegate still making calls), handoff to move a running process to the background so the turn continues, stop_call when the call itself is hung, or restart_turn when the turn is stuck outside any call.",
+            "Earlier watchdog actions in this stretch are listed; when one already failed to free the turn, escalate.",
+            "Answer with one short reason line, then a last line of exactly `verdict: wait`, `verdict: handoff`, `verdict: stop_call` or `verdict: restart_turn`."
+          ]
+        },
+        {
+          "primary": "⡌",
+          "sub": "⠓",
+          "name": "watchdog-stop",
+          "signal": "the loop watchdog saw no harness progress on this call for a long time and stopped it; the turn continues",
+          "action": "",
+          "ideas": "",
+          "page_count": 1,
+          "pages": [
+            "For long work, start it with proc_run and check it with proc_status instead of holding the turn on it."
+          ]
+        }
+      ]
+    }
+  ]
+}

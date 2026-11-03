@@ -13,9 +13,12 @@ publish.workspace = true
 # The core picks no backend of its own: the window's crate turns on Vulkan and
 # Metal, the browser seat turns on this.
 web = ["wgpu/webgpu"]
+# A stage as serde data, for a remote window (docs/REMOTE_GLASS.md).
+serde = ["dep:serde", "angel-stage/serde"]
 
 [dependencies]
 # What a stage is: layers, motes, pictures (shared with the browser).
 angel-stage = { path = "../stage" }
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
 bytemuck = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"], optional = true }

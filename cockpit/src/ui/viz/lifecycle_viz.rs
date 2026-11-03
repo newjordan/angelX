@@ -14,10 +14,8 @@ use ratatui::{
 };
 use std::path::{Path, PathBuf};
 
-pub(crate) const FPS: f32 = 12.0;
-pub(crate) const FRAME_COUNT: usize = 44;
+pub(crate) use crate::telemetry::{FPS, FRAME_COUNT};
 pub(crate) const STATUS_ROWS: usize = 2;
-const DURATION_SECS: f32 = 3.6;
 const MAX_CELLS: u16 = 220;
 const FULL_SCENE_MIN_WIDTH: usize = 34;
 const FULL_SCENE_MIN_ART_HEIGHT: usize = 8;
@@ -32,39 +30,18 @@ const GOLD: Rgb = DMD_PALETTE[5];
 const FAILURE: Rgb = DMD_PALETTE[6];
 const SUCCESS: Rgb = DMD_PALETTE[7];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum CeremonyKind {
-    GoalSet,
-    GoalDone,
-    GoalCleared,
-    LoopStart,
-    LoopPaused,
-    LoopDone,
-    LoopStopped,
-    LoopFailed,
-    LoopEscalate,
+pub(crate) use crate::telemetry::CeremonyKind;
+
+/// What the cut-in draws for a ceremony. The kind lives below this crate, so
+/// the drawing-side helpers are an extension trait rather than inherent methods.
+trait CeremonyKindExt {
+    fn outcome(self) -> Outcome;
+    fn backdrop(self) -> &'static str;
+    fn outcome_word(self) -> &'static str;
 }
 
-impl CeremonyKind {
-    pub(crate) fn title(self) -> &'static str {
-        match self {
-            Self::GoalSet => " tourney · objective challenged ",
-            Self::GoalDone => " tourney · objective crowned ",
-            Self::GoalCleared => " tourney · objective banners lowered ",
-            Self::LoopStart => " tourney · challenge raised ",
-            Self::LoopPaused => " tourney · riders held ",
-            Self::LoopDone => " tourney · victory pass ",
-            Self::LoopStopped => " tourney · field cleared ",
-            Self::LoopFailed => " tourney · lance lost ",
-            Self::LoopEscalate => " tourney · grand joust ",
-        }
-    }
-
-    pub(crate) const fn duration_secs(self) -> f32 {
-        DURATION_SECS
-    }
-
-    const fn outcome(self) -> Outcome {
+impl CeremonyKindExt for CeremonyKind {
+    fn outcome(self) -> Outcome {
         match self {
             Self::GoalSet | Self::LoopStart => Outcome::Challenge,
             Self::GoalDone | Self::LoopDone => Outcome::Victory,
@@ -77,7 +54,7 @@ impl CeremonyKind {
     /// Location plate staging this ceremony (the MANIFEST storyboard):
     /// arrival at the festival gate, the arena for the grand joust, the
     /// victory lap, and the quiet lists at dusk for failure and retreat.
-    const fn backdrop(self) -> &'static str {
+    fn backdrop(self) -> &'static str {
         match self.outcome() {
             Outcome::Challenge => "castle_gate.png",
             Outcome::Clash => "arena_dmd.png",
@@ -86,27 +63,13 @@ impl CeremonyKind {
         }
     }
 
-    const fn outcome_word(self) -> &'static str {
+    fn outcome_word(self) -> &'static str {
         match self.outcome() {
             Outcome::Challenge => "challenge raised",
             Outcome::Clash => "lances crossed",
             Outcome::Victory => "opponent lance broken",
             Outcome::Failure => "player lance broken",
             Outcome::Retreat => "banners lowered",
-        }
-    }
-
-    const fn work_state(self) -> &'static str {
-        match self {
-            Self::GoalSet => "Goal set",
-            Self::GoalDone => "Goal completed",
-            Self::GoalCleared => "Goal cleared",
-            Self::LoopStart => "Loop started",
-            Self::LoopPaused => "Loop paused",
-            Self::LoopDone => "Loop completed",
-            Self::LoopStopped => "Loop stopped",
-            Self::LoopFailed => "Loop failed",
-            Self::LoopEscalate => "Loop escalated",
         }
     }
 }
@@ -120,59 +83,7 @@ enum Outcome {
     Retreat,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MotionMode {
-    Full,
-    Reduced,
-    Off,
-}
-
-/// The overworld map moves as the cockpit does.
-impl From<MotionMode> for angel_delve::render::overworld::Motion {
-    fn from(mode: MotionMode) -> Self {
-        match mode {
-            MotionMode::Full => Self::Full,
-            MotionMode::Reduced => Self::Reduced,
-            MotionMode::Off => Self::Off,
-        }
-    }
-}
-
-impl MotionMode {
-    pub(crate) fn from_env() -> Self {
-        std::env::var("ANGEL_TUI_MOTION")
-            .ok()
-            .as_deref()
-            .map(Self::parse)
-            .unwrap_or(Self::Full)
-    }
-
-    pub(crate) fn parse(raw: &str) -> Self {
-        match raw.trim().to_ascii_lowercase().as_str() {
-            "reduced" => Self::Reduced,
-            "off" => Self::Off,
-            _ => Self::Full,
-        }
-    }
-
-    pub(crate) const fn animates(self) -> bool {
-        !matches!(self, Self::Off)
-    }
-
-    /// Wall time used for chrome clocks. `off` stays at `frozen`; `reduced`
-    /// ticks at most once per second.
-    pub(crate) fn chrome_elapsed(
-        self,
-        started: std::time::Instant,
-        frozen: std::time::Instant,
-    ) -> std::time::Duration {
-        match self {
-            Self::Off => frozen.saturating_duration_since(started),
-            Self::Reduced => std::time::Duration::from_secs(started.elapsed().as_secs()),
-            Self::Full => started.elapsed(),
-        }
-    }
-}
+pub(crate) use crate::telemetry::MotionMode;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Phase {

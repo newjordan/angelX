@@ -491,6 +491,7 @@ struct TurnLedger {
     timing_origin: Option<std::time::Instant>,
     active_model_call: Option<usize>,
     next_model_call: usize,
+    effort_leg: Option<(String, Option<String>)>,
     provider_samples: Vec<Value>,
     parking_events: Vec<Value>,
     timing: Option<Value>,
@@ -678,6 +679,13 @@ pub(crate) fn begin_model_request() {
     });
 }
 
+/// Which leg chose the coming request's reasoning effort, and why a live leg
+/// was set aside (`None`: no leg was consulted). Provider attempts of that
+/// request carry it beside the effort.
+pub(crate) fn note_effort_leg(leg: Option<(String, Option<String>)>) {
+    TURN_LEDGER.with(|cell| cell.borrow_mut().effort_leg = leg);
+}
+
 pub(crate) fn end_model_request() {
     TURN_LEDGER.with(|cell| cell.borrow_mut().active_model_call = None);
 }
@@ -701,12 +709,17 @@ pub(crate) fn begin_provider_attempt(source_id: u64) -> Option<usize> {
             .provider_samples
             .iter()
             .rposition(|sample| sample["model_call"] == parent && sample["source_id"] == source_id);
-        ledger
-            .provider_samples
-            .push(serde_json::json!({"id":id,"start":start,
+        let mut sample = serde_json::json!({"id":id,"start":start,
             "end":null,"retry_of":retry_of,"model_call":parent,"source_id":source_id,
             "identity":identity,"usage":null,"usage_accounting":null,
-            "request_bytes":null,"response_bytes":null}));
+            "request_bytes":null,"response_bytes":null});
+        if let Some((leg, error)) = &ledger.effort_leg {
+            sample["effort_leg"] = serde_json::json!(leg);
+            if let Some(error) = error {
+                sample["effort_leg_error"] = serde_json::json!(error);
+            }
+        }
+        ledger.provider_samples.push(sample);
         Some(id)
     })
 }
@@ -1215,6 +1228,16 @@ pub(crate) fn note_escalation(hop: usize, kind: &str) {
         cell.borrow_mut()
             .escalations
             .push(serde_json::json!({"hop": hop, "kind": kind}))
+    });
+}
+
+/// The provider stopped answering this hop. The class and the leg that ended
+/// its retries ride on the same record as the plain `provider_unavailable`.
+pub(crate) fn note_provider_unavailable(hop: usize, class: &str, leg: &str, digest: Option<&str>) {
+    TURN_LEDGER.with(|cell| {
+        cell.borrow_mut().escalations.push(serde_json::json!({
+            "hop": hop, "kind": "provider_unavailable", "class": class, "leg": leg, "digest": digest,
+        }))
     });
 }
 

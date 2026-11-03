@@ -143,8 +143,12 @@ fn join(server: &Server, caps: u32) -> (WsClient, Option<u32>) {
 
 /// Read until the socket closes; the reject (if any) and the close code.
 fn until_closed(ws: &mut WsClient) -> (Option<Reject>, Option<u16>) {
+    until_closed_within(ws, 2 * WAIT)
+}
+
+fn until_closed_within(ws: &mut WsClient, wait: Duration) -> (Option<Reject>, Option<u16>) {
     let mut why = None;
-    let until = Instant::now() + 2 * WAIT;
+    let until = Instant::now() + wait;
     while Instant::now() < until {
         match ws.recv(Duration::from_millis(200)) {
             Ok(Some(Message::Binary(b))) => {
@@ -261,7 +265,9 @@ fn frames_that_break_the_rules_close_the_socket_with_their_code() {
 fn too_many_messages_a_second_is_abuse() {
     let server = start();
     let (mut ws, _) = join(&server, 0);
-    for _ in 0..300 {
+    // The played server permits a page's catch-up burst (2026-10-23,
+    // 639972239); exceed its current rate, not the retired 120-message cap.
+    for _ in 0..3 * angel_serve::limits::MAX_MESSAGES_PER_SEC {
         if ws.send(&ToServer::Ping { t: 0.0 }.to_vec()).is_err() {
             break;
         }
@@ -366,10 +372,11 @@ fn a_socket_that_never_says_hello_is_closed_after_the_handshake_time() {
     let server = start();
     let started = Instant::now();
     let mut ws = WsClient::connect(&url(&server), WAIT).unwrap();
-    let (why, code) = until_closed(&mut ws);
+    let limit = angel_serve::limits::HANDSHAKE_TIME;
+    let (why, code) = until_closed_within(&mut ws, limit + 2 * WAIT);
     assert_eq!((why, code), (Some(Reject::Abuse), Some(ws::code::POLICY)));
     let waited = started.elapsed();
-    assert!(waited >= Duration::from_millis(4900) && waited < Duration::from_secs(7), "{waited:?}");
+    assert!(waited >= limit - Duration::from_millis(100) && waited < limit + Duration::from_secs(2), "{waited:?}");
     server.stop();
 }
 
@@ -699,4 +706,106 @@ fn a_sim_stepped_by_hand_takes_each_command_in_the_tick_after_it_was_sent() {
     drop(host);
     server.stop();
     assert_eq!(sim.run_to(start + step * 50), 0, "a stopped server steps no more");
+}
+
+#[test]
+fn paintings_are_served_by_their_hash_and_nothing_else_is() {
+    let dir = std::env::temp_dir().join(format!("angel-serve-paint-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let sha = "0123456789abcdef".repeat(4);
+    let png = b"\x89PNG\r\n\x1a\nnot really";
+    std::fs::write(dir.join(format!("{sha}.png")), png).unwrap();
+    std::fs::write(dir.join("notes.txt"), b"private").unwrap();
+    let mut config = ServeConfig::new("127.0.0.1:0".parse::<SocketAddr>().unwrap());
+    config.key = Some(KEY.into());
+    config.paint_dir = Some(dir.clone());
+    let server = Server::start(Tally::default(), config).unwrap();
+    let get = |path: &str| http(&server, &format!("GET {path} HTTP/1.1\r\nConnection: close\r\n\r\n"));
+    let good = get(&format!("/paint/{sha}.png"));
+    assert!(good.starts_with("HTTP/1.1 200 OK"), "{good}");
+    assert!(good.contains("Content-Type: image/png") && good.contains("immutable"), "{good}");
+    assert!(good.ends_with("not really"));
+    let head = http(&server, &format!("HEAD /paint/{sha}.png HTTP/1.1\r\nConnection: close\r\n\r\n"));
+    assert!(head.starts_with("HTTP/1.1 200 OK") && !head.contains("not really"));
+    let again = http(&server, &format!("GET /paint/{sha}.png HTTP/1.1\r\nIf-None-Match: \"{}\"\r\nConnection: close\r\n\r\n", &sha[..16]));
+    assert!(again.starts_with("HTTP/1.1 304"), "{again}");
+    // A seat that joined over the socket fetches it from the same host.
+    let fetch = |path: &str| angel_serve::client::http_get(&url(&server), path, &Default::default(), WAIT, 1 << 20);
+    assert_eq!(fetch(&format!("/paint/{sha}.png")).unwrap(), png);
+    assert!(fetch("/paint/notes.txt").is_err());
+    assert!(angel_serve::client::http_get(&url(&server), &format!("/paint/{sha}.png"), &Default::default(), WAIT, 4).is_err(), "too big");
+    for bad in [
+        "/paint/notes.txt".to_string(),
+        format!("/paint/{}.png", sha.to_uppercase()),
+        format!("/paint/{}.png", &sha[1..]),
+        format!("/paint/../{sha}.png"),
+        format!("/paint/{sha}.png.png"),
+        format!("/paint/{}.png", "f".repeat(64)),
+        "/paint/".to_string(),
+    ] {
+        assert!(get(&bad).starts_with("HTTP/1.1 404"), "{bad}");
+    }
+    server.stop();
+    // A server with no paint store has no paintings.
+    let bare = start();
+    assert!(http(&bare, &format!("GET /paint/{sha}.png HTTP/1.1\r\nConnection: close\r\n\r\n")).starts_with("HTTP/1.1 404"));
+    bare.stop();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_hd_pack_serves_its_manifest_and_drawings_and_nothing_else() {
+    let dir = std::env::temp_dir().join(format!("angel-serve-hd-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("knight/realm/idle")).unwrap();
+    std::fs::write(dir.join("pack.json"), br#"{"art":[]}"#).unwrap();
+    std::fs::write(dir.join("knight/realm/idle/seat1@64.png"), b"\x89PNG drawn").unwrap();
+    std::fs::write(dir.join("notes.txt"), b"private").unwrap();
+    let mut config = ServeConfig::new("127.0.0.1:0".parse::<SocketAddr>().unwrap());
+    config.key = Some(KEY.into());
+    config.hd_dir = Some(dir.clone());
+    let server = Server::start(Tally::default(), config).unwrap();
+    let get = |path: &str| http(&server, &format!("GET {path} HTTP/1.1\r\nConnection: close\r\n\r\n"));
+    let manifest = get("/hd/pack.json");
+    assert!(manifest.starts_with("HTTP/1.1 200 OK") && manifest.contains("application/json") && manifest.ends_with(r#"{"art":[]}"#), "{manifest}");
+    let tag = manifest.lines().find_map(|l| l.strip_prefix("ETag: ")).expect("an etag").to_string();
+    let same = http(&server, &format!("GET /hd/pack.json HTTP/1.1\r\nIf-None-Match: {tag}\r\nConnection: close\r\n\r\n"));
+    assert!(same.starts_with("HTTP/1.1 304"), "{same}");
+    let drawn = get("/hd/knight/realm/idle/seat1@64.png");
+    assert!(drawn.starts_with("HTTP/1.1 200 OK") && drawn.contains("image/png") && drawn.ends_with("drawn"), "{drawn}");
+    let etag = drawn.lines().find_map(|l| l.strip_prefix("ETag: ")).expect("an etag").to_string();
+    let again = http(&server, &format!("GET /hd/knight/realm/idle/seat1@64.png HTTP/1.1\r\nIf-None-Match: {etag}\r\nConnection: close\r\n\r\n"));
+    assert!(again.starts_with("HTTP/1.1 304"), "{again}");
+    for bad in ["/hd/notes.txt", "/hd/../pack.json", "/hd/knight/../pack.json", "/hd/Knight/realm/idle/seat1@64.png", "/hd//x.png", "/hd/", "/hd/missing.png"] {
+        assert!(get(bad).starts_with("HTTP/1.1 404"), "{bad}");
+    }
+    server.stop();
+    // A server with no pack serves none.
+    let bare = start();
+    assert!(http(&bare, "GET /hd/pack.json HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 404"));
+    bare.stop();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn runtime_assets_can_be_added_and_replaced_while_the_same_socket_server_runs() {
+    use angel_serve::http::{LiveAsset,LiveAssets};
+    let files=LiveAssets::default();
+    let mut config=ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    config.live_assets=files.clone();
+    let server=Server::start(Tally::default(),config).unwrap();
+    let address=server.addr();
+    let old=LiveAsset::prepare(&"a".repeat(64),"wav","audio/wav",b"original sound".to_vec()).unwrap();
+    files.admit(&[old.clone()]).unwrap();
+    let path=format!("/a/{}",old.name);
+    let fetch=|path:&str|angel_serve::client::http_get(&url(&server),path,&Default::default(),WAIT,4096).unwrap();
+    assert_eq!(fetch(&path),b"original sound");
+    let next=LiveAsset::prepare(&"b".repeat(64),"wav","audio/wav",b"replacement sound".to_vec()).unwrap();
+    files.admit(&[next.clone()]).unwrap();
+    assert_eq!(fetch(&format!("/a/{}",next.name)),b"replacement sound");
+    assert_eq!(fetch(&path),b"original sound");
+    assert_eq!(server.addr(),address);
+    drop(old);files.retire(Instant::now());
+    assert!(http(&server,&format!("GET {path} HTTP/1.1\r\nConnection: close\r\n\r\n")).starts_with("HTTP/1.1 404"));
+    assert_eq!(fetch(&format!("/a/{}",next.name)),b"replacement sound");
+    server.stop();
 }

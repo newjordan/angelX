@@ -1,7 +1,7 @@
 name   Bow
 kind   arm
 rarity common
-text   Yew and gut: a stream of quick arrows. Find it, then take it with E.
+text   Yew and gut: a stream of quick arrows. Take it with E.
 drop   3
 chest  4
 arm    bow

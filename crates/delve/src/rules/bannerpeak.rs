@@ -268,6 +268,20 @@ impl Run {
         roundtable::fixture(&ADVENTURE)
     }
 }
+/// King Cinder's tick as it was before it moved into Bend: the oracle the leg
+/// is held to. Test builds only, and never part of the product.
+#[cfg(test)]
+#[path = "bannerpeak/oracle.rs"]
+pub mod oracle;
+
+/// The engine this crate's own tests tick against: the oracle answers the same
+/// two ops the shipped leg does, so `Session::step` (whose boss calls
+/// `scripted::step`) runs its rules here too.
+#[cfg(test)]
+pub fn install_oracle() {
+    crate::scripted::install_for_test("bannerpeak-rules", oracle::answer);
+}
+
 #[cfg(test)]
 #[path = "../../tests/rules/together_bannerpeak__tests.rs"]
 mod tests;
@@ -277,3 +291,7 @@ mod feel;
 #[cfg(test)]
 #[path = "../../tests/rules/together_bannerpeak_play__tests.rs"]
 mod play;
+
+#[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
+#[path = "../../tests/rules/bannerpeak_bend_cases__tests.rs"]
+mod bend_cases;

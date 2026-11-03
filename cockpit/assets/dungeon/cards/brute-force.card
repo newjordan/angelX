@@ -1,0 +1,23 @@
+# The Hammerer's third: the giant's blood up.
+name   Brute Force
+kind   spell
+rarity relic
+text   For six seconds the maul swings twice as often, half again hard.
+drop   0
+chest  0
+cooldown 18
+feat 1
+art
+...bb...bb...
+..bRRb.bRRb..
+.bROObbOORRb.
+bRO6ORRO6ORRb
+bROORRRROORRb
+bRRRORRORRRRb
+.bRRROORRRRb.
+..bRRORRRRb..
+...bROORRb...
+....bOORb....
+....bROb.....
+.....bRb.....
+......b......

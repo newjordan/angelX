@@ -1,0 +1,23 @@
+# The Butcher's first: a hook on a long chain.
+name   Meat Hook
+kind   spell
+rarity relic
+text   The hook flies where you aim, dragging the first foe to you.
+drop   0
+chest  0
+cooldown 7
+feat 1
+art
+.....xxxxx...
+....xHihhix..
+...xHhxxxhix.
+...xix...xihx
+....x.....xhx
+..........xhx
+..........xhx
+...xx.....xhx
+...xHx....xhx
+...xHix...xix
+....xHix.xihx
+.....xHihihx.
+......xxxxx..

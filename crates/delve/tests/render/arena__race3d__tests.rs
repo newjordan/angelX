@@ -404,3 +404,32 @@ fn write_shaft_seam_shots() {
         }
     }
 }
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_touge_gear_shots -- --ignored`:
+/// the Touge's gearbox and pads from the driver's seat — rolling onto a
+/// pad in third, a perfect shift's kick in fourth, and on the limiter.
+#[test]
+#[ignore]
+fn write_touge_gear_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return };
+    let dir = std::path::PathBuf::from(dir).join("touge-gears");
+    std::fs::create_dir_all(&dir).unwrap();
+    let t = r3::track(Course::Touge);
+    let pad = (0..20).map(|k| k as f32 * r3::PAD_EVERY).find(|&s| s > 0.0 && r3::pad_lies(t, s)).unwrap();
+    for (name, s, gear, vs, kick, limiter) in [
+        ("pad-ahead-third", pad - 6.0, 2u8, 13.0, 0, 0),
+        ("perfect-shift-fourth", pad + 20.0, 3, 15.0, r3::KICK_TICKS, 0),
+        ("limiter-second", pad + 40.0, 1, 10.0, 0, 4),
+    ] {
+        let mut run = racing(Course::Touge, 2);
+        race_mut(&mut run).t = TITLE + 10 * HZ;
+        place(&mut run, 1, s, 0.0, 0.0, vs);
+        place(&mut run, 2, s + 9.0, 1.5, 0.0, vs);
+        let r = race_mut(&mut run).riders.get_mut(&1).unwrap();
+        (r.drift.gear, r.drift.kick, r.drift.limiter) = (gear, kick, limiter);
+        let img = super::super::frame_for(&run, 768, 448, Some(1));
+        let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+        out.extend(img.rgb_bytes());
+        std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
+    }
+}

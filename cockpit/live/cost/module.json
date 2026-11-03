@@ -1,0 +1,38 @@
+{
+  "api_version": 1,
+  "id": "cost",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "subscription": false,
+    "has_usage": true,
+    "any_usage_field": true,
+    "row_exists": true,
+    "in_total": 1000000,
+    "in_cached": 200000,
+    "in_uncached": 800000,
+    "has_in_total": true,
+    "has_cache_read": true,
+    "has_uncached": true,
+    "has_output": true,
+    "out_tokens": 500000,
+    "has_reasoning": true,
+    "reason_tokens": 100000,
+    "cached_le_input": true,
+    "reasoning_separate": true,
+    "rate_cached_p": true,
+    "rate_uncached_p": true,
+    "rate_output_p": true,
+    "rate_reasoning_p": true,
+    "rate_cached_cents": 5,
+    "rate_uncached_cents": 50,
+    "rate_output_cents": 200,
+    "rate_reasoning_cents": 100,
+    "fee_e8": 0
+  },
+  "bend": {
+    "entry": "cost.bend",
+    "proof": "PROOF.bend",
+    "output": "cost.compiled.js"
+  }
+}

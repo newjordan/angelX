@@ -165,6 +165,18 @@ fn touge(t: &Track) -> Mesh {
     }
     // A visible line shared by all three laps.
     floor(&mut m, t, 0.0, 0.7, -4.8, 4.8, 0.04, 0.7, mat::ARMOR);
+    // The boost pads: an ember bed with three fire bars across it.
+    let mut start = 0.0;
+    while start < t.len() {
+        if r3::pad_lies(t, start) {
+            floor(&mut m, t, start, start + r3::PAD_LEN, -r3::PAD_HALF, r3::PAD_HALF, 0.035, r3::PAD_LEN, mat::EMBER);
+            for k in 0..3 {
+                let bar = start + 0.35 + k as f32 * 0.95;
+                floor(&mut m, t, bar, bar + 0.4, -r3::PAD_HALF + 0.3, r3::PAD_HALF - 0.3, 0.045, 0.4, mat::FLAME);
+            }
+        }
+        start += r3::PAD_EVERY;
+    }
     m
 }
 

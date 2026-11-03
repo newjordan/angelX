@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -n "${FACTORY_PYTHON:-}" ]]; then
+  exec "$FACTORY_PYTHON" "$root/tools/asset-factory/factory.py" "$@"
+fi
+exec uv run --no-project --with numpy --with pillow python "$root/tools/asset-factory/factory.py" "$@"

@@ -272,7 +272,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "griffinwing.canyon-tex",
-  "source_path": "/work/artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-gw/sources/griffinwing.canyon-tex/source-sheet.png",
   "source_sha256": "8e232d4b80ce7b285919e705266f33bfca707d7cf7438655a712669489449fcf",
   "tool_version": 2
 }

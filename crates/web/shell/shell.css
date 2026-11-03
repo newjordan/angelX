@@ -1,12 +1,62 @@
-/* The shell's page: the game's canvas on black, a name prompt, a status line.
-   No inline styles anywhere: the server's CSP allows only this file. */
+/* The shell's page: the game's picture on black, and everything laid over
+   it in one hand and one set of frames, at the picture's own pixel.
+   No inline styles anywhere: the server's CSP allows only these files.
+
+   - The hand is knight.ttf (art/font.py): the Delve's capitals with small
+     letters drawn to match, a pixel to every --px, set at whole multiples.
+   - The frames are the Delve's HUD kit (skin.css, art/frames.py): a window
+     (.win, the studded iron frame), a plate (.plate, the capped bar), a
+     slot (.slot, the action plate) and a well (.well), each a nine-slice
+     at one source pixel to one --px, nearest-sampled.
+   - --px, --pic-* and --view-* come from boot.js (`placePicture`): the
+     page pixel, the picture's box and the room's view within it, so what
+     lies over the picture is placed on it, at its scale, at any window
+     size. Until a frame is drawn they stand for the whole window. */
+
+:root {
+  --px: 2px;
+  --pic-l: 0px;
+  --pic-t: 0px;
+  --pic-w: 100vw;
+  --pic-h: 100vh;
+  --view-t: 0px;
+  --view-b: 100vh;
+  /* The realm's inks (the HUD kit's own): no white, no glare. */
+  --black: #080505;
+  --deep: #0b1514;
+  --face: #132724;
+  --face-lit: #1b3631;
+  --iron-lo: #322b2b;
+  --iron: #3d3a36;
+  --iron-hi: #515349;
+  --stone: #63655c;
+  --brass-lo: #684629;
+  --brass: #a97639;
+  --rust: #924f1d;
+  --rust-lo: #512d18;
+  --ink: #b0b2a8;
+  --ink-2: #94968c;
+  --ink-dim: #7a7c72;
+  --gold: #d8a95e;
+  --hand: "Knight Hand", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* The hand at one, and twice: ten pixels to the em, twelve to the line,
+     so the baseline falls on a whole pixel. */
+  --type: calc(var(--px) * 10);
+  --line: calc(var(--px) * 12);
+}
+@media (min-width: 1800px) and (min-height: 1000px) {
+  :root { --px: 3px; }
+}
 
 html, body {
   margin: 0;
   height: 100%;
   background: #000;
-  color: #8b949c;
-  font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink);
+  font: var(--type)/var(--line) var(--hand);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  -webkit-font-smoothing: none;
   overflow: hidden;
 }
 
@@ -21,7 +71,8 @@ body {
   overscroll-behavior: none;
 }
 
-#stage { position: absolute; inset: 0 0 40px; }
+/* The game takes every touch: a finger dragging a card pans nothing. */
+#stage { position: absolute; inset: 0 0 40px; touch-action: none; }
 
 #screen {
   display: block;
@@ -33,191 +84,445 @@ body {
   image-rendering: pixelated;
 }
 
-#join {
+/* A card dragged in the hand (`controls.drag`, boot.js): the plate it left
+   dimmed, the plate it would land on framed in gold, and its outline riding
+   the pointer. Hairlines in the realm's inks, nothing that glows. */
+#stage.over-slot { cursor: grab; }
+#stage.dragging { cursor: grabbing; }
+.drag-mark { position: fixed; box-sizing: border-box; pointer-events: none; }
+.drag-mark.from { background: rgba(8, 5, 5, 0.6); }
+.drag-mark.to { border: var(--px) solid var(--gold); }
+.drag-mark.ghost { border: var(--px) solid var(--ink-2); background: rgba(19, 39, 36, 0.4); }
+
+/* ---- the frames ---- */
+
+.win, .plate, .slot, .well {
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: transparent;
+  border-image-repeat: stretch;
+  image-rendering: pixelated;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* A window: the studded iron frame, twelve pixels a corner. */
+.win {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  border-width: calc(var(--px) * 12);
+  border-image-source: var(--art-window);
+  border-image-slice: 12 fill;
+  border-image-width: calc(var(--px) * 12);
+  padding: 0 calc(var(--px) * 2);
+  color: var(--ink);
+}
+/* A window's crown: the kit's gem, set on the top rail's middle. */
+.win.crested::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--px) * -13);
+  left: calc(50% - var(--px) * 6);
+  width: calc(var(--px) * 12);
+  height: calc(var(--px) * 12);
+  background: var(--art-gem) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+/* A plate: the capped bar, nine pixels a cap, four a rail; its face is the
+   line's own height, twice the kit's. */
+.plate {
+  border-width: calc(var(--px) * 4) calc(var(--px) * 9);
+  border-image-source: var(--art-plate);
+  border-image-slice: 4 9 fill;
+  border-image-width: calc(var(--px) * 4) calc(var(--px) * 9);
+  padding: 0 calc(var(--px) * 1);
+  line-height: var(--line);
+  color: var(--ink);
+}
+/* A slot: an action plate, five pixels a corner. */
+.slot {
+  border-width: calc(var(--px) * 5);
+  border-image-source: var(--art-slot);
+  border-image-slice: 5 fill;
+  border-image-width: calc(var(--px) * 5);
+}
+/* A well to type in: the cold plate, its face sunk to near black; brass
+   rimmed while the keys are its. */
+.well {
+  border-width: calc(var(--px) * 5);
+  border-image-source: var(--art-well);
+  border-image-slice: 5 fill;
+  border-image-width: calc(var(--px) * 5);
+}
+.well:focus { border-image-source: var(--art-well-lit); }
+
+/* A key cap: a carved iron button, one pixel of rim each side. */
+kbd {
+  display: inline-block;
+  min-width: calc(var(--px) * 6);
+  padding: 0 calc(var(--px) * 2);
+  font: inherit;
+  line-height: calc(var(--px) * 10);
+  text-align: center;
+  color: var(--gold);
+  background: var(--iron-lo);
+  border: var(--px) solid var(--black);
+  box-shadow: inset var(--px) var(--px) 0 var(--iron-hi), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #1a1714;
+}
+.hint { white-space: nowrap; color: var(--ink-dim); }
+.hint + .hint { margin-left: calc(var(--px) * 8); }
+
+/* Words in a window: a title in gold on a hard shadow, the rest in ink. */
+.win h1, .win h2, .win h3 { margin: 0; font: inherit; font-weight: normal; }
+.win h2 { color: var(--gold); text-shadow: var(--px) var(--px) 0 var(--black); }
+.rule {
+  height: calc(var(--px) * 2);
+  margin: calc(var(--px) * 3) 0;
+  background: linear-gradient(var(--iron) 0 50%, var(--black) 50% 100%);
+}
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: calc(var(--px) * 2) calc(var(--px) * 8);
+  color: var(--ink-dim);
+}
+
+input, button { font: inherit; color: var(--ink); }
+input { user-select: text; -webkit-user-select: text; outline: none; }
+input::placeholder { color: var(--ink-dim); opacity: 1; }
+button { cursor: pointer; touch-action: manipulation; }
+button:focus-visible { outline: none; }
+
+/* A plate button: gold words; its face lifts under the pointer. */
+button.plate { color: var(--gold); text-shadow: var(--px) var(--px) 0 var(--black); }
+button.plate:hover:not(:disabled), button.plate:focus-visible { border-image-source: var(--art-plate-lit); }
+button.plate:active:not(:disabled) { transform: translateY(var(--px)); }
+button.plate:disabled { color: var(--ink-dim); cursor: default; }
+
+/* A tip, in a plate, over what it names. */
+[data-tip] { position: relative; }
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--px) * 3);
+  white-space: nowrap;
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: transparent;
+  border-width: calc(var(--px) * 4) calc(var(--px) * 9);
+  border-image: var(--art-plate) 4 9 fill / calc(var(--px) * 4) calc(var(--px) * 9) stretch;
+  image-rendering: pixelated;
+  padding: 0 var(--px);
+  color: var(--ink);
+  line-height: var(--line);
+  pointer-events: none;
+}
+
+/* ---- the screens ---- */
+
+/* The name, before the game: a crowned window in the middle of the black. */
+#join {
+  inset: 0;
+  margin: auto;
+  width: min(calc(var(--px) * 150), calc(100vw - 16px));
+  height: max-content;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 240px;
-  padding: 20px 24px 24px;
-  /* The game's boards: night-blue slate lit from above, falling to black,
-     a thin lit rim and a soft shadow into the black around it. */
-  background: linear-gradient(180deg, #16232d 0%, #101a22 48%, #0b1117 100%);
-  border: 1px solid #22313b;
-  border-top-color: #34495a;
-  border-bottom-color: #141d24;
-  border-radius: 10px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(120, 150, 165, 0.08);
+  gap: calc(var(--px) * 3);
+  padding: calc(var(--px) * 4) calc(var(--px) * 6) calc(var(--px) * 5);
 }
 #join[hidden] { display: none; }
-#join h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: #c9b88f; letter-spacing: 0.02em; }
-#join label { color: #8796a0; }
-
-input, button {
-  font: inherit;
-  color: #bcc5c9;
-  background: linear-gradient(180deg, #172430 0%, #111b23 100%);
-  border: 1px solid #263845;
-  border-radius: 6px;
+#join h1 {
+  /* The hand at twice: a pixel of it two of the page's. */
+  font-size: calc(var(--px) * 20);
+  line-height: calc(var(--px) * 20);
+  text-align: center;
+  color: var(--gold);
+  text-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 var(--black);
 }
-input {
-  padding: 8px 10px;
-  /* 16px stops phones zooming in on focus. */
-  font-size: 16px;
-  /* A well: shaded under its top edge. */
-  background: linear-gradient(180deg, #080d12 0%, #0d151c 100%);
-  border-color: #1f2e38;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
-  user-select: text;
-  -webkit-user-select: text;
-}
-input:focus { outline: none; border-color: #6f5a36; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(169, 118, 57, 0.18); }
-button { padding: 8px 12px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(140, 170, 185, 0.08), 0 2px 6px rgba(0, 0, 0, 0.45); }
-button:hover:not(:disabled) { background: linear-gradient(180deg, #1d2d3a 0%, #142029 100%); border-color: #31475a; }
-button:active:not(:disabled) { background: linear-gradient(180deg, #0f171e 0%, #15212b 100%); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
-button:disabled { color: #5d6870; cursor: default; box-shadow: none; }
-/* The join's own button: what the form is for, in a brass rim. */
-#play:not(:disabled) { color: #d9c9a0; border-color: #6f5a36; border-top-color: #8e7246; border-bottom-color: #4a3a22; }
-#play:hover:not(:disabled) { border-color: #8e7246; }
+#join .rule { margin: 0 0 calc(var(--px) * 2); }
+#join label { color: var(--ink-2); }
+#join input { width: 100%; padding: 0 calc(var(--px) * 2); line-height: var(--line); caret-color: var(--gold); color: var(--ink); }
+#join button { margin-top: calc(var(--px) * 2); }
 
+/* The link's state, at the window's top left: one plate. */
 #status {
   position: absolute;
-  left: 10px;
+  left: 8px;
   top: 8px;
-  padding: 3px 9px;
   pointer-events: none;
-  color: #8b979e;
-  background: linear-gradient(180deg, rgba(22, 35, 45, 0.82) 0%, rgba(11, 17, 23, 0.82) 100%);
-  border: 1px solid rgba(52, 73, 90, 0.6);
-  border-radius: 6px;
+  color: var(--ink-2);
 }
 #status:empty { display: none; }
 
+/* One short line at the top of the room's view, off the action. */
 #toast {
   position: absolute;
-  left: 50%;
-  /* Clear of the picture's foot, where a game keeps its footer (the Delve's
-     door band is its bottom ninth). The picture is centred and at least
-     four fifths of its fitted height (present.js), which for the Delve's
-     384x224 is min(height, width x 224/384): three tenths of that below
-     the middle stays above the band whatever the scale. */
-  /* At the picture's top edge, off the action: one small line. */
-  top: calc(50% - 0.5 * min(100%, 58.33vw) + 6px);
+  left: calc(var(--pic-l) + var(--pic-w) / 2);
+  top: calc(var(--view-t) + var(--px) * 4);
   transform: translateX(-50%);
-  max-width: min(46vw, 560px);
-  padding: 2px 10px;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: max-content;
+  max-width: min(calc(var(--pic-w) - var(--px) * 24), calc(100vw - 16px));
   pointer-events: none;
-  color: #9aa6aa;
   text-align: center;
-  background: rgba(11, 17, 23, 0.72);
-  border: 1px solid rgba(52, 73, 90, 0.5);
-  border-radius: 999px;
   transition: opacity 0.4s;
 }
 #toast:empty { display: none; }
-/* A game's sheet (the Delve's cards and wishes), over the picture. */
-#sheet {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  max-width: min(720px, calc(100vw - 24px));
-  max-height: calc(100% - 24px);
-  overflow: auto;
-  margin: 0;
-  padding: 12px 16px;
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: #b4bfc3;
-  white-space: pre-wrap;
-  background: linear-gradient(180deg, rgba(22, 35, 45, 0.93) 0%, rgba(11, 17, 23, 0.93) 100%);
-  border: 1px solid rgba(52, 73, 90, 0.7);
-  border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
-}
-#sheet[hidden] { display: none; }
-/* A game's text line (the Delve's wish): where the toast sits, above it. */
+#toast.gone { opacity: 0; }
+
+/* The wish line, over the room's foot: one window as wide as reads well,
+   centred on the picture, its foot on the room's bottom wall, clear of
+   the bands. */
 #say {
-  position: absolute;
-  left: 50%;
-  bottom: calc(50% - 0.3 * min(100%, 58.33vw) + 40px);
-  transform: translateX(-50%);
-  width: min(520px, 86vw);
+  --wide: min(calc(var(--px) * 280), calc(var(--pic-w) - var(--px) * 8), calc(100vw - 16px));
+  left: calc(var(--pic-l) + (var(--pic-w) - var(--wide)) / 2);
+  width: var(--wide);
+  bottom: calc(100% - var(--view-b) + var(--px) * 3);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--px) * 3);
+  padding: calc(var(--px) * 1) calc(var(--px) * 3) calc(var(--px) * 2);
 }
 #say[hidden] { display: none; }
 #said {
   width: 100%;
-  box-sizing: border-box;
-  padding: 8px 16px;
-  font: inherit;
-  color: #c9d3d6;
-  background: linear-gradient(180deg, rgba(22, 35, 45, 0.94) 0%, rgba(11, 17, 23, 0.94) 100%);
-  border: 1px solid rgba(78, 104, 122, 0.8);
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
-  outline: none;
+  padding: var(--px) calc(var(--px) * 3);
+  line-height: var(--line);
+  caret-color: var(--gold);
 }
-#said::placeholder { color: #6f7d83; }
-/* With the dev panel open the picture is fitted to the stage beside it. */
-body.panel-open #toast {
-  left: calc((100vw - min(420px, 92vw)) / 2);
-  top: calc(50% - 0.5 * min(100%, (100vw - min(420px, 92vw)) * 0.5833) + 6px);
+#say .keys:empty { display: none; }
+#say-picks {
+  max-height: min(40vh, calc(var(--px) * 100));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
-#toast.gone { opacity: 0; }
-/* A window taller than the picture (a phone held upright) leaves black
-   below it: the toast sits in the middle of that, over nothing. */
-@media (max-aspect-ratio: 384/300) {
-  #toast { bottom: calc(25% - 14.58vw); transform: translate(-50%, 50%); }
+#say-picks[hidden] { display: none; }
+#say-picks h3 { margin: 0 0 var(--px); color: var(--gold); font: inherit; }
+#say-picks .pick {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--px) calc(var(--px) * 3);
+  width: 100%;
+  text-align: left;
+  margin-bottom: var(--px);
 }
-/* A phone's picture is small: a smaller toast, on one line where it fits. */
-@media (max-width: 600px) {
-  #toast { padding: 2px 8px; font-size: 11px; max-width: 80vw; }
-}
+#say-picks .label { color: var(--gold); overflow-wrap: anywhere; }
+#say-picks .tip { grid-column: 2 / 4; color: var(--ink-2); }
+#say-picks .off, #say-picks .off .label, #say-picks .off .tip { color: var(--ink-dim); }
+#say-picks .note { margin: var(--px) 0; color: var(--ink-dim); }
 
-#full {
+/* The genie's offers, to tap: a row of plates under the game's own scroll,
+   on the room's bottom wall, the key to each in its cap. */
+#choices {
   position: absolute;
-  right: 10px;
-  top: 8px;
-  padding: 4px 9px;
-  font-size: 12px;
-  opacity: 0.6;
+  left: var(--pic-l);
+  width: var(--pic-w);
+  bottom: calc(100% - var(--view-b) + var(--px) * 2);
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: center;
+  gap: calc(var(--px) * 2);
 }
-#full:hover { opacity: 1; }
-
-/* A separate footer keeps the volume clear of the canvas and its podium. */
-#vol {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
+#choices[hidden] { display: none; }
+#choices button {
   display: flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0.6;
+  gap: calc(var(--px) * 3);
+  max-width: 100%;
+  color: var(--gold);
 }
-#vol:hover { opacity: 1; }
-#vol[hidden] { display: none; }
-#mute { padding: 2px 8px; font-size: 13px; }
-#mute.off { text-decoration: line-through; opacity: 0.6; }
-#volume { width: 90px; accent-color: #8fa7b3; }
+#choices button.back { color: var(--ink-2); }
+#choices [data-tip]:hover::after { left: 50%; right: auto; transform: translateX(-50%); }
 
+/* The sheet (Tab): the knight's own screen, over the whole picture. A
+   crowned window; the knight, their health and kit down one column, the
+   ledgers (wishes, teachers) down the other where there is room. */
+#sheet {
+  --wide: min(calc(var(--px) * 620), calc(100vw - 16px));
+  left: calc((100vw - var(--wide)) / 2);
+  width: var(--wide);
+  top: calc(var(--px) * 8);
+  bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--px) * 2);
+  padding: calc(var(--px) * 2) calc(var(--px) * 2) calc(var(--px) * 1);
+}
+#sheet[hidden] { display: none; }
+#sheet-page {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 calc(var(--px) * 10);
+  align-items: start;
+  padding-right: calc(var(--px) * 2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron-hi) var(--black);
+}
+/* Side by side, each column scrolls on its own: the knight stays in view
+   down the ledgers. */
+@media (min-width: 1000px) {
+  #sheet-page { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: 100%; overflow-y: hidden; }
+  #sheet .column { height: 100%; overflow-y: auto; padding-right: calc(var(--px) * 2); scrollbar-width: thin; scrollbar-color: var(--iron-hi) var(--black); }
+}
+#sheet-page::-webkit-scrollbar, #sheet .column::-webkit-scrollbar { width: calc(var(--px) * 5); }
+#sheet-page::-webkit-scrollbar-track, #sheet .column::-webkit-scrollbar-track { background: var(--black); }
+#sheet-page::-webkit-scrollbar-thumb, #sheet .column::-webkit-scrollbar-thumb {
+  background: var(--iron);
+  border: var(--px) solid var(--black);
+  box-shadow: inset var(--px) var(--px) 0 var(--iron-hi);
+}
+#sheet .column { display: flex; flex-direction: column; gap: calc(var(--px) * 6); min-width: 0; }
+#sheet .who { display: flex; flex-direction: column; gap: calc(var(--px) * 2); }
+#sheet .who h2 {
+  font-size: calc(var(--px) * 20);
+  line-height: calc(var(--px) * 20);
+  text-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 var(--black);
+}
+#sheet .about .line b, #sheet .cell b { font-weight: normal; color: var(--ink-dim); margin-right: calc(var(--px) * 3); }
+#sheet section { display: flex; flex-direction: column; gap: var(--px); }
+#sheet h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 calc(var(--px) * 6);
+  padding-bottom: calc(var(--px) * 2);
+  margin-bottom: calc(var(--px) * 2);
+  box-shadow: 0 var(--px) 0 var(--iron), 0 calc(var(--px) * 2) 0 var(--black);
+}
+#sheet h3 .title { color: var(--gold); text-shadow: var(--px) var(--px) 0 var(--black); }
+#sheet h3 .note { color: var(--ink-2); }
+#sheet .note { margin: 0; color: var(--ink-dim); }
+#sheet .totals { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 2); }
+#sheet .total {
+  padding: 0 calc(var(--px) * 3);
+  color: var(--ink);
+  background: var(--deep);
+  border: var(--px) solid var(--iron-lo);
+}
+/* A ledger: its first column names the row, the rest line up beside it. */
+#sheet .rows { display: grid; gap: var(--px) calc(var(--px) * 5); align-items: baseline; }
+#sheet .rows.cols-2 { grid-template-columns: max-content minmax(0, 1fr); }
+#sheet .rows.cols-3 { grid-template-columns: max-content max-content minmax(0, 1fr); }
+#sheet .rows.cols-4 { grid-template-columns: max-content max-content max-content minmax(0, 1fr); }
+#sheet .row { display: contents; }
+#sheet .row > :last-child { grid-column-end: -1; }
+#sheet .row > .name:only-child { grid-column: 1 / -1; white-space: normal; }
+#sheet .row .name { color: var(--ink); white-space: nowrap; }
+#sheet .cell { color: var(--ink-2); }
+#sheet .cell.locked, #sheet .cell.locked b { color: #7d5a3e; }
+
+/* A count out of a few: pips, gold when won, sunk when not. */
+/* On a ledger's first line: six pixels in a twelve-pixel line, three from
+   its top. */
+.pips { display: inline-flex; gap: var(--px); align-self: start; margin-top: calc(var(--px) * 3); vertical-align: top; }
+.pips i {
+  width: calc(var(--px) * 6);
+  height: calc(var(--px) * 6);
+  background: var(--black);
+  box-shadow: inset 0 0 0 var(--px) var(--iron);
+}
+.pips i.lit { background: var(--brass); box-shadow: inset 0 0 0 var(--px) var(--brass-lo), inset var(--px) var(--px) 0 var(--gold); }
+/* A meter: an iron trough, its fill in the kit's inks, the count after. */
+.meter { display: inline-flex; align-items: center; gap: calc(var(--px) * 3); color: var(--ink-2); }
+.meter .track {
+  position: relative;
+  width: calc(var(--px) * 60);
+  height: calc(var(--px) * 5);
+  background: var(--black);
+  border: var(--px) solid var(--iron);
+  box-shadow: 0 0 0 var(--px) var(--black);
+}
+.meter .track i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--brass);
+  box-shadow: inset 0 var(--px) 0 var(--gold), inset 0 calc(var(--px) * -1) 0 var(--brass-lo);
+}
+.meter.health .track i { background: #a8452c; box-shadow: inset 0 var(--px) 0 #c4683f, inset 0 calc(var(--px) * -1) 0 var(--rust-lo); }
+.meter.health .track { width: calc(var(--px) * 90); }
+
+/* ---- the dock: full screen and the sound, in the foot below the picture ---- */
+
+#dock {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--px) * 3);
+}
+#full { padding: 0 var(--px); color: var(--ink-2); }
+#full[hidden] { display: none; }
+#vol { display: flex; align-items: center; gap: calc(var(--px) * 2); }
+#vol[hidden] { display: none; }
+#mute {
+  width: calc(var(--px) * 18);
+  height: calc(var(--px) * 18);
+  padding: 0;
+  line-height: calc(var(--px) * 8);
+  color: var(--gold);
+  text-align: center;
+}
+#mute:hover { border-image-source: var(--art-slot-lit); }
+#mute.off { border-image-source: var(--art-slot-cold); color: var(--ink-dim); }
+/* The volume: an iron rail sunk in black, a brass stud to drag. */
+#volume {
+  -webkit-appearance: none;
+  appearance: none;
+  width: calc(var(--px) * 48);
+  height: calc(var(--px) * 8);
+  margin: 0;
+  background: none;
+}
+#volume::-webkit-slider-runnable-track {
+  height: calc(var(--px) * 3);
+  background: var(--black);
+  border: var(--px) solid var(--iron-hi);
+  box-shadow: 0 0 0 var(--px) var(--black);
+}
+#volume::-moz-range-track {
+  height: calc(var(--px) * 3);
+  background: var(--black);
+  border: var(--px) solid var(--iron);
+}
+#volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: calc(var(--px) * 4);
+  height: calc(var(--px) * 7);
+  margin-top: calc(var(--px) * -3);
+  border-radius: 0;
+  background: var(--brass);
+  border: var(--px) solid var(--black);
+  box-shadow: inset var(--px) var(--px) 0 var(--gold), inset calc(var(--px) * -1) calc(var(--px) * -1) 0 var(--brass-lo);
+}
+#volume::-moz-range-thumb {
+  width: calc(var(--px) * 4);
+  height: calc(var(--px) * 7);
+  border-radius: 0;
+  background: var(--brass);
+  border: var(--px) solid var(--black);
+}
+
+/* The page's own numbers (?stats): a dev's, in a plain monospace. */
 #stats {
   position: absolute;
   right: 10px;
   top: 40px;
   margin: 0;
   padding: 6px 9px;
-  font-size: 12px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: #8b979e;
-  background: linear-gradient(180deg, rgba(22, 35, 45, 0.82) 0%, rgba(8, 12, 16, 0.82) 100%);
+  background: rgba(8, 12, 16, 0.86);
   border: 1px solid rgba(52, 73, 90, 0.6);
-  border-bottom-color: rgba(20, 29, 36, 0.7);
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 #stats:empty { display: none; }
@@ -239,9 +544,20 @@ body.panel-open #toast {
   border-radius: 12px 0 0 12px;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.55);
   color: #8b949c;
-  font-size: 12px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  -webkit-font-smoothing: auto;
   outline: none;
 }
+/* A dev's buttons and fields: plain slate, apart from the game's frames. */
+#panel button, #panel input, #panel textarea {
+  font: inherit;
+  color: #bcc5c9;
+  background: linear-gradient(180deg, #172430 0%, #111b23 100%);
+  border: 1px solid #263845;
+  border-radius: 6px;
+}
+#panel button { padding: 4px 8px; }
+#panel button:hover { background: linear-gradient(180deg, #1d2d3a 0%, #142029 100%); border-color: #31475a; }
 #panel[hidden] { display: none; }
 /* Open, the panel takes its own column: the game is fitted beside it,
    not covered by it. */

@@ -1,15 +1,20 @@
 # The phrasebook: wishes the Delve knows by heart.
 #
 # A known wish lands at once, in the game as it runs. Granted again, it
-# climbs its ladder: the first grant is modest, the last is the full gift.
-# Anyone can add one; the card checker bounds every effect line.
+# climbs its ladder, up to five tiers: the first grant is modest, the last
+# is the full gift. The fourth and fifth are the deep's: a ladder climbs
+# to its fourth from the second floor down and its fifth from Dragon
+# Keep's. Where the third already gives what wishes give, the fourth and
+# fifth add a word beside it. Anyone can add one; the card checker bounds
+# every effect line.
 #
 #   wish <id> | <Name>
 #   kind <hold | spell | guard>          (hold when left out)
 #   say  <a way a player puts it> | <another> ...
 #   tier <card lines, ; between> :: <what the scroll says>
-#   draw <slot> [at=<place>] [from tier]
+#   draw <slot> [at=<place>] [paint=<sha256> [normal=<sha256>]] [move=<words>] [from tier]
 #   <rows of inks, frames side by side with | between>
+#   (or sheet <slot> <file.png> ..., or paint <slot> <file.png> ...)
 #
 # Effects are the card words (see /dungeon cards new): volley, bounce,
 # homing, chain, mend, pierce, shots, damage, rate, speed, armor, vamp,
@@ -23,112 +28,388 @@ say triple wide fire my shots | triple shot | fire three | three wide | spread m
 tier volley 8 :: Every 8th shot flies three wide.
 tier volley 6 :: Every 6th shot flies three wide.
 tier volley 5 :: Every 5th shot flies three wide.
+tier volley 5; damage 10 :: Every 5th shot flies three wide, and hits harder.
+tier volley 5; damage 15; size 1 :: Every 5th shot flies three wide, bigger and harder still.
 
 wish ricochet | Ricochet
 say bounce my shots | shots bounce | bouncing shots | ricochet | bank shots | bounce off walls
 tier bounce 1 :: Shots bounce off a wall once.
 tier bounce 2 :: Shots bounce off walls twice.
 tier bounce 2; damage 8 :: Shots bounce off walls twice, and hit a little harder.
+tier bounce 2; damage 15 :: Shots bounce off walls twice, and hit harder.
+tier bounce 2; damage 18; velocity 20 :: Shots bounce twice, harder still, and strike sooner.
 
 wish seeker | Seeker Fletching
 say homing shots | seeking arrows | shots that follow | heat seeking | my shots find them | curve my shots | aim for me | homing
 tier homing 1 :: Shots curve gently toward monsters.
 tier homing 2 :: Shots curve hard toward monsters.
 tier homing 2; damage 8 :: Shots hunt the nearest monster, and hit a little harder.
+tier homing 2; damage 15 :: Shots hunt the nearest monster, and hit harder.
+tier homing 2; damage 18; size 1 :: Bigger shots hunt the nearest monster, and hit harder still.
 
 wish chain | Chain Spark
 say chain lightning | lightning shots | shots chain | spark between them | arc lightning | electric shots
 tier chain 1 :: A hit sparks on to one more monster, for half.
 tier chain 1; damage 8 :: A hit sparks on to one more monster, and hits a little harder.
 tier chain 1; damage 15 :: A hit sparks on to one more monster, and hits harder.
+tier chain 1; damage 20 :: A hit sparks on to one more monster, and hits harder still.
+tier chain 1; damage 25; knock 1 :: A hit sparks on to one more, a quarter harder, thunder shoving.
 
 wish mend | Mending Strike
 say heal my friend when i hit | heal on hit | heal my team | healing shots | mend my friends | support | medic
 tier mend 1 :: Your hits mend the most hurt friend by 1, 2 a second at most.
 tier mend 2 :: Your hits mend the most hurt friend by 2, 2 a second at most.
 tier mend 2; vamp 1 :: Your hits mend a friend by 2, and you mend 1 as monsters fall.
+tier mend 2; vamp 2 :: Your hits mend a friend by 2, and you mend 2 as monsters fall.
+tier mend 2; vamp 2; max_hp 15 :: Your hits mend a friend by 2, you mend 2, and 15 more health.
 
 wish pierce | Bodkin Heads
 say pierce | piercing shots | shots go through | through them all | penetrate | armor piercing
 tier pierce 1 :: Shots pass through one more monster.
 tier pierce 2 :: Shots pass through two more monsters.
 tier pierce 2; damage 15 :: Through two more, and harder.
+tier pierce 2; damage 20 :: Through two more, and harder still.
+tier pierce 2; damage 25; velocity 20 :: Through two more, a quarter harder, and striking sooner.
 
 wish twin | Twin Fletch
 say more shots | extra arrow | double shot | two arrows | twin shot | fire two
 tier shots 1 :: One more shot, every shot.
 tier shots 1; damage 10 :: One more shot, every shot, and harder.
-tier shots 2 :: One more shot again, every shot.
-tier shots 2; damage 10 :: One more shot again, every shot, and harder.
+tier shots 1; damage 18 :: One more shot, every shot, and harder still.
+tier shots 1; damage 25 :: One more shot, every shot, and a quarter harder.
+tier shots 1; damage 25; velocity 20 :: One more shot, every shot, a quarter harder, striking sooner.
 
 wish quick | Quick Hands
 say fire faster | shoot faster | faster attacks | rapid fire | attack speed | machine gun | quicker
-tier rate 10 :: Shoot and swing 10% faster.
+tier rate 8 :: Shoot and swing 8% faster.
+tier rate 14 :: Shoot and swing 14% faster.
 tier rate 20 :: Shoot and swing 20% faster.
-tier rate 30 :: Shoot and swing 30% faster.
+tier rate 20; velocity 20 :: Shoot and swing 20% faster, and your shots strike sooner.
+tier rate 20; velocity 30; speed 8 :: Shoot and swing 20% faster, shots sooner, and quicker feet.
 
 wish heavy | Heavy Heads
 say hit harder | more damage | stronger shots | big hits | damage up | power
-tier damage 12 :: Shots and swings hit 12% harder.
+tier damage 10 :: Shots and swings hit 10% harder.
+tier damage 18 :: Shots and swings hit 18% harder.
 tier damage 25 :: Shots and swings hit 25% harder.
-tier damage 40 :: Shots and swings hit 40% harder.
+tier damage 25; knock 1 :: Shots and swings hit 25% harder, and shove what they hit.
+tier damage 25; knock 2; size 1 :: Heavier heads: 25% harder, bigger, and a shove that throws.
 
 wish fleet | Fleet Foot
 say move faster | run faster | speed up | faster | quick feet | zoom
-tier speed 10 :: Walk 10% faster.
+tier speed 8 :: Walk 8% faster.
+tier speed 14 :: Walk 14% faster.
 tier speed 20 :: Walk 20% faster.
-tier speed 25 :: Walk 25% faster.
+tier speed 20; rate 8 :: Walk 20% faster, and shoot and swing 8% faster.
+tier speed 20; rate 12; max_hp 10 :: Walk 20% faster, shoot and swing 12% faster, 10 more health.
 
 wish stout | Stout Heart
 say more health | more hp | tougher | bigger health | live longer | more life
 tier max_hp 15 :: 15 more health, for good.
 tier max_hp 25 :: 25 more health, for good.
 tier max_hp 40 :: 40 more health, for good.
+tier max_hp 40; armor 1 :: 40 more health, and 6 in the hundred of every hit turned aside.
+tier max_hp 40; armor 1; vamp 1 :: 40 more health, 6 in the hundred aside, and mend 1 as they fall.
 
 wish iron | Iron Skin
 say armor | armour | take less damage | iron skin | thick skin | defense up
 tier armor 1 :: Iron pauldrons: 6 in the hundred of every hit turned aside.
 tier armor 2 :: Heavier iron: 11 in the hundred of every hit turned aside.
 tier armor 2; max_hp 10 :: Spiked iron: 11 in the hundred turned aside, and 10 more health.
+tier armor 2; max_hp 20 :: Spiked iron: 11 in the hundred turned aside, and 20 more health.
+tier armor 2; max_hp 30; damage 8 :: Black iron: 11 in the hundred aside, 30 health, harder blows.
 draw worn at=shoulders
-..hhh..........hhh..
-.hiiJh........hJiih.
-.hJJJh........hJJJh.
-..jjj..........jjj..
+.XXXX......XXXX.
+XHiihX....XhiiHX
+XihhJXbIIbXJhhiX
+.XjjX......XjjX.
 
 draw worn at=shoulders 3
-..W..W........W..W..
-..H..H........H..H..
-.hiiiJh......hJiiih.
-hiJJJJh......hJJJJih
-.hjjjjh......hjjjjh.
+.W..W......W..W.
+.H..H......H..H.
+XHiihX....XhiiHX
+XihhJXbIIbXJhhiX
+.XjjX......XjjX.
 
 wish leech | Blood Drinker
 say lifesteal | life steal | vampire | heal when i kill | drain | leech
 tier vamp 1 :: Mend 1 as monsters fall, 2 a second at most.
 tier vamp 2 :: Mend 2 as monsters fall, 2 a second at most.
-tier vamp 3 :: Mend 3 as monsters fall, 2 a second at most.
+tier vamp 2; max_hp 10 :: Mend 2 as monsters fall, and 10 more health.
+tier vamp 2; max_hp 20 :: Mend 2 as monsters fall, and 20 more health.
+tier vamp 2; max_hp 25; mend 1 :: Mend 2 as they fall, 25 more health, and your hits mend friends.
 
 wish morningstar | Morningstar
 say morningstar | orbiting morningstar | spinning flail | flail around me | spin around me | orbit | blades around me | spinning ball | hammers around me
 tier orbit 1 :: A morningstar spins close round you.
 tier orbit 2 :: Two morningstars spin close round you.
 tier orbit 2; damage 10 :: Two morningstars spin close round you, and you hit harder.
+tier orbit 2; damage 15 :: Two morningstars spin close round you, and you hit harder still.
+tier orbit 2; damage 20; knock 1 :: Two morningstars spin round you, harder, knocking them back.
 
 wish powder | Blasting Powder
 say explosive shots | exploding arrows | shots explode | explosive | blast them | boom | splash damage | area damage
-tier burst 15 :: Shots burst where they hit, 15 in the hundred of their sting around.
-tier burst 20 :: Shots burst where they hit, a fifth of their sting around.
-tier burst 25 :: Shots burst where they hit, a quarter of their sting around.
+tier burst 15 :: Shots burst where they hit, 15 in the hundred of their sting.
+tier burst 15; damage 8 :: Shots burst where they hit, and hit a little harder.
+tier burst 15; damage 8; knock 1 :: Shots burst where they hit, harder, and the blast shoves them.
+tier burst 15; damage 15; knock 1 :: Shots burst where they hit, harder still, and the blast shoves.
+tier burst 15; damage 20; knock 2 :: Shots burst where they hit, hardest, and the blast throws them.
 
 wish fork | Awakened Fork
 say fork my shots | fork | forking shots | split my shots | splitting shots | shots split | awakened fork | split on hit | splitting projectiles
-tier fork 1 :: A shot that stops on a monster forks into two that fly on past it.
+tier fork 1 :: A shot stopped on a monster forks in two that fly on past it.
 tier fork 2 :: Shots fork, and the forks fork again.
-tier fork 3 :: Shots fork, the forks fork, and the forks' forks fork again.
+tier fork 2; damage 10 :: Shots fork, the forks fork again, and every fork hits harder.
+tier fork 2; damage 15 :: Shots fork twice over, and every fork hits harder still.
+tier fork 2; damage 20; size 1 :: Shots fork twice over, bigger, and every fork hits hardest.
 
 wish fart | Fart Bombs
 say fart bombs | fart | farts | fart clouds | fart on hit | stink bombs | gas on hit | stinky shots
 tier fart 1 :: Your hits leave a fart cloud, one every two seconds at most.
 tier fart 2 :: Your hits leave a fart cloud, one a second.
-tier fart 3 :: Your hits leave a fart cloud, three every two seconds.
+tier fart 2; poison 1 :: Your hits leave a fart cloud a second, and the reek poisons.
+tier fart 2; poison 2 :: Your hits leave a fart cloud a second, the reek poisoning hard.
+tier fart 2; poison 2; knock 1 :: A fart cloud a second, a hard reek, and a blast that shoves.
+
+# Made from templates/wish-shot.wish, its recipe templates/effect-shot.vfx on
+# every tier, and checked (rules::content, docs/TEMPLATES.md).
+wish frost-fletching | Frost Fletching
+say frost arrows | ice arrows | frost shots | freezing shots | icy shots | ice shots | cold shots | freeze them
+tier chill 1; vfx trail flakes frost count=3 speed=1 spread=40 life=10; vfx fire shards frost count=5 speed=4 spread=60 life=8; vfx hit shards frost back count=10 speed=4 spread=360 life=14; vfx hit ring frost back count=6 speed=3 spread=360 life=10; vfx kill flakes frost count=16 speed=5 spread=360 life=9; vfx aura flakes frost fall count=4 speed=1 spread=360 life=30 :: Frost-tipped shots: what they hit slows to a crawl.
+tier chill 2; vfx trail flakes frost count=3 speed=1 spread=40 life=10; vfx fire shards frost count=5 speed=4 spread=60 life=8; vfx hit shards frost back count=10 speed=4 spread=360 life=14; vfx hit ring frost back count=6 speed=3 spread=360 life=10; vfx kill flakes frost count=16 speed=5 spread=360 life=9; vfx aura flakes frost fall count=4 speed=1 spread=360 life=30 :: Deeper frost: what they hit stays slow for longer.
+tier chill 2; damage 8; vfx trail flakes frost count=3 speed=1 spread=40 life=10; vfx fire shards frost count=5 speed=4 spread=60 life=8; vfx hit shards frost back count=10 speed=4 spread=360 life=14; vfx hit ring frost back count=6 speed=3 spread=360 life=10; vfx kill flakes frost count=16 speed=5 spread=360 life=9; vfx aura flakes frost fall count=4 speed=1 spread=360 life=30 :: Rime-cut heads: slow for longer, and a little harder.
+tier chill 2; damage 12; size 1; vfx trail flakes frost count=3 speed=1 spread=40 life=10; vfx fire shards frost count=5 speed=4 spread=60 life=8; vfx hit shards frost back count=10 speed=4 spread=360 life=14; vfx hit ring frost back count=6 speed=3 spread=360 life=10; vfx kill flakes frost count=16 speed=5 spread=360 life=9; vfx aura flakes frost fall count=4 speed=1 spread=360 life=30 :: Bigger frozen heads: slow, harder, and wider.
+tier chill 2; damage 18; size 1; vfx trail flakes frost count=3 speed=1 spread=40 life=10; vfx fire shards frost count=5 speed=4 spread=60 life=8; vfx hit shards frost back count=10 speed=4 spread=360 life=14; vfx hit ring frost back count=6 speed=3 spread=360 life=10; vfx kill flakes frost count=16 speed=5 spread=360 life=9; vfx aura flakes frost fall count=4 speed=1 spread=360 life=30 :: Glacier heads: the deep cold, hitting hardest.
+draw shot
+.........xW.
+.3......xVWW
+33uUUUUUsVWW
+.3......xVWW
+.........xW.
+
+# The identity start (rules/identity.rs): a knight begins as a shape, and
+# the first floor's three rooms ask for their body, their weapon and their
+# ultimate. These are the scroll's own answers; a player's words teach it
+# any other. Plain Frame, Yew Bow and Pilgrim's Arrow are what it grants
+# when there is no one to teach it.
+
+wish plain-frame | Plain Frame
+say a body | a plain body | just a body | a frame | anything | whatever | a normal body
+tier max_hp 10 :: A plain frame: 10 more health, and nothing strange about it.
+draw worn at=body
+.jJJJJJj.
+jJhhhhhJj
+JhiihhhhJ
+.JhhhhhJ.
+.JhhhhhJ.
+..jJJJj..
+
+wish great-helm | Great Helm
+say a helm | a helmet | a head | a knight's helm | an iron head | a great helm | give me a head
+tier max_hp 8 :: A great helm for a head: 8 more health.
+tier max_hp 14 :: A heavier helm: 14 more health.
+tier max_hp 20 :: A crested helm: 20 more health.
+tier max_hp 26 :: A plumed helm: 26 more health.
+tier max_hp 32; armor 1 :: A crowned great helm: 32 more health, 6 in the hundred aside.
+draw worn at=head
+.jJhhJj.
+jhiHHihj
+jiHiihhj
+jKKKKKKj
+jhihhhJj
+jhhhhhJj
+.jjjjjj.
+
+wish breastplate | Breastplate
+say a body | a chest | a breastplate | a torso | armour for my body | a cuirass | give me a body
+tier max_hp 12 :: A breastplate for a body: 12 more health.
+tier max_hp 20 :: A heavier plate: 20 more health.
+tier max_hp 30 :: Full plate: 30 more health.
+tier max_hp 36 :: Gilded plate: 36 more health.
+tier max_hp 40; armor 1 :: A champion's plate: 40 more health, 6 in the hundred aside.
+draw worn at=body
+XhX....XhX
+XHiXXXXiHX
+XHiiHiihhX
+.XhihihhX.
+.XhhhhhhX.
+..XXXXXX..
+
+wish buckler | Buckler
+say a shield arm | a left arm | a buckler | a small shield | an arm with a shield | give me arms
+tier armor 1 :: A buckler on the shield arm: 6 in the hundred turned aside.
+tier armor 2 :: A stouter buckler: 11 in the hundred turned aside.
+tier armor 2; max_hp 10 :: An iron-bound buckler: 11 in the hundred, and 10 more health.
+tier armor 2; max_hp 18 :: A tower buckler: 11 in the hundred, and 18 more health.
+tier armor 2; max_hp 26; knock 1 :: A spiked buckler: 11 in the hundred, 26 health, and it shoves.
+draw worn at=left
+..JJJ..
+.JrRrJ.
+JrRoRrJ
+JRoiORJ
+JrRoRrJ
+.JrRrJ.
+..JJJ..
+
+wish gauntlet | Iron Gauntlet
+say a hand | a fist | a gauntlet | a right arm | a weapon hand | an iron fist | give me hands
+tier damage 8 :: An iron gauntlet on the weapon hand: you hit a little harder.
+tier damage 14 :: A heavier gauntlet: you hit harder.
+tier damage 20 :: A spiked gauntlet: you hit much harder.
+tier damage 25 :: A war gauntlet: you hit harder still.
+tier damage 25; knock 1 :: A giant's gauntlet: you hit hardest, and your blows shove.
+draw worn at=right
+.hhh.
+hiHih
+hiiih
+JhhhJ
+.JhJ.
+.jJj.
+
+wish boots | Swift Boots
+say feet | legs | boots | swift boots | give me legs | give me feet | running legs
+tier speed 8 :: Boots for feet: you walk a little faster.
+tier speed 14 :: Swifter boots: you walk faster.
+tier speed 20 :: Winged boots: you walk much faster.
+tier speed 20; rate 6 :: Running boots: much faster on foot, and quicker to swing.
+tier speed 20; rate 10; max_hp 10 :: Seven-league boots: much faster, quicker, and 10 more health.
+draw worn at=feet
+.Bp....pB.
+BpRp..pRpB
+IBBB..BBBI
+
+wish yew-bow | Yew Bow
+kind arm
+say a bow | a longbow | arrows | a bow and arrows | shoot arrows | a yew bow
+tier arm bow :: A yew bow: a stream of quick arrows.
+draw worn at=right
+.Ot...
+.VoO..
+.U.o..
+.U..o.
+.U..P.
+.U..o.
+.U.o..
+.VoO..
+.Pt...
+
+wish war-crossbow | War Crossbow
+kind arm
+say a crossbow | bolts | a heavy bow | a war crossbow | a bolt thrower
+tier arm crossbow :: A war crossbow: one rail through everything in its line.
+draw worn at=right
+...h....
+.oooooh.
+PPPPhJJj
+.oooooh.
+...h....
+
+wish hand-cannon | Hand Cannon
+kind arm
+say a gun | a cannon | a handgonne | a hand cannon | a blunderbuss | a shotgun | guns
+tier arm handgonne :: A hand cannon: a fan of five balls.
+draw worn at=right
+......jj
+JjjjjjJh
+BBBjjjjj
+BB......
+
+wish bright-blade | Bright Blade
+kind arm
+say a sword | a blade | a knight's sword | a bright blade | a longsword | cut them up | an axe
+tier melee damage=30 reach=3.5 arc=150 every=16; throw damage=18 range=9 every=40 :: A bright blade: a wide sweep up close, thrown out of reach.
+tier melee damage=30 reach=3.5 arc=160 every=16; throw damage=18 range=10 every=40 :: A keener blade: a wider sweep, thrown further.
+tier melee damage=30 reach=3.6 arc=165 every=16; throw damage=18 range=10 every=40 :: A great blade: wider still, and reaching further.
+tier melee damage=30 reach=3.7 arc=170 every=16; throw damage=18 range=11 every=40 :: A knight's blade: wider, longer, thrown further.
+tier melee damage=30 reach=3.8 arc=180 every=16; throw damage=18 range=12 every=40 :: A legend's blade: the widest sweep, the longest reach.
+draw worn at=right
+.H.
+.Hi
+.Hi
+.Hi
+.Hi
+.Hi
+.Hi
+5a5
+.B.
+.B.
+
+wish firebolt | Firebolt
+kind spell
+say a firebolt | a fire bolt | fireball | shoot fire | a fire spell | a bolt of fire | magic bolt
+tier cast bolt; cooldown 6 :: A firebolt from your hand, every 6 seconds.
+tier cast bolt; cooldown 4 :: A firebolt every 4 seconds.
+tier cast bolt; cooldown 3 :: A firebolt every 3 seconds.
+tier cast bolt; cooldown 2 :: A firebolt every 2 seconds.
+tier cast bolt; cooldown 1 :: A firebolt every second: a fire held in your hand.
+
+wish spark-ring | Ring of Sparks
+kind spell
+say a ring of sparks | sparks all around | a ring spell | shoot everywhere | a spark ring | lightning all around
+tier cast ring; cooldown 10 :: Twelve sparks fly out all round you, every 10 seconds.
+tier cast ring; cooldown 8 :: A ring of sparks every 8 seconds.
+tier cast ring; cooldown 6 :: A ring of sparks every 6 seconds.
+tier cast ring; cooldown 5 :: A ring of sparks every 5 seconds.
+tier cast ring; nova 15; cooldown 4 :: Sparks every 4 seconds, and a thunderclap strikes all for 15.
+
+wish mending-light | Mending Light
+kind spell
+say healing | heal me | a healing spell | mending | mend my wounds | a heal spell | healing magic
+tier heal 20; cooldown 20 :: A mending light: 20 health back, every 20 seconds.
+tier heal 30; cooldown 18 :: A warmer light: 30 health back, every 18 seconds.
+tier heal 40; cooldown 15 :: A bright light: 40 health back, every 15 seconds.
+tier heal 50; cooldown 14 :: A shining light: 50 health back, every 14 seconds.
+tier heal 60; ward 1; cooldown 12 :: A blinding light: 60 back and a breath untouched, every 12s.
+
+wish falling-star | Falling Star
+kind spell
+say a meteor | a falling star | a big explosion | a star from the sky | a boulder spell | meteor magic
+tier cast meteor; cooldown 12 :: A falling star bursts where you aim, every 12 seconds.
+tier cast meteor; cooldown 10 :: A falling star every 10 seconds.
+tier cast meteor; cooldown 8 :: A falling star every 8 seconds.
+tier cast meteor; cooldown 7 :: A falling star every 7 seconds.
+tier cast meteor; nova 20; cooldown 6 :: A falling star every 6 seconds, its quake striking all for 20.
+
+wish pilgrims-arrow | Pilgrim's Arrow
+say a great arrow | one huge arrow | a piercing shot | a beam | a lance of light
+tier ult pilgrims_arrow :: One great arrow through all in its line, stunning each foe.
+
+wish ladys-veil | Lady's Veil
+say protect my friends | a shield for everyone | invulnerable | a veil | healing wings | angel wings
+tier ult ladys_veil :: The whole party untouchable four seconds, mending a little.
+
+wish trebuchet | Trebuchet
+say a catapult | artillery | bombs from the sky | an airstrike | explosions | shells
+tier ult trebuchet :: Two volleys of shells land where you aim.
+
+wish bladewind | Bladewind
+say a blade storm | dash through them | teleport strike | slash everything | omnislash | a flurry
+tier ult bladewind :: You blink foe to foe, cutting six times, untouchable.
+
+wish grand-chord | Grand Chord
+say pull them in | a black hole | a vortex | gather them | a great song | gravity
+tier ult grand_chord :: Every foe near pulled into a knot before you, stunned.
+
+wish sealed-writs | Sealed Writs
+say homing missiles | seeking missiles | rockets | missiles | magic missiles
+tier ult sealed_writs :: Six missiles, each after its own foe, bursting where they land.
+
+wish stillhour | Stillhour
+say stop time | freeze time | time stop | slow time | a frozen moment
+tier ult stillhour :: Time stops ahead of you for four seconds, shots and all.
+
+wish midas-touch | Midas Touch
+say turn them to gold | gold | money | midas | treasure | riches
+tier ult midas_touch :: The three nearest foes turn to gold; a guardian loses a share.
+
+wish assassinate | Assassinate
+say assassinate | a sniper shot | kill the strongest | headshot | one perfect shot
+tier ult assassinate :: A second's aim on the toughest foe, then one shot.
+
+wish phantasm | Phantasm
+say clones | copies of me | mirror images | illusions | shadow clones | decoys
+tier ult phantasm :: Two images fight beside you for eight seconds and draw fire.
+
+wish axe-storm | Axe Storm
+say a whirlwind | spin | a tornado | spinning blades | a storm of axes | whirl
+tier ult axe_storm :: You spin, axes out, for three seconds, untouchable at first.

@@ -80,13 +80,10 @@ impl PolicyStore {
             std::fs::create_dir_all(dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
             secure_dir(dir)?;
         }
-        let tmp = self.path.with_extension("json.tmp");
         let body = serde_json::to_vec_pretty(policy)
             .map_err(|e| format!("serialize routing policy: {e}"))?;
-        std::fs::write(&tmp, body).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-        secure_file(&tmp)?;
-        std::fs::rename(&tmp, &self.path)
-            .map_err(|e| format!("replace {}: {e}", self.path.display()))
+        crate::platform::workspace_store::write_private_atomic(&self.path, &body)?;
+        secure_file(&self.path)
     }
 
     pub(super) fn select(

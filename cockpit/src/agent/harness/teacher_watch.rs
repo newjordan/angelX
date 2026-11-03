@@ -271,9 +271,11 @@ pub(crate) fn ask_teacher(
     let worker_cancel = Arc::clone(&cancel);
     let workspace = workspace.to_path_buf();
     let (tx, rx) = mpsc::channel();
+    let book_catalog = super::book::catalog::current();
     if std::thread::Builder::new()
         .name("angel-teacher-watch".to_string())
         .spawn(move || {
+            let _book_catalog = book_catalog.map(super::book::catalog::enter);
             let _lease = TeacherAskLease;
             let _ = tx.send(super::book::connect::chat(
                 &*club,

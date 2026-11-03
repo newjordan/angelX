@@ -71,10 +71,8 @@ pub const EVENT_LOSS: u8 = 1;
 
 /// Soldiers lost to the rash side of a trail event.
 pub const EVENT_RASH_LOSS: u8 = 2;
-/// Legs between castles: five legs, three castles (a castle falls on legs
-/// 2, 3 and 5).
-pub const CASTLE_LEGS: [u8; 3] = [2, 3, 5];
-/// Which castle a leg besieges, if any (1..=3).
+/// Which castle a leg besieges, if any (1..=3): five legs, three castles
+/// (a castle falls on legs 2, 3 and 5).
 pub fn castle_of(leg: u8) -> Option<u8> {
     match leg {
         2 => Some(1),
@@ -860,8 +858,21 @@ impl Run {
         // F here answers the volley clock, so we use the raw key edge we are
         // given, through the round's own taps. The latched set is cleared by
         // the caller; a held key must not loose every tick.
+        let prev_shot = b.shot.is_some();
         let alive = b.step(input, tapped).unwrap_or(false);
+        // Launch sound: new shot appeared this tick
+        if !prev_shot && b.shot.is_some() { self.sounds.push("bomb_toss"); }
+        // Impact sound: splat just triggered
+        if b.splat == SPLAT { self.sounds.push("bomb"); }
+        let prev_taken = r.progress;
         r.progress = b.taken;
+        if b.taken > prev_taken {
+            r.score_popup = 8;
+            r.score_popup_text = "BREACH!".to_string();
+            r.score_popup_x = 12;
+            r.score_popup_y = 6;
+            self.sounds.push("wall_up");
+        }
         if b.shot.is_some() || b.castle_shot.is_some() {
             // keep the round's "something in the air" cue fresh
             r.hazard_left = 4;

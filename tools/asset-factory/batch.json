@@ -1,0 +1,88 @@
+[
+  {
+    "id": "marsh-watchman",
+    "name": "Marsh Watchman",
+    "kind": "body",
+    "brief": "Hunched reed-coated marsh monster; open face void, two free arms and planted boots; one ochre eye.",
+    "source": "sources/marsh-watchman.png",
+    "key": "a5115d",
+    "fixup": "fixups/marsh-watchman.json"
+  },
+  {
+    "id": "cinder-knave",
+    "name": "Cinder Knave",
+    "kind": "body",
+    "brief": "Lean ash-grey goblin monster with a wedge nose, split feet and one dim ochre ember eye.",
+    "source": "sources/cinder-knave.png",
+    "key": "a90d5f",
+    "fixup": "fixups/cinder-knave.json"
+  },
+  {
+    "id": "chain-flail",
+    "name": "Chain Flail",
+    "kind": "weapon",
+    "brief": "Short iron handle, visibly articulated chain and offset spiked iron weight; small ochre grip wrap.",
+    "source": "sources/chain-flail.png",
+    "key": "b42d65",
+    "clip": "flail",
+    "sound": "swing",
+    "fixup": "fixups/chain-flail.json"
+  },
+  {
+    "id": "hearth-greatsword",
+    "name": "Hearth Greatsword",
+    "kind": "weapon",
+    "brief": "Heavy grey greatsword with a pointed bevelled blade, broad crossguard and ochre pommel.",
+    "source": "sources/hearth-greatsword.png",
+    "key": "b73169",
+    "clip": "overhead",
+    "sound": "swing",
+    "fixup": "fixups/hearth-greatsword.json"
+  },
+  {
+    "id": "ash-spear",
+    "name": "Ash Spear",
+    "kind": "weapon",
+    "brief": "Leaf-headed iron spear with a continuous grey shaft and one ochre binding.",
+    "source": "sources/ash-spear.png",
+    "key": "b02864",
+    "clip": "thrust",
+    "sound": "swing",
+    "fixup": "fixups/ash-spear.json"
+  },
+  {
+    "id": "rivet-cuirass",
+    "name": "Rivet Cuirass",
+    "kind": "worn",
+    "brief": "Empty wide riveted steel breastplate and two pauldrons, short waist; no person or limbs.",
+    "source": "sources/rivet-cuirass.png",
+    "key": "a7246a",
+    "fixup": "fixups/rivet-cuirass.json"
+  },
+  {
+    "id": "lamellar-vest",
+    "name": "Lamellar Vest",
+    "kind": "worn",
+    "brief": "Empty short wide lamellar torso vest, staggered plate seams and two ochre laces; no figure.",
+    "source": "sources/lamellar-vest.png",
+    "key": "a90c65",
+    "fixup": "fixups/lamellar-vest.json"
+  },
+  {
+    "id": "iron-hit-sparks",
+    "name": "Iron Hit Sparks",
+    "kind": "vfx",
+    "brief": "Asymmetric metal impact shards around a tiny warm hub; no glow or uniform pinwheel.",
+    "source": "sources/iron-hit-sparks.png",
+    "key": "cb1579",
+    "fixup": "fixups/iron-hit-sparks.json"
+  },
+  {
+    "id": "tavern-cask",
+    "name": "Tavern Cask",
+    "kind": "prop",
+    "brief": "Small iron-banded tavern cask with an ochre bung and side tap.",
+    "source": "sources/tavern-cask.png",
+    "key": "ad1666"
+  }
+]

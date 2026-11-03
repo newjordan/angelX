@@ -15,12 +15,10 @@ struct Token {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Glyph {
     // State
-    #[allow(dead_code)]
     Active,
     Idle,
     #[allow(dead_code)]
     Online,
-    #[allow(dead_code)]
     Offline,
     Thinking,
     #[allow(dead_code)]
@@ -82,11 +80,9 @@ pub enum Glyph {
     Result,
     #[allow(dead_code)]
     Check,
-    #[allow(dead_code)]
     Warning,
     Cpu,
     Gpu,
-    #[allow(dead_code)]
     Memory,
     #[allow(dead_code)]
     Network,

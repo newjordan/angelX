@@ -1,4 +1,4 @@
-power wish:homing 3
+power wish:seeker 3
 teacher Fenna the Fletcher
 place the Eyrie, the high rookery among the mews
 room Aviary

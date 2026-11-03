@@ -332,7 +332,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "bannerpeak.spark",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.spark/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.spark/v01/source-sheet.png",
   "source_sha256": "5ce42b855b6d64688fc31933968e57024772a132d4a772ffa13f1036b7df4a30",
   "tool_version": 2
 }

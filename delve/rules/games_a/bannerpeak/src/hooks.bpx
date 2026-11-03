@@ -1,0 +1,157 @@
+# crates/delve/src/rules/bannerpeak.rs — how the run is started, ticked and paid, and how it
+# is registered with the shared shell (ADVENTURE and ACTIVITY).
+module bannerpeak
+
+const SLOT: u32 = 2
+const BEGUN: u32 = 1
+const FIRST_PURSE: u32 = 60
+const REPEAT_PURSE: u32 = 12
+const RUN: u32 = 1152
+const HOP: u32 = 10
+const COYOTE: u32 = 5
+const SLAM: u32 = 36
+const LEDGE: u32 = 3000
+
+# The Run as the hooks touch it.
+struct Run:
+  players: Map<Hero>
+  tune: J
+  exits: J
+  home: J
+  sounds: Vec<str>
+  found: J
+  marks: J
+  tick: J
+  bannerpeak: Option<Session>
+  forest: J
+
+extern fn room_kind(run: Run) -> str = bannerpeak.u.room_kind
+extern fn found_line(tick: J, text: str) -> J = bannerpeak.u.found
+extern fn pays_line(purse: u32) -> str = bannerpeak.u.pays_line
+extern fn vec_extend(a: Vec<str>, b: Vec<str>) -> Vec<str> = bannerpeak.u.vec_extend
+extern fn outside(run: Run, id: u32) -> bool = bannerpeak.u.outside
+extern fn leave(run: Run mut, id: u32) -> unit = bannerpeak.u.leave
+extern fn present_heroes(run: Run, ids: list<u32>, acc: Map<Hero>) -> Map<Hero> = bannerpeak.u.present
+extern fn record_play(home: J mut) -> unit = bannerpeak.u.record_play
+extern fn record_win(home: J mut, score: u32) -> unit = bannerpeak.u.record_win
+extern fn flags(home: J) -> u32 = bannerpeak.u.flags
+extern fn flags_put(home: J mut, bits: u32) -> unit = bannerpeak.u.flags_put
+extern fn pay(h: Hero mut, n: u32) -> unit = bannerpeak.u.pay
+extern fn flag_set(marks: J mut, key: str) -> unit = bannerpeak.u.flag_set
+extern fn forest_leave(f: J mut) -> unit = forest.Forest.leave
+extern fn roundtable_number(tune: J, slot: u32, i: u32) -> u32 = roundtable.number
+extern fn ids_vec(ids: list<u32>, acc: Vec<u32>) -> Vec<u32> = bannerpeak.u.ids_vec
+
+fn Run.bannerpeak_showing(self: Run) -> bool:
+  return room_kind(self) == "forest" && self.bannerpeak.is_some()
+
+fn Run.start_bannerpeak(self: Run mut) -> unit:
+  if room_kind(self) != "forest":
+    return
+  forest_leave(&mut self.forest)
+  self.bannerpeak = Some(Session::new(self.players))
+  record_play(&mut self.home)
+  self.found = found_line(self.tick, "Bannerpeak: raise eight banners. Hold Esc to return.")
+  self.sounds.push("play_card")
+
+# The five numbers as the run holds them.
+fn Run.bannerpeak_knobs(self: Run) -> Knobs:
+  return Knobs{run: roundtable_number(self.tune, SLOT, 0), hop: roundtable_number(self.tune, SLOT, 1), grace: roundtable_number(self.tune, SLOT, 2), slam: roundtable_number(self.tune, SLOT, 3), ledge: roundtable_number(self.tune, SLOT, 4)}
+
+fn Run.tick_bannerpeak(self: Run mut, inputs: Map<Input>) -> unit:
+  if self.bannerpeak.is_none():
+    return
+  let mut s = self.bannerpeak.unwrap()
+  let present = present_heroes(self, self.players.ids(), Map::new())
+  let knobs = self.bannerpeak_knobs()
+  let was_done = s.completed.is_some()
+  let mut say: Vec<str> = Vec::new()
+  s.step(inputs, present, knobs, say)
+  self.sounds = vec_extend(self.sounds, say)
+  if !was_done && s.completed.is_some():
+    self.bannerpeak_pays(s)
+  let done = s.completed.is_some()
+  self.bannerpeak = Some(s)
+  # Done: E takes everyone back to the kingdom.
+  if done:
+    let returning = self.returning(inputs, inputs.ids(), Vec::new())
+    self.leave_all(returning, 0)
+
+# The ids that press E, with valid keys, and are not outside.
+fn Run.returning(self: Run, inputs: Map<Input>, ids: list<u32>, acc: Vec<u32>) -> Vec<u32>:
+  if ids.is_empty():
+    return acc
+  let id = ids.head()
+  let i = inputs[id]
+  if i.interact && i.valid() && !outside(self, id):
+    acc.push(id)
+  return self.returning(inputs, ids.tail(), acc)
+
+fn Run.leave_all(self: Run mut, returning: Vec<u32>, n: u32) -> unit:
+  if n >= returning.len():
+    return
+  leave(&mut self, returning[n])
+  self.leave_all(returning, n + 1)
+
+fn Run.pay_seats(self: Run mut, ids: list<u32>, purse: u32) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  if self.players.contains_key(id):
+    let mut h = self.players[id]
+    pay(&mut h, purse)
+    self.players.insert(id, h)
+  self.pay_seats(ids.tail(), purse)
+
+# The eight banners are up: the mark, the record and the purse, once for each knight seated.
+fn Run.bannerpeak_pays(self: Run mut, s: Session) -> unit:
+  let first = flags(self.home) & BEGUN == 0
+  let mut purse: u32 = REPEAT_PURSE
+  if first:
+    purse = FIRST_PURSE
+  self.pay_seats(s.seats.ids(), purse)
+  # Quicker is better, to a thousand.
+  let seconds = s.elapsed / 30
+  let score = (1000 as u32).saturating_sub(seconds.saturating_sub(120)).max(100)
+  record_win(&mut self.home, score.min(1000))
+  flags_put(&mut self.home, flags(self.home) | BEGUN)
+  flag_set(&mut self.marks, "bannerpeak:campaign-begun")
+  self.found = found_line(self.tick, pays_line(purse))
+  self.sounds.push("spoil_pickup")
+
+fn ADVENTURE.valid(run: Run) -> bool:
+  return run.bannerpeak.is_none() || run.bannerpeak.unwrap().valid()
+
+fn ADVENTURE.clear(run: Run mut) -> unit:
+  run.bannerpeak = None
+
+fn ADVENTURE.seated(run: Run) -> Vec<u32>:
+  if run.bannerpeak.is_none():
+    return Vec::new()
+  return ids_vec(run.bannerpeak.unwrap().seats.ids(), Vec::new())
+
+fn ADVENTURE.bot(run: Run, id: u32) -> Input:
+  if run.bannerpeak.is_some() && run.players.contains_key(id):
+    return run.bannerpeak.unwrap().bot_input(id, run.players[id])
+  return Input::default()
+
+# The ride of its activity: it plays, and everyone's keys stay as they came.
+fn ACTIVITY.ride(run: Run mut, inputs: Map<Input>) -> bool:
+  run.tick_bannerpeak(inputs)
+  return true
+
+fn ACTIVITY.end(run: Run mut) -> unit:
+  run.bannerpeak = None
+
+case Run.bannerpeak_showing: run=self
+case Run.start_bannerpeak: run=self
+case Run.bannerpeak_knobs: run=self
+case Run.tick_bannerpeak: run=self => run=self
+case Run.bannerpeak_pays: run=self, session=s => run=self
+case Run.tick_bannerpeak.done via Run.tick_bannerpeak: run=self => run=self
+case ADVENTURE.valid
+case ADVENTURE.clear
+case ADVENTURE.seated
+case ADVENTURE.bot
+case ACTIVITY.ride: => run=run, some=ret
+case ACTIVITY.end

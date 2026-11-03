@@ -32,6 +32,7 @@ fn title(im: &mut Img, x: i32, y: i32, text: &str) {
     }
 }
 pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
+    if run.crossroads.is_some() { return; }
     let id = focus.unwrap_or_else(|| run.playtest.local_seat());
     let Some(seat) = run.playtest.seats.get(&id) else {
         return;
@@ -46,6 +47,9 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             let w = super::super::ink::text_width(text) + 20;
             let x = (NATIVE_W - w) / 2;
             chrome::panel(over, (x, 12, w, 21), chrome::Tone::BRASS);
+            if super::hud_art::enabled(run) {
+                super::hud_art::plate(over, "toast", (x, 12, w, 21));
+            }
             over.text(x + 10, 19, text, 'O');
         }
         return;
@@ -134,4 +138,9 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
     im.text(14, h - 24, controls, 'i');
     im.text(14, h - 13, keys, 'O');
     over.stamp(&im, 8, 8);
+    // On the delivered HUD kit, the window wears the kit's studded frame
+    // round its edge, as the page's own windows do.
+    if super::hud_art::enabled(run) {
+        super::hud_art::window(over, (4, 4, w + 8, h + 8));
+    }
 }

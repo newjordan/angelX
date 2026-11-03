@@ -49,5 +49,8 @@ fi
 if ! _angel_api_club_enabled openrouter; then
   unset ANGEL_OPENROUTER_KEY OPENROUTER_API_KEY
 fi
+if ! _angel_api_club_enabled anthropic; then
+  unset ANGEL_ANTHROPIC_KEY ANTHROPIC_API_KEY
+fi
 unset -f _angel_api_club_enabled
 unset _angel_api_clubs_normalized

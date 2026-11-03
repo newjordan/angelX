@@ -1,3 +1,14 @@
+> **The painted plates are cut (2026-10-20).** Rooms in 3D are lit, in the
+> monolith look (docs/REALM-MONOLITH.md, "Rooms, lit"), and the kingdom's
+> chunks are lit with no plate. The items' plates, their sets, the kingdom
+> chunks' sets and plate machinery, the rooms stood up plain in a theme's
+> patches and their switches (`ANGEL_WORLD3D_PLATES`, `ANGEL_WORLD3D_PLAIN`)
+> are gone from the tree; the sets and plate records are archived in
+> `<archive>/2026-10-20/plate-world/` (README there), the
+> code at `refs/archive/cut-20261020/before-art-cuts`. The landmark overlays
+> (`assets/world3d/<item>/landmark.set`) stay: the lit rooms stand them. This
+> page is the plate world as it was.
+
 # The world in 3D: blockout, paint-over, project back
 
 The user, 2026-10-17: projection painting is the answer to angelX's 2D-or-3D
@@ -268,10 +279,9 @@ change to this table and to `angel_stage::set`.
 
 ## In the game
 
-A function of depth (see "Deeper floors" below): a host stands the deep
-floors up and keeps the upper ones in the 2D black look, unless
-`ANGEL_WORLD3D=1` (every room, the kingdom too) or `ANGEL_WORLD3D=0`
-(none) says otherwise. A host that reads it (`delve-dev-host`, and the
+A function of depth (see "Deeper floors" below): a host keeps every floor
+in the 2D black look unless `ANGEL_WORLD3D=deep` (the deep floors stand up)
+or `ANGEL_WORLD3D=1` (every room, the kingdom too) says otherwise. A host that reads it (`delve-dev-host`, and the
 cockpit beside its other Delve settings, `drive::delve_settings_from_env`)
 hands its mode to every seat's page in the welcome
 (`wire::Params::world3d`, `wire::Params::deep3d`). Off, every room draws
@@ -403,8 +413,10 @@ has steps down. Those are the art lane's to repaint.
 
 ## Deeper floors
 
-The dungeon becomes 3D as the party goes down (`world3d::room::Mode`,
-`room::stands`):
+Off by default since 2026-10-29: the operator moved the delve away from the
+3D after the third guardian, and every floor plays in the 2D black look.
+With `ANGEL_WORLD3D=deep` the dungeon becomes 3D as the party goes down
+(`world3d::room::Mode`, `room::stands`):
 
 - **Floors 1 and 2** keep the Delve's main look, the 2D black dungeon.
 - **Floor 3**, the dragon's (`room::TRANSITION`): only its guardian's halls
@@ -419,14 +431,42 @@ so the host and each page decide room by room alike. A page that draws no
 scenes (a terminal, the legacy presenter) keeps the 2D look on every
 floor; only `ANGEL_WORLD3D=1` lays a lit room's picture down there.
 
-The deep keeps the black dungeon's language: the field is black and light
+The deep keeps the black dungeon's language: the dark is deep and light
 is activity (a room's fires burn while it is fought and sink to embers
 once it is won); what lies on the floor turns as the same dark card over
 a pool of light as in 2D (`pickup_cards::nodes`, plain nodes a wire
-carries); monsters are graded under the knights (docs/BRAND.md). A lit
-delve's key light and ambient are held low there (`rooms_lit::DEEP_KEY`,
-`DEEP_AMBIENT`) and its own lamps throw pools (`DEEP_LAMP_REACH`), so the
-field is black and the light is where something burns or happens.
+carries); monsters are graded under the knights (docs/BRAND.md).
+
+**Seeing in the dark.** The first night's players said "the 3d maps were
+too dark, we couldnt see obstacles or things in the map": with the key at
+0.24 and the ambient at 0.03 the floor, the walls and what stands in a room
+all fell to the ladder's void (step 0), and the median of a frame was 0.03
+to 0.05 against the guide's 0.12 to 0.26 (`brand::MIDDLE`). A lit delve
+now keeps the guide's own sun (`Tone::key`: ambient 0.32, key 0.9; Dragon
+Keep, which the lava lights, 0.21 and 0.62), its floor at 0.84 of its
+kind's tone (`rooms_lit::DEEP_GROUND_TONE`), so the floor sits at the
+middle steps of the ladder, a lit face a step up and a shadow two down.
+What stands is read against it by the light alone, the dark is still there
+between the lamps:
+
+- the sky's light grows up a tall face (`Tone::rise`): a pillar or a wall
+  pales toward its top and darkens at its foot;
+- the top of a box of a mass or a prop kind that stands is a step lighter
+  than its faces (`rooms_lit::capped`, `top` on its line), the light
+  catching its edge, and a room's growth (a mushroom's cap and stalk) is
+  given a middle tone, not the darkest (`DEEP_TONES`), both held by the
+  class ceilings (docs/BRAND.md);
+- its own lamps throw pools (`DEEP_LAMP_REACH`), and the stage adds a pool
+  round each standing knight and a glow over what lies on the floor
+  (`stage_frame::play_lamps`, `Moment::party`), which a window and a page
+  draw alike since they ride the look; the glow under a pickup in a lit
+  delve is wider and warmer than in 2D (`LOOT_GLOW`), which keeps its own.
+
+The shots: `cargo run --release -p angel-glass --example delve_3dlight --
+<outdir>` stands a party in a fight room, a won room and a treasure room
+of floors 3 to 6 with arms and a heart on the floor, draws each as the
+window does, and prints the guide's frame numbers (`brand::audit_frame`)
+over the play space.
 
 **The beat.** Coming down from above the deep into it marks the run
 (`Run::deep_beat`, the tick; a save without it loads as none). For

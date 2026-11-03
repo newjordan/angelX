@@ -659,331 +659,187 @@ pub struct RunnerCounts {
     pub skipped: usize,
 }
 
-fn num_before(tokens: &[&str], idx: usize) -> Option<usize> {
-    idx.checked_sub(1).and_then(|i| tokens[i].parse().ok())
-}
-fn num_after(tokens: &[&str], idx: usize) -> Option<usize> {
-    tokens.get(idx + 1).and_then(|t| t.parse().ok())
-}
-
-// Complete CTest summaries are authoritative over a nested binary's counts.
-// Never default a malformed number to zero: that could turn failure into success.
-fn ctest_counts(tokens: &[&str]) -> Option<RunnerCounts> {
-    let unsigned = |text: &str| {
-        (!text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()))
-            .then(|| text.parse::<usize>().ok())
-            .flatten()
-    };
-    let (percent, failed, total) = match tokens {
-        [percent, "tests", "passed", "out", "of", total] => (*percent, 0, unsigned(total)?),
-        [
-            percent,
-            "tests",
-            "passed,",
-            failed,
-            "tests",
-            "failed",
-            "out",
-            "of",
-            total,
-        ] => (*percent, unsigned(failed)?, unsigned(total)?),
-        _ => return None,
-    };
-    let percent = unsigned(percent.strip_suffix('%')?)?;
-    if percent > 100 || failed > total {
-        return None;
-    }
-    if total == 0 {
-        return (percent == 0 || percent == 100).then_some(RunnerCounts::default());
-    }
-    let passed = total - failed;
-    // CTest rounds its integer percentage; widened arithmetic cannot overflow
-    // even for representable counts near usize::MAX.
-    let expected = ((passed as u128) * 100 + (total as u128) / 2) / (total as u128);
-    (percent as u128 == expected).then_some(RunnerCounts {
-        passed,
-        failed,
-        skipped: 0,
-    })
+// The in-process adapter is audited against these exact two shipped modules.
+// A future edit may change their protocol or add ESM imports, in which case
+// the existing Node worker remains authoritative until the adapter is audited.
+fn inline_runner_generation_compatible(wrapper: &str, module: &str) -> bool {
+    crate::knowledge::cut::sha256_hex(wrapper.as_bytes())
+        == "e6b79c0d45276480fc1ffbada85391b11e68be4ad9464a64f6b3f60af7b3fd65"
+        && crate::knowledge::cut::sha256_hex(module.as_bytes())
+            == "4aab40cc7775f8cef6e74799c0d9a41e9444698a43d3a68670d988cdfce22bde"
 }
 
-pub fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCounts {
-    let mut c = RunnerCounts::default();
-    let text = format!("{stdout}\n{stderr}");
-    match lang {
-        Lang::Js => {
-            let mut saw_summary = false;
-            for line in text.lines() {
-                let t = line.trim();
-                // node TAP: "# pass 3" / "# fail 1" / "# skipped 0"; spec: "ℹ pass 3"
-                let stripped = t.trim_start_matches('#').trim_start_matches('ℹ').trim();
-                let toks: Vec<&str> = stripped.split_whitespace().collect();
-                if toks.len() == 2
-                    && let Ok(n) = toks[1].parse::<usize>()
-                {
-                    match toks[0] {
-                        "pass" => {
-                            c.passed = n;
-                            saw_summary = true;
-                            continue;
-                        }
-                        "fail" => {
-                            c.failed = n;
-                            saw_summary = true;
-                            continue;
-                        }
-                        "skipped" | "todo" => {
-                            c.skipped += n;
-                            continue;
-                        }
-                        _ => {}
-                    }
-                }
-                // jest: "Tests:       1 failed, 3 passed, 4 total"
-                if t.starts_with("Tests:") {
-                    let toks: Vec<&str> = t
-                        .split(|ch: char| ch == ',' || ch.is_whitespace())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    for (i, w) in toks.iter().enumerate() {
-                        match *w {
-                            "passed" => c.passed = num_before(&toks, i).unwrap_or(0),
-                            "failed" => c.failed = num_before(&toks, i).unwrap_or(0),
-                            "skipped" | "todo" => c.skipped += num_before(&toks, i).unwrap_or(0),
-                            _ => {}
-                        }
-                    }
-                    saw_summary = true;
-                    continue;
-                }
-                // vitest: "Tests  3 passed | 1 failed (4)"
-                if t.starts_with("Tests ") && (t.contains(" passed") || t.contains(" failed")) {
-                    let toks: Vec<&str> = t
-                        .split(|ch: char| ch == '|' || ch == '(' || ch == ')' || ch.is_whitespace())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    for (i, w) in toks.iter().enumerate() {
-                        match *w {
-                            "passed" => c.passed = num_before(&toks, i).unwrap_or(0),
-                            "failed" => c.failed = num_before(&toks, i).unwrap_or(0),
-                            "skipped" => c.skipped += num_before(&toks, i).unwrap_or(0),
-                            _ => {}
-                        }
-                    }
-                    saw_summary = true;
-                    continue;
-                }
-                // mocha: "3 passing (12ms)" / "1 failing" / "2 pending"
-                let toks: Vec<&str> = t.split_whitespace().collect();
-                if toks.len() >= 2
-                    && let Ok(n) = toks[0].parse::<usize>()
-                {
-                    match toks[1] {
-                        "passing" => {
-                            c.passed = n;
-                            saw_summary = true;
-                        }
-                        "failing" => {
-                            c.failed = n;
-                            saw_summary = true;
-                        }
-                        "pending" => c.skipped += n,
-                        _ => {}
-                    }
-                }
-            }
-            if !saw_summary {
-                // TAP without a summary (single file, `ok 1 - x` / `not ok 2 - y`)
-                for line in text.lines() {
-                    let t = line.trim();
-                    if t.starts_with("not ok ") {
-                        c.failed += 1;
-                    } else if t.starts_with("ok ") {
-                        c.passed += 1;
-                    }
-                }
-            }
-        }
-        Lang::Python => {
-            for line in text.lines() {
-                let t = line.trim().trim_matches('=').trim();
-                // pytest: "3 passed, 1 failed, 2 skipped in 0.12s" (also "error(s)")
-                if t.contains(" in ")
-                    && (t.contains("passed") || t.contains("failed") || t.contains("error"))
-                {
-                    let toks: Vec<&str> = t
-                        .split(|ch: char| ch == ',' || ch.is_whitespace())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    let mut hit = false;
-                    for (i, w) in toks.iter().enumerate() {
-                        match *w {
-                            "passed" => {
-                                c.passed = num_before(&toks, i).unwrap_or(0);
-                                hit = true;
-                            }
-                            "failed" => {
-                                c.failed = num_before(&toks, i).unwrap_or(0);
-                                hit = true;
-                            }
-                            "error" | "errors" => {
-                                c.failed += num_before(&toks, i).unwrap_or(0);
-                                hit = true;
-                            }
-                            "skipped" | "xfailed" | "deselected" => {
-                                c.skipped += num_before(&toks, i).unwrap_or(0)
-                            }
-                            _ => {}
-                        }
-                    }
-                    if hit {
-                        continue;
-                    }
-                }
-                // unittest: "Ran 4 tests in 0.001s" then "OK" / "OK (skipped=1)" / "FAILED (failures=1, errors=1)"
-                if t.starts_with("Ran ") {
-                    let toks: Vec<&str> = t.split_whitespace().collect();
-                    if let Some(n) = num_after(&toks, 0) {
-                        c.passed = n;
-                    }
-                    continue;
-                }
-                if t.starts_with("FAILED") || t.starts_with("OK") {
-                    let mut bad = 0usize;
-                    let mut skipped = 0usize;
-                    for part in t
-                        .trim_start_matches("FAILED")
-                        .trim_start_matches("OK")
-                        .trim()
-                        .trim_matches(|ch| ch == '(' || ch == ')')
-                        .split(',')
-                    {
-                        let mut kv = part.trim().splitn(2, '=');
-                        let k = kv.next().unwrap_or("").trim();
-                        let v: usize = kv.next().and_then(|v| v.trim().parse().ok()).unwrap_or(0);
-                        match k {
-                            "failures" | "errors" | "unexpected successes" => bad += v,
-                            "skipped" | "expected failures" => skipped += v,
-                            _ => {}
-                        }
-                    }
-                    if c.passed >= bad + skipped {
-                        c.passed -= bad + skipped;
-                    }
-                    c.failed += bad;
-                    c.skipped += skipped;
-                }
-            }
-        }
-        Lang::Go => {
-            for line in text.lines() {
-                let t = line.trim();
-                if t.starts_with("--- PASS") {
-                    c.passed += 1;
-                } else if t.starts_with("--- FAIL") {
-                    c.failed += 1;
-                } else if t.starts_with("--- SKIP") {
-                    c.skipped += 1;
-                }
-            }
-            if c.passed == 0 && c.failed == 0 {
-                // non-verbose: "ok  pkg 0.01s" / "FAIL pkg 0.01s" per package
-                for line in text.lines() {
-                    let t = line.trim();
-                    if t.starts_with("ok ") || t.starts_with("ok\t") {
-                        c.passed += 1;
-                    } else if t.starts_with("FAIL") && t.split_whitespace().count() >= 2 {
-                        c.failed += 1;
-                    }
-                }
-            }
-        }
-        Lang::Cpp => {
-            // CTest's own summary counts registered tests and wins when present:
-            // "67% tests passed, 1 tests failed out of 3". Otherwise the test
-            // binary's summary: Catch2 "All tests passed (N assertions in M test
-            // cases)" / "test cases: 5 | 4 passed | 1 failed", GoogleTest
-            // "[  PASSED  ] 3 tests." / "[  FAILED  ] 1 test, listed below:".
-            let mut registered = None;
-            for line in text.lines() {
-                let tokens: Vec<&str> = line.split_whitespace().collect();
-                if tokens.windows(3).any(|words| {
-                    words[0].ends_with('%')
-                        && words[1] == "tests"
-                        && matches!(words[2], "passed" | "passed,")
-                }) {
-                    let Some(counts) = ctest_counts(&tokens) else {
-                        return RunnerCounts::default();
-                    };
-                    // stdout/stderr concatenation does not establish chronology.
-                    // Conflicting authoritative summaries cannot imply success.
-                    if registered.is_some_and(|previous| previous != counts) {
-                        return RunnerCounts::default();
-                    }
-                    registered = Some(counts);
-                }
-            }
-            if let Some(counts) = registered {
-                return counts;
-            }
-            for line in text.lines() {
-                let t = line.trim();
-                if let Some(rest) = t.strip_prefix("All tests passed (") {
-                    let toks: Vec<&str> = rest.split_whitespace().collect();
-                    if let Some(i) = toks.iter().position(|w| *w == "test") {
-                        c.passed += num_before(&toks, i).unwrap_or(0);
-                    }
-                } else if let Some(rest) = t.strip_prefix("test cases:") {
-                    let fields: Vec<&str> = rest.split('|').map(str::trim).collect();
-                    for field in fields.iter().skip(1) {
-                        let toks: Vec<&str> = field.split_whitespace().collect();
-                        match toks.get(1) {
-                            Some(&"passed") => c.passed += num_before(&toks, 1).unwrap_or(0),
-                            Some(&"failed") => c.failed += num_before(&toks, 1).unwrap_or(0),
-                            _ => {}
-                        }
-                    }
-                } else if let Some(rest) = t.strip_prefix("[  PASSED  ]") {
-                    c.passed += rest
-                        .split_whitespace()
-                        .next()
-                        .and_then(|n| n.parse().ok())
-                        .unwrap_or(0);
-                } else if let Some(rest) = t.strip_prefix("[  FAILED  ]")
-                    && t.ends_with("listed below:")
-                {
-                    // The count line; the other FAILED lines name single tests.
-                    c.failed += rest
-                        .split_whitespace()
-                        .next()
-                        .and_then(|n| n.parse().ok())
-                        .unwrap_or(0);
-                }
-            }
-        }
-        Lang::Rust | Lang::Swift => {
-            // libtest-shaped summary lines ("test result: ok. 3 passed; 0 failed;")
-            // and swift-pm's "Executed 3 tests, with 0 failures".
-            for line in text.lines() {
-                let t = line.trim();
-                if t.starts_with("Executed ") {
-                    let toks: Vec<&str> = t
-                        .split(|ch: char| ch == ',' || ch.is_whitespace())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    let total = num_after(&toks, 0).unwrap_or(0);
-                    let failures = toks
-                        .iter()
-                        .position(|w| w.starts_with("failure"))
-                        .and_then(|i| num_before(&toks, i))
-                        .unwrap_or(0);
-                    c.failed = failures;
-                    c.passed = total.saturating_sub(failures);
-                }
-            }
-        }
+/// Interpret one bounded runner transcript through a pinned, replaceable module.
+/// Exit status and test execution remain the caller's responsibility. An
+/// unavailable or invalid worker is an error, never an empty passing summary.
+pub fn parse_runner_output(
+    lang: Lang,
+    stdout: &str,
+    stderr: &str,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+) -> Result<RunnerCounts, String> {
+    parse_runner_output_with(
+        lang,
+        stdout,
+        stderr,
+        cancel,
+        crate::agent::club::transform::evaluate,
+    )
+}
+
+fn parse_runner_output_with(
+    lang: Lang,
+    stdout: &str,
+    stderr: &str,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+    evaluate: impl FnOnce(
+        &str,
+        &serde_json::Value,
+        Option<&std::sync::atomic::AtomicBool>,
+    ) -> Result<serde_json::Value, String>,
+) -> Result<RunnerCounts, String> {
+    use std::sync::atomic::Ordering;
+    use std::time::Duration;
+
+    const MAX_TRANSCRIPT_BYTES: usize = 8 * 1024 * 1024;
+    const MAX_REQUEST_BYTES: usize = 48 * 1024 * 1024;
+    if stdout.len().saturating_add(stderr.len()) > MAX_TRANSCRIPT_BYTES {
+        return Err("test runner transcript exceeds its byte limit".into());
     }
-    c
+    let stopped = || cancel.is_some_and(|flag| flag.load(Ordering::Acquire));
+    if stopped() {
+        return Err("test summary interrupted".into());
+    }
+    let request = serde_json::json!({
+        "version": 1,
+        "lang": lang.name(),
+        "stdout": stdout,
+        "stderr": stderr,
+        "max": usize::MAX.to_string(),
+    });
+    let input =
+        serde_json::to_vec(&request).map_err(|error| format!("encode test summary: {error}"))?;
+    // A user-pinned Node and changed modules retain the original worker path.
+    // Only the exact shipped, capability-free module is evaluated in-process;
+    // this preserves arbitrary hotloaded ESM and its existing protocol.
+    const WRAPPER: &str = include_str!("../../../scripts/runtime/test-runner-report.mjs");
+    const MODULE: &str = include_str!("../../../lib/test-runner/report.mjs");
+    const MAX_INLINE_INPUT: usize = 1024 * 1024;
+    static INLINE_COMPATIBLE: OnceLock<bool> = OnceLock::new();
+    let node_pin = std::env::var_os("ANGEL_NODE_BIN").is_some();
+    // Preserve the explicit runtime pin's validation order.
+    let pinned_node = if node_pin {
+        Some(
+            crate::agent::tools::runtime_missing::resolve("node").map_err(|_| {
+                "Node.js unavailable (install Node or set ANGEL_NODE_BIN)".to_string()
+            })?,
+        )
+    } else {
+        None
+    };
+    // Both execution paths own this same private, two-read generation. If
+    // V8 is saturated or times out, the fallback cannot pick up a later edit.
+    let snapshot = crate::platform::worker_snapshot::Snapshot::capture(
+        &crate::platform::runtime_paths::root(),
+        &[
+            "scripts/runtime/test-runner-report.mjs",
+            "lib/test-runner/report.mjs",
+        ],
+        "test-runner",
+    )?;
+    let inline = if *INLINE_COMPATIBLE
+        .get_or_init(|| inline_runner_generation_compatible(WRAPPER, MODULE))
+        && !node_pin
+        && input.len() <= MAX_INLINE_INPUT
+    {
+        let wrapper = crate::platform::worker_snapshot::read(
+            &snapshot.dir.join("scripts/runtime/test-runner-report.mjs"),
+            "test-runner",
+        )?;
+        let module = crate::platform::worker_snapshot::read(
+            &snapshot.dir.join("lib/test-runner/report.mjs"),
+            "test-runner",
+        )?;
+        wrapper == WRAPPER.as_bytes() && module == MODULE.as_bytes()
+    } else {
+        false
+    };
+    let projected = if inline {
+        // The host preserves JSON number tokens as wrappers. The protocol's
+        // fixed version is the only numeric input; restore its exact value.
+        let source = MODULE.replacen("export function project(", "function runnerReport(", 1);
+        let source = format!(
+            "{source}\nfunction project(input) {{ return runnerReport({{...input, version: 1}}); }}"
+        );
+        match evaluate(&source, &request, cancel) {
+            Ok(value) => Some(value),
+            Err(error) if stopped() || error == "projection interrupted" => {
+                return Err("test summary interrupted".into());
+            }
+            Err(error)
+                if matches!(
+                    error.as_str(),
+                    "projection capacity timed out" | "projection timed out"
+                ) =>
+            {
+                None
+            }
+            Err(error) => return Err(format!("test summary unavailable: {error}")),
+        }
+    } else {
+        None
+    };
+    let value: serde_json::Value = if let Some(value) = projected {
+        value
+    } else {
+        if stopped() {
+            return Err("test summary interrupted".into());
+        }
+        let node = match pinned_node {
+            Some(node) => node,
+            None => crate::agent::tools::runtime_missing::resolve("node").map_err(|_| {
+                "Node.js unavailable (install Node or set ANGEL_NODE_BIN)".to_string()
+            })?,
+        };
+        let mut command = std::process::Command::new(node);
+        command
+            .arg(snapshot.dir.join("scripts/runtime/test-runner-report.mjs"))
+            .env_clear();
+        let output = crate::platform::worker::run_cancellable(
+            command,
+            &input,
+            Duration::from_secs(10),
+            MAX_REQUEST_BYTES,
+            4096,
+            stopped,
+        )?;
+        serde_json::from_slice(&output).map_err(|_| "invalid test summary response")?
+    };
+    if value.get("version").and_then(serde_json::Value::as_u64) != Some(1) {
+        return Err("unsupported test summary response".into());
+    }
+    let count = |name: &str| -> Result<usize, String> {
+        let value = value
+            .get(name)
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("invalid test summary {name}"))?;
+        if value.is_empty() || !value.bytes().all(|ch| ch.is_ascii_digit()) {
+            return Err(format!("invalid test summary {name}"));
+        }
+        value
+            .parse()
+            .map_err(|_| format!("invalid test summary {name}"))
+    };
+    let counts = RunnerCounts {
+        passed: count("passed")?,
+        failed: count("failed")?,
+        skipped: count("skipped")?,
+    };
+    counts
+        .passed
+        .checked_add(counts.failed)
+        .ok_or("test summary count overflow")?;
+    Ok(counts)
 }
 
 #[cfg(test)]

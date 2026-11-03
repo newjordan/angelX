@@ -132,6 +132,18 @@ pub enum ParsedInput {
     Observatory(ObservatoryCommand),
     /// Toggle the live CPU-raytraced cube in the artifacts pane (`/raytrace`, `/cube`).
     Raytrace,
+    /// Show or hide the Heartglass, the Virtual Embryo campaign's panel in
+    /// the window (`/heart`).
+    Heart,
+    /// Show the Heartglass floating over the window as a HUD (`/heart
+    /// float`, true) or on its plate (`/heart plate`, false).
+    HeartLook(bool),
+    /// Put the floating HUD's modules back where they were designed
+    /// (`/heart reset`).
+    HeartReset,
+    /// Show the Heartglass on its synthetic demo campaign, no VE data
+    /// read (`/heart demo`); `/heart float` or `/heart plate` leaves it.
+    HeartDemo,
     /// Open/drive the Realm/Reinforce RL pipeline stage
     /// (`/rl [run [flags]|status|stop]`); run uses the workspace objective or
     /// explicit task/verifier cases, with an optional independent audit.
@@ -266,6 +278,9 @@ impl ParsedInput {
 /// The remaining Codex slash commands (beyond the ones with dedicated variants
 /// above), each dispatched by name with real cockpit behavior where one exists.
 const CODEX_CMDS: &[&str] = &[
+    "reload",
+    "live",
+    "peers",
     "usage",
     "context",
     "rollout",
@@ -356,6 +371,7 @@ const CODEX_CMDS: &[&str] = &[
     "trace",
     "connect",
     "setup",
+    "browser",
 ];
 
 const DEDICATED_CMDS: &[&str] = &[
@@ -372,6 +388,7 @@ const DEDICATED_CMDS: &[&str] = &[
     "goal",
     "graph",
     "hear",
+    "heart",
     "help",
     "hide",
     "init",
@@ -491,15 +508,16 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "library" | "tutor" => " [topic] · alias for /learn",
         "ask" => " opens an editable tutor question; /ask <question> asks directly",
         "model" => " [filter|exact@effort|auto]",
-        "connect" => " [grok|openai|daybreak|glm|deepseek|openrouter|local]",
+        "connect" => " [grok|openai|daybreak|glm|deepseek|openrouter|anthropic|local]",
         "setup" => " · a menu that connects a model step by step",
+        "browser" => " · choose which Chrome/Chromium the browser tool drives",
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
         "table" => " [host|join <link>|new|claim|work|submit|apply|merge] · the Round Table work board",
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
         "dungeon_host" => {
-            " --N [--view]  (N friends, up to 5: one invite line each; --view: read-only browser view)"
+            " --N [--watch]  (N friends, up to 5, or 6 with --watch: one link for everyone; --watch: no knight of your own)"
         }
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",
@@ -681,6 +699,16 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
     }
     if matches!(trimmed, "/raytrace" | "/cube") {
         return Ok(ParsedInput::Raytrace);
+    }
+    if trimmed == "/heart" {
+        return Ok(ParsedInput::Heart);
+    }
+    match trimmed.strip_prefix("/heart ").map(str::trim) {
+        Some("float") => return Ok(ParsedInput::HeartLook(true)),
+        Some("plate") => return Ok(ParsedInput::HeartLook(false)),
+        Some("reset") => return Ok(ParsedInput::HeartReset),
+        Some("demo") => return Ok(ParsedInput::HeartDemo),
+        _ => {}
     }
     if trimmed == "/graph" {
         return Ok(ParsedInput::Graph(None));
@@ -920,7 +948,7 @@ fn normalize_open_target(arg: &str) -> Option<String> {
         return None;
     }
     // Absolute or ~/ paths that exist on disk open as file:// targets so
-    // `/open /work/comps/qwen` reveals a real folder in the file manager.
+    // `/open ~/projects/qwen` reveals a real folder in the file manager.
     if arg.starts_with('/') || arg.starts_with("~/") {
         let expanded = if let Some(rest) = arg.strip_prefix("~/") {
             std::env::var("HOME")

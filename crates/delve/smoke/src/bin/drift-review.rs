@@ -5,7 +5,6 @@ use angel_delve::{
         Run,
         race3d::{self as r3, Course},
     },
-    settings::{self, Settings},
 };
 use std::{collections::BTreeMap, hint::black_box, path::Path, time::Instant};
 fn save(dir: &Path, name: &str, run: &Run) {
@@ -38,11 +37,6 @@ fn save(dir: &Path, name: &str, run: &Run) {
 fn main() {
     let dir = std::path::PathBuf::from(std::env::args_os().nth(1).expect("drift-review OUT"));
     std::fs::create_dir_all(&dir).unwrap();
-    settings::set(Settings {
-        art_v2: true,
-        feel_ledger: false,
-        open_floors: false,
-    });
     let mut run = arena::race3d::testing::racing(Course::Touge, 4);
     run.floor_plates.clear();
     let mut seen = [false; 3];

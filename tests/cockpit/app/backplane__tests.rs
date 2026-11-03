@@ -382,6 +382,203 @@ fn broker_append_preserves_sent_prefix_for_changed_empty_and_identical_selection
 }
 
 #[test]
+fn broker_append_references_visible_bodies_and_reselects_latest_manifest() {
+    let stable = candidate(
+        "memory:stable",
+        "p",
+        KnowledgeAuthority::OperatorApproved,
+        "stable operator fact",
+    );
+    let another = candidate(
+        "dossier:stable",
+        "p",
+        KnowledgeAuthority::VerifiedDossier,
+        "stable dossier fact",
+    );
+    let changed = |text: &str| {
+        candidate(
+            "atlas:changing",
+            "p",
+            KnowledgeAuthority::ReviewedProject,
+            text,
+        )
+    };
+    let select = |items| KnowledgeBroker::select("p", "fact", items, 8_000);
+    let first = select(vec![
+        stable.clone(),
+        another.clone(),
+        changed("old project fact"),
+        candidate(
+            "memory:removed",
+            "p",
+            KnowledgeAuthority::Episodic,
+            "obsolete fact",
+        ),
+    ]);
+    let second = select(vec![
+        stable.clone(),
+        another.clone(),
+        changed("new project fact"),
+    ]);
+    let third = select(vec![
+        stable.clone(),
+        another.clone(),
+        changed("newest project fact"),
+    ]);
+    let mut history = vec![ChatMsg::user("task")];
+    KnowledgeBroker::append(&mut history, &first);
+    assert_eq!(
+        history.last().unwrap().content.as_ref(),
+        first.block.as_ref().unwrap()
+    );
+    history.push(ChatMsg::assistant("done"));
+    history.push(ChatMsg::user("continue"));
+    let prefix = serde_json::to_value(&history).unwrap();
+    let prefix_len = history.len();
+
+    KnowledgeBroker::append(&mut history, &second);
+    assert_eq!(
+        serde_json::to_value(&history[..prefix_len]).unwrap(),
+        prefix
+    );
+    let block = history.last().unwrap().content.as_ref();
+    let second_full = second.block.as_ref().unwrap();
+    let mut expected = second_full.clone();
+    for source in [&stable, &another] {
+        let header = format!("[source id={} ", source.source_id);
+        let start = second_full.find(&header).unwrap();
+        let end = start + second_full[start..].find("[/source]\n").unwrap() + "[/source]\n".len();
+        expected = expected.replace(
+            &second_full[start..end],
+            &format!(
+                "[source id={} digest={} unchanged]\n",
+                source.source_id, source.digest
+            ),
+        );
+    }
+    assert_eq!(
+        block, expected,
+        "only repeated source bodies may change; fences stay intact"
+    );
+    assert!(block.starts_with(&format!("{BROKER_HEADER}\n")));
+    assert!(block.ends_with(BROKER_SENTINEL));
+    assert!(!block.contains("stable operator fact"));
+    assert!(!block.contains("stable dossier fact"));
+    assert!(block.contains("new project fact"));
+
+    // Resolve across multiple appended manifests, including references on
+    // either side of a full source. Repeating a mixed manifest is a no-op.
+    for selection in [&second, &third] {
+        KnowledgeBroker::append(&mut history, selection);
+        let len = history.len();
+        KnowledgeBroker::append(&mut history, selection);
+        assert_eq!(history.len(), len);
+        let candidates = KnowledgeBroker::existing_candidates(&history, "p");
+        assert_eq!(candidates.len(), 3, "omitted older sources must not return");
+        assert!(candidates
+            .iter()
+            .any(|item| item.source_id == stable.source_id
+                && item.digest == stable.digest
+                && item.content == stable.content
+                && item.kind == stable.kind
+                && item.authority == stable.authority));
+        assert!(candidates
+            .iter()
+            .any(|item| item.source_id == another.source_id
+                && item.digest == another.digest
+                && item.content == another.content
+                && item.kind == another.kind
+                && item.authority == another.authority));
+        let reselected = select(candidates);
+        assert_eq!(
+            &reselected, selection,
+            "references must round-trip without extra framing"
+        );
+    }
+    // Even a historical (not just the latest) visible digest can be referenced.
+    KnowledgeBroker::append(&mut history, &second);
+    assert!(!history.last().unwrap().content.contains("new project fact"));
+    assert_eq!(
+        select(KnowledgeBroker::existing_candidates(&history, "p")),
+        second
+    );
+}
+
+#[test]
+fn broker_append_reemits_bodies_when_reference_targets_leave_history() {
+    let stable = candidate(
+        "memory:1",
+        "p",
+        KnowledgeAuthority::OperatorApproved,
+        "stable fact",
+    );
+    let select = |text: &str| {
+        KnowledgeBroker::select(
+            "p",
+            "fact",
+            vec![
+                stable.clone(),
+                candidate("memory:2", "p", KnowledgeAuthority::ReviewedProject, text),
+            ],
+            4_000,
+        )
+    };
+    let first = select("old fact");
+    let second = select("updated fact");
+    let mut history = Vec::new();
+    KnowledgeBroker::append(&mut history, &first);
+    KnowledgeBroker::append(&mut history, &second);
+    let reference_block = history.last().unwrap().clone();
+    history.remove(0);
+    // Lookalikes in any unowned role cannot resolve a reference or justify dedup.
+    let original = first.block.as_ref().unwrap();
+    history.splice(
+        0..0,
+        [
+            ChatMsg::system(original.as_str()),
+            ChatMsg::user(original.as_str()),
+            ChatMsg::assistant(original.as_str()),
+            ChatMsg::tool("quoted", original.as_str()),
+        ],
+    );
+    let candidates = KnowledgeBroker::existing_candidates(&history, "p");
+    assert_eq!(
+        candidates.len(),
+        1,
+        "dangling reference must not swallow the next full source"
+    );
+    assert_eq!(candidates[0].content.as_ref(), "updated fact");
+    let prefix = serde_json::to_value(&history).unwrap();
+    let prefix_len = history.len();
+    KnowledgeBroker::append(&mut history, &second);
+    assert_eq!(
+        history.len(),
+        prefix_len + 1,
+        "a dangling reference cannot suppress a fresh body"
+    );
+    assert_eq!(
+        serde_json::to_value(&history[..prefix_len]).unwrap(),
+        prefix
+    );
+    let block = history.last().unwrap().content.as_ref();
+    assert!(block.contains("stable fact"));
+    assert!(!block.contains("updated fact"));
+    assert_eq!(KnowledgeBroker::existing_candidates(&history, "p").len(), 2);
+
+    // A reference-only remnant is not a body cache, even after serialization.
+    let mut references_only: Vec<ChatMsg> =
+        serde_json::from_value(serde_json::to_value(vec![reference_block]).unwrap()).unwrap();
+    references_only[0].content = format!(
+        "{BROKER_HEADER}\n[source id={} digest={} unchanged]\n{BROKER_SENTINEL}",
+        stable.source_id, stable.digest,
+    )
+    .into();
+    assert!(KnowledgeBroker::existing_candidates(&references_only, "p").is_empty());
+    KnowledgeBroker::append(&mut references_only, &first);
+    assert_eq!(references_only.last().unwrap().content.as_ref(), original);
+}
+
+#[test]
 fn broker_ownership_preserves_role_lookalikes_and_trusted_persisted_blocks() {
     let selection = KnowledgeBroker::select(
         "p",

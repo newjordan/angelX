@@ -31,10 +31,10 @@ fn graph_crop_native_events_keep_data_when_the_world_stage_is_hidden() {
         events.send(TurnEvent::ToolResult { id,name:"graph".into(),summary:"truncated".into(),outcome }).unwrap();
     }
     app.advance();
-    assert!(app.world.graph_report(None).contains("x=1 y=7"));
+    assert!(app.realm.world.graph_report(None).contains("x=1 y=7"));
     app.input = "/world crops".into();
     app.submit();
-    assert_eq!(app.world.overworld_view_label(), Some("GRAPH GARDEN"));
+    assert_eq!(app.realm.world.overworld_view_label(), Some("GRAPH GARDEN"));
     assert!(app.messages.iter().any(|m| m.text.contains("x=1 y=7")));
 }
 

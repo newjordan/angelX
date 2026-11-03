@@ -66,7 +66,7 @@
     "foreign/duplicate suspicion",
     "piece-count mismatch"
   ],
-  "map_sha256": "f9a76efa8f3fc4559e20b7d88bebfba63b5989a6389aae82641c3610abf51e8c",
+  "map_sha256": "bd9f94d0fb77f8a2ec5d4ee1d7bf597bccc5c869fa31ff2a337e056ef07b0ecd",
   "metadata_sha256": "d986074f24a408512770f49efa6b363337a6343daa6b434b3fb68fed947958ef",
   "notes_sha256": "9fe5c6190575612a151436e77c84118961b43ba3fcae437ed2088add9bcb1818",
   "outputs": {
@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.parry",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/latch.parry/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/latch.parry/source-sheet.png",
   "source_sha256": "2a57e17c439e1121dd598b9609a96ecd5e6cf7519dd18117f7902c2d0025313e",
   "tool_version": 2
 }

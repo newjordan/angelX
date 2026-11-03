@@ -183,7 +183,7 @@ pub fn finds(seed: u64) -> Arc<Vec<Find>> {
 fn ranked(home: Biome, salt: u32, tiles: impl Iterator<Item = (i32, i32)>) -> Vec<(i32, i32)> {
     let mut here: Vec<(u32, (i32, i32))> = tiles
         .filter(|&(x, y)| biome::at(x, y) == home)
-        .map(|(x, y)| (crate::render::overworld::ink::hash(x, y, salt), (x, y)))
+        .map(|(x, y)| (crate::ink::hash(x, y, salt), (x, y)))
         .collect();
     here.sort();
     here.into_iter().map(|(_, at)| at).collect()

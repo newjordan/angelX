@@ -29,6 +29,7 @@ pub struct ServeConfig {
     pub bind: SocketAddr,
     /// The browser client; a placeholder page without one.
     pub bundle: Option<ClientBundle>,
+    pub live_assets: http::LiveAssets,
     /// A fixed join key (scripts and tests); a random one without.
     pub key: Option<String>,
     /// Print a line of stats to stderr this often.
@@ -42,11 +43,18 @@ pub struct ServeConfig {
     /// Seats kept for their players by name (`Sessions::keep`): a restored
     /// run's knights.
     pub names: Vec<(u32, String)>,
+    /// Where the game's paintings are kept, each `<sha256>.png`: served at
+    /// `/paint/<sha256>.png` to the pages and seats that draw them.
+    pub paint_dir: Option<PathBuf>,
+    /// An HD art pack (the Delve's: a folder of PNGs and its `pack.json`),
+    /// served at `/hd/` to a page that asks for HD art: its manifest, and
+    /// each drawing the first time a figure on its screen wants it.
+    pub hd_dir: Option<PathBuf>,
 }
 
 impl ServeConfig {
     pub fn new(bind: SocketAddr) -> ServeConfig {
-        ServeConfig { bind, bundle: None, key: None, log_every: None, dev: false, tune_file: None, names: Vec::new() }
+        ServeConfig { bind, bundle: None, live_assets:Default::default(), key: None, log_every: None, dev: false, tune_file: None, names: Vec::new(), paint_dir: None, hd_dir: None }
     }
 }
 
@@ -82,6 +90,7 @@ pub(crate) struct Hub<G: GameServer> {
     pub params: Vec<u8>,
     pub rep: G::Rep,
     pub assets: Assets,
+    pub live_assets: http::LiveAssets,
     pub sessions: Mutex<Sessions>,
     pub conns: Mutex<HashMap<u64, Arc<Conn>>>,
     /// The newest published ticks, oldest first, `EVENT_RING` at most.
@@ -107,6 +116,10 @@ pub(crate) struct Hub<G: GameServer> {
     /// Connections that asked for the server's numbers once a second.
     pub watching: Mutex<HashSet<u64>>,
     pub tune_file: Option<PathBuf>,
+    /// Where the paintings served at `/paint/` are (`ServeConfig::paint_dir`).
+    pub paint_dir: Option<PathBuf>,
+    /// The HD art pack served at `/hd/` (`ServeConfig::hd_dir`).
+    pub hd_dir: Option<PathBuf>,
 }
 
 impl<G: GameServer> Hub<G> {
@@ -119,6 +132,7 @@ impl<G: GameServer> Hub<G> {
     }
 
     pub fn publish(&self, out: TickOut<<G::Rep as Replicate>::Tick>) {
+        self.live_assets.retire(Instant::now());
         let tick = out.tick;
         {
             let mut ticks = self.ticks.lock().expect("tick ring lock");
@@ -370,6 +384,7 @@ impl Server {
             params: game.params(),
             rep: game.replicator(),
             assets,
+            live_assets:config.live_assets.clone(),
             sessions: Mutex::new({
                 let mut sessions = Sessions::new(&key, seats);
                 sessions.keep(&config.names);
@@ -391,6 +406,8 @@ impl Server {
             every: AtomicU32::new(every),
             watching: Mutex::new(HashSet::new()),
             tune_file: config.tune_file.clone(),
+            paint_dir: config.paint_dir.clone(),
+            hd_dir: config.hd_dir.clone(),
         });
         let mut stepper = Stepper::new(game, hub.clone(), rx);
         // The tune file's numbers, before anyone sees the first tick.

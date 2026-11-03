@@ -1,0 +1,5 @@
+herald | goblin | herald-goblin | A loot goblin! Viewers, this is not a drill! Get him!
+herald | goblin_escaped | herald-goblin-escaped | And he's gone. Along with your money. Well, his money. Well. Somebody's money.
+herald | goblin_caught | herald-goblin-caught | Goblin down! Ka-ching! The Herald loves a happy ending.
+herald | thief | herald-thief | THIEF! He's got your pockets! Chase him, he is very small and very fast!
+herald | goblin_grab | herald-goblin-grab | And the goblin has helped himself to the floor. Rude.

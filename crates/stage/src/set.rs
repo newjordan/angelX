@@ -81,6 +81,7 @@ pub fn swatch_cell(kind: Kind) -> (u32, u32) {
 /// colour, as an item's extra blocks do; with none at all such a surface is
 /// its kind's colour two shades down ([`Kind::dark`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Patches {
     pub atlas: u32,
     pub sizes: [[u8; 2]; 27],
@@ -998,6 +999,90 @@ pub fn place(nodes: &[Node], scale: f32, offset: [f32; 3]) -> Vec<Node> {
 
 // ----------------------------------------------------------------- sets ----
 
+/// A chunk's world as a look that lights it draws it
+/// (docs/REALM-MONOLITH.md): what lies on the floor (its ground's height
+/// field first), what stands, each its kind's tone, lit; and its ground's
+/// mesh with the id it is uploaded under. Unplaced.
+#[derive(Debug, Default)]
+pub struct Lit {
+    pub floor: Vec<Node>,
+    pub standing: Vec<Node>,
+    /// The meshes its nodes name: its ground's first.
+    pub meshes: Vec<(u32, std::sync::Arc<MeshData>)>,
+}
+
+/// Set `set`'s world lit (`Set::lit_world_nodes`), its shapes baked: the
+/// nodes of each material (its tint aside) made one mesh, each vertex
+/// coloured with its node's tint, under an id of key `key`'s; a node with a
+/// face of its own (a box's top toned apart) kept as it is. Ids `ids` up.
+pub fn bake(set: &Set, key: u64, ids: u64) -> Lit {
+    use crate::scene::{MeshData, MeshRef, quat_rotate};
+    let ground = ground_mesh_id(key);
+    let (floor, standing, mesh) = set.lit_world_nodes(ground);
+    let mut meshes: Vec<(u32, std::sync::Arc<MeshData>)> = mesh.map(|m| (ground, std::sync::Arc::new(m))).into_iter().collect();
+    let base = 0x6000_0000 | ((key as u32 ^ (key >> 32) as u32) & 0x0FFF_FF00);
+    let bake_list = |nodes: Vec<Node>, lies: bool, meshes: &mut Vec<(u32, std::sync::Arc<MeshData>)>| -> Vec<Node> {
+        let mut kept = Vec::new();
+        let mut groups: Vec<(Material, MeshData)> = Vec::new();
+        for node in nodes {
+            let data = match node.mesh {
+                Some(MeshRef::Uploaded(_)) | None => None,
+                Some(m) => m.generate(),
+            };
+            let (Some(data), true) = (data, node.face_materials.is_empty()) else {
+                kept.push(node);
+                continue;
+            };
+            let mut material = node.material;
+            let tint = material.tint;
+            material.tint = [1.0; 4];
+            let at = match groups.iter().position(|(m, _)| *m == material) {
+                Some(at) => at,
+                None => {
+                    groups.push((material, MeshData::default()));
+                    groups.len() - 1
+                }
+            };
+            let out = &mut groups[at].1;
+            let t = node.transform;
+            let first = out.positions.len() as u32;
+            for (k, p) in data.positions.iter().enumerate() {
+                let scaled = [p[0] * t.scale[0], p[1] * t.scale[1], p[2] * t.scale[2]];
+                let r = quat_rotate(t.rotation, scaled);
+                out.positions.push([r[0] + t.translation[0], r[1] + t.translation[1], r[2] + t.translation[2]]);
+                let n = data.normals.get(k).copied().unwrap_or([0.0, 1.0, 0.0]);
+                let n = quat_rotate(t.rotation, [n[0] / t.scale[0].max(1e-6), n[1] / t.scale[1].max(1e-6), n[2] / t.scale[2].max(1e-6)]);
+                let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt().max(1e-9);
+                out.normals.push(n.map(|c| c / len));
+                out.uvs.push(data.uvs.get(k).copied().unwrap_or([0.0, 0.0]));
+                let c = data.colors.get(k).copied().unwrap_or([1.0; 4]);
+                out.colors.push([c[0] * tint[0], c[1] * tint[1], c[2] * tint[2], c[3] * tint[3]]);
+            }
+            out.indices.extend(data.indices.iter().map(|i| i + first));
+        }
+        for (material, data) in groups {
+            if data.positions.len() > crate::scene::MAX_MESH_VERTICES || data.indices.len() > crate::scene::MAX_MESH_INDICES {
+                continue;
+            }
+            let id = base | (meshes.len() as u32 & 0xff) | if lies { 0x80 } else { 0 };
+            meshes.push((id, std::sync::Arc::new(data)));
+            let mut node = Node::new(0, MeshRef::Uploaded(id), material);
+            node.transform = crate::scene::Transform::IDENTITY;
+            kept.push(node);
+        }
+        kept
+    };
+    let (mut grounds, rest): (Vec<Node>, Vec<Node>) = floor.into_iter().partition(|n| matches!(n.mesh, Some(MeshRef::Uploaded(id)) if id == ground));
+    let mut floor = bake_list(rest, true, &mut meshes);
+    grounds.append(&mut floor);
+    let mut floor = grounds;
+    let mut standing = bake_list(standing, false, &mut meshes);
+    for (k, node) in floor.iter_mut().chain(&mut standing).enumerate() {
+        node.id = ids | (k as u64 + 1);
+    }
+    Lit { floor, standing, meshes }
+}
+
 /// The most sets [`Sets`] keeps: a room's and the rooms either side of it,
 /// or the kingdom's chunks near a view (at most 16) and the room left.
 pub const KEPT_SETS: usize = 32;
@@ -1016,8 +1101,8 @@ struct Kept {
     key: u64,
     set: Set,
     made: Option<((u32, Patches), Vec<Node>, Vec<Node>)>,
-    /// Its world made lit (a world with a look), and its ground's mesh.
-    lit: Option<(Vec<Node>, Vec<Node>, Option<std::sync::Arc<MeshData>>)>,
+    /// Its world made lit and baked (a world with a look), made once.
+    lit: Option<Lit>,
 }
 
 impl Sets {
@@ -1090,16 +1175,14 @@ impl Sets {
         let mut kept = self.kept.remove(at);
         if lit {
             // Lit (docs/REALM-MONOLITH.md): toned and lit, no plate, the
-            // ground's mesh uploaded under its set's own id.
-            let mesh_id = ground_mesh_id(set.key);
+            // ground's mesh uploaded under its set's own id, its shapes baked.
             if kept.lit.is_none() {
-                let (floor, blocks, mesh) = kept.set.lit_world_nodes(mesh_id);
-                kept.lit = Some((floor, blocks, mesh.map(std::sync::Arc::new)));
+                kept.lit = Some(bake(&kept.set, set.key, 0));
             }
-            if let Some((floor, blocks, mesh)) = &kept.lit {
-                (*out_floor, *out_blocks) = (place(floor, set.scale, set.offset), place(blocks, set.scale, set.offset));
-                if let Some(mesh) = mesh {
-                    meshes.push((mesh_id, mesh.clone()));
+            if let Some(lit) = &kept.lit {
+                (*out_floor, *out_blocks) = (place(&lit.floor, set.scale, set.offset), place(&lit.standing, set.scale, set.offset));
+                for (id, mesh) in &lit.meshes {
+                    meshes.push((*id, mesh.clone()));
                 }
             }
             self.kept.push(kept);
@@ -1867,9 +1950,12 @@ sphere rock   at 600 0 120 size 30 20 30 turn -30.5 id boulder
             ..World::default()
         };
         assert!(sets.fill(&mut world));
-        assert_eq!(world.meshes.len(), 1);
+        // The ground's mesh first, then the baked meshes for the blocks.
+        assert!(world.meshes.len() >= 1);
         assert_eq!(world.meshes[0].0, ground_mesh_id(42));
         assert_eq!(world.floor[0].mesh, Some(MeshRef::Uploaded(ground_mesh_id(42))));
+        // The blocks are baked into uploaded meshes.
+        assert!(world.blocks.iter().all(|n| matches!(n.mesh, Some(MeshRef::Uploaded(_)))));
         assert!(world.blocks[0].material.lit && world.blocks[0].material.projector.is_none(), "toned, not cast");
     }
 

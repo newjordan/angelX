@@ -198,7 +198,9 @@ impl GrokResearchClub {
         }
         // Draw-path / no-request resolution: one revision+TTL snapshot instead
         // of re-locking override + re-reading env on every frame.
-        if super::http::effort_snapshot_enabled_for_peers() {
+        if !super::model_defaults::request_is_pinned()
+            && super::http::effort_snapshot_enabled_for_peers()
+        {
             let rev = self.route_state_revision.load(Ordering::Relaxed);
             let env_gen = super::http::reasoning_env_generation();
             if let Ok(mut g) = self.effort_snapshot.lock() {
@@ -405,6 +407,7 @@ impl GrokResearchClub {
         effort: Option<&str>,
         on_delta: Option<&mut dyn FnMut(StreamDelta)>,
     ) -> Result<ClubReply, String> {
+        let _calibration = super::model_defaults::pin_request();
         // The book's legend, as every wire carries it (a no-op without the
         // ledger reader, as on the research surface).
         let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
@@ -2197,26 +2200,9 @@ impl GrokOauthAuth {
         let Ok(out) = serde_json::to_vec_pretty(&v) else {
             return;
         };
-        let tmp = self.path.with_extension(format!(
-            "json.angel-{}-{}.tmp",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        ));
-        if std::fs::write(&tmp, &out).is_err() {
-            let _ = std::fs::remove_file(&tmp);
-            return;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
-        }
-        if std::fs::rename(&tmp, &self.path).is_err() {
-            let _ = std::fs::remove_file(&tmp);
-        }
+        // Exact durable publish: auth.json holds live tokens, so the
+        // redacting helper would destroy them; fsync + 0600 still apply.
+        let _ = crate::platform::workspace_store::write_private_atomic_exact(&self.path, &out);
     }
 }
 

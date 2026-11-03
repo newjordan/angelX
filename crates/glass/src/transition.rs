@@ -48,6 +48,13 @@ const TILE_FADE_TIME: f32 = 0.35;
 /// The whole transition, in seconds.
 pub const DURATION: f32 = 1.8;
 
+/// One shared scene, not a fade through black. Smooth endpoints keep the
+/// outgoing frame still; gameplay/input never waits on the 420 ms dissolve.
+pub fn handoff_alpha(seconds: f32) -> f32 {
+    let t = (seconds / 0.42).clamp(0.0, 1.0);
+    1.0 - t * t * (3.0 - 2.0 * t)
+}
+
 /// How one cell looks at one moment of a transition. `REST` is no change.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Motion {
@@ -238,6 +245,20 @@ pub fn hash(col: u16, row: u16, salt: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screen_handoff_has_smooth_bounded_opacity_without_a_black_gap() {
+        assert_eq!(handoff_alpha(0.0), 1.0);
+        assert_eq!(handoff_alpha(0.21), 0.5);
+        assert_eq!(handoff_alpha(0.42), 0.0);
+        assert_eq!(handoff_alpha(10.0), 0.0);
+        let mut previous = 1.0;
+        for frame in 0..=30 {
+            let alpha = handoff_alpha(frame as f32 / 60.0);
+            assert!((0.0..=previous).contains(&alpha));
+            previous = alpha;
+        }
+    }
 
     fn place(col: u16, row: u16, wall: bool) -> Place {
         Place {

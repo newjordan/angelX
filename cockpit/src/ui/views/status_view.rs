@@ -70,7 +70,6 @@ pub fn agent_metrics_line(
     ))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub fn active_route_label(tabs: &[crate::agent::club::ClubTab]) -> Option<String> {
     let tab = tabs.iter().find(|t| t.in_hand)?;
     // Prefer the live mode/checkpoint. Prefixing the box slug (`local·swarm`)
@@ -245,12 +244,32 @@ pub fn composer_frame_title(
     title
 }
 
+#[cfg(test)]
 pub fn composer_placeholder(busy: bool, inner_width: usize) -> Line<'static> {
     let text = if busy {
         "Add guidance… Enter queues it"
     } else {
         "Write a message…"
     };
+    placeholder_line(text, inner_width)
+}
+
+pub(crate) fn live_composer_placeholder(
+    busy: bool,
+    inner_width: usize,
+    policy: &angel_live::UiPolicy,
+) -> Line<'static> {
+    placeholder_line(
+        if busy {
+            &policy.busy_placeholder
+        } else {
+            &policy.idle_placeholder
+        },
+        inner_width,
+    )
+}
+
+fn placeholder_line(text: &str, inner_width: usize) -> Line<'static> {
     // Pad to the full inner width. `panel_style` only sets fg (no bg), so a short
     // line leaves right-side cells untouched — a previous longer draft then
     // ghosts as bright leftover text beside the dim placeholder (busy-steer

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.dust",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.dust/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.dust/v01/source-sheet.png",
   "source_sha256": "325efaa89a46d09a609529864ab8b677bf5cd46b3d84642f0d7f517b44f6e212",
   "tool_version": 2
 }

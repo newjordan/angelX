@@ -12,7 +12,6 @@ use std::time::Duration;
 
 const LOOKUP_RESPONSE_MAX_BYTES: usize = 256 * 1024;
 const LOOKUP_SUMMARY_MAX_CHARS: usize = 520;
-#[cfg_attr(not(test), allow(dead_code))]
 const LOOKUP_TERM_MAX_CHARS: usize = crate::knowledge::library::LOCAL_TOPIC_MAX_CHARS;
 const ROLL_STEP: usize = 12;
 static LOOKUP_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
@@ -373,7 +372,6 @@ pub(crate) fn selected_term(text: &str) -> Option<String> {
     crate::knowledge::library::normalize_topic(term)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn is_edge_punctuation(character: char) -> bool {
     matches!(
         character,

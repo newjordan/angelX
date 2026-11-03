@@ -475,7 +475,7 @@ impl App {
             }
         }
         let patch_path = dir.with_extension("patch");
-        if let Err(e) = std::fs::write(&patch_path, &bundle) {
+        if let Err(e) = crate::platform::workspace_store::write_atomic(&patch_path, &bundle) {
             return format!("could not stage the bundle: {e}");
         }
         let patch_arg = patch_path.to_string_lossy().to_string();
@@ -504,7 +504,10 @@ impl App {
         } else {
             workspace.join(rest)
         };
-        match std::fs::write(&path, host.shared.board().export_jsonl()) {
+        match crate::platform::workspace_store::write_atomic(
+            &path,
+            host.shared.board().export_jsonl().as_bytes(),
+        ) {
             Ok(()) => format!("the table's log is at {}", path.display()),
             Err(e) => format!("could not write the log: {e}"),
         }

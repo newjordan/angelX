@@ -313,6 +313,13 @@ fn driver_target(agents: &[Agent], pref: &str) -> Option<(usize, usize)> {
         // entry `ANGEL_DRIVER=k3` silently missed and the bag fell back to the
         // smartest-available election (observed live on rig B, 2026-09-25).
         "k3" | "kimi-k3" | "moonshot" | "kimi-code" => "kimi",
+        // Kimi K3.1: the newer Moonshot generation sits beside K3 as its own
+        // explicit seat; `ANGEL_DRIVER=k3.1` selects it directly.
+        "k3.1" | "kimi-3.1" | "kimi3.1" | "kimi-k3.1" => "kimi-k3.1",
+        // Claude Opus 5.5 sits beside the configurable `anthropic` seat.
+        // The wire id stays `claude-opus-5-5`; these are selection names.
+        "opus" | "opus-5.5" | "opus-5-5" | "claude-opus" | "claude-opus-5.5"
+        | "claude-opus-5-5" => "claude-opus-5-5",
         _ => raw_pref,
     };
     // Both the explicit OAuth route and the implicit interactive default must
@@ -337,11 +344,20 @@ fn driver_target(agents: &[Agent], pref: &str) -> Option<(usize, usize)> {
             return Some((ai, si));
         }
     }
-    agents
+    if let Some(found) = agents
         .iter()
         .enumerate()
         .find(|(_, agent)| agent.name == pref)
         .map(|(index, agent)| (index, agent.active))
+    {
+        return Some(found);
+    }
+    // On the Kimi Code plan the K3.1 slot carries the plan's own id
+    // (`k3.1-pro`); only when no Moonshot `kimi-k3.1` slot matched above.
+    if pref == "kimi-k3.1" {
+        return driver_target(agents, "k3.1-pro");
+    }
+    None
 }
 
 #[cfg(test)]
@@ -897,15 +913,10 @@ impl Bag {
             } else {
                 optional_openai_api_http_club()
             },
-            optional_sota_http_club(
-                "kimi",
-                "kimi-k3",
-                &["ANGEL_KIMI_URL", "KIMI_API_URL", "MOONSHOT_API_URL"],
-                "https://api.moonshot.ai/v1",
-                &["ANGEL_KIMI_MODEL", "KIMI_MODEL", "MOONSHOT_MODEL"],
-                Some("kimi-k3"),
-                &["ANGEL_KIMI_KEY", "KIMI_API_KEY", "MOONSHOT_API_KEY"],
-            ),
+            // The Kimi links (configured `kimi` seat first, then the remaining
+            // built-in catalog models) are extended after this loop, right
+            // before GLM, so Kimi keeps its rank-2 position in the canonical
+            // intelligence order.
             optional_sota_http_club(
                 "deepseek",
                 "deepseek-v4-pro",
@@ -930,6 +941,11 @@ impl Bag {
         {
             sota_links.push(link);
         }
+
+        // Keep the configurable/default flagship Kimi seat first and expose
+        // every other built-in Kimi model beside it without duplicates, right
+        // after the loop (rank-2 in the canonical intelligence order).
+        sota_links.extend(optional_kimi_http_clubs());
 
         // Keep the configurable/default flagship GLM seat first and expose every
         // other built-in GLM model beside it without duplicates.
@@ -983,7 +999,6 @@ impl Bag {
                 Some("LongCat-2.0"),
                 &["ANGEL_LONGCAT_KEY", "LONGCAT_API_KEY"],
             ),
-            optional_meta_http_club(),
             optional_sota_http_club(
                 "cerebras",
                 "cerebras",
@@ -993,22 +1008,32 @@ impl Bag {
                 None,
                 &["ANGEL_CEREBRAS_KEY", "CEREBRAS_API_KEY"],
             ),
-            // Metered per token and outside the MoA preference order: seated
-            // by name (`ANGEL_DRIVER=anthropic`), never preferred for a role.
-            optional_anthropic_http_club(),
         ]
         .into_iter()
         .flatten()
         {
             sota_links.push(link);
         }
+        // Meta: the configured `meta` seat plus Muse Wonder 1.0 by its own id.
+        sota_links.extend(optional_meta_http_clubs());
+        // Metered per token and outside the MoA preference order: seated
+        // by name (`ANGEL_DRIVER=anthropic` or `claude-opus-5-5`), never
+        // preferred for a role. Opus 5.5 shares the Anthropic key.
+        sota_links.extend(optional_anthropic_http_clubs());
         // OpenRouter requires credentials and a model pin and follows the
         // operator's optional provider allowlist.
         if openrouter_configured() {
             sota_links.extend(optional_openrouter_http_clubs());
         }
 
-        match sota_moa_club(&sota_links) {
+        // Muse Wonder is seated by name only (operator: never spend Muse tokens
+        // implicitly): it joins no MoA role, extra proposer or quota fallback.
+        let moa_links: Vec<_> = sota_links
+            .iter()
+            .filter(|(alias, _, _)| !META_API_MODEL_OPTIONS.contains(&alias.as_str()))
+            .cloned()
+            .collect();
+        match sota_moa_club(&moa_links) {
             Some(moa) => {
                 let ai = agents.len();
                 let mut slots = vec![Slot {

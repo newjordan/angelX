@@ -1,5 +1,5 @@
 //! Authoritative boss fixtures from the cockpit exporter, with the same cell painter.
-use angel_delve::render::overworld::arena::art_v2::testing::boss;
+use angel_delve::render::overworld::arena::testing::boss;
 use super::tests::capture;
 
 #[test]

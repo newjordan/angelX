@@ -372,7 +372,6 @@ impl Termination {
         }
     }
 
-    #[allow(dead_code)] // used by the dormant explicit recovery entry point
     pub(crate) fn process_lost() -> Self {
         Self {
             kind: TerminationKind::ProcessLost,

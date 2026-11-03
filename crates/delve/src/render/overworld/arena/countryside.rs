@@ -436,6 +436,23 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         );
         if !run.home.countryside.has(i) {
             super::near_prompt(cv, run, (x, y), "BUILD");
+        } else {
+            // The plot's keeper, at their work beside the ring: a
+            // small figure in a tunic that greys when the realm's
+            // granary is bare or its unrest high — the countryside
+            // feels the same economy the villages eat from.
+            let holdings = &run.home.holdings;
+            let tunic = if holdings.stores == 0 || holdings.unrest >= crate::rules::holdings::RESTLESS {
+                'G'
+            } else {
+                'O'
+            };
+            let sway = ((run.tick / 24 + i as u64) % 2) as i32;
+            let (kx, ky) = (x + 9, y + 3 - sway);
+            cv.ellipse(kx as f32, (ky - 5) as f32, 2.0, 2.0, 'c');
+            cv.rect(kx - 2, ky - 3, 5, 5, tunic);
+            cv.line(kx - 2, ky + 2, kx - 2, ky + 4, 'B');
+            cv.line(kx + 2, ky + 2, kx + 2, ky + 4, 'B');
         }
     }
     if kind == RoomKind::Windmill {
@@ -508,7 +525,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             "HOLD E ON GOLD PLATE TO BUILD".into()
         };
         let price = countryside::cost(p);
-        let board = home::quest_board(&[
+        let mut rows = vec![
             (p.name.to_uppercase(), '9'),
             (
                 if country.has(i) {
@@ -523,7 +540,27 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                 format!("TREASURY: {}", run.treasury.label()).to_uppercase(),
                 'h',
             ),
-        ]);
+        ];
+        // Who lives at what the realm raised, and how the times
+        // are treating them. Older realms never stored a name; the
+        // same soul is derived for them.
+        if country.has(i) {
+            let keeper = country
+                .keepers
+                .get(p.id)
+                .cloned()
+                .unwrap_or_else(|| crate::rules::villagers::keeper_name(p.id));
+            let holdings = &run.home.holdings;
+            let (temper, ink) = if holdings.stores == 0 {
+                ("LEAN TIMES", '7')
+            } else if holdings.unrest >= crate::rules::holdings::RESTLESS {
+                ("WORRIED", '7')
+            } else {
+                ("CONTENT", 'O')
+            };
+            rows.push((format!("KEPT BY {} · {temper}", keeper.to_uppercase()), ink));
+        }
+        let board = home::quest_board(&rows);
         // layers() stamps the tray later. Keep plot prices and travel text
         // above its full wrapped height, including another knight's focus.
         let tray_h = super::tray::max_height(run, cv.w - 8);

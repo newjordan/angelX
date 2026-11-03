@@ -214,6 +214,17 @@ pub fn build(out: &mut Vec<Node>, n: u64, shot: &SceneShot, (cx, cy): (f32, f32)
         ShotForm::Card => return false,
     }
     raise(&mut out[start..], at, [dx, 0.0, dy], travel, shot.dimension);
+    // A knight's shot drawn smaller or bigger (`SceneShot::scale`): its
+    // shapes shrunk about its middle.
+    if shot.scale != 1.0 {
+        for node in &mut out[start..] {
+            let t = &mut node.transform;
+            for axis in 0..3 {
+                t.translation[axis] = at[axis] + (t.translation[axis] - at[axis]) * shot.scale;
+            }
+            t.scale = t.scale.map(|v| v * shot.scale);
+        }
+    }
     true
 }
 
@@ -239,6 +250,7 @@ fn raise(nodes: &mut [Node], at: [f32; 3], along: [f32; 3], travel: f32, dimensi
 /// The shapes of the game's own kinds, each in the inks of its sprite
 /// (`sprites::shot`).
 fn kind_shape(m: &mut Maker, kind: Shot) {
+    let profile = super::volleys::ranged::look(kind);
     let up = [0.0, 1.0, 0.0];
     let across = [0.0, 0.0, 1.0];
     let along = [1.0, 0.0, 0.0];
@@ -254,20 +266,20 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
         }
         // A pale ash shaft, a steel head, teal fletching.
         Shot::Arrow => {
-            m.bar(axis(-1.0, 0.0, 0.0), [8.0, 0.9, 0.9], Paint::lit('o'));
+            m.bar(axis(-1.0, 0.0, 0.0), [profile.length * 0.8, profile.width, profile.width], Paint::lit('o'));
             m.spike(axis(4.7, 0.0, 0.0), 2.6, 3.4, true, Paint::lit('W'));
-            m.fins(-4.4, 2.8, 2.8, Paint::lit('2'));
+            m.fins(-4.4, 2.8, 2.8, Paint::lit('o'));
         }
         // Shorter and stouter: a reddish stock, a bright head.
         Shot::Bolt => {
-            m.bar(axis(-0.5, 0.0, 0.0), [5.5, 1.2, 1.2], Paint::lit('R'));
+            m.bar(axis(-0.5, 0.0, 0.0), [profile.length * 0.8, profile.width * 0.7, profile.width * 0.7], Paint::lit('R'));
             m.spike(axis(3.6, 0.0, 0.0), 2.6, 2.8, true, Paint::lit('V'));
-            m.fins(-2.7, 1.8, 2.4, Paint::lit('2'));
+            m.fins(-2.7, 1.8, 2.4, Paint::lit(profile.edge));
         }
         // A handgonne ball: dull iron, its core still hot.
         Shot::Ball => {
-            m.ball(axis(0.0, 0.0, 0.0), 5.6, Paint::glow('U', 0.3));
-            m.ball(axis(1.2, 0.8, 0.0), 2.2, Paint::glow('c', 0.9));
+            m.ball(axis(0.0, 0.0, 0.0), profile.width * 1.8, Paint::lit(profile.edge));
+            m.ball(axis(1.2, 0.8, 0.0), 2.2, Paint::lit(profile.core));
         }
         // A tumbling bone, end over end: a shaft with a knuckle at each end.
         Shot::Bone => {
@@ -426,6 +438,21 @@ fn class_shape(m: &mut Maker, class: ClassShot) {
                 (8.0, 1.4, Paint::veil('P', 0.9, 0.8)),
             ]);
         }
+        // The Bard's note: a gold head on a stem with its flag, bobbing as
+        // it goes, a neon wake of mint and teal behind.
+        ClassShot::Song => {
+            let bob = m.phase(4.0).sin() * 1.2;
+            m.ball(axis(0.0, bob, 0.0), 4.2, Paint::glow('6', 1.0));
+            for (k, up) in [1.6f32, 3.0, 4.4].into_iter().enumerate() {
+                m.ball(axis(1.2, bob + up, 0.0), 1.3 - 0.1 * k as f32, Paint::glow('4', 1.0));
+            }
+            m.ball(axis(2.4, bob + 4.0, 0.0), 1.5, Paint::glow('5', 1.0));
+            let wave = m.phase(3.0);
+            for (k, (back, ink)) in [(3.6, '3'), (5.2, '2'), (6.8, '0')].into_iter().enumerate() {
+                let sway = (wave + k as f32 * 1.7).sin() * 1.4;
+                m.ball(axis(-back, 0.0, sway), 1.8 - 0.35 * k as f32, Paint::glow(ink, 0.9));
+            }
+        }
     }
 }
 
@@ -444,6 +471,8 @@ pub fn count(form: ShotForm) -> usize {
         form,
         dimension: Default::default(),
         mark: super::Img::new(1, 1),
+        paint: None,
+        scale: 1.0,
     };
     let mut out = Vec::new();
     build(&mut out, 0, &shot, (0.0, 0.0));

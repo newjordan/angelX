@@ -1,0 +1,67 @@
+# crates/delve/src/rules/bosses.rs: a guardian's stage of the fight and its caps.
+import Base
+
+# open < middle < rage
+def bosses.Stage.rank(s: String) -> U32:
+  if String.eq(s, "rage"):
+    return 2
+  if String.eq(s, "middle"):
+    return 1
+  0
+
+def bosses.Stage.name(rank: U32) -> String:
+  if U32.is_eq(rank, 2):
+    return "rage"
+  if U32.is_eq(rank, 1):
+    return "middle"
+  "open"
+
+# Its stage of the fight at hp of max_hp.
+def bosses.Boss.stage(boss: Boss, hp: U32, max_hp: U32) -> String:
+  share: F32 = (cb.f(hp) / cb.f(RS.u_max(max_hp, 1)) : F32)
+  rage: F32 = Bool.pick(F32, (boss.rage > 0.0 : F32), boss.rage, bosses.LAST_FROM())
+  if (share < rage : F32):
+    return "rage"
+  if (share < bosses.MIDDLE_FROM() : F32):
+    return "middle"
+  "open"
+
+# Hostile shots a second it may loose in `stage`, and the most it may have in
+# the room per knight standing.
+def bosses.Stage.per_second(s: String) -> U32:
+  if String.eq(s, "rage"):
+    return bosses.RAGE_PER_SECOND()
+  if String.eq(s, "middle"):
+    return bosses.MIDDLE_PER_SECOND()
+  bosses.OPEN_PER_SECOND()
+
+def bosses.Stage.on_screen(s: String) -> U32:
+  if String.eq(s, "rage"):
+    return bosses.RAGE_ON_SCREEN()
+  if String.eq(s, "middle"):
+    return bosses.MIDDLE_ON_SCREEN()
+  bosses.OPEN_ON_SCREEN()
+
+# The shot a bolt throws, in a boss of `pack`.
+def bosses.Bolt.shot(bolt: String, pack: String) -> String:
+  if String.eq(bolt, "own"):
+    if String.eq(pack, "cavern"):
+      return "ore"
+    if String.eq(pack, "hellforge"):
+      return "flame"
+    if String.eq(pack, "archive"):
+      return "page"
+    if String.eq(pack, "fungal"):
+      return "spore"
+    if String.eq(pack, "unknown"):
+      return "eye"
+    return "wisp"
+  bolt
+
+# The most shots a charge-up's blow may throw.
+def bosses.ChargeUp.burst(up: ChargeUp) -> U32:
+  if Bool.or(String.eq(up.kind, "leap"), String.eq(up.kind, "inhale")):
+    return up.shots
+  if String.eq(up.kind, "beam"):
+    return 1
+  0

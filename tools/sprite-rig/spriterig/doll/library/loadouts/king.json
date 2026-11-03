@@ -1,0 +1,15 @@
+{
+ "name": "king",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "Q",
+   "q"
+  ]
+ },
+ "equip": [
+  "crown",
+  "cape",
+  "sword"
+ ]
+}

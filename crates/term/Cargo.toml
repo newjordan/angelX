@@ -1,0 +1,51 @@
+[package]
+name = "angel-glass-term"
+version = "0.1.0"
+description = "Glass as a terminal: any program in angelX's own window, a shell by default"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "glass"
+path = "src/main.rs"
+
+[dependencies]
+# The window, its ratatui backend and its input as terminal events.
+angel-glass = { path = "../glass" }
+# The scene wire maps onto the stage's types, and the stage publishes the
+# placeholder diacritic table the APC graphics dialect uses. serde is on so
+# a scene can be described without this crate pinning the window's layout;
+# the wire itself is the pinned form (src/intake/glass_scene.rs).
+angel-stage = { path = "../stage", features = ["serde"] }
+serde_json = "1"
+# The same versions glass builds with, so `same Cell` and `Event` are glass's own.
+ratatui-core = { version = "0.1.2", features = ["std", "underline-color"] }
+crossterm = { version = "0.29", default-features = false, features = ["events", "bracketed-paste"] }
+# The program's side: a pseudo-terminal and the screen its output draws,
+# as the cockpit's shell pane has them (cockpit/src/platform/pty.rs).
+portable-pty = "0.9.0"
+alacritty_terminal = "0.26.0"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "tiff", "webp", "bmp", "ico", "tga", "pnm"] }
+flate2 = "1.1.10"
+# Opening files the dialect reads with the flags the review names; the
+# version already in the workspace lock.
+libc = "0.2"
+# The cursor icon type vte's Handler passes through.
+cursor-icon = "1.2"
+# glTF 2.0's JSON schema as typed data, for the dialect's `asset` op. Only
+# its document types are used: the container, the accessors and every
+# index are read and checked here (src/intake/glass_gltf.rs), so no
+# default feature (file import, image decoding, names) is pulled in.
+gltf = { version = "1.4.1", default-features = false }
+# How many cells a character takes, as `Term` itself measures it, so
+# coverage of in-cell pictures matches where text lands.
+unicode-width = "0.2.2"
+# Finding the next escape in a read without stepping byte by byte; the
+# version already in the workspace lock.
+memchr = "2"
+
+[dev-dependencies]
+# In-test PNG encoding, so adapter tests feed real picture bytes.
+png = "0.18.1"

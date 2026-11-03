@@ -113,9 +113,11 @@ fn bounded_moa_synthesis_with_deadline(
     let cancel = Arc::new(AtomicBool::new(false));
     let worker_cancel = Arc::clone(&cancel);
     let (tx, rx) = mpsc::channel();
+    let book_catalog = super::book::catalog::current();
     let spawned = std::thread::Builder::new()
         .name("spawn-moa-synthesis".into())
         .spawn(move || {
+            let _book_catalog = book_catalog.map(super::book::catalog::enter);
             let _permit = permit;
             // The aggregator is connected: offered the ledger reader alone.
             let result =
@@ -879,6 +881,7 @@ impl SpawnTool {
             let failed_tx = tx.clone();
             let failed_persona = persona_name.clone();
             let thread_budget = descendant_budget.clone();
+            let book_catalog = super::book::catalog::current();
             // Seat events feed the collector: the first model output starts
             // the seat's clock, and a cut seat reports its latest work.
             let (evt_tx, evt_rx) = mpsc::channel::<TurnEvent>();
@@ -886,6 +889,7 @@ impl SpawnTool {
             if let Err(err) = std::thread::Builder::new()
                 .name(format!("spawn-seat-{}", i + 1))
                 .spawn(move || {
+                    let _book_catalog = book_catalog.map(super::book::catalog::enter);
                     let _permit = permit;
                     let _budget = DescendantBudgetScope::inherit(thread_budget);
                     let _depth = SubcallDepthGuard::enter();

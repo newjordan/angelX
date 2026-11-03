@@ -18,7 +18,7 @@ This replaces the painted-plate direction (docs/WORLD-3D.md, projection painting
 - **One continuous ground.** No visible chunk cells or seams: the ground is a height field that runs on across chunk borders, with water lowered into it and animated, roads the brightest ground (a ribbon to follow), objects placed on it properly.
 - **Figures stay sprites** and keep their own colours (`Role::Figure`).
 
-The reference frames are in `/work/artifacts/monolith/review/` (the film, `contact.png`, `stills/`).
+The reference frames are in `<artifacts>/monolith/review/` (the film, `contact.png`, `stills/`).
 
 ## Scale
 
@@ -193,7 +193,7 @@ for.
 the Wastes (the Dragon Keep), the March castles, the Greenwood, the Delve's
 gate, the Colosseum, behind a building, a biome's border and a road over a
 chunk border; `--lots` the party's builds and the run's finds; `--walk` the
-frame's cost. Shots of 2026-10-18: `/work/artifacts/realm-kit/` (`contact.png`,
+frame's cost. Shots of 2026-10-18: `<artifacts>/realm-kit/` (`contact.png`,
 `lots/contact.png`).
 
 | walk east across three chunk borders, window | before (old blockout, no plates) | the realm, lit |
@@ -216,7 +216,7 @@ wasm 0.6 / 0.8 ms p50 / p95, presenting 5.2 to 6.9 / 6.6 to 9.0 ms; 0.46 MB in
 at the join (16 chunks' set text) and 0.64 MB after the walk (a painted
 kingdom's walk took in 6.1 MB). A page fills each set into a node a shape;
 it would draw faster baked as the window does (`kingdom::bake`, a stage-side
-`Sets::fill` could do the same). Shots: `/work/artifacts/realm-kit/browser/`.
+`Sets::fill` could do the same). Shots: `<artifacts>/realm-kit/browser/`.
 
 **Left, and asked of the engine** (`ENGINE-ASKS.md` on realm/kit): the reveal
 measures its line of sight from the camera's translation, which for the
@@ -229,7 +229,7 @@ reveal's margins are metres.
 
 ## Rooms, lit
 
-The realm/rooms branch (2026-10-18): every room the game draws from above stands up lit in the monolith look whenever rooms are in 3D (`ANGEL_WORLD3D=1`), with no plate. It is the default 3D; a host that says `ANGEL_WORLD3D_PLATES=1` draws rooms as before (a painted item's plate cast on its blocks, plain rooms with `ANGEL_WORLD3D_PLAIN=1`). The places' rooms (`world::ROOMS`), the chambers of the seven delves, the side rooms, and the seeded floors' fight rooms, stairs, passages and open floors all stand up so; the side-on halls (the Ledge, the Wanted hall), the kingdom (its chunks) and a room the window draws as one picture (the Swamp's fog) do not.
+The realm/rooms branch (2026-10-18): every room the game draws from above stands up lit in the monolith look whenever rooms are in 3D (`ANGEL_WORLD3D=1`), with no plate. It is the 3D: the painted plates that came before (`ANGEL_WORLD3D_PLATES=1`, plain rooms with `ANGEL_WORLD3D_PLAIN=1`) were cut on 2026-10-20 (docs/WORLD-TIERS.md). The places' rooms (`world::ROOMS`), the chambers of the seven delves, the side rooms, and the seeded floors' fight rooms, stairs, passages and open floors all stand up so; the side-on halls (the Ledge, the Wanted hall), the kingdom (its chunks) and a room the window draws as one picture (the Swamp's fog) do not.
 
 ### What a room is made of (`world3d::rooms_lit`)
 
@@ -294,10 +294,10 @@ One dark, nearly monotone ramp of eight per kind of room (`Tone`), dark to light
 
 - `cargo run -p angel-glass --example delve_rooms -- <dir> [--only NAME]`: the Village, the King's hall, the tavern, the Priory, the smithy, the market, the Sanctuary, the College's hall, the wizard's study, a chamber of the Crypt, the Mines, Dragon Keep, the Archive, the Fungal Deep and the Unknown, seeded fight rooms (Crypt, Mines, Fungal, Unknown), stairs (Crypt, Dragon Keep), passages (Crypt, Archive, Swamp), the Crypt's fight room won, and an open floor, two knights in each: `<case>.png` lit, `<case>-flat.png`, `<case>-terminal.png`.
 - `cargo run -p angel-glass --example delve_world -- <dir>`: every item's proof room (138), lit.
-- Shots in `/work/artifacts/monolith/rooms/`: `contact-rooms.png` (the cases above, lit, in that order), `contact-rooms-terminal.png` (the same as a terminal sees them), `contact-items-1.png` to `-4.png` (every item), the frames in `final/` and `items/`. The Swamp's fight rooms are drawn as one picture under their fog, so its passage stands for it.
+- Shots in `<artifacts>/monolith/rooms/`: `contact-rooms.png` (the cases above, lit, in that order), `contact-rooms-terminal.png` (the same as a terminal sees them), `contact-items-1.png` to `-4.png` (every item), the frames in `final/` and `items/`. The Swamp's fight rooms are drawn as one picture under their fog, so its passage stands for it.
 - The agreement: `lit_rooms_agree_with_the_game` (every item's room, the seeded floors' rooms of every delve, floors 1 to 3, and an open floor's pieces: walls on their tiles, nothing over walkable ground, the floor in view, blocked tiles blocked, hazards low); `rooms_lit__tests` (the ground at the floor line wherever a knight walks and sunk under every hazard, what burns drawn by the frame, a window's and a page's blocks the same, a terminal's picture on the room's ramp, each kind of room its tone).
 - The painted path's tests read plain test plates when a checkout has none (`assets::plate_pack`: the pack is git-ignored, and no longer the default look).
 
 What they showed (2026-10-18): every room reads as one dark monotone place with its masses lit by the key and warm only round its fires; the far wall's fins and slots and the side walls' masses read as brutalist walls you never see whole; lava reads as a cracked ember crust, water as a dark pool; knights read clearly against the dark floors. The weak spots: the interiors' furniture (a tavern's tables, a market's stalls) is still the generator's small boxes, so a tavern reads as a bare hall; the tall side walls' inner faces, unlit by the key, are large dark planes at the frame's edges.
 
-What the ambience pass showed (2026-10-18; boards in `/work/artifacts/monolith-private/ambience/`): the proof rooms read as dusk in their own stone (indigo, slate, wine, teal, violet, ultramarine) with a few small warm pools, nearer the lantern corridor than the washes they were. Over the six proof rooms the share of the frame a quarter or more of the way to ember fell from 42% to 12% (half or more, 27% to 5%) and the share brighter than luma 0.505, the brand guide's 1% line with the figures counted, from 2.4% to 0.9%; their medians fell by 0.05 at most (the Mines' and the Fungal Deep's frames now sit at 0.115, just under the guide's 0.12) and the seeded fights' darkest percentile is as it was. An open floor's arrival now has two to four lit tombs, shelves, boulders or mushroom caps in view and, where a passage is near, a lit mouth, where it was flat ground. Still weak: an open floor's arrival chamber is still a wide plain, its rock's long shadow the one hard edge across it; the west wall's windows throw a shaft two tiles wide at best, only where a side wall stands full height, and the shadows' soft edge limits how crisp it reads; the fights of the Mines, the Fungal Deep and the Unknown are calm wide floors; the Swamp's rooms and the kingdom's are untouched.
+What the ambience pass showed (2026-10-18; boards in `<artifacts>/monolith-private/ambience/`): the proof rooms read as dusk in their own stone (indigo, slate, wine, teal, violet, ultramarine) with a few small warm pools, nearer the lantern corridor than the washes they were. Over the six proof rooms the share of the frame a quarter or more of the way to ember fell from 42% to 12% (half or more, 27% to 5%) and the share brighter than luma 0.505, the brand guide's 1% line with the figures counted, from 2.4% to 0.9%; their medians fell by 0.05 at most (the Mines' and the Fungal Deep's frames now sit at 0.115, just under the guide's 0.12) and the seeded fights' darkest percentile is as it was. An open floor's arrival now has two to four lit tombs, shelves, boulders or mushroom caps in view and, where a passage is near, a lit mouth, where it was flat ground. Still weak: an open floor's arrival chamber is still a wide plain, its rock's long shadow the one hard edge across it; the west wall's windows throw a shaft two tiles wide at best, only where a side wall stands full height, and the shadows' soft edge limits how crisp it reads; the fights of the Mines, the Fungal Deep and the Unknown are calm wide floors; the Swamp's rooms and the kingdom's are untouched.

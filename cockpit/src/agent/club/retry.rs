@@ -8,6 +8,37 @@ const DEFAULT_HTTP_RATELIMIT_RETRIES: u32 = 5;
 const DEFAULT_HTTP_RATELIMIT_BACKOFF_MS: u64 = 1_000;
 const DEFAULT_HTTP_RATELIMIT_BACKOFF_CAP_SECS: u64 = 30;
 
+thread_local! {
+    /// This thread's floor under a buffered call's whole-request bound
+    /// (`with_read_timeout_at_least`).
+    static READ_FLOOR: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `f` with every buffered call it makes on this thread allowed at
+/// least `floor` (in place of a shorter `ANGEL_HTTP_TIMEOUT`), through any
+/// wrapper club. For a caller that knows its one call runs long: a Delve
+/// wish's grant, a whole phrasebook entry written in one reply. A longer
+/// bound set by the operator, or none at all (`0`), stands.
+pub(crate) fn with_read_timeout_at_least<T>(floor: Duration, f: impl FnOnce() -> T) -> T {
+    struct Restore(Option<Duration>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            READ_FLOOR.with(|slot| slot.set(self.0));
+        }
+    }
+    let _restore = Restore(READ_FLOOR.with(|slot| slot.replace(Some(floor))));
+    f()
+}
+
+/// A buffered call's whole-request bound on this thread: the policy's,
+/// raised to the floor a caller set (`with_read_timeout_at_least`).
+pub(crate) fn read_timeout_on_this_thread(policy: Duration) -> Duration {
+    match READ_FLOOR.with(std::cell::Cell::get) {
+        Some(floor) if !policy.is_zero() => policy.max(floor),
+        _ => policy,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // HttpClub — a real OpenAI-compatible club (chat + tool calls)
 // ---------------------------------------------------------------------------

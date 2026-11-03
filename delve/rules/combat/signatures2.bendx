@@ -1,0 +1,532 @@
+# crates/delve/src/rules/signatures.rs, the stage machines: the Big Ripper's
+# breath and rip, Grinwick's rails, and the charge-ups any `.boss` file names.
+import Base
+
+def signatures.swell(enemy: Enemy) -> F32:
+  if U32.is_eq(enemy.stage, signatures.INHALE()):
+    q: U32 = (enemy.timer / signatures.BREATH() : U32)
+    if U32.is_eq(q, 0):
+      return 1.0
+    if U32.is_eq(q, 1):
+      return 1.35
+    if U32.is_eq(q, 2):
+      return 1.7
+    return 2.0
+  if U32.is_eq(enemy.stage, signatures.TELL()):
+    return 2.0
+  if U32.is_eq(enemy.stage, signatures.DASH()):
+    return (2.0 - RS.f_min((cb.f(enemy.timer) / 33.0 : F32), 1.0) : F32)
+  1.0
+
+# The charge-ups a guardian fights with: its file's, or the two unruly ones' own.
+def signatures.charge_ups(boss: Boss) -> [String]:
+  if String.eq(boss.id, signatures.RIPPER()):
+    return ["inhale", "charge"]
+  if String.eq(boss.id, signatures.ENGINE()):
+    return ["charge"]
+  out: [String] = Nil{}
+  for up: ChargeUp in J.items(boss.windups):
+    out = up.kind <> out
+  List.reverse(&2, String, out)
+
+# What a guardian's charge-up strikes with carries this tag.
+def signatures.tag(enemy: Enemy) -> U32:
+  RS.u_max(U32.xor(RS.u_rotl(enemy.id, 16), enemy.signature.cycle), 1)
+
+# Ticks a charged beam burns sweeping its arc at BEAM_TURN.
+def signatures.beam_burn(up: ChargeUp) -> U32:
+  RS.f_as_u32(RS.f_clamp(F32.ceil((RS.f_abs(up.arc) / signatures.BEAM_TURN() * cb.f(rules.HZ()) : F32)), cb.f(patterns.SWEEP_BURN()), 255.0))
+
+# A slam's clear lane, in degrees.
+def signatures.slam_lane(up: ChargeUp) -> F32:
+  RS.f_max(up.arc, RS.f_to_degrees((signatures.SLAM_GAP() / tide.RING_GAP() : F32)))
+
+# Ticks a guardian stands spent after the blow.
+def signatures.spent_for(up: ChargeUp) -> U32:
+  blow: U32 = 0
+  if String.eq(up.kind, "slam"):
+    blow = (((RS.u_clamp(up.shots, 1, 8) - 1 : U32) * tide.step_for(up.speed) : U32) + 1 : U32)
+  elif String.eq(up.kind, "beam"):
+    blow = (signatures.beam_burn(up) + 1 : U32)
+  (blow + signatures.RECOVER() : U32)
+
+def signatures.stage(enemy: Enemy, next: U32) -> Enemy:
+  enemy.stage = next
+  enemy.timer = 0
+  enemy
+
+# The charge-up it is winding up or striking with.
+def signatures.winding(enemy: Enemy, boss: Boss) -> J.Val:
+  if signatures.special(boss):
+    return J.JNull{}
+  st: U32 = enemy.stage
+  if Bool.or(Bool.or(U32.is_eq(st, signatures.WIND()), U32.is_eq(st, signatures.DASH())), Bool.or(U32.is_eq(st, signatures.JUMP()), U32.is_eq(st, signatures.DAZED()))):
+    return J.nth(boss.windups, enemy.signature.windup)
+  J.JNull{}
+
+# A seeded candidate with the longest clear launch corridor.
+def signatures.rip_direction(enemy: Enemy, room: Room, barred: Bool, seed: W.W) -> (F32, F32):
+  salt: W.W = rules.mix(W.xor(W.xor(seed, W.shl(W.of_u32(enemy.id), 32)), W.of_u32(enemy.signature.cycle)))
+  start: F32 = (cb.f(W.rem_u32(salt, 65536)) / 65536.0 * cb.TAU() : F32)
+  best: U32 = 0
+  bx: F32 = 1.0
+  by: F32 = 0.0
+  have: Bool = False{}
+  for k: U32 in cb.range(8):
+    angle: F32 = (start + cb.f(k) * cb.TAU() / 8.0 : F32)
+    dx: F32 = F32.cos(angle)
+    dy: F32 = F32.sin(angle)
+    reach: U32 = 0
+    open: Bool = True{}
+    for n0: U32 in cb.range(16):
+      if open:
+        n: F32 = cb.f((n0 + 1 : U32))
+        if rules.Grid.clear(room, barred, (enemy.x + dx * n : F32), (enemy.y + dy * n : F32), monsters.Enemy.radius(enemy), 1):
+          reach = (reach + 1 : U32)
+        else:
+          open = False{}
+    if Bool.or(Bool.not(have), U32.is_ge(reach, best)):
+      have = True{}
+      best = reach
+      bx = dx
+      by = dy
+  (bx, by)
+
+def signatures.begin_rip(enemy: Enemy, room: Room, barred: Bool, seed: W.W) -> Enemy:
+  enemy.signature.cycle = (enemy.signature.cycle + 1 : U32)
+  enemy.dir = signatures.rip_direction(enemy, room, barred, seed)
+  enemy.signature.bounces = 0
+  signatures.stage(enemy, signatures.TELL())
+
+def signatures.dash(enemy: Enemy, room: Room, barred: Bool, speed: F32, bounce: Bool, deeds: Deeds) -> (Enemy, Deeds, Bool):
+  signatures.dash_for(enemy, room, barred, speed, bounce, 24, 0, deeds)
+
+# A dash in four small collision steps: a continuous trail that cannot tunnel stone.
+def signatures.dash_for(enemy: Enemy, room: Room, barred: Bool, speed: F32, bounce: Bool, damage: U32, blow: U32, deeds: Deeds) -> (Enemy, Deeds, Bool):
+  fx: F32 = enemy.x
+  fy: F32 = enemy.y
+  stride: F32 = (speed * rules.DT() / 4.0 : F32)
+  stopped: Bool = False{}
+  for i: U32 in cb.range(4):
+    if Bool.not(stopped):
+      (dx: F32, dy: F32) = enemy.dir
+      nx: F32 = (enemy.x + dx * stride : F32)
+      ny: F32 = (enemy.y + dy * stride : F32)
+      r: F32 = monsters.Enemy.radius(enemy)
+      if rules.Grid.clear(room, barred, nx, ny, r, 1):
+        enemy.x = nx
+        enemy.y = ny
+      elif Bool.and(bounce, U32.is_lt(enemy.signature.bounces, 2)):
+        xb: Bool = Bool.not(rules.Grid.clear(room, barred, nx, enemy.y, r, 1))
+        yb: Bool = Bool.not(rules.Grid.clear(room, barred, enemy.x, ny, r, 1))
+        if xb:
+          dx = RS.f_neg(dx)
+        if yb:
+          dy = RS.f_neg(dy)
+        if Bool.and(Bool.not(xb), Bool.not(yb)):
+          dx = RS.f_neg(dx)
+          dy = RS.f_neg(dy)
+        enemy.dir = (dx, dy)
+        enemy.signature.bounces = (enemy.signature.bounces + 1 : U32)
+      else:
+        stopped = True{}
+  (ddx: F32, ddy: F32) = enemy.dir
+  deeds.sweeps = J.push(deeds.sweeps, J.JA{[cb.of_pair(fx, fy), cb.of_pair(enemy.x, enemy.y), J.of_f32((monsters.Enemy.radius(enemy) + rules.HERO_RADIUS() : F32)), J.of_u32(damage), cb.of_pair(ddx, ddy), J.of_u32(blow)]})
+  (enemy, deeds, stopped)
+
+# The nearest of `heroes` to the guardian.
+def signatures.nearest(enemy: Enemy, heroes: J.Val) -> (F32, F32)?:
+  cb.nearest2(heroes, enemy.x, enemy.y)
+
+# The clear spot nearest `to` where the guardian fits, if any near.
+def signatures.clear_near(enemy: Enemy, room: Room, barred: Bool, tx: F32, ty: F32) -> (F32, F32)?:
+  best: (F32, F32)? = None{}
+  bd: U32 = 0
+  for dy0: U32 in cb.range(17):
+    for dx0: U32 in cb.range(17):
+      dx: U32 = RS.i_sub(dx0, 8)
+      dy: U32 = RS.i_sub(dy0, 8)
+      sx: F32 = (tx + RS.i_as_f32(dx) * 0.5 : F32)
+      sy: F32 = (ty + RS.i_as_f32(dy) * 0.5 : F32)
+      if rules.Grid.clear(room, barred, sx, sy, monsters.Enemy.radius(enemy), 1):
+        d: U32 = (RS.i_mul(dx, dx) + RS.i_mul(dy, dy) : U32)
+        match (best : (F32, F32)?):
+          case None{}:
+            best = Some{(sx, sy)}
+            bd = d
+          case Some{b: (F32, F32)}:
+            if U32.is_lt(d, bd):
+              best = Some{(sx, sy)}
+              bd = d
+  best
+
+# What a guardian's charge-up shows when it begins.
+def signatures.begin(enemy: Enemy, boss: Boss, up: ChargeUp, target: (F32, F32), room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds):
+  fx: F32 = enemy.x
+  fy: F32 = enemy.y
+  (tx: F32, ty: F32) = target
+  &(ux: F32, uy: F32) = rules.unit((tx - fx : F32), (ty - fy : F32))
+  enemy.dir = (ux, uy)
+  deeds.sounds = J.push(deeds.sounds, J.JS{"boss_roar"})
+  if String.eq(up.kind, "charge"):
+    aim: F32 = RS.f_atan2(uy, ux)
+    turns: [F32] = [0.0, F32.neg(0.35), 0.35, F32.neg(0.7), 0.7, F32.neg(1.2), 1.2, F32.neg(1.8), 1.8, cb.PI()]
+    bestk: U32 = 0
+    bests: F32 = 0.0
+    bdx: F32 = 1.0
+    bdy: F32 = 0.0
+    bbx: F32 = fx
+    bby: F32 = fy
+    k: U32 = 0
+    have: Bool = False{}
+    for turn: F32 in turns:
+      angle: F32 = (aim + turn : F32)
+      dx: F32 = F32.cos(angle)
+      dy: F32 = F32.sin(angle)
+      bx: F32 = fx
+      by: F32 = fy
+      open: Bool = True{}
+      for n0: U32 in cb.range(60):
+        if open:
+          n: F32 = cb.f((n0 + 1 : U32))
+          px: F32 = (fx + dx * n * 0.5 : F32)
+          py: F32 = (fy + dy * n * 0.5 : F32)
+          if rules.Grid.clear(room, barred, px, py, monsters.Enemy.radius(enemy), 1):
+            bx = px
+            by = py
+          else:
+            open = False{}
+      reach: F32 = cb.hyp((bx - fx : F32), (by - fy : F32))
+      score: F32 = (RS.f_min(reach, signatures.LANE_LEAST()) * 10.0 - cb.f(k) : F32)
+      if Bool.or(Bool.not(have), (score >= bests : F32)):
+        have = True{}
+        bests = score
+        bdx = dx
+        bdy = dy
+        bbx = bx
+        bby = by
+      k = (k + 1 : U32)
+    enemy.dir = (bdx, bdy)
+    rail: Rail = J.obj()
+    rail.a = (fx, fy)
+    rail.b = (bbx, bby)
+    enemy.signature.rails = J.JA{[rail]}
+  elif String.eq(up.kind, "slam"):
+    beat: W.W = W.xor(W.xor(seed, W.shl(W.of_u32(enemy.id), 16)), W.of_u32(enemy.signature.cycle))
+    slam: Ravage = tide.Ravage.cast(fx, fy, up.shots, signatures.slam_lane(up), up.speed, up.damage, beat)
+    slam.blow = enemy.signature.blow
+    deeds.ravages = J.push(deeds.ravages, slam)
+    deeds = foes.cue(deeds, "ravage")
+  elif String.eq(up.kind, "beam"):
+    arc: F32 = RS.f_to_radians(up.arc)
+    way: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.signature.cycle, 2), 0), 1.0, F32.neg(1.0))
+    aim: F32 = RS.f_atan2(uy, ux)
+    beam: Projectile = patterns.charged_beam(room, barred, (fx, fy), (aim - arc / 2.0 * way : F32), (arc * way : F32), RS.u_min(up.wind, 255), signatures.beam_burn(up), bosses.Bolt.shot(up.bolt, boss.only_in), up.damage)
+    beam.traits.blow = enemy.signature.blow
+    deeds.bursts = J.push(deeds.bursts, beam)
+  elif String.eq(up.kind, "leap"):
+    enemy.signature.jump_from = (fx, fy)
+    enemy.signature.mark = (fx, fy)
+    match (signatures.clear_near(enemy, room, barred, tx, ty) : (F32, F32)?):
+      case Some{spot: (F32, F32)}:
+        enemy.signature.mark = spot
+      case None{}:
+        enemy.signature.mark = (fx, fy)
+  (enemy, deeds)
+
+# A ring of shots round the guardian (an inhale's breath out, a leap's landing).
+def signatures.ring(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> Deeds:
+  n: U32 = up.shots
+  if U32.is_eq(n, 0):
+    return deeds
+  step: F32 = (cb.TAU() / cb.f(n) : F32)
+  (dx: F32, dy: F32) = enemy.dir
+  start: F32 = (RS.f_atan2(dy, dx) + step / 2.0 : F32)
+  for i: U32 in cb.range(n):
+    a: F32 = (start + cb.f(i) * step : F32)
+    t: Traits = patterns.ShotTraits.default()
+    t.blow = enemy.signature.blow
+    deeds.bursts = J.push(deeds.bursts, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(a) * up.speed : F32), (F32.sin(a) * up.speed : F32), True{}, bosses.Bolt.shot(up.bolt, boss.only_in), up.damage, (6 * rules.HZ() : U32), t))
+  deeds
+
+# The blow of the charge-up it has wound.
+def signatures.strike(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> (Enemy, Deeds):
+  if String.eq(up.kind, "charge"):
+    if U32.is_gt(J.len(enemy.signature.rails), 0):
+      r: Rail = J.nth(enemy.signature.rails, 0)
+      (ax: F32, ay: F32) = r.a
+      (bx: F32, by: F32) = r.b
+      enemy.dir = cb.unit((bx - ax : F32), (by - ay : F32))
+    deeds.shake = 8
+    return (signatures.stage(enemy, signatures.DASH()), deeds)
+  if String.eq(up.kind, "slam"):
+    deeds.shake = 10
+    return (signatures.stage(enemy, signatures.DAZED()), deeds)
+  if String.eq(up.kind, "beam"):
+    deeds.sounds = J.push(deeds.sounds, J.JS{"spell_fire"})
+    return (signatures.stage(enemy, signatures.DAZED()), deeds)
+  if String.eq(up.kind, "leap"):
+    return (signatures.stage(enemy, signatures.JUMP()), deeds)
+  deeds = signatures.ring(enemy, boss, up, deeds)
+  deeds.sounds = J.push(deeds.sounds, J.JS{"gas_release"})
+  deeds.shake = 6
+  (signatures.stage(enemy, signatures.DAZED()), deeds)
+
+# A guardian's charge-ups from its file, one tick: when one is due (and its
+# burst is in its allowance) it stands and winds up where everyone can see,
+# then strikes, then stands spent. True while it is busy at one, so it neither
+# walks nor shoots. Answers (enemy, deeds, busy).
+def signatures.wind(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds, Bool):
+  if Bool.or(signatures.special(boss), U32.is_eq(J.len(boss.windups), 0)):
+    return (enemy, deeds, False{})
+  enemy.timer = (enemy.timer + 1 : U32)
+  now: String = bosses.Boss.stage(boss, enemy.hp, enemy.max_hp)
+  if U32.is_eq(enemy.stage, 0):
+    match (signatures.due(enemy, boss, now) : U32?):
+      case None{}:
+        return (enemy, deeds, False{})
+      case Some{k: U32}:
+        up: ChargeUp = J.nth(boss.windups, k)
+        cost: U32 = (bosses.ChargeUp.burst(up) * rules.HZ() : U32)
+        match (signatures.nearest(enemy, heroes) : (F32, F32)?):
+          case None{}:
+            return (enemy, deeds, False{})
+          case Some{target: (F32, F32)}:
+            if U32.is_gt((enemy.signature.spent + cost : U32), signatures.BANK()):
+              # It gathers itself: what it will throw comes out of its allowance first.
+              return (enemy, deeds, False{})
+            enemy.signature.spent = (enemy.signature.spent + cost : U32)
+            enemy.signature.active = True{}
+            enemy.signature.windup = k
+            enemy.signature.cycle = (enemy.signature.cycle + 1 : U32)
+            enemy.signature.blow = signatures.tag(enemy)
+            (enemy, deeds) = signatures.begin(enemy, boss, up, target, room, barred, seed, deeds)
+            enemy = signatures.stage(enemy, signatures.WIND())
+            return (enemy, deeds, True{})
+  if U32.is_ge(enemy.signature.windup, J.len(boss.windups)):
+    enemy = signatures.stage(enemy, 0)
+    return (enemy, deeds, False{})
+  up: ChargeUp = J.nth(boss.windups, enemy.signature.windup)
+  st: U32 = enemy.stage
+  if U32.is_eq(st, signatures.WIND()):
+    if String.eq(up.kind, "inhale"):
+      deeds.pulls = J.push(deeds.pulls, J.JA{[J.of_f32(enemy.x), J.of_f32(enemy.y), J.of_f32((monsters.Enemy.radius(enemy) + signatures.PULL_KEEP() : F32))]})
+    if U32.is_ge(enemy.timer, up.wind):
+      (enemy, deeds) = signatures.strike(enemy, boss, up, deeds)
+  elif U32.is_eq(st, signatures.DASH()):
+    (enemy, deeds, stopped: Bool) = signatures.dash_for(enemy, room, barred, up.speed, False{}, up.damage, enemy.signature.blow, deeds)
+    arrived: Bool = True{}
+    if U32.is_gt(J.len(enemy.signature.rails), 0):
+      r0: Rail = J.nth(enemy.signature.rails, 0)
+      (rbx: F32, rby: F32) = r0.b
+      arrived = (cb.hyp((rbx - enemy.x : F32), (rby - enemy.y : F32)) < 1.0 : F32)
+    if Bool.or(Bool.or(stopped, arrived), U32.is_ge(enemy.timer, 45)):
+      enemy = signatures.stage(enemy, signatures.DAZED())
+  elif U32.is_eq(st, signatures.JUMP()):
+    t: F32 = RS.f_min((cb.f(enemy.timer) / cb.f(signatures.FLIGHT()) : F32), 1.0)
+    (ax: F32, ay: F32) = enemy.signature.jump_from
+    (bx: F32, by: F32) = enemy.signature.mark
+    enemy.x = (ax + (bx - ax : F32) * t : F32)
+    enemy.y = (ay + (by - ay : F32) * t : F32)
+    if U32.is_ge(enemy.timer, signatures.FLIGHT()):
+      enemy.x = bx
+      enemy.y = by
+      &(backx: F32, backy: F32) = rules.unit((ax - bx : F32), (ay - by : F32))
+      deeds.sweeps = J.push(deeds.sweeps, J.JA{[cb.of_pair(bx, by), cb.of_pair(bx, by), J.of_f32((signatures.LANDING() + rules.HERO_RADIUS() : F32)), J.of_u32(up.damage), cb.of_pair(backx, backy), J.of_u32(enemy.signature.blow)]})
+      deeds = signatures.ring(enemy, boss, up, deeds)
+      deeds.sounds = J.push(deeds.sounds, J.JS{"rock_land"})
+      deeds.shake = 10
+      enemy = signatures.stage(enemy, signatures.DAZED())
+  elif U32.is_eq(st, signatures.DAZED()):
+    if U32.is_ge(enemy.timer, signatures.spent_for(up)):
+      enemy.signature.rails = J.JA{Nil{}}
+      enemy = signatures.stage(enemy, 0)
+  else:
+    enemy = signatures.stage(enemy, 0)
+    return (enemy, deeds, False{})
+  (enemy, deeds, True{})
+
+# The unruly guardians' own stage machines. Answers (enemy, deeds, handled).
+def signatures.act(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds, Bool):
+  if Bool.not(signatures.special(boss)):
+    return (enemy, deeds, False{})
+  enemy.signature.active = True{}
+  enemy.timer = (enemy.timer + 1 : U32)
+  if String.eq(boss.id, signatures.RIPPER()):
+    raging: Bool = (cb.f(enemy.hp) < (cb.f(enemy.max_hp) * 0.4 : F32) : F32)
+    radius: F32 = (boss.radius * signatures.swell(enemy) : F32)
+    # Each breath pushes his growing belly clear of nearby stone.
+    if Bool.and(Bool.or((radius > monsters.Enemy.radius(enemy) : F32), U32.is_eq(enemy.stage, signatures.TELL())), Bool.not(rules.Grid.clear(room, barred, enemy.x, enemy.y, radius, 1))):
+      have: Bool = False{}
+      bd: U32 = 0
+      bsx: F32 = enemy.x
+      bsy: F32 = enemy.y
+      for dy0: U32 in cb.range(17):
+        for dx0: U32 in cb.range(17):
+          dx: U32 = RS.i_sub(dx0, 8)
+          dy: U32 = RS.i_sub(dy0, 8)
+          sx: F32 = (enemy.x + RS.i_as_f32(dx) * 0.5 : F32)
+          sy: F32 = (enemy.y + RS.i_as_f32(dy) * 0.5 : F32)
+          if rules.Grid.clear(room, barred, sx, sy, radius, 1):
+            d: U32 = (RS.i_mul(dx, dx) + RS.i_mul(dy, dy) : U32)
+            if Bool.or(Bool.not(have), U32.is_lt(d, bd)):
+              have = True{}
+              bd = d
+              bsx = sx
+              bsy = sy
+      if have:
+        enemy.x = bsx
+        enemy.y = bsy
+    enemy.size = Some{radius}
+    if U32.is_eq(enemy.stage, 0):
+      &(ux: F32, uy: F32) = rules.unit(((layout.Room.width(room) / 2.0 : F32) - enemy.x : F32), ((layout.Room.height(room) / 2.0 : F32) - enemy.y : F32))
+      &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((ux * 3.0 * rules.DT() : F32), (uy * 3.0 * rules.DT() : F32)), monsters.Enemy.radius(enemy), 1)
+      enemy.x = nx
+      enemy.y = ny
+    st: U32 = enemy.stage
+    if Bool.and(U32.is_eq(st, 0), U32.is_ge(enemy.timer, 72)):
+      enemy = signatures.stage(enemy, signatures.INHALE())
+    elif U32.is_eq(st, signatures.INHALE()):
+      deeds.pulls = J.push(deeds.pulls, J.JA{[J.of_f32(enemy.x), J.of_f32(enemy.y), J.of_f32(0.1)]})
+      if U32.is_ge(enemy.timer, (signatures.BREATH() * 3 : U32)):
+        enemy.size = Some{(boss.radius * 2.0 : F32)}
+        enemy.signature.left = Bool.pick(U32, raging, 3, 1)
+        enemy = signatures.begin_rip(enemy, room, barred, seed)
+    elif Bool.and(U32.is_eq(st, signatures.TELL()), U32.is_ge(enemy.timer, signatures.RIP_TELL())):
+      enemy = signatures.stage(enemy, signatures.DASH())
+      deeds.sounds = J.push(deeds.sounds, J.JS{"gas_release"})
+      deeds.shake = 12
+    elif U32.is_eq(st, signatures.DASH()):
+      (enemy, deeds, stop: Bool) = signatures.dash(enemy, room, barred, signatures.RIP_SPEED(), True{}, deeds)
+      cloud: J.Val = cb.lit("{\"x\":f00000000,\"y\":f00000000,\"vx\":f00000000,\"vy\":f00000000,\"age\":0,\"owner\":0,\"power\":4,\"tint\":2}")
+      cloud = J.set(J.set(cloud, "x", J.of_f32(enemy.x)), "y", J.of_f32(enemy.y))
+      cloud = J.set(cloud, "tint", J.of_u32(Bool.pick(U32, raging, 3, 2)))
+      deeds.clouds = J.push(deeds.clouds, cloud)
+      if Bool.or(stop, U32.is_ge(enemy.timer, 33)):
+        enemy.signature.left = RS.u_sat_sub(enemy.signature.left, 1)
+        if U32.is_gt(enemy.signature.left, 0):
+          enemy.size = Some{(boss.radius * 2.0 : F32)}
+          enemy = signatures.begin_rip(enemy, room, barred, seed)
+        else:
+          enemy = signatures.stage(enemy, signatures.DAZED())
+    elif Bool.and(U32.is_eq(st, signatures.DAZED()), U32.is_ge(enemy.timer, 42)):
+      enemy = signatures.stage(enemy, 0)
+  else:
+    (enemy, deeds) = signatures.engine(enemy, boss, heroes, room, barred, seed, deeds)
+  (enemy, deeds, True{})
+
+def signatures.lay_rails(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W) -> Enemy:
+  tx: F32 = (layout.Room.width(room) / 2.0 : F32)
+  ty: F32 = (layout.Room.height(room) / 2.0 : F32)
+  if U32.is_gt(J.len(heroes), 0):
+    (tx, ty) = cb.pair(J.nth(heroes, 0))
+  aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+  jitter: F32 = (cb.f(W.rem_u32(rules.mix(W.xor(seed, W.of_u32(enemy.signature.cycle))), 100)) * 0.004 - 0.2 : F32)
+  rails: [Rail] = Nil{}
+  for k: U32 in cb.range(3):
+    angle: F32 = (aim + jitter + (cb.f(k) - 1.0 : F32) * 0.72 : F32)
+    dx: F32 = F32.cos(angle)
+    dy: F32 = F32.sin(angle)
+    bx: F32 = enemy.x
+    by: F32 = enemy.y
+    open: Bool = True{}
+    for n0: U32 in cb.range(120):
+      if open:
+        n: F32 = cb.f((n0 + 1 : U32))
+        px: F32 = (enemy.x + dx * n * 0.5 : F32)
+        py: F32 = (enemy.y + dy * n * 0.5 : F32)
+        if rules.Grid.clear(room, barred, px, py, monsters.Enemy.radius(enemy), 1):
+          bx = px
+          by = py
+        else:
+          open = False{}
+    rail: Rail = J.obj()
+    rail.a = (enemy.x, enemy.y)
+    rail.b = (bx, by)
+    rails = List.append(&2, J.Val, rails, [rail])
+  # sorted longest first (a stable sort)
+  sorted: [Rail] = Nil{}
+  for rail: Rail in rails:
+    sorted = signatures.insert_by_reach(sorted, rail)
+  enemy.signature.rails = J.JA{sorted}
+  enemy.signature.rail = 0
+  enemy.signature.left = Bool.pick(U32, U32.is_lt((enemy.hp * 2 : U32), enemy.max_hp), 3, 1)
+  enemy.signature.cycle = (enemy.signature.cycle + 1 : U32)
+  signatures.stage(enemy, signatures.TELL())
+
+def signatures.reach_of(rail: Rail) -> F32:
+  (ax: F32, ay: F32) = rail.a
+  (bx: F32, by: F32) = rail.b
+  cb.hyp((bx - ax : F32), (by - ay : F32))
+
+# Insert after every earlier rail whose reach is not shorter (stable, descending).
+def signatures.insert_by_reach(sorted: [Rail], rail: Rail) -> [Rail]:
+  match (sorted : [Rail]):
+    case Nil{}:
+      return [rail]
+    case Con{h: Rail, t: [Rail]}:
+      if (signatures.reach_of(rail) > signatures.reach_of(h) : F32):
+        return rail <> sorted
+      return h <> signatures.insert_by_reach(t, rail)
+
+def signatures.engine(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds):
+  if Bool.and(U32.is_lt((enemy.hp * 2 : U32), enemy.max_hp), Bool.not(enemy.signature.babies)):
+    enemy.signature.babies = True{}
+    for k: U32 in cb.range(4):
+      a: F32 = (cb.f(k) * 1.5707964 : F32)
+      reach: F32 = (monsters.Enemy.radius(enemy) + 2.0 : F32)
+      deeds = foes.spawn(deeds, "spiderling", (enemy.x + F32.cos(a) * reach : F32), (enemy.y + F32.sin(a) * reach : F32), signatures.TENDER())
+  st: U32 = enemy.stage
+  rail: J.Val = J.nth(enemy.signature.rails, enemy.signature.rail)
+  if U32.is_eq(st, 0):
+    tx: F32 = enemy.x
+    ty: F32 = enemy.y
+    if U32.is_gt(J.len(heroes), 0):
+      (tx, ty) = cb.pair(J.nth(heroes, 0))
+    &(ux: F32, uy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+    wobble: F32 = (F32.sin((cb.f(enemy.timer) * 0.3 : F32)) * 0.45 : F32)
+    enemy.dir = cb.unit((ux - uy * wobble : F32), (uy + ux * wobble : F32))
+    (ddx: F32, ddy: F32) = enemy.dir
+    &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((ddx * boss.speed * rules.DT() : F32), (ddy * boss.speed * rules.DT() : F32)), monsters.Enemy.radius(enemy), 1)
+    enemy.x = nx
+    enemy.y = ny
+    if U32.is_eq(enemy.timer, 36):
+      deeds.slams = J.push(deeds.slams, cb.of_pair(enemy.x, enemy.y))
+    if U32.is_ge(enemy.timer, 105):
+      enemy = signatures.lay_rails(enemy, heroes, room, barred, seed)
+      deeds.sounds = J.push(deeds.sounds, J.JS{"engine_whistle"})
+  elif Bool.and(U32.is_eq(st, signatures.TELL()), U32.is_ge(enemy.timer, signatures.RAIL_TELL())):
+    if Bool.not(J.is_null(rail)):
+      (rax: F32, ray: F32) = cb.pair(J.get(rail, "a"))
+      (rbx: F32, rby: F32) = cb.pair(J.get(rail, "b"))
+      enemy.dir = cb.unit((rbx - rax : F32), (rby - ray : F32))
+    enemy = signatures.stage(enemy, signatures.DASH())
+    deeds.shake = 8
+  elif U32.is_eq(st, signatures.DASH()):
+    (enemy, deeds, stopped: Bool) = signatures.dash(enemy, room, barred, 38.0, False{}, deeds)
+    arrived: Bool = True{}
+    if Bool.not(J.is_null(rail)):
+      (rbx: F32, rby: F32) = cb.pair(J.get(rail, "b"))
+      arrived = (cb.hyp((rbx - enemy.x : F32), (rby - enemy.y : F32)) < 1.4 : F32)
+    if Bool.or(Bool.or(stopped, arrived), U32.is_ge(enemy.timer, 45)):
+      enemy.signature.left = RS.u_sat_sub(enemy.signature.left, 1)
+      if U32.is_gt(enemy.signature.left, 0):
+        enemy.signature.rail = RS.u_min((enemy.signature.rail + 1 : U32), 2)
+        enemy.signature.jump_from = (enemy.x, enemy.y)
+        enemy = signatures.stage(enemy, signatures.JUMP())
+      else:
+        enemy = signatures.stage(enemy, signatures.DAZED())
+  elif U32.is_eq(st, signatures.JUMP()):
+    if Bool.not(J.is_null(rail)):
+      t: F32 = RS.f_min((cb.f(enemy.timer) / 24.0 : F32), 1.0)
+      (jx: F32, jy: F32) = enemy.signature.jump_from
+      (rax: F32, ray: F32) = cb.pair(J.get(rail, "a"))
+      enemy.x = (jx + (rax - jx : F32) * t : F32)
+      enemy.y = (jy + (ray - jy : F32) * t : F32)
+    if U32.is_ge(enemy.timer, 24):
+      enemy = signatures.stage(enemy, signatures.TELL())
+      deeds.sounds = J.push(deeds.sounds, J.JS{"engine_whistle"})
+  elif Bool.and(U32.is_eq(st, signatures.DAZED()), U32.is_ge(enemy.timer, 36)):
+    enemy.signature.rails = J.JA{Nil{}}
+    enemy = signatures.stage(enemy, 0)
+  (enemy, deeds)

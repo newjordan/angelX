@@ -232,6 +232,7 @@ mod tests {
 
     /// A table of `seats` bots ridden `ticks` ticks.
     fn ridden(seats: u32, ticks: u32) -> Run {
+        crate::agent::harness::live_policy::install_scripted_rules();
         let mut r = Run::lightgallop_for_test();
         for id in 2..=seats {
             r.join_seat(id, &format!("Knight {id}"));
@@ -245,6 +246,7 @@ mod tests {
 
     /// A table of `seats` bots that has rung the bell, 140 ticks into its tally.
     fn tallied(seats: u32) -> Run {
+        crate::agent::harness::live_policy::install_scripted_rules();
         let mut r = Run::lightgallop_for_test();
         for id in 2..=seats {
             r.join_seat(id, &format!("Knight {id}"));
@@ -274,6 +276,7 @@ mod tests {
 
     #[test]
     fn the_tally_is_said_in_a_box_with_its_rank_and_the_way_to_ride_again() {
+        crate::agent::harness::live_policy::install_scripted_rules();
         let mut r = Run::lightgallop_for_test();
         let mut done = false;
         for _ in 0..6000 {

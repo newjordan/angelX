@@ -75,6 +75,25 @@ fn parser_groups_exact_model_effort_and_labels_recovery_separately() {
 }
 
 #[test]
+fn parser_saturates_token_counts_within_and_across_providers() {
+    for tokens in [
+        serde_json::json!({"first": {"in": u64::MAX, "out": 1}}),
+        serde_json::json!({"first": {"in": u64::MAX, "out": 0}, "second": {"in": 0, "out": 1}}),
+    ] {
+        let raw = serde_json::json!({
+            "kind": "turn",
+            "route": {"driver": "openai", "model": "edge", "reasoning_effort": "high"},
+            "outcome": {"ok": true, "stop": "answer", "tokens": tokens}
+        })
+        .to_string();
+        let snapshot = parse_recent_jsonl(&raw, false);
+        let row = snapshot.find("openai", "edge", Some("high")).unwrap();
+        assert_eq!(row.samples, 1);
+        assert_eq!(row.mean_tokens, u64::MAX);
+    }
+}
+
+#[test]
 fn parser_skips_malformed_and_never_smears_legacy_openai_across_models() {
     let legacy = serde_json::json!({
         "kind":"turn", "driver":"openai",

@@ -1,0 +1,24 @@
+{
+  "api_version": 1,
+  "id": "patterns-reducer",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "buckets": [
+      {
+        "patterns": [
+          {
+            "evidence": [
+              { "kind": 0, "outcome": 0, "uncertainty": 250, "cost_hi": 0, "cost_lo": 7 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "bend": {
+    "entry": "patterns-reducer.bend",
+    "proof": "PROOF.bend",
+    "output": "patterns-reducer.compiled.js"
+  }
+}

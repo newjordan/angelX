@@ -1,0 +1,351 @@
+{
+  "node": [
+    {
+      "id": "tap",
+      "lang": "js",
+      "stdout": "TAP version 13\nok 1 - a\nnot ok 2 - b\n# tests 2\n# pass 1\n# fail 1\n# skipped 0\n",
+      "stderr": "",
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "spec",
+      "lang": "js",
+      "stdout": "✔ a (1ms)\nℹ tests 3\nℹ pass 3\nℹ fail 0\nℹ skipped 1\n",
+      "stderr": "",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "id": "partial",
+      "lang": "js",
+      "stdout": "ok 1 - a\nok 2 - b\n",
+      "stderr": "",
+      "passed": 2
+    }
+  ],
+  "jest": [
+    {
+      "id": "jest",
+      "lang": "js",
+      "stdout": "",
+      "stderr": "Tests:       1 failed, 3 passed, 4 total\n",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "vitest",
+      "lang": "js",
+      "stdout": "      Tests  3 passed | 1 failed (4)\n",
+      "stderr": "",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "mocha",
+      "lang": "js",
+      "stdout": "  3 passing (12ms)\n  1 failing\n  2 pending\n",
+      "stderr": "",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 2
+    }
+  ],
+  "python": [
+    {
+      "id": "pytest",
+      "lang": "python",
+      "stdout": "=== 3 passed, 1 failed, 2 skipped in 0.12s ===\n",
+      "stderr": "",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 2
+    },
+    {
+      "id": "unittest_failed",
+      "lang": "python",
+      "stdout": "",
+      "stderr": "test_a ... ok\ntest_b ... FAIL\n\nRan 4 tests in 0.001s\n\nFAILED (failures=1, errors=1)\n",
+      "passed": 2,
+      "failed": 2,
+      "skipped": 0
+    },
+    {
+      "id": "unittest_skipped",
+      "lang": "python",
+      "stdout": "",
+      "stderr": "Ran 4 tests in 0.001s\n\nOK (skipped=1)\n",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "id": "unittest_ok",
+      "lang": "python",
+      "stdout": "",
+      "stderr": "Ran 2 tests in 0.001s\n\nOK\n",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "go": [
+    {
+      "id": "go_detailed",
+      "lang": "go",
+      "stdout": "--- PASS: TestA (0.00s)\n--- FAIL: TestB (0.00s)\n--- SKIP: TestC\nFAIL\n",
+      "stderr": "",
+      "passed": 1,
+      "failed": 1,
+      "skipped": 1
+    },
+    {
+      "id": "go_package",
+      "lang": "go",
+      "stdout": "ok  \texample.com/x\t0.003s\n",
+      "stderr": "",
+      "passed": 1
+    }
+  ],
+  "cpp": [
+    {
+      "id": "catch_pass",
+      "lang": "cpp",
+      "stdout": "All tests passed (2004 assertions in 5 test cases)\n",
+      "stderr": "",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "catch_fail",
+      "lang": "cpp",
+      "stdout": "test cases:    5 |    4 passed | 1 failed\nassertions: 1821 | 1820 passed | 1 failed\n",
+      "stderr": "",
+      "passed": 4,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "ctest",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n67% tests passed, 1 tests failed out of 3\n",
+      "stderr": "",
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "gtest",
+      "lang": "cpp",
+      "stdout": "[  PASSED  ] 3 tests.\n[  FAILED  ] 1 test, listed below:\n[  FAILED  ] Suite.Case\n",
+      "stderr": "",
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0
+    }
+  ],
+  "ctest_pass": [
+    {
+      "id": "0",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of 1\n",
+      "stderr": "",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "1",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed, 0 tests failed out of 1\n",
+      "stderr": "",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "ctest_malformed": [
+    {
+      "id": "0",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n0% tests passed, garbage tests failed out of 3\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "1",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of garbage\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "2",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of +1\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "3",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of 184467440737095516160\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "4",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed, 4 tests failed out of 3\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "5",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed, 1 tests failed out of 3\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "6",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n101% tests passed out of 1\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "7",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n-1% tests passed out of 1\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "8",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed, 0 invented words out of 3\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "9",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\nprefix 100% tests passed out of 1\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "10",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of 1 trailing\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "ctest_conflict": [
+    {
+      "id": "pass_then_fail",
+      "lang": "cpp",
+      "stdout": "100% tests passed out of 3",
+      "stderr": "67% tests passed, 1 tests failed out of 3",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "fail_then_pass",
+      "lang": "cpp",
+      "stdout": "67% tests passed, 1 tests failed out of 3",
+      "stderr": "100% tests passed out of 3",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "duplicate_pass",
+      "lang": "cpp",
+      "stdout": "100% tests passed out of 3",
+      "stderr": "100% tests passed out of 3",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "ctest_zero": [
+    {
+      "id": "0",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n0% tests passed, 0 tests failed out of 0\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "1",
+      "lang": "cpp",
+      "stdout": "All tests passed (9 assertions in 3 test cases)\n100% tests passed out of 0\n",
+      "stderr": "",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "ctest_failed": [
+    {
+      "id": "0",
+      "lang": "cpp",
+      "stdout": "",
+      "stderr": "0% tests passed, 1 tests failed out of 1",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "id": "1",
+      "lang": "cpp",
+      "stdout": "",
+      "stderr": "33% tests passed, 2 tests failed out of 3",
+      "passed": 1,
+      "failed": 2,
+      "skipped": 0
+    },
+    {
+      "id": "2",
+      "lang": "cpp",
+      "stdout": "",
+      "stderr": "67% tests passed, 1 tests failed out of 3",
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0
+    }
+  ]
+}

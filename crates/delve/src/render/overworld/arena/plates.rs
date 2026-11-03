@@ -2124,7 +2124,7 @@ fn cached(kind: Kind, depth: u32) -> &'static Scene {
 
 /// Fully opened artwork; only a cached light pool and ten dust/spore dots move.
 pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
-    if let Some(im) = delivered(kind, depth, 1) {
+    if let Some(im) = delivered(kind, depth) {
         return im.clone();
     }
     let scene = cached(kind, depth);
@@ -2154,14 +2154,14 @@ pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
     im
 }
 
-/// Each native grain samples the rich source independently offline. The title
+/// The delivered painting, sampled from the rich source offline. The title
 /// retains its original wording, ink and position in the quiet bottom band.
-fn delivered(kind: Kind, depth: u32, scale: i32) -> Option<&'static Img> {
+fn delivered(kind: Kind, depth: u32) -> Option<&'static Img> {
     if !super::slot_art::enabled() { return None; }
-    static IMAGES: [OnceLock<Option<Img>>; DESTINATIONS.len() * 2] =
-        [const { OnceLock::new() }; DESTINATIONS.len() * 2];
+    static IMAGES: [OnceLock<Option<Img>>; DESTINATIONS.len()] =
+        [const { OnceLock::new() }; DESTINATIONS.len()];
     let index = DESTINATIONS.iter().position(|&(k,d)| k == kind && d == depth)?;
-    IMAGES[index * 2 + (scale - 1) as usize].get_or_init(|| {
+    IMAGES[index].get_or_init(|| {
         let slot = match kind {
             Kind::Gate => "dgn.plate.gate", Kind::Crypt => "dgn.plate.crypt",
             Kind::Mines => "dgn.plate.mines", Kind::Keep => "dgn.plate.keep",
@@ -2170,19 +2170,17 @@ fn delivered(kind: Kind, depth: u32, scale: i32) -> Option<&'static Img> {
             // The swamp's plates are painted here, never delivered.
             Kind::Swamp => return None,
         };
-        let name = if scale == 2 { "v2-plate" } else { "plate" };
-        super::slot_art::bytes(slot, name)?;
-        let mut im = super::slot_art::load(slot, name, &[]);
+        super::slot_art::bytes(slot, "plate")?;
+        let mut im = super::slot_art::load(slot, "plate", &[]);
         let mut label = Img::new(W,H);
         title(&mut label, kind, depth);
-        if scale == 2 { im.stamp_twice(&label,0,0); } else { im.stamp(&label,0,0); }
+        im.stamp(&label,0,0);
         Some(im)
     }).as_ref()
 }
 
 pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
-    let scale = if w >= W * 2 && h >= H * 2 { 2 } else { 1 };
-    let mut native = delivered(plate.kind, plate.depth, scale).cloned()
+    let mut native = delivered(plate.kind, plate.depth).cloned()
         .unwrap_or_else(|| painting(plate.kind, plate.depth, plate.age));
     let (nw,nh) = (native.w,native.h);
     // Quick horizontal iris: black -> painting in 7 ticks, close in 6.

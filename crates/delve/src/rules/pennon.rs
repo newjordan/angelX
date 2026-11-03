@@ -210,7 +210,7 @@ impl Shot {
             && self.life <= 180
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct Sample {
     tick: u64,
     x: i32,
@@ -256,7 +256,11 @@ pub struct Lane {
     pub shots: Vec<Shot>,
     pub pickups: [bool; 2],
     pub ward: u32,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     history: VecDeque<Sample>,
 }
 impl Lane {

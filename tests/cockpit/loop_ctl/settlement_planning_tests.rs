@@ -99,7 +99,7 @@ fn settlement_planning_persists_frontiers_before_restart_and_catches_up_from_com
     // A mutable live snapshot is not the confirmed restart checkpoint.
     st.settlement_plans = (1..=6).map(|n| (n, current.clone())).collect();
     let mut world = World::new(77);
-    world.sync_settlement(&st, "Miner", true);
+    world.sync_settlement(&st.summary(), "Miner", true);
     let caught_up = site(&world);
     assert_eq!(caught_up["work"], 6);
     assert_eq!(caught_up["floor"]["rooms"][4]["kind"], "workshop");
@@ -111,7 +111,7 @@ fn settlement_planning_persists_frontiers_before_restart_and_catches_up_from_com
         );
     }
     let mut restarted = World::new(77);
-    restarted.sync_settlement(&loaded, "Miner", true);
+    restarted.sync_settlement(&loaded.summary(), "Miner", true);
     assert_eq!(site(&restarted), caught_up);
 
     let mut loaded = loaded;
@@ -120,7 +120,7 @@ fn settlement_planning_persists_frontiers_before_restart_and_catches_up_from_com
     }
     assert_eq!(loaded.settlement_plans[&11].door_id, "q.changed");
     save_checkpoint(&loaded).unwrap();
-    restarted.sync_settlement(&loaded, "Miner", true);
+    restarted.sync_settlement(&loaded.summary(), "Miner", true);
     let next = site(&restarted);
     assert_eq!(next["work"], 11);
     assert_eq!(
@@ -159,7 +159,7 @@ fn settlement_planning_legacy_checkpoint_is_not_relabelled_when_a_map_appears() 
     assert!(loaded.settlement_plans.is_empty());
     assert!(loaded.durable_settlement_events().unwrap().plans.is_empty());
     let mut world = World::new(77);
-    world.sync_settlement(&loaded, "Miner", false);
+    world.sync_settlement(&loaded.summary(), "Miner", false);
     let before = site(&world);
     assert_eq!(before["floor"]["rooms"][4]["kind"], "hall");
     assert!(
@@ -171,7 +171,7 @@ fn settlement_planning_legacy_checkpoint_is_not_relabelled_when_a_map_appears() 
     );
     finish(&mut loaded);
     save_checkpoint(&loaded).unwrap();
-    world.sync_settlement(&loaded, "Miner", false);
+    world.sync_settlement(&loaded.summary(), "Miner", false);
     let after = site(&world);
     assert_eq!(loaded.settlement_plans.len(), 1);
     assert_eq!(
@@ -205,10 +205,10 @@ fn settlement_planning_error_harvest_snapshots_without_granting_extra_work() {
     assert_eq!(durable.rows.len(), 1);
     assert_eq!(durable.plans[&1].door_id, "q.error-frontier");
     let mut world = World::new(77);
-    world.sync_settlement(&app.loop_ctl, "Miner", false);
+    world.sync_settlement(&app.loop_ctl.summary(), "Miner", false);
     assert_eq!(site(&world)["work"], 1);
     let before = site(&world);
-    world.sync_settlement(&app.loop_ctl, "Miner", false);
+    world.sync_settlement(&app.loop_ctl.summary(), "Miner", false);
     assert_eq!(site(&world), before);
 }
 
@@ -238,6 +238,6 @@ fn settlement_planning_unavailable_map_and_invalid_provenance_cannot_expand_auth
     assert!(!st.settlement_plans.contains_key(&1));
     let mut store = together_settlement::Store::beside(None, 77, "Miner").unwrap();
     // The third in-memory row is uncommitted; only the confirmed two rows work.
-    store.sync_with_plans(&st, false, &durable.plans).unwrap();
+    store.sync_with_plans(&st.summary(), false, &durable.plans).unwrap();
     assert_eq!(store.site.work, 2);
 }

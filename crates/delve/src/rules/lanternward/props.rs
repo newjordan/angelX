@@ -37,34 +37,6 @@ pub enum Pk {
     Lever,
 }
 
-impl Pk {
-    pub fn of(c: u8) -> Option<Pk> {
-        Some(match c {
-            b'o' | b'x' => Pk::Pot,
-            b'"' => Pk::Grass,
-            b's' => Pk::Sign,
-            b'B' => Pk::Brazier,
-            b'C' => Pk::Rest,
-            b'E' => Pk::Ember,
-            b'b' => Pk::Great,
-            b'c' => Pk::Chest,
-            b'G' | b'1'..=b'9' => Pk::Gate,
-            b'P' | b'Y' => Pk::Plate,
-            b'X' => Pk::Block,
-            b'K' => Pk::Crystal,
-            b'~' => Pk::Cracked,
-            b'N' => Pk::Sigil,
-            b'L' => Pk::Lock,
-            b'M' => Pk::Boss,
-            b'*' => Pk::Beacon,
-            b'f' => Pk::Fissure,
-            b'F' => Pk::Folk,
-            b'/' => Pk::Lever,
-            _ => return None,
-        })
-    }
-}
-
 /// A thing in the room. `on` and `t` mean what the kind says (see `Pk`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prop {
@@ -89,18 +61,6 @@ pub struct Prop {
 }
 
 impl Prop {
-    pub fn new(kind: Pk, tx: i32, ty: i32, id: u8) -> Prop {
-        Prop {
-            kind,
-            tx: tx as u8,
-            ty: ty as u8,
-            id,
-            on: 0,
-            t: 0,
-            x: middle(tx),
-            y: middle(ty),
-        }
-    }
 
     /// Where its middle is, in `Q` pixels.
     pub fn at(&self) -> (i32, i32) {
@@ -187,20 +147,6 @@ impl Item {
     }
 }
 
-/// What a chest holds, by its room and its place in it.
-pub fn chest_item(room: usize, id: u8) -> Item {
-    match (room, id) {
-        (0, _) => Item::Map,
-        (1, 0) => Item::Lantern,
-        (1, _) => Item::Gems(25),
-        (2, _) => Item::Gems(20),
-        (3, 0) => Item::BossKey,
-        (3, 1) => Item::SmallKey,
-        (3, _) => Item::Gems(25),
-        _ => Item::Gems(10),
-    }
-}
-
 /// What lies on the floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dk {
@@ -277,51 +223,6 @@ pub struct Fuse {
     pub owner: u8,
 }
 
-/// The room's things, in the order the plan's rows list them.
-pub fn build(room: usize) -> Vec<Prop> {
-    let plan = plan(room);
-    let mut out = Vec::new();
-    let (mut chests, mut signs, mut folk) = (0u8, 0u8, 0u8);
-    for (y, row) in plan.rows.iter().enumerate() {
-        for (x, &c) in row.as_bytes().iter().enumerate() {
-            let Some(kind) = Pk::of(c) else { continue };
-            let id = match kind {
-                Pk::Gate => {
-                    if c == b'G' {
-                        0
-                    } else {
-                        c - b'0'
-                    }
-                }
-                Pk::Chest => {
-                    chests += 1;
-                    chests - 1
-                }
-                Pk::Sign => {
-                    signs += 1;
-                    signs - 1
-                }
-                Pk::Folk => {
-                    folk += 1;
-                    folk - 1
-                }
-                Pk::Pot | Pk::Plate => u8::from(matches!(c, b'x' | b'Y')),
-                _ => 0,
-            };
-            let mut p = Prop::new(kind, x as i32, y as i32, id);
-            match kind {
-                // The vault's key chest is not there until the dark is beaten.
-                Pk::Chest if room == 3 && id == 1 => p.on = 2,
-                // A resting brazier burns for good.
-                Pk::Rest => p.on = 1,
-                _ => {}
-            }
-            out.push(p);
-        }
-    }
-    out
-}
-
 /// A sign's few words, by its room and place.
 pub fn sign_text(room: usize, id: u8) -> &'static str {
     match (room, id) {
@@ -342,72 +243,6 @@ pub fn folk_text(room: usize, id: u8) -> &'static str {
 }
 
 impl Session {
-    pub(super) fn fx(&mut self, kind: Fxk, x: i32, y: i32, a: i16) {
-        if self.fx.len() < FX_CAP {
-            self.fx.push(Fx { kind, x, y, t: 0, a });
-        }
-    }
-
-    pub(super) fn drop_at(&mut self, kind: Dk, x: i32, y: i32) {
-        if self.drops.len() < DROP_CAP {
-            self.drops.push(Drop { kind, x, y, age: 0 });
-        }
-    }
-
-    /// The fixed dice: a whole-number step and the high bits of it.
-    pub(super) fn roll(&mut self, n: u32) -> u32 {
-        self.seed = self
-            .seed
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        ((self.seed >> 33) % u64::from(n.max(1))) as u32
-    }
-
-    /// A pot or a tuft of grass breaks: what it held lies on the floor. A bomb
-    /// pot (`Prop::id` 1) always holds three bombs.
-    pub(super) fn shatter(&mut self, i: usize, ev: &mut Events) {
-        let (kind, id, x, y) = {
-            let p = &self.props[i];
-            (p.kind, p.id, p.x, p.y)
-        };
-        self.props[i].on = 1;
-        self.fx(Fxk::Dust, x, y, 0);
-        if kind == Pk::Pot && id == 1 {
-            for n in 0..3 {
-                self.drop_at(Dk::Bomb, x + (n - 1) * 5 * Q, y + 3 * Q);
-            }
-        } else {
-            self.scatter(kind, x, y);
-        }
-        ev.sound(if kind == Pk::Pot { "rock_land" } else { "step_moss" });
-    }
-
-    /// What a cut or broken thing lets fall.
-    pub(super) fn scatter(&mut self, kind: Pk, x: i32, y: i32) {
-        let r = self.roll(100);
-        let drop = match kind {
-            Pk::Grass => match r {
-                0..=11 => Some(Dk::Gem),
-                12..=21 => Some(Dk::Heart),
-                _ => None,
-            },
-            Pk::Pot => match r {
-                0..=17 => Some(Dk::Heart),
-                18..=44 => Some(Dk::Gem),
-                45..=54 => Some(Dk::Bomb),
-                _ => None,
-            },
-            // A fallen snuffer.
-            _ => match r {
-                0..=29 => Some(Dk::Heart),
-                30..=64 => Some(Dk::Gem),
-                _ => None,
-            },
-        };
-        if let Some(d) = drop {
-            self.drop_at(d, x, y);
-        }
-    }
 
     /// Whether any closed thing in the room stops a body at this point.
     pub fn blocked(&self, x: i32, y: i32) -> bool {
@@ -432,11 +267,6 @@ impl Session {
             || self.blocked(x + r, y + r))
     }
 
-    /// Whether this point is over a pit.
-    pub fn pit(&self, x: i32, y: i32) -> bool {
-        plan(usize::from(self.room)).at(tile_of(x), tile_of(y)) == b'='
-    }
-
     /// Whether the way from `a` to `b` is open to a bolt: only walls stop it.
     pub fn line_open(&self, a: (i32, i32), b: (i32, i32)) -> bool {
         let (dx, dy) = (b.0 - a.0, b.1 - a.1);
@@ -453,14 +283,32 @@ impl Session {
         })
     }
 
-    /// Whether a point is held lit by a flare or a burning brazier (what
-    /// strips a snuffer's cloak).
-    pub fn burning(&self, x: i32, y: i32) -> bool {
-        self.seats.values().any(|k| {
-            k.flaring() && dist(k.x - x, k.y - y) < FLARE_R * Q
-        }) || self.props.iter().any(|p| {
-            p.lit() && dist(p.x - x, p.y - y) < BRAZIER_R * Q
-        })
+    /// The prop of this kind and number, if the room has one.
+    pub fn prop_of(&self, kind: Pk, id: u8) -> Option<usize> {
+        self.props.iter().position(|p| p.kind == kind && p.id == id)
+    }
+
+    /// Whether the way on is open.
+    pub fn exit_open(&self) -> bool {
+        match self.room {
+            0 | 2 => self.stage >= 1,
+            1 | 3 => self.stage >= 4,
+            _ => false,
+        }
+    }
+
+    /// Where a lock-on sits, if what it holds is still there.
+    pub fn lock_point(&self, l: Lock) -> Option<(i32, i32)> {
+        match l {
+            Lock::Foe(id) => self.foes.iter().find(|f| f.id == id && f.alive()).map(|f| (f.x, f.y)),
+            Lock::Boss => self.boss.as_ref().filter(|w| w.hp > 0).map(|w| w.heart()),
+            Lock::Prop(i) => self.props.get(usize::from(i)).filter(|p| p.target()).map(|p| (p.x, p.y)),
+        }
+    }
+
+    /// Whether the Warden's lamp-heart stands open.
+    pub fn boss_open(&self) -> bool {
+        self.boss.as_ref().is_some_and(|w| w.exposed(self.elapsed, self.seats.len() as u32))
     }
 
     /// Every light in the room as `(x, y, reach)` in `Q` pixels: knights'
@@ -478,7 +326,7 @@ impl Session {
             out.push((b.x, b.y, 40 * Q));
         }
         if let Some(w) = &self.boss
-            && self.boss_exposed()
+            && self.boss_open()
         {
             let (hx, hy) = w.heart();
             out.push((hx, hy, 64 * Q));
@@ -497,27 +345,6 @@ impl Session {
         light_in(&self.lights(), x, y)
     }
 
-    /// The gate with this number, opened or shut.
-    pub(super) fn set_gate(&mut self, id: u8, open: bool) -> bool {
-        let mut changed = false;
-        for p in self.props.iter_mut().filter(|p| p.kind == Pk::Gate && p.id == id) {
-            let want = u8::from(open);
-            if p.on != want {
-                p.on = want;
-                changed = true;
-            }
-        }
-        changed
-    }
-
-    /// A puzzle came right: the chime, the star burst, a cue on the screen.
-    pub(super) fn solved(&mut self, x: i32, y: i32, ev: &mut Events) {
-        self.fx(Fxk::Solved, x, y, 0);
-        if self.cue.is_none() {
-            self.cue = Some((x, y, CUE_TICKS));
-        }
-        ev.sound("wish_grant");
-    }
 }
 
 /// The brightest of `lights` at a point, 0 to 3, by squared distances (no

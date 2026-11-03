@@ -52,8 +52,21 @@ pub const ZONE_MAX: usize = 4;
 /// The most points a look keeps in sight (`reveal` and `reveals`).
 pub const REVEALS_MAX: usize = 4;
 
+/// The most points a look's depth of field keeps sharp (`Dof::focus`).
+pub const FOCUS_MAX: usize = 64;
+
+/// The widest a depth of field blurs, in the internal size's pixels.
+pub const DOF_RADIUS_MAX: f32 = 4.0;
+
+/// A card's pixel stored at this alpha is an ink that keeps its colour
+/// under a look's light ([`Cards`]): the Delve's signal inks (a knight's
+/// mark, a foe's eyes), which are game state, as an accent is. Nothing
+/// else draws at it: one step under opaque does not show.
+pub const UNLIT_ALPHA: u8 = 254;
+
 /// How the in-between levels are made.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Dither {
     /// A 4x4 Bayer matrix: 16 levels between two entries (the reference).
     #[default]
@@ -80,6 +93,7 @@ impl Dither {
 /// the scene's units. Nothing is fogged nearer than `start`; past `end`
 /// everything is the fog colour; between, it mixes in a straight line.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Fog {
     /// Which ramp entry the distance fades to.
     pub color: usize,
@@ -93,6 +107,7 @@ pub struct Fog {
 /// `ambient + strength * max(0, n . toward)`, darkened to `ambient` alone
 /// where something stands between it and the light.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sun {
     /// The direction toward the light (normalized when used).
     pub toward: [f32; 3],
@@ -113,6 +128,7 @@ pub struct Sun {
 /// (the eye's target, where the play is), `reach` units across. Past it a
 /// surface is lit as if nothing stood in the way.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Shadow {
     pub focus: [f32; 3],
     pub reach: f32,
@@ -168,6 +184,7 @@ impl Sun {
 /// moves what it lights toward the look's `warm` ramp as far as it lights
 /// it.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Lamp {
     pub at: [f32; 3],
     pub reach: f32,
@@ -181,6 +198,7 @@ pub struct Lamp {
 /// opened, never the ground in front; and only what is drawn: shadows
 /// still fall.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Reveal {
     pub at: [f32; 3],
     pub radius: f32,
@@ -194,6 +212,7 @@ pub struct Reveal {
 /// palette's hue without a seam. A zone's ramp has as many entries as the
 /// look's. Zones apply in order, each over what came before.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Zone {
     pub ramp: Vec<[u8; 3]>,
     pub at: [f32; 2],
@@ -211,8 +230,111 @@ impl Zone {
     }
 }
 
+/// How a look that lights its scene lights the figures standing in it as
+/// cards (a stage world's `figures`, docs/WORLD-TIERS.md "Lit cards"):
+/// each card as an upright face turned to the eye, by the look's sun (its
+/// shadows too) and lamps, at the point of the card it is, so a knight in
+/// the dark between the braziers is dark and one beside a brazier glows
+/// with its warmth. The sun's light is taken as a part of a reference
+/// halfway between what the card would take standing in the open (the
+/// ambient and the sun on that face) and full light, held between `least`
+/// and as drawn; the lamps add to it, up to `most`. Its pixels keep their
+/// own colours (never put on a ramp, never dithered): the light darkens or
+/// lightens them and the lamps move them toward the warm ramp's hue as far
+/// as they warm them. An accent card and a pixel at [`UNLIT_ALPHA`] stay as
+/// drawn. A card with a normal map (`Material::normals`, [`crate::normals`])
+/// is lit pixel by pixel: each pixel turned from that upright face by its
+/// normal, as far as `normals` says, for the sun, its shadow, the lamps and
+/// the rim alike.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Cards {
+    /// The least a card is lit, of as drawn: dark, never lost.
+    pub least: f32,
+    /// The most, of the same: aglow, never blown out.
+    pub most: f32,
+    /// How far lamplight moves a card toward the warm ramp's hue, of how
+    /// far it moves the world's pixels (0 none, 1 as far).
+    pub warm: f32,
+    /// How much a lamp behind a card lights its edge, the pixels at its
+    /// outline (0: no rim).
+    pub rim: f32,
+    /// How much farther a lamp reaches a card than it reaches the floor:
+    /// a figure stands up into the flame's light the floor lies under.
+    pub reach: f32,
+    /// How far a card's normal map turns its pixels from the upright face:
+    /// 0 not at all (each pixel faces the eye, as a card with no map), 1
+    /// as the map has them, more past that.
+    pub normals: f32,
+}
+
+impl Cards {
+    /// What a lit room's cards are (docs/WORLD-TIERS.md, "Lit cards").
+    pub const ROOM: Cards = Cards { least: 0.6, most: 1.6, warm: 0.75, rim: 0.6, reach: 1.8, normals: 1.0 };
+}
+
+/// A depth of field: what is near the eye and far from it is softened, the
+/// play kept pixel-sharp (docs/WORLD-TIERS.md, "Depth of field"). Depth is
+/// along the camera's own axis (its clip space's `w`, as units of the
+/// world: for a stage camera, how far down the floor a point is), so a
+/// card is as far as its foot. Everything from the nearest of `focus` to
+/// the farthest, and `margin` past each, is sharp; over the next `spread`
+/// the blur grows to `radius` pixels of the internal size, and it stays
+/// so beyond. It softens what the look places itself (a look that lights
+/// its scene: its floor and blocks), in the internal size's pixels, so the
+/// result keeps the pixel grain. The figures drawn after are never blurred.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Dof {
+    /// The points kept sharp: the party's feet and what it fights. None:
+    /// the points the look keeps in sight (`reveal`, `reveals`); and with
+    /// none of those either, nothing is blurred.
+    pub focus: Vec<[f32; 3]>,
+    pub margin: f32,
+    pub spread: f32,
+    /// The widest blur, in pixels of the internal size, up to
+    /// [`DOF_RADIUS_MAX`].
+    pub radius: f32,
+}
+
+impl Dof {
+    /// What a lit room's depth of field is, round `focus`, in stage pixels:
+    /// sharp two tiles past the nearest and farthest figures, soft at
+    /// full a further six tiles on.
+    pub fn room(focus: Vec<[f32; 3]>) -> Dof {
+        Dof { focus, margin: 32.0, spread: 96.0, radius: 1.5 }
+    }
+
+    /// The nearest and farthest depths kept sharp, `margin` past the focus
+    /// points, by depth row `row` (`[a, b, c, d]`: a point's depth is `a x
+    /// + b y + c z + d`), `reveal` standing in for points when it has none.
+    /// None when there is nothing to focus on.
+    pub fn band(&self, row: [f32; 4], reveal: &[[f32; 3]]) -> Option<(f32, f32)> {
+        let depth = |p: &[f32; 3]| row[0] * p[0] + row[1] * p[1] + row[2] * p[2] + row[3];
+        let points = if self.focus.is_empty() { reveal } else { &self.focus[..] };
+        let (lo, hi) = points.iter().map(depth).filter(|d| d.is_finite()).fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), d| (lo.min(d), hi.max(d)));
+        (lo <= hi).then(|| (lo - self.margin, hi + self.margin))
+    }
+}
+
+fn dof_usable(dof: &Dof) -> bool {
+    dof.focus.len() <= FOCUS_MAX
+        && dof.focus.iter().all(|p| finite3(*p))
+        && dof.margin.is_finite()
+        && dof.margin >= 0.0
+        && dof.spread.is_finite()
+        && dof.spread >= 0.0
+        && dof.radius.is_finite()
+        && (0.0..=DOF_RADIUS_MAX).contains(&dof.radius)
+}
+
+fn cards_usable(cards: &Cards) -> bool {
+    [cards.least, cards.most, cards.warm, cards.rim, cards.reach, cards.normals].iter().all(|v| v.is_finite() && *v >= 0.0) && cards.least <= cards.most
+}
+
 /// A scene's palette and pixel size.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Look {
     /// The ramp, dark to light: [`RAMP_LEN`] entries, 8-bit RGB.
     pub ramp: Vec<[u8; 3]>,
@@ -247,6 +369,11 @@ pub struct Look {
     /// World units in a metre, so water's bands run at the same pace in a
     /// scene in metres (1) and on a stage in pixels (about 11).
     pub metre: f32,
+    /// How the figures standing in a scene it lights are lit, as cards;
+    /// none: as drawn.
+    pub cards: Option<Cards>,
+    /// What near and far is softened; none: everything sharp.
+    pub dof: Option<Dof>,
 }
 
 /// Why a [`Look`] is not usable as it stands.
@@ -273,6 +400,13 @@ pub enum LookError {
     /// More than [`ZONE_MAX`] zones, or one whose ramp is not as long as the
     /// look's, or whose place or size is not finite or negative.
     Zones,
+    /// The cards' light is not finite, is negative, or its least is past
+    /// its most.
+    Cards,
+    /// The depth of field has more than [`FOCUS_MAX`] points or one not
+    /// finite, a negative or unfinite distance, or a radius past
+    /// [`DOF_RADIUS_MAX`].
+    Dof,
 }
 
 impl std::fmt::Display for LookError {
@@ -297,6 +431,8 @@ impl std::fmt::Display for LookError {
             LookError::Lamps => write!(f, "at most {LAMP_MAX} lamps, each finite with a reach"),
             LookError::Warm => write!(f, "the warm and water ramps are as long as the ramp"),
             LookError::Zones => write!(f, "at most {ZONE_MAX} zones, each with a ramp as long as the look's"),
+            LookError::Cards => write!(f, "the cards' light is finite and not negative, its least no more than its most"),
+            LookError::Dof => write!(f, "the depth of field keeps at most {FOCUS_MAX} finite points sharp, with finite distances and a radius of 0 to {DOF_RADIUS_MAX}"),
         }
     }
 }
@@ -416,6 +552,8 @@ impl Look {
             reveals: Vec::new(),
             time: 0.0,
             metre: 1.0,
+            cards: None,
+            dof: None,
         }
     }
 
@@ -463,6 +601,12 @@ impl Look {
         if self.zones.len() > ZONE_MAX || !self.zones.iter().all(|z| zone_usable(z, self.ramp.len())) {
             return Err(LookError::Zones);
         }
+        if self.cards.as_ref().is_some_and(|c| !cards_usable(c)) {
+            return Err(LookError::Cards);
+        }
+        if self.dof.as_ref().is_some_and(|d| !dof_usable(d)) {
+            return Err(LookError::Dof);
+        }
         Ok(())
     }
 
@@ -508,6 +652,14 @@ impl Look {
         if !(look.metre.is_finite() && look.metre > 0.0) {
             look.metre = 1.0;
         }
+        look.cards = look.cards.filter(cards_usable);
+        look.dof = look.dof.take().map(|mut dof| {
+            dof.focus.retain(|p| finite3(*p));
+            dof.focus.truncate(FOCUS_MAX);
+            dof.radius = if dof.radius.is_finite() { dof.radius.clamp(0.0, DOF_RADIUS_MAX) } else { 0.0 };
+            dof
+        });
+        look.dof = look.dof.filter(dof_usable);
         Some(look)
     }
 
@@ -555,6 +707,16 @@ impl Look {
         }
         let _ = writeln!(t, "time {}", self.time);
         let _ = writeln!(t, "metre {}", self.metre);
+        if let Some(c) = self.cards {
+            let _ = writeln!(t, "cards {} {} {} {} {} {}", c.least, c.most, c.warm, c.rim, c.reach, c.normals);
+        }
+        if let Some(d) = &self.dof {
+            let _ = write!(t, "dof {} {} {}", d.margin, d.spread, d.radius);
+            for p in &d.focus {
+                let _ = write!(t, " {} {} {}", p[0], p[1], p[2]);
+            }
+            t.push('\n');
+        }
         t
     }
 
@@ -633,6 +795,25 @@ impl Look {
                 }
                 "time" => look.time = rest.first()?.parse().ok()?,
                 "metre" => look.metre = rest.first()?.parse().ok()?,
+                "cards" => {
+                    let n = nums(rest)?;
+                    // A look written before normal maps has five: its
+                    // cards face the eye.
+                    let (least, most, warm, rim, reach, normals) = match n[..] {
+                        [least, most, warm, rim, reach] => (least, most, warm, rim, reach, 0.0),
+                        [least, most, warm, rim, reach, normals] => (least, most, warm, rim, reach, normals),
+                        _ => return None,
+                    };
+                    look.cards = Some(Cards { least, most, warm, rim, reach, normals });
+                }
+                "dof" => {
+                    let n = nums(rest)?;
+                    if n.len() < 3 || (n.len() - 3) % 3 != 0 {
+                        return None;
+                    }
+                    let focus = n[3..].chunks_exact(3).map(|p| [p[0], p[1], p[2]]).collect();
+                    look.dof = Some(Dof { focus, margin: n[0], spread: n[1], radius: n[2] });
+                }
                 _ => return None,
             }
         }
@@ -1172,6 +1353,32 @@ mod tests {
     }
 
     #[test]
+    fn the_cards_and_the_depth_of_field_are_checked_and_made_usable() {
+        let mut look = blues();
+        look.cards = Some(Cards { least: 0.9, most: 0.5, ..Cards::ROOM });
+        assert_eq!(look.validate(), Err(LookError::Cards));
+        assert_eq!(look.normalized().unwrap().cards, None, "a light that cannot be used is dropped");
+        look.cards = Some(Cards::ROOM);
+        look.dof = Some(Dof { radius: 9.0, ..Dof::room(vec![[0.0, 0.0, 10.0], [f32::NAN, 0.0, 0.0]]) });
+        assert_eq!(look.validate(), Err(LookError::Dof));
+        let dof = look.normalized().unwrap().dof.unwrap();
+        assert_eq!((dof.radius, dof.focus.len()), (DOF_RADIUS_MAX, 1), "the radius clamped, the bad point dropped");
+        assert_eq!(look.normalized().unwrap().cards, Some(Cards::ROOM));
+    }
+
+    #[test]
+    fn the_sharp_band_runs_from_the_nearest_focus_to_the_farthest_and_a_margin_past() {
+        // A stage camera's depth: how far up the floor from an eye at z 900.
+        let row = [0.0, 0.0, -1.0, 900.0];
+        let dof = Dof::room(vec![[10.0, 0.0, 100.0], [50.0, 0.0, 160.0], [0.0, 0.0, 120.0]]);
+        assert_eq!(dof.band(row, &[]), Some((740.0 - dof.margin, 800.0 + dof.margin)));
+        // No points of its own: the points kept in sight; none at all, nothing.
+        let none = Dof::room(Vec::new());
+        assert_eq!(none.band(row, &[[0.0, 13.0, 200.0]]), Some((700.0 - none.margin, 700.0 + none.margin)));
+        assert_eq!(none.band(row, &[]), None);
+    }
+
+    #[test]
     fn a_look_goes_to_text_and_back_exactly() {
         let mut look = blues();
         look.fog = Some(Fog { color: 2, start: 10.5, end: 600.0 });
@@ -1185,7 +1392,15 @@ mod tests {
         look.time = 12.375;
         look.metre = 11.0;
         look.dither = Dither::Bayer8;
+        look.cards = Some(Cards::ROOM);
+        look.dof = Some(Dof::room(vec![[1.0, 0.0, 30.5], [40.0, 0.0, 90.0]]));
         assert_eq!(Look::from_text(&look.to_text()), Some(look.clone()));
+        look.dof = Some(Dof::room(Vec::new()));
+        assert_eq!(Look::from_text(&look.to_text()), Some(look.clone()));
+        // A look written before normal maps: its cards face the eye.
+        let older = look.to_text().replace("cards 0.6 1.6 0.75 0.6 1.8 1\n", "cards 0.6 1.6 0.75 0.6 1.8\n");
+        assert_ne!(older, look.to_text());
+        assert_eq!(Look::from_text(&older).and_then(|l| l.cards), Some(Cards { normals: 0.0, ..Cards::ROOM }));
         let plain = blues();
         assert_eq!(Look::from_text(&plain.to_text()), Some(plain));
         assert_eq!(Look::from_text("ramp zz"), None);

@@ -1,0 +1,13 @@
+# The Bend modules the Delve's client runs in the page (crates/web/rules_js.rs):
+# every module id its rules ask of `angel_delve::scripted::step`, a folder a
+# line, from this file's own folder. The page runs the same files the host
+# runs in V8, so a module missing here stops every browser seat that asks it.
+../../../cockpit/live/bannerpeak-rules
+../../../cockpit/live/deathmatch-rules
+../../../cockpit/live/griffinwing-rules
+../../../cockpit/live/lanternward-rules
+../../../cockpit/live/layout-rules
+../../../cockpit/live/lightgallop-rules
+../../../cockpit/live/moonfall-rules
+../../../cockpit/live/race3d-rules
+../../../cockpit/live/rooms-rules

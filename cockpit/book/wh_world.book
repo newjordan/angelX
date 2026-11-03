@@ -1,0 +1,78 @@
+@@book-page 1@@
+Use for current information, documentation, error messages, or anything outside the workspace.
+@@book-page 1@@
+Research search origin: {origin}; fetch document URLs returned by web_search with web_fetch.
+@@book-page 1@@
+Do not probe the host with shell.
+@@book-page 1@@
+Research search origin: {origin}; fetch document URLs with web_fetch.
+@@book-page 1@@
+search query
+@@book-page 1@@
+max results (default 5)
+@@book-page 2@@
+Use to read documentation, APIs, or pages found via web_search.
+@@book-page 2@@
+Research search origin: {origin}; fetch document URLs returned by web_search with web_fetch.
+@@book-page 2@@
+Do not probe the host with shell.
+@@book-page 2@@
+Research search origin: {origin}; fetch document URLs with web_fetch.
+@@book-page 2@@
+http(s) URL to fetch
+@@book-page 2@@
+cap on returned text bytes (default 20000, max 200000)
+@@book-page 3@@
+Use for papers, prior work, citation counts, or a literature review in ML, biology, physics or chemistry.
+@@book-page 3@@
+the research question or topic
+@@book-page 3@@
+papers per source (default 8, max 25)
+@@book-page 4@@
+Use when a report or answer should point at real, maintained projects: reference implementations, libraries, tools, or the freshest work in a fast-moving area.
+@@book-page 4@@
+topic or GitHub search query (supports GitHub qualifiers like language:rust, stars:>1000)
+@@book-page 4@@
+best = most-starred (default); latest = most-recently-pushed
+@@book-page 4@@
+repositories to return (default 10, max 25)
+@@book-page 5@@
+Prefer over web_search when recency, breaking news, or social/X signal matters — it runs Grok's own agentic web + X search and brings back cited context.
+@@book-page 5@@
+what to research (a question or topic)
+@@book-page 6@@
+Use for JSON APIs — local inference servers, webhooks, REST services; use web_fetch for reading pages.
+@@book-page 6@@
+HTTP method (default GET)
+@@book-page 6@@
+http(s) URL
+@@book-page 6@@
+header name → value
+@@book-page 6@@
+request body (verbatim)
+@@book-page 6@@
+cap on returned body bytes (default 20000, max 200000)
+@@book-page 7@@
+Use to find which rigs are reachable before SSHing or probing an endpoint on one.
+@@book-page 8@@
+Recon only — report an idle instance, never destroy or restart one; that is the operator's call.
+@@book-page 9@@
+Use after starting a server with proc_run to confirm it's ready, or to discover what a fleet box serves.
+@@book-page 9@@
+endpoint base, e.g. http://host:8000 (with or without /v1)
+@@book-page 9@@
+authentication credential if required
+@@book-page 0@@
+Meant for local/self-hosted endpoints — pointing it at a paid API spends real tokens.
+@@book-page 0@@
+endpoint base, e.g. http://host:8000 (with or without /v1)
+@@book-page 0@@
+model id (default: first id from /v1/models)
+@@book-page 0@@
+fixed prompt (default: a ~40-token instruction)
+@@book-page 0@@
+per run (default 128)
+@@book-page 0@@
+measured runs after warmup (default 3, max 10)
+@@book-page 0@@
+authentication credential if required

@@ -822,7 +822,8 @@ fn correct_note_file(path: &Path, model: &str) -> std::io::Result<usize> {
         format!("{}{value}{closing}", &caps[1])
     });
     if corrected > 0 {
-        std::fs::write(path, rewritten.as_ref())?;
+        crate::platform::workspace_store::write_atomic(path, rewritten.as_ref().as_bytes())
+            .map_err(std::io::Error::other)?;
     }
     Ok(corrected)
 }

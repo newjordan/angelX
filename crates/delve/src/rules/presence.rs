@@ -52,7 +52,7 @@ impl Run {
     }
 
     /// A round begins: every standing knight is stone, unseen and unhurt,
-    /// until its player first moves, fires, dashes or swings.
+    /// until its player first moves, fires, dashes, swings or presses E.
     pub fn rest_until_moved(&mut self) {
         // Only knights a player is here for: the host's empty place and a
         // seat whose player is away are not waiting to move.
@@ -62,11 +62,18 @@ impl Run {
         }
     }
 
-    /// An idle knight wakes on its player's first move this round.
+    /// An idle knight wakes on its player's first move this round. E is a
+    /// move: a friend who joins at the Delve's door and presses E under its
+    /// ENTER sign goes in, not stays stone.
     pub(super) fn wake_on_first_move(hero: &mut Hero, input: &Input) {
         if hero.idle
             && !hero.away
-            && (input.move_x != 0 || input.move_y != 0 || input.fire || input.dash || input.swing)
+            && (input.move_x != 0
+                || input.move_y != 0
+                || input.fire
+                || input.dash
+                || input.swing
+                || input.interact)
         {
             hero.idle = false;
             hero.stone = hero.vigil;
@@ -112,3 +119,6 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_presence__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/presence_bend_cases__tests.rs"]
+mod presence_bend_cases_tests;

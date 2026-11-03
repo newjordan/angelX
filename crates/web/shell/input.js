@@ -15,6 +15,7 @@
 
 /* exported makeInput, BUTTON */
 const BUTTON = {
+  TEAM: (1 << 15) | (1 << 13),
   UP: 1 << 0, DOWN: 1 << 1, LEFT: 1 << 2, RIGHT: 1 << 3,
   FIRE: 1 << 4, USE: 1 << 5,
   SLOT1: 1 << 6, SLOT2: 1 << 7, SLOT3: 1 << 8, SLOT4: 1 << 9,

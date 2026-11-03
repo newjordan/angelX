@@ -35,7 +35,6 @@ const DMD_DITHER_LEVEL: [u16; 8] = [0, 233, 219, 185, 239, 235, 201, 232];
 /// Ink color for one-bit plates: a warm paper-white, restylable at draw time.
 // TODO(noir-wave): drop the allows once the plate pipeline consumes the mono
 // converter from the miniviz draw path.
-#[allow(dead_code)]
 pub const MONO_INK: [u8; 3] = [236, 236, 228];
 
 /// Decode, palette-quantize, and ordered-dither an image into colored braille.

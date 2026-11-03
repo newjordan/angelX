@@ -10,6 +10,7 @@
 
 use super::{Primary, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/with_build.book");
 pub(crate) const CELL: char = '⠾';
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -23,17 +24,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `run_tests`",
             action: "",
             ideas: "",
-            pages: &[
-                "typed runtime selection; an explicit entrypoint selects its runtime, otherwise auto requires one root language (optional)",
-                "Explicit native test entrypoint; node bypasses package scripts, unittest accepts discover/modules/files, pytest requires an immutable system installation.",
-                "alias of runtime for the scan fallback: rust|js|python|go|swift (optional)",
-                "Rust: cargo test flags.",
-                "Node: confined test files/globs and test-name/skip-pattern.",
-                "Python: unittest -s directory, -p pattern, -k.",
-                "Other runners: appended verbatim (optional)",
-                "run the suite of this subdirectory of the workspace (mono-repos: e.g. `sidecar/forge` for its python tests, `cockpit` for that crate); the runner is chosen from that directory's own files (optional)",
-                "alias of `dir` for repos whose crates live one directory down (e.g. cockpit/, harness/); default = the largest (optional)",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'1'),
         },
         Sub {
             route: Route::new(CELL, '⠃'),
@@ -41,12 +32,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `check`",
             action: "",
             ideas: "",
-            pages: &[
-                "Runtime selection.",
-                "Auto requires one root language; mixed projects need explicit selection.",
-                "Rust: cargo check flags.",
-                "Node/Python: confined source files or simple filename globs; default scans up to 256 visible source files, excluding generated/vendor directories.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'2'),
         },
         Sub {
             route: Route::new(CELL, '⠉'),
@@ -54,7 +40,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `fmt`",
             action: "",
             ideas: "",
-            pages: &["check only, don't modify (default false)"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'3'),
         },
         Sub {
             route: Route::new(CELL, '⠙'),
@@ -62,7 +48,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `proc_stop`",
             action: "",
             ideas: "",
-            pages: &["handle id from proc_run"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'4'),
         },
         Sub {
             route: Route::new(CELL, '⠑'),
@@ -70,12 +56,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `shell`, continued",
             action: "",
             ideas: "",
-            pages: &[
-                "Do not inventory `/`, `$HOME`, or unrelated repos; prefer `read_file`/`grep` inside the workspace.",
-                "YOLO SMART is active: workspace shell/write batches do not wait for interactive approval — act decisively with tools (edit, build, test, fix).",
-                "Prefer concrete tool-backed code changes over status prose.",
-                "shell command.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'5'),
         },
         Sub {
             route: Route::new(CELL, '⠋'),
@@ -83,14 +64,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `loop_research`, continued",
             action: "",
             ideas: "",
-            pages: &[
-                "results: exact retained run within this workspace",
-                "results: retained run count; default 5",
-                "campaign: start, run, status, cancel, check, recover or recheck the native Labyrinth workflow; its role policies are registered at ⡬⠊.",
-                "campaign: durable Labyrinth campaign identifier.",
-                "campaign: complete specification with explicit doors, source files, independent checks and shared compute limits.",
-                "campaign check: workspace-relative path to a complete frozen integration bundle; validate exact source and check receipts without a model call, canonical publication or another recheck.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'6'),
         },
         Sub {
             route: Route::new(CELL, '⠛'),
@@ -98,7 +72,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `rl_campaign`, continued",
             action: "",
             ideas: "",
-            pages: &["results: number of retained campaigns; default 5"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'7'),
         },
     ],
 };

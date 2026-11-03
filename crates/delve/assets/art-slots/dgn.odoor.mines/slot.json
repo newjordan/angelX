@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.odoor.mines",
-  "source_path": "/work/tmp/dungeon-fin/crates/delve/assets/dungeon-src/dgn.odoor.mines/source-sheet.png",
+  "source_path": "angelX-archive/2026-10-20/source-art/dungeon-src/dgn.odoor.mines/source-sheet.png",
   "source_sha256": "0c740abcd4c2e5636d0b269228c5e82e69da78e6fbc3516dc307e5ce76ce009f",
   "tool_version": 2
 }

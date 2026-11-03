@@ -443,7 +443,8 @@ pub(super) fn scenery(run: &Run) -> Img {
     match room.kind {
         RoomKind::Gate => {
             gate(&mut cv, &mut lights, tick);
-            super::college::gate_building(&mut cv, tick);
+            // Where the green house stood by the well: the Sozzled Griffin.
+            super::alehouse::courtyard_inn(&mut cv, &mut lights, tick);
         },
         RoomKind::Stables => {
             stables(&mut cv, &mut lights, tick);
@@ -989,8 +990,11 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
         2.0,
     );
     cv.stamp(&heaps, pc * TILE, (pr + ph) * TILE - heaps.h);
+    // The ore cart stands east of the muster tent.
     let cart = kit::handcart();
-    cv.stamp(&cart, 15 * TILE, 5 * TILE);
+    cv.stamp(&cart, 19 * TILE + 8, 5 * TILE);
+    // The recruits' muster tent, east of the shaft (`muster_tent`).
+    super::muster_tent::pavilion(cv, lights, tick);
     // The gate-hall of Caer Dwfn: a ruin, until the realm pays to raise it.
     super::barony::gate_hall(cv, run, lights, tick);
     if run.room().doors[0] {

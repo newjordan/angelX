@@ -1,0 +1,21 @@
+{
+  "api_version": 1,
+  "id": "swarm-mandate",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "kind": "pass",
+    "smart_route": true,
+    "research_route": false,
+    "fastpath": true,
+    "tight": false,
+    "classify_open": true,
+    "deliberation": true,
+    "always": false
+  },
+  "bend": {
+    "entry": "swarm-mandate.bend",
+    "proof": "PROOF.bend",
+    "output": "swarm-mandate.compiled.js"
+  }
+}

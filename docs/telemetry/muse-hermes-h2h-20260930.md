@@ -1,6 +1,6 @@
 # Muse and Hermes head-to-heads, 2026-09-30
 
-Both run the full polyglot-v1 set: 136 tasks (48 JS, 34 Python, 30 Rust, 24 C++). They use the same Prime Verifiers 0.3.1 cell as the sol, Grok, DeepSeek and GLM head-to-heads: one attempt per task, a 600 s wall clock, a fresh HOME for each rollout, grading however the agent exits, and `TMPDIR=/work/tmp`.
+Both run the full polyglot-v1 set: 136 tasks (48 JS, 34 Python, 30 Rust, 24 C++). They use the same Prime Verifiers 0.3.1 cell as the sol, Grok, DeepSeek and GLM head-to-heads: one attempt per task, a 600 s wall clock, a fresh HOME for each rollout, grading however the agent exits, and `TMPDIR=<scratch>`.
 
 ## Muse: angelX 0.1.91 vs Muse Code
 
@@ -35,7 +35,7 @@ Both run the full polyglot-v1 set: 136 tasks (48 JS, 34 Python, 30 Rust, 24 C++)
   - 325cdf9 stopped after 12 tasks; it had replay but no cache key.
 - **Mulligan:** Muse Code was at 109/136 when systemd-oomd killed the bench window at 22:42 CDT. py-tree-building was in flight, so it was rerun from #110 at 22:54 CDT.
   - Muse Code's sheet spans `seed0-20261001T011112Z` (1–109) and `seed0-20261001T035433Z` (110–136).
-  - `full-report.md` and `full.json` in `/work/artifacts/musecode-h2h-20260930/` hold the full numbers.
+  - `full-report.md` and `full.json` in `<artifacts>/musecode-h2h-20260930/` hold the full numbers.
 
 ## DeepSeek: Hermes Agent v0.18.2
 
@@ -73,4 +73,4 @@ Both run the full polyglot-v1 set: 136 tasks (48 JS, 34 Python, 30 Rust, 24 C++)
   - Free swap fell about 1.4 GB/s from 22:38 in that window, a minute after the task started. It's the likely runaway, but the clean rerun leaves that unproven.
   - Resumed cells now run in their own `systemd-run` scope with `MemoryMax=24G`.
   - The merged sheet is `hermes-deepseek/deepseek/hermes/merged-20261001/`, and its `SOURCES.txt` records which run each task came from.
-  - `full-report.md` and `full.json` in `/work/artifacts/hermes-deepseek-20261001/` hold the full numbers.
+  - `full-report.md` and `full.json` in `<artifacts>/hermes-deepseek-20261001/` hold the full numbers.

@@ -65,7 +65,7 @@
   "flags": [
     "unreviewed mapping/components"
   ],
-  "map_sha256": "309529b7d0bbddaa42119f55340d4f1c86704ac5e859244e1fde67ece1f44f4d",
+  "map_sha256": "d25ab78d72b7906740b97d0a2666aba5d470954e3028219b2bf46fe138ae1d81",
   "metadata_sha256": "4ab54c3db9bf039672fe780611892a7ac9ec8c5fd40bd4f1123fc1ee7684af76",
   "notes_sha256": "96fdfb556b14c7c26e8a2c51ac0be4c2bdb462010b8a1d8cbeacfab45b5e6007",
   "outputs": {
@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.sentry-damaged",
-  "source_path": "/work/artifacts/boss-art-20261015/damage-1/prepared/pennon.sentry-damaged/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/damage-1/prepared/pennon.sentry-damaged/source-sheet.png",
   "source_sha256": "8413f29da0f609f23939236717388e66a9d65de3052034baed62c81f6ba946a1",
   "tool_version": 2
 }

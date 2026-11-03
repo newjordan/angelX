@@ -1,0 +1,43 @@
+# TEMPLATE: a wish that changes the knight's shots (bigger, burning, frozen,
+# poisoned, shoving, bouncing, splitting...).
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Change: the id, the Name, the `say` lines, the effect word that IS the thing
+#   asked for (bigger: size; fire: burn; ice: chill; poison; push: knock;
+#   returning: boomerang; faster shots: velocity; more: shots; through: pierce),
+#   the scroll lines, the shot picture (facing right, at most 16x16, drawn pixel
+#   for pixel at a shot's size), the card art.
+# Keep: five tiers that each give more; `damage` only as a small extra on the
+#   last tiers, never as the wish itself; the look as a `draw shot`.
+# Effects: a recipe (see effect-shot.vfx) goes on every tier as `vfx` card
+#   lines, `;` between, so each tier's card plays it; without one the game
+#   gives it a look from its words.
+# The bar: pictures Fine or better (a template, Masterwork); each `say` finds
+#   this wish and no other.
+wish bigger-arrows | Bigger Arrows
+say bigger arrows | big arrows | huge arrows | giant arrows | larger arrows | fat arrows
+tier size 1 :: Your arrows are bigger, and strike wider.
+tier size 2 :: Bigger again, and wider still.
+tier size 2; knock 1 :: Huge arrows that shove what they hit.
+tier size 2; knock 2 :: Huge arrows that throw back what they hit.
+tier size 2; knock 2; damage 8 :: Giant arrows: they throw back what they hit, and hit harder.
+draw shot
+.2.......jW.
+22ooooooojWW
+.2.......jW.
+
+art
+.........KKKK.
+........KhiHHK
+........KjhiHK
+.......KjhhiK.
+......KRojhK..
+.....KRtoKK...
+....KRtoK.....
+...KRtoK......
+.KKRtoK.......
+K232RK........
+K2332K........
+.K232K........
+..KKK.........

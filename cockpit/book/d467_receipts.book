@@ -1,0 +1,44 @@
+@@book-page 1@@
+action=write {note} to set one
+@@book-page 1@@
+A resume brief must name the goal, completed work with evidence, in-flight state, ordered next steps, and load-bearing facts.
+@@book-page 1@@
+Write the full brief.
+@@book-page 1@@
+keep it a dense resume brief, not a transcript
+@@book-page 1@@
+use list|add|complete|set
+@@book-page 1@@
+use show|write
+@@book-page 1@@
+use list|add|clear
+@@book-page 2@@
+tool output elided
+@@book-page 2@@
+[duplicate inspection output elided ({original_bytes} bytes) — newest identical result retained at {newer_call}]
+@@book-page 2@@
+[tool argument elided: {} bytes]
+@@book-page 2@@
+…[{omitted} additional recalled note(s) omitted to fit context]
+@@book-page 2@@
+…[middle of active user task omitted by bounded compaction anchor]…
+@@book-page 2@@
+…[{dropped} middle line(s) elided — {} of {} lines shown]
+@@book-page 2@@
+…[{dropped} middle byte(s) elided — ~{} of {} bytes shown]
+@@book-page 2@@
+tool output elided for context fit
+@@book-page 2@@
+…[truncated at {max} matches]
+@@book-page 2@@
+[tool-aging boundary: aged {results} result(s), dropped {excerpts} excerpt(s), saved {bytes} payload bytes]
+@@book-page 3@@
+[Operator task retained separately; sha256:{sha}]
+@@book-page 3@@
+[worker killed by {signal}; reason=signal:{signal}; signal {number}; verification inconclusive]
+@@book-page 3@@
+[grandchild_holds_stdout: drain deadline reached; inherited output pipe closed; capture incomplete]
+@@book-page 3@@
+[grandchild_holds_stderr: drain deadline reached; inherited error pipe closed; capture incomplete]
+@@book-page 3@@
+[code_mode: both script and recipe given; ran script]

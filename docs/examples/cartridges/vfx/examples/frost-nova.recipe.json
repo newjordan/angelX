@@ -1,0 +1,22 @@
+{
+  "name": "Frost Nova",
+  "w": 64,
+  "h": 64,
+  "frames": 18,
+  "fps": 18,
+  "loop": false,
+  "seed": 11,
+  "layers": [
+    { "type": "rays", "ramp": "ice", "count": 12, "gain": 0.65, "r1": 0.9 },
+    { "type": "ring", "ramp": "frost", "r0": 0.08, "r1": 0.9, "th": 0.08 },
+    {
+      "type": "particles",
+      "ramp": "ice",
+      "count": 24,
+      "size": 0.035,
+      "speed": 0.9,
+      "gravity": 0.25
+    },
+    { "type": "flash", "ramp": "ice", "r1": 0.32, "life": 0.15 }
+  ]
+}
